@@ -13,8 +13,10 @@ if (NOT HAS_RUN_WEBKIT_COMMON)
         list(APPEND CMAKE_PROGRAM_PATH $ENV{SystemDrive}/cygwin/bin)
     endif ()
 
-    # TODO Enforce version requirement for gperf
-    find_package(Gperf 3.0.1 REQUIRED)
+    if (ENABLE_TOOLS)
+        # TODO Enforce version requirement for gperf
+        find_package(Gperf 3.0.1 REQUIRED)
+    endif()
 
     # TODO Enforce version requirement for perl
     find_package(Perl 5.10.0 REQUIRED)
