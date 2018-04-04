@@ -230,6 +230,28 @@ double JIT_OPERATION jsMod(double x, double y) REFERENCED_FROM_ASM WTF_INTERNAL;
 
 namespace Math {
 
+#if defined(__ANDROID__)
+using ::sin;
+using ::sinh;
+using ::cos;
+using ::cosh;
+using ::tan;
+using ::tanh;
+using ::asin;
+using ::asinh;
+using ::acos;
+using ::acosh;
+using ::atan;
+using ::atanh;
+using ::log;
+using ::log10;
+using ::cbrt;
+using ::exp;
+using ::expm1;
+
+double log2(double x);
+
+#else
 using std::sin;
 using std::sinh;
 using std::cos;
@@ -248,6 +270,7 @@ using std::log2;
 using std::cbrt;
 using std::exp;
 using std::expm1;
+#endif
 
 double JIT_OPERATION log1p(double) WTF_INTERNAL;
 
