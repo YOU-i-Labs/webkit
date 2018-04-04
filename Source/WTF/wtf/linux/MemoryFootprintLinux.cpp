@@ -34,7 +34,7 @@
 
 namespace WTF {
 
-#if OS(LINUX)
+#if OS(LINUX) && !defined(__ANDROID__)
 template<typename Functor>
 static void forEachLine(FILE* file, Functor functor)
 {
@@ -51,7 +51,7 @@ static void forEachLine(FILE* file, Functor functor)
 
 std::optional<size_t> memoryFootprint()
 {
-#if OS(LINUX)
+#if OS(LINUX) && !defined(__ANDROID__)
     FILE* file = fopen("/proc/self/smaps", "r");
     if (!file)
         return std::nullopt;
