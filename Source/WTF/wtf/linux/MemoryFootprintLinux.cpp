@@ -38,6 +38,18 @@ namespace WTF {
 #if OS(LINUX)
 static const Seconds s_memoryFootprintUpdateInterval = 1_s;
 
+// On Android getline fully available only since API 21:
+// * https://android.googlesource.com/platform/bionic/+/6880f936173081297be0dc12f687d341b86a4cfa/libc/libc.map.txt#449    
+# if defined(__ANDROID__) && defined(__ANDROID_API__) && (__ANDROID_API__ < 21)
+#  define WTF_GETLINE_AVAILABLE 0
+# else
+#  define WTF_GETLINE_AVAILABLE 1
+# endif
+#else
+# define WTF_GETLINE_AVAILABLE 0
+#endif
+
+#if WTF_GETLINE_AVAILABLE 
 template<typename Functor>
 static void forEachLine(FILE* file, Functor functor)
 {
@@ -48,6 +60,7 @@ static void forEachLine(FILE* file, Functor functor)
     }
     free(buffer);
 }
+#endif
 
 static size_t computeMemoryFootprint()
 {
@@ -88,11 +101,10 @@ static size_t computeMemoryFootprint()
     fclose(file);
     return totalPrivateDirtyInKB * KB;
 }
-#endif
 
 size_t memoryFootprint()
 {
-#if OS(LINUX)
+#if WTF_GETLINE_AVAILABLE
     static size_t footprint = 0;
     static MonotonicTime previousUpdateTime = { };
     Seconds elapsed = MonotonicTime::now() - previousUpdateTime;
