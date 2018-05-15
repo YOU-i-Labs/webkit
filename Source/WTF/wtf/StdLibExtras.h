@@ -516,7 +516,7 @@ ALWAYS_INLINE constexpr typename remove_reference<T>::type&& move(T&& value)
     return move(forward<T>(value));
 }
 
-#if __cplusplus < 201703L && (!defined(_MSC_FULL_VER) || _MSC_FULL_VER < 190023918)
+#if __cplusplus < 201703L && (!defined(_MSVC_LANG) || _MSVC_LANG < 201703L) && (!defined(_MSC_FULL_VER) || _MSC_FULL_VER < 190023918)
 template<class...> struct wtf_conjunction_impl;
 template<> struct wtf_conjunction_impl<> : true_type { };
 template<class B0> struct wtf_conjunction_impl<B0> : B0 { };
