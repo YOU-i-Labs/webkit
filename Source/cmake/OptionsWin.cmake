@@ -154,3 +154,10 @@ add_definitions(-DUCHAR_TYPE=wchar_t)
 # If <winsock2.h> is not included before <windows.h> redefinition errors occur
 # unless _WINSOCKAPI_ is defined before <windows.h> is included
 add_definitions(-D_WINSOCKAPI_=)
+
+hunter_add_package(ICU)
+find_package(ICU CONFIG REQUIRED)
+set(ICU_INCLUDE_DIRS "")
+set(ICU_DATA_LIBRARIES ICU::data)
+set(ICU_I18N_LIBRARIES ICU::i18n)
+set(ICU_LIBRARIES ICU::uc) 
