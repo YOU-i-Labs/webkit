@@ -239,6 +239,7 @@ add_executable(LLIntOffsetsExtractor
     ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/LLIntDesiredOffsets.h ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/Bytecodes.h ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/BytecodeStructs.h
 )
 target_link_libraries(LLIntOffsetsExtractor WTF)
+set_target_properties(LLIntOffsetsExtractor PROPERTIES XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO")
 
 # The build system will execute asm.rb every time LLIntOffsetsExtractor's mtime is newer than
 # LLIntAssembly.h's mtime. The problem we have here is: asm.rb has some built-in optimization
@@ -595,7 +596,9 @@ WEBKIT_CREATE_FORWARDING_HEADERS(JavaScriptCore DIRECTORIES ${JavaScriptCore_FOR
 
 target_include_directories(LLIntOffsetsExtractor PRIVATE ${JavaScriptCore_INCLUDE_DIRECTORIES})
 
-add_subdirectory(shell)
+if(WEBKIT_BUILD_JSC)
+     add_subdirectory(shell)
+endif()
 
 WEBKIT_COMPUTE_SOURCES(JavaScriptCore)
 WEBKIT_WRAP_SOURCELIST(${JavaScriptCore_SOURCES})
@@ -608,6 +611,22 @@ if (NOT "${PORT}" STREQUAL "Mac")
         install(TARGETS JavaScriptCore DESTINATION "${LIB_INSTALL_DIR}")
     endif ()
 endif ()
+
+include(GNUInstallDirs)
+
+install(
+    TARGETS JavaScriptCore
+    EXPORT "${TARGETS_EXPORT_NAME}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+
+install(
+    DIRECTORY ${DERIVED_SOURCES_DIR}/ForwardingHeaders/
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
 
 # Force staging of shared scripts, even if they aren't directly used to build JavaScriptCore.
 
