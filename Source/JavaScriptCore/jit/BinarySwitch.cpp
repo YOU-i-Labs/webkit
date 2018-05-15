@@ -194,7 +194,12 @@ void BinarySwitch::build(unsigned start, bool hardStart, unsigned end)
         Vector<unsigned, 3> localCaseIndices;
         for (unsigned i = 0; i < size; ++i)
             localCaseIndices.append(start + i);
-        
+
+
+#if defined(_MSVC_LANG) && (_MSVC_LANG >= 201703L)
+        URBG urbg(m_weakRandom, localCaseIndices.size());
+        std::shuffle(localCaseIndices.begin(), localCaseIndices.end(), urbg);
+#else 
         std::random_shuffle(
             localCaseIndices.begin(), localCaseIndices.end(),
             [this] (unsigned n) {
@@ -202,7 +207,8 @@ void BinarySwitch::build(unsigned start, bool hardStart, unsigned end)
                 // this introduces a tiny amount of bias, but we're fine with such tiny bias.
                 return m_weakRandom.getUint32() % n;
             });
-        
+#endif
+
         for (unsigned i = 0; i < size - 1; ++i) {
             append(BranchCode(NotEqualToPush, localCaseIndices[i]));
             append(BranchCode(ExecuteCase, localCaseIndices[i]));
