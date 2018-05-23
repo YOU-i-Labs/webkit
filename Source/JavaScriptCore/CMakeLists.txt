@@ -1305,6 +1305,11 @@ install(
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
+install(
+    DIRECTORY ${JAVASCRIPTCORE_DIR}/API
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/JavaScriptCore"
+)
+
 # Force staging of shared scripts, even if they aren't directly used to build JavaScriptCore.
 
 add_custom_target(stageSharedScripts DEPENDS ${JavaScriptCore_SCRIPTS})
