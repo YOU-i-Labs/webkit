@@ -136,7 +136,7 @@ macro(WEBKIT_FRAMEWORK _target)
     )
     target_include_directories(${_target} PUBLIC "$<BUILD_INTERFACE:${${_target}_INCLUDE_DIRECTORIES}>")
     target_include_directories(${_target} PRIVATE "$<BUILD_INTERFACE:${${_target}_PRIVATE_INCLUDE_DIRECTORIES}>")
-    target_link_libraries(${_target} PRIVATE ${${_target}_LIBRARIES})
+    target_link_libraries(${_target} PUBLIC ${${_target}_LIBRARIES})
     set_target_properties(${_target} PROPERTIES COMPILE_DEFINITIONS "BUILDING_${_target}")
 
     if (${_target}_OUTPUT_NAME)
