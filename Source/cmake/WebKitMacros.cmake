@@ -143,7 +143,7 @@ endmacro()
 macro(WEBKIT_FRAMEWORK_DECLARE _target)
     # add_library() without any source files triggers CMake warning
     # Addition of dummy "source" file does not result in any changes in generated build.ninja file
-    add_library(${_target} "${CMAKE_BINARY_DIR}/cmakeconfig.h")
+    add_library(${_target} ${${_target}_LIBRARY_TYPE} "${CMAKE_BINARY_DIR}/cmakeconfig.h")
 endmacro()
 
 macro(WEBKIT_FRAMEWORK _target)
