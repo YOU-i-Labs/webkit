@@ -574,15 +574,7 @@ add_custom_command(
 list(APPEND JavaScriptCore_HEADERS ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/InjectedScriptSource.h)
 
 if (WTF_CPU_ARM)
-    if (ANDROID)
-        set(PLATFORM_COMPILER_FLAGS -march=armv7-a -mfloat-abi=softfp)
-        set(PLATFORM_LD_FLAGS "-march=armv7-a -Wl,--fix-cortex-a8")
-    endif()
 elseif (WTF_CPU_ARM64)
-    if (ANDROID)
-        set(PLATFORM_LD_FLAGS "")
-        set(PLATFORM_COMPILER_FLAGS "")
-    endif()
 elseif (WTF_CPU_ALPHA)
 elseif (WTF_CPU_HPPA)
 elseif (WTF_CPU_PPC)
@@ -593,10 +585,6 @@ elseif (WTF_CPU_S390X)
 elseif (WTF_CPU_MIPS)
 elseif (WTF_CPU_SH4)
 elseif (WTF_CPU_X86)
-    if (ANDROID)
-        set(PLATFORM_COMPILER_FLAGS -march=i686 -mtune=intel -mssse3 -mfpmath=sse -m32)
-        set(PLATFORM_LD_FLAGS "")
-    endif()
 elseif (WTF_CPU_X86_64)
     if (MSVC AND ENABLE_JIT)
         add_custom_command(
@@ -606,9 +594,6 @@ elseif (WTF_CPU_X86_64)
             VERBATIM)
 
         list(APPEND JavaScriptCore_SOURCES ${DERIVED_SOURCES_DIR}/JITStubsMSVC64.obj)
-    elseif(ANDROID)
-        set(PLATFORM_COMPILER_FLAGS -march=x86-64 -msse4.2 -mpopcnt -m64 -mtune=intel)
-        set(PLATFORM_LD_FLAGS "")
     endif ()
 else ()
     message(FATAL_ERROR "Unknown CPU")
@@ -636,25 +621,6 @@ if (NOT "${PORT}" STREQUAL "Mac")
         install(TARGETS JavaScriptCore DESTINATION "${LIB_INSTALL_DIR}")
     endif ()
 endif ()
-
-if(ANDROID)
-    set_target_properties(JavaScriptCore PROPERTIES
-        LINK_FLAGS "-s -Wl,--icf=safe -Wl,-z,noexecstack -Wl,--gc-sections ${PLATFORM_LD_FLAGS}"
-    )
-
-    target_compile_options(JavaScriptCore PRIVATE
-        -fstack-protector
-        -ffunction-sections
-        -fomit-frame-pointer
-        -fno-strict-aliasing
-        -fno-exceptions
-        -funwind-tables
-        -DPIC
-        -Wno-format
-        -fvisibility=hidden
-        ${PLATFORM_COMPILER_FLAGS}
-    )
-endif()
 
 include(GNUInstallDirs)
 
