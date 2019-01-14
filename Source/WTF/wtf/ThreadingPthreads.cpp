@@ -134,6 +134,7 @@ static UNUSED_FUNCTION NEVER_INLINE void* getApproximateStackPointer()
 #pragma clang diagnostic pop
 #endif // COMPILER(CLANG)
 
+#if !defined(__ORBIS__)
 static UNUSED_FUNCTION bool isOnAlternativeSignalStack()
 {
     stack_t stack { };
@@ -187,12 +188,13 @@ void Thread::signalHandlerSuspendResume(int, siginfo_t*, void* ucontext)
     // Allow resume caller to see that this thread is resumed.
     globalSemaphoreForSuspendResume->post();
 }
+#endif // __ORBIS__
 
 #endif // !OS(DARWIN)
 
 void Thread::initializePlatformThreading()
 {
-#if !OS(DARWIN)
+#if !OS(DARWIN) && !defined(__ORBIS__)
     globalSemaphoreForSuspendResume.construct(0);
 
     // Signal handlers are process global configuration.
@@ -210,7 +212,7 @@ void Thread::initializePlatformThreading()
 
 void Thread::initializeCurrentThreadEvenIfNonWTFCreated()
 {
-#if !OS(DARWIN)
+#if !OS(DARWIN) && !defined(__ORBIS__)
     sigset_t mask;
     sigemptyset(&mask);
     sigaddset(&mask, SigThreadSuspendResume);
@@ -327,7 +329,11 @@ bool Thread::signal(int signalNumber)
     std::lock_guard<std::mutex> locker(m_mutex);
     if (hasExited())
         return false;
+#if defined(__ORBIS__)
+    int errNo = pthread_cancel(m_handle);
+#else
     int errNo = pthread_kill(m_handle, signalNumber);
+#endif
     return !errNo; // A 0 errNo means success.
 }
 
@@ -357,10 +363,12 @@ auto Thread::suspend() -> Expected<void, PlatformSuspendError>
         // But it can be used in a few platforms, like Linux.
         // Instead, we use Thread* stored in the thread local storage to pass it to the signal handler.
         targetThread.store(this);
+#if !defined(__ORBIS__)
         int result = pthread_kill(m_handle, SigThreadSuspendResume);
         if (result)
             return makeUnexpected(result);
         globalSemaphoreForSuspendResume->wait();
+#endif
         // Release barrier ensures that this operation is always executed after all the above processing is done.
         m_suspended.store(true, std::memory_order_release);
     }
@@ -385,9 +393,11 @@ void Thread::resume()
         // 3. Use thread local storage with atomic variables in the signal handler.
         // In this implementaiton, we take (3). suspended flag is used to distinguish it.
         targetThread.store(this);
+#if !defined(__ORBIS__)
         if (pthread_kill(m_handle, SigThreadSuspendResume) == ESRCH)
             return;
         globalSemaphoreForSuspendResume->wait();
+#endif
         // Release barrier ensures that this operation is always executed after all the above processing is done.
         m_suspended.store(false, std::memory_order_release);
     }

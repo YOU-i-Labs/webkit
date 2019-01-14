@@ -36,7 +36,9 @@ extern "C" {
 
 #include <cstdio>
 #include <mutex>
+#if !defined(__ORBIS__)
 #include <signal.h>
+#endif
 
 #if HAVE(MACH_EXCEPTIONS)
 #include <dispatch/dispatch.h>
@@ -52,6 +54,24 @@ extern "C" {
 #include <wtf/ThreadMessage.h>
 #include <wtf/Threading.h>
 
+
+#if defined(__ORBIS__)
+int sigfillset (sigset_t *set)
+{
+    if (set == NULL)
+    {
+        return -1;
+    }
+    memset (set, 0xff, sizeof (sigset_t));
+    return 0;
+}
+
+int sigaction()
+{
+
+    return 0;
+}
+#endif
 
 namespace WTF {
 
@@ -273,9 +293,11 @@ void installSignalHandler(Signal signal, SignalHandler&& handler)
             RELEASE_ASSERT(!result);
             action.sa_flags = SA_SIGINFO;
             auto systemSignals = toSystemSignal(signal);
+#if !defined(__ORBIS__)
             result = sigaction(std::get<0>(systemSignals), &action, &oldActions[offsetForSystemSignal(std::get<0>(systemSignals))]);
             if (std::get<1>(systemSignals))
                 result |= sigaction(*std::get<1>(systemSignals), &action, &oldActions[offsetForSystemSignal(*std::get<1>(systemSignals))]);
+#endif
             RELEASE_ASSERT(!result);
         }
 
@@ -297,6 +319,8 @@ void installSignalHandler(Signal signal, SignalHandler&& handler)
 void jscSignalHandler(int sig, siginfo_t* info, void* ucontext)
 {
     Signal signal = fromSystemSignal(sig);
+
+#if !defined(__ORBIS__)
 
     auto restoreDefault = [&] {
         struct sigaction defaultAction;
@@ -357,6 +381,8 @@ void jscSignalHandler(int sig, siginfo_t* info, void* ucontext)
         restoreDefault();
         return;
     }
+    #endif
+
 }
 
 } // namespace WTF

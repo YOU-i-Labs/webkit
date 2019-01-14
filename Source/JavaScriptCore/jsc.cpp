@@ -1761,6 +1761,8 @@ static std::optional<DirectoryName> currentWorkingDirectory()
     // We don't support network path like \\host\share\<path name>.
     if (directoryString.startsWith("\\\\"))
         return std::nullopt;
+#elif defined(__ORBIS__)
+    return std::nullopt;
 #else
     auto buffer = std::make_unique<char[]>(PATH_MAX);
     if (!getcwd(buffer.get(), PATH_MAX))

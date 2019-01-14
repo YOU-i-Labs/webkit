@@ -26,7 +26,9 @@
 #include "config.h"
 #include "CPUTime.h"
 
+#if !defined(__ORBIS__)
 #include <sys/resource.h>
+#endif
 #include <sys/time.h>
 
 namespace WTF {
@@ -38,10 +40,14 @@ static Seconds timevalToSeconds(const struct timeval& value)
 
 std::optional<CPUTime> CPUTime::get()
 {
+#if !defined(__ORBIS__)
     struct rusage resource { };
     int ret = getrusage(RUSAGE_SELF, &resource);
     ASSERT_UNUSED(ret, !ret);
     return CPUTime { MonotonicTime::now(), timevalToSeconds(resource.ru_utime), timevalToSeconds(resource.ru_stime) };
+#else
+	return CPUTime{ MonotonicTime::now(), Seconds(0), Seconds(0)};
+#endif
 }
 
 }

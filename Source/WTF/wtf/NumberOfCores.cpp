@@ -50,6 +50,10 @@ int numberOfProcessorCores()
     if (s_numberOfCores > 0)
         return s_numberOfCores;
     
+#ifdef __ORBIS__
+    s_numberOfCores = 1;
+#else
+
     if (const char* coresEnv = getenv("WTF_numberOfProcessorCores")) {
         unsigned numberOfCores;
         if (sscanf(coresEnv, "%u", &numberOfCores) == 1) {
@@ -82,6 +86,7 @@ int numberOfProcessorCores()
 #else
     s_numberOfCores = defaultIfUnavailable;
 #endif
+#endif //__ORBIS__
     return s_numberOfCores;
 }
 

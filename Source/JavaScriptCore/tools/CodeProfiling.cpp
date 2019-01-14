@@ -88,7 +88,11 @@ void CodeProfiling::sample(void* pc, void** framePointer)
 void CodeProfiling::notifyAllocator(WTF::MetaAllocator* allocator)
 {
     // Check for JSC_CODE_PROFILING.
+#ifdef __ORBIS__
+    const char* codeProfilingMode = NULL;
+#else
     const char* codeProfilingMode = getenv("JSC_CODE_PROFILING");
+#endif
     if (!codeProfilingMode)
         return;
 

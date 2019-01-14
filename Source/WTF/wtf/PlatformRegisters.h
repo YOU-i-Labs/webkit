@@ -33,6 +33,8 @@
 #include <signal.h>
 #elif OS(WINDOWS)
 #include <windows.h>
+#elif __ORBIS__
+// Don't do anything
 #else
 #include <ucontext.h>
 #endif
@@ -65,6 +67,12 @@ inline PlatformRegisters& registersFromUContext(ucontext_t* ucontext)
 #elif OS(WINDOWS)
 
 using PlatformRegisters = CONTEXT;
+
+#elif defined(__ORBIS__)
+
+struct PlatformRegisters {
+    void* stackPointer;
+};
 
 #elif HAVE(MACHINE_CONTEXT)
 

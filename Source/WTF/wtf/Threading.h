@@ -46,7 +46,7 @@
 #include <wtf/ThreadSpecific.h>
 #include <wtf/Vector.h>
 
-#if USE(PTHREADS) && !OS(DARWIN)
+#if USE(PTHREADS) && !OS(DARWIN) && !defined(__ORBIS__)
 #include <signal.h>
 #endif
 
@@ -217,7 +217,7 @@ protected:
     void establishPlatformSpecificHandle(PlatformThreadHandle, ThreadIdentifier);
 #endif
 
-#if USE(PTHREADS) && !OS(DARWIN)
+#if USE(PTHREADS) && !OS(DARWIN) && !defined(__ORBIS__)
     static void signalHandlerSuspendResume(int, siginfo_t*, void* ucontext);
 #endif
 

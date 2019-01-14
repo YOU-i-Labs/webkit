@@ -36,7 +36,9 @@
 #include <windows.h>
 #else
 #include <pthread.h>
+#if !defined(__ORBIS__)
 #include <sys/resource.h>
+#endif // __ORBIS__
 #endif
 
 #if OS(DARWIN)
@@ -348,6 +350,8 @@ FastMallocStatistics fastMallocStatistics()
     PROCESS_MEMORY_COUNTERS resourceUsage;
     GetProcessMemoryInfo(GetCurrentProcess(), &resourceUsage, sizeof(resourceUsage));
     statistics.committedVMBytes = resourceUsage.PeakWorkingSetSize;
+#elif defined(__ORBIS__)
+    // do nothing for now
 #else
     struct rusage resourceUsage;
     getrusage(RUSAGE_SELF, &resourceUsage);

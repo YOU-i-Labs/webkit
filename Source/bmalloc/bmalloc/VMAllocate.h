@@ -55,10 +55,14 @@ namespace bmalloc {
 
 inline size_t vmPageSize()
 {
+#if BOS(ORBIS)
+    return 16384;
+#else
     static size_t cached;
     if (!cached)
         cached = sysconf(_SC_PAGESIZE);
     return cached;
+#endif
 }
 
 inline size_t vmPageShift()
@@ -92,7 +96,9 @@ inline void vmValidate(void* p, size_t vmSize)
 
 inline size_t vmPageSizePhysical()
 {
-#if BPLATFORM(IOS)
+#if BOS(ORBIS)
+    return 16384;
+#elif BPLATFORM(IOS)
     return vm_kernel_page_size;
 #else
     static size_t cached;

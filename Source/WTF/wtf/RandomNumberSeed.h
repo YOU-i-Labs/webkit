@@ -39,6 +39,10 @@
 #include <unistd.h>
 #endif
 
+#if defined(YI_PORT_FILE_REQUIRED)
+#include <YiPort.h>
+#endif
+
 namespace WTF {
 
 inline void initializeRandomNumberGenerator()

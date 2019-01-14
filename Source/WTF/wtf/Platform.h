@@ -682,6 +682,10 @@
 #define HAVE_MACHINE_CONTEXT 1
 #endif
 
+#if defined(__ORBIS__)
+#undef HAVE_MACHINE_CONTEXT
+#endif
+
 #if OS(DARWIN) || (OS(LINUX) && defined(__GLIBC__) && !defined(__UCLIBC__))
 #define HAVE_BACKTRACE 1
 #endif

@@ -27,7 +27,13 @@
 
 #if USE(PTHREADS) && HAVE(MACHINE_CONTEXT)
 
+#include <tuple>
+
+#if defined(__ORBIS__)
+#include <sys/signal.h>
+#else
 #include <signal.h>
+#endif
 #include <wtf/Function.h>
 #include <wtf/Optional.h>
 #include <wtf/PlatformRegisters.h>

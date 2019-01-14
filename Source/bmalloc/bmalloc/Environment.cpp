@@ -33,6 +33,10 @@
 #include <dlfcn.h>
 #endif
 
+#if defined(YI_PORT_FILE_REQUIRED)
+#include <YiPort.h>
+#endif
+
 namespace bmalloc {
 
 static bool isMallocEnvironmentVariableSet()

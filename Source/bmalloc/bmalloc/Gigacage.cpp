@@ -34,6 +34,10 @@
 #include <cstdio>
 #include <mutex>
 
+#if defined(YI_PORT_FILE_REQUIRED)
+#include <YiPort.h>
+#endif
+
 #if BCPU(ARM64)
 // FIXME: There is no good reason for ARM64 to be special.
 // https://bugs.webkit.org/show_bug.cgi?id=177605

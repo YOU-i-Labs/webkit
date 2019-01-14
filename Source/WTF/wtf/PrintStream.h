@@ -27,6 +27,7 @@
 #define PrintStream_h
 
 #include <memory>
+#include <tuple>
 #include <stdarg.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/Noncopyable.h>

@@ -22,6 +22,7 @@
 #define WTF_HashTraits_h
 
 #include <limits>
+#include <tuple>
 #include <utility>
 #include <wtf/HashFunctions.h>
 #include <wtf/KeyValuePair.h>
