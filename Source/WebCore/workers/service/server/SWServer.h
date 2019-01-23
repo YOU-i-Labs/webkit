@@ -37,8 +37,6 @@
 #include "ServiceWorkerRegistrationData.h"
 #include "ServiceWorkerRegistrationKey.h"
 #include "ServiceWorkerTypes.h"
-#include <wtf/CrossThreadQueue.h>
-#include <wtf/CrossThreadTask.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/ObjectIdentifier.h>
@@ -94,7 +92,6 @@ public:
         WEBCORE_EXPORT explicit Connection(SWServer&);
         SWServer& server() { return m_server; }
 
-        WEBCORE_EXPORT void scheduleJobInServer(const ServiceWorkerJobData&);
         WEBCORE_EXPORT void finishFetchingScriptInServer(const ServiceWorkerFetchResult&);
         WEBCORE_EXPORT void addServiceWorkerRegistrationInServer(ServiceWorkerRegistrationIdentifier);
         WEBCORE_EXPORT void removeServiceWorkerRegistrationInServer(ServiceWorkerRegistrationIdentifier);
@@ -131,14 +128,11 @@ public:
     void removeRegistration(const ServiceWorkerRegistrationKey&);
     WEBCORE_EXPORT Vector<ServiceWorkerRegistrationData> getRegistrations(const SecurityOriginData& topOrigin, const URL& clientURL);
 
-    void scheduleJob(const ServiceWorkerJobData&);
+    WEBCORE_EXPORT void scheduleJob(ServiceWorkerJobData&&);
     void rejectJob(const ServiceWorkerJobData&, const ExceptionData&);
     void resolveRegistrationJob(const ServiceWorkerJobData&, const ServiceWorkerRegistrationData&, ShouldNotifyWhenResolved);
     void resolveUnregistrationJob(const ServiceWorkerJobData&, const ServiceWorkerRegistrationKey&, bool unregistrationResult);
     void startScriptFetch(const ServiceWorkerJobData&, FetchOptions::Cache);
-
-    void postTask(CrossThreadTask&&);
-    void postTaskReply(CrossThreadTask&&);
 
     void updateWorker(Connection&, const ServiceWorkerJobDataIdentifier&, SWServerRegistration&, const URL&, const String& script, const ContentSecurityPolicyResponseHeaders&, WorkerType);
     void terminateWorker(SWServerWorker&);
@@ -147,7 +141,7 @@ public:
     void fireActivateEvent(SWServerWorker&);
 
     WEBCORE_EXPORT SWServerWorker* workerByID(ServiceWorkerIdentifier) const;
-    WEBCORE_EXPORT std::optional<ServiceWorkerClientData> serviceWorkerClientByID(const ServiceWorkerClientIdentifier&) const;
+    std::optional<ServiceWorkerClientData> serviceWorkerClientWithOriginByID(const ClientOrigin&, const ServiceWorkerClientIdentifier&) const;
     WEBCORE_EXPORT SWServerWorker* activeWorkerFromRegistrationID(ServiceWorkerRegistrationIdentifier);
 
     WEBCORE_EXPORT void markAllWorkersAsTerminated();
@@ -180,14 +174,13 @@ public:
     void registrationStoreImportComplete();
     void registrationStoreDatabaseFailedToOpen();
 
-    WEBCORE_EXPORT void getOriginsWithRegistrations(WTF::Function<void(const HashSet<SecurityOriginData>&)>);
+    WEBCORE_EXPORT void getOriginsWithRegistrations(Function<void(const HashSet<SecurityOriginData>&)>&&);
+
+    PAL::SessionID sessionID() const { return m_sessionID; }
 
 private:
     void registerConnection(Connection&);
     void unregisterConnection(Connection&);
-
-    void taskThreadEntryPoint();
-    void handleTaskRepliesOnMainThread();
 
     void scriptFetchFinished(Connection&, const ServiceWorkerFetchResult&);
 
@@ -195,6 +188,8 @@ private:
 
     void addClientServiceWorkerRegistration(Connection&, ServiceWorkerRegistrationIdentifier);
     void removeClientServiceWorkerRegistration(Connection&, ServiceWorkerRegistrationIdentifier);
+
+    void terminatePreinstallationWorker(SWServerWorker&);
 
     WEBCORE_EXPORT SWServerRegistration* doRegistrationMatching(const SecurityOriginData& topOrigin, const URL& clientURL);
     bool runServiceWorker(ServiceWorkerIdentifier);
@@ -228,21 +223,14 @@ private:
     HashMap<ServiceWorkerClientIdentifier, ServiceWorkerClientData> m_clientsById;
     HashMap<ServiceWorkerClientIdentifier, ServiceWorkerIdentifier> m_clientToControllingWorker;
 
-    RefPtr<Thread> m_taskThread;
-    Lock m_taskThreadLock;
-
-    CrossThreadQueue<CrossThreadTask> m_taskQueue;
-    CrossThreadQueue<CrossThreadTask> m_taskReplyQueue;
-
-    Lock m_mainThreadReplyLock;
-    bool m_mainThreadReplyScheduled { false };
     UniqueRef<SWOriginStore> m_originStore;
     RegistrationStore m_registrationStore;
-    Deque<ServiceWorkerContextData> m_pendingContextDatas;
+    Vector<ServiceWorkerContextData> m_pendingContextDatas;
     HashMap<ServiceWorkerIdentifier, Vector<RunServiceWorkerCallback>> m_serviceWorkerRunRequests;
     PAL::SessionID m_sessionID;
     bool m_importCompleted { false };
-    Vector<WTF::Function<void(const HashSet<SecurityOriginData>&)>> m_getOriginsWithRegistrationsCallbacks;
+    Vector<CompletionHandler<void()>> m_clearCompletionCallbacks;
+    Vector<Function<void(const HashSet<SecurityOriginData>&)>> m_getOriginsWithRegistrationsCallbacks;
 };
 
 } // namespace WebCore

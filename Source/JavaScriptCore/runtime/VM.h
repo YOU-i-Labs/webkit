@@ -51,9 +51,9 @@
 #include "SmallStrings.h"
 #include "Strong.h"
 #include "StructureCache.h"
-#include "TemplateRegistryKeyTable.h"
 #include "VMEntryRecord.h"
 #include "VMTraps.h"
+#include "ThreadLocalCache.h"
 #include "WasmContext.h"
 #include "Watchpoint.h"
 #include <wtf/BumpPointerAllocator.h>
@@ -293,8 +293,10 @@ public:
     std::unique_ptr<GigacageAlignedMemoryAllocator> primitiveGigacageAllocator;
     std::unique_ptr<GigacageAlignedMemoryAllocator> jsValueGigacageAllocator;
 
-    std::unique_ptr<HeapCellType> auxiliaryHeapCellType;
-    std::unique_ptr<HeapCellType> cellHeapCellType;
+    std::unique_ptr<HeapCellType> auxiliaryJSValueStrictHeapCellType;
+    std::unique_ptr<HeapCellType> auxiliaryDangerousBitsHeapCellType;
+    std::unique_ptr<HeapCellType> cellJSValueOOBHeapCellType;
+    std::unique_ptr<HeapCellType> cellDangerousBitsHeapCellType;
     std::unique_ptr<HeapCellType> destructibleCellHeapCellType;
     std::unique_ptr<JSStringHeapCellType> stringHeapCellType;
     std::unique_ptr<JSDestructibleObjectHeapCellType> destructibleObjectHeapCellType;
@@ -327,8 +329,9 @@ public:
     }
     
     // Whenever possible, use subspaceFor<CellType>(vm) to get one of these subspaces.
-    CompleteSubspace cellSpace;
-    CompleteSubspace jsValueGigacageCellSpace;
+    CompleteSubspace cellJSValueOOBSpace;
+    CompleteSubspace cellDangerousBitsSpace;
+    CompleteSubspace jsValueGigacageCellSpace; // FIXME: This space is problematic because we have things in here like DirectArguments and ScopedArguments; those should be split into JSValueOOB cells and JSValueStrict auxiliaries. https://bugs.webkit.org/show_bug.cgi?id=182858
     CompleteSubspace destructibleCellSpace;
     CompleteSubspace stringSpace;
     CompleteSubspace destructibleObjectSpace;
@@ -338,20 +341,31 @@ public:
     CompleteSubspace webAssemblyCodeBlockSpace;
 #endif
     
+    IsoSubspace asyncFunctionSpace;
+    IsoSubspace asyncGeneratorFunctionSpace;
+    IsoSubspace boundFunctionSpace;
+    IsoSubspace customGetterSetterFunctionSpace;
     IsoSubspace directEvalExecutableSpace;
     IsoSubspace executableToCodeBlockEdgeSpace;
     IsoSubspace functionExecutableSpace;
+    IsoSubspace functionSpace;
+    IsoSubspace generatorFunctionSpace;
     IsoSubspace indirectEvalExecutableSpace;
     IsoSubspace inferredTypeSpace;
     IsoSubspace inferredValueSpace;
     IsoSubspace moduleProgramExecutableSpace;
     IsoSubspace nativeExecutableSpace;
+    IsoSubspace nativeStdFunctionSpace;
     IsoSubspace programExecutableSpace;
     IsoSubspace propertyTableSpace;
     IsoSubspace structureRareDataSpace;
     IsoSubspace structureSpace;
     IsoSubspace weakSetSpace;
     IsoSubspace weakMapSpace;
+#if ENABLE(WEBASSEMBLY)
+    IsoSubspace webAssemblyFunctionSpace;
+    IsoSubspace webAssemblyWrapperFunctionSpace;
+#endif
     
     IsoCellSet executableToCodeBlockEdgesWithConstraints;
     IsoCellSet executableToCodeBlockEdgesWithFinalizers;
@@ -432,7 +446,7 @@ public:
     Strong<Structure> scriptFetchParametersStructure;
     Strong<Structure> structureChainStructure;
     Strong<Structure> sparseArrayValueMapStructure;
-    Strong<Structure> templateRegistryKeyStructure;
+    Strong<Structure> templateObjectDescriptorStructure;
     Strong<Structure> arrayBufferNeuteringWatchpointStructure;
     Strong<Structure> unlinkedFunctionExecutableStructure;
     Strong<Structure> unlinkedProgramCodeBlockStructure;
@@ -470,7 +484,6 @@ public:
 
     AtomicStringTable* m_atomicStringTable;
     WTF::SymbolRegistry m_symbolRegistry;
-    TemplateRegistryKeyTable m_templateRegistryKeytable;
     CommonIdentifiers* propertyNames;
     const ArgList* emptyList;
     SmallStrings smallStrings;
@@ -483,8 +496,6 @@ public:
 
     AtomicStringTable* atomicStringTable() const { return m_atomicStringTable; }
     WTF::SymbolRegistry& symbolRegistry() { return m_symbolRegistry; }
-
-    TemplateRegistryKeyTable& templateRegistryKeyTable() { return m_templateRegistryKeytable; }
 
     WeakGCMap<SymbolImpl*, Symbol, PtrHash<SymbolImpl*>> symbolImplToSymbolMap;
 
@@ -656,6 +667,11 @@ public:
 
     JSObject* stringRecursionCheckFirstObject { nullptr };
     HashSet<JSObject*> stringRecursionCheckVisitedObjects;
+    
+#if !USE(FAST_TLS_FOR_TLC)
+    ThreadLocalCache::Data* threadLocalCacheData { nullptr };
+#endif
+    RefPtr<ThreadLocalCache> defaultThreadLocalCache;
 
     LocalTimeOffsetCache localTimeOffsetCache;
 
@@ -667,6 +683,15 @@ public:
     RegExpCache* m_regExpCache;
     BumpPointerAllocator m_regExpAllocator;
     ConcurrentJSLock m_regExpAllocatorLock;
+
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
+    static constexpr size_t patternContextBufferSize = 8192; // Space allocated to save nested parenthesis context
+    char* m_regExpPatternContexBuffer { nullptr };
+    Lock m_regExpPatternContextLock;
+    char* acquireRegExpPatternContexBuffer();
+    void releaseRegExpPatternContexBuffer();
+#endif
+
 
     std::unique_ptr<HasOwnPropertyCache> m_hasOwnPropertyCache;
     ALWAYS_INLINE HasOwnPropertyCache* hasOwnPropertyCache() { return m_hasOwnPropertyCache.get(); }

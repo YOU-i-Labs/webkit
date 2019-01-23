@@ -383,17 +383,18 @@ const ProxyObjectType = constexpr ProxyObjectType
 # The typed array types need to be numbered in a particular order because of the manually written
 # switch statement in get_by_val and put_by_val.
 const Int8ArrayType = constexpr Int8ArrayType
-const Int16ArrayType = constexpr Int16ArrayType
-const Int32ArrayType = constexpr Int32ArrayType
 const Uint8ArrayType = constexpr Uint8ArrayType
 const Uint8ClampedArrayType = constexpr Uint8ClampedArrayType
+const Int16ArrayType = constexpr Int16ArrayType
 const Uint16ArrayType = constexpr Uint16ArrayType
+const Int32ArrayType = constexpr Int32ArrayType
 const Uint32ArrayType = constexpr Uint32ArrayType
 const Float32ArrayType = constexpr Float32ArrayType
 const Float64ArrayType = constexpr Float64ArrayType
 
-const FirstArrayType = Int8ArrayType
-const LastArrayType = Float64ArrayType
+const FirstArrayType = constexpr FirstTypedArrayType
+const NumberOfTypedArrayTypesExcludingDataView = constexpr NumberOfTypedArrayTypesExcludingDataView
+const TypedArrayPoisonIndexMask = constexpr TypedArrayPoisonIndexMask
 
 # Type flags constants.
 const MasqueradesAsUndefined = constexpr MasqueradesAsUndefined
@@ -436,6 +437,7 @@ const NotInitialization = constexpr InitializationMode::NotInitialization
 
 const MarkedBlockSize = constexpr MarkedBlock::blockSize
 const MarkedBlockMask = ~(MarkedBlockSize - 1)
+const MarkedBlockFooterOffset = constexpr MarkedBlock::offsetOfFooter
 
 const BlackThreshold = constexpr blackThreshold
 
@@ -938,29 +940,31 @@ macro assertNotConstant(index)
     assert(macro (ok) bilt index, FirstConstantRegisterIndex, ok end)
 end
 
-macro functionForCallCodeBlockGetter(targetRegister)
+macro functionForCallCodeBlockGetter(targetRegister, scratch)
     if JSVALUE64
         loadp Callee[cfr], targetRegister
     else
         loadp Callee + PayloadOffset[cfr], targetRegister
     end
     loadp JSFunction::m_executable[targetRegister], targetRegister
+    unpoison(_g_JSFunctionPoison, targetRegister, scratch)
     loadp FunctionExecutable::m_codeBlockForCall[targetRegister], targetRegister
     loadp ExecutableToCodeBlockEdge::m_codeBlock[targetRegister], targetRegister
 end
 
-macro functionForConstructCodeBlockGetter(targetRegister)
+macro functionForConstructCodeBlockGetter(targetRegister, scratch)
     if JSVALUE64
         loadp Callee[cfr], targetRegister
     else
         loadp Callee + PayloadOffset[cfr], targetRegister
     end
     loadp JSFunction::m_executable[targetRegister], targetRegister
+    unpoison(_g_JSFunctionPoison, targetRegister, scratch)
     loadp FunctionExecutable::m_codeBlockForConstruct[targetRegister], targetRegister
     loadp ExecutableToCodeBlockEdge::m_codeBlock[targetRegister], targetRegister
 end
 
-macro notFunctionCodeBlockGetter(targetRegister)
+macro notFunctionCodeBlockGetter(targetRegister, ignored)
     loadp CodeBlock[cfr], targetRegister
 end
 
@@ -983,7 +987,7 @@ macro prologue(codeBlockGetter, codeBlockSetter, osrSlowPath, traceSlowPath)
         callSlowPath(traceSlowPath)
         addp maxFrameExtentForSlowPathCall, sp
     end
-    codeBlockGetter(t1)
+    codeBlockGetter(t1, t2)
     if not C_LOOP
         baddis 5, CodeBlock::m_llintExecuteCounter + BaselineExecutionCounter::m_counter[t1], .continue
         if JSVALUE64
@@ -1012,7 +1016,7 @@ macro prologue(codeBlockGetter, codeBlockSetter, osrSlowPath, traceSlowPath)
         end
         jmp r0
     .recover:
-        codeBlockGetter(t1)
+        codeBlockGetter(t1, t2)
     .continue:
     end
 
@@ -1053,7 +1057,7 @@ macro prologue(codeBlockGetter, codeBlockSetter, osrSlowPath, traceSlowPath)
 .stackHeightOKGetCodeBlock:
     # Stack check slow path returned that the stack was ok.
     # Since they were clobbered, need to get CodeBlock and new sp
-    codeBlockGetter(t1)
+    codeBlockGetter(t1, t2)
     getFrameRegisterSizeForCodeBlock(t1, t0)
     subp cfr, t0, t0
 

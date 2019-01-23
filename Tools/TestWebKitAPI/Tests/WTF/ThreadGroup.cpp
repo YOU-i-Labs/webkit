@@ -26,6 +26,7 @@
 #include "config.h"
 
 #include <wtf/Condition.h>
+#include <wtf/CurrentTime.h>
 #include <wtf/ThreadGroup.h>
 #include <wtf/Vector.h>
 
@@ -77,7 +78,7 @@ static void testThreadGroup(Mode mode)
         }
 
         // While holding ThreadGroup lock, threads do not exit.
-        WTF::sleep(0.1);
+        WTF::sleep(100_ms);
         EXPECT_EQ(threadGroup->threads(threadGroupLocker).size(), numberOfThreads);
     }
     {

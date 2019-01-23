@@ -51,7 +51,7 @@ struct WebPreferencesStore;
 
 class WebSWContextManagerConnection final : public WebCore::SWContextManager::Connection, public IPC::MessageReceiver {
 public:
-    WebSWContextManagerConnection(Ref<IPC::Connection>&&, uint64_t pageID, const WebPreferencesStore&);
+    WebSWContextManagerConnection(Ref<IPC::Connection>&&, uint64_t pageGroupID, uint64_t pageID, const WebPreferencesStore&);
     ~WebSWContextManagerConnection();
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
@@ -63,7 +63,7 @@ private:
     void updatePreferencesStore(const WebPreferencesStore&);
 
     // WebCore::SWContextManager::Connection.
-    void postMessageToServiceWorkerClient(const WebCore::ServiceWorkerClientIdentifier& destinationIdentifier, Ref<WebCore::SerializedScriptValue>&& message, WebCore::ServiceWorkerIdentifier sourceIdentifier, const String& sourceOrigin) final;
+    void postMessageToServiceWorkerClient(const WebCore::ServiceWorkerClientIdentifier& destinationIdentifier, WebCore::MessageWithMessagePorts&&, WebCore::ServiceWorkerIdentifier sourceIdentifier, const String& sourceOrigin) final;
     void didFinishInstall(std::optional<WebCore::ServiceWorkerJobDataIdentifier>, WebCore::ServiceWorkerIdentifier, bool wasSuccessful) final;
     void didFinishActivation(WebCore::ServiceWorkerIdentifier) final;
     void setServiceWorkerHasPendingEvents(WebCore::ServiceWorkerIdentifier, bool) final;
@@ -77,7 +77,7 @@ private:
     void serviceWorkerStartedWithMessage(std::optional<WebCore::ServiceWorkerJobDataIdentifier>, WebCore::ServiceWorkerIdentifier, const String& exceptionMessage) final;
     void installServiceWorker(const WebCore::ServiceWorkerContextData&, PAL::SessionID);
     void startFetch(WebCore::SWServerConnectionIdentifier, uint64_t fetchIdentifier, WebCore::ServiceWorkerIdentifier, WebCore::ResourceRequest&&, WebCore::FetchOptions&&, IPC::FormDataReference&&, String&& referrer);
-    void postMessageToServiceWorker(WebCore::ServiceWorkerIdentifier destinationIdentifier, const IPC::DataReference& message, WebCore::ServiceWorkerOrClientData&& sourceData);
+    void postMessageToServiceWorker(WebCore::ServiceWorkerIdentifier destinationIdentifier, WebCore::MessageWithMessagePorts&&, WebCore::ServiceWorkerOrClientData&& sourceData);
     void fireInstallEvent(WebCore::ServiceWorkerIdentifier);
     void fireActivateEvent(WebCore::ServiceWorkerIdentifier);
     void terminateWorker(WebCore::ServiceWorkerIdentifier);
@@ -89,6 +89,7 @@ private:
     void setUserAgent(String&& userAgent);
 
     Ref<IPC::Connection> m_connectionToStorageProcess;
+    uint64_t m_pageGroupID;
     uint64_t m_pageID { 0 };
     uint64_t m_previousServiceWorkerID { 0 };
 

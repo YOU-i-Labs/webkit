@@ -25,6 +25,7 @@
 
 #include "ArrayBufferView.h"
 #include "JSCInlines.h"
+#include "JSCast.h"
 #include "JSFunction.h"
 #include "JSString.h"
 #include "JSObject.h"
@@ -308,13 +309,13 @@ JSValue JSCell::getPrototype(JSObject*, ExecState*)
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-void JSCell::lockSlow()
+void JSCellLock::lockSlow()
 {
     Atomic<IndexingType>* lock = bitwise_cast<Atomic<IndexingType>*>(&m_indexingTypeAndMisc);
     IndexingTypeLockAlgorithm::lockSlow(*lock);
 }
 
-void JSCell::unlockSlow()
+void JSCellLock::unlockSlow()
 {
     Atomic<IndexingType>* lock = bitwise_cast<Atomic<IndexingType>*>(&m_indexingTypeAndMisc);
     IndexingTypeLockAlgorithm::unlockSlow(*lock);

@@ -68,6 +68,8 @@ class CertificateInfo;
 class PageGroup;
 class ResourceRequest;
 class UserGestureToken;
+struct MessagePortIdentifier;
+struct MessageWithMessagePorts;
 struct PluginInfo;
 struct SecurityOriginData;
 struct SoupNetworkProxySettings;
@@ -174,6 +176,7 @@ public:
 #endif
 
     void webToStorageProcessConnectionClosed(WebToStorageProcessConnection*);
+    WebToStorageProcessConnection* existingWebToStorageProcessConnection() { return m_webToStorageProcessConnection.get(); }
     WebToStorageProcessConnection& ensureWebToStorageProcessConnection(PAL::SessionID initialSessionID);
 
     void setCacheModel(uint32_t);
@@ -274,9 +277,9 @@ private:
     void fullKeyboardAccessModeChanged(bool fullKeyboardAccessEnabled);
 
     bool isPlugInAutoStartOriginHash(unsigned plugInOriginHash, PAL::SessionID);
-    void didAddPlugInAutoStartOriginHash(unsigned plugInOriginHash, double expirationTime, PAL::SessionID);
-    void resetPlugInAutoStartOriginDefaultHashes(const HashMap<unsigned, double>& hashes);
-    void resetPlugInAutoStartOriginHashes(const HashMap<PAL::SessionID, HashMap<unsigned, double>>& hashes);
+    void didAddPlugInAutoStartOriginHash(unsigned plugInOriginHash, WallTime expirationTime, PAL::SessionID);
+    void resetPlugInAutoStartOriginDefaultHashes(const HashMap<unsigned, WallTime>& hashes);
+    void resetPlugInAutoStartOriginHashes(const HashMap<PAL::SessionID, HashMap<unsigned, WallTime>>& hashes);
 
     void platformSetCacheModel(CacheModel);
 
@@ -292,6 +295,13 @@ private:
     void mainThreadPing();
     void backgroundResponsivenessPing();
 
+    void syncIPCMessageWhileWaitingForSyncReplyForTesting();
+
+    void didTakeAllMessagesForPort(Vector<WebCore::MessageWithMessagePorts>&& messages, uint64_t messageCallbackIdentifier, uint64_t messageBatchIdentifier);
+    void checkProcessLocalPortForActivity(const WebCore::MessagePortIdentifier&, uint64_t callbackIdentifier);
+    void didCheckRemotePortForActivity(uint64_t callbackIdentifier, bool hasActivity);
+    void messagesAvailableForPort(const WebCore::MessagePortIdentifier&);
+
 #if ENABLE(GAMEPAD)
     void setInitialGamepads(const Vector<GamepadData>&);
     void gamepadConnected(const GamepadData&);
@@ -301,7 +311,8 @@ private:
     void setNetworkProxySettings(const WebCore::SoupNetworkProxySettings&);
 #endif
 #if ENABLE(SERVICE_WORKER)
-    void establishWorkerContextConnectionToStorageProcess(uint64_t pageID, const WebPreferencesStore&, PAL::SessionID initialSessionID);
+    void establishWorkerContextConnectionToStorageProcess(uint64_t pageGroupID, uint64_t pageID, const WebPreferencesStore&, PAL::SessionID);
+    void registerServiceWorkerClients(PAL::SessionID);
 #endif
 
     void releasePageCache();
@@ -368,7 +379,7 @@ private:
 #endif
     RefPtr<WebInspectorInterruptDispatcher> m_webInspectorInterruptDispatcher;
 
-    HashMap<PAL::SessionID, HashMap<unsigned, double>> m_plugInAutoStartOriginHashes;
+    HashMap<PAL::SessionID, HashMap<unsigned, WallTime>> m_plugInAutoStartOriginHashes;
     HashSet<String> m_plugInAutoStartOrigins;
 
     bool m_hasSetCacheModel { false };

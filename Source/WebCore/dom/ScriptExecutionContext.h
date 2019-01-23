@@ -31,8 +31,8 @@
 #include "DOMTimer.h"
 #include "SecurityContext.h"
 #include "ServiceWorkerTypes.h"
-#include <heap/HandleTypes.h>
-#include <runtime/ConsoleTypes.h>
+#include <JavaScriptCore/ConsoleTypes.h>
+#include <JavaScriptCore/HandleTypes.h>
 #include <wtf/CrossThreadTask.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
@@ -146,7 +146,7 @@ public:
     void willDestroyDestructionObserver(ContextDestructionObserver&);
 
     // MessagePort is conceptually a kind of ActiveDOMObject, but it needs to be tracked separately for message dispatch.
-    void processMessagePortMessagesSoon();
+    void processMessageWithMessagePortsSoon();
     void dispatchMessagePortEvents();
     void createdMessagePort(MessagePort&);
     void destroyedMessagePort(MessagePort&);
@@ -313,7 +313,7 @@ private:
     bool m_activeDOMObjectsAreStopped { false };
     bool m_inDispatchErrorEvent { false };
     bool m_activeDOMObjectAdditionForbidden { false };
-    bool m_willProcessMessagePortMessagesSoon { false };
+    bool m_willprocessMessageWithMessagePortsSoon { false };
 
 #if !ASSERT_DISABLED
     bool m_inScriptExecutionContextDestructor { false };

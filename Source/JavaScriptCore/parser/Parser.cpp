@@ -272,6 +272,8 @@ String Parser<LexerType>::parseInner(const Identifier& calleeName, SourceParseMo
         features |= StrictModeFeature;
     if (scope->shadowsArguments())
         features |= ShadowsArgumentsFeature;
+    if (m_seenTaggedTemplate)
+        features |= NoEvalCacheFeature;
 
 #ifndef NDEBUG
     if (m_parsingBuiltin && isProgramParseMode(parseMode)) {
@@ -3635,9 +3637,10 @@ template <typename TreeBuilder> TreeExpression Parser<LexerType>::parseAssignmen
             restoreSavePoint(savePoint);
             bool isAsyncArrow = false;
             if (UNLIKELY(classifier.indicatesPossibleAsyncArrowFunction())) {
-                ASSERT(matchContextualKeyword(m_vm->propertyNames->async));
-                next();
-                isAsyncArrow = !m_lexer->prevTerminator();
+                if (matchContextualKeyword(m_vm->propertyNames->async)) {
+                    next();
+                    isAsyncArrow = !m_lexer->prevTerminator();
+                }
             }
             if (isArrowFunctionParameters()) {
                 if (wasOpenParen)
@@ -4832,6 +4835,7 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseMemberExpres
             failIfFalse(templateLiteral, "Cannot parse template literal");
             base = context.createTaggedTemplate(startLocation, base, templateLiteral, expressionStart, expressionEnd, lastTokenEndPosition());
             m_parserState.nonLHSCount = nonLHSCount;
+            m_seenTaggedTemplate = true;
             break;
         }
         default:

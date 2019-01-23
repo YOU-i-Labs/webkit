@@ -87,10 +87,7 @@ public:
     bool isRenderInline() const;
 
     virtual bool isChildAllowed(const RenderObject&, const RenderStyle&) const { return true; }
-    virtual void addChild(RenderTreeBuilder&, RenderPtr<RenderObject>, RenderObject* beforeChild);
-    virtual void addChildIgnoringContinuation(RenderTreeBuilder&, RenderPtr<RenderObject> newChild, RenderObject* beforeChild = nullptr);
-    virtual RenderPtr<RenderObject> takeChild(RenderObject&) WARN_UNUSED_RETURN;
-    void removeAndDestroyChild(RenderObject&);
+    void didAttachChild(RenderObject& child, RenderObject* beforeChild);
 
     // The following functions are used when the render tree hierarchy changes to make sure layers get
     // properly added and removed. Since containership can be implemented by any subclass, and since a hierarchy
@@ -99,9 +96,6 @@ public:
     void removeLayers(RenderLayer* parentLayer);
     void moveLayers(RenderLayer* oldParent, RenderLayer* newParent);
     RenderLayer* findNextLayer(RenderLayer* parentLayer, RenderObject* startPoint, bool checkParent = true);
-
-    void insertChildInternal(RenderPtr<RenderObject>, RenderObject* beforeChild);
-    RenderPtr<RenderObject> takeChildInternal(RenderObject&) WARN_UNUSED_RETURN;
 
     virtual RenderElement* hoverAncestor() const;
 
@@ -220,15 +214,14 @@ public:
     // the child.
     virtual void updateAnonymousChildStyle(RenderStyle&) const { };
 
-    void removeAnonymousWrappersForInlinesIfNecessary();
-
     bool hasContinuationChainNode() const { return m_hasContinuationChainNode; }
     bool isContinuation() const { return m_isContinuation; }
     void setIsContinuation() { m_isContinuation = true; }
     bool isFirstLetter() const { return m_isFirstLetter; }
     void setIsFirstLetter() { m_isFirstLetter = true; }
 
-    void destroyLeftoverChildren();
+    RenderObject* attachRendererInternal(RenderPtr<RenderObject> child, RenderObject* beforeChild);
+    RenderPtr<RenderObject> detachRendererInternal(RenderObject&);
 
 protected:
     enum BaseTypeFlag {
@@ -287,8 +280,9 @@ protected:
     void removeFromRenderFragmentedFlowIncludingDescendants(bool shouldUpdateState);
     void adjustFragmentedFlowStateOnContainingBlockChangeIfNeeded();
     
-    bool noLongerAffectsParentBlock() const { return s_noLongerAffectsParentBlock; }
     bool isVisibleInViewport() const;
+
+    bool noLongerAffectsParentBlock(const RenderStyle& oldStyle) const;
 
 private:
     RenderElement(ContainerNode&, RenderStyle&&, BaseTypeFlags);
@@ -355,11 +349,6 @@ private:
     RenderObject* m_lastChild;
 
     RenderStyle m_style;
-
-    // FIXME: Get rid of this hack.
-    // Store state between styleWillChange and styleDidChange
-    static bool s_affectsParentBlock;
-    static bool s_noLongerAffectsParentBlock;
 };
 
 inline void RenderElement::setAncestorLineBoxDirty(bool f)

@@ -189,12 +189,14 @@ static bool canCacheFrame(Frame& frame, DiagnosticLoggingClient& diagnosticLoggi
 
 static bool canCachePage(Page& page)
 {
+    RELEASE_ASSERT(!page.isRestoringCachedPage());
+
     unsigned indentLevel = 0;
     PCLOG("--------\n Determining if page can be cached:");
 
     DiagnosticLoggingClient& diagnosticLoggingClient = page.diagnosticLoggingClient();
     bool isCacheable = canCacheFrame(page.mainFrame(), diagnosticLoggingClient, indentLevel + 1);
-    
+
     if (!page.settings().usesPageCache() || page.isResourceCachingDisabled()) {
         PCLOG("   -Page settings says b/f cache disabled");
         logPageCacheFailureDiagnosticMessage(diagnosticLoggingClient, DiagnosticLoggingKeys::isDisabledKey());
@@ -429,13 +431,14 @@ void PageCache::addIfCacheable(HistoryItem& item, Page* page)
 
     setPageCacheState(*page, Document::InPageCache);
 
-    // Make sure we no longer fire any JS events past this point.
-    ScriptDisallowedScope::InMainThread scriptDisallowedScope;
+    {
+        // Make sure we don't fire any JS events in this scope.
+        ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
-    item.m_cachedPage = std::make_unique<CachedPage>(*page);
-    item.m_pruningReason = PruningReason::None;
-    m_items.add(&item);
-    
+        item.m_cachedPage = std::make_unique<CachedPage>(*page);
+        item.m_pruningReason = PruningReason::None;
+        m_items.add(&item);
+    }
     prune(PruningReason::ReachedMaxSize);
 }
 

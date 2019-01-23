@@ -73,16 +73,23 @@ struct ResourceLoadStatistics {
     // Storage access
     HashSet<String> storageAccessUnderTopFrameOrigins;
 
+    // Top frame stats
+    HashCountedSet<String> topFrameUniqueRedirectsTo;
+    HashCountedSet<String> topFrameUniqueRedirectsFrom;
+
     // Subframe stats
     HashCountedSet<String> subframeUnderTopFrameOrigins;
     
     // Subresource stats
     HashCountedSet<String> subresourceUnderTopFrameOrigins;
     HashCountedSet<String> subresourceUniqueRedirectsTo;
-    
+    HashCountedSet<String> subresourceUniqueRedirectsFrom;
+
     // Prevalent resource stats
     bool isPrevalentResource { false };
     unsigned dataRecordsRemoved { 0 };
+    unsigned timesAccessedAsFirstPartyDueToUserInteraction { 0 };
+    unsigned timesAccessedAsFirstPartyDueToStorageAccessAPI { 0 };
 
     // In-memory only
     bool isMarkedForCookiePartitioning { false };

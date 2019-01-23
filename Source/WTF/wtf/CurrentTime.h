@@ -37,19 +37,6 @@
 
 namespace WTF {
 
-// Returns the current UTC time in seconds, counted from January 1, 1970.
-// Precision varies depending on platform but is usually as good or better
-// than a millisecond.
-// Use this function only if wall clock time is needed. For elapsed time
-// measurement use monotonicallyIncreasingTime() instead.
-WTF_EXPORT_PRIVATE double currentTime();
-
-// Same thing, in milliseconds.
-inline double currentTimeMS()
-{
-    return currentTime() * 1000.0;
-}
-
 // Provides a monotonically increasing time in seconds since an arbitrary point in the past.
 // On unsupported platforms, this function only guarantees the result will be non-decreasing.
 // Result of this function increases monotonically even when clock time goes back due to
@@ -66,21 +53,13 @@ inline double monotonicallyIncreasingTimeMS()
 // than a millisecond.
 WTF_EXPORT_PRIVATE Seconds currentCPUTime();
 
-WTF_EXPORT_PRIVATE void sleep(double);
-
-inline void sleepMS(double value)
-{
-    sleep(value / 1000.0);
-}
+WTF_EXPORT_PRIVATE void sleep(Seconds);
 
 } // namespace WTF
 
 using WTF::currentCPUTime;
-using WTF::currentTime;
-using WTF::currentTimeMS;
 using WTF::monotonicallyIncreasingTime;
 using WTF::monotonicallyIncreasingTimeMS;
 using WTF::sleep;
-using WTF::sleepMS;
 
 #endif // CurrentTime_h

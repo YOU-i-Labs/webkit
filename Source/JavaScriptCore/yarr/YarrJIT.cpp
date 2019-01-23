@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -156,7 +156,7 @@ class YarrGenerator : private MacroAssembler {
 #define JIT_UNICODE_EXPRESSIONS
 #endif
 
-#ifdef JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
     struct ParenContextSizes {
         size_t m_numSubpatterns;
         size_t m_frameSlots;
@@ -246,7 +246,7 @@ class YarrGenerator : private MacroAssembler {
         jump(loopTop);
 
         initDone.link(this);
-        storePtr(TrustedImmPtr(0), Address(parenContextPointer, ParenContext::nextOffset()));
+        storePtr(TrustedImmPtr(nullptr), Address(parenContextPointer, ParenContext::nextOffset()));
         emptyFreeList.link(this);
     }
 
@@ -594,7 +594,7 @@ class YarrGenerator : private MacroAssembler {
 
     DataLabelPtr storeToFrameWithPatch(unsigned frameLocation)
     {
-        return storePtrWithPatch(TrustedImmPtr(0), Address(stackPointerRegister, frameLocation * sizeof(void*)));
+        return storePtrWithPatch(TrustedImmPtr(nullptr), Address(stackPointerRegister, frameLocation * sizeof(void*)));
     }
 
     void loadFromFrame(unsigned frameLocation, RegisterID reg)
@@ -1749,7 +1749,7 @@ class YarrGenerator : private MacroAssembler {
         case PatternTerm::TypeParentheticalAssertion:
             RELEASE_ASSERT_NOT_REACHED();
         case PatternTerm::TypeBackReference:
-            m_shouldFallBack = true;
+            m_failureReason = JITFailureReason::BackReference;
             break;
         case PatternTerm::TypeDotStarEnclosure:
             generateDotStarEnclosure(opIndex);
@@ -1820,7 +1820,7 @@ class YarrGenerator : private MacroAssembler {
             break;
 
         case PatternTerm::TypeBackReference:
-            m_shouldFallBack = true;
+            m_failureReason = JITFailureReason::BackReference;
             break;
         }
     }
@@ -2173,7 +2173,7 @@ class YarrGenerator : private MacroAssembler {
             //
             // These nodes support generic subpatterns.
             case OpParenthesesSubpatternBegin: {
-#ifdef JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
                 PatternTerm* term = op.m_term;
                 unsigned parenthesesFrameLocation = term->frameLocation;
 
@@ -2193,7 +2193,7 @@ class YarrGenerator : private MacroAssembler {
                 // FIXME: for capturing parens, could use the index in the capture array?
                 if (term->quantityType == QuantifierGreedy || term->quantityType == QuantifierNonGreedy) {
                     storeToFrame(TrustedImm32(0), parenthesesFrameLocation + BackTrackInfoParentheses::matchAmountIndex());
-                    storeToFrame(TrustedImmPtr(0), parenthesesFrameLocation + BackTrackInfoParentheses::parenContextHeadIndex());
+                    storeToFrame(TrustedImmPtr(nullptr), parenthesesFrameLocation + BackTrackInfoParentheses::parenContextHeadIndex());
 
                     if (term->quantityType == QuantifierNonGreedy) {
                         storeToFrame(TrustedImm32(-1), parenthesesFrameLocation + BackTrackInfoParentheses::beginIndex());
@@ -2230,13 +2230,13 @@ class YarrGenerator : private MacroAssembler {
                     } else
                         setSubpatternStart(index, term->parentheses.subpatternId);
                 }
-#else // !JIT_ALL_PARENS_EXPRESSIONS
+#else // !YARR_JIT_ALL_PARENS_EXPRESSIONS
                 RELEASE_ASSERT_NOT_REACHED();
 #endif
                 break;
             }
             case OpParenthesesSubpatternEnd: {
-#ifdef JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
                 PatternTerm* term = op.m_term;
                 unsigned parenthesesFrameLocation = term->frameLocation;
 
@@ -2288,7 +2288,7 @@ class YarrGenerator : private MacroAssembler {
                     YarrOp& beginOp = m_ops[op.m_previousOp];
                     beginOp.m_jumps.link(this);
                 }
-#else // !JIT_ALL_PARENS_EXPRESSIONS
+#else // !YARR_JIT_ALL_PARENS_EXPRESSIONS
                 RELEASE_ASSERT_NOT_REACHED();
 #endif
                 break;
@@ -2837,7 +2837,7 @@ class YarrGenerator : private MacroAssembler {
             // out of the start of the parentheses, or jump back to the forwards
             // matching start, depending of whether the match is Greedy or NonGreedy.
             case OpParenthesesSubpatternBegin: {
-#ifdef JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
                 PatternTerm* term = op.m_term;
                 unsigned parenthesesFrameLocation = term->frameLocation;
 
@@ -2880,13 +2880,13 @@ class YarrGenerator : private MacroAssembler {
 
                     m_backtrackingState.fallthrough();
                 }
-#else // !JIT_ALL_PARENS_EXPRESSIONS
+#else // !YARR_JIT_ALL_PARENS_EXPRESSIONS
                 RELEASE_ASSERT_NOT_REACHED();
 #endif
                 break;
             }
             case OpParenthesesSubpatternEnd: {
-#ifdef JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
                 PatternTerm* term = op.m_term;
 
                 if (term->quantityType != QuantifierFixedCount) {
@@ -2917,7 +2917,7 @@ class YarrGenerator : private MacroAssembler {
                 }
 
                 m_backtrackingState.append(op.m_jumps);
-#else // !JIT_ALL_PARENS_EXPRESSIONS
+#else // !YARR_JIT_ALL_PARENS_EXPRESSIONS
                 RELEASE_ASSERT_NOT_REACHED();
 #endif
                 break;
@@ -3004,9 +3004,7 @@ class YarrGenerator : private MacroAssembler {
         // need to restore the capture from the first subpattern upon a
         // failure in the second.
         if (term->quantityMinCount && term->quantityMinCount != term->quantityMaxCount) {
-            if (Options::dumpCompiledRegExpPatterns())
-                dataLogF("Can't JIT a variable counted parenthesis with a non-zero minimum\n");
-            m_shouldFallBack = true;
+            m_failureReason = JITFailureReason::VariableCountedParenthesisWithNonZeroMinimum;
             return;
         } if (term->quantityMaxCount == 1 && !term->parentheses.isCopy) {
             // Select the 'Once' nodes.
@@ -3024,11 +3022,11 @@ class YarrGenerator : private MacroAssembler {
             parenthesesBeginOpCode = OpParenthesesSubpatternTerminalBegin;
             parenthesesEndOpCode = OpParenthesesSubpatternTerminalEnd;
         } else {
-#ifdef JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
             // We only handle generic parenthesis with greedy counts.
             if (term->quantityType != QuantifierGreedy) {
                 // This subpattern is not supported by the JIT.
-                m_shouldFallBack = true;
+                m_failureReason = JITFailureReason::NonGreedyParenthesizedSubpattern;
                 return;
             }
 
@@ -3046,7 +3044,7 @@ class YarrGenerator : private MacroAssembler {
             }
 #else
             // This subpattern is not supported by the JIT.
-            m_shouldFallBack = true;
+            m_failureReason = JITFailureReason::ParenthesizedSubpattern;
             return;
 #endif
         }
@@ -3275,7 +3273,7 @@ class YarrGenerator : private MacroAssembler {
         if (m_pattern.m_saveInitialStartValue)
             push(X86Registers::ebx);
 
-#ifdef JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
         if (m_containsNestedSubpatterns) {
 #if OS(WINDOWS)
             push(X86Registers::edi);
@@ -3336,6 +3334,7 @@ class YarrGenerator : private MacroAssembler {
         push(ARMRegisters::r4);
         push(ARMRegisters::r5);
         push(ARMRegisters::r6);
+        push(ARMRegisters::r8);
 #elif CPU(MIPS)
         // Do nothing.
 #endif
@@ -3361,7 +3360,7 @@ class YarrGenerator : private MacroAssembler {
             pop(X86Registers::r13);
         }
 
-#ifdef JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
         if (m_containsNestedSubpatterns) {
             pop(X86Registers::r12);
 #if OS(WINDOWS)
@@ -3383,6 +3382,7 @@ class YarrGenerator : private MacroAssembler {
         if (m_decodeSurrogatePairs)
             popPair(framePointerRegister, linkRegister);
 #elif CPU(ARM)
+        pop(ARMRegisters::r8);
         pop(ARMRegisters::r6);
         pop(ARMRegisters::r5);
         pop(ARMRegisters::r4);
@@ -3397,11 +3397,10 @@ public:
         : m_vm(vm)
         , m_pattern(pattern)
         , m_charSize(charSize)
-        , m_shouldFallBack(false)
         , m_decodeSurrogatePairs(m_charSize == Char16 && m_pattern.unicode())
         , m_unicodeIgnoreCase(m_pattern.unicode() && m_pattern.ignoreCase())
         , m_canonicalMode(m_pattern.unicode() ? CanonicalMode::Unicode : CanonicalMode::UCS2)
-#ifdef JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
         , m_containsNestedSubpatterns(false)
         , m_parenContextSizes(compileMode == IncludeSubpatterns ? m_pattern.m_numSubpatterns : 0, m_pattern.m_body->m_callFrameSize)
 #endif
@@ -3412,17 +3411,22 @@ public:
     {
 #ifndef JIT_UNICODE_EXPRESSIONS
         if (m_decodeSurrogatePairs) {
-            jitObject.setFallBack(true);
+            jitObject.setFallBackWithFailureReason(JITFailureReason::DecodeSurrogatePair);
             return;
         }
+#endif
+
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
+        if (m_containsNestedSubpatterns)
+            jitObject.setUsesPaternContextBuffer();
 #endif
 
         // We need to compile before generating code since we set flags based on compilation that
         // are used during generation.
         opCompileBody(m_pattern.m_body);
         
-        if (m_shouldFallBack) {
-            jitObject.setFallBack(true);
+        if (m_failureReason) {
+            jitObject.setFallBackWithFailureReason(*m_failureReason);
             return;
         }
         
@@ -3432,7 +3436,7 @@ public:
         generateFailReturn();
         hasInput.link(this);
 
-#ifdef JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
         if (m_containsNestedSubpatterns)
             move(TrustedImm32(matchLimit), remainingMatchCount);
 #endif
@@ -3447,7 +3451,7 @@ public:
 
         initCallFrame();
 
-#ifdef JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
         if (m_containsNestedSubpatterns)
             initParenContextFreeList();
 #endif
@@ -3469,7 +3473,7 @@ public:
 
         LinkBuffer linkBuffer(*this, REGEXP_CODE_ID, JITCompilationCanFail);
         if (linkBuffer.didFailToAllocate()) {
-            jitObject.setFallBack(true);
+            jitObject.setFallBackWithFailureReason(JITFailureReason::ExecutableMemoryAllocationFailure);
             return;
         }
 
@@ -3484,16 +3488,17 @@ public:
 
         if (compileMode == MatchOnly) {
             if (m_charSize == Char8)
-                jitObject.set8BitCodeMatchOnly(FINALIZE_CODE(linkBuffer, ("Match-only 8-bit regular expression")));
+                jitObject.set8BitCodeMatchOnly(FINALIZE_CODE(linkBuffer, "Match-only 8-bit regular expression"));
             else
-                jitObject.set16BitCodeMatchOnly(FINALIZE_CODE(linkBuffer, ("Match-only 16-bit regular expression")));
+                jitObject.set16BitCodeMatchOnly(FINALIZE_CODE(linkBuffer, "Match-only 16-bit regular expression"));
         } else {
             if (m_charSize == Char8)
-                jitObject.set8BitCode(FINALIZE_CODE(linkBuffer, ("8-bit regular expression")));
+                jitObject.set8BitCode(FINALIZE_CODE(linkBuffer, "8-bit regular expression"));
             else
-                jitObject.set16BitCode(FINALIZE_CODE(linkBuffer, ("16-bit regular expression")));
+                jitObject.set16BitCode(FINALIZE_CODE(linkBuffer, "16-bit regular expression"));
         }
-        jitObject.setFallBack(m_shouldFallBack);
+        if (m_failureReason)
+            jitObject.setFallBackWithFailureReason(*m_failureReason);
     }
 
 private:
@@ -3505,12 +3510,12 @@ private:
 
     // Used to detect regular expression constructs that are not currently
     // supported in the JIT; fall back to the interpreter when this is detected.
-    bool m_shouldFallBack;
+    std::optional<JITFailureReason> m_failureReason;
 
     bool m_decodeSurrogatePairs;
     bool m_unicodeIgnoreCase;
     CanonicalMode m_canonicalMode;
-#ifdef JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
     bool m_containsNestedSubpatterns;
     ParenContextSizes m_parenContextSizes;
 #endif
@@ -3538,12 +3543,41 @@ private:
     BacktrackingState m_backtrackingState;
 };
 
+static void dumpCompileFailure(JITFailureReason failure)
+{
+    switch (failure) {
+    case JITFailureReason::DecodeSurrogatePair:
+        dataLog("Can't JIT a pattern decoding surrogate pairs\n");
+        break;
+    case JITFailureReason::BackReference:
+        dataLog("Can't JIT a pattern containing back references\n");
+        break;
+    case JITFailureReason::VariableCountedParenthesisWithNonZeroMinimum:
+        dataLog("Can't JIT a pattern containing a variable counted parenthesis with a non-zero minimum\n");
+        break;
+    case JITFailureReason::ParenthesizedSubpattern:
+        dataLog("Can't JIT a pattern containing parenthesized subpatterns\n");
+        break;
+    case JITFailureReason::NonGreedyParenthesizedSubpattern:
+        dataLog("Can't JIT a pattern containing non-greedy parenthesized subpatterns\n");
+        break;
+    case JITFailureReason::ExecutableMemoryAllocationFailure:
+        dataLog("Can't JIT because of failure of allocation of executable memory\n");
+        break;
+    }
+}
+
 void jitCompile(YarrPattern& pattern, YarrCharSize charSize, VM* vm, YarrCodeBlock& jitObject, YarrJITCompileMode mode)
 {
     if (mode == MatchOnly)
         YarrGenerator<MatchOnly>(vm, pattern, charSize).compile(jitObject);
     else
         YarrGenerator<IncludeSubpatterns>(vm, pattern, charSize).compile(jitObject);
+
+    if (auto failureReason = jitObject.failureReason()) {
+        if (Options::dumpCompiledRegExpPatterns())
+            dumpCompileFailure(*failureReason);
+    }
 }
 
 }}

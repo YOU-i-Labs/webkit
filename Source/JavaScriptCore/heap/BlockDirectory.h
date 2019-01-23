@@ -26,11 +26,14 @@
 #pragma once
 
 #include "AllocationFailureMode.h"
+#include "Allocator.h"
 #include "CellAttributes.h"
 #include "FreeList.h"
+#include "LocalAllocator.h"
 #include "MarkedBlock.h"
 #include <wtf/DataLog.h>
 #include <wtf/FastBitVector.h>
+#include <wtf/MonotonicTime.h>
 #include <wtf/SharedTask.h>
 #include <wtf/Vector.h>
 
@@ -41,6 +44,8 @@ class Heap;
 class IsoCellSet;
 class MarkedSpace;
 class LLIntOffsetsExtractor;
+class ThreadLocalCache;
+class ThreadLocalCacheLayout;
 
 #define FOR_EACH_BLOCK_DIRECTORY_BIT(macro) \
     macro(live, Live) /* The set of block indices that have actual blocks. */\
@@ -76,14 +81,13 @@ class BlockDirectory {
     friend class LLIntOffsetsExtractor;
 
 public:
-    static ptrdiff_t offsetOfFreeList();
-    static ptrdiff_t offsetOfCellSize();
-
     BlockDirectory(Heap*, size_t cellSize);
+    ~BlockDirectory();
     void setSubspace(Subspace*);
     void lastChanceToFinalize();
     void prepareForAllocation();
     void stopAllocating();
+    void stopAllocatingForGood();
     void resumeAllocating();
     void beginMarkingForFullCollection();
     void endMarking();
@@ -97,22 +101,19 @@ public:
     bool needsDestruction() const { return m_attributes.destruction == NeedsDestruction; }
     DestructionMode destruction() const { return m_attributes.destruction; }
     HeapCell::Kind cellKind() const { return m_attributes.cellKind; }
-    void* allocate(GCDeferralContext*, AllocationFailureMode);
     Heap* heap() { return m_heap; }
 
-    bool isFreeListedCell(const void* target) const;
+    bool isFreeListedCell(const void* target);
 
     template<typename Functor> void forEachBlock(const Functor&);
     template<typename Functor> void forEachNotEmptyBlock(const Functor&);
     
     RefPtr<SharedTask<MarkedBlock::Handle*()>> parallelNotEmptyBlockSource();
     
-    void addBlock(MarkedBlock::Handle*);
+    void addBlock(MarkedBlock::Handle*, SecurityOriginToken);
     void removeBlock(MarkedBlock::Handle*);
 
-    bool isPagedOut(double deadline);
-    
-    static size_t blockSizeForBytes(size_t);
+    bool isPagedOut(MonotonicTime deadline);
     
     Lock& bitvectorLock() { return m_bitvectorLock; }
 
@@ -157,24 +158,21 @@ public:
     Subspace* subspace() const { return m_subspace; }
     MarkedSpace& markedSpace() const;
     
-    const FreeList& freeList() const { return m_freeList; }
+    Allocator allocator() const { return Allocator(m_tlcOffset); }
     
     void dump(PrintStream&) const;
     void dumpBits(PrintStream& = WTF::dataFile());
     
 private:
     friend class IsoCellSet;
+    friend class LocalAllocator;
+    friend class LocalSideAllocator;
     friend class MarkedBlock;
+    friend class ThreadLocalCacheLayout;
     
-    JS_EXPORT_PRIVATE void* allocateSlowCase(GCDeferralContext*, AllocationFailureMode failureMode);
-    void didConsumeFreeList();
-    void* tryAllocateWithoutCollecting();
+    MarkedBlock::Handle* findBlockForAllocation(LocalAllocator&);
+    
     MarkedBlock::Handle* tryAllocateBlock();
-    void* tryAllocateIn(MarkedBlock::Handle*);
-    void* allocateIn(MarkedBlock::Handle*);
-    ALWAYS_INLINE void doTestCollectionsIfNeeded(GCDeferralContext*);
-    
-    FreeList m_freeList;
     
     Vector<MarkedBlock::Handle*> m_blocks;
     Vector<unsigned> m_freeBlockIndices;
@@ -189,14 +187,9 @@ private:
     
     // After you do something to a block based on one of these cursors, you clear the bit in the
     // corresponding bitvector and leave the cursor where it was.
-    size_t m_allocationCursor { 0 }; // Points to the next block that is a candidate for allocation.
-    size_t m_emptyCursor { 0 }; // Points to the next block that is a candidate for empty allocation (allocating in empty blocks).
+    size_t m_emptyCursor { 0 };
     size_t m_unsweptCursor { 0 }; // Points to the next block that is a candidate for incremental sweeping.
     
-    MarkedBlock::Handle* m_currentBlock;
-    MarkedBlock::Handle* m_lastActiveBlock;
-
-    Lock m_lock;
     unsigned m_cellSize;
     CellAttributes m_attributes;
     // FIXME: All of these should probably be references.
@@ -206,16 +199,10 @@ private:
     BlockDirectory* m_nextDirectory { nullptr };
     BlockDirectory* m_nextDirectoryInSubspace { nullptr };
     BlockDirectory* m_nextDirectoryInAlignedMemoryAllocator { nullptr };
+    
+    Lock m_localAllocatorsLock;
+    size_t m_tlcOffset;
+    SentinelLinkedList<LocalAllocator, BasicRawSentinelNode<LocalAllocator>> m_localAllocators;
 };
-
-inline ptrdiff_t BlockDirectory::offsetOfFreeList()
-{
-    return OBJECT_OFFSETOF(BlockDirectory, m_freeList);
-}
-
-inline ptrdiff_t BlockDirectory::offsetOfCellSize()
-{
-    return OBJECT_OFFSETOF(BlockDirectory, m_cellSize);
-}
 
 } // namespace JSC

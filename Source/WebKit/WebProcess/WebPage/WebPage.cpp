@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Intel Corporation. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
  *
@@ -124,6 +124,12 @@
 #include "WebValidationMessageClient.h"
 #include "WebsiteDataStoreParameters.h"
 #include <JavaScriptCore/APICast.h>
+#include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSCJSValue.h>
+#include <JavaScriptCore/JSLock.h>
+#include <JavaScriptCore/ProfilerDatabase.h>
+#include <JavaScriptCore/SamplingProfiler.h>
+#include <JavaScriptCore/ScriptValue.h>
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/ArchiveResource.h>
 #include <WebCore/BackForwardController.h>
@@ -201,13 +207,7 @@
 #include <WebCore/VisibleUnits.h>
 #include <WebCore/WebGLStateTracker.h>
 #include <WebCore/markup.h>
-#include <bindings/ScriptValue.h>
 #include <pal/SessionID.h>
-#include <profiler/ProfilerDatabase.h>
-#include <runtime/JSCInlines.h>
-#include <runtime/JSCJSValue.h>
-#include <runtime/JSLock.h>
-#include <runtime/SamplingProfiler.h>
 #include <wtf/RunLoop.h>
 #include <wtf/SetForScope.h>
 #include <wtf/text/TextStream.h>
@@ -421,7 +421,6 @@ WebPage::WebPage(uint64_t pageID, WebPageCreationParameters&& parameters)
 
 #if ENABLE(APPLE_PAY)
     pageConfiguration.paymentCoordinatorClient = new WebPaymentCoordinator(*this);
-    pageConfiguration.availablePaymentNetworks = WTFMove(parameters.availablePaymentNetworks);
 #endif
 
 #if ENABLE(APPLICATION_MANIFEST)
@@ -555,7 +554,8 @@ WebPage::WebPage(uint64_t pageID, WebPageCreationParameters&& parameters)
         m_page->settings().setMediaKeysStorageDirectory(manager->mediaKeyStorageDirectory());
 #endif
     m_page->settings().setAppleMailPaginationQuirkEnabled(parameters.appleMailPaginationQuirkEnabled);
-
+    m_page->settings().setAppleMailLinesClampEnabled(parameters.appleMailLinesClampEnabled);
+    
     if (parameters.viewScaleFactor != 1)
         scaleView(parameters.viewScaleFactor);
 
@@ -2504,6 +2504,7 @@ void WebPage::dispatchTouchEvent(const WebTouchEvent& touchEvent, bool& handled)
     m_lastInteractionLocation = touchEvent.position();
     CurrentEvent currentEvent(touchEvent);
     handled = handleTouchEvent(touchEvent, m_page.get());
+    updatePotentialTapSecurityOrigin(touchEvent, handled);
 }
 
 void WebPage::touchEventSync(const WebTouchEvent& touchEvent, bool& handled)
@@ -2513,6 +2514,39 @@ void WebPage::touchEventSync(const WebTouchEvent& touchEvent, bool& handled)
     dispatchAsynchronousTouchEvents(queuedEvents);
 
     dispatchTouchEvent(touchEvent, handled);
+}
+
+void WebPage::updatePotentialTapSecurityOrigin(const WebTouchEvent& touchEvent, bool wasHandled)
+{
+    if (wasHandled)
+        return;
+
+    if (!touchEvent.isPotentialTap())
+        return;
+
+    if (touchEvent.type() != WebEvent::TouchStart)
+        return;
+
+    auto& mainFrame = m_page->mainFrame();
+    auto document = mainFrame.document();
+    if (!document)
+        return;
+
+    if (!document->handlingTouchEvent())
+        return;
+
+    Frame* touchEventTargetFrame = &mainFrame;
+    while (auto subframe = touchEventTargetFrame->eventHandler().touchEventTargetSubframe())
+        touchEventTargetFrame = subframe;
+
+    auto& touches = touchEventTargetFrame->eventHandler().touches();
+    if (touches.isEmpty())
+        return;
+
+    ASSERT(touches.size() == 1);
+
+    if (auto targetDocument = touchEventTargetFrame->document())
+        m_potentialTapSecurityOrigin = &targetDocument->securityOrigin();
 }
 #elif ENABLE(TOUCH_EVENTS)
 void WebPage::touchEvent(const WebTouchEvent& touchEvent)
@@ -2856,7 +2890,7 @@ IntPoint WebPage::screenToRootView(const IntPoint& point)
 IntRect WebPage::rootViewToScreen(const IntRect& rect)
 {
     IntRect screenRect;
-    sendSync(Messages::WebPageProxy::RootViewToScreen(rect), Messages::WebPageProxy::RootViewToScreen::Reply(screenRect));
+    sendSync(Messages::WebPageProxy::RootViewToScreen(rect), Messages::WebPageProxy::RootViewToScreen::Reply(screenRect), Seconds::infinity(), IPC::SendSyncOption::DoNotProcessIncomingMessagesWhenWaitingForSyncReply);
     return screenRect;
 }
     
@@ -3079,8 +3113,6 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
 #if ENABLE(DATA_DETECTION)
     settings.setDataDetectorTypes(static_cast<DataDetectorTypes>(store.getUInt32ValueForKey(WebPreferencesKey::dataDetectorTypesKey())));
 #endif
-
-    RuntimeEnabledFeatures::sharedFeatures().setWebAuthenticationEnabled(store.getBoolValueForKey(WebPreferencesKey::webAuthenticationEnabledKey()));
 
     DatabaseManager::singleton().setIsAvailable(store.getBoolValueForKey(WebPreferencesKey::databasesEnabledKey()));
 
@@ -4557,6 +4589,21 @@ bool WebPage::shouldUseCustomContentProviderForResponse(const ResourceResponse& 
 }
 
 #if PLATFORM(COCOA)
+
+void WebPage::setTextAsync(const String& text)
+{
+    if (is<HTMLInputElement>(m_assistedNode.get())) {
+        downcast<HTMLInputElement>(*m_assistedNode).setValueForUser(text);
+        return;
+    }
+
+    auto frame = makeRef(m_page->focusController().focusedOrMainFrame());
+    if (!frame->selection().selection().isContentEditable())
+        return;
+
+    frame->selection().selectAll();
+    frame->editor().insertText(text, nullptr, TextEventInputKeyboard);
+}
 
 void WebPage::insertTextAsync(const String& text, const EditingRange& replacementEditingRange, bool registerUndoGroup, uint32_t editingRangeIsRelativeTo, bool suppressSelectionUpdate)
 {

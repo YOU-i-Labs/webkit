@@ -28,11 +28,13 @@
 
 #include "AuthenticationChallengeProxy.h"
 #include "WebCredential.h"
+#include "WebPageGroup.h"
 #include "WebPreferencesStore.h"
 #include "WebProcessMessages.h"
 #include "WebProcessPool.h"
 #include "WebSWContextManagerConnectionMessages.h"
 #include <WebCore/NotImplemented.h>
+#include <WebCore/RegistrationDatabase.h>
 
 namespace WebKit {
 
@@ -53,6 +55,12 @@ ServiceWorkerProcessProxy::~ServiceWorkerProcessProxy()
 {
 }
 
+bool ServiceWorkerProcessProxy::hasRegisteredServiceWorkers(const String& serviceWorkerDirectory)
+{
+    String registrationFile = WebCore::serviceWorkerRegistrationDatabaseFilename(serviceWorkerDirectory);
+    return WebCore::FileSystem::fileExists(registrationFile);
+}
+
 void ServiceWorkerProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
 {
     WebProcessProxy::getLaunchOptions(launchOptions);
@@ -62,7 +70,7 @@ void ServiceWorkerProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions&
 
 void ServiceWorkerProcessProxy::start(const WebPreferencesStore& store, std::optional<PAL::SessionID> initialSessionID)
 {
-    send(Messages::WebProcess::EstablishWorkerContextConnectionToStorageProcess { m_serviceWorkerPageID, store, initialSessionID.value_or(PAL::SessionID::defaultSessionID()) }, 0);
+    send(Messages::WebProcess::EstablishWorkerContextConnectionToStorageProcess { processPool().defaultPageGroup().pageGroupID(), m_serviceWorkerPageID, store, initialSessionID.value_or(PAL::SessionID::defaultSessionID()) }, 0);
 }
 
 void ServiceWorkerProcessProxy::setUserAgent(const String& userAgent)

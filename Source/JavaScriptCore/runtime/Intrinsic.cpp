@@ -129,6 +129,8 @@ const char* intrinsicName(Intrinsic intrinsic)
         return "StringPrototypeToLowerCaseIntrinsic";
     case NumberPrototypeToStringIntrinsic:
         return "NumberPrototypeToStringIntrinsic";
+    case NumberIsIntegerIntrinsic:
+        return "NumberIsIntegerIntrinsic";
     case IMulIntrinsic:
         return "IMulIntrinsic";
     case RandomIntrinsic:
@@ -169,8 +171,12 @@ const char* intrinsicName(Intrinsic intrinsic)
         return "JSWeakMapGetIntrinsic";
     case JSWeakMapHasIntrinsic:
         return "JSWeakMapHasIntrinsic";
+    case JSWeakMapSetIntrinsic:
+        return "JSWeakMapSetIntrinsic";
     case JSWeakSetHasIntrinsic:
         return "JSWeakSetHasIntrinsic";
+    case JSWeakSetAddIntrinsic:
+        return "JSWeakSetAddIntrinsic";
     case HasOwnPropertyIntrinsic:
         return "HasOwnPropertyIntrinsic";
     case AtomicsAddIntrinsic:
@@ -209,6 +215,8 @@ const char* intrinsicName(Intrinsic intrinsic)
         return "UnderscoreProtoIntrinsic";
     case DFGTrueIntrinsic:
         return "DFGTrueIntrinsic";
+    case FTLTrueIntrinsic:
+        return "FTLTrueIntrinsic";
     case OSRExitIntrinsic:
         return "OSRExitIntrinsic";
     case IsFinalTierIntrinsic:

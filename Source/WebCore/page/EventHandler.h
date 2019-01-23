@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -233,6 +233,8 @@ public:
 #if ENABLE(IOS_TOUCH_EVENTS)
     bool dispatchTouchEvent(const PlatformTouchEvent&, const AtomicString&, const EventTargetTouchMap&, float, float);
     bool dispatchSimulatedTouchEvent(IntPoint location);
+    Frame* touchEventTargetSubframe() const { return m_touchEventTargetSubframe.get(); }
+    const TouchArray& touches() const { return m_touches; }
 #endif
 
 #if ENABLE(IOS_GESTURE_EVENTS)
@@ -382,7 +384,7 @@ private:
 
     bool logicalScrollOverflow(ScrollLogicalDirection, ScrollGranularity, Node* startingNode = nullptr);
     
-    bool shouldTurnVerticalTicksIntoHorizontal(const HitTestResult&, const PlatformWheelEvent&) const;
+    bool shouldSwapScrollDirection(const HitTestResult&, const PlatformWheelEvent&) const;
     
     bool mouseDownMayStartSelect() const { return m_mouseDownMayStartSelect; }
 

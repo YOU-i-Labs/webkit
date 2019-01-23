@@ -27,8 +27,7 @@ WI.NewTabContentView = class NewTabContentView extends WI.TabContentView
 {
     constructor(identifier)
     {
-        let {image, title} = WI.NewTabContentView.tabInfo();
-        let tabBarItem = new WI.GeneralTabBarItem(image, title);
+        let tabBarItem = WI.GeneralTabBarItem.fromTabInfo(WI.NewTabContentView.tabInfo());
         tabBarItem.isDefaultTab = true;
 
         super(identifier || "new-tab", "new-tab", tabBarItem);
@@ -36,7 +35,7 @@ WI.NewTabContentView = class NewTabContentView extends WI.TabContentView
         this._tabElementsByTabClass = new Map;
 
         let allTabClasses = Array.from(WI.knownTabClasses());
-        this._shownTabClasses = allTabClasses.filter((tabClass) => tabClass.isTabAllowed() && !tabClass.isEphemeral());
+        this._shownTabClasses = allTabClasses.filter((tabClass) => tabClass.isTabAllowed() && !tabClass.tabInfo().isEphemeral);
         this._shownTabClasses.sort((a, b) => a.tabInfo().title.extendedLocaleCompare(b.tabInfo().title));
     }
 
@@ -45,12 +44,8 @@ WI.NewTabContentView = class NewTabContentView extends WI.TabContentView
         return {
             image: "Images/NewTab.svg",
             title: WI.UIString("New Tab"),
+            isEphemeral: true,
         };
-    }
-
-    static isEphemeral()
-    {
-        return true;
     }
 
     static shouldSaveTab()

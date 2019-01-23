@@ -39,6 +39,7 @@ namespace JSC {
     v(JSAPIWrapperObject) \
     v(JSArrayBuffer) \
     v(JSCallbackObject) \
+    v(JSFunction) \
     v(JSGlobalObject) \
     v(JSScriptFetchParameters) \
     v(JSScriptFetcher) \
@@ -55,18 +56,21 @@ namespace JSC {
     v(WebAssemblyToJSCallee) \
     v(WebAssemblyWrapperFunction) \
 
-#define POISON(_poisonID_) g_##_poisonID_##Poison
+#define POISON_KEY_NAME(_poisonID_) g_##_poisonID_##Poison
 
 #define DECLARE_POISON(_poisonID_) \
-    extern "C" JS_EXPORTDATA uintptr_t POISON(_poisonID_);
+    extern "C" JS_EXPORTDATA uintptr_t POISON_KEY_NAME(_poisonID_); \
+    using _poisonID_ ## Poison = Poison<POISON_KEY_NAME(_poisonID_)>;
 
 FOR_EACH_JSC_POISON(DECLARE_POISON)
 #undef DECLARE_POISON
 
+extern "C" JS_EXPORTDATA uintptr_t g_typedArrayPoisons[];
+
 struct ClassInfo;
 
-using PoisonedClassInfoPtr = Poisoned<POISON(GlobalData), const ClassInfo*>;
-using PoisonedMasmPtr = Poisoned<POISON(JITCode), void*>;
+using PoisonedClassInfoPtr = Poisoned<GlobalDataPoison, const ClassInfo*>;
+using PoisonedMasmPtr = Poisoned<JITCodePoison, void*>;
 
 void initializePoison();
 

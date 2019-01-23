@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,6 +45,7 @@ namespace JSC { namespace FTL {
 
 #define FOR_EACH_ABSTRACT_FIELD(macro) \
     macro(ArrayBuffer_data, ArrayBuffer::offsetOfData()) \
+    macro(ArrayStorage_numValuesInVector, ArrayStorage::numValuesInVectorOffset()) \
     macro(Butterfly_arrayBuffer, Butterfly::offsetOfArrayBuffer()) \
     macro(Butterfly_publicLength, Butterfly::offsetOfPublicLength()) \
     macro(Butterfly_vectorLength, Butterfly::offsetOfVectorLength()) \
@@ -59,7 +60,7 @@ namespace JSC { namespace FTL {
     macro(GetterSetter_setter, GetterSetter::offsetOfSetter()) \
     macro(JSArrayBufferView_length, JSArrayBufferView::offsetOfLength()) \
     macro(JSArrayBufferView_mode, JSArrayBufferView::offsetOfMode()) \
-    macro(JSArrayBufferView_vector, JSArrayBufferView::offsetOfVector()) \
+    macro(JSArrayBufferView_poisonedVector, JSArrayBufferView::offsetOfPoisonedVector()) \
     macro(JSCell_cellState, JSCell::cellStateOffset()) \
     macro(JSCell_header, 0) \
     macro(JSCell_indexingTypeAndMisc, JSCell::indexingTypeAndMiscOffset()) \
@@ -131,7 +132,7 @@ namespace JSC { namespace FTL {
 
 #define FOR_EACH_INDEXED_ABSTRACT_HEAP(macro) \
     macro(ArrayStorage_vector, ArrayStorage::vectorOffset(), sizeof(WriteBarrier<Unknown>)) \
-    macro(CompleteSubspace_allocatorForSizeStep, CompleteSubspace::offsetOfAllocatorForSizeStep(), sizeof(BlockDirectory*)) \
+    macro(CompleteSubspace_allocatorForSizeStep, CompleteSubspace::offsetOfAllocatorForSizeStep(), sizeof(Allocator)) \
     macro(DirectArguments_storage, DirectArguments::storageOffset(), sizeof(EncodedJSValue)) \
     macro(JSLexicalEnvironment_variables, JSLexicalEnvironment::offsetOfVariables(), sizeof(EncodedJSValue)) \
     macro(JSPropertyNameEnumerator_cachedPropertyNamesVectorContents, 0, sizeof(WriteBarrier<JSString>)) \
@@ -149,7 +150,8 @@ namespace JSC { namespace FTL {
     macro(variables, 0, sizeof(Register)) \
     macro(HasOwnPropertyCache, 0, sizeof(HasOwnPropertyCache::Entry)) \
     macro(JSFixedArray_buffer, JSFixedArray::offsetOfData(), sizeof(EncodedJSValue)) \
-    
+    macro(TypedArrayPoisons, 0, sizeof(uintptr_t)) \
+
 #define FOR_EACH_NUMBERED_ABSTRACT_HEAP(macro) \
     macro(properties)
     
@@ -173,6 +175,8 @@ public:
 #undef ABSTRACT_FIELD_DECLARATION
     
     AbstractHeap& JSCell_freeListNext;
+    AbstractHeap& ArrayStorage_publicLength;
+    AbstractHeap& ArrayStorage_vectorLength;
     
 #define INDEXED_ABSTRACT_HEAP_DECLARATION(name, offset, size) IndexedAbstractHeap name;
     FOR_EACH_INDEXED_ABSTRACT_HEAP(INDEXED_ABSTRACT_HEAP_DECLARATION)

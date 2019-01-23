@@ -172,6 +172,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
     case CreateThis:
     case GetCallee:
     case GetArgumentCountIncludingThis:
+    case SetArgumentCountIncludingThis:
     case GetRestLength:
     case GetLocal:
     case SetLocal:
@@ -261,6 +262,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
     case AssertNotEmpty:
     case CheckStringIdent:
     case RegExpExec:
+    case RegExpExecNonGlobalOrSticky:
     case RegExpTest:
     case RegExpMatchFast:
     case CompareLess:
@@ -304,6 +306,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
     case IsUndefined:
     case IsBoolean:
     case IsNumber:
+    case NumberIsInteger:
     case IsObject:
     case IsObjectOrNull:
     case IsFunction:
@@ -370,6 +373,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
     case CheckInBounds:
     case ConstantStoragePointer:
     case Check:
+    case CheckVarargs:
     case MultiPutByOffset:
     case ValueRep:
     case DoubleRep:
@@ -393,6 +397,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
     case PhantomNewAsyncGeneratorFunction:
     case PhantomNewAsyncFunction:
     case PhantomCreateActivation:
+    case PhantomNewRegexp:
     case PutHint:
     case CheckStructureImmediate:
     case MaterializeNewObject:
@@ -428,6 +433,8 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
     case LoadValueFromMapBucket:
     case ExtractValueFromWeakMapGet:
     case WeakMapGet:
+    case WeakSetAdd:
+    case WeakMapSet:
     case AtomicsAdd:
     case AtomicsAnd:
     case AtomicsCompareExchange:
@@ -471,7 +478,10 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node)
     case ArrayPop:
     case StringCharAt:
     case StringCharCodeAt:
-        return node->arrayMode().alreadyChecked(graph, node, state.forNode(node->child1()));
+        return node->arrayMode().alreadyChecked(graph, node, state.forNode(graph.child(node, 0)));
+
+    case GetArrayMask:
+        return state.forNode(node->child1()).isType(SpecObject);
 
     case ArrayPush:
         return node->arrayMode().alreadyChecked(graph, node, state.forNode(graph.varArgChild(node, 1)));

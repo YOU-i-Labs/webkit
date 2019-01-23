@@ -237,6 +237,7 @@ private:
     float m_lastPlaybackRate;
     Timer m_fillTimer;
     MediaTime m_maxTimeLoaded;
+    bool m_loadingStalled { false };
     MediaPlayer::Preload m_preload;
     bool m_delayingLoad;
     mutable MediaTime m_maxTimeLoadedAtLastDidLoadingProgress;
@@ -251,7 +252,7 @@ private:
 #endif
     GRefPtr<GstElement> m_autoAudioSink;
     GRefPtr<GstElement> m_downloadBuffer;
-    RefPtr<MediaPlayerRequestInstallMissingPluginsCallback> m_missingPluginsCallback;
+    Vector<RefPtr<MediaPlayerRequestInstallMissingPluginsCallback>> m_missingPluginCallbacks;
 #if ENABLE(VIDEO_TRACK)
     Vector<RefPtr<AudioTrackPrivateGStreamer>> m_audioTracks;
     Vector<RefPtr<InbandTextTrackPrivateGStreamer>> m_textTracks;

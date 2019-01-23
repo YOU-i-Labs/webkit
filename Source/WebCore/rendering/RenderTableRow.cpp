@@ -111,14 +111,11 @@ const BorderValue& RenderTableRow::borderAdjoiningEndCell(const RenderTableCell&
     return style().borderEnd();
 }
 
-void RenderTableRow::addChild(RenderTreeBuilder& builder, RenderPtr<RenderObject> child, RenderObject* beforeChild)
+void RenderTableRow::didInsertTableCell(RenderTableCell& child, RenderObject* beforeChild)
 {
-    auto& childToAdd = *child;
-    builder.insertChildToRenderTableRow(*this, WTFMove(child), beforeChild);
-
     // Generated content can result in us having a null section so make sure to null check our parent.
     if (auto* section = this->section()) {
-        section->addCell(&downcast<RenderTableCell>(childToAdd), this);
+        section->addCell(&child, this);
         if (beforeChild || nextRow())
             section->setNeedsCellRecalc();
     }
@@ -238,40 +235,6 @@ RenderPtr<RenderTableRow> RenderTableRow::createTableRowWithStyle(Document& docu
 RenderPtr<RenderTableRow> RenderTableRow::createAnonymousWithParentRenderer(const RenderTableSection& parent)
 {
     return RenderTableRow::createTableRowWithStyle(parent.document(), parent.style());
-}
-
-void RenderTableRow::collapseAndDestroyAnonymousSiblingRows()
-{
-    auto* section = this->section();
-    if (!section)
-        return;
-
-    // All siblings generated?
-    for (auto* current = section->firstRow(); current; current = current->nextRow()) {
-        if (current == this)
-            continue;
-        if (!current->isAnonymous())
-            return;
-    }
-
-    RenderTableRow* rowToInsertInto = nullptr;
-    auto* currentRow = section->firstRow();
-    while (currentRow) {
-        if (currentRow == this) {
-            currentRow = currentRow->nextRow();
-            continue;
-        }
-        if (!rowToInsertInto) {
-            rowToInsertInto = currentRow;
-            currentRow = currentRow->nextRow();
-            continue;
-        }
-        currentRow->moveAllChildrenTo(rowToInsertInto, RenderBoxModelObject::NormalizeAfterInsertion::No);
-        auto toDestroy = section->takeChild(*currentRow);
-        currentRow = currentRow->nextRow();
-    }
-    if (rowToInsertInto)
-        rowToInsertInto->setNeedsLayout();
 }
 
 } // namespace WebCore

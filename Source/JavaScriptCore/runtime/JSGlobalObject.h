@@ -41,7 +41,6 @@
 #include "SpecialPointer.h"
 #include "StringPrototype.h"
 #include "SymbolPrototype.h"
-#include "TemplateRegistry.h"
 #include "VM.h"
 #include "Watchpoint.h"
 #include <JavaScriptCore/JSBase.h>
@@ -401,7 +400,7 @@ public:
 
     VM& m_vm;
 
-    template<typename T> using PoisonedUniquePtr = WTF::PoisonedUniquePtr<POISON(JSGlobalObject), T>;
+    template<typename T> using PoisonedUniquePtr = WTF::PoisonedUniquePtr<JSGlobalObjectPoison, T>;
 
 #if ENABLE(REMOTE_INSPECTOR)
     PoisonedUniquePtr<Inspector::JSGlobalObjectInspectorController> m_inspectorController;
@@ -459,8 +458,6 @@ public:
     bool isMapPrototypeSetFastAndNonObservable();
     bool isSetPrototypeAddFastAndNonObservable();
 
-    TemplateRegistry m_templateRegistry;
-
     bool m_evalEnabled { true };
     bool m_webAssemblyEnabled { true };
     String m_evalDisabledErrorMessage;
@@ -491,7 +488,7 @@ public:
     const RuntimeFlags& runtimeFlags() const { return m_runtimeFlags; }
 
 protected:
-    JS_EXPORT_PRIVATE explicit JSGlobalObject(VM&, Structure*, const GlobalObjectMethodTable* = 0);
+    JS_EXPORT_PRIVATE explicit JSGlobalObject(VM&, Structure*, const GlobalObjectMethodTable* = nullptr, RefPtr<ThreadLocalCache> = nullptr);
 
     JS_EXPORT_PRIVATE void finishCreation(VM&);
 
@@ -832,7 +829,7 @@ public:
     static bool shouldInterruptScriptBeforeTimeout(const JSGlobalObject*) { return false; }
     static RuntimeFlags javaScriptRuntimeFlags(const JSGlobalObject*) { return RuntimeFlags(); }
 
-    void queueMicrotask(Ref<Microtask>&&);
+    JS_EXPORT_PRIVATE void queueMicrotask(Ref<Microtask>&&);
 
     bool evalEnabled() const { return m_evalEnabled; }
     bool webAssemblyEnabled() const { return m_webAssemblyEnabled; }
@@ -880,8 +877,6 @@ public:
         return m_rareData->opaqueJSClassData;
     }
 
-    TemplateRegistry& templateRegistry() { return m_templateRegistry; }
-
     static ptrdiff_t weakRandomOffset() { return OBJECT_OFFSETOF(JSGlobalObject, m_weakRandom); }
     double weakRandomNumber() { return m_weakRandom.get(); }
     unsigned weakRandomInteger() { return m_weakRandom.getUint32(); }
@@ -893,6 +888,8 @@ public:
     JSWrapperMap* wrapperMap() const { return m_wrapperMap.get(); }
     void setWrapperMap(JSWrapperMap* map) { m_wrapperMap = map; }
 #endif
+    
+    ThreadLocalCache& threadLocalCache() const { return *m_threadLocalCache.get(); }
 
 protected:
     struct GlobalPropertyInfo {
@@ -924,6 +921,8 @@ private:
 #if JSC_OBJC_API_ENABLED
     RetainPtr<JSWrapperMap> m_wrapperMap;
 #endif
+    
+    RefPtr<ThreadLocalCache> m_threadLocalCache;
 };
 
 JSGlobalObject* asGlobalObject(JSValue);

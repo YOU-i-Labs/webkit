@@ -346,6 +346,11 @@ public:
                     }
                     break;
                 }
+                case GetArgumentCountIncludingThis: {
+                    if (InlineCallFrame* inlineCallFrame = node->argumentsInlineCallFrame())
+                        VALIDATE((node), inlineCallFrame->isVarargs());
+                    break;
+                }
                 default:
                     break;
                 }
@@ -582,6 +587,7 @@ private:
                 case PhantomNewAsyncFunction:
                 case PhantomNewAsyncGeneratorFunction:
                 case PhantomCreateActivation:
+                case PhantomNewRegexp:
                 case GetMyArgumentByVal:
                 case GetMyArgumentByValOutOfBounds:
                 case PutHint:
@@ -738,6 +744,7 @@ private:
                 case PhantomDirectArguments:
                 case PhantomCreateRest:
                 case PhantomClonedArguments:
+                case PhantomNewRegexp:
                 case MovHint:
                 case Upsilon:
                 case ForwardVarargs:
@@ -750,6 +757,7 @@ private:
                     break;
 
                 case Check:
+                case CheckVarargs:
                     // FIXME: This is probably not correct.
                     break;
 

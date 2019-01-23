@@ -33,7 +33,9 @@
 #include "FetchEvent.h"
 #include "FetchRequest.h"
 #include "FetchResponse.h"
+#include "ReadableStreamChunk.h"
 #include "ResourceRequest.h"
+#include "ServiceWorker.h"
 #include "ServiceWorkerClientIdentifier.h"
 #include "WorkerGlobalScope.h"
 
@@ -51,31 +53,17 @@ static void processResponse(Ref<Client>&& client, FetchResponse* response)
 
     client->didReceiveResponse(response->resourceResponse());
 
-    if (response->hasReadableStreamBody()) {
-        // FIXME: We should send the body as chunks.
-        response->consumeBodyFromReadableStream([client = WTFMove(client)] (ExceptionOr<RefPtr<SharedBuffer>>&& result) mutable {
+    if (response->isBodyReceivedByChunk()) {
+        response->consumeBodyReceivedByChunk([client = WTFMove(client)] (auto&& result) mutable {
             if (result.hasException()) {
                 client->didFail();
                 return;
             }
 
-            if (auto buffer = result.releaseReturnValue())
-                client->didReceiveData(buffer.releaseNonNull());
-            client->didFinish();
-        });
-        return;
-    }
-    if (response->isLoading()) {
-        // FIXME: We should send the body as chunks.
-        response->consumeBodyWhenLoaded([client = WTFMove(client)] (ExceptionOr<RefPtr<SharedBuffer>>&& result) mutable {
-            if (result.hasException()) {
-                client->didFail();
-                return;
-            }
-
-            if (auto buffer = result.releaseReturnValue())
-                client->didReceiveData(buffer.releaseNonNull());
-            client->didFinish();
+            if (auto chunk = result.returnValue())
+                client->didReceiveData(SharedBuffer::create(reinterpret_cast<const char*>(chunk->data), chunk->size));
+            else
+                client->didFinish();
         });
         return;
     }
@@ -97,6 +85,10 @@ void dispatchFetchEvent(Ref<Client>&& client, ServiceWorkerGlobalScope& globalSc
 
     bool isNavigation = options.mode == FetchOptions::Mode::Navigate;
     bool isNonSubresourceRequest = WebCore::isNonSubresourceRequest(options.destination);
+
+    ASSERT(globalScope.registration().active());
+    ASSERT(globalScope.registration().active()->identifier() == globalScope.thread().identifier());
+    ASSERT(globalScope.registration().active()->state() == ServiceWorkerState::Activated);
 
     auto* formData = request.httpBody();
     std::optional<FetchBody> body;

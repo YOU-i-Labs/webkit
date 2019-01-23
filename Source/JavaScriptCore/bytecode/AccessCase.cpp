@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -782,7 +782,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
 
             CCallHelpers::Jump slowCase = jit.branchPtrWithPatch(
                 CCallHelpers::NotEqual, loadedValueGPR, addressOfLinkFunctionCheck,
-                CCallHelpers::TrustedImmPtr(0));
+                CCallHelpers::TrustedImmPtr(nullptr));
 
             fastPathCall = jit.nearCall();
             if (m_type == Getter)
@@ -955,15 +955,9 @@ void AccessCase::generateImpl(AccessGenerationState& state)
             size_t newSize = newStructure()->outOfLineCapacity() * sizeof(JSValue);
 
             if (allocatingInline) {
-                BlockDirectory* allocator = vm.jsValueGigacageAuxiliarySpace.allocatorFor(newSize, AllocatorForMode::AllocatorIfExists);
+                Allocator allocator = vm.jsValueGigacageAuxiliarySpace.allocatorFor(newSize, AllocatorForMode::AllocatorIfExists);
 
-                if (!allocator) {
-                    // Yuck, this case would suck!
-                    slowPath.append(jit.jump());
-                }
-
-                jit.move(CCallHelpers::TrustedImmPtr(allocator), scratchGPR2);
-                jit.emitAllocate(scratchGPR, allocator, scratchGPR2, scratchGPR3, slowPath);
+                jit.emitAllocate(scratchGPR, JITAllocator::constant(allocator), scratchGPR2, scratchGPR3, slowPath);
                 jit.addPtr(CCallHelpers::TrustedImm32(newSize + sizeof(IndexingHeader)), scratchGPR);
 
                 size_t oldSize = structure()->outOfLineCapacity() * sizeof(JSValue);
@@ -993,7 +987,7 @@ void AccessCase::generateImpl(AccessGenerationState& state)
                 }
 
                 for (size_t offset = oldSize; offset < newSize; offset += sizeof(void*))
-                    jit.storePtr(CCallHelpers::TrustedImmPtr(0), CCallHelpers::Address(scratchGPR, -static_cast<ptrdiff_t>(offset + sizeof(JSValue) + sizeof(void*))));
+                    jit.storePtr(CCallHelpers::TrustedImmPtr(nullptr), CCallHelpers::Address(scratchGPR, -static_cast<ptrdiff_t>(offset + sizeof(JSValue) + sizeof(void*))));
             } else {
                 // Handle the case where we are allocating out-of-line using an operation.
                 RegisterSet extraRegistersToPreserve;

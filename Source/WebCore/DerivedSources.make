@@ -360,7 +360,6 @@ JS_BINDING_IDLS = \
     $(WebCore)/Modules/webvr/VRLayerInit.idl \
     $(WebCore)/Modules/webvr/VRPose.idl \
     $(WebCore)/Modules/webvr/VRStageParameters.idl \
-    $(WebCore)/accessibility/AccessibleNode.idl \
     $(WebCore)/animation/Animatable.idl \
     $(WebCore)/animation/AnimationEffect.idl \
     $(WebCore)/animation/AnimationEffectTiming.idl \
@@ -369,6 +368,7 @@ JS_BINDING_IDLS = \
     $(WebCore)/animation/AnimationPlaybackEventInit.idl \
     $(WebCore)/animation/AnimationTimeline.idl \
     $(WebCore)/animation/CompositeOperation.idl \
+    $(WebCore)/animation/ComputedTimingProperties.idl \
     $(WebCore)/animation/DocumentTimeline.idl \
     $(WebCore)/animation/FillMode.idl \
     $(WebCore)/animation/IterationCompositeOperation.idl \

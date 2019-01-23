@@ -58,6 +58,7 @@ ExitMode mayExitImpl(Graph& graph, Node* node, StateType& state)
     case Flush:
     case Phantom:
     case Check:
+    case CheckVarargs:
     case Identity:
     case IdentityWithProfile:
     case GetLocal:
@@ -74,6 +75,7 @@ ExitMode mayExitImpl(Graph& graph, Node* node, StateType& state)
     case GetStack:
     case GetCallee:
     case GetArgumentCountIncludingThis:
+    case SetArgumentCountIncludingThis:
     case GetRestLength:
     case GetScope:
     case PhantomLocal:
@@ -118,8 +120,14 @@ ExitMode mayExitImpl(Graph& graph, Node* node, StateType& state)
     case NewStringObject:
     case NewRegexp:
     case ToNumber:
+    case RegExpExecNonGlobalOrSticky:
         result = ExitsForExceptions;
         break;
+
+    case SetRegExpObjectLastIndex:
+        if (node->ignoreLastIndexIsWritable())
+            break;
+        return Exits;
 
     default:
         // If in doubt, return true.

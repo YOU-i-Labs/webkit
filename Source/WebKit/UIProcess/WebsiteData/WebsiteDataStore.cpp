@@ -151,7 +151,7 @@ void WebsiteDataStore::resolveDirectoriesIfNecessary()
         m_resolvedConfiguration.webSQLDatabaseDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration.webSQLDatabaseDirectory);
     if (!m_configuration.indexedDBDatabaseDirectory.isEmpty())
         m_resolvedConfiguration.indexedDBDatabaseDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration.indexedDBDatabaseDirectory);
-    if (!m_configuration.serviceWorkerRegistrationDirectory.isEmpty())
+    if (!m_configuration.serviceWorkerRegistrationDirectory.isEmpty() && m_resolvedConfiguration.serviceWorkerRegistrationDirectory.isEmpty())
         m_resolvedConfiguration.serviceWorkerRegistrationDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(m_configuration.serviceWorkerRegistrationDirectory);
     if (!m_configuration.javaScriptConfigurationDirectory.isEmpty())
         m_resolvedConfiguration.javaScriptConfigurationDirectory = resolvePathForSandboxExtension(m_configuration.javaScriptConfigurationDirectory);
@@ -861,20 +861,26 @@ void WebsiteDataStore::removeData(OptionSet<WebsiteDataType> dataTypes, WallTime
     }
 #endif
 
-    // FIXME <rdar://problem/33491222>; scheduleClearInMemoryAndPersistent does not have a completion handler,
-    // so the completion handler for this removeData() call can be called prematurely.
     if (dataTypes.contains(WebsiteDataType::ResourceLoadStatistics) && m_resourceLoadStatistics) {
         auto deletedTypesRaw = dataTypes.toRaw();
         auto monitoredTypesRaw = WebResourceLoadStatisticsStore::monitoredDataTypes().toRaw();
-
+        
         // If we are deleting all of the data types that the resource load statistics store monitors
         // we do not need to re-grandfather old data.
+        callbackAggregator->addPendingCallback();
         if ((monitoredTypesRaw & deletedTypesRaw) == monitoredTypesRaw)
-            m_resourceLoadStatistics->scheduleClearInMemoryAndPersistent(modifiedSince, WebResourceLoadStatisticsStore::ShouldGrandfather::No);
+            m_resourceLoadStatistics->scheduleClearInMemoryAndPersistent(modifiedSince, WebResourceLoadStatisticsStore::ShouldGrandfather::No, [callbackAggregator] {
+                callbackAggregator->removePendingCallback();
+            });
         else
-            m_resourceLoadStatistics->scheduleClearInMemoryAndPersistent(modifiedSince, WebResourceLoadStatisticsStore::ShouldGrandfather::Yes);
+            m_resourceLoadStatistics->scheduleClearInMemoryAndPersistent(modifiedSince, WebResourceLoadStatisticsStore::ShouldGrandfather::Yes, [callbackAggregator] {
+                callbackAggregator->removePendingCallback();
+            });
 
-        clearResourceLoadStatisticsInWebProcesses();
+        callbackAggregator->addPendingCallback();
+        clearResourceLoadStatisticsInWebProcesses([callbackAggregator] {
+            callbackAggregator->removePendingCallback();
+        });
     }
 
     // There's a chance that we don't have any pending callbacks. If so, we want to dispatch the completion handler right away.
@@ -1154,12 +1160,20 @@ void WebsiteDataStore::removeData(OptionSet<WebsiteDataType> dataTypes, const Ve
 
         // If we are deleting all of the data types that the resource load statistics store monitors
         // we do not need to re-grandfather old data.
+        callbackAggregator->addPendingCallback();
         if ((monitoredTypesRaw & deletedTypesRaw) == monitoredTypesRaw)
-            m_resourceLoadStatistics->scheduleClearInMemoryAndPersistent(WebResourceLoadStatisticsStore::ShouldGrandfather::No);
+            m_resourceLoadStatistics->scheduleClearInMemoryAndPersistent(WebResourceLoadStatisticsStore::ShouldGrandfather::No, [callbackAggregator] {
+                callbackAggregator->removePendingCallback();
+            });
         else
-            m_resourceLoadStatistics->scheduleClearInMemoryAndPersistent(WebResourceLoadStatisticsStore::ShouldGrandfather::Yes);
+            m_resourceLoadStatistics->scheduleClearInMemoryAndPersistent(WebResourceLoadStatisticsStore::ShouldGrandfather::Yes, [callbackAggregator] {
+                callbackAggregator->removePendingCallback();
+            });
 
-        clearResourceLoadStatisticsInWebProcesses();
+        callbackAggregator->addPendingCallback();
+        clearResourceLoadStatisticsInWebProcesses([callbackAggregator] {
+            callbackAggregator->removePendingCallback();
+        });
     }
 
     // There's a chance that we don't have any pending callbacks. If so, we want to dispatch the completion handler right away.
@@ -1186,6 +1200,12 @@ void WebsiteDataStore::hasStorageAccessForFrameHandler(const String& resourceDom
 {
     for (auto& processPool : processPools())
         processPool->networkProcess()->hasStorageAccessForFrame(m_sessionID, resourceDomain, firstPartyDomain, frameID, pageID, WTFMove(callback));
+}
+
+void WebsiteDataStore::getAllStorageAccessEntries(CompletionHandler<void(Vector<String>&& domains)>&& callback)
+{
+    for (auto& processPool : processPools())
+        processPool->networkProcess()->getAllStorageAccessEntries(m_sessionID, WTFMove(callback));
 }
 
 void WebsiteDataStore::grantStorageAccessForFrameHandler(const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID, WTF::CompletionHandler<void(bool wasGranted)>&& callback)
@@ -1399,6 +1419,17 @@ void WebsiteDataStore::setResourceLoadStatisticsEnabled(bool enabled)
         processPool->setResourceLoadStatisticsEnabled(false);
 }
 
+bool WebsiteDataStore::resourceLoadStatisticsDebugMode() const
+{
+    return m_resourceLoadStatisticsDebugMode;
+}
+
+void WebsiteDataStore::setResourceLoadStatisticsDebugMode(bool enabled)
+{
+    m_resourceLoadStatisticsDebugMode = enabled;
+    m_resourceLoadStatistics->setResourceLoadStatisticsDebugMode(enabled);
+}
+
 void WebsiteDataStore::enableResourceLoadStatisticsAndSetTestingCallback(Function<void (const String&)>&& callback)
 {
     if (m_resourceLoadStatistics) {
@@ -1424,13 +1455,13 @@ void WebsiteDataStore::enableResourceLoadStatisticsAndSetTestingCallback(Functio
         processPool->setResourceLoadStatisticsEnabled(true);
 }
 
-void WebsiteDataStore::clearResourceLoadStatisticsInWebProcesses()
+void WebsiteDataStore::clearResourceLoadStatisticsInWebProcesses(CompletionHandler<void()>&& callback)
 {
-    if (!resourceLoadStatisticsEnabled())
-        return;
-
-    for (auto& processPool : processPools())
-        processPool->clearResourceLoadStatistics();
+    if (resourceLoadStatisticsEnabled()) {
+        for (auto& processPool : processPools())
+            processPool->clearResourceLoadStatistics();
+    }
+    callback();
 }
 
 StorageProcessCreationParameters WebsiteDataStore::storageProcessParameters()

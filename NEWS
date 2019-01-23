@@ -1,3 +1,53 @@
+==================
+WebKitGTK+ 2.19.92
+==================
+
+What's new in WebKitGTK+ 2.19.92?
+
+  - Ensure DNS prefetching cannot be re-enabled if disabled by settings.
+  - Fix seek sometimes not working.
+  - Fix rendering of emojis that were using the wrong scale factor in some cases.
+  - Fix rendering of combining enclosed keycap.
+  - Fix rendering scale of some layers in HiDPI.
+  - Fix a crash in Wayland when closing the web view.
+  - Fix crashes upower crashes when running inside a chroot or on systems with broken dbus/upower.
+  - Fix memory leaks in GStreamer media backend when using GStreamer 1.14.
+  - Fix the build with Enchant 2.x.
+  - Fix several crashes and rendering issues.
+  - Translation updates: Indonesian.
+
+==================
+WebKitGTK+ 2.19.91
+==================
+
+What's new in WebKitGTK+ 2.19.91?
+
+  - Add ENABLE_ADDRESS_SANITIZER to make it easier to build with asan support.
+  - Fix a crash a under Wayland when using mesa software rasterization.
+  - Make fullscreen video work again.
+  - Fix handling of missing GStreamer elements.
+  - Fix rendering when webm video is played twice.
+  - Fix kinetic scrolling sometimes jumping around.
+  - Fix build with ICU configured without collation support.
+  - Fix several crashes and rendering issues.
+  - Translation updates: Polish.
+
+==================
+WebKitGTK+ 2.19.90
+==================
+
+What's new in WebKitGTK+ 2.19.90?
+
+  - WebSockets use system proxy settings now (requires libsoup 2.61.90).
+  - Show the context menu on long-press gesture.
+  - Add support for Shift + mouse scroll to scroll horizontally.
+  - Fix zoom gesture to actually zoom instead of changing the page scale.
+  - Implement support for Graphics ARIA roles.
+  - Make sleep inhibitors work under Flatpak.
+  - Add get element CSS value command to WebDriver.
+  - Fix a crash aftter a swipe gesture.
+  - Fix several crashes and rendering issues.
+
 =================
 WebKitGTK+ 2.19.6
 =================

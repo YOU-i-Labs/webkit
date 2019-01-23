@@ -113,7 +113,6 @@
 #include "JSPromisePrototype.h"
 #include "JSSet.h"
 #include "JSStringIterator.h"
-#include "JSTemplateRegistryKey.h"
 #include "JSTypedArrayConstructors.h"
 #include "JSTypedArrayPrototypes.h"
 #include "JSTypedArrayViewConstructor.h"
@@ -212,12 +211,6 @@ static JSValue createConsoleProperty(VM& vm, JSObject* object)
     return ConsoleObject::create(vm, global, ConsoleObject::createStructure(vm, global, constructEmptyObject(global->globalExec())));
 }
 
-static JSValue createAtomicsProperty(VM& vm, JSObject* object)
-{
-    JSGlobalObject* global = jsCast<JSGlobalObject*>(object);
-    return AtomicsObject::create(vm, global, AtomicsObject::createStructure(vm, global, global->objectPrototype()));
-}
-
 static EncodedJSValue JSC_HOST_CALL makeBoundFunction(ExecState* exec)
 {
     VM& vm = exec->vm();
@@ -308,7 +301,6 @@ const GlobalObjectMethodTable JSGlobalObject::s_globalObjectMethodTable = {
   Proxy                 createProxyProperty                          DontEnum|PropertyCallback
   JSON                  createJSONProperty                           DontEnum|PropertyCallback
   Math                  createMathProperty                           DontEnum|PropertyCallback
-  Atomics               createAtomicsProperty                        DontEnum|PropertyCallback
   console               createConsoleProperty                        DontEnum|PropertyCallback
   Int8Array             JSGlobalObject::m_typedArrayInt8             DontEnum|ClassStructure
   Int16Array            JSGlobalObject::m_typedArrayInt16            DontEnum|ClassStructure
@@ -342,7 +334,7 @@ static EncodedJSValue JSC_HOST_CALL enqueueJob(ExecState* exec)
     return JSValue::encode(jsUndefined());
 }
 
-JSGlobalObject::JSGlobalObject(VM& vm, Structure* structure, const GlobalObjectMethodTable* globalObjectMethodTable)
+JSGlobalObject::JSGlobalObject(VM& vm, Structure* structure, const GlobalObjectMethodTable* globalObjectMethodTable, RefPtr<ThreadLocalCache> threadLocalCache)
     : Base(vm, structure, 0)
     , m_vm(vm)
     , m_masqueradesAsUndefinedWatchpoint(adoptRef(new WatchpointSet(IsWatched)))
@@ -357,9 +349,9 @@ JSGlobalObject::JSGlobalObject(VM& vm, Structure* structure, const GlobalObjectM
     , m_setAddWatchpoint(IsWatched)
     , m_arraySpeciesWatchpoint(ClearWatchpoint)
     , m_numberToStringWatchpoint(IsWatched)
-    , m_templateRegistry(vm)
     , m_runtimeFlags()
     , m_globalObjectMethodTable(globalObjectMethodTable ? globalObjectMethodTable : &s_globalObjectMethodTable)
+    , m_threadLocalCache(threadLocalCache ? WTFMove(threadLocalCache) : vm.defaultThreadLocalCache)
 {
 }
 
@@ -664,11 +656,15 @@ m_ ## properName ## Structure.set(vm, this, instanceType::createStructure(vm, th
     
     JSArrayBufferConstructor* arrayBufferConstructor = JSArrayBufferConstructor::create(vm, JSArrayBufferConstructor::createStructure(vm, this, m_functionPrototype.get()), m_arrayBufferPrototype.get(), m_speciesGetterSetter.get(), ArrayBufferSharingMode::Default);
     m_arrayBufferPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, arrayBufferConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+
 #if ENABLE(SHARED_ARRAY_BUFFER)
     JSArrayBufferConstructor* sharedArrayBufferConstructor = nullptr;
     sharedArrayBufferConstructor = JSArrayBufferConstructor::create(vm, JSArrayBufferConstructor::createStructure(vm, this, m_functionPrototype.get()), m_sharedArrayBufferPrototype.get(), m_speciesGetterSetter.get(), ArrayBufferSharingMode::Shared);
     m_sharedArrayBufferPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, sharedArrayBufferConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+
+    AtomicsObject* atomicsObject = AtomicsObject::create(vm, this, AtomicsObject::createStructure(vm, this, m_objectPrototype.get()));
 #endif
+
 #define CREATE_CONSTRUCTOR_FOR_SIMPLE_TYPE(capitalName, lowerName, properName, instanceType, jsName, prototypeBase) \
 capitalName ## Constructor* lowerName ## Constructor = capitalName ## Constructor::create(vm, capitalName ## Constructor::createStructure(vm, this, m_functionPrototype.get()), m_ ## lowerName ## Prototype.get(), m_speciesGetterSetter.get()); \
 m_ ## lowerName ## Prototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, lowerName ## Constructor, static_cast<unsigned>(PropertyAttribute::DontEnum)); \
@@ -747,6 +743,7 @@ m_ ## lowerName ## Prototype->putDirectWithoutTransition(vm, vm.propertyNames->c
     putDirectWithoutTransition(vm, vm.propertyNames->ArrayBuffer, arrayBufferConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
 #if ENABLE(SHARED_ARRAY_BUFFER)
     putDirectWithoutTransition(vm, vm.propertyNames->SharedArrayBuffer, sharedArrayBufferConstructor, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    putDirectWithoutTransition(vm, Identifier::fromString(exec, "Atomics"), atomicsObject, static_cast<unsigned>(PropertyAttribute::DontEnum));
 #endif
 
 #define PUT_CONSTRUCTOR_FOR_SIMPLE_TYPE(capitalName, lowerName, properName, instanceType, jsName, prototypeBase) \
@@ -1173,10 +1170,15 @@ ObjectsWithBrokenIndexingFinder::ObjectsWithBrokenIndexingFinder(
 {
 }
 
+inline bool hasBrokenIndexing(IndexingType type)
+{
+    return type && !hasSlowPutArrayStorage(type);
+}
+
 inline bool hasBrokenIndexing(JSObject* object)
 {
     IndexingType type = object->indexingType();
-    return type && !hasSlowPutArrayStorage(type);
+    return hasBrokenIndexing(type);
 }
 
 inline void ObjectsWithBrokenIndexingFinder::visit(JSCell* cell)
@@ -1184,32 +1186,48 @@ inline void ObjectsWithBrokenIndexingFinder::visit(JSCell* cell)
     if (!cell->isObject())
         return;
     
+    VM& vm = m_globalObject->vm();
+
+    // We only want to have a bad time in the affected global object, not in the entire
+    // VM. But we have to be careful, since there may be objects that claim to belong to
+    // a different global object that have prototypes from our global object.
+    auto isInEffectedGlobalObject = [&] (JSObject* object) {
+        for (JSObject* current = object; ;) {
+            if (current->globalObject() == m_globalObject)
+                return true;
+            
+            JSValue prototypeValue = current->getPrototypeDirect(vm);
+            if (prototypeValue.isNull())
+                return false;
+            current = asObject(prototypeValue);
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+    };
+
     JSObject* object = asObject(cell);
+
+    if (JSFunction* function = jsDynamicCast<JSFunction*>(vm, object)) {
+        if (FunctionRareData* rareData = function->rareData()) {
+            // We only use this to cache JSFinalObjects. They do not start off with a broken indexing type.
+            ASSERT(!(rareData->objectAllocationStructure() && hasBrokenIndexing(rareData->objectAllocationStructure()->indexingType())));
+
+            if (Structure* structure = rareData->internalFunctionAllocationStructure()) {
+                if (hasBrokenIndexing(structure->indexingType())) {
+                    bool isRelevantGlobalObject = (structure->globalObject() == m_globalObject)
+                        || (structure->hasMonoProto() && !structure->storedPrototype().isNull() && isInEffectedGlobalObject(asObject(structure->storedPrototype())));
+                    if (isRelevantGlobalObject)
+                        rareData->clearInternalFunctionAllocationProfile();
+                }
+            }
+        }
+    }
 
     // Run this filter first, since it's cheap, and ought to filter out a lot of objects.
     if (!hasBrokenIndexing(object))
         return;
     
-    // We only want to have a bad time in the affected global object, not in the entire
-    // VM. But we have to be careful, since there may be objects that claim to belong to
-    // a different global object that have prototypes from our global object.
-    bool foundGlobalObject = false;
-    VM& vm = m_globalObject->vm();
-    for (JSObject* current = object; ;) {
-        if (current->globalObject() == m_globalObject) {
-            foundGlobalObject = true;
-            break;
-        }
-        
-        JSValue prototypeValue = current->getPrototypeDirect(vm);
-        if (prototypeValue.isNull())
-            break;
-        current = asObject(prototypeValue);
-    }
-    if (!foundGlobalObject)
-        return;
-    
-    m_foundObjects.append(object);
+    if (isInEffectedGlobalObject(object))
+        m_foundObjects.append(object);
 }
 
 IterationStatus ObjectsWithBrokenIndexingFinder::operator()(HeapCell* cell, HeapCell::Kind kind) const
@@ -1230,7 +1248,9 @@ void JSGlobalObject::haveABadTime(VM& vm)
     
     if (isHavingABadTime())
         return;
-    
+
+    vm.structureCache.clear(); // We may be caching array structures in here.
+
     // Make sure that all allocations or indexed storage transitions that are inlining
     // the assumption that it's safe to transition to a non-SlowPut array storage don't
     // do so anymore.
@@ -1422,7 +1442,7 @@ void JSGlobalObject::visitChildren(JSCell* cell, SlotVisitor& visitor)
 
 #undef VISIT_LAZY_TYPE
 
-    for (unsigned i = NUMBER_OF_TYPED_ARRAY_TYPES; i--;)
+    for (unsigned i = NumberOfTypedArrayTypes; i--;)
         thisObject->lazyTypedArrayStructure(indexToTypedArrayType(i)).visit(visitor);
     
     visitor.append(thisObject->m_speciesGetterSetter);

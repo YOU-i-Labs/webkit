@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -121,23 +121,15 @@ public:
         explicit TrustedImmPtr(T* value)
             : m_value(value)
         {
-            static_assert(!std::is_base_of<HeapCell, T>::value, "To use a GC pointer, the graph must be aware of it. Use SpeculativeJIT::TrustedImmPtr::weakPointer instead.");
+            static_assert(!std::is_base_of<JSCell, T>::value, "To use a GC pointer, the graph must be aware of it. Use SpeculativeJIT::TrustedImmPtr::weakPointer instead.");
         }
 
         explicit TrustedImmPtr(RegisteredStructure structure)
             : m_value(structure.get())
         { }
         
-        // This is only here so that TrustedImmPtr(0) does not confuse the C++
-        // overload handling rules.
-        explicit TrustedImmPtr(int value)
-            : m_value(value)
-        {
-            ASSERT(!value);
-        }
-
         explicit TrustedImmPtr(std::nullptr_t)
-            : m_value(0)
+            : m_value(nullptr)
         { }
 
         explicit TrustedImmPtr(FrozenValue* value)
@@ -153,14 +145,15 @@ public:
 
         static TrustedImmPtr weakPointer(Graph& graph, JSCell* cell)
         {     
-            // There are weird relationships in how optimized CodeBlocks
-            // point to other CodeBlocks. We don't want to have them be
-            // part of the weak pointer set. For example, an optimized CodeBlock
-            // having a weak pointer to itself will cause it to get collected.
-            ASSERT(!jsDynamicCast<CodeBlock*>(graph.m_vm, cell));
-
             graph.m_plan.weakReferences.addLazily(cell);
             return TrustedImmPtr(bitwise_cast<size_t>(cell));
+        }
+
+        template<typename Key>
+        static TrustedImmPtr weakPoisonedPointer(Graph& graph, JSCell* cell)
+        {     
+            graph.m_plan.weakReferences.addLazily(cell);
+            return TrustedImmPtr(bitwise_cast<size_t>(cell) ^ Key::key());
         }
 
         operator MacroAssembler::TrustedImmPtr() const { return m_value; }
@@ -1262,6 +1255,11 @@ public:
         m_jit.setupArgumentsWithExecState(TrustedImmPtr::weakPointer(m_jit.graph(), arg1), arg2);
         return appendCall(operation);
     }
+    JITCompiler::Call callOperation(V_JITOperation_ECCZ operation, GPRReg arg1, GPRReg arg2, GPRReg arg3)
+    {
+        m_jit.setupArgumentsWithExecState(arg1, arg2, arg3);
+        return appendCall(operation);
+    }
 
     JITCompiler::Call callOperationWithCallFrameRollbackOnException(V_JITOperation_ECb operation, void* pointer)
     {
@@ -1431,6 +1429,11 @@ public:
         m_jit.setupArgumentsWithExecState(arg1, arg2.gpr());
         return appendCallSetResult(operation, result);
     }
+    JITCompiler::Call callOperation(C_JITOperation_ECJ operation, GPRReg result, JSCell* arg1, JSValueRegs arg2)
+    {
+        m_jit.setupArgumentsWithExecState(TrustedImmPtr::weakPointer(m_jit.graph(), arg1), arg2.gpr());
+        return appendCallSetResult(operation, result);
+    }
     JITCompiler::Call callOperation(C_JITOperation_ECO operation, GPRReg result, GPRReg arg1, GPRReg arg2)
     {
         m_jit.setupArgumentsWithExecState(arg1, arg2);
@@ -1574,6 +1577,11 @@ public:
         return appendCallSetResult(operation, result.payloadGPR());
     }
     JITCompiler::Call callOperation(J_JITOperation_EGReoJss operation, JSValueRegs result, GPRReg arg1, GPRReg arg2, GPRReg arg3)
+    {
+        m_jit.setupArgumentsWithExecState(arg1, arg2, arg3);
+        return appendCallSetResult(operation, result.payloadGPR());
+    }
+    JITCompiler::Call callOperation(J_JITOperation_EGReJss operation, JSValueRegs result, GPRReg arg1, TrustedImmPtr arg2, GPRReg arg3)
     {
         m_jit.setupArgumentsWithExecState(arg1, arg2, arg3);
         return appendCallSetResult(operation, result.payloadGPR());
@@ -1996,6 +2004,11 @@ public:
         m_jit.setupArgumentsWithExecState(arg1, arg2, arg3.payloadGPR());
         return appendCall(operation);
     }
+    JITCompiler::Call callOperation(V_JITOperation_ECCJZ operation, GPRReg arg1, GPRReg arg2, JSValueRegs arg3, GPRReg arg4)
+    {
+        m_jit.setupArgumentsWithExecState(arg1, arg2, arg3.payloadGPR(), arg4);
+        return appendCall(operation);
+    }
 
     JITCompiler::Call callOperation(Z_JITOperation_EJ operation, GPRReg result, JSValueRegs arg1)
     {
@@ -2084,6 +2097,11 @@ public:
     JITCompiler::Call callOperation(C_JITOperation_ECJ operation, GPRReg result, GPRReg arg1, JSValueRegs arg2)
     {
         m_jit.setupArgumentsWithExecState(arg1, arg2.payloadGPR(), arg2.tagGPR());
+        return appendCallSetResult(operation, result);
+    }
+    JITCompiler::Call callOperation(C_JITOperation_ECJ operation, GPRReg result, JSCell* arg1, JSValueRegs arg2)
+    {
+        m_jit.setupArgumentsWithExecState(TrustedImmPtr::weakPointer(m_jit.graph(), arg1), arg2.payloadGPR(), arg2.tagGPR());
         return appendCallSetResult(operation, result);
     }
     JITCompiler::Call callOperation(C_JITOperation_ECO operation, GPRReg result, GPRReg arg1, GPRReg arg2)
@@ -2317,6 +2335,11 @@ public:
         return appendCallSetResult(operation, result.payloadGPR(), result.tagGPR());
     }
     JITCompiler::Call callOperation(J_JITOperation_EGReoJss operation, JSValueRegs result, GPRReg arg1, GPRReg arg2, GPRReg arg3)
+    {
+        m_jit.setupArgumentsWithExecState(arg1, arg2, arg3);
+        return appendCallSetResult(operation, result.payloadGPR(), result.tagGPR());
+    }
+    JITCompiler::Call callOperation(J_JITOperation_EGReJss operation, JSValueRegs result, GPRReg arg1, TrustedImmPtr arg2, GPRReg arg3)
     {
         m_jit.setupArgumentsWithExecState(arg1, arg2, arg3);
         return appendCallSetResult(operation, result.payloadGPR(), result.tagGPR());
@@ -2569,6 +2592,11 @@ public:
     JITCompiler::Call callOperation(V_JITOperation_ECCJ operation, GPRReg arg1, GPRReg arg2, JSValueRegs arg3)
     {
         m_jit.setupArgumentsWithExecState(arg1, arg2, EABI_32BIT_DUMMY_ARG arg3.payloadGPR(), arg3.tagGPR());
+        return appendCall(operation);
+    }
+    JITCompiler::Call callOperation(V_JITOperation_ECCJZ operation, GPRReg arg1, GPRReg arg2, JSValueRegs arg3, GPRReg arg4)
+    {
+        m_jit.setupArgumentsWithExecState(arg1, arg2, EABI_32BIT_DUMMY_ARG arg3.payloadGPR(), arg3.tagGPR(), arg4);
         return appendCall(operation);
     }
 
@@ -2944,6 +2972,8 @@ public:
     void compileSetAdd(Node*);
     void compileMapSet(Node*);
     void compileWeakMapGet(Node*);
+    void compileWeakSetAdd(Node*);
+    void compileWeakMapSet(Node*);
     void compileLoadKeyFromMapBucket(Node*);
     void compileLoadValueFromMapBucket(Node*);
     void compileExtractValueFromWeakMapGet(Node*);
@@ -3044,7 +3074,7 @@ public:
         Edge valueUse, JITCompiler::JumpList& slowPathCases, bool isClamped = false);
     void loadFromIntTypedArray(GPRReg baseReg, GPRReg storageReg, GPRReg propertyReg, GPRReg resultReg, TypedArrayType);
     void setIntTypedArrayLoadResult(Node*, GPRReg resultReg, TypedArrayType, bool canSpeculate = false);
-    template <typename ClassType> void compileNewFunctionCommon(GPRReg, RegisteredStructure, GPRReg, GPRReg, GPRReg, MacroAssembler::JumpList&, size_t, FunctionExecutable*, ptrdiff_t, ptrdiff_t, ptrdiff_t);
+    template <typename ClassType> void compileNewFunctionCommon(GPRReg, RegisteredStructure, GPRReg, GPRReg, GPRReg, MacroAssembler::JumpList&, size_t, FunctionExecutable*);
     void compileNewFunction(Node*);
     void compileSetFunctionName(Node*);
     void compileNewRegexp(Node*);
@@ -3065,6 +3095,7 @@ public:
     void compileArrayPush(Node*);
     void compileNotifyWrite(Node*);
     void compileRegExpExec(Node*);
+    void compileRegExpExecNonGlobalOrSticky(Node*);
     void compileRegExpMatchFast(Node*);
     void compileRegExpTest(Node*);
     void compileStringReplace(Node*);
@@ -3104,6 +3135,7 @@ public:
     void compileGetSetter(Node*);
     void compileGetCallee(Node*);
     void compileGetArgumentCountIncludingThis(Node*);
+    void compileSetArgumentCountIncludingThis(Node*);
     void compileStrCat(Node*);
     void compileNewArrayWithSize(Node*);
     void compileNewTypedArray(Node*);
@@ -3120,7 +3152,7 @@ public:
     // Allocator for a cell of a specific size.
     template <typename StructureType> // StructureType can be GPR or ImmPtr.
     void emitAllocateJSCell(
-        GPRReg resultGPR, BlockDirectory* allocator, GPRReg allocatorGPR, StructureType structure,
+        GPRReg resultGPR, const JITAllocator& allocator, GPRReg allocatorGPR, StructureType structure,
         GPRReg scratchGPR, MacroAssembler::JumpList& slowPath)
     {
         m_jit.emitAllocateJSCell(resultGPR, allocator, allocatorGPR, structure, scratchGPR, slowPath);
@@ -3129,7 +3161,7 @@ public:
     // Allocator for an object of a specific size.
     template <typename StructureType, typename StorageType, typename MaskType> // StructureType, StorageType and, MaskType can be GPR or ImmPtr.
     void emitAllocateJSObject(
-        GPRReg resultGPR, BlockDirectory* allocator, GPRReg allocatorGPR, StructureType structure,
+        GPRReg resultGPR, const JITAllocator& allocator, GPRReg allocatorGPR, StructureType structure,
         StorageType storage, MaskType mask, GPRReg scratchGPR, MacroAssembler::JumpList& slowPath)
     {
         m_jit.emitAllocateJSObject(
@@ -3266,7 +3298,6 @@ public:
     void speculateMisc(Edge);
     void speculate(Node*, Edge);
     
-    JITCompiler::Jump jumpSlowForUnwantedArrayMode(GPRReg tempWithIndexingTypeReg, ArrayMode, IndexingType);
     JITCompiler::JumpList jumpSlowForUnwantedArrayMode(GPRReg tempWithIndexingTypeReg, ArrayMode);
     void checkArray(Node*);
     void arrayify(Node*, GPRReg baseReg, GPRReg propertyReg);
@@ -3312,6 +3343,7 @@ public:
 
     // The JIT, while also provides MacroAssembler functionality.
     JITCompiler& m_jit;
+    Graph& m_graph;
 
     // The current node being generated.
     BasicBlock* m_block;

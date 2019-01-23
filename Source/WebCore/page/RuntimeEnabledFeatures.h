@@ -31,7 +31,6 @@
 
 #pragma once
 
-#include "PlatformExportMacros.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 
@@ -81,6 +80,9 @@ public:
 
     void setDataTransferItemsEnabled(bool areEnabled) { m_areDataTransferItemsEnabled = areEnabled; }
     bool dataTransferItemsEnabled() const { return m_areDataTransferItemsEnabled; }
+
+    void setCustomPasteboardDataEnabled(bool isEnabled) { m_isCustomPasteboardDataEnabled = isEnabled; }
+    bool customPasteboardDataEnabled() const { return m_isCustomPasteboardDataEnabled; }
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     void setAttachmentElementEnabled(bool areEnabled) { m_isAttachmentElementEnabled = areEnabled; }
@@ -220,6 +222,9 @@ public:
     void setServiceWorkerEnabled(bool isEnabled) { m_serviceWorkerEnabled = isEnabled; }
 #endif
 
+    bool fetchAPIKeepAliveEnabled() const { return m_fetchAPIKeepAliveEnabled; }
+    void setFetchAPIKeepAliveEnabled(bool isEnabled) { m_fetchAPIKeepAliveEnabled = isEnabled; }
+
     bool spectreGadgetsEnabled() const;
 
 #if ENABLE(VIDEO)
@@ -237,6 +242,9 @@ public:
 
     void setMediaCapabilitiesEnabled(bool isEnabled) { m_mediaCapabilitiesEnabled = isEnabled; }
     bool mediaCapabilitiesEnabled() const { return m_mediaCapabilitiesEnabled; }
+
+    void setResourceLoadStatisticsDebugMode(bool isEnabled) { m_resourceLoadStatisticsDebugMode = isEnabled; }
+    bool resourceLoadStatisticsDebugMode() const { return m_resourceLoadStatisticsDebugMode; }
 
     WEBCORE_EXPORT static RuntimeEnabledFeatures& sharedFeatures();
 
@@ -259,6 +267,7 @@ private:
     bool m_isMenuItemElementEnabled { false };
     bool m_isDirectoryUploadEnabled { false };
     bool m_areDataTransferItemsEnabled { false };
+    bool m_isCustomPasteboardDataEnabled { false };
     bool m_inputEventsEnabled { true };
 
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -357,6 +366,7 @@ private:
 #if ENABLE(SERVICE_WORKER)
     bool m_serviceWorkerEnabled { false };
 #endif
+    bool m_fetchAPIKeepAliveEnabled { false };
 
     bool m_inspectorAdditionsEnabled { false };
     bool m_webVREnabled { false };
@@ -365,6 +375,8 @@ private:
 
     bool m_mediaCapabilitiesEnabled { false };
 
+    bool m_resourceLoadStatisticsDebugMode { false };
+    
     friend class WTF::NeverDestroyed<RuntimeEnabledFeatures>;
 };
 

@@ -37,6 +37,7 @@ class RenderTableRow;
 class RenderTreeBuilder;
 
 class RenderTreeBuilder::Table {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     Table(RenderTreeBuilder&);
 
@@ -44,11 +45,13 @@ public:
     RenderElement& findOrCreateParentForChild(RenderTableSection& parent, const RenderObject& child, RenderObject*& beforeChild);
     RenderElement& findOrCreateParentForChild(RenderTable& parent, const RenderObject& child, RenderObject*& beforeChild);
 
-    void insertChild(RenderTable& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild);
-    void insertChild(RenderTableSection& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild);
-    void insertChild(RenderTableRow& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild);
+    void attach(RenderTable& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild);
+    void attach(RenderTableSection& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild);
+    void attach(RenderTableRow& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild);
 
     bool childRequiresTable(const RenderElement& parent, const RenderObject& child);
+
+    void collapseAndDestroyAnonymousSiblingRows(RenderTableRow&);
 
 private:
     RenderTreeBuilder& m_builder;

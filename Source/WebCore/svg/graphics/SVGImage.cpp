@@ -56,8 +56,8 @@
 #include "ScriptDisallowedScope.h"
 #include "Settings.h"
 #include "SocketProvider.h"
-#include <runtime/JSCInlines.h>
-#include <runtime/JSLock.h>
+#include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSLock.h>
 #include <wtf/text/TextStream.h>
 
 #if USE(DIRECT2D)
@@ -69,12 +69,14 @@ namespace WebCore {
 
 SVGImage::SVGImage(ImageObserver& observer)
     : Image(&observer)
+    , m_startAnimationTimer(*this, &SVGImage::startAnimationTimerFired)
 {
 }
 
 SVGImage::~SVGImage()
 {
     if (m_page) {
+        ScriptDisallowedScope::DisableAssertionsInScope disabledScope;
         // Store m_page in a local variable, clearing m_page, so that SVGImageChromeClient knows we're destructed.
         std::unique_ptr<Page> currentPage = WTFMove(m_page);
         currentPage->mainFrame().loader().frameDetached(); // Break both the loader and view references to the frame
@@ -377,6 +379,19 @@ void SVGImage::computeIntrinsicDimensions(Length& intrinsicWidth, Length& intrin
         intrinsicRatio = FloatSize(floatValueForLength(intrinsicWidth, 0), floatValueForLength(intrinsicHeight, 0));
 }
 
+void SVGImage::startAnimationTimerFired()
+{
+    startAnimation();
+}
+
+void SVGImage::scheduleStartAnimation()
+{
+    auto rootElement = this->rootElement();
+    if (!rootElement || !rootElement->animationsPaused())
+        return;
+    m_startAnimationTimer.startOneShot(0_s);
+}
+
 void SVGImage::startAnimation()
 {
     auto rootElement = this->rootElement();
@@ -388,6 +403,7 @@ void SVGImage::startAnimation()
 
 void SVGImage::stopAnimation()
 {
+    m_startAnimationTimer.stop();
     auto rootElement = this->rootElement();
     if (!rootElement)
         return;

@@ -27,7 +27,7 @@
 #define MediaSample_h
 
 #include "FloatSize.h"
-#include <runtime/TypedArrays.h>
+#include <JavaScriptCore/TypedArrays.h>
 #include <wtf/MediaTime.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/AtomicString.h>
@@ -79,6 +79,7 @@ public:
         None = 0,
         IsSync = 1 << 0,
         IsNonDisplaying = 1 << 1,
+        HasAlpha = 1 << 2,
     };
     virtual SampleFlags flags() const = 0;
     virtual PlatformSample platformSample() = 0;
@@ -94,6 +95,7 @@ public:
 
     bool isSync() const { return flags() & IsSync; }
     bool isNonDisplaying() const { return flags() & IsNonDisplaying; }
+    bool hasAlpha() const { return flags() & HasAlpha; }
 
     virtual void dump(PrintStream&) const = 0;
 };

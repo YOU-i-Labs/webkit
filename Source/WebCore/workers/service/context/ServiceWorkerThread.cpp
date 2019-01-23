@@ -41,9 +41,9 @@
 #include "WorkerDebuggerProxy.h"
 #include "WorkerLoaderProxy.h"
 #include "WorkerObjectProxy.h"
-#include <inspector/IdentifiersFactory.h>
+#include <JavaScriptCore/IdentifiersFactory.h>
+#include <JavaScriptCore/RuntimeFlags.h>
 #include <pal/SessionID.h>
-#include <runtime/RuntimeFlags.h>
 #include <wtf/NeverDestroyed.h>
 
 using namespace PAL;
@@ -61,7 +61,7 @@ public:
 private:
     void postExceptionToWorkerObject(const String&, int, int, const String&) final { };
     void workerGlobalScopeDestroyed() final { };
-    void postMessageToWorkerObject(Ref<SerializedScriptValue>&&, std::unique_ptr<MessagePortChannelArray>&&) final { };
+    void postMessageToWorkerObject(MessageWithMessagePorts&&) final { };
     void confirmMessageFromWorkerObject(bool) final { };
     void reportPendingActivity(bool) final { };
 };
@@ -96,22 +96,24 @@ void ServiceWorkerThread::postFetchTask(Ref<ServiceWorkerFetch::Client>&& client
     // FIXME: instead of directly using runLoop(), we should be using something like WorkerGlobalScopeProxy.
     // FIXME: request and options come straigth from IPC so are already isolated. We should be able to take benefit of that.
     runLoop().postTaskForMode([client = WTFMove(client), clientId, request = request.isolatedCopy(), referrer = referrer.isolatedCopy(), options = options.isolatedCopy()] (ScriptExecutionContext& context) mutable {
-        ServiceWorkerFetch::dispatchFetchEvent(WTFMove(client), downcast<ServiceWorkerGlobalScope>(context), clientId, WTFMove(request), WTFMove(referrer), WTFMove(options));
+        context.postTask([client = WTFMove(client), clientId, request = WTFMove(request), referrer = WTFMove(referrer), options = WTFMove(options)] (ScriptExecutionContext& context) mutable {
+            ServiceWorkerFetch::dispatchFetchEvent(WTFMove(client), downcast<ServiceWorkerGlobalScope>(context), clientId, WTFMove(request), WTFMove(referrer), WTFMove(options));
+        });
     }, WorkerRunLoop::defaultMode());
 }
 
-static void fireMessageEvent(ServiceWorkerGlobalScope& scope, Ref<SerializedScriptValue>&& message, std::unique_ptr<MessagePortChannelArray>&& channels, ExtendableMessageEventSource&& source, Ref<SecurityOrigin>&& sourceOrigin)
+static void fireMessageEvent(ServiceWorkerGlobalScope& scope, MessageWithMessagePorts&& message, ExtendableMessageEventSource&& source, Ref<SecurityOrigin>&& sourceOrigin)
 {
-    auto ports = MessagePort::entanglePorts(scope, WTFMove(channels));
-    auto messageEvent = ExtendableMessageEvent::create(WTFMove(ports), WTFMove(message), sourceOrigin->toString(), { }, source);
+    auto ports = MessagePort::entanglePorts(scope, WTFMove(message.transferredPorts));
+    auto messageEvent = ExtendableMessageEvent::create(WTFMove(ports), WTFMove(message.message), sourceOrigin->toString(), { }, source);
     scope.dispatchEvent(messageEvent);
     scope.thread().workerObjectProxy().confirmMessageFromWorkerObject(scope.hasPendingActivity());
     scope.updateExtendedEventsSet(messageEvent.ptr());
 }
 
-void ServiceWorkerThread::postMessageToServiceWorker(Ref<SerializedScriptValue>&& message, std::unique_ptr<MessagePortChannelArray>&& channels, ServiceWorkerOrClientData&& sourceData)
+void ServiceWorkerThread::postMessageToServiceWorker(MessageWithMessagePorts&& message, ServiceWorkerOrClientData&& sourceData)
 {
-    runLoop().postTask([channels = WTFMove(channels), message = WTFMove(message), sourceData = WTFMove(sourceData)] (auto& context) mutable {
+    runLoop().postTask([message = WTFMove(message), sourceData = WTFMove(sourceData)] (auto& context) mutable {
         auto& serviceWorkerGlobalScope = downcast<ServiceWorkerGlobalScope>(context);
         RefPtr<SecurityOrigin> sourceOrigin;
         ExtendableMessageEventSource source;
@@ -124,7 +126,7 @@ void ServiceWorkerThread::postMessageToServiceWorker(Ref<SerializedScriptValue>&
             sourceOrigin = SecurityOrigin::create(sourceWorker->scriptURL());
             source = WTFMove(sourceWorker);
         }
-        fireMessageEvent(serviceWorkerGlobalScope, WTFMove(message), WTFMove(channels), ExtendableMessageEventSource { source }, sourceOrigin.releaseNonNull());
+        fireMessageEvent(serviceWorkerGlobalScope, WTFMove(message), ExtendableMessageEventSource { source }, sourceOrigin.releaseNonNull());
     });
 }
 

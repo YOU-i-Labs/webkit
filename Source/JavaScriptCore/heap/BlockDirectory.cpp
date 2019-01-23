@@ -26,7 +26,6 @@
 #include "config.h"
 #include "BlockDirectory.h"
 
-#include "AllocatingScope.h"
 #include "BlockDirectoryInlines.h"
 #include "GCActivityCallback.h"
 #include "Heap.h"
@@ -34,19 +33,20 @@
 #include "JSCInlines.h"
 #include "MarkedBlockInlines.h"
 #include "SuperSampler.h"
+#include "ThreadLocalCacheInlines.h"
 #include "VM.h"
 #include <wtf/CurrentTime.h>
 
 namespace JSC {
 
-static constexpr bool tradeDestructorBlocks = true;
-
 BlockDirectory::BlockDirectory(Heap* heap, size_t cellSize)
-    : m_freeList(cellSize)
-    , m_currentBlock(0)
-    , m_lastActiveBlock(0)
-    , m_cellSize(static_cast<unsigned>(cellSize))
+    : m_cellSize(static_cast<unsigned>(cellSize))
     , m_heap(heap)
+{
+    heap->threadLocalCacheLayout().allocateOffset(this);
+}
+
+BlockDirectory::~BlockDirectory()
 {
 }
 
@@ -56,7 +56,7 @@ void BlockDirectory::setSubspace(Subspace* subspace)
     m_subspace = subspace;
 }
 
-bool BlockDirectory::isPagedOut(double deadline)
+bool BlockDirectory::isPagedOut(MonotonicTime deadline)
 {
     unsigned itersSinceLastTimeCheck = 0;
     for (auto* block : m_blocks) {
@@ -64,7 +64,7 @@ bool BlockDirectory::isPagedOut(double deadline)
             holdLock(block->block().lock());
         ++itersSinceLastTimeCheck;
         if (itersSinceLastTimeCheck >= Heap::s_timeCheckResolution) {
-            double currentTime = WTF::monotonicallyIncreasingTime();
+            MonotonicTime currentTime = MonotonicTime::now();
             if (currentTime > deadline)
                 return true;
             itersSinceLastTimeCheck = 0;
@@ -81,156 +81,20 @@ MarkedBlock::Handle* BlockDirectory::findEmptyBlockToSteal()
     return m_blocks[m_emptyCursor];
 }
 
-void BlockDirectory::didConsumeFreeList()
+MarkedBlock::Handle* BlockDirectory::findBlockForAllocation(LocalAllocator& allocator)
 {
-    if (m_currentBlock)
-        m_currentBlock->didConsumeFreeList();
-    
-    m_freeList.clear();
-    m_currentBlock = nullptr;
-}
-
-void* BlockDirectory::tryAllocateWithoutCollecting()
-{
-    SuperSamplerScope superSamplerScope(false);
-    
-    ASSERT(!m_currentBlock);
-    ASSERT(m_freeList.allocationWillFail());
-    
     for (;;) {
-        m_allocationCursor = (m_canAllocateButNotEmpty | m_empty).findBit(m_allocationCursor, true);
-        if (m_allocationCursor >= m_blocks.size())
-            break;
+        allocator.m_allocationCursor = (m_canAllocateButNotEmpty | m_empty).findBit(allocator.m_allocationCursor, true);
+        if (allocator.m_allocationCursor >= m_blocks.size())
+            return nullptr;
         
-        setIsCanAllocateButNotEmpty(NoLockingNecessary, m_allocationCursor, false);
-
-        if (void* result = tryAllocateIn(m_blocks[m_allocationCursor]))
+        size_t blockIndex = allocator.m_allocationCursor++;
+        MarkedBlock::Handle* result = m_blocks[blockIndex];
+        if (result->securityOriginToken() == allocator.tlc()->securityOriginToken()) {
+            setIsCanAllocateButNotEmpty(NoLockingNecessary, blockIndex, false);
             return result;
-    }
-    
-    if (Options::stealEmptyBlocksFromOtherAllocators()
-        && (tradeDestructorBlocks || !needsDestruction())) {
-        if (MarkedBlock::Handle* block = m_subspace->findEmptyBlockToSteal()) {
-            RELEASE_ASSERT(block->alignedMemoryAllocator() == m_subspace->alignedMemoryAllocator());
-            
-            block->sweep(nullptr);
-            
-            // It's good that this clears canAllocateButNotEmpty as well as all other bits,
-            // because there is a remote chance that a block may have both canAllocateButNotEmpty
-            // and empty set at the same time.
-            block->removeFromDirectory();
-            addBlock(block);
-            return allocateIn(block);
         }
     }
-    
-    return nullptr;
-}
-
-void* BlockDirectory::allocateIn(MarkedBlock::Handle* block)
-{
-    void* result = tryAllocateIn(block);
-    RELEASE_ASSERT(result);
-    return result;
-}
-
-void* BlockDirectory::tryAllocateIn(MarkedBlock::Handle* block)
-{
-    ASSERT(block);
-    ASSERT(!block->isFreeListed());
-    
-    block->sweep(&m_freeList);
-    
-    // It's possible to stumble on a completely full block. Marking tries to retire these, but
-    // that algorithm is racy and may forget to do it sometimes.
-    if (m_freeList.allocationWillFail()) {
-        ASSERT(block->isFreeListed());
-        block->unsweepWithNoNewlyAllocated();
-        ASSERT(!block->isFreeListed());
-        ASSERT(!isEmpty(NoLockingNecessary, block));
-        ASSERT(!isCanAllocateButNotEmpty(NoLockingNecessary, block));
-        return nullptr;
-    }
-    
-    m_currentBlock = block;
-    
-    void* result = m_freeList.allocate(
-        [] () -> HeapCell* {
-            RELEASE_ASSERT_NOT_REACHED();
-            return nullptr;
-        });
-    setIsEden(NoLockingNecessary, m_currentBlock, true);
-    markedSpace().didAllocateInBlock(m_currentBlock);
-    return result;
-}
-
-ALWAYS_INLINE void BlockDirectory::doTestCollectionsIfNeeded(GCDeferralContext* deferralContext)
-{
-    if (!Options::slowPathAllocsBetweenGCs())
-        return;
-
-    static unsigned allocationCount = 0;
-    if (!allocationCount) {
-        if (!m_heap->isDeferred()) {
-            if (deferralContext)
-                deferralContext->m_shouldGC = true;
-            else
-                m_heap->collectNow(Sync, CollectionScope::Full);
-        }
-    }
-    if (++allocationCount >= Options::slowPathAllocsBetweenGCs())
-        allocationCount = 0;
-}
-
-void* BlockDirectory::allocateSlowCase(GCDeferralContext* deferralContext, AllocationFailureMode failureMode)
-{
-    SuperSamplerScope superSamplerScope(false);
-    ASSERT(m_heap->vm()->currentThreadIsHoldingAPILock());
-    doTestCollectionsIfNeeded(deferralContext);
-
-    ASSERT(!markedSpace().isIterating());
-    m_heap->didAllocate(m_freeList.originalSize());
-    
-    didConsumeFreeList();
-    
-    AllocatingScope helpingHeap(*m_heap);
-
-    m_heap->collectIfNecessaryOrDefer(deferralContext);
-    
-    // Goofy corner case: the GC called a callback and now this directory has a currentBlock. This only
-    // happens when running WebKit tests, which inject a callback into the GC's finalization.
-    if (UNLIKELY(m_currentBlock))
-        return allocate(deferralContext, failureMode);
-    
-    void* result = tryAllocateWithoutCollecting();
-    
-    if (LIKELY(result != 0))
-        return result;
-    
-    MarkedBlock::Handle* block = tryAllocateBlock();
-    if (!block) {
-        if (failureMode == AllocationFailureMode::Assert)
-            RELEASE_ASSERT_NOT_REACHED();
-        else
-            return nullptr;
-    }
-    addBlock(block);
-    result = allocateIn(block);
-    ASSERT(result);
-    return result;
-}
-
-static size_t blockHeaderSize()
-{
-    return WTF::roundUpToMultipleOf<MarkedBlock::atomSize>(sizeof(MarkedBlock));
-}
-
-size_t BlockDirectory::blockSizeForBytes(size_t bytes)
-{
-    size_t minBlockSize = MarkedBlock::blockSize;
-    size_t minAllocationSize = blockHeaderSize() + WTF::roundUpToMultipleOf<MarkedBlock::atomSize>(bytes);
-    minAllocationSize = WTF::roundUpToMultipleOf(WTF::pageSize(), minAllocationSize);
-    return std::max(minBlockSize, minAllocationSize);
 }
 
 MarkedBlock::Handle* BlockDirectory::tryAllocateBlock()
@@ -246,7 +110,7 @@ MarkedBlock::Handle* BlockDirectory::tryAllocateBlock()
     return handle;
 }
 
-void BlockDirectory::addBlock(MarkedBlock::Handle* block)
+void BlockDirectory::addBlock(MarkedBlock::Handle* block, SecurityOriginToken securityOriginToken)
 {
     size_t index;
     if (m_freeBlockIndices.isEmpty()) {
@@ -284,7 +148,7 @@ void BlockDirectory::addBlock(MarkedBlock::Handle* block)
         });
 
     // This is the point at which the block learns of its cellSize() and attributes().
-    block->didAddToDirectory(this, index);
+    block->didAddToDirectory(this, index, securityOriginToken);
     
     setIsLive(NoLockingNecessary, index, true);
     setIsEmpty(NoLockingNecessary, index, true);
@@ -313,26 +177,19 @@ void BlockDirectory::stopAllocating()
 {
     if (false)
         dataLog(RawPointer(this), ": BlockDirectory::stopAllocating!\n");
-    ASSERT(!m_lastActiveBlock);
-    if (!m_currentBlock) {
-        ASSERT(m_freeList.allocationWillFail());
-        return;
-    }
-    
-    m_currentBlock->stopAllocating(m_freeList);
-    m_lastActiveBlock = m_currentBlock;
-    m_currentBlock = 0;
-    m_freeList.clear();
+    m_localAllocators.forEach(
+        [&] (LocalAllocator* allocator) {
+            allocator->stopAllocating();
+        });
 }
 
 void BlockDirectory::prepareForAllocation()
 {
-    m_lastActiveBlock = nullptr;
-    m_currentBlock = nullptr;
-    m_freeList.clear();
-
-    m_allocationCursor = 0;
-    m_emptyCursor = 0;
+    m_localAllocators.forEach(
+        [&] (LocalAllocator* allocator) {
+            allocator->prepareForAllocation();
+        });
+    
     m_unsweptCursor = 0;
     
     m_eden.clearAll();
@@ -342,6 +199,21 @@ void BlockDirectory::prepareForAllocation()
         // https://bugs.webkit.org/show_bug.cgi?id=162296
         RELEASE_ASSERT_NOT_REACHED();
     }
+}
+
+void BlockDirectory::stopAllocatingForGood()
+{
+    if (false)
+        dataLog(RawPointer(this), ": BlockDirectory::stopAllocatingForGood!\n");
+    
+    m_localAllocators.forEach(
+        [&] (LocalAllocator* allocator) {
+            allocator->stopAllocatingForGood();
+        });
+
+    auto locker = holdLock(m_localAllocatorsLock);
+    while (!m_localAllocators.isEmpty())
+        m_localAllocators.begin()->remove();
 }
 
 void BlockDirectory::lastChanceToFinalize()
@@ -354,12 +226,10 @@ void BlockDirectory::lastChanceToFinalize()
 
 void BlockDirectory::resumeAllocating()
 {
-    if (!m_lastActiveBlock)
-        return;
-
-    m_lastActiveBlock->resumeAllocating(m_freeList);
-    m_currentBlock = m_lastActiveBlock;
-    m_lastActiveBlock = nullptr;
+    m_localAllocators.forEach(
+        [&] (LocalAllocator* allocator) {
+            allocator->resumeAllocating();
+        });
 }
 
 void BlockDirectory::beginMarkingForFullCollection()
@@ -379,7 +249,7 @@ void BlockDirectory::endMarking()
     // know what kind of collection it is. That knowledge is already encoded in the m_markingXYZ
     // vectors.
     
-    if (!tradeDestructorBlocks && needsDestruction()) {
+    if (!Options::tradeDestructorBlocks() && needsDestruction()) {
         ASSERT(m_empty.isEmpty());
         m_canAllocateButNotEmpty = m_live & ~m_markingRetired;
     } else {
@@ -510,6 +380,16 @@ void BlockDirectory::dumpBits(PrintStream& out)
 MarkedSpace& BlockDirectory::markedSpace() const
 {
     return m_subspace->space();
+}
+
+bool BlockDirectory::isFreeListedCell(const void* target)
+{
+    bool result = false;
+    m_localAllocators.forEach(
+        [&] (LocalAllocator* allocator) {
+            result |= allocator->isFreeListedCell(target);
+        });
+    return result;
 }
 
 } // namespace JSC

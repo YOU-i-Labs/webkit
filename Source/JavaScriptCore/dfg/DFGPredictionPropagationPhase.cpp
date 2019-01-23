@@ -696,6 +696,7 @@ private:
         case ArrayPop:
         case ArrayPush:
         case RegExpExec:
+        case RegExpExecNonGlobalOrSticky:
         case RegExpTest:
         case RegExpMatchFast:
         case StringReplace:
@@ -766,6 +767,9 @@ private:
             setPrediction(SpecInt32Only);
             break;
         }
+
+        case SetArgumentCountIncludingThis:
+            break;
 
         case MapHash:
             setPrediction(SpecInt32Only);
@@ -845,6 +849,7 @@ private:
         case IsUndefined:
         case IsBoolean:
         case IsNumber:
+        case NumberIsInteger:
         case IsObject:
         case IsObjectOrNull:
         case IsFunction:
@@ -1061,6 +1066,7 @@ private:
             break;
         }
 
+        case GetArrayMask:
         case PutByValAlias:
         case DoubleAsInt32:
         case CheckArray:
@@ -1091,6 +1097,7 @@ private:
         case PhantomNewArrayWithSpread:
         case PhantomNewArrayBuffer:
         case PhantomClonedArguments:
+        case PhantomNewRegexp:
         case GetMyArgumentByVal:
         case GetMyArgumentByValOutOfBounds:
         case PutHint:
@@ -1169,6 +1176,7 @@ private:
         case PutStructure:
         case Phantom:
         case Check:
+        case CheckVarargs:
         case PutGlobalVariable:
         case CheckTraps:
         case LogShadowChickenPrologue:
@@ -1185,6 +1193,8 @@ private:
         case PutDynamicVar:
         case NukeStructureAndSetButterfly:
         case InitializeEntrypointArguments:
+        case WeakSetAdd:
+        case WeakMapSet:
             break;
             
         // This gets ignored because it only pretends to produce a value.

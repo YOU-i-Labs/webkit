@@ -123,24 +123,4 @@ void RenderSVGInline::updateFromStyle()
     setInline(true);
 }
 
-void RenderSVGInline::addChild(RenderTreeBuilder& builder, RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
-{
-    builder.insertChildToSVGInline(*this, WTFMove(newChild), beforeChild);
-}
-
-RenderPtr<RenderObject> RenderSVGInline::takeChild(RenderObject& child)
-{
-    SVGResourcesCache::clientWillBeRemovedFromTree(child);
-
-    auto* textAncestor = RenderSVGText::locateRenderSVGTextAncestor(*this);
-    if (!textAncestor)
-        return RenderInline::takeChild(child);
-
-    Vector<SVGTextLayoutAttributes*, 2> affectedAttributes;
-    textAncestor->subtreeChildWillBeRemoved(&child, affectedAttributes);
-    auto takenChild = RenderInline::takeChild(child);
-    textAncestor->subtreeChildWasRemoved(affectedAttributes);
-    return takenChild;
-}
-
 }

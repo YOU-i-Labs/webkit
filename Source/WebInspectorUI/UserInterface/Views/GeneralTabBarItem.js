@@ -26,17 +26,37 @@
 
 WI.GeneralTabBarItem = class GeneralTabBarItem extends WI.TabBarItem
 {
-    constructor(image, title, representedObject)
+    constructor(image, title, isEphemeral = false)
     {
-        super(image, title, representedObject);
+        super(image, title);
 
-        let closeButtonElement = document.createElement("div");
-        closeButtonElement.classList.add(WI.TabBarItem.CloseButtonStyleClassName);
-        closeButtonElement.title = WI.UIString("Click to close this tab; Option-click to close all tabs except this one");
-        this.element.insertBefore(closeButtonElement, this.element.firstChild);
+        this._isEphemeral = isEphemeral;
+
+        if (this._isEphemeral) {
+            this.element.classList.add("ephemeral");
+
+            let closeButtonElement = document.createElement("div");
+            closeButtonElement.classList.add(WI.TabBarItem.CloseButtonStyleClassName);
+            closeButtonElement.title = WI.UIString("Click to close this tab");
+
+            this.element.insertBefore(closeButtonElement, this.element.firstChild);
+            this.element.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this));
+        }
+    }
+
+    static fromTabInfo({image, title, isEphemeral})
+    {
+        return new WI.GeneralTabBarItem(image, title, isEphemeral);
     }
 
     // Public
+
+    get isEphemeral() { return this._isEphemeral; }
+
+    get title()
+    {
+        return super.title;
+    }
 
     set title(title)
     {
@@ -49,7 +69,7 @@ WI.GeneralTabBarItem = class GeneralTabBarItem extends WI.TabBarItem
             titleContentElement.textContent = title;
             this._titleElement.appendChild(titleContentElement);
 
-            this.element.insertBefore(this._titleElement, this.element.lastChild);
+            this.element.appendChild(this._titleElement);
         } else {
             if (this._titleElement)
                 this._titleElement.remove();
@@ -58,5 +78,19 @@ WI.GeneralTabBarItem = class GeneralTabBarItem extends WI.TabBarItem
         }
 
         super.title = title;
+    }
+
+    // Private
+
+    _handleContextMenuEvent(event)
+    {
+        if (!this._parentTabBar)
+            return;
+
+        let contextMenu = WI.ContextMenu.createFromEvent(event);
+        contextMenu.appendItem(WI.UIString("Close Tab"), () => {
+            this._parentTabBar.removeTabBarItem(this);
+        }, this.isDefaultTab);
+        contextMenu.appendSeparator();
     }
 };

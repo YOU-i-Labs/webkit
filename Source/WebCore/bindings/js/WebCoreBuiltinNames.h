@@ -26,12 +26,11 @@
 
 #pragma once
 
-#include <builtins/BuiltinUtils.h>
+#include <JavaScriptCore/BuiltinUtils.h>
 
 namespace WebCore {
 
 #define WEBCORE_COMMON_PRIVATE_IDENTIFIERS_EACH_PROPERTY_NAME(macro) \
-    macro(AccessibleNode) \
     macro(Animation) \
     macro(AnimationEffect) \
     macro(AnimationEffectTiming) \
@@ -81,6 +80,7 @@ namespace WebCore {
     macro(IDBTransaction) \
     macro(IDBVersionChangeEvent) \
     macro(ImageBitmap) \
+    macro(ImageBitmapRenderingContext) \
     macro(InputEvent) \
     macro(IntersectionObserver) \
     macro(IntersectionObserverEntry) \

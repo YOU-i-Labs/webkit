@@ -67,13 +67,13 @@
 #include "WebSocket.h"
 #include "WebSocketChannel.h"
 #include "WebSocketFrame.h"
-#include <inspector/ContentSearchUtilities.h>
-#include <inspector/IdentifiersFactory.h>
-#include <inspector/InjectedScript.h>
-#include <inspector/InjectedScriptManager.h>
-#include <inspector/ScriptCallStack.h>
-#include <inspector/ScriptCallStackFactory.h>
-#include <runtime/JSCInlines.h>
+#include <JavaScriptCore/ContentSearchUtilities.h>
+#include <JavaScriptCore/IdentifiersFactory.h>
+#include <JavaScriptCore/InjectedScript.h>
+#include <JavaScriptCore/InjectedScriptManager.h>
+#include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/ScriptCallStack.h>
+#include <JavaScriptCore/ScriptCallStackFactory.h>
 #include <wtf/JSONValues.h>
 #include <wtf/Lock.h>
 #include <wtf/RefPtr.h>
@@ -349,7 +349,7 @@ void InspectorNetworkAgent::willSendRequest(unsigned long identifier, DocumentLo
     }
 
     double sendTimestamp = timestamp();
-    double walltime = currentTime();
+    WallTime walltime = WallTime::now();
 
     String requestId = IdentifiersFactory::requestId(identifier);
     String frameId = frameIdentifier(loader);
@@ -382,7 +382,7 @@ void InspectorNetworkAgent::willSendRequest(unsigned long identifier, DocumentLo
     auto initiatorObject = buildInitiatorObject(document);
 
     String url = loader ? loader->url().string() : request.url();
-    m_frontendDispatcher->requestWillBeSent(requestId, frameId, loaderId, url, buildObjectForResourceRequest(request), sendTimestamp, walltime, initiatorObject, buildObjectForResourceResponse(redirectResponse, nullptr), type != InspectorPageAgent::OtherResource ? &protocolResourceType : nullptr, targetId.isEmpty() ? nullptr : &targetId);
+    m_frontendDispatcher->requestWillBeSent(requestId, frameId, loaderId, url, buildObjectForResourceRequest(request), sendTimestamp, walltime.secondsSinceEpoch().seconds(), initiatorObject, buildObjectForResourceResponse(redirectResponse, nullptr), type != InspectorPageAgent::OtherResource ? &protocolResourceType : nullptr, targetId.isEmpty() ? nullptr : &targetId);
 }
 
 static InspectorPageAgent::ResourceType resourceTypeForCachedResource(CachedResource* resource)
@@ -653,7 +653,7 @@ void InspectorNetworkAgent::willSendWebSocketHandshakeRequest(unsigned long iden
     auto requestObject = Inspector::Protocol::Network::WebSocketRequest::create()
         .setHeaders(buildObjectForHeaders(request.httpHeaderFields()))
         .release();
-    m_frontendDispatcher->webSocketWillSendHandshakeRequest(IdentifiersFactory::requestId(identifier), timestamp(), currentTime(), WTFMove(requestObject));
+    m_frontendDispatcher->webSocketWillSendHandshakeRequest(IdentifiersFactory::requestId(identifier), timestamp(), WallTime::now().secondsSinceEpoch().seconds(), WTFMove(requestObject));
 }
 
 void InspectorNetworkAgent::didReceiveWebSocketHandshakeResponse(unsigned long identifier, const ResourceResponse& response)

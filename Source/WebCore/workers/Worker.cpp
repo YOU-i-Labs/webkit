@@ -37,7 +37,7 @@
 #include "WorkerGlobalScopeProxy.h"
 #include "WorkerScriptLoader.h"
 #include "WorkerThread.h"
-#include <inspector/IdentifiersFactory.h>
+#include <JavaScriptCore/IdentifiersFactory.h>
 #include <wtf/HashSet.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
@@ -124,7 +124,8 @@ ExceptionOr<void> Worker::postMessage(JSC::ExecState& state, JSC::JSValue messag
     auto channels = MessagePort::disentanglePorts(WTFMove(ports));
     if (channels.hasException())
         return channels.releaseException();
-    m_contextProxy.postMessageToWorkerGlobalScope(message.releaseReturnValue(), channels.releaseReturnValue());
+
+    m_contextProxy.postMessageToWorkerGlobalScope({ message.releaseReturnValue(), channels.releaseReturnValue() });
     return { };
 }
 

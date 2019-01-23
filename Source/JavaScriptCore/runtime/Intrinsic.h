@@ -77,6 +77,7 @@ enum Intrinsic {
     StringPrototypeSliceIntrinsic,
     StringPrototypeToLowerCaseIntrinsic,
     NumberPrototypeToStringIntrinsic,
+    NumberIsIntegerIntrinsic,
     IMulIntrinsic,
     RandomIntrinsic,
     FRoundIntrinsic,
@@ -97,7 +98,9 @@ enum Intrinsic {
     JSSetBucketKeyIntrinsic,
     JSWeakMapGetIntrinsic,
     JSWeakMapHasIntrinsic,
+    JSWeakMapSetIntrinsic,
     JSWeakSetHasIntrinsic,
+    JSWeakSetAddIntrinsic,
     HasOwnPropertyIntrinsic,
     AtomicsAddIntrinsic,
     AtomicsAndIntrinsic,
@@ -122,6 +125,7 @@ enum Intrinsic {
     // Debugging intrinsics. These are meant to be used as testing hacks within
     // jsc.cpp and should never be exposed to users.
     DFGTrueIntrinsic,
+    FTLTrueIntrinsic,
     OSRExitIntrinsic,
     IsFinalTierIntrinsic,
     SetInt32HeapPredictionIntrinsic,

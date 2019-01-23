@@ -78,8 +78,8 @@ class Cache;
 
 class NetworkProcess : public ChildProcess, private DownloadManager::Client {
     WTF_MAKE_NONCOPYABLE(NetworkProcess);
-    friend class NeverDestroyed<NetworkProcess>;
-    friend class NeverDestroyed<DownloadManager>;
+    friend NeverDestroyed<NetworkProcess>;
+    friend NeverDestroyed<DownloadManager>;
 public:
     static NetworkProcess& singleton();
 
@@ -119,9 +119,7 @@ public:
     void clearHSTSCache(WebCore::NetworkStorageSession&, WallTime modifiedSince);
 #endif
 
-#if USE(NETWORK_SESSION)
     void findPendingDownloadLocation(NetworkDataTask&, ResponseCompletionHandler&&, const WebCore::ResourceResponse&);
-#endif
 
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
     void canAuthenticateAgainstProtectionSpace(NetworkResourceLoader&, const WebCore::ProtectionSpace&);
@@ -139,6 +137,7 @@ public:
 #if HAVE(CFNETWORK_STORAGE_PARTITIONING)
     void updatePrevalentDomainsToPartitionOrBlockCookies(PAL::SessionID, const Vector<String>& domainsToPartition, const Vector<String>& domainsToBlock, const Vector<String>& domainsToNeitherPartitionNorBlock, bool shouldClearFirst);
     void hasStorageAccessForFrame(PAL::SessionID, const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID, uint64_t contextId);
+    void getAllStorageAccessEntries(PAL::SessionID, uint64_t contextId);
     void grantStorageAccessForFrame(PAL::SessionID, const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID, uint64_t contextId);
     void removePrevalentDomains(PAL::SessionID, const Vector<String>& domains);
 #endif
@@ -184,9 +183,7 @@ private:
     void didDestroyDownload() override;
     IPC::Connection* downloadProxyConnection() override;
     AuthenticationManager& downloadsAuthenticationManager() override;
-#if USE(NETWORK_SESSION)
     void pendingDownloadCanceled(DownloadID) override;
-#endif
 
     // Message Handlers
     void didReceiveNetworkProcessMessage(IPC::Connection&, IPC::Decoder&);
@@ -210,9 +207,7 @@ private:
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
     void continueCanAuthenticateAgainstProtectionSpace(uint64_t resourceLoadIdentifier, bool canAuthenticate);
 #endif
-#if USE(NETWORK_SESSION)
     void continueWillSendRequest(DownloadID, WebCore::ResourceRequest&&);
-#endif
     void continueDecidePendingDownloadDestination(DownloadID, String destination, SandboxExtension::Handle&&, bool allowOverwrite);
 
     void setCacheModel(uint32_t);

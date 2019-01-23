@@ -38,8 +38,7 @@
 #define YARR_CALL
 #endif
 
-#if CPU(ARM64) || (CPU(X86_64) && !OS(WINDOWS))
-#define JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
 constexpr size_t patternContextBufferSize = 8192; // Space caller allocates to save nested parenthesis context
 #endif
 
@@ -50,9 +49,18 @@ class ExecutablePool;
 
 namespace Yarr {
 
+enum class JITFailureReason : uint8_t {
+    DecodeSurrogatePair,
+    BackReference,
+    VariableCountedParenthesisWithNonZeroMinimum,
+    ParenthesizedSubpattern,
+    NonGreedyParenthesizedSubpattern,
+    ExecutableMemoryAllocationFailure,
+};
+
 class YarrCodeBlock {
 #if CPU(X86_64) || CPU(ARM64)
-#ifdef JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
     typedef MatchResult (*YarrJITCode8)(const LChar* input, unsigned start, unsigned length, int* output, void* freeParenContext, unsigned parenContextSize) YARR_CALL;
     typedef MatchResult (*YarrJITCode16)(const UChar* input, unsigned start, unsigned length, int* output, void* freeParenContext, unsigned parenContextSize) YARR_CALL;
     typedef MatchResult (*YarrJITCodeMatchOnly8)(const LChar* input, unsigned start, unsigned length, void*, void* freeParenContext, unsigned parenContextSize) YARR_CALL;
@@ -71,17 +79,10 @@ class YarrCodeBlock {
 #endif
 
 public:
-    YarrCodeBlock()
-        : m_needFallBack(false)
-    {
-    }
+    YarrCodeBlock() = default;
 
-    ~YarrCodeBlock()
-    {
-    }
-
-    void setFallBack(bool fallback) { m_needFallBack = fallback; }
-    bool isFallBack() { return m_needFallBack; }
+    void setFallBackWithFailureReason(JITFailureReason failureReason) { m_failureReason = failureReason; }
+    std::optional<JITFailureReason> failureReason() { return m_failureReason; }
 
     bool has8BitCode() { return m_ref8.size(); }
     bool has16BitCode() { return m_ref16.size(); }
@@ -93,7 +94,10 @@ public:
     void set8BitCodeMatchOnly(MacroAssemblerCodeRef matchOnly) { m_matchOnly8 = matchOnly; }
     void set16BitCodeMatchOnly(MacroAssemblerCodeRef matchOnly) { m_matchOnly16 = matchOnly; }
 
-#ifdef JIT_ALL_PARENS_EXPRESSIONS
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
+    bool usesPatternContextBuffer() { return m_usesPatternContextBuffer; }
+    void setUsesPaternContextBuffer() { m_usesPatternContextBuffer = true; }
+
     MatchResult execute(const LChar* input, unsigned start, unsigned length, int* output, void* freeParenContext, unsigned parenContextSize)
     {
         ASSERT(has8BitCode());
@@ -188,7 +192,7 @@ public:
         m_ref16 = MacroAssemblerCodeRef();
         m_matchOnly8 = MacroAssemblerCodeRef();
         m_matchOnly16 = MacroAssemblerCodeRef();
-        m_needFallBack = false;
+        m_failureReason = std::nullopt;
     }
 
 private:
@@ -196,7 +200,10 @@ private:
     MacroAssemblerCodeRef m_ref16;
     MacroAssemblerCodeRef m_matchOnly8;
     MacroAssemblerCodeRef m_matchOnly16;
-    bool m_needFallBack;
+#if ENABLE(YARR_JIT_ALL_PARENS_EXPRESSIONS)
+    bool m_usesPatternContextBuffer;
+#endif
+    std::optional<JITFailureReason> m_failureReason;
 };
 
 enum YarrJITCompileMode {

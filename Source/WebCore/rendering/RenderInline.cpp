@@ -255,16 +255,6 @@ LayoutRect RenderInline::localCaretRect(InlineBox* inlineBox, unsigned, LayoutUn
     return caretRect;
 }
 
-void RenderInline::addChild(RenderTreeBuilder& builder, RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
-{
-    builder.insertChildToRenderInline(*this, WTFMove(newChild), beforeChild);
-}
-
-void RenderInline::addChildIgnoringContinuation(RenderTreeBuilder& builder, RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
-{
-    builder.insertChildToRenderInlineIgnoringContinuation(*this, WTFMove(newChild), beforeChild);
-}
-
 void RenderInline::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
     m_lineBoxes.paint(this, paintInfo, paintOffset);
@@ -1034,20 +1024,6 @@ void RenderInline::updateDragState(bool dragOn)
     RenderBoxModelObject::updateDragState(dragOn);
     if (RenderBoxModelObject* continuation = this->continuation())
         continuation->updateDragState(dragOn);
-}
-
-void RenderInline::childBecameNonInline(RenderElement& child)
-{
-    // We have to split the parent flow.
-    auto newBox = containingBlock()->createAnonymousBlock();
-    newBox->setIsContinuation();
-    RenderBoxModelObject* oldContinuation = continuation();
-    if (oldContinuation)
-        oldContinuation->removeFromContinuationChain();
-    newBox->insertIntoContinuationChainAfter(*this);
-    RenderObject* beforeChild = child.nextSibling();
-    auto removedChild = takeChildInternal(child);
-    RenderTreeBuilder::current()->splitFlow(*this, beforeChild, WTFMove(newBox), WTFMove(removedChild), oldContinuation);
 }
 
 void RenderInline::updateHitTestResult(HitTestResult& result, const LayoutPoint& point)

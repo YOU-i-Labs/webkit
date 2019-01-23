@@ -32,6 +32,7 @@
 #include "ResourceError.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
+#include <cstdint>
 #include <gst/app/gstappsrc.h>
 #include <gst/pbutils/missing-plugins.h>
 #include <wtf/text/CString.h>
@@ -82,6 +83,7 @@ struct _WebKitWebSrcPrivate {
     bool didPassAccessControlCheck;
 
     guint64 offset;
+    bool haveSize;
     guint64 size;
     gboolean seekable;
     bool paused;
@@ -175,7 +177,7 @@ static void webkit_web_src_class_init(WebKitWebSrcClass* klass)
 
     g_object_class_install_property(oklass, PROP_KEEP_ALIVE,
         g_param_spec_boolean("keep-alive", "keep-alive", "Use HTTP persistent connections",
-            TRUE, static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
+            FALSE, static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 
     g_object_class_install_property(oklass, PROP_EXTRA_HEADERS,
         g_param_spec_boxed("extra-headers", "Extra Headers", "Extra headers to append to the HTTP request",
@@ -201,9 +203,10 @@ static void webkit_web_src_init(WebKitWebSrc* src)
     src->priv = priv;
     new (priv) WebKitWebSrcPrivate();
 
-    priv->keepAlive = true;
-
     priv->notifier = MainThreadNotifier<MainThreadSourceNotification>::create();
+
+    priv->haveSize = FALSE;
+    priv->size = 0;
 
     priv->appsrc = GST_APP_SRC(gst_element_factory_make("appsrc", nullptr));
     if (!priv->appsrc) {
@@ -247,7 +250,6 @@ static void webkit_web_src_init(WebKitWebSrc* src)
     gst_base_src_set_automatic_eos(GST_BASE_SRC(priv->appsrc), FALSE);
 
     gst_app_src_set_caps(priv->appsrc, nullptr);
-    gst_app_src_set_size(priv->appsrc, -1);
 }
 
 static void webKitWebSrcDispose(GObject* object)
@@ -361,7 +363,6 @@ static void webKitWebSrcStop(WebKitWebSrc* src)
     priv->offset = 0;
 
     if (!wasSeeking) {
-        priv->size = 0;
         priv->requestedOffset = 0;
         priv->player = nullptr;
         priv->seekable = FALSE;
@@ -446,8 +447,6 @@ static void webKitWebSrcStart(WebKitWebSrc* src)
     ResourceRequest request(url);
     request.setAllowCookies(true);
     request.setFirstPartyForCookies(url);
-
-    priv->size = 0;
 
     request.setHTTPReferrer(priv->player->referrer());
 
@@ -564,18 +563,6 @@ static gboolean webKitWebSrcQueryWithParent(GstPad* pad, GstObject* parent, GstQ
     gboolean result = FALSE;
 
     switch (GST_QUERY_TYPE(query)) {
-    case GST_QUERY_DURATION: {
-        GstFormat format;
-
-        gst_query_parse_duration(query, &format, nullptr);
-
-        GST_LOG_OBJECT(src, "duration query in format %s, current size: %lu", gst_format_get_name(format), priv->size);
-        if (format == GST_FORMAT_BYTES && priv->size > 0) {
-            gst_query_set_duration(query, format, priv->size);
-            result = TRUE;
-        }
-        break;
-    }
     case GST_QUERY_URI: {
         gst_query_set_uri(query, priv->originalURI.data());
         if (!priv->redirectedURI.isNull())
@@ -619,7 +606,7 @@ static GstURIType webKitWebSrcUriGetType(GType)
 
 const gchar* const* webKitWebSrcGetProtocols(GType)
 {
-    static const char* protocols[] = {"webkit+http", "webkit+https", "blob", nullptr };
+    static const char* protocols[] = {"webkit+http", "webkit+https", "webkit+blob", nullptr };
     return protocols;
 }
 
@@ -793,14 +780,17 @@ void CachedResourceStreamingClient::responseReceived(PlatformMediaResource&, con
     if (length > 0 && priv->requestedOffset && response.httpStatusCode() == 206)
         length += priv->requestedOffset;
 
-    priv->size = length >= 0 ? length : 0;
     priv->seekable = length > 0 && g_ascii_strcasecmp("none", response.httpHeaderField(HTTPHeaderName::AcceptRanges).utf8().data());
 
-    GST_DEBUG_OBJECT(src, "Size: %" G_GINT64_FORMAT ", seekable: %s", priv->size, priv->seekable ? "yes" : "no");
+    GST_DEBUG_OBJECT(src, "Size: %lld, seekable: %s", length, priv->seekable ? "yes" : "no");
     // notify size/duration
-    if (length > 0)
-        gst_app_src_set_size(priv->appsrc, length);
-    else {
+    if (length > 0) {
+        if (!priv->haveSize || (static_cast<long long>(priv->size) != length)) {
+            priv->haveSize = TRUE;
+            priv->size = length;
+            gst_app_src_set_size(priv->appsrc, length);
+        }
+    } else {
         gst_app_src_set_size(priv->appsrc, -1);
         if (!priv->seekable)
             gst_app_src_set_stream_type(priv->appsrc, GST_APP_STREAM_TYPE_STREAM);
@@ -894,7 +884,8 @@ void CachedResourceStreamingClient::dataReceived(PlatformMediaResource&, const c
     else
         gst_buffer_set_size(priv->buffer.get(), static_cast<gssize>(length));
 
-    GST_BUFFER_OFFSET(priv->buffer.get()) = priv->offset;
+    uint64_t startingOffset = priv->offset;
+
     if (priv->requestedOffset == priv->offset)
         priv->requestedOffset += length;
     priv->offset += length;
@@ -904,11 +895,39 @@ void CachedResourceStreamingClient::dataReceived(PlatformMediaResource&, const c
         gst_app_src_set_size(priv->appsrc, priv->offset);
         priv->size = priv->offset;
     }
-    GST_BUFFER_OFFSET_END(priv->buffer.get()) = priv->offset;
 
-    GstFlowReturn ret = gst_app_src_push_buffer(priv->appsrc, priv->buffer.leakRef());
-    if (ret != GST_FLOW_OK && ret != GST_FLOW_EOS)
-        GST_ELEMENT_ERROR(src, CORE, FAILED, (nullptr), (nullptr));
+    // Now split the recv'd buffer into buffers that are of a size basesrc suggests. It is important not
+    // to push buffers that are too large, otherwise incorrect buffering messages can be sent from the
+    // pipeline.
+    uint64_t bufferSize = gst_buffer_get_size(priv->buffer.get());
+    uint64_t blockSize = static_cast<uint64_t>(GST_BASE_SRC_CAST(priv->appsrc)->blocksize);
+    ASSERT(blockSize);
+    GST_LOG_OBJECT(src, "Splitting the received buffer into %" PRIu64 " blocks", bufferSize / blockSize);
+    for (uint64_t currentOffset = 0; currentOffset < bufferSize; currentOffset += blockSize) {
+        uint64_t subBufferOffset = startingOffset + currentOffset;
+        uint64_t currentOffsetSize = std::min(blockSize, bufferSize - currentOffset);
+
+        GST_TRACE_OBJECT(src, "Create sub-buffer from [%" PRIu64 ", %" PRIu64 "]", currentOffset, currentOffset + currentOffsetSize);
+        GstBuffer* subBuffer = gst_buffer_copy_region(priv->buffer.get(), GST_BUFFER_COPY_ALL, currentOffset, currentOffsetSize);
+        if (UNLIKELY(!subBuffer)) {
+            GST_ELEMENT_ERROR(src, CORE, FAILED, ("Failed to allocate sub-buffer"), (nullptr));
+            break;
+        }
+
+        GST_BUFFER_OFFSET(subBuffer) = subBufferOffset;
+        GST_BUFFER_OFFSET_END(subBuffer) = subBufferOffset + currentOffsetSize;
+        GST_TRACE_OBJECT(src, "Set sub-buffer offset bounds [%" PRIu64 ", %" PRIu64 "]", GST_BUFFER_OFFSET(subBuffer), GST_BUFFER_OFFSET_END(subBuffer));
+
+        GST_TRACE_OBJECT(src, "Pushing buffer of size %" G_GSIZE_FORMAT " bytes", gst_buffer_get_size(subBuffer));
+        GstFlowReturn ret = gst_app_src_push_buffer(priv->appsrc, subBuffer);
+
+        if (UNLIKELY(ret != GST_FLOW_OK && ret != GST_FLOW_EOS && ret != GST_FLOW_FLUSHING)) {
+            GST_ELEMENT_ERROR(src, CORE, FAILED, (nullptr), (nullptr));
+            break;
+        }
+    }
+
+    priv->buffer.clear();
 }
 
 void CachedResourceStreamingClient::accessControlCheckFailed(PlatformMediaResource&, const ResourceError& error)

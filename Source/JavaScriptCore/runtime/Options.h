@@ -236,6 +236,7 @@ constexpr bool enableAsyncIteration = false;
     v(bool, dumpSizeClasses, false, Normal, nullptr) \
     v(bool, useBumpAllocator, true, Normal, nullptr) \
     v(bool, stealEmptyBlocksFromOtherAllocators, true, Normal, nullptr) \
+    v(bool, tradeDestructorBlocks, true, Normal, nullptr) \
     v(bool, eagerlyUpdateTopCallFrame, false, Normal, nullptr) \
     \
     v(bool, useOSREntryToDFG, true, Normal, nullptr) \
@@ -249,6 +250,7 @@ constexpr bool enableAsyncIteration = false;
     v(bool, b3AlwaysFailsBeforeLink, false, Normal, nullptr) \
     v(bool, ftlCrashes, false, Normal, nullptr) /* fool-proof way of checking that you ended up in the FTL. ;-) */\
     v(bool, clobberAllRegsInFTLICSlowPath, !ASSERT_DISABLED, Normal, nullptr) \
+    v(bool, enableJITDebugAssetions, !ASSERT_DISABLED, Normal, nullptr) \
     v(bool, useAccessInlining, true, Normal, nullptr) \
     v(unsigned, maxAccessVariantListSize, 8, Normal, nullptr) \
     v(bool, usePolyvariantDevirtualization, true, Normal, nullptr) \

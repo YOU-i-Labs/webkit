@@ -64,6 +64,7 @@ class RenderView;
 class RenderWidget;
 
 enum class FrameFlattening;
+enum class SelectionRevealMode;
 
 Pagination::Mode paginationModeForRenderStyle(const RenderStyle&);
 
@@ -222,6 +223,9 @@ public:
     WEBCORE_EXPORT void setFixedVisibleContentRect(const IntRect&) final;
 #endif
     WEBCORE_EXPORT void setScrollPosition(const ScrollPosition&) final;
+    void restoreScrollbar();
+    void scheduleScrollToFocusedElement(SelectionRevealMode);
+    void scrollToFocusedElementImmediatelyIfNeeded();
     void updateLayerPositionsAfterScrolling() final;
     void updateCompositingLayersAfterScrolling() final;
     bool requestScrollPositionUpdate(const ScrollPosition&) final;
@@ -328,8 +332,6 @@ public:
     void updateAnnotatedRegions();
 #endif
     WEBCORE_EXPORT void updateControlTints();
-
-    void restoreScrollbar();
 
     WEBCORE_EXPORT bool wasScrolledByUser() const;
     WEBCORE_EXPORT void setWasScrolledByUser(bool);
@@ -473,7 +475,6 @@ public:
     WEBCORE_EXPORT FloatRect clientToDocumentRect(FloatRect) const;
     WEBCORE_EXPORT FloatPoint clientToDocumentPoint(FloatPoint) const;
 
-    FloatRect layoutViewportToAbsoluteRect(FloatRect) const;
     FloatPoint layoutViewportToAbsolutePoint(FloatPoint) const;
 
     // Unlike client coordinates, layout viewport coordinates are affected by page zoom.
@@ -696,6 +697,9 @@ private:
     void repaintContentRectangle(const IntRect&) final;
     void addedOrRemovedScrollbar() final;
 
+    void scrollToFocusedElementTimerFired();
+    void scrollToFocusedElementInternal();
+
     void delegatesScrollingDidChange() final;
 
     // ScrollableArea interface
@@ -822,6 +826,9 @@ private:
     bool m_inProgrammaticScroll;
     bool m_safeToPropagateScrollToParent;
     Timer m_delayedScrollEventTimer;
+    bool m_shouldScrollToFocusedElement { false };
+    SelectionRevealMode m_selectionRevealModeForFocusedElement;
+    Timer m_delayedScrollToFocusedElementTimer;
 
     double m_lastPaintTime;
 

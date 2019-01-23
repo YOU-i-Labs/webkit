@@ -68,6 +68,7 @@
 #include "StopIfNecessaryTimer.h"
 #include "SweepingScope.h"
 #include "SynchronousStopTheWorldMutatorScheduler.h"
+#include "ThreadLocalCacheLayout.h"
 #include "TypeProfiler.h"
 #include "TypeProfilerLog.h"
 #include "UnlinkedCodeBlock.h"
@@ -195,7 +196,7 @@ public:
         , m_name(name)
     {
         if (measurePhaseTiming())
-            m_before = monotonicallyIncreasingTimeMS();
+            m_before = MonotonicTime::now();
     }
     
     TimingScope(Heap& heap, const char* name)
@@ -216,16 +217,16 @@ public:
     ~TimingScope()
     {
         if (measurePhaseTiming()) {
-            double after = monotonicallyIncreasingTimeMS();
-            double timing = after - m_before;
+            MonotonicTime after = MonotonicTime::now();
+            Seconds timing = after - m_before;
             SimpleStats& stats = timingStats(m_name, *m_scope);
-            stats.add(timing);
-            dataLog("[GC:", *m_scope, "] ", m_name, " took: ", timing, "ms (average ", stats.mean(), "ms).\n");
+            stats.add(timing.milliseconds());
+            dataLog("[GC:", *m_scope, "] ", m_name, " took: ", timing.milliseconds(), "ms (average ", stats.mean(), "ms).\n");
         }
     }
 private:
     std::optional<CollectionScope> m_scope;
-    double m_before;
+    MonotonicTime m_before;
     const char* m_name;
 };
 
@@ -312,6 +313,7 @@ Heap::Heap(VM* vm, HeapType heapType)
     , m_helperClient(&heapHelperPool())
     , m_threadLock(Box<Lock>::create())
     , m_threadCondition(AutomaticThreadCondition::create())
+    , m_threadLocalCacheLayout(std::make_unique<ThreadLocalCacheLayout>())
 {
     m_worldState.store(0);
 
@@ -360,7 +362,7 @@ Heap::~Heap()
         WeakBlock::destroy(*this, block);
 }
 
-bool Heap::isPagedOut(double deadline)
+bool Heap::isPagedOut(MonotonicTime deadline)
 {
     return m_objectSpace.isPagedOut(deadline);
 }
@@ -446,7 +448,7 @@ void Heap::lastChanceToFinalize()
         dataLog("5 ");
     
     m_arrayBuffers.lastChanceToFinalize();
-    m_objectSpace.stopAllocating();
+    m_objectSpace.stopAllocatingForGood();
     m_objectSpace.lastChanceToFinalize();
     releaseDelayedReleasedObjects();
 
@@ -942,6 +944,7 @@ void Heap::clearUnmarkedExecutables()
 void Heap::deleteUnmarkedCompiledCode()
 {
     clearUnmarkedExecutables();
+    vm()->forEachCodeBlockSpace([] (auto& space) { space.space.sweep(); }); // Sweeping must occur before deleting stubs, otherwise the stubs might still think they're alive as they get deleted.
     m_jitStubRoutines->deleteUnmarkedJettisonedStubRoutines();
 }
 
@@ -1002,16 +1005,16 @@ void Heap::addToRememberedSet(const JSCell* constCell)
 
 void Heap::sweepSynchronously()
 {
-    double before = 0;
+    MonotonicTime before { };
     if (Options::logGC()) {
         dataLog("Full sweep: ", capacity() / 1024, "kb ");
-        before = currentTimeMS();
+        before = MonotonicTime::now();
     }
     m_objectSpace.sweep();
     m_objectSpace.shrink();
     if (Options::logGC()) {
-        double after = currentTimeMS();
-        dataLog("=> ", capacity() / 1024, "kb, ", after - before, "ms");
+        MonotonicTime after = MonotonicTime::now();
+        dataLog("=> ", capacity() / 1024, "kb, ", (after - before).milliseconds(), "ms");
     }
 }
 
@@ -2079,7 +2082,6 @@ void Heap::waitForCollection(Ticket ticket)
 void Heap::sweepInFinalize()
 {
     m_objectSpace.sweepLargeAllocations();
-    vm()->forEachCodeBlockSpace([] (auto& space) { space.space.sweep(); });
     vm()->eagerlySweptDestructibleObjectSpace.sweep();
 }
 

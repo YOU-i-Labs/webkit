@@ -29,16 +29,7 @@
 
 namespace WebCore {
 
-class RenderMathMLFenced;
-class RenderRubyBase;
-class RenderRubyRun;
-class RenderSVGContainer;
-class RenderSVGInline;
-class RenderSVGRoot;
-class RenderSVGText;
-class RenderTable;
-class RenderTableRow;
-class RenderTableSection;
+class RenderGrid;
 class RenderTreeUpdater;
 
 class RenderTreeBuilder {
@@ -46,38 +37,53 @@ public:
     RenderTreeBuilder(RenderView&);
     ~RenderTreeBuilder();
 
-    void insertChild(RenderElement& parent, RenderPtr<RenderObject>, RenderObject* beforeChild = nullptr);
-    void insertChild(RenderTreePosition&, RenderPtr<RenderObject>);
-
-    void updateAfterDescendants(RenderElement&);
-
     // This avoids having to convert all sites that need RenderTreeBuilder in one go.
     // FIXME: Remove.
     static RenderTreeBuilder* current() { return s_current; }
 
-    // These functions are temporary until after all block/inline/continuation code is moved over.
-    void insertChildToRenderElement(RenderElement& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild = nullptr);
-    void insertChildToRenderBlock(RenderBlock& parent, RenderPtr<RenderObject>, RenderObject* beforeChild = nullptr);
-    void insertChildToRenderBlockIgnoringContinuation(RenderBlock& parent, RenderPtr<RenderObject>, RenderObject* beforeChild = nullptr);
-    void insertChildToRenderBlockFlow(RenderBlockFlow& parent, RenderPtr<RenderObject>, RenderObject* beforeChild = nullptr);
-    void insertChildToRenderInline(RenderInline& parent, RenderPtr<RenderObject>, RenderObject* beforeChild = nullptr);
-    void insertChildToRenderInlineIgnoringContinuation(RenderInline& parent, RenderPtr<RenderObject>, RenderObject* beforeChild = nullptr);
-    void insertChildToSVGContainer(RenderSVGContainer& parent, RenderPtr<RenderObject>, RenderObject* beforeChild = nullptr);
-    void insertChildToSVGInline(RenderSVGInline& parent, RenderPtr<RenderObject>, RenderObject* beforeChild = nullptr);
-    void insertChildToSVGRoot(RenderSVGRoot& parent, RenderPtr<RenderObject>, RenderObject* beforeChild = nullptr);
-    void insertChildToSVGText(RenderSVGText& parent, RenderPtr<RenderObject>, RenderObject* beforeChild = nullptr);
-    void insertChildToRenderTable(RenderTable& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild = nullptr);
-    void insertChildToRenderTableSection(RenderTableSection& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild = nullptr);
-    void insertChildToRenderTableRow(RenderTableRow& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild = nullptr);
-    void insertChildToRenderMathMLFenced(RenderMathMLFenced& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild = nullptr);
+    void attach(RenderTreePosition&, RenderPtr<RenderObject>);
+    void attach(RenderElement& parent, RenderPtr<RenderObject>, RenderObject* beforeChild = nullptr);
 
-    bool childRequiresTable(const RenderElement& parent, const RenderObject& child);
-    void makeChildrenNonInline(RenderBlock& parent, RenderObject* insertionPoint = nullptr);
-    RenderObject* splitAnonymousBoxesAroundChild(RenderBox& parent, RenderObject* beforeChild);
-    void splitFlow(RenderInline& parent, RenderObject* beforeChild, RenderPtr<RenderBlock> newBlockBox, RenderPtr<RenderObject> child, RenderBoxModelObject* oldCont);
-    void moveRubyChildren(RenderRubyBase& from, RenderRubyBase& to);
+    RenderPtr<RenderObject> detach(RenderElement&, RenderObject&) WARN_UNUSED_RETURN;
+
+    void destroy(RenderObject& renderer);
+
+    // NormalizeAfterInsertion::Yes ensures that the destination subtree is consistent after the insertion (anonymous wrappers etc).
+    enum class NormalizeAfterInsertion { No, Yes };
+    void move(RenderBoxModelObject& from, RenderBoxModelObject& to, RenderObject& child, NormalizeAfterInsertion);
+
+    void updateAfterDescendants(RenderElement&);
+    void destroyAndCleanUpAnonymousWrappers(RenderObject& child);
+
+#if ENABLE(FULLSCREEN_API)
+    void createPlaceholderForFullScreen(RenderFullScreen&, std::unique_ptr<RenderStyle>, const LayoutRect&);
+#endif
+
+    void childFlowStateChangesAndAffectsParentBlock(RenderElement& child);
+    void childFlowStateChangesAndNoLongerAffectsParentBlock(RenderElement& child);
 
 private:
+    void attachIgnoringContinuation(RenderElement& parent, RenderPtr<RenderObject>, RenderObject* beforeChild = nullptr);
+    void attachToRenderGrid(RenderGrid& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild = nullptr);
+    void attachToRenderElement(RenderElement& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild = nullptr);
+    void attachToRenderElementInternal(RenderElement& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild = nullptr);
+
+    RenderPtr<RenderObject> detachFromRenderElement(RenderElement& parent, RenderObject& child) WARN_UNUSED_RETURN;
+    RenderPtr<RenderObject> detachFromRenderGrid(RenderGrid& parent, RenderObject& child) WARN_UNUSED_RETURN;
+
+    void move(RenderBoxModelObject& from, RenderBoxModelObject& to, RenderObject& child, RenderObject* beforeChild, NormalizeAfterInsertion);
+    // Move all of the kids from |startChild| up to but excluding |endChild|. 0 can be passed as the |endChild| to denote
+    // that all the kids from |startChild| onwards should be moved.
+    void moveChildren(RenderBoxModelObject& from, RenderBoxModelObject& to, RenderObject* startChild, RenderObject* endChild, NormalizeAfterInsertion);
+    void moveChildren(RenderBoxModelObject& from, RenderBoxModelObject& to, RenderObject* startChild, RenderObject* endChild, RenderObject* beforeChild, NormalizeAfterInsertion);
+    void moveAllChildrenIncludingFloats(RenderBlock& from, RenderBlock& toBlock, RenderTreeBuilder::NormalizeAfterInsertion);
+    void moveAllChildren(RenderBoxModelObject& from, RenderBoxModelObject& to, NormalizeAfterInsertion);
+    void moveAllChildren(RenderBoxModelObject& from, RenderBoxModelObject& to, RenderObject* beforeChild, NormalizeAfterInsertion);
+
+    RenderObject* splitAnonymousBoxesAroundChild(RenderBox& parent, RenderObject* beforeChild);
+    void makeChildrenNonInline(RenderBlock& parent, RenderObject* insertionPoint = nullptr);
+    void removeAnonymousWrappersForInlineChildrenIfNeeded(RenderElement& parent);
+
     class FirstLetter;
     class List;
     class MultiColumn;
@@ -89,6 +95,10 @@ private:
     class Inline;
     class SVG;
     class MathML;
+    class Continuation;
+#if ENABLE(FULLSCREEN_API)
+    class FullScreen;
+#endif
 
     FirstLetter& firstLetterBuilder() { return *m_firstLetterBuilder; }
     List& listBuilder() { return *m_listBuilder; }
@@ -101,9 +111,12 @@ private:
     Inline& inlineBuilder() { return *m_inlineBuilder; }
     SVG& svgBuilder() { return *m_svgBuilder; }
     MathML& mathMLBuilder() { return *m_mathMLBuilder; }
+    Continuation& continuationBuilder() { return *m_continuationBuilder; }
+#if ENABLE(FULLSCREEN_API)
+    FullScreen& fullScreenBuilder() { return *m_fullScreenBuilder; }
+#endif
 
     RenderView& m_view;
-
     RenderTreeBuilder* m_previous { nullptr };
     static RenderTreeBuilder* s_current;
 
@@ -118,7 +131,10 @@ private:
     std::unique_ptr<Inline> m_inlineBuilder;
     std::unique_ptr<SVG> m_svgBuilder;
     std::unique_ptr<MathML> m_mathMLBuilder;
+    std::unique_ptr<Continuation> m_continuationBuilder;
+#if ENABLE(FULLSCREEN_API)
+    std::unique_ptr<FullScreen> m_fullScreenBuilder;
+#endif
 };
 
 }
-

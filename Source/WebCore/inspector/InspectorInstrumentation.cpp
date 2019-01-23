@@ -65,13 +65,12 @@
 #include "WebConsoleAgent.h"
 #include "WebGLRenderingContextBase.h"
 #include "WebSocketFrame.h"
-#include <inspector/ConsoleMessage.h>
-#include <inspector/ScriptArguments.h>
-#include <inspector/ScriptCallStack.h>
-#include <inspector/agents/InspectorDebuggerAgent.h>
-#include <runtime/ConsoleTypes.h>
+#include <JavaScriptCore/ConsoleMessage.h>
+#include <JavaScriptCore/ConsoleTypes.h>
+#include <JavaScriptCore/InspectorDebuggerAgent.h>
+#include <JavaScriptCore/ScriptArguments.h>
+#include <JavaScriptCore/ScriptCallStack.h>
 #include <wtf/StdLibExtras.h>
-
 
 namespace WebCore {
 
@@ -573,9 +572,6 @@ void InspectorInstrumentation::willSendRequestOfTypeImpl(InstrumentingAgents& in
 
 void InspectorInstrumentation::didLoadResourceFromMemoryCacheImpl(InstrumentingAgents& instrumentingAgents, DocumentLoader* loader, CachedResource* cachedResource)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled())
-        return;
-    
     if (!loader || !cachedResource)
         return;
 
@@ -733,8 +729,6 @@ void InspectorInstrumentation::didCommitLoadImpl(InstrumentingAgents& instrument
 
 void InspectorInstrumentation::frameDocumentUpdatedImpl(InstrumentingAgents& instrumentingAgents, Frame& frame)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled())
-        return;
     if (InspectorDOMAgent* domAgent = instrumentingAgents.inspectorDOMAgent())
         domAgent->frameDocumentUpdated(frame);
 }
@@ -915,9 +909,6 @@ void InspectorInstrumentation::workerTerminatedImpl(InstrumentingAgents& instrum
 
 void InspectorInstrumentation::didCreateWebSocketImpl(InstrumentingAgents& instrumentingAgents, unsigned long identifier, const URL& requestURL)
 {
-    if (!instrumentingAgents.inspectorEnvironment().developerExtrasEnabled())
-        return;
-
     if (InspectorNetworkAgent* networkAgent = instrumentingAgents.inspectorNetworkAgent())
         networkAgent->didCreateWebSocket(identifier, requestURL);
 }

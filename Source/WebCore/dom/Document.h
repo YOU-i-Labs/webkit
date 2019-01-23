@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  *           (C) 2006 Alexey Proskuryakov (ap@webkit.org)
- * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2018 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2011 Google Inc. All rights reserved.
@@ -51,6 +51,7 @@
 #include "UserActionElementSet.h"
 #include "ViewportArguments.h"
 #include "VisibilityState.h"
+#include <JavaScriptCore/ThreadLocalCache.h>
 #include <pal/SessionID.h>
 #include <wtf/Deque.h>
 #include <wtf/Forward.h>
@@ -151,6 +152,7 @@ class ProcessingInstruction;
 class QualifiedName;
 class Range;
 class RenderFullScreen;
+class RenderTreeBuilder;
 class RenderView;
 class RequestAnimationFrameCallback;
 class SVGDocumentExtensions;
@@ -1129,7 +1131,7 @@ public:
     WEBCORE_EXPORT void webkitWillExitFullScreenForElement(Element*);
     WEBCORE_EXPORT void webkitDidExitFullScreenForElement(Element*);
     
-    void setFullScreenRenderer(RenderFullScreen*);
+    void setFullScreenRenderer(RenderTreeBuilder&, RenderFullScreen&);
     RenderFullScreen* fullScreenRenderer() const { return m_fullScreenRenderer.get(); }
 
     void fullScreenChangeDelayTimerFired();
@@ -1251,7 +1253,6 @@ public:
 
     bool inStyleRecalc() const { return m_inStyleRecalc; }
     bool inRenderTreeUpdate() const { return m_inRenderTreeUpdate; }
-    bool isSafeToUpdateStyleOrLayout() const;
 
     void updateTextRenderer(Text&, unsigned offsetOfReplacedText, unsigned lengthOfReplacedText);
 
@@ -1406,6 +1407,12 @@ public:
     void addApplicationStateChangeListener(ApplicationStateChangeListener&);
     void removeApplicationStateChangeListener(ApplicationStateChangeListener&);
     void forEachApplicationStateChangeListener(const Function<void(ApplicationStateChangeListener&)>&);
+
+#if ENABLE(IOS_TOUCH_EVENTS)
+    bool handlingTouchEvent() const { return m_handlingTouchEvent; }
+#endif
+
+    JSC::ThreadLocalCache& threadLocalCache();
 
 protected:
     enum ConstructionFlags { Synthesized = 1, NonRenderedPlaceholder = 1 << 1 };
@@ -1891,6 +1898,8 @@ private:
 #endif
 
     HashSet<ApplicationStateChangeListener*> m_applicationStateChangeListeners;
+    
+    RefPtr<JSC::ThreadLocalCache> m_threadLocalCache;
 };
 
 Element* eventTargetElementForDocument(Document*);

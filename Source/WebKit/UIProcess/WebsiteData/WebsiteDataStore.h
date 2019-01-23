@@ -68,7 +68,7 @@ enum class ShouldClearFirst { No, Yes };
 
 class WebsiteDataStore : public RefCounted<WebsiteDataStore>, public WebProcessLifetimeObserver, public Identified<WebsiteDataStore>  {
 public:
-    constexpr static uint64_t defaultCacheStoragePerOriginQuota = 20 * 1024 * 1024;
+    constexpr static uint64_t defaultCacheStoragePerOriginQuota = 50 * 1024 * 1024;
 
     struct Configuration {
         String cacheStorageDirectory;
@@ -100,14 +100,18 @@ public:
 
     bool resourceLoadStatisticsEnabled() const;
     void setResourceLoadStatisticsEnabled(bool);
+    bool resourceLoadStatisticsDebugMode() const;
+    void setResourceLoadStatisticsDebugMode(bool);
 
     uint64_t cacheStoragePerOriginQuota() const { return m_resolvedConfiguration.cacheStoragePerOriginQuota; }
     void setCacheStoragePerOriginQuota(uint64_t quota) { m_resolvedConfiguration.cacheStoragePerOriginQuota = quota; }
     const String& cacheStorageDirectory() const { return m_resolvedConfiguration.cacheStorageDirectory; }
     void setCacheStorageDirectory(String&& directory) { m_resolvedConfiguration.cacheStorageDirectory = WTFMove(directory); }
+    const String& serviceWorkerRegistrationDirectory() const { return m_resolvedConfiguration.serviceWorkerRegistrationDirectory; }
+    void setServiceWorkerRegistrationDirectory(String&& directory) { m_resolvedConfiguration.serviceWorkerRegistrationDirectory = WTFMove(directory); }
 
     WebResourceLoadStatisticsStore* resourceLoadStatistics() const { return m_resourceLoadStatistics.get(); }
-    void clearResourceLoadStatisticsInWebProcesses();
+    void clearResourceLoadStatisticsInWebProcesses(CompletionHandler<void()>&&);
 
     static void cloneSessionData(WebPageProxy& sourcePage, WebPageProxy& newPage);
 
@@ -121,6 +125,7 @@ public:
 #if HAVE(CFNETWORK_STORAGE_PARTITIONING)
     void updatePrevalentDomainsToPartitionOrBlockCookies(const Vector<String>& domainsToPartition, const Vector<String>& domainsToBlock, const Vector<String>& domainsToNeitherPartitionNorBlock, ShouldClearFirst);
     void hasStorageAccessForFrameHandler(const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID, WTF::CompletionHandler<void(bool hasAccess)>&& callback);
+    void getAllStorageAccessEntries(CompletionHandler<void(Vector<String>&& domains)>&&);
     void grantStorageAccessForFrameHandler(const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID, WTF::CompletionHandler<void(bool wasGranted)>&& callback);
     void removePrevalentDomains(const Vector<String>& domains);
     void hasStorageAccess(String&& subFrameHost, String&& topFrameHost, uint64_t frameID, uint64_t pageID, WTF::CompletionHandler<void (bool)>&& callback);
@@ -197,6 +202,7 @@ private:
 
     const RefPtr<StorageManager> m_storageManager;
     RefPtr<WebResourceLoadStatisticsStore> m_resourceLoadStatistics;
+    bool m_resourceLoadStatisticsDebugMode { false };
 
     Ref<WorkQueue> m_queue;
 

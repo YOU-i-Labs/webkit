@@ -86,6 +86,7 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/WebProcess/WebStorage"
     "${DERIVED_SOURCES_WEBKIT_DIR}"
     "${DERIVED_SOURCES_WEBKIT_DIR}/include"
+    "${CMAKE_SOURCE_DIR}/Source"
     "${CMAKE_SOURCE_DIR}/WebKitLibraries"
 )
 
@@ -96,7 +97,6 @@ set(WebKit_SYSTEM_INCLUDE_DIRECTORIES
 )
 
 set(WebKit_SOURCES
-    NetworkProcess/Downloads/BlobDownloadClient.cpp
     NetworkProcess/Downloads/Download.cpp
     NetworkProcess/Downloads/DownloadManager.cpp
     NetworkProcess/Downloads/PendingDownload.cpp
@@ -210,6 +210,7 @@ set(WebKit_SOURCES
     Shared/WebPageGroupData.cpp
     Shared/WebPlatformTouchPoint.cpp
     Shared/WebPopupItem.cpp
+    Shared/WebPreferencesDefaultValues.cpp
     Shared/WebPreferencesStore.cpp
     Shared/WebProcessCreationParameters.cpp
     Shared/WebRenderLayer.cpp
@@ -301,6 +302,7 @@ set(WebKit_SOURCES
     UIProcess/ResponsivenessTimer.cpp
     UIProcess/StatisticsRequest.cpp
     UIProcess/TextCheckerCompletion.cpp
+    UIProcess/UIMessagePortChannelProvider.cpp
     UIProcess/UserMediaPermissionCheckProxy.cpp
     UIProcess/UserMediaPermissionRequestManagerProxy.cpp
     UIProcess/UserMediaPermissionRequestProxy.cpp
@@ -560,6 +562,7 @@ set(WebKit_SOURCES
     WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp
     WebProcess/WebCoreSupport/WebGeolocationClient.cpp
     WebProcess/WebCoreSupport/WebInspectorClient.cpp
+    WebProcess/WebCoreSupport/WebMessagePortChannelProvider.cpp
     WebProcess/WebCoreSupport/WebNotificationClient.cpp
     WebProcess/WebCoreSupport/WebPerformanceLoggingClient.cpp
     WebProcess/WebCoreSupport/WebPlatformStrategies.cpp
@@ -925,6 +928,10 @@ list(APPEND WebKit_SOURCES
 
 
 list(APPEND WebKit_SOURCES ${WebKit_DERIVED_SOURCES})
+
+if ("${PORT}" STREQUAL "GTK" OR "${PORT}" STREQUAL "WPE")
+    WEBKIT_COMPUTE_SOURCES(WebKit)
+endif ()
 
 WEBKIT_FRAMEWORK(WebKit)
 add_dependencies(WebKit WebCore ${WEBKIT_EXTRA_DEPENDENCIES})

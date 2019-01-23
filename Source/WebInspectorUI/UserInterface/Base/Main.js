@@ -270,8 +270,12 @@ WI.contentLoaded = function()
     // Create the user interface elements.
     this.toolbar = new WI.Toolbar(document.getElementById("toolbar"));
 
-    this.tabBar = new WI.TabBar(document.getElementById("tab-bar"));
-    this.tabBar.addEventListener(WI.TabBar.Event.OpenDefaultTab, this._openDefaultTab, this);
+    if (WI.settings.experimentalEnableNewTabBar.value)
+        this.tabBar = new WI.TabBar(document.getElementById("tab-bar"));
+    else {
+        this.tabBar = new WI.LegacyTabBar(document.getElementById("tab-bar"));
+        this.tabBar.addEventListener(WI.TabBar.Event.OpenDefaultTab, this._openDefaultTab, this);
+    }
 
     this._contentElement = document.getElementById("content");
     this._contentElement.setAttribute("role", "main");
@@ -601,7 +605,8 @@ WI._tryToRestorePendingTabs = function()
 
     this._pendingOpenTabs = stillPendingOpenTabs;
 
-    this.tabBrowser.tabBar.updateNewTabTabBarItemState();
+    if (!WI.settings.experimentalEnableNewTabBar.value)
+        this.tabBrowser.tabBar.updateNewTabTabBarItemState();
 };
 
 WI.showNewTabTab = function(options)
@@ -632,7 +637,7 @@ WI.isNewTabWithTypeAllowed = function(tabType)
 
     if (tabClass === WI.NewTabContentView) {
         let allTabs = Array.from(this.knownTabClasses());
-        let addableTabs = allTabs.filter((tabClass) => !tabClass.isEphemeral());
+        let addableTabs = allTabs.filter((tabClass) => !tabClass.tabInfo().isEphemeral);
         let canMakeNewTab = addableTabs.some((tabClass) => WI.isNewTabWithTypeAllowed(tabClass.Type));
         return canMakeNewTab;
     }
@@ -773,10 +778,11 @@ WI.handlePossibleLinkClick = function(event, frame, options = {})
     event.preventDefault();
     event.stopPropagation();
 
-    this.openURL(anchorElement.href, frame, Object.shallowMerge(options, {
+    this.openURL(anchorElement.href, frame, {
+        ...options,
         lineNumber: anchorElement.lineNumber,
         ignoreSearchTab: !WI.isShowingSearchTab(),
-    }));
+    });
 
     return true;
 };
@@ -814,7 +820,7 @@ WI.openURL = function(url, frame, options = {})
 
     if (resource) {
         let positionToReveal = new WI.SourceCodePosition(options.lineNumber, 0);
-        this.showSourceCode(resource, Object.shallowMerge(options, {positionToReveal}));
+        this.showSourceCode(resource, {...options, positionToReveal});
         return;
     }
 
@@ -1155,33 +1161,37 @@ WI.showSourceCode = function(sourceCode, options = {})
 
 WI.showSourceCodeLocation = function(sourceCodeLocation, options = {})
 {
-    this.showSourceCode(sourceCodeLocation.displaySourceCode, Object.shallowMerge(options, {
+    this.showSourceCode(sourceCodeLocation.displaySourceCode, {
+        ...options,
         positionToReveal: sourceCodeLocation.displayPosition(),
-    }));
+    });
 };
 
 WI.showOriginalUnformattedSourceCodeLocation = function(sourceCodeLocation, options = {})
 {
-    this.showSourceCode(sourceCodeLocation.sourceCode, Object.shallowMerge(options, {
+    this.showSourceCode(sourceCodeLocation.sourceCode, {
+        ...options,
         positionToReveal: sourceCodeLocation.position(),
         forceUnformatted: true,
-    }));
+    });
 };
 
 WI.showOriginalOrFormattedSourceCodeLocation = function(sourceCodeLocation, options = {})
 {
-    this.showSourceCode(sourceCodeLocation.sourceCode, Object.shallowMerge(options, {
+    this.showSourceCode(sourceCodeLocation.sourceCode, {
+        ...options,
         positionToReveal: sourceCodeLocation.formattedPosition(),
-    }));
+    });
 };
 
 WI.showOriginalOrFormattedSourceCodeTextRange = function(sourceCodeTextRange, options = {})
 {
     var textRangeToSelect = sourceCodeTextRange.formattedTextRange;
-    this.showSourceCode(sourceCodeTextRange.sourceCode, Object.shallowMerge(options, {
+    this.showSourceCode(sourceCodeTextRange.sourceCode, {
+        ...options,
         positionToReveal: textRangeToSelect.startPosition(),
         textRangeToSelect,
-    }));
+    });
 };
 
 WI.showResourceRequest = function(resource, options = {})
@@ -2313,9 +2323,14 @@ WI.linkifyLocation = function(url, sourceCodePosition, options = {})
     }
 
     let sourceCodeLocation = sourceCode.createSourceCodeLocation(sourceCodePosition.lineNumber, sourceCodePosition.columnNumber);
-    let linkElement = WI.createSourceCodeLocationLink(sourceCodeLocation, Object.shallowMerge(options, {dontFloat: true}));
+    let linkElement = WI.createSourceCodeLocationLink(sourceCodeLocation, {
+        ...options,
+        dontFloat: true,
+    });
+
     if (options.className)
         linkElement.classList.add(options.className);
+
     return linkElement;
 };
 

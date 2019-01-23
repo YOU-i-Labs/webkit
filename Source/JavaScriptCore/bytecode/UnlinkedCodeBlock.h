@@ -31,7 +31,7 @@
 #include "ExpressionRangeInfo.h"
 #include "HandlerInfo.h"
 #include "Identifier.h"
-#include "JSCell.h"
+#include "JSCast.h"
 #include "LockDuringMarking.h"
 #include "ParserModes.h"
 #include "RegExp.h"
@@ -134,6 +134,7 @@ public:
     bool isClassContext() const { return m_isClassContext; }
     bool hasTailCalls() const { return m_hasTailCalls; }
     void setHasTailCalls() { m_hasTailCalls = true; }
+    bool allowDirectEvalCache() const { return !(m_features & NoEvalCacheFeature); }
 
     void addExpressionInfo(unsigned instructionOffset, int divot,
         int startOffset, int endOffset, unsigned line, unsigned column);
@@ -160,7 +161,7 @@ public:
     {
         createRareDataIfNecessary();
         VM& vm = *this->vm();
-        auto locker = lockDuringMarking(vm.heap, *this);
+        auto locker = lockDuringMarking(vm.heap, cellLock());
         unsigned size = m_rareData->m_regexps.size();
         m_rareData->m_regexps.append(WriteBarrier<RegExp>(vm, this, r));
         return size;
@@ -191,7 +192,7 @@ public:
     void addSetConstant(IdentifierSet& set)
     {
         VM& vm = *this->vm();
-        auto locker = lockDuringMarking(vm.heap, *this);
+        auto locker = lockDuringMarking(vm.heap, cellLock());
         unsigned result = m_constantRegisters.size();
         m_constantRegisters.append(WriteBarrier<Unknown>());
         m_constantsSourceCodeRepresentation.append(SourceCodeRepresentation::Other);
@@ -201,7 +202,7 @@ public:
     unsigned addConstant(JSValue v, SourceCodeRepresentation sourceCodeRepresentation = SourceCodeRepresentation::Other)
     {
         VM& vm = *this->vm();
-        auto locker = lockDuringMarking(vm.heap, *this);
+        auto locker = lockDuringMarking(vm.heap, cellLock());
         unsigned result = m_constantRegisters.size();
         m_constantRegisters.append(WriteBarrier<Unknown>());
         m_constantRegisters.last().set(vm, this, v);
@@ -211,7 +212,7 @@ public:
     unsigned addConstant(LinkTimeConstant type)
     {
         VM& vm = *this->vm();
-        auto locker = lockDuringMarking(vm.heap, *this);
+        auto locker = lockDuringMarking(vm.heap, cellLock());
         unsigned result = m_constantRegisters.size();
         ASSERT(result);
         unsigned index = static_cast<unsigned>(type);
@@ -274,7 +275,7 @@ public:
     unsigned addFunctionDecl(UnlinkedFunctionExecutable* n)
     {
         VM& vm = *this->vm();
-        auto locker = lockDuringMarking(vm.heap, *this);
+        auto locker = lockDuringMarking(vm.heap, cellLock());
         unsigned size = m_functionDecls.size();
         m_functionDecls.append(WriteBarrier<UnlinkedFunctionExecutable>());
         m_functionDecls.last().set(vm, this, n);
@@ -285,7 +286,7 @@ public:
     unsigned addFunctionExpr(UnlinkedFunctionExecutable* n)
     {
         VM& vm = *this->vm();
-        auto locker = lockDuringMarking(vm.heap, *this);
+        auto locker = lockDuringMarking(vm.heap, cellLock());
         unsigned size = m_functionExprs.size();
         m_functionExprs.append(WriteBarrier<UnlinkedFunctionExecutable>());
         m_functionExprs.last().set(vm, this, n);
@@ -415,7 +416,7 @@ private:
     void createRareDataIfNecessary()
     {
         if (!m_rareData) {
-            auto locker = lockDuringMarking(*heap(), *this);
+            auto locker = lockDuringMarking(*heap(), cellLock());
             m_rareData = std::make_unique<RareData>();
         }
     }

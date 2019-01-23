@@ -204,16 +204,6 @@ void WKContextSetDownloadClient(WKContextRef contextRef, const WKContextDownload
             m_client.didReceiveData(toAPI(&processPool), toAPI(&downloadProxy), length, m_client.base.clientInfo);
         }
 
-#if !USE(NETWORK_SESSION)
-        bool shouldDecodeSourceDataOfMIMEType(WebProcessPool& processPool, DownloadProxy& downloadProxy, const String& mimeType) final
-        {
-            if (!m_client.shouldDecodeSourceDataOfMIMEType)
-                return true;
-
-            return m_client.shouldDecodeSourceDataOfMIMEType(toAPI(&processPool), toAPI(&downloadProxy), toAPI(mimeType.impl()), m_client.base.clientInfo);
-        }
-#endif
-
         void decideDestinationWithSuggestedFilename(WebProcessPool& processPool, DownloadProxy& downloadProxy, const String& filename, Function<void(AllowOverwrite, WTF::String)>&& completionHandler) final
         {
             if (!m_client.decideDestinationWithSuggestedFilename)
@@ -584,7 +574,7 @@ void WKContextSetPlugInAutoStartOriginsFilteringOutEntriesAddedAfterTime(WKConte
 {
     if (!dictionaryRef)
         return;
-    toImpl(contextRef)->setPlugInAutoStartOriginsFilteringOutEntriesAddedAfterTime(*toImpl(dictionaryRef), time);
+    toImpl(contextRef)->setPlugInAutoStartOriginsFilteringOutEntriesAddedAfterTime(*toImpl(dictionaryRef), WallTime::fromRawSeconds(time));
 }
 
 void WKContextSetPlugInAutoStartOrigins(WKContextRef contextRef, WKArrayRef arrayRef)

@@ -1,4 +1,4 @@
-// Copyright (C) 2017 Apple Inc. All rights reserved.
+// Copyright (C) 2017-2018 Apple Inc. All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions
@@ -466,6 +466,7 @@ ftl/FTLThunks.cpp
 ftl/FTLValueRange.cpp
 
 heap/AlignedMemoryAllocator.cpp
+heap/Allocator.cpp
 heap/BlockDirectory.cpp
 heap/CellAttributes.cpp
 heap/CellContainer.cpp
@@ -500,6 +501,7 @@ heap/IsoCellSet.cpp
 heap/IsoSubspace.cpp
 heap/JITStubRoutineSet.cpp
 heap/LargeAllocation.cpp
+heap/LocalAllocator.cpp
 heap/MachineStackMarker.cpp
 heap/MarkStack.cpp
 heap/MarkStackMergingConstraint.cpp
@@ -510,6 +512,8 @@ heap/MarkingConstraintSet.cpp
 heap/MarkingConstraintSolver.cpp
 heap/MutatorScheduler.cpp
 heap/MutatorState.cpp
+heap/SecurityKind.cpp
+heap/SecurityOriginToken.cpp
 heap/SimpleMarkingConstraint.cpp
 heap/SlotVisitor.cpp
 heap/SpaceTimeMutatorScheduler.cpp
@@ -518,6 +522,8 @@ heap/StopIfNecessaryTimer.cpp
 heap/Subspace.cpp
 heap/SynchronousStopTheWorldMutatorScheduler.cpp
 heap/Synchronousness.cpp
+heap/ThreadLocalCache.cpp
+heap/ThreadLocalCacheLayout.cpp
 heap/VisitRaceKey.cpp
 heap/Weak.cpp
 heap/WeakBlock.cpp
@@ -830,7 +836,7 @@ runtime/JSStringIterator.cpp
 runtime/JSStringJoiner.cpp
 runtime/JSStringHeapCellType.cpp
 runtime/JSSymbolTableObject.cpp
-runtime/JSTemplateRegistryKey.cpp
+runtime/JSTemplateObjectDescriptor.cpp
 runtime/JSTypedArrayConstructors.cpp
 runtime/JSTypedArrayPrototypes.cpp
 runtime/JSTypedArrayViewConstructor.cpp
@@ -912,9 +918,7 @@ runtime/SymbolConstructor.cpp
 runtime/SymbolObject.cpp
 runtime/SymbolPrototype.cpp
 runtime/SymbolTable.cpp
-runtime/TemplateRegistry.cpp
-runtime/TemplateRegistryKey.cpp
-runtime/TemplateRegistryKeyTable.cpp
+runtime/TemplateObjectDescriptor.cpp
 runtime/TestRunnerUtils.cpp
 runtime/ThrowScope.cpp
 runtime/TypeLocationCache.cpp

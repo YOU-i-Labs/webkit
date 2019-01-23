@@ -29,7 +29,7 @@
 
 #include "CallLinkInfo.h"
 #include "JSCPoison.h"
-#include "JSCell.h"
+#include "JSCast.h"
 #include "PromiseDeferredTimer.h"
 #include "Structure.h"
 #include "UnconditionalFinalizer.h"
@@ -97,9 +97,9 @@ private:
         JSWebAssemblyCodeBlock& codeBlock;
     };
 
-    PoisonedRef<POISON(JSWebAssemblyCodeBlock), Wasm::CodeBlock> m_codeBlock;
+    PoisonedRef<JSWebAssemblyCodeBlockPoison, Wasm::CodeBlock> m_codeBlock;
     Vector<MacroAssemblerCodeRef> m_wasmToJSExitStubs;
-    PoisonedUniquePtr<POISON(JSWebAssemblyCodeBlock), UnconditionalFinalizer> m_unconditionalFinalizer;
+    PoisonedUniquePtr<JSWebAssemblyCodeBlockPoison, UnconditionalFinalizer> m_unconditionalFinalizer;
     Bag<CallLinkInfo> m_callLinkInfos;
     String m_errorMessage;
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2018 Apple Inc. All rights reserved.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
  * Copyright (C) 2010, 2011 Research In Motion Limited. All rights reserved.
  *
@@ -572,12 +572,6 @@
 
 #if PLATFORM(MAC)
 
-#if __MAC_OS_X_VERSION_MIN_REQUIRED < 101200
-#define USE_QTKIT 1
-#else
-#define USE_QTKIT 0
-#endif
-
 #define USE_APPKIT 1
 #define HAVE_RUNLOOP_TIMER 1
 #define HAVE_SEC_IDENTITY 1
@@ -681,7 +675,7 @@
 
 #endif /* OS(DARWIN) */
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200) || PLATFORM(IOS)
+#if PLATFORM(COCOA)
 #define HAVE_CFNETWORK_STORAGE_PARTITIONING 1
 #endif
 
@@ -709,6 +703,10 @@
 
 /* Include feature macros */
 #include <wtf/FeatureDefines.h>
+
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/AdditionalFeatureDefines.h>)
+#include <WebKitAdditions/AdditionalFeatureDefines.h>
+#endif
 
 #if OS(WINDOWS)
 #define USE_SYSTEM_MALLOC 1
@@ -824,6 +822,11 @@
 #if (CPU(X86_64) || CPU(ARM64)) && HAVE(FAST_TLS)
 #define ENABLE_FAST_TLS_JIT 1
 #endif
+
+/* This feature is currently disabled because WebCore will context switch VMs without telling JSC.
+   FIXME: Re-enable this feature.
+   https://bugs.webkit.org/show_bug.cgi?id=182173 */
+#define USE_FAST_TLS_FOR_TLC 0
 
 #if CPU(X86) || CPU(X86_64) || CPU(ARM_THUMB2) || CPU(ARM64) || CPU(ARM_TRADITIONAL) || CPU(MIPS)
 #define ENABLE_MASM_PROBE 1
@@ -977,6 +980,13 @@
 #define ENABLE_YARR_JIT_DEBUG 0
 #endif
 
+#if ENABLE(YARR_JIT)
+#if CPU(ARM64) || (CPU(X86_64) && !OS(WINDOWS))
+/* Enable JIT'ing Regular Expressions that have nested parenthesis. */
+#define ENABLE_YARR_JIT_ALL_PARENS_EXPRESSIONS 1
+#endif
+#endif
+
 /* If either the JIT or the RegExp JIT is enabled, then the Assembler must be
    enabled as well: */
 #if ENABLE(JIT) || ENABLE(YARR_JIT)
@@ -1008,6 +1018,13 @@
 
 #if ENABLE(DFG_JIT) && HAVE(MACHINE_CONTEXT) && (CPU(X86) || CPU(X86_64) || CPU(ARM64))
 #define ENABLE_SIGNAL_BASED_VM_TRAPS 1
+#endif
+
+#define ENABLE_POISON 1
+/* Not currently supported for 32-bit or OS(WINDOWS) builds (because of missing llint support). Make sure it's disabled. */
+#if USE(JSVALUE32_64) || OS(WINDOWS)
+#undef ENABLE_POISON
+#define ENABLE_POISON 0
 #endif
 
 /* CSS Selector JIT Compiler */
@@ -1102,6 +1119,7 @@
 #if PLATFORM(IOS) || PLATFORM(MAC)
 #define USE_COREMEDIA 1
 #define HAVE_AVFOUNDATION_VIDEO_OUTPUT 1
+#define USE_VIDEOTOOLBOX 1
 #endif
 
 #if PLATFORM(IOS) || PLATFORM(MAC) || (OS(WINDOWS) && USE(CG))
@@ -1115,10 +1133,6 @@
 
 #if PLATFORM(IOS) || PLATFORM(MAC)
 #define HAVE_AVFOUNDATION_LOADER_DELEGATE 1
-#endif
-
-#if PLATFORM(MAC) || (PLATFORM(IOS) && ENABLE(WEB_RTC))
-#define USE_VIDEOTOOLBOX 1
 #endif
 
 #if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
@@ -1168,8 +1182,8 @@
 #define USE_INSERTION_UNDO_GROUPING 1
 #endif
 
-#if PLATFORM(MAC)
-#define HAVE_AVSAMPLEBUFFERGENERATOR 1
+#if PLATFORM(MAC) || PLATFORM(IOS)
+#define HAVE_AVASSETREADER 1
 #endif
 
 #if PLATFORM(COCOA)
@@ -1228,14 +1242,14 @@
 #endif
 
 /* FIXME: Enable USE_OS_LOG when building with the public iOS 10 SDK once we fix <rdar://problem/27758343>. */
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200) || (PLATFORM(IOS) && USE(APPLE_INTERNAL_SDK))
+#if PLATFORM(MAC) || (PLATFORM(IOS) && USE(APPLE_INTERNAL_SDK))
 #define USE_OS_LOG 1
 #if USE(APPLE_INTERNAL_SDK)
 #define USE_OS_STATE 1
 #endif
 #endif
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200) || PLATFORM(IOS)
+#if PLATFORM(COCOA)
 #define HAVE_SEC_TRUST_SERIALIZATION 1
 #endif
 
@@ -1263,7 +1277,7 @@
 #endif
 #endif
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+#if PLATFORM(MAC)
 #define USE_MEDIAREMOTE 1
 #endif
 
@@ -1272,14 +1286,14 @@
 #pragma strict_gs_check(on)
 #endif
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101201 && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200
+#if PLATFORM(MAC)
 #define HAVE_TOUCH_BAR 1
 #define HAVE_ADVANCED_SPELL_CHECKING 1
 
 #if defined(__LP64__)
 #define ENABLE_WEB_PLAYBACK_CONTROLS_MANAGER 1
 #endif
-#endif /* PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101201 && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200 */
+#endif /* PLATFORM(MAC) */
 
 #if PLATFORM(COCOA) && ENABLE(WEB_RTC)
 #define USE_LIBWEBRTC 1

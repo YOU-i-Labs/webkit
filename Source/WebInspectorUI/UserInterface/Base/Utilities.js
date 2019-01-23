@@ -49,55 +49,34 @@ Object.defineProperty(Object, "shallowEqual",
     {
         // Checks if two objects have the same top-level properties.
 
-        // Only objects can proceed.
         if (!(a instanceof Object) || !(b instanceof Object))
             return false;
 
-        // Check for strict equality in case they are the same object.
         if (a === b)
             return true;
 
-        // Use an optimized version of shallowEqual for arrays.
-        if (Array.isArray(a) && Array.isArray(b))
-            return Array.shallowEqual(a, b);
+        if (Array.shallowEqual(a, b))
+            return true;
 
         if (a.constructor !== b.constructor)
             return false;
 
-        var aKeys = Object.keys(a);
-        var bKeys = Object.keys(b);
-
-        // Check that each object has the same number of keys.
+        let aKeys = Object.keys(a);
+        let bKeys = Object.keys(b);
         if (aKeys.length !== bKeys.length)
             return false;
 
-        // Check if all the keys and their values are equal.
-        for (var i = 0; i < aKeys.length; ++i) {
-            // Check that b has the same key as a.
-            if (!(aKeys[i] in b))
+        for (let aKey of aKeys) {
+            if (!(aKey in b))
                 return false;
 
-            // Check that the values are strict equal since this is only
-            // a shallow check, not a recursive one.
-            if (a[aKeys[i]] !== b[aKeys[i]])
+            let aValue = a[aKey];
+            let bValue = b[aKey];
+            if (aValue !== bValue && !Array.shallowEqual(aValue, bValue))
                 return false;
         }
 
         return true;
-    }
-});
-
-Object.defineProperty(Object, "shallowMerge",
-{
-    value(a, b)
-    {
-        let result = Object.shallowCopy(a);
-        let keys = Object.keys(b);
-        for (let i = 0; i < keys.length; ++i) {
-            console.assert(!result.hasOwnProperty(keys[i]) || result[keys[i]] === b[keys[i]], keys[i]);
-            result[keys[i]] = b[keys[i]];
-        }
-        return result;
     }
 });
 
@@ -593,10 +572,12 @@ Object.defineProperty(String.prototype, "isUpperCase",
     }
 });
 
-Object.defineProperty(String.prototype, "trimMiddle",
+Object.defineProperty(String.prototype, "truncateMiddle",
 {
     value(maxLength)
     {
+        "use strict";
+
         if (this.length <= maxLength)
             return this;
         var leftHalf = maxLength >> 1;
@@ -605,10 +586,12 @@ Object.defineProperty(String.prototype, "trimMiddle",
     }
 });
 
-Object.defineProperty(String.prototype, "trimEnd",
+Object.defineProperty(String.prototype, "truncateEnd",
 {
     value(maxLength)
     {
+        "use strict";
+
         if (this.length <= maxLength)
             return this;
         return this.substr(0, maxLength - 1) + ellipsis;

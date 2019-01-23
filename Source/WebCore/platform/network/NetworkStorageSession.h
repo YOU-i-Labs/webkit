@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +43,12 @@
 typedef struct _SoupCookieJar SoupCookieJar;
 #endif
 
+#if USE(CURL)
+#include "CookieJarCurl.h"
+#include "CookieJarDB.h"
+#include <wtf/UniqueRef.h>
+#endif
+
 #ifdef __OBJC__
 #include <objc/objc.h>
 #endif
@@ -74,7 +80,7 @@ public:
     CredentialStorage& credentialStorage() { return m_credentialStorage; }
 
 #ifdef __OBJC__
-    NSHTTPCookieStorage *nsCookieStorage() const;
+    WEBCORE_EXPORT NSHTTPCookieStorage *nsCookieStorage() const;
 #endif
 
     const String& cacheStorageDirectory() const { return m_cacheStorageDirectory; }
@@ -99,6 +105,8 @@ public:
     WEBCORE_EXPORT void setPrevalentDomainsToPartitionOrBlockCookies(const Vector<String>& domainsToPartition, const Vector<String>& domainsToBlock, const Vector<String>& domainsToNeitherPartitionNorBlock, bool clearFirst);
     WEBCORE_EXPORT void removePrevalentDomains(const Vector<String>& domains);
     WEBCORE_EXPORT bool hasStorageAccessForFrame(const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID) const;
+    WEBCORE_EXPORT bool hasStorageAccessForFrame(const ResourceRequest&, uint64_t frameID, uint64_t pageID) const;
+    WEBCORE_EXPORT Vector<String> getAllStorageAccessEntries() const;
     WEBCORE_EXPORT void grantStorageAccessForFrame(const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID);
     WEBCORE_EXPORT void removeStorageAccessForFrame(uint64_t frameID, uint64_t pageID);
     WEBCORE_EXPORT void removeStorageAccessForAllFramesOnPage(uint64_t pageID);
@@ -115,6 +123,14 @@ public:
     void setCookieObserverHandler(Function<void ()>&&);
     void getCredentialFromPersistentStorage(const ProtectionSpace&, Function<void (Credential&&)> completionHandler);
     void saveCredentialToPersistentStorage(const ProtectionSpace&, const Credential&);
+#elif USE(CURL)
+    NetworkStorageSession(PAL::SessionID, NetworkingContext*);
+    ~NetworkStorageSession();
+
+    const CookieJarCurl& cookieStorage() const { return m_cookieStorage; };
+    CookieJarDB& cookieDatabase() const { return m_cookieDatabase; };
+
+    NetworkingContext* context() const;
 #else
     NetworkStorageSession(PAL::SessionID, NetworkingContext*);
     ~NetworkStorageSession();
@@ -146,6 +162,11 @@ private:
     Function<void (Credential&&)> m_persisentStorageCompletionHandler;
     GRefPtr<GCancellable> m_persisentStorageCancellable;
 #endif
+#elif USE(CURL)
+    UniqueRef<CookieJarCurl> m_cookieStorage;
+    mutable CookieJarDB m_cookieDatabase;
+
+    RefPtr<NetworkingContext> m_context;
 #else
     RefPtr<NetworkingContext> m_context;
 #endif

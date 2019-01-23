@@ -62,7 +62,6 @@ public:
     bool isInReversedOrderedList() const;
 
 private:
-    void willBeDestroyed() final;
 
     const char* renderName() const final { return "RenderListItem"; }
 

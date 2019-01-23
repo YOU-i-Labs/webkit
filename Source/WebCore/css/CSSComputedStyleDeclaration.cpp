@@ -297,6 +297,7 @@ static const CSSPropertyID computedProperties[] = {
     CSSPropertyColumnCount,
     CSSPropertyColumnFill,
     CSSPropertyColumnGap,
+    CSSPropertyRowGap,
     CSSPropertyWebkitColumnProgression,
     CSSPropertyColumnRuleColor,
     CSSPropertyColumnRuleStyle,
@@ -349,8 +350,6 @@ static const CSSPropertyID computedProperties[] = {
     CSSPropertyGridTemplateRows,
     CSSPropertyGridRowEnd,
     CSSPropertyGridRowStart,
-    CSSPropertyGridColumnGap,
-    CSSPropertyGridRowGap,
     CSSPropertyWebkitHyphenateCharacter,
     CSSPropertyWebkitHyphenateLimitAfter,
     CSSPropertyWebkitHyphenateLimitBefore,
@@ -361,6 +360,7 @@ static const CSSPropertyID computedProperties[] = {
     CSSPropertyWebkitLineBoxContain,
     CSSPropertyLineBreak,
     CSSPropertyWebkitLineClamp,
+    CSSPropertyWebkitLinesClamp,
     CSSPropertyWebkitLineGrid,
     CSSPropertyWebkitLineSnap,
     CSSPropertyWebkitLocale,
@@ -2521,10 +2521,14 @@ static Ref<CSSValueList> valueForItemPositionWithOverflowAlignment(const StyleSe
     else if (data.position() == ItemPositionLastBaseline) {
         result->append(cssValuePool.createIdentifierValue(CSSValueLast));
         result->append(cssValuePool.createIdentifierValue(CSSValueBaseline));
-    } else
-        result->append(cssValuePool.createValue(data.position()));
-    if (data.position() >= ItemPositionCenter && data.overflow() != OverflowAlignmentDefault)
-        result->append(cssValuePool.createValue(data.overflow()));
+    } else {
+        if (data.position() >= ItemPositionCenter && data.overflow() != OverflowAlignmentDefault)
+            result->append(cssValuePool.createValue(data.overflow()));
+        if (data.position() == ItemPositionLegacy)
+            result->append(cssValuePool.createIdentifierValue(CSSValueNormal));
+        else
+            result->append(cssValuePool.createValue(data.position()));
+    }
     ASSERT(result->length() <= 2);
     return result;
 }
@@ -2552,12 +2556,12 @@ static Ref<CSSValueList> valueForContentPositionAndDistributionWithOverflowAlign
         result->append(cssValuePool.createIdentifierValue(CSSValueBaseline));
         break;
     default:
+        // Handle overflow-alignment (only allowed for content-position values)
+        if ((data.position() >= ContentPositionCenter || data.distribution() != ContentDistributionDefault) && data.overflow() != OverflowAlignmentDefault)
+            result->append(cssValuePool.createValue(data.overflow()));
         result->append(cssValuePool.createValue(data.position()));
     }
 
-    // Handle overflow-alignment (only allowed for content-position values)
-    if ((data.position() >= ContentPositionCenter || data.distribution() != ContentDistributionDefault) && data.overflow() != OverflowAlignmentDefault)
-        result->append(cssValuePool.createValue(data.overflow()));
     ASSERT(result->length() > 0);
     ASSERT(result->length() <= 3);
     return result;
@@ -2924,9 +2928,13 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyinStyle(const RenderSty
         case CSSPropertyColumnFill:
             return cssValuePool.createValue(style.columnFill());
         case CSSPropertyColumnGap:
-            if (style.hasNormalColumnGap())
+            if (style.columnGap().isNormal())
                 return cssValuePool.createIdentifierValue(CSSValueNormal);
-            return zoomAdjustedPixelValue(style.columnGap(), style);
+            return zoomAdjustedPixelValueForLength(style.columnGap().length(), style);
+        case CSSPropertyRowGap:
+            if (style.rowGap().isNormal())
+                return cssValuePool.createIdentifierValue(CSSValueNormal);
+            return zoomAdjustedPixelValueForLength(style.rowGap().length(), style);
         case CSSPropertyWebkitColumnProgression:
             return cssValuePool.createValue(style.columnProgression());
         case CSSPropertyColumnRuleColor:
@@ -2998,7 +3006,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyinStyle(const RenderSty
         case CSSPropertyJustifyContent:
             return valueForContentPositionAndDistributionWithOverflowAlignment(style.justifyContent(), CSSValueFlexStart);
         case CSSPropertyJustifyItems:
-            return valueForItemPositionWithOverflowAlignment(style.justifyItems().position() == ItemPositionAuto ? RenderStyle::initialDefaultAlignment() : style.justifyItems());
+            return valueForItemPositionWithOverflowAlignment(style.justifyItems());
         case CSSPropertyJustifySelf:
             return valueForItemPositionWithOverflowAlignment(style.justifySelf());
         case CSSPropertyPlaceContent:
@@ -3109,12 +3117,8 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyinStyle(const RenderSty
                 return cssValuePool.createIdentifierValue(CSSValueNone);
             }
             return CSSGridTemplateAreasValue::create(style.namedGridArea(), style.namedGridAreaRowCount(), style.namedGridAreaColumnCount());
-        case CSSPropertyGridColumnGap:
-            return zoomAdjustedPixelValueForLength(style.gridColumnGap(), style);
-        case CSSPropertyGridRowGap:
-            return zoomAdjustedPixelValueForLength(style.gridRowGap(), style);
-        case CSSPropertyGridGap:
-            return getCSSPropertyValuesForGridShorthand(gridGapShorthand());
+        case CSSPropertyGap:
+            return getCSSPropertyValuesForShorthandProperties(gapShorthand());
         case CSSPropertyHeight:
             if (renderer && !renderer->isRenderSVGModelObject()) {
                 // According to http://www.w3.org/TR/CSS2/visudet.html#the-height-property,
@@ -3166,6 +3170,15 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyinStyle(const RenderSty
             if (style.lineClamp().isNone())
                 return cssValuePool.createIdentifierValue(CSSValueNone);
             return cssValuePool.createValue(style.lineClamp().value(), style.lineClamp().isPercentage() ? CSSPrimitiveValue::CSS_PERCENTAGE : CSSPrimitiveValue::CSS_NUMBER);
+        case CSSPropertyWebkitLinesClamp: {
+            if (style.linesClamp().isNone())
+                return cssValuePool.createIdentifierValue(CSSValueNone);
+            auto list = CSSValueList::createSpaceSeparated();
+            list->append(cssValuePool.createValue(style.linesClamp().start().value(), style.linesClamp().start().isPercentage() ? CSSPrimitiveValue::CSS_PERCENTAGE : CSSPrimitiveValue::CSS_NUMBER));
+            list->append(cssValuePool.createValue(style.linesClamp().end().value(), style.linesClamp().end().isPercentage() ? CSSPrimitiveValue::CSS_PERCENTAGE : CSSPrimitiveValue::CSS_NUMBER));
+            list->append(cssValuePool.createValue(style.linesClamp().center(), CSSPrimitiveValue::CSS_STRING));
+            return WTFMove(list);
+        }
         case CSSPropertyLineHeight:
             return lineHeightFromStyle(style);
         case CSSPropertyListStyleImage:

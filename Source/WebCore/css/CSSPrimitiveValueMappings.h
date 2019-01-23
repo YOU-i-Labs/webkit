@@ -3201,6 +3201,7 @@ template<> inline CSSPrimitiveValue::operator WritingMode() const
 
     switch (m_value.valueID) {
     case CSSValueHorizontalTb:
+    case CSSValueLr:
     case CSSValueLrTb:
     case CSSValueRl:
     case CSSValueRlTb:
@@ -4962,6 +4963,9 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ItemPosition itemPosition
 {
     m_primitiveUnitType = CSS_VALUE_ID;
     switch (itemPosition) {
+    case ItemPositionLegacy:
+        m_value.valueID = CSSValueLegacy;
+        break;
     case ItemPositionAuto:
         m_value.valueID = CSSValueAuto;
         break;
@@ -5010,6 +5014,8 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ItemPosition itemPosition
 template<> inline CSSPrimitiveValue::operator ItemPosition() const
 {
     switch (m_value.valueID) {
+    case CSSValueLegacy:
+        return ItemPositionLegacy;
     case CSSValueAuto:
         return ItemPositionAuto;
     case CSSValueNormal:

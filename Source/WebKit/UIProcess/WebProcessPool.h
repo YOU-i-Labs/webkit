@@ -205,6 +205,8 @@ public:
     ProcessID networkProcessIdentifier();
     ProcessID storageProcessIdentifier();
 
+    WebPageGroup& defaultPageGroup() { return m_defaultPageGroup.get(); }
+
     void setAlwaysUsesComplexTextCodePath(bool);
     void setShouldUseFontSmoothing(bool);
     
@@ -309,7 +311,7 @@ public:
     Ref<API::Dictionary> plugInAutoStartOriginHashes() const;
     void setPlugInAutoStartOriginHashes(API::Dictionary&);
     void setPlugInAutoStartOrigins(API::Array&);
-    void setPlugInAutoStartOriginsFilteringOutEntriesAddedAfterTime(API::Dictionary&, double time);
+    void setPlugInAutoStartOriginsFilteringOutEntriesAddedAfterTime(API::Dictionary&, WallTime);
 
     // Network Process Management
     NetworkProcessProxy& ensureNetworkProcess(WebsiteDataStore* withWebsiteDataStore = nullptr);
@@ -393,7 +395,6 @@ public:
     // FIXME: Move these to API::WebsiteDataStore.
     static String legacyPlatformDefaultLocalStorageDirectory();
     static String legacyPlatformDefaultIndexedDBDatabaseDirectory();
-    static String legacyPlatformDefaultServiceWorkerRegistrationDirectory();
     static String legacyPlatformDefaultWebSQLDatabaseDirectory();
     static String legacyPlatformDefaultMediaKeysStorageDirectory();
     static String legacyPlatformDefaultMediaCacheDirectory();

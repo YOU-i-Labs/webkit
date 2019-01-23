@@ -37,8 +37,6 @@ public:
     RenderInline(Element&, RenderStyle&&);
     RenderInline(Document&, RenderStyle&&);
 
-    void addChild(RenderTreeBuilder&, RenderPtr<RenderObject> newChild, RenderObject* beforeChild = 0) override;
-
     LayoutUnit marginLeft() const final;
     LayoutUnit marginRight() const final;
     LayoutUnit marginTop() const final;
@@ -94,8 +92,6 @@ public:
 
     bool hitTestCulledInline(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset);
 
-    void addChildIgnoringContinuation(RenderTreeBuilder&, RenderPtr<RenderObject> newChild, RenderObject* beforeChild = nullptr) final;
-
 protected:
     void willBeDestroyed() override;
 
@@ -149,8 +145,6 @@ private:
     LayoutUnit lineHeight(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const final;
     int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const final;
     
-    void childBecameNonInline(RenderElement&) final;
-
     void updateHitTestResult(HitTestResult&, const LayoutPoint&) final;
 
     void imageChanged(WrappedImagePtr, const IntRect* = 0) final;

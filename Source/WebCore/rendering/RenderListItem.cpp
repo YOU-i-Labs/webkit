@@ -31,6 +31,7 @@
 #include "HTMLUListElement.h"
 #include "InlineElementBox.h"
 #include "PseudoElement.h"
+#include "RenderTreeBuilder.h"
 #include "RenderView.h"
 #include "StyleInheritedData.h"
 #include <wtf/IsoMallocInlines.h>
@@ -52,13 +53,7 @@ RenderListItem::RenderListItem(Element& element, RenderStyle&& style)
 RenderListItem::~RenderListItem()
 {
     // Do not add any code here. Add it to willBeDestroyed() instead.
-}
-
-void RenderListItem::willBeDestroyed()
-{
-    if (m_marker)
-        m_marker->removeFromParentAndDestroy();
-    RenderBlockFlow::willBeDestroyed();
+    ASSERT(!m_marker);
 }
 
 RenderStyle RenderListItem::computeMarkerStyle() const

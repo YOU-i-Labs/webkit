@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2017 Apple Inc. All rights reserved.
+# Copyright (C) 2012-2018 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -306,6 +306,9 @@ class LabelReference
     def intMemRef
         "*CAST<intptr_t*>(&#{cLabel})"
     end
+    def cloopEmitLea(destination, type)
+        $asm.putc "#{destination.clValue(:voidPtr)} = CAST<void*>(&#{cLabel});"
+    end
 end
 
 
@@ -564,9 +567,6 @@ class Instruction
     @@didReturnFromJSLabelCounter = 0
 
     def lowerC_LOOP
-        $asm.codeOrigin codeOriginString if $enableCodeOriginComments
-        $asm.annotation annotation if $enableInstrAnnotations && (opcode != "cloopDo")
-
         case opcode
         when "addi"
             cloopEmitOperation(operands, :int32, "+")
@@ -1161,5 +1161,11 @@ class Instruction
         else
             lowerDefault
         end
+    end
+
+    def recordMetaDataC_LOOP
+        $asm.codeOrigin codeOriginString if $enableCodeOriginComments
+        $asm.annotation annotation if $enableInstrAnnotations && (opcode != "cloopDo")
+        $asm.debugAnnotation codeOrigin.debugDirective if $enableDebugAnnotations
     end
 end

@@ -75,17 +75,17 @@
 #include "WebProcessProxy.h"
 #include "WebsiteDataStore.h"
 #include "WebsiteDataStoreParameters.h"
+#include <JavaScriptCore/JSCInlines.h>
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/LogInitialization.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/URLParser.h>
 #include <pal/SessionID.h>
-#include <runtime/JSCInlines.h>
-#include <wtf/CurrentTime.h>
 #include <wtf/Language.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RunLoop.h>
+#include <wtf/WallTime.h>
 #include <wtf/text/StringBuilder.h>
 
 #if ENABLE(SERVICE_CONTROLS)
@@ -196,6 +196,7 @@ static WebsiteDataStore::Configuration legacyWebsiteDataStoreConfiguration(API::
     WebsiteDataStore::Configuration configuration;
 
     configuration.cacheStorageDirectory = API::WebsiteDataStore::defaultCacheStorageDirectory();
+    configuration.serviceWorkerRegistrationDirectory = API::WebsiteDataStore::defaultServiceWorkerRegistrationDirectory();
     configuration.localStorageDirectory = processPoolConfiguration.localStorageDirectory();
     configuration.webSQLDatabaseDirectory = processPoolConfiguration.webSQLDatabaseDirectory();
     configuration.applicationCacheDirectory = processPoolConfiguration.applicationCacheDirectory();
@@ -555,7 +556,7 @@ void WebProcessPool::ensureStorageProcessAndWebsiteDataStore(WebsiteDataStore* r
 #endif
 #if ENABLE(SERVICE_WORKER)
         if (parameters.serviceWorkerRegistrationDirectory.isEmpty()) {
-            parameters.serviceWorkerRegistrationDirectory = m_configuration->serviceWorkerRegistrationDirectory();
+            parameters.serviceWorkerRegistrationDirectory = API::WebsiteDataStore::defaultServiceWorkerRegistrationDirectory();
             SandboxExtension::createHandleForReadWriteDirectory(parameters.serviceWorkerRegistrationDirectory, parameters.serviceWorkerRegistrationDirectoryExtensionHandle);
         }
 
@@ -612,6 +613,9 @@ void WebProcessPool::establishWorkerContextConnectionToStorageProcess(StoragePro
 
     auto serviceWorkerProcessProxy = ServiceWorkerProcessProxy::create(*this, *websiteDataStore);
     m_serviceWorkerProcess = serviceWorkerProcessProxy.ptr();
+    ASSERT(websiteDataStore->sessionID().isValid());
+    if (websiteDataStore->sessionID().isValid())
+        sendToAllProcesses(Messages::WebProcess::RegisterServiceWorkerClients { websiteDataStore->sessionID() });
 
     updateProcessAssertions();
     initializeNewWebProcess(serviceWorkerProcessProxy.get(), *websiteDataStore);
@@ -812,6 +816,13 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
     serviceController.refreshExistingServices();
 #endif
 
+#if ENABLE(SERVICE_WORKER)
+    String serviceWorkerRegistrationDirectory = websiteDataStore.resolvedServiceWorkerRegistrationDirectory();
+    if (serviceWorkerRegistrationDirectory.isEmpty())
+        serviceWorkerRegistrationDirectory = API::WebsiteDataStore::defaultServiceWorkerRegistrationDirectory();
+    parameters.hasRegisteredServiceWorkers = ServiceWorkerProcessProxy::hasRegisteredServiceWorkers(serviceWorkerRegistrationDirectory);
+#endif
+
 #if ENABLE(NETSCAPE_PLUGIN_API)
     parameters.pluginLoadClientPolicies = m_pluginLoadClientPolicies;
 #endif
@@ -912,8 +923,8 @@ void WebProcessPool::processDidFinishLaunching(WebProcessProxy* process)
     // so check if it needs to be started here
     if (m_memorySamplerEnabled) {
         SandboxExtension::Handle sampleLogSandboxHandle;        
-        double now = WTF::currentTime();
-        String sampleLogFilePath = String::format("WebProcess%llupid%d", static_cast<unsigned long long>(now), process->processIdentifier());
+        WallTime now = WallTime::now();
+        String sampleLogFilePath = String::format("WebProcess%llupid%d", static_cast<unsigned long long>(now.secondsSinceEpoch().seconds()), process->processIdentifier());
         sampleLogFilePath = SandboxExtension::createHandleForTemporaryFile(sampleLogFilePath, SandboxExtension::Type::ReadWrite, sampleLogSandboxHandle);
         
         process->send(Messages::WebProcess::StartMemorySampler(sampleLogSandboxHandle, sampleLogFilePath, m_memorySamplerInterval), 0);
@@ -1054,7 +1065,7 @@ void WebProcessPool::pageBeginUsingWebsiteDataStore(WebPageProxy& page)
     if (sessionID.isEphemeral()) {
         ASSERT(page.websiteDataStore().parameters().networkSessionParameters.sessionID == sessionID);
         sendToNetworkingProcess(Messages::NetworkProcess::AddWebsiteDataStore(page.websiteDataStore().parameters()));
-        page.process().send(Messages::WebProcess::AddWebsiteDataStore({{ }, { }, { }, { }, { }, { }, { sessionID, { }, { }, { }}}), 0);
+        page.process().send(Messages::WebProcess::AddWebsiteDataStore(WebsiteDataStoreParameters::privateSessionParameters(sessionID)), 0);
     } else if (sessionID != PAL::SessionID::defaultSessionID()) {
         sendToNetworkingProcess(Messages::NetworkProcess::AddWebsiteDataStore(page.websiteDataStore().parameters()));
         page.process().send(Messages::WebProcess::AddWebsiteDataStore(page.websiteDataStore().parameters()), 0);
@@ -1380,8 +1391,8 @@ void WebProcessPool::startMemorySampler(const double interval)
     
     // For WebProcess
     SandboxExtension::Handle sampleLogSandboxHandle;    
-    double now = WTF::currentTime();
-    String sampleLogFilePath = String::format("WebProcess%llu", static_cast<unsigned long long>(now));
+    WallTime now = WallTime::now();
+    String sampleLogFilePath = String::format("WebProcess%llu", static_cast<unsigned long long>(now.secondsSinceEpoch().seconds()));
     sampleLogFilePath = SandboxExtension::createHandleForTemporaryFile(sampleLogFilePath, SandboxExtension::Type::ReadWrite, sampleLogSandboxHandle);
     
     sendToAllProcesses(Messages::WebProcess::StartMemorySampler(sampleLogSandboxHandle, sampleLogFilePath, interval));
@@ -1487,6 +1498,9 @@ void WebProcessPool::updateAutomationCapabilities() const
 
 void WebProcessPool::setAutomationSession(RefPtr<WebAutomationSession>&& automationSession)
 {
+    if (m_automationSession)
+        m_automationSession->setProcessPool(nullptr);
+    
     m_automationSession = WTFMove(automationSession);
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -1700,7 +1714,7 @@ void WebProcessPool::setPlugInAutoStartOrigins(API::Array& array)
     m_plugInAutoStartProvider.setAutoStartOriginsArray(array);
 }
 
-void WebProcessPool::setPlugInAutoStartOriginsFilteringOutEntriesAddedAfterTime(API::Dictionary& dictionary, double time)
+void WebProcessPool::setPlugInAutoStartOriginsFilteringOutEntriesAddedAfterTime(API::Dictionary& dictionary, WallTime time)
 {
     m_plugInAutoStartProvider.setAutoStartOriginsFilteringOutEntriesAddedAfterTime(dictionary, time);
 }

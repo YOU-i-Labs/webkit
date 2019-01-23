@@ -165,6 +165,8 @@ MediaPlayerPrivateGStreamer::MediaPlayerPrivateGStreamer(MediaPlayer* player)
 
 MediaPlayerPrivateGStreamer::~MediaPlayerPrivateGStreamer()
 {
+    GST_DEBUG("Disposing player");
+
 #if ENABLE(VIDEO_TRACK)
     for (size_t i = 0; i < m_audioTracks.size(); ++i)
         m_audioTracks[i]->disconnect();
@@ -191,10 +193,11 @@ MediaPlayerPrivateGStreamer::~MediaPlayerPrivateGStreamer()
             reinterpret_cast<gpointer>(setAudioStreamPropertiesCallback), this);
 
     m_readyTimerHandler.stop();
-    if (m_missingPluginsCallback) {
-        m_missingPluginsCallback->invalidate();
-        m_missingPluginsCallback = nullptr;
+    for (auto& missingPluginCallback : m_missingPluginCallbacks) {
+        if (missingPluginCallback)
+            missingPluginCallback->invalidate();
     }
+    m_missingPluginCallbacks.clear();
 
     if (m_videoSink) {
         GRefPtr<GstPad> videoSinkPad = adoptGRef(gst_element_get_static_pad(m_videoSink.get(), "sink"));
@@ -213,7 +216,7 @@ MediaPlayerPrivateGStreamer::~MediaPlayerPrivateGStreamer()
 
 static void convertToInternalProtocol(URL& url)
 {
-    if (url.protocolIsInHTTPFamily())
+    if (url.protocolIsInHTTPFamily() || url.protocolIsBlob())
         url.setProtocol("webkit+" + url.protocol());
 }
 
@@ -233,6 +236,14 @@ void MediaPlayerPrivateGStreamer::setPlaybinURL(const URL& url)
 
 void MediaPlayerPrivateGStreamer::load(const String& urlString)
 {
+    // FIXME: This method is still called even if supportsType() returned
+    // IsNotSupported. This would deserve more investigation but meanwhile make
+    // sure we don't ever try to play animated gif assets.
+    if (m_player->contentMIMEType() == "image/gif") {
+        loadingFailed(MediaPlayer::FormatError);
+        return;
+    }
+
     if (!MediaPlayerPrivateGStreamerBase::initializeGStreamerAndRegisterWebKitElements())
         return;
 
@@ -336,6 +347,7 @@ MediaTime MediaPlayerPrivateGStreamer::playbackPosition() const
 
 void MediaPlayerPrivateGStreamer::readyTimerFired()
 {
+    GST_DEBUG("In READY for too long. Releasing pipeline resources.");
     changePipelineState(GST_STATE_NULL);
 }
 
@@ -355,6 +367,11 @@ bool MediaPlayerPrivateGStreamer::changePipelineState(GstState newState)
 
     GST_DEBUG("Changing state change to %s from %s with %s pending", gst_element_state_get_name(newState),
         gst_element_state_get_name(currentState), gst_element_state_get_name(pending));
+
+#if USE(GSTREAMER_GL)
+    if (currentState == GST_STATE_READY && newState == GST_STATE_PAUSED)
+        ensureGLVideoSinkContext();
+#endif
 
     GstStateChangeReturn setStateResult = gst_element_set_state(m_pipeline.get(), newState);
     GstState pausedOrPlaying = newState == GST_STATE_PLAYING ? GST_STATE_PAUSED : GST_STATE_PLAYING;
@@ -933,7 +950,7 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
     GST_LOG("Message %s received from element %s", GST_MESSAGE_TYPE_NAME(message), GST_MESSAGE_SRC_NAME(message));
     switch (GST_MESSAGE_TYPE(message)) {
     case GST_MESSAGE_ERROR:
-        if (m_resetPipeline || m_missingPluginsCallback || m_errorOccured)
+        if (m_resetPipeline || !m_missingPluginCallbacks.isEmpty() || m_errorOccured)
             break;
         gst_message_parse_error(message, &err.outPtr(), &debug.outPtr());
         GST_ERROR("Error %d: %s (url=%s)", err->code, err->message, m_url.string().utf8().data());
@@ -952,6 +969,7 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
             // this case the HTMLMediaElement will emit a stalled
             // event.
             GST_ERROR("Decode error, let the Media element emit a stalled event.");
+            m_loadingStalled = true;
             break;
         } else if (err->domain == GST_STREAM_ERROR) {
             error = MediaPlayer::DecodeError;
@@ -1028,17 +1046,25 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
     case GST_MESSAGE_ELEMENT:
         if (gst_is_missing_plugin_message(message)) {
             if (gst_install_plugins_supported()) {
-                m_missingPluginsCallback = MediaPlayerRequestInstallMissingPluginsCallback::create([this](uint32_t result) {
-                    m_missingPluginsCallback = nullptr;
+                RefPtr<MediaPlayerRequestInstallMissingPluginsCallback> missingPluginCallback = MediaPlayerRequestInstallMissingPluginsCallback::create([weakThis = createWeakPtr()](uint32_t result, MediaPlayerRequestInstallMissingPluginsCallback& missingPluginCallback) {
+                    if (!weakThis) {
+                        GST_INFO("got missing pluging installation callback in destroyed player with result %u", result);
+                        return;
+                    }
+
+                    GST_DEBUG("got missing plugin installation callback with result %u", result);
+                    RefPtr<MediaPlayerRequestInstallMissingPluginsCallback> protectedMissingPluginCallback = &missingPluginCallback;
+                    weakThis->m_missingPluginCallbacks.removeFirst(protectedMissingPluginCallback);
                     if (result != GST_INSTALL_PLUGINS_SUCCESS)
                         return;
 
-                    changePipelineState(GST_STATE_READY);
-                    changePipelineState(GST_STATE_PAUSED);
+                    weakThis->changePipelineState(GST_STATE_READY);
+                    weakThis->changePipelineState(GST_STATE_PAUSED);
                 });
+                m_missingPluginCallbacks.append(missingPluginCallback);
                 GUniquePtr<char> detail(gst_missing_plugin_message_get_installer_detail(message));
                 GUniquePtr<char> description(gst_missing_plugin_message_get_description(message));
-                m_player->client().requestInstallMissingPlugins(String::fromUTF8(detail.get()), String::fromUTF8(description.get()), *m_missingPluginsCallback);
+                m_player->client().requestInstallMissingPlugins(String::fromUTF8(detail.get()), String::fromUTF8(description.get()), *missingPluginCallback);
             }
         }
 #if ENABLE(VIDEO_TRACK) && USE(GSTREAMER_MPEGTS)
@@ -1096,13 +1122,12 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
 
 void MediaPlayerPrivateGStreamer::processBufferingStats(GstMessage* message)
 {
-    bool alreadyBuffering = m_buffering;
     m_buffering = true;
     gst_message_parse_buffering(message, &m_bufferingPercentage);
 
     GST_DEBUG("[Buffering] Buffering: %d%%.", m_bufferingPercentage);
 
-    if ((alreadyBuffering != m_buffering) || (m_bufferingPercentage == 100))
+    if (m_bufferingPercentage == 100)
         updateStates();
 }
 
@@ -1277,9 +1302,8 @@ void MediaPlayerPrivateGStreamer::fillTimerFired()
         GST_DEBUG("[Buffering] Updated maxTimeLoaded: %s", toString(m_maxTimeLoaded).utf8().data());
     }
 
-    bool downloadAlreadyFinished = m_downloadFinished;
     m_downloadFinished = fillStatus == 100.0;
-    if ((downloadAlreadyFinished != m_downloadFinished) &&  !m_downloadFinished) {
+    if (!m_downloadFinished) {
         updateStates();
         return;
     }
@@ -1319,12 +1343,19 @@ MediaTime MediaPlayerPrivateGStreamer::maxTimeLoaded() const
 
 bool MediaPlayerPrivateGStreamer::didLoadingProgress() const
 {
+    if (m_errorOccured || m_loadingStalled)
+        return false;
+
+    if (isLiveStream())
+        return true;
+
     if (UNLIKELY(!m_pipeline || !durationMediaTime() || (!isMediaSource() && !totalBytes())))
         return false;
+
     MediaTime currentMaxTimeLoaded = maxTimeLoaded();
     bool didLoadingProgress = currentMaxTimeLoaded != m_maxTimeLoadedAtLastDidLoadingProgress;
     m_maxTimeLoadedAtLastDidLoadingProgress = currentMaxTimeLoaded;
-    GST_LOG("didLoadingProgress: %d", didLoadingProgress);
+    GST_LOG("didLoadingProgress: %s", toString(didLoadingProgress).utf8().data());
     return didLoadingProgress;
 }
 
@@ -1339,7 +1370,7 @@ unsigned long long MediaPlayerPrivateGStreamer::totalBytes() const
     if (!m_source)
         return 0;
 
-    if (m_isStreaming)
+    if (isLiveStream())
         return 0;
 
     GstFormat fmt = GST_FORMAT_BYTES;
@@ -1789,6 +1820,8 @@ void MediaPlayerPrivateGStreamer::timeChanged()
 
 void MediaPlayerPrivateGStreamer::didEnd()
 {
+    GST_INFO("Playback ended");
+
     // Synchronize position and duration values to not confuse the
     // HTMLMediaElement. In some cases like reverse playback the
     // position is not always reported as 0 for instance.
@@ -2152,7 +2185,11 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin()
     m_textAppSinkPad = adoptGRef(gst_element_get_static_pad(m_textAppSink.get(), "sink"));
     ASSERT(m_textAppSinkPad);
 
-    GRefPtr<GstCaps> textCaps = adoptGRef(gst_caps_new_empty_simple("text/vtt"));
+    GRefPtr<GstCaps> textCaps;
+    if (webkitGstCheckVersion(1, 13, 0))
+        textCaps = adoptGRef(gst_caps_new_empty_simple("application/x-subtitle-vtt"));
+    else
+        textCaps = adoptGRef(gst_caps_new_empty_simple("text/vtt"));
     g_object_set(m_textAppSink.get(), "emit-signals", TRUE, "enable-last-sample", FALSE, "caps", textCaps.get(), nullptr);
     g_signal_connect_swapped(m_textAppSink.get(), "new-sample", G_CALLBACK(newTextSampleCallback), this);
 
@@ -2179,8 +2216,11 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin()
         // If not using accelerated compositing, let GStreamer handle
         // the image-orientation tag.
         GstElement* videoFlip = gst_element_factory_make("videoflip", nullptr);
-        g_object_set(videoFlip, "method", 8, nullptr);
-        g_object_set(m_pipeline.get(), "video-filter", videoFlip, nullptr);
+        if (videoFlip) {
+            g_object_set(videoFlip, "method", 8, nullptr);
+            g_object_set(m_pipeline.get(), "video-filter", videoFlip, nullptr);
+        } else
+            GST_WARNING("The videoflip element is missing, video rotation support is now disabled. Please check your gst-plugins-good installation.");
     }
 
     GRefPtr<GstPad> videoSinkPad = adoptGRef(gst_element_get_static_pad(m_videoSink.get(), "sink"));

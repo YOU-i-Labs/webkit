@@ -64,14 +64,8 @@ public:
 
     void save();
     void restore();
-    void setGlobalAlpha(float);
-    float globalAlpha() const;
 
     void pushImageMask(cairo_surface_t*, const FloatRect&);
-    WEBCORE_EXPORT void drawSurfaceToContext(cairo_surface_t*, const FloatRect& destRect, const FloatRect& srcRect, const Cairo::ShadowState&, GraphicsContext&);
-
-    void setImageInterpolationQuality(InterpolationQuality);
-    InterpolationQuality imageInterpolationQuality() const;
 
 private:
     RefPtr<cairo_t> m_cr;

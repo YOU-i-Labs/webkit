@@ -38,10 +38,11 @@ class FormDataReference;
 }
 
 namespace WebCore {
+class ServiceWorkerRegistrationKey;
 struct ClientOrigin;
 struct ExceptionData;
+struct MessageWithMessagePorts;
 struct ServiceWorkerClientData;
-class ServiceWorkerRegistrationKey;
 }
 
 namespace WebKit {
@@ -67,7 +68,7 @@ public:
     void didFailFetch(uint64_t fetchIdentifier);
     void didNotHandleFetch(uint64_t fetchIdentifier);
 
-    void postMessageToServiceWorkerClient(WebCore::DocumentIdentifier destinationContextIdentifier, const IPC::DataReference& message, WebCore::ServiceWorkerIdentifier sourceServiceWorkerIdentifier, const String& sourceOrigin);
+    void postMessageToServiceWorkerClient(WebCore::DocumentIdentifier destinationContextIdentifier, WebCore::MessageWithMessagePorts&&, WebCore::ServiceWorkerIdentifier sourceServiceWorkerIdentifier, const String& sourceOrigin);
 
 private:
     // Implement SWServer::Connection (Messages to the client WebProcess)
@@ -83,9 +84,11 @@ private:
     void notifyClientsOfControllerChange(const HashSet<WebCore::DocumentIdentifier>& contextIdentifiers, const WebCore::ServiceWorkerData& newController);
     void registrationReady(uint64_t registrationReadyRequestIdentifier, WebCore::ServiceWorkerRegistrationData&&) final;
 
+    void scheduleJobInServer(WebCore::ServiceWorkerJobData&&);
+
     void startFetch(uint64_t fetchIdentifier, WebCore::ServiceWorkerRegistrationIdentifier, WebCore::ResourceRequest&&, WebCore::FetchOptions&&, IPC::FormDataReference&&, String&& referrer);
 
-    void postMessageToServiceWorker(WebCore::ServiceWorkerIdentifier destination, IPC::DataReference&& message, const WebCore::ServiceWorkerOrClientIdentifier& source);
+    void postMessageToServiceWorker(WebCore::ServiceWorkerIdentifier destination, WebCore::MessageWithMessagePorts&&, const WebCore::ServiceWorkerOrClientIdentifier& source);
 
     void matchRegistration(uint64_t registrationMatchRequestIdentifier, const WebCore::SecurityOriginData& topOrigin, const WebCore::URL& clientURL);
     void getRegistrations(uint64_t registrationMatchRequestIdentifier, const WebCore::SecurityOriginData& topOrigin, const WebCore::URL& clientURL);

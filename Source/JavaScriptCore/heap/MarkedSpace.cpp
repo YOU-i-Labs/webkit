@@ -44,6 +44,11 @@ const Vector<size_t>& sizeClasses()
         [] {
             result = new Vector<size_t>();
             
+            if (Options::dumpSizeClasses()) {
+                dataLog("Block size: ", MarkedBlock::blockSize, "\n");
+                dataLog("Footer size: ", sizeof(MarkedBlock::Footer), "\n");
+            }
+            
             auto add = [&] (size_t sizeClass) {
                 sizeClass = WTF::roundUpToMultipleOf<MarkedBlock::atomSize>(sizeClass);
                 if (Options::dumpSizeClasses())
@@ -135,9 +140,7 @@ const Vector<size_t>& sizeClasses()
             // FIXME: All of these things should have IsoSubspaces.
             // https://bugs.webkit.org/show_bug.cgi?id=179876
             add(sizeof(UnlinkedFunctionCodeBlock));
-            add(sizeof(FunctionCodeBlock));
             add(sizeof(JSString));
-            add(sizeof(JSFunction));
 
             {
                 // Sort and deduplicate.
@@ -302,6 +305,16 @@ void MarkedSpace::stopAllocating()
         });
 }
 
+void MarkedSpace::stopAllocatingForGood()
+{
+    ASSERT(!isIterating());
+    forEachDirectory(
+        [&] (BlockDirectory& directory) -> IterationStatus {
+            directory.stopAllocatingForGood();
+            return IterationStatus::Continue;
+        });
+}
+
 void MarkedSpace::prepareForConservativeScan()
 {
     m_largeAllocationsForThisCollectionBegin = m_largeAllocations.begin() + m_largeAllocationsOffsetForThisCollection;
@@ -334,7 +347,7 @@ void MarkedSpace::resumeAllocating()
     // Nothing to do for LargeAllocations.
 }
 
-bool MarkedSpace::isPagedOut(double deadline)
+bool MarkedSpace::isPagedOut(MonotonicTime deadline)
 {
     bool result = false;
     forEachDirectory(
@@ -415,7 +428,7 @@ void MarkedSpace::endMarking()
     if (UNLIKELY(nextVersion(m_newlyAllocatedVersion) == initialVersion)) {
         forEachBlock(
             [&] (MarkedBlock::Handle* handle) {
-                handle->resetAllocated();
+                handle->block().resetAllocated();
             });
     }
     

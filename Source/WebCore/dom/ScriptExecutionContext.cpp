@@ -54,14 +54,13 @@
 #include "WorkerGlobalScope.h"
 #include "WorkerNavigator.h"
 #include "WorkerThread.h"
-#include <heap/StrongInlines.h>
-#include <inspector/ScriptCallStack.h>
-#include <runtime/CatchScope.h>
-#include <runtime/Exception.h>
-#include <runtime/JSPromise.h>
+#include <JavaScriptCore/CatchScope.h>
+#include <JavaScriptCore/Exception.h>
+#include <JavaScriptCore/JSPromise.h>
+#include <JavaScriptCore/ScriptCallStack.h>
+#include <JavaScriptCore/StrongInlines.h>
 #include <wtf/MainThread.h>
 #include <wtf/Ref.h>
-
 
 namespace WebCore {
 using namespace Inspector;
@@ -132,12 +131,12 @@ ScriptExecutionContext::~ScriptExecutionContext()
 #endif
 }
 
-void ScriptExecutionContext::processMessagePortMessagesSoon()
+void ScriptExecutionContext::processMessageWithMessagePortsSoon()
 {
-    if (m_willProcessMessagePortMessagesSoon)
+    if (m_willprocessMessageWithMessagePortsSoon)
         return;
 
-    m_willProcessMessagePortMessagesSoon = true;
+    m_willprocessMessageWithMessagePortsSoon = true;
     postTask([] (ScriptExecutionContext& context) {
         context.dispatchMessagePortEvents();
     });
@@ -148,8 +147,8 @@ void ScriptExecutionContext::dispatchMessagePortEvents()
     checkConsistency();
 
     Ref<ScriptExecutionContext> protectedThis(*this);
-    ASSERT(m_willProcessMessagePortMessagesSoon);
-    m_willProcessMessagePortMessagesSoon = false;
+    ASSERT(m_willprocessMessageWithMessagePortsSoon);
+    m_willprocessMessageWithMessagePortsSoon = false;
 
     // Make a frozen copy of the ports so we can iterate while new ones might be added or destroyed.
     for (auto* messagePort : copyToVector(m_messagePorts)) {

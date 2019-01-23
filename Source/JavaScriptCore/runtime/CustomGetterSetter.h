@@ -26,7 +26,7 @@
 #pragma once
 
 #include "JSCPoison.h"
-#include "JSCell.h"
+#include "JSCast.h"
 #include "PropertySlot.h"
 #include "PutPropertySlot.h"
 #include "Structure.h"
@@ -68,7 +68,7 @@ protected:
 
 private:
     template<typename T>
-    using PoisonedAccessor = Poisoned<POISON(NativeCode), T>;
+    using PoisonedAccessor = Poisoned<NativeCodePoison, T>;
 
     PoisonedAccessor<CustomGetter> m_getter;
     PoisonedAccessor<CustomSetter> m_setter;

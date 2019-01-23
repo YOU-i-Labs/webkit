@@ -32,14 +32,23 @@ namespace WebCore {
 class RenderBlockFlow;
 
 class RenderTreeBuilder::MultiColumn {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     MultiColumn(RenderTreeBuilder&);
 
     void updateAfterDescendants(RenderBlockFlow&);
+    // Some renderers (column spanners) are moved out of the flow thread to live among column
+    // sets. If |child| is such a renderer, resolve it to the placeholder that lives at the original
+    // location in the tree.
+    RenderObject* resolveMovedChild(RenderFragmentedFlow& enclosingFragmentedFlow, RenderObject* beforeChild);
+    void multiColumnDescendantInserted(RenderMultiColumnFlow&, RenderObject& newDescendant);
+    void multiColumnRelativeWillBeRemoved(RenderMultiColumnFlow&, RenderObject& relative);
 
 private:
     void createFragmentedFlow(RenderBlockFlow&);
     void destroyFragmentedFlow(RenderBlockFlow&);
+    RenderObject* processPossibleSpannerDescendant(RenderMultiColumnFlow&, RenderObject*& subtreeRoot, RenderObject& descendant);
+    void handleSpannerRemoval(RenderMultiColumnFlow&, RenderObject& spanner);
 
     RenderTreeBuilder& m_builder;
 };
