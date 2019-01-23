@@ -50,7 +50,7 @@ public:
     static String vendor();
     static String vendorSub();
 
-    static bool onLine();
+    virtual bool onLine() const = 0;
 
     static String language();
     static Vector<String> languages();
@@ -60,7 +60,7 @@ protected:
 
 #if ENABLE(SERVICE_WORKER)
 public:
-    ServiceWorkerContainer* serviceWorker();
+    ServiceWorkerContainer& serviceWorker();
 
 private:
     UniqueRef<ServiceWorkerContainer> m_serviceWorkerContainer;

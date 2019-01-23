@@ -360,7 +360,7 @@ WI.ResourceTimelineDataGridNode = class ResourceTimelineDataGridNode extends WI.
             if (resource.failed)
                 descriptionElement.textContent = WI.UIString("Resource failed to load.");
             else if (resource.urlComponents.scheme === "data")
-                descriptionElement.textContent = WI.UIString("Resource was loaded with the “data“ scheme.");
+                descriptionElement.textContent = WI.UIString("Resource was loaded with the “data” scheme.");
             else
                 descriptionElement.textContent = WI.UIString("Resource was served from the cache.");
             popoverContentElement.appendChild(descriptionElement);
@@ -384,7 +384,7 @@ WI.ResourceTimelineDataGridNode = class ResourceTimelineDataGridNode extends WI.
             popoverContentElement.appendChild(popoverDataGrid.element);
 
             let graphDataSource = {
-                get secondsPerPixel() { return resource.duration / WI.ResourceTimelineDataGridNode.PopoverGraphColumnWidthPixels; },
+                get secondsPerPixel() { return resource.totalDuration / WI.ResourceTimelineDataGridNode.PopoverGraphColumnWidthPixels; },
                 get zeroTime() { return resource.firstTimestamp; },
                 get startTime() { return resource.firstTimestamp; },
                 get currentTime() { return this.endTime; },

@@ -912,6 +912,11 @@
 <td class="signal_name"><a class="link" href="WebKitWebView.html#WebKitWebView-web-process-crashed" title="The “web-process-crashed” signal">web-process-crashed</a></td>
 <td class="signal_flags"><a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></td>
 </tr>
+<tr>
+<td class="signal_type"><span class="returnvalue">void</span></td>
+<td class="signal_name"><a class="link" href="WebKitWebView.html#WebKitWebView-web-process-terminated" title="The “web-process-terminated” signal">web-process-terminated</a></td>
+<td class="signal_flags"><a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></td>
+</tr>
 </tbody>
 </table></div>
 </div>
@@ -950,6 +955,10 @@
 <tr>
 <td class="datatype_keyword">enum</td>
 <td class="function_name"><a class="link" href="WebKitWebView.html#WebKitSnapshotRegion" title="enum WebKitSnapshotRegion">WebKitSnapshotRegion</a></td>
+</tr>
+<tr>
+<td class="datatype_keyword">enum</td>
+<td class="function_name"><a class="link" href="WebKitWebView.html#WebKitWebProcessTerminationReason" title="enum WebKitWebProcessTerminationReason">WebKitWebProcessTerminationReason</a></td>
 </tr>
 <tr>
 <td class="define_keyword">#define</td>
@@ -1008,6 +1017,11 @@
     <span class="lineart">├──</span> WebKitJavascriptResult
     <span class="lineart">├──</span> WebKitScriptDialog
     <span class="lineart">╰──</span> WebKitWebViewSessionState
+    <a href="/home/cgarcia/gnome/share/gtk-doc/html/gobject/gobject-Enumeration-and-Flag-Types.html">GEnum</a>
+    <span class="lineart">├──</span> WebKitInsecureContentEvent
+    <span class="lineart">├──</span> WebKitLoadEvent
+    <span class="lineart">├──</span> WebKitPolicyDecisionType
+    <span class="lineart">╰──</span> WebKitWebProcessTerminationReason
     <a href="../gobject/gobject-The-Base-Object-Type.html#GObject-struct">GObject</a>
     <span class="lineart">╰──</span> <a href="../gobject/gobject-The-Base-Object-Type.html#GInitiallyUnowned">GInitiallyUnowned</a>
         <span class="lineart">╰──</span> <a href="../gtk3/GtkWidget.html#GtkWidget-struct">GtkWidget</a>
@@ -4277,6 +4291,38 @@ visible in the webview</p>
 </div>
 <hr>
 <div class="refsect2">
+<a name="WebKitWebProcessTerminationReason"></a><h3>enum WebKitWebProcessTerminationReason</h3>
+<p>Enum values used to specify the reason why the web process terminated abnormally.</p>
+<div class="refsect3">
+<a name="WebKitWebProcessTerminationReason.members"></a><h4>Members</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="300px" class="enum_members_name">
+<col class="enum_members_description">
+<col width="200px" class="enum_members_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="enum_member_name"><p><a name="WEBKIT-WEB-PROCESS-CRASHED:CAPS"></a>WEBKIT_WEB_PROCESS_CRASHED</p></td>
+<td class="enum_member_description">
+<p>the web process crashed.</p>
+</td>
+<td class="enum_member_annotations"> </td>
+</tr>
+<tr>
+<td class="enum_member_name"><p><a name="WEBKIT-WEB-PROCESS-EXCEEDED-MEMORY-LIMIT:CAPS"></a>WEBKIT_WEB_PROCESS_EXCEEDED_MEMORY_LIMIT</p></td>
+<td class="enum_member_description">
+<p>the web process exceeded the memory limit.</p>
+</td>
+<td class="enum_member_annotations"> </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-20.html#api-index-2.20">2.20</a></p>
+</div>
+<hr>
+<div class="refsect2">
 <a name="WEBKIT-EDITING-COMMAND-CUT:CAPS"></a><h3>WEBKIT_EDITING_COMMAND_CUT</h3>
 <pre class="programlisting">#define WEBKIT_EDITING_COMMAND_CUT "Cut"
 </pre>
@@ -6022,6 +6068,10 @@ form has not been submitted, <a class="link" href="WebKitFormSubmissionRequest.h
 user_function (<a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> *web_view,
                <a href="../glib/glib-Basic-Types.html#gpointer"><span class="type">gpointer</span></a>       user_data)</pre>
 <p>This signal is emitted when the web process crashes.</p>
+<div class="warning">
+<p><code class="literal">WebKitWebView::web-process-crashed</code> has been deprecated since version 2.20 and should not be used in newly-written code.</p>
+<p>Use WebKitWebView::web-process-terminated instead.</p>
+</div>
 <div class="refsect3">
 <a name="WebKitWebView-web-process-crashed.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -6050,6 +6100,46 @@ user_function (<a class="link" href="WebKitWebView.html" title="WebKitWebView"><
 <a href="../glib/glib-Standard-Macros.html#FALSE:CAPS"><code class="literal">FALSE</code></a> to propagate the event further.</p>
 </div>
 <p>Flags: <a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="WebKitWebView-web-process-terminated"></a><h3>The <code class="literal">“web-process-terminated”</code> signal</h3>
+<pre class="programlisting"><span class="returnvalue">void</span>
+user_function (<a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a>                    *web_view,
+               <a class="link" href="WebKitWebView.html#WebKitWebProcessTerminationReason" title="enum WebKitWebProcessTerminationReason"><span class="type">WebKitWebProcessTerminationReason</span></a> reason,
+               <a href="../glib/glib-Basic-Types.html#gpointer"><span class="type">gpointer</span></a>                          user_data)</pre>
+<p>This signal is emitted when the web process terminates abnormally due
+to <em class="parameter"><code>reason</code></em>
+.</p>
+<div class="refsect3">
+<a name="WebKitWebView-web-process-terminated.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="parameter_name"><p>web_view</p></td>
+<td class="parameter_description"><p>the <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>reason</p></td>
+<td class="parameter_description"><p>the a <a class="link" href="WebKitWebView.html#WebKitWebProcessTerminationReason" title="enum WebKitWebProcessTerminationReason"><span class="type">WebKitWebProcessTerminationReason</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>user_data</p></td>
+<td class="parameter_description"><p>user data set when the signal handler was connected.</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<p>Flags: <a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></p>
+<p class="since">Since: <a class="link" href="api-index-2-20.html#api-index-2.20">2.20</a></p>
 </div>
 </div>
 </div>

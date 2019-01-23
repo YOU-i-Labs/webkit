@@ -586,17 +586,17 @@ bool Page::findString(const String& target, FindOptions options, DidWrap* didWra
     if (target.isEmpty())
         return false;
 
-    CanWrap canWrap = options & WrapAround ? CanWrap::Yes : CanWrap::No;
+    CanWrap canWrap = options.contains(WrapAround) ? CanWrap::Yes : CanWrap::No;
     Frame* frame = &focusController().focusedOrMainFrame();
     Frame* startFrame = frame;
     do {
-        if (frame->editor().findString(target, (options & ~WrapAround) | StartInSelection)) {
+        if (frame->editor().findString(target, (options - WrapAround) | StartInSelection)) {
             if (frame != startFrame)
                 startFrame->selection().clear();
             focusController().setFocusedFrame(frame);
             return true;
         }
-        frame = incrementFrame(frame, !(options & Backwards), canWrap, didWrap);
+        frame = incrementFrame(frame, !options.contains(Backwards), canWrap, didWrap);
     } while (frame && frame != startFrame);
 
     // Search contents of startFrame, on the other side of the selection that we did earlier.
@@ -631,7 +631,7 @@ void Page::findStringMatchingRanges(const String& target, FindOptions options, i
     if (frameWithSelection) {
         indexForSelection = NoMatchAfterUserSelection;
         RefPtr<Range> selectedRange = frameWithSelection->selection().selection().firstRange();
-        if (options & Backwards) {
+        if (options.contains(Backwards)) {
             for (size_t i = matchRanges.size(); i > 0; --i) {
                 auto result = selectedRange->compareBoundaryPoints(Range::END_TO_START, *matchRanges[i - 1]);
                 if (!result.hasException() && result.releaseReturnValue() > 0) {
@@ -649,7 +649,7 @@ void Page::findStringMatchingRanges(const String& target, FindOptions options, i
             }
         }
     } else {
-        if (options & Backwards)
+        if (options.contains(Backwards))
             indexForSelection = matchRanges.size() - 1;
         else
             indexForSelection = 0;
@@ -664,14 +664,14 @@ RefPtr<Range> Page::rangeOfString(const String& target, Range* referenceRange, F
     if (referenceRange && referenceRange->ownerDocument().page() != this)
         return nullptr;
 
-    CanWrap canWrap = options & WrapAround ? CanWrap::Yes : CanWrap::No;
+    CanWrap canWrap = options.contains(WrapAround) ? CanWrap::Yes : CanWrap::No;
     Frame* frame = referenceRange ? referenceRange->ownerDocument().frame() : &mainFrame();
     Frame* startFrame = frame;
     do {
-        if (RefPtr<Range> resultRange = frame->editor().rangeOfString(target, frame == startFrame ? referenceRange : 0, options & ~WrapAround))
+        if (RefPtr<Range> resultRange = frame->editor().rangeOfString(target, frame == startFrame ? referenceRange : 0, options - WrapAround))
             return resultRange;
 
-        frame = incrementFrame(frame, !(options & Backwards), canWrap);
+        frame = incrementFrame(frame, !options.contains(Backwards), canWrap);
     } while (frame && frame != startFrame);
 
     // Search contents of startFrame, on the other side of the reference range that we did earlier.
@@ -797,6 +797,8 @@ void Page::setZoomedOutPageScaleFactor(float scale)
 
 void Page::setPageScaleFactor(float scale, const IntPoint& origin, bool inStableState)
 {
+    LOG(Viewports, "Page::setPageScaleFactor %.2f - inStableState %d", scale, inStableState);
+
     Document* document = mainFrame().document();
     FrameView* view = document->view();
 
@@ -1159,7 +1161,7 @@ const String& Page::userStyleSheet() const
         return m_userStyleSheet;
 
     time_t modTime;
-    if (!getFileModificationTime(m_userStyleSheetPath, modTime)) {
+    if (!FileSystem::getFileModificationTime(m_userStyleSheetPath, modTime)) {
         // The stylesheet either doesn't exist, was just deleted, or is
         // otherwise unreadable. If we've read the stylesheet before, we should
         // throw away that data now as it no longer represents what's on disk.
@@ -1404,7 +1406,7 @@ Vector<Ref<PluginViewBase>> Page::pluginViews()
         if (!view)
             break;
         for (auto& widget : view->children()) {
-            if (is<PluginViewBase>(widget.get()))
+            if (is<PluginViewBase>(widget))
                 views.append(downcast<PluginViewBase>(widget.get()));
         }
     }
@@ -2280,23 +2282,12 @@ void Page::setCaptionUserPreferencesStyleSheet(const String& styleSheet)
 
 void Page::accessibilitySettingsDidChange()
 {
-    bool neededRecalc = false;
-
     for (Frame* frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
-        if (Document* document = frame->document()) {
-            auto* styleResolver = document->styleScope().resolverIfExists();
-            if (styleResolver && styleResolver->hasMediaQueriesAffectedByAccessibilitySettingsChange()) {
-                document->styleScope().didChangeStyleSheetEnvironment();
-                document->evaluateMediaQueryList();
-                neededRecalc = true;
-                // FIXME: This instrumentation event is not strictly accurate since cached media query results do not persist across StyleResolver rebuilds.
-                InspectorInstrumentation::mediaQueryResultChanged(*document);
-            }
+        if (auto* document = frame->document()) {
+            document->styleScope().evaluateMediaQueriesForAccessibilitySettingsChange();
+            document->evaluateMediaQueryList();
         }
     }
-
-    if (neededRecalc)
-        LOG(Layout, "hasMediaQueriesAffectedByAccessibilitySettingsChange, enqueueing style recalc");
 }
 
 void Page::setUnobscuredSafeAreaInsets(const FloatBoxExtent& insets)
@@ -2339,7 +2330,7 @@ void Page::disableICECandidateFiltering()
 {
     m_shouldEnableICECandidateFilteringByDefault = false;
 #if ENABLE(WEB_RTC)
-    m_rtcController.disableICECandidateFiltering();
+    m_rtcController.disableICECandidateFilteringForAllOrigins();
 #endif
 }
 
@@ -2356,6 +2347,44 @@ void Page::didChangeMainDocument()
 #if ENABLE(WEB_RTC)
     m_rtcController.reset(m_shouldEnableICECandidateFilteringByDefault);
 #endif
+}
+
+void Page::forEachDocument(const Function<void(Document&)>& functor)
+{
+    for (Frame* frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        if (!frame->document())
+            continue;
+
+        functor(*frame->document());
+    }
+}
+
+void Page::applicationWillResignActive()
+{
+    forEachDocument([&] (Document& document) {
+        document.forEachApplicationStateChangeListener([&] (ApplicationStateChangeListener& listener) {
+            listener.applicationWillResignActive();
+        });
+    });
+}
+
+void Page::applicationDidEnterBackground()
+{
+    m_libWebRTCProvider->setActive(false);
+}
+
+void Page::applicationWillEnterForeground()
+{
+    m_libWebRTCProvider->setActive(true);
+}
+
+void Page::applicationDidBecomeActive()
+{
+    forEachDocument([&] (Document& document) {
+        document.forEachApplicationStateChangeListener([&] (ApplicationStateChangeListener& listener) {
+            listener.applicationDidBecomeActive();
+        });
+    });
 }
 
 } // namespace WebCore

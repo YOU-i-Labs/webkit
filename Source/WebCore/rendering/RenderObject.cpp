@@ -69,6 +69,7 @@
 #include "TransformState.h"
 #include <algorithm>
 #include <stdio.h>
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/text/TextStream.h>
 
@@ -79,6 +80,8 @@
 namespace WebCore {
 
 using namespace HTMLNames;
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderObject);
 
 #ifndef NDEBUG
 
@@ -602,10 +605,9 @@ RenderBlock* RenderObject::containingBlock() const
 {
     auto containingBlockForRenderer = [](const RenderElement& renderer)
     {
-        auto& style = renderer.style();
-        if (style.position() == AbsolutePosition)
+        if (renderer.isAbsolutelyPositioned())
             return renderer.containingBlockForAbsolutePosition();
-        if (style.position() == FixedPosition)
+        if (renderer.isFixedPositioned())
             return renderer.containingBlockForFixedPosition();
         return renderer.containingBlockForObjectInFlow();
     };
@@ -824,7 +826,7 @@ void RenderObject::propagateRepaintToParentWithOutlineAutoIfNeeded(const RenderL
         bool rendererHasOutlineAutoAncestor = renderer->hasOutlineAutoAncestor();
         ASSERT(rendererHasOutlineAutoAncestor
             || renderer->outlineStyleForRepaint().outlineStyleIsAuto()
-            || (is<RenderElement>(*renderer) && downcast<RenderElement>(*renderer).hasContinuation()));
+            || (is<RenderBoxModelObject>(*renderer) && downcast<RenderBoxModelObject>(*renderer).isContinuation()));
         if (renderer == &repaintContainer && rendererHasOutlineAutoAncestor)
             repaintRectNeedsConverting = true;
         if (rendererHasOutlineAutoAncestor)
@@ -910,7 +912,7 @@ void RenderObject::repaintRectangle(const LayoutRect& r, bool shouldClipToLayer)
     LayoutRect dirtyRect(r);
     // FIXME: layoutDelta needs to be applied in parts before/after transforms and
     // repaint containers. https://bugs.webkit.org/show_bug.cgi?id=23308
-    dirtyRect.move(view.layoutDelta());
+    dirtyRect.move(view.frameView().layoutContext().layoutDelta());
 
     RenderLayerModelObject* repaintContainer = containerForRepaint();
     repaintUsingContainer(repaintContainer, computeRectForRepaint(dirtyRect, repaintContainer), shouldClipToLayer);
@@ -1069,12 +1071,12 @@ void RenderObject::outputRenderObject(TextStream& stream, bool mark, int depth) 
         stream << "B";
 
     if (isPositioned()) {
-        if (isRelPositioned())
+        if (isRelativelyPositioned())
             stream << "R";
-        else if (isStickyPositioned())
+        else if (isStickilyPositioned())
             stream << "K";
         else if (isOutOfFlowPositioned()) {
-            if (style().position() == AbsolutePosition)
+            if (isAbsolutelyPositioned())
                 stream << "A";
             else
                 stream << "X";
@@ -1175,7 +1177,7 @@ void RenderObject::outputRenderObject(TextStream& stream, bool mark, int depth) 
     }
     if (is<RenderBoxModelObject>(*this)) {
         auto& renderer = downcast<RenderBoxModelObject>(*this);
-        if (renderer.hasContinuation())
+        if (renderer.continuation())
             stream << " continuation->(" << renderer.continuation() << ")";
     }
     outputRegionsInformation(stream);
@@ -1434,6 +1436,13 @@ void RenderObject::willBeDestroyed()
     if (AXObjectCache* cache = document().existingAXObjectCache())
         cache->remove(this);
 
+    if (auto* node = this->node()) {
+        // FIXME: Continuations should be anonymous.
+        ASSERT(!node->renderer() || node->renderer() == this || (is<RenderElement>(*this) && downcast<RenderElement>(*this).isContinuation()));
+        if (node->renderer() == this)
+            node->setRenderer(nullptr);
+    }
+
     removeRareData();
 }
 
@@ -1455,24 +1464,26 @@ void RenderObject::willBeRemovedFromTree()
     parent()->setNeedsBoundariesUpdate();
 }
 
+static bool isAnonymousAndSafeToDelete(RenderElement& element)
+{
+    if (!element.isAnonymous())
+        return false;
+    if (element.isRenderView() || element.isRenderFragmentedFlow())
+        return false;
+    return true;
+}
+
 static RenderObject& findDestroyRootIncludingAnonymous(RenderObject& renderer)
 {
     auto* destroyRoot = &renderer;
     while (true) {
-        auto* destroyRootParent = destroyRoot->parent();
-        if (!destroyRootParent->isAnonymous())
+        auto& destroyRootParent = *destroyRoot->parent();
+        if (!isAnonymousAndSafeToDelete(destroyRootParent))
             break;
-        if (destroyRootParent->isRenderView())
-            break;
-        if (destroyRootParent->isRenderFragmentedFlow())
-            break;
-        // FIXME: Destroy continuations here too.
-        if (destroyRootParent->isContinuation())
-            break;
-        bool destroyingOnlyChild = destroyRootParent->firstChild() == destroyRoot && destroyRootParent->lastChild() == destroyRoot;
+        bool destroyingOnlyChild = destroyRootParent.firstChild() == destroyRoot && destroyRootParent.lastChild() == destroyRoot;
         if (!destroyingOnlyChild)
             break;
-        destroyRoot = destroyRootParent;
+        destroyRoot = &destroyRootParent;
     }
     return *destroyRoot;
 }
@@ -1485,12 +1496,21 @@ void RenderObject::removeFromParentAndDestroyCleaningUpAnonymousWrappers()
         return;
     }
 
+    // Remove intruding floats from sibling blocks before detaching.
+    if (is<RenderBox>(*this) && isFloatingOrOutOfFlowPositioned())
+        downcast<RenderBox>(*this).removeFloatingOrPositionedChildFromBlockLists();
     auto& destroyRoot = findDestroyRootIncludingAnonymous(*this);
-
     if (is<RenderTableRow>(destroyRoot))
         downcast<RenderTableRow>(destroyRoot).collapseAndDestroyAnonymousSiblingRows();
 
-    destroyRoot.removeFromParentAndDestroy();
+    auto& destroyRootParent = *destroyRoot.parent();
+    destroyRootParent.removeAndDestroyChild(destroyRoot);
+    destroyRootParent.removeAnonymousWrappersForInlinesIfNecessary();
+
+    // Anonymous parent might have become empty, try to delete it too.
+    if (isAnonymousAndSafeToDelete(destroyRootParent) && !destroyRootParent.firstChild())
+        destroyRootParent.removeFromParentAndDestroyCleaningUpAnonymousWrappers();
+
     // WARNING: |this| is deleted here.
 }
 
@@ -1501,6 +1521,9 @@ void RenderObject::destroy()
     RELEASE_ASSERT(!m_previous);
     RELEASE_ASSERT(!m_bitfields.beingDestroyed());
 
+    if (is<RenderElement>(*this))
+        downcast<RenderElement>(*this).destroyLeftoverChildren();
+
     m_bitfields.setBeingDestroyed(true);
 
 #if PLATFORM(IOS)
@@ -1509,6 +1532,7 @@ void RenderObject::destroy()
 #endif
 
     willBeDestroyed();
+
     if (is<RenderWidget>(*this)) {
         downcast<RenderWidget>(*this).deref();
         return;
@@ -1702,7 +1726,7 @@ RenderBoxModelObject* RenderObject::offsetParent() const
     // A is the root element.
     // A is the HTML body element.
     // The computed value of the position property for element A is fixed.
-    if (isDocumentElementRenderer() || isBody() || (isOutOfFlowPositioned() && style().position() == FixedPosition))
+    if (isDocumentElementRenderer() || isBody() || isFixedPositioned())
         return nullptr;
 
     // If A is an area HTML element which has a map HTML element somewhere in the ancestor

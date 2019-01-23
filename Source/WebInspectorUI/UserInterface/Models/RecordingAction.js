@@ -120,10 +120,29 @@ WI.RecordingAction = class RecordingAction extends WI.Object
         if (!this.valid)
             return;
 
+        function getContent() {
+            if (context instanceof CanvasRenderingContext2D) {
+                let imageData = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
+                return [imageData.width, imageData.height, ...imageData.data];
+            }
+
+            if (context instanceof WebGLRenderingContext || context instanceof WebGL2RenderingContext) {
+                let pixels = new Uint8Array(context.drawingBufferWidth * context.drawingBufferHeight * 4);
+                context.readPixels(0, 0, context.canvas.width, context.canvas.height, context.RGBA, context.UNSIGNED_BYTE, pixels);
+                return [...pixels];
+            }
+
+            if (context.canvas instanceof HTMLCanvasElement)
+                return [context.canvas.toDataURL()];
+
+            console.assert("Unknown context type", context);
+            return [];
+        }
+
         let contentBefore = null;
         let shouldCheckForChange = this._isVisual && this._hasVisibleEffect === undefined;
         if (shouldCheckForChange)
-            contentBefore = context.canvas.toDataURL();
+            contentBefore = getContent();
 
         try {
             let name = options.nameOverride || this._name;
@@ -137,7 +156,7 @@ WI.RecordingAction = class RecordingAction extends WI.Object
             }
 
             if (shouldCheckForChange) {
-                this._hasVisibleEffect = contentBefore !== context.canvas.toDataURL();
+                this._hasVisibleEffect = !Array.shallowEqual(contentBefore, getContent());
                 if (!this._hasVisibleEffect)
                     this.dispatchEventToListeners(WI.RecordingAction.Event.HasVisibleEffectChanged);
             }
@@ -237,6 +256,24 @@ WI.RecordingAction = class RecordingAction extends WI.Object
 
         return [];
     }
+
+    getImageParameters()
+    {
+        switch (this._name) {
+        // 2D
+        case "createImageData":
+        case "createPattern":
+        case "drawImage":
+        case "fillStyle":
+        case "putImageData":
+        case "strokeStyle":
+        // 2D (non-standard)
+        case "drawImageFromRect":
+            return this._parameters.slice(0, 1);
+        }
+
+        return [];
+    }
 };
 
 WI.RecordingAction.Event = {
@@ -302,8 +339,6 @@ WI.RecordingAction._functionNames = {
         "strokeText",
         "transform",
         "translate",
-        "webkitGetImageDataHD",
-        "webkitPutImageDataHD",
     ]),
     [WI.Recording.Type.CanvasWebGL]: new Set([
         "activeTexture",
@@ -460,7 +495,6 @@ WI.RecordingAction._visualNames = {
         "stroke",
         "strokeRect",
         "strokeText",
-        "webkitPutImageDataHD",
     ]),
     [WI.Recording.Type.CanvasWebGL]: new Set([
         "clear",

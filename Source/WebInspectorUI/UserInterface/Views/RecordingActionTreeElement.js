@@ -70,6 +70,7 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
 
             case WI.Recording.Swizzle.TypedArray:
             case WI.Recording.Swizzle.Image:
+            case WI.Recording.Swizzle.ImageBitmap:
             case WI.Recording.Swizzle.ImageData:
             case WI.Recording.Swizzle.DOMMatrix:
             case WI.Recording.Swizzle.Path2D:
@@ -131,13 +132,41 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
         let colorParameters = recordingAction.getColorParameters();
         if (colorParameters.length) {
             let swatch = WI.RecordingActionTreeElement._createSwatchForColorParameters(colorParameters);
-            let insertionIndex = recordingAction.parameters.indexOf(colorParameters[0]);
-            let parameterElement = parametersContainer.children[insertionIndex];
-            parametersContainer.insertBefore(swatch.element, parameterElement);
+            if (swatch) {
+                let insertionIndex = recordingAction.parameters.indexOf(colorParameters[0]);
+                let parameterElement = parametersContainer.children[insertionIndex];
+                parametersContainer.insertBefore(swatch.element, parameterElement);
 
-            if (recordingAction.swizzleTypes[insertionIndex] === WI.Recording.Swizzle.String) {
-                parameterElement.textContent = swatch.value.toString();
-                parameterElement.classList.add("color");
+                if (recordingAction.swizzleTypes[insertionIndex] === WI.Recording.Swizzle.String) {
+                    parameterElement.textContent = swatch.value.toString();
+                    parameterElement.classList.add("color");
+                }
+            }
+        }
+
+        let imageParameters = recordingAction.getImageParameters();
+        let isImage = imageParameters[0] instanceof HTMLImageElement;
+        let isImageBitmap = imageParameters[0] instanceof ImageBitmap;
+        let isImageData = imageParameters[0] instanceof ImageData;
+        let isCanvasGradient = imageParameters[0] instanceof CanvasGradient;
+        let isCanvasPattern = imageParameters[0] instanceof CanvasPattern;
+        if (imageParameters.length && (isImage || isImageBitmap || isImageData || isCanvasGradient || isCanvasPattern)) {
+            let image = imageParameters[0];
+
+            if (isImageBitmap)
+                image = WI.ImageUtilities.imageFromImageBitmap(image);
+            else if (isImageData)
+                image = WI.ImageUtilities.imageFromImageData(image);
+            else if (isCanvasGradient)
+                image = WI.ImageUtilities.imageFromCanvasGradient(image, 100, 100);
+            else if (isCanvasPattern)
+                image = image.__image;
+
+            if (image) {
+                let swatch = new WI.InlineSwatch(WI.InlineSwatch.Type.Image, image);
+                let insertionIndex = recordingAction.parameters.indexOf(imageParameters[0]);
+                let parameterElement = parametersContainer.children[insertionIndex];
+                parametersContainer.insertBefore(swatch.element, parameterElement);
             }
         }
 
@@ -154,7 +183,7 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
         case 2:
             if (typeof parameters[0] === "string")
                 color = WI.Color.fromString(parameters[0]);
-            else
+            else if (!isNaN(parameters[0]))
                 rgb = WI.Color.normalized2rgb(parameters[0], parameters[0], parameters[0]);
             break;
 
@@ -172,6 +201,9 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
         }
 
         if (!color) {
+            if (rgb.length !== 3)
+                return null;
+
             let alpha = parameters.length === 1 ? 1 : parameters.lastValue;
             color = new WI.Color(WI.Color.Format.RGBA, [...rgb, alpha]);
             if (!color)
@@ -242,8 +274,6 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
             case "imageSmoothingEnabled":
             case "imageSmoothingQuality":
             case "putImageData":
-            case "webkitGetImageDataHD":
-            case "webkitPutImageDataHD":
             case "webkitImageSmoothingEnabled":
                 return "image";
 
@@ -405,7 +435,7 @@ WI.RecordingActionTreeElement = class RecordingActionTreeElement extends WI.Gene
     {
         this.addClassName("no-visible-effect");
 
-        this.status = useSVGSymbol("Images/Warning.svg", "warning");
+        this.status = WI.ImageUtilities.useSVGSymbol("Images/Warning.svg", "warning");
         this.status.title = WI.UIString("This action causes no visual change");
     }
 };

@@ -94,9 +94,9 @@
 #define GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
 #define GCC_VERSION_AT_LEAST(major, minor, patch) (GCC_VERSION >= (major * 10000 + minor * 100 + patch))
 
-//#if !GCC_VERSION_AT_LEAST(5, 0, 0)
-//#error "Please use a newer version of GCC. WebKit requires GCC 5.0.0 or newer to compile."
-//#endif
+#if !GCC_VERSION_AT_LEAST(5, 0, 0)
+#error "Please use a newer version of GCC. WebKit requires GCC 5.0.0 or newer to compile."
+#endif
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
 #define WTF_COMPILER_SUPPORTS_C_STATIC_ASSERT 1
@@ -130,8 +130,8 @@
 #define WTF_COMPILER_MSVC 1
 #define WTF_COMPILER_SUPPORTS_CXX_REFERENCE_QUALIFIED_FUNCTIONS 1
 
-#if _MSC_VER < 1900
-#error "Please use a newer version of Visual Studio. WebKit requires VS2015 or newer to compile."
+#if _MSC_VER < 1910
+#error "Please use a newer version of Visual Studio. WebKit requires VS2017 or newer to compile."
 #endif
 
 #endif
@@ -152,20 +152,6 @@
 
 #if defined(__cpp_aggregate_nsdmi) && __cpp_aggregate_nsdmi >= 201304
 #define WTF_COMPILER_SUPPORTS_NSDMI_FOR_AGGREGATES 1
-#endif
-
-/* RELAXED_CONSTEXPR */
-
-#if defined(__cpp_constexpr) && __cpp_constexpr >= 201304
-#define WTF_COMPILER_SUPPORTS_RELAXED_CONSTEXPR 1
-#endif
-
-#if !defined(RELAXED_CONSTEXPR)
-#if COMPILER_SUPPORTS(RELAXED_CONSTEXPR)
-#define RELAXED_CONSTEXPR constexpr
-#else
-#define RELAXED_CONSTEXPR
-#endif
 #endif
 
 #define ASAN_ENABLED COMPILER_HAS_CLANG_FEATURE(address_sanitizer)

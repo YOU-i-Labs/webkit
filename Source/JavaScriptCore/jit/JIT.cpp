@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -84,6 +84,7 @@ JIT::JIT(VM* vm, CodeBlock* codeBlock, unsigned loopOSREntryBytecodeOffset)
     , m_pcToCodeOriginMapBuilder(*vm)
     , m_canBeOptimized(false)
     , m_shouldEmitProfiling(false)
+    , m_shouldUseIndexMasking(Options::enableSpectreMitigations())
     , m_loopOSREntryBytecodeOffset(loopOSREntryBytecodeOffset)
 {
 }
@@ -165,6 +166,20 @@ void JIT::assertStackPointerOffset()
         emitSlow_##name(currentInstruction, iter); \
         NEXT_OPCODE(name); \
     }
+
+#define DEFINE_SLOWCASE_SLOW_OP(name) \
+    case op_##name: { \
+        emitSlowCaseCall(currentInstruction, iter, slow_path_##name); \
+        NEXT_OPCODE(op_##name); \
+    }
+
+void JIT::emitSlowCaseCall(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter, SlowPathFunction stub)
+{
+    linkAllSlowCases(iter);
+
+    JITSlowPathCall slowPathCall(this, currentInstruction, stub);
+    slowPathCall.call();
+}
 
 void JIT::privateCompileMainPass()
 {
@@ -249,7 +264,6 @@ void JIT::privateCompileMainPass()
         unsigned bytecodeOffset = m_bytecodeOffset;
 
         switch (opcodeID) {
-        DEFINE_SLOW_OP(assert)
         DEFINE_SLOW_OP(in)
         DEFINE_SLOW_OP(less)
         DEFINE_SLOW_OP(lesseq)
@@ -270,6 +284,7 @@ void JIT::privateCompileMainPass()
         DEFINE_SLOW_OP(unreachable)
         DEFINE_SLOW_OP(throw_static_error)
         DEFINE_SLOW_OP(new_array_with_spread)
+        DEFINE_SLOW_OP(new_array_buffer)
         DEFINE_SLOW_OP(spread)
         DEFINE_SLOW_OP(get_enumerable_length)
         DEFINE_SLOW_OP(has_generic_property)
@@ -347,6 +362,8 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_loop_hint)
         DEFINE_OP(op_check_traps)
         DEFINE_OP(op_nop)
+        DEFINE_OP(op_super_sampler_begin)
+        DEFINE_OP(op_super_sampler_end)
         DEFINE_OP(op_lshift)
         DEFINE_OP(op_mod)
         DEFINE_OP(op_mov)
@@ -356,7 +373,6 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_neq_null)
         DEFINE_OP(op_new_array)
         DEFINE_OP(op_new_array_with_size)
-        DEFINE_OP(op_new_array_buffer)
         DEFINE_OP(op_new_func)
         DEFINE_OP(op_new_func_exp)
         DEFINE_OP(op_new_generator_func)
@@ -397,6 +413,7 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_throw)
         DEFINE_OP(op_to_number)
         DEFINE_OP(op_to_string)
+        DEFINE_OP(op_to_object)
         DEFINE_OP(op_to_primitive)
 
         DEFINE_OP(op_resolve_scope)
@@ -477,9 +494,6 @@ void JIT::privateCompileSlowCases()
 
         switch (Interpreter::getOpcodeID(currentInstruction->u.opcode)) {
         DEFINE_SLOWCASE_OP(op_add)
-        DEFINE_SLOWCASE_OP(op_bitand)
-        DEFINE_SLOWCASE_OP(op_bitor)
-        DEFINE_SLOWCASE_OP(op_bitxor)
         DEFINE_SLOWCASE_OP(op_call)
         DEFINE_SLOWCASE_OP(op_tail_call)
         DEFINE_SLOWCASE_OP(op_call_eval)
@@ -488,10 +502,6 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_OP(op_tail_call_forward_arguments)
         DEFINE_SLOWCASE_OP(op_construct_varargs)
         DEFINE_SLOWCASE_OP(op_construct)
-        DEFINE_SLOWCASE_OP(op_to_this)
-        DEFINE_SLOWCASE_OP(op_check_tdz)
-        DEFINE_SLOWCASE_OP(op_create_this)
-        DEFINE_SLOWCASE_OP(op_div)
         DEFINE_SLOWCASE_OP(op_eq)
         DEFINE_SLOWCASE_OP(op_try_get_by_id)
         case op_get_array_length:
@@ -512,34 +522,42 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_OP(op_jngreatereq)
         DEFINE_SLOWCASE_OP(op_loop_hint)
         DEFINE_SLOWCASE_OP(op_check_traps)
-        DEFINE_SLOWCASE_OP(op_lshift)
         DEFINE_SLOWCASE_OP(op_mod)
         DEFINE_SLOWCASE_OP(op_mul)
         DEFINE_SLOWCASE_OP(op_negate)
         DEFINE_SLOWCASE_OP(op_neq)
         DEFINE_SLOWCASE_OP(op_new_object)
-        DEFINE_SLOWCASE_OP(op_not)
-        DEFINE_SLOWCASE_OP(op_nstricteq)
-        DEFINE_SLOWCASE_OP(op_dec)
-        DEFINE_SLOWCASE_OP(op_inc)
         DEFINE_SLOWCASE_OP(op_put_by_id)
         case op_put_by_val_direct:
         DEFINE_SLOWCASE_OP(op_put_by_val)
-        DEFINE_SLOWCASE_OP(op_rshift)
-        DEFINE_SLOWCASE_OP(op_unsigned)
-        DEFINE_SLOWCASE_OP(op_urshift)
-        DEFINE_SLOWCASE_OP(op_stricteq)
         DEFINE_SLOWCASE_OP(op_sub)
-        DEFINE_SLOWCASE_OP(op_to_number)
-        DEFINE_SLOWCASE_OP(op_to_string)
-        DEFINE_SLOWCASE_OP(op_to_primitive)
         DEFINE_SLOWCASE_OP(op_has_indexed_property)
-        DEFINE_SLOWCASE_OP(op_has_structure_property)
-        DEFINE_SLOWCASE_OP(op_get_direct_pname)
-
-        DEFINE_SLOWCASE_OP(op_resolve_scope)
         DEFINE_SLOWCASE_OP(op_get_from_scope)
         DEFINE_SLOWCASE_OP(op_put_to_scope)
+
+        DEFINE_SLOWCASE_SLOW_OP(unsigned)
+        DEFINE_SLOWCASE_SLOW_OP(inc)
+        DEFINE_SLOWCASE_SLOW_OP(dec)
+        DEFINE_SLOWCASE_SLOW_OP(bitand)
+        DEFINE_SLOWCASE_SLOW_OP(bitor)
+        DEFINE_SLOWCASE_SLOW_OP(bitxor)
+        DEFINE_SLOWCASE_SLOW_OP(lshift)
+        DEFINE_SLOWCASE_SLOW_OP(rshift)
+        DEFINE_SLOWCASE_SLOW_OP(urshift)
+        DEFINE_SLOWCASE_SLOW_OP(div)
+        DEFINE_SLOWCASE_SLOW_OP(create_this)
+        DEFINE_SLOWCASE_SLOW_OP(to_this)
+        DEFINE_SLOWCASE_SLOW_OP(to_primitive)
+        DEFINE_SLOWCASE_SLOW_OP(to_number)
+        DEFINE_SLOWCASE_SLOW_OP(to_string)
+        DEFINE_SLOWCASE_SLOW_OP(to_object)
+        DEFINE_SLOWCASE_SLOW_OP(not)
+        DEFINE_SLOWCASE_SLOW_OP(stricteq)
+        DEFINE_SLOWCASE_SLOW_OP(nstricteq)
+        DEFINE_SLOWCASE_SLOW_OP(get_direct_pname)
+        DEFINE_SLOWCASE_SLOW_OP(has_structure_property)
+        DEFINE_SLOWCASE_SLOW_OP(resolve_scope)
+        DEFINE_SLOWCASE_SLOW_OP(check_tdz)
 
         default:
             RELEASE_ASSERT_NOT_REACHED();

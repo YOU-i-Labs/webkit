@@ -25,11 +25,13 @@
 
 #pragma once
 
+#include "ExceptionOr.h"
 #include <wtf/Forward.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Seconds.h>
+#include <wtf/Variant.h>
 
 namespace WebCore {
 
@@ -38,8 +40,8 @@ public:
     static Ref<AnimationEffectTiming> create();
     ~AnimationEffectTiming();
 
-    double bindingsDuration() const { return m_duration.value(); }
-    void setBindingsDuration(double duration) { m_duration = Seconds(duration); }
+    double bindingsDuration() const { return m_duration.milliseconds(); }
+    ExceptionOr<void> setBindingsDuration(Variant<double, String>&&);
     Seconds duration() const { return m_duration; }
     void setDuration(Seconds& duration) { m_duration = duration; }
 

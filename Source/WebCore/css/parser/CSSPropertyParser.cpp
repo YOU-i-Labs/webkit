@@ -1446,7 +1446,8 @@ static RefPtr<CSSValue> consumeTransitionProperty(CSSParserTokenRange& range)
 }
 
     
-static RefPtr<CSSValue> consumeSteps(CSSParserTokenRange& range) {
+static RefPtr<CSSValue> consumeSteps(CSSParserTokenRange& range)
+{
     ASSERT(range.peek().functionId() == CSSValueSteps);
     CSSParserTokenRange rangeCopy = range;
     CSSParserTokenRange args = consumeFunction(rangeCopy);
@@ -1475,6 +1476,27 @@ static RefPtr<CSSValue> consumeSteps(CSSParserTokenRange& range) {
     
     range = rangeCopy;
     return CSSStepsTimingFunctionValue::create(steps->intValue(), stepAtStart);
+}
+
+static RefPtr<CSSValue> consumeFrames(CSSParserTokenRange& range)
+{
+    ASSERT(range.peek().functionId() == CSSValueFrames);
+    CSSParserTokenRange rangeCopy = range;
+    CSSParserTokenRange args = consumeFunction(rangeCopy);
+    
+    RefPtr<CSSPrimitiveValue> frames = consumePositiveInteger(args);
+    if (!frames)
+        return nullptr;
+
+    auto numberOfFrames = frames->intValue();
+    if (numberOfFrames < 2)
+        return nullptr;
+    
+    if (!args.atEnd())
+        return nullptr;
+    
+    range = rangeCopy;
+    return CSSFramesTimingFunctionValue::create(numberOfFrames);
 }
 
 static RefPtr<CSSValue> consumeCubicBezier(CSSParserTokenRange& range)
@@ -1547,6 +1569,8 @@ static RefPtr<CSSValue> consumeAnimationTimingFunction(CSSParserTokenRange& rang
         return consumeCubicBezier(range);
     if (function == CSSValueSteps)
         return consumeSteps(range);
+    if (function == CSSValueFrames)
+        return consumeFrames(range);
     if (context.springTimingFunctionEnabled && function == CSSValueSpring)
         return consumeSpringFunction(range);
     return nullptr;
@@ -3254,7 +3278,7 @@ static Vector<String> parseGridTemplateAreasColumnNames(const String& gridRowNam
 
 static bool parseGridTemplateAreasRow(const String& gridRowNames, NamedGridAreaMap& gridAreaMap, const size_t rowCount, size_t& columnCount)
 {
-    if (gridRowNames.isEmpty() || gridRowNames.containsOnlyWhitespace())
+    if (gridRowNames.isAllSpecialCharacters<isCSSSpace>())
         return false;
 
     Vector<String> columnNames = parseGridTemplateAreasColumnNames(gridRowNames);
@@ -3567,6 +3591,52 @@ static RefPtr<CSSValue> consumeInitialLetter(CSSParserTokenRange& range)
     return createPrimitiveValuePair(position.releaseNonNull(), WTFMove(height));
 }
 
+static RefPtr<CSSValue> consumeSpeakAs(CSSParserTokenRange& range)
+{
+    if (range.peek().id() == CSSValueNone)
+        return consumeIdent(range);
+    
+    RefPtr<CSSValueList> list = CSSValueList::createSpaceSeparated();
+    std::bitset<numCSSValueKeywords> seenValues;
+    
+    bool seenNormal = false;
+    bool seenSpellOut = false;
+    bool seenLiteralPunctuation = false;
+    bool seenNoPunctuation = false;
+
+    // normal | spell-out || digits || [ literal-punctuation | no-punctuation ]
+    while (!range.atEnd()) {
+        CSSValueID valueID = range.peek().id();
+        if ((valueID == CSSValueNormal && seenSpellOut)
+            || (valueID == CSSValueSpellOut && seenNormal)
+            || (valueID == CSSValueLiteralPunctuation && seenNoPunctuation)
+            || (valueID == CSSValueNoPunctuation && seenLiteralPunctuation))
+            return nullptr;
+        RefPtr<CSSValue> ident = consumeIdent<CSSValueNormal, CSSValueSpellOut, CSSValueDigits, CSSValueLiteralPunctuation, CSSValueNoPunctuation>(range);
+        if (!ident)
+            return nullptr;
+        switch (valueID) {
+        case CSSValueNormal:
+            seenNormal = true;
+            break;
+        case CSSValueSpellOut:
+            seenSpellOut = true;
+            break;
+        case CSSValueLiteralPunctuation:
+            seenLiteralPunctuation = true;
+            break;
+        case CSSValueNoPunctuation:
+            seenNoPunctuation = true;
+            break;
+        default:
+            break;
+        }
+        list->append(ident.releaseNonNull());
+    }
+    
+    return list->length() ? list : nullptr;
+}
+    
 static RefPtr<CSSValue> consumeHangingPunctuation(CSSParserTokenRange& range)
 {
     if (range.peek().id() == CSSValueNone)
@@ -4238,6 +4308,8 @@ RefPtr<CSSValue> CSSPropertyParser::parseSingleValue(CSSPropertyID property, CSS
         return consumeLineGrid(m_range);
     case CSSPropertyWebkitInitialLetter:
         return consumeInitialLetter(m_range);
+    case CSSPropertySpeakAs:
+        return consumeSpeakAs(m_range);
     case CSSPropertyHangingPunctuation:
         return consumeHangingPunctuation(m_range);
     case CSSPropertyWebkitMarqueeIncrement:

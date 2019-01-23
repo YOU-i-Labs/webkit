@@ -39,12 +39,17 @@
 #include "JSDOMWindow.h"
 #include "MessagePort.h"
 #include "Navigator.h"
-#include "NoEventDispatchAssertion.h"
 #include "PublicURLManager.h"
 #include "RejectedPromiseTracker.h"
 #include "ResourceRequest.h"
+#include "SWClientConnection.h"
+#include "SWContextManager.h"
+#include "SchemeRegistry.h"
+#include "ScriptDisallowedScope.h"
 #include "ScriptState.h"
 #include "ServiceWorker.h"
+#include "ServiceWorkerGlobalScope.h"
+#include "ServiceWorkerProvider.h"
 #include "Settings.h"
 #include "WorkerGlobalScope.h"
 #include "WorkerNavigator.h"
@@ -115,11 +120,12 @@ ScriptExecutionContext::~ScriptExecutionContext()
     m_inScriptExecutionContextDestructor = true;
 #endif
 
+#if ENABLE(SERVICE_WORKER)
+    setActiveServiceWorker(nullptr);
+#endif
+
     while (auto* destructionObserver = m_destructionObservers.takeAny())
         destructionObserver->contextDestroyed();
-
-    for (auto* messagePort : m_messagePorts)
-        messagePort->contextDestroyed();
 
 #if !ASSERT_DISABLED
     m_inScriptExecutionContextDestructor = false;
@@ -158,7 +164,7 @@ void ScriptExecutionContext::dispatchMessagePortEvents()
 void ScriptExecutionContext::createdMessagePort(MessagePort& messagePort)
 {
     ASSERT((is<Document>(*this) && isMainThread())
-        || (is<WorkerGlobalScope>(*this) && currentThread() == downcast<WorkerGlobalScope>(*this).thread().threadID()));
+        || (is<WorkerGlobalScope>(*this) && downcast<WorkerGlobalScope>(*this).thread().thread() == &Thread::current()));
 
     m_messagePorts.add(&messagePort);
 }
@@ -166,7 +172,7 @@ void ScriptExecutionContext::createdMessagePort(MessagePort& messagePort)
 void ScriptExecutionContext::destroyedMessagePort(MessagePort& messagePort)
 {
     ASSERT((is<Document>(*this) && isMainThread())
-        || (is<WorkerGlobalScope>(*this) && currentThread() == downcast<WorkerGlobalScope>(*this).thread().threadID()));
+        || (is<WorkerGlobalScope>(*this) && downcast<WorkerGlobalScope>(*this).thread().thread() == &Thread::current()));
 
     m_messagePorts.remove(&messagePort);
 }
@@ -190,7 +196,7 @@ bool ScriptExecutionContext::canSuspendActiveDOMObjectsForDocumentSuspension(Vec
     // functions should not add new active DOM objects, nor execute arbitrary JavaScript.
     // An ASSERT_WITH_SECURITY_IMPLICATION or RELEASE_ASSERT will fire if this happens, but it's important to code
     // canSuspend functions so it will not happen!
-    NoEventDispatchAssertion assertNoEventDispatch;
+    ScriptDisallowedScope::InMainThread scriptDisallowedScope;
     for (auto* activeDOMObject : m_activeDOMObjects) {
         if (!activeDOMObject->canSuspendForDocumentSuspension()) {
             canSuspend = false;
@@ -232,7 +238,7 @@ void ScriptExecutionContext::suspendActiveDOMObjects(ActiveDOMObject::ReasonForS
     // functions should not add new active DOM objects, nor execute arbitrary JavaScript.
     // An ASSERT_WITH_SECURITY_IMPLICATION or RELEASE_ASSERT will fire if this happens, but it's important to code
     // suspend functions so it will not happen!
-    NoEventDispatchAssertion assertNoEventDispatch;
+    ScriptDisallowedScope::InMainThread scriptDisallowedScope;
     for (auto* activeDOMObject : m_activeDOMObjects)
         activeDOMObject->suspend(why);
 
@@ -261,7 +267,7 @@ void ScriptExecutionContext::resumeActiveDOMObjects(ActiveDOMObject::ReasonForSu
     // functions should not add new active DOM objects, nor execute arbitrary JavaScript.
     // An ASSERT_WITH_SECURITY_IMPLICATION or RELEASE_ASSERT will fire if this happens, but it's important to code
     // resume functions so it will not happen!
-    NoEventDispatchAssertion assertNoEventDispatch;
+    ScriptDisallowedScope::InMainThread scriptDisallowedScope;
     for (auto* activeDOMObject : m_activeDOMObjects)
         activeDOMObject->resume();
 
@@ -288,7 +294,7 @@ void ScriptExecutionContext::stopActiveDOMObjects()
     // stop functions should not add new active DOM objects, nor execute arbitrary JavaScript.
     // An ASSERT_WITH_SECURITY_IMPLICATION or RELEASE_ASSERT will fire if this happens, but it's important to code stop functions
     // so it will not happen!
-    NoEventDispatchAssertion assertNoEventDispatch;
+    ScriptDisallowedScope scriptDisallowedScope;
     for (auto* activeDOMObject : possibleActiveDOMObjects) {
         // Check if this object was deleted already. If so, just skip it.
         // Calling contains on a possibly-already-deleted object is OK because we guarantee
@@ -300,11 +306,6 @@ void ScriptExecutionContext::stopActiveDOMObjects()
     }
 
     m_activeDOMObjectAdditionForbidden = false;
-
-    // FIXME: Make message ports be active DOM objects and let them implement stop instead
-    // of having this separate mechanism just for them.
-    for (auto* messagePort : m_messagePorts)
-        messagePort->close();
 }
 
 void ScriptExecutionContext::suspendActiveDOMObjectIfNeeded(ActiveDOMObject& activeDOMObject)
@@ -509,11 +510,6 @@ bool ScriptExecutionContext::hasPendingActivity() const
             return true;
     }
 
-    for (auto* messagePort : m_messagePorts) {
-        if (messagePort->hasPendingActivity())
-            return true;
-    }
-
     return false;
 }
 
@@ -528,7 +524,18 @@ JSC::ExecState* ScriptExecutionContext::execState()
     return execStateFromWorkerGlobalScope(workerGlobalScope);
 }
 
+String ScriptExecutionContext::domainForCachePartition() const
+{
+    return m_domainForCachePartition.isNull() ? topOrigin().domainForCachePartition() : m_domainForCachePartition;
+}
+
 #if ENABLE(SERVICE_WORKER)
+
+bool ScriptExecutionContext::hasServiceWorkerScheme()
+{
+    ASSERT(securityOrigin());
+    return SchemeRegistry::isServiceWorkerContainerCustomScheme(securityOrigin()->protocol());
+}
 
 ServiceWorker* ScriptExecutionContext::activeServiceWorker() const
 {
@@ -540,16 +547,48 @@ void ScriptExecutionContext::setActiveServiceWorker(RefPtr<ServiceWorker>&& serv
     m_activeServiceWorker = WTFMove(serviceWorker);
 }
 
+void ScriptExecutionContext::registerServiceWorker(ServiceWorker& serviceWorker)
+{
+    auto addResult = m_serviceWorkers.add(serviceWorker.identifier(), &serviceWorker);
+    ASSERT_UNUSED(addResult, addResult.isNewEntry);
+}
+
+void ScriptExecutionContext::unregisterServiceWorker(ServiceWorker& serviceWorker)
+{
+    m_serviceWorkers.remove(serviceWorker.identifier());
+}
+
 ServiceWorkerContainer* ScriptExecutionContext::serviceWorkerContainer()
 {
     NavigatorBase* navigator = nullptr;
     if (is<Document>(*this)) {
         if (auto* window = downcast<Document>(*this).domWindow())
-            navigator = window->navigator();
+            navigator = window->optionalNavigator();
     } else
-        navigator = &downcast<WorkerGlobalScope>(*this).navigator();
+        navigator = downcast<WorkerGlobalScope>(*this).optionalNavigator();
 
-    return navigator ? navigator->serviceWorker() : nullptr;
+    return navigator ? &navigator->serviceWorker() : nullptr;
+}
+
+bool ScriptExecutionContext::postTaskTo(const DocumentOrWorkerIdentifier& contextIdentifier, WTF::Function<void(ScriptExecutionContext&)>&& task)
+{
+    ASSERT(isMainThread());
+
+    bool wasPosted = false;
+    switchOn(contextIdentifier, [&] (DocumentIdentifier identifier) {
+        auto* document = Document::allDocumentsMap().get(identifier);
+        if (!document)
+            return;
+        document->postTask([task = WTFMove(task)](auto& scope) {
+            task(scope);
+        });
+        wasPosted= true;
+    }, [&](ServiceWorkerIdentifier identifier) {
+        wasPosted = SWContextManager::singleton().postTaskToServiceWorker(identifier, [task = WTFMove(task)](auto& scope) {
+            task(scope);
+        });
+    });
+    return wasPosted;
 }
 #endif
 

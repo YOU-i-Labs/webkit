@@ -120,7 +120,11 @@ EncodedJSValue JSC_HOST_CALL reflectObjectConstruct(ExecState* exec)
         arguments.append(value);
         return false;
     });
-    RETURN_IF_EXCEPTION(scope, encodedJSValue());
+    RETURN_IF_EXCEPTION(scope, (arguments.overflowCheckNotNeeded(), encodedJSValue()));
+    if (UNLIKELY(arguments.hasOverflowed())) {
+        throwOutOfMemoryError(exec, scope);
+        return encodedJSValue();
+    }
 
     scope.release();
     return JSValue::encode(construct(exec, target, constructType, constructData, arguments, newTarget));

@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2017 Apple Inc. All rights reserved.
+# Copyright (C) 2011-2018 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -253,12 +253,12 @@ const IsInvalidated = constexpr IsInvalidated
 const ShadowChickenTailMarker = constexpr ShadowChicken::Packet::tailMarkerValue
 
 # ArithProfile data
-const ArithProfileInt = 0x100000
-const ArithProfileIntInt = 0x120000
-const ArithProfileNumber = 0x200000
-const ArithProfileNumberInt = 0x220000
-const ArithProfileNumberNumber = 0x240000
-const ArithProfileIntNumber = 0x140000
+const ArithProfileInt = 0x400000
+const ArithProfileIntInt = 0x480000
+const ArithProfileNumber = 0x800000
+const ArithProfileNumberInt = 0x880000
+const ArithProfileNumberNumber = 0x900000
+const ArithProfileIntNumber = 0x500000
 
 # Some register conventions.
 if JSVALUE64
@@ -752,6 +752,13 @@ macro preserveReturnAddressAfterCall(destinationRegister)
     end
 end
 
+macro unpoison(poison, field, scratch)
+    if POISON
+        loadp poison, scratch
+        xorp scratch, field
+    end
+end
+
 macro functionPrologue()
     if X86 or X86_WIN or X86_64 or X86_64_WIN
         push cfr
@@ -939,6 +946,7 @@ macro functionForCallCodeBlockGetter(targetRegister)
     end
     loadp JSFunction::m_executable[targetRegister], targetRegister
     loadp FunctionExecutable::m_codeBlockForCall[targetRegister], targetRegister
+    loadp ExecutableToCodeBlockEdge::m_codeBlock[targetRegister], targetRegister
 end
 
 macro functionForConstructCodeBlockGetter(targetRegister)
@@ -949,6 +957,7 @@ macro functionForConstructCodeBlockGetter(targetRegister)
     end
     loadp JSFunction::m_executable[targetRegister], targetRegister
     loadp FunctionExecutable::m_codeBlockForConstruct[targetRegister], targetRegister
+    loadp ExecutableToCodeBlockEdge::m_codeBlock[targetRegister], targetRegister
 end
 
 macro notFunctionCodeBlockGetter(targetRegister)
@@ -1014,6 +1023,7 @@ macro prologue(codeBlockGetter, codeBlockSetter, osrSlowPath, traceSlowPath)
     # Set up the PC.
     if JSVALUE64
         loadp CodeBlock::m_instructions[t1], PB
+        unpoison(_g_CodeBlockPoison, PB, t3)
         move 0, PC
     else
         loadp CodeBlock::m_instructions[t1], PC
@@ -1023,7 +1033,8 @@ macro prologue(codeBlockGetter, codeBlockSetter, osrSlowPath, traceSlowPath)
     getFrameRegisterSizeForCodeBlock(t1, t0)
     subp cfr, t0, t0
     bpa t0, cfr, .needStackCheck
-    loadp CodeBlock::m_vm[t1], t2
+    loadp CodeBlock::m_poisonedVM[t1], t2
+    unpoison(_g_CodeBlockPoison, t2, t3)
     if C_LOOP
         bpbeq VM::m_cloopStackLimit[t2], t0, .stackHeightOK
     else
@@ -1364,7 +1375,7 @@ _llint_op_new_array_with_size:
 
 _llint_op_new_array_buffer:
     traceExecution()
-    callOpcodeSlowPath(_llint_slow_path_new_array_buffer)
+    callOpcodeSlowPath(_slow_path_new_array_buffer)
     dispatch(constexpr op_new_array_buffer_length)
 
 
@@ -1610,7 +1621,8 @@ _llint_op_loop_hint:
 _llint_op_check_traps:
     traceExecution()
     loadp CodeBlock[cfr], t1
-    loadp CodeBlock::m_vm[t1], t1
+    loadp CodeBlock::m_poisonedVM[t1], t1
+    unpoison(_g_CodeBlockPoison, t1, t2)
     loadb VM::m_traps+VMTraps::m_needTrapHandling[t1], t0
     btpnz t0, .handleTraps
 .afterHandlingTraps:
@@ -1625,7 +1637,8 @@ _llint_op_check_traps:
 # Returns the packet pointer in t0.
 macro acquireShadowChickenPacket(slow)
     loadp CodeBlock[cfr], t1
-    loadp CodeBlock::m_vm[t1], t1
+    loadp CodeBlock::m_poisonedVM[t1], t1
+    unpoison(_g_CodeBlockPoison, t1, t2)
     loadp VM::m_shadowChicken[t1], t2
     loadp ShadowChicken::m_logCursor[t2], t0
     bpaeq t0, ShadowChicken::m_logEnd[t2], slow
@@ -1636,6 +1649,17 @@ end
 
 _llint_op_nop:
     dispatch(constexpr op_nop_length)
+
+
+_llint_op_super_sampler_begin:
+    callOpcodeSlowPath(_llint_slow_path_super_sampler_begin)
+    dispatch(constexpr op_super_sampler_begin_length)
+
+
+_llint_op_super_sampler_end:
+    traceExecution()
+    callOpcodeSlowPath(_llint_slow_path_super_sampler_end)
+    dispatch(constexpr op_super_sampler_end_length)
 
 
 _llint_op_switch_string:
@@ -1778,12 +1802,6 @@ _llint_op_push_with_scope:
     dispatch(constexpr op_push_with_scope_length)
 
 
-_llint_op_assert:
-    traceExecution()
-    callOpcodeSlowPath(_slow_path_assert)
-    dispatch(constexpr op_assert_length)
-
-
 _llint_op_identity_with_profile:
     traceExecution()
     dispatch(constexpr op_identity_with_profile_length)
@@ -1833,6 +1851,15 @@ _llint_native_call_trampoline:
 
 _llint_native_construct_trampoline:
     nativeCallTrampoline(NativeExecutable::m_constructor)
+
+
+_llint_internal_function_call_trampoline:
+    internalFunctionCallTrampoline(InternalFunction::m_functionForCall)
+
+
+_llint_internal_function_construct_trampoline:
+    internalFunctionCallTrampoline(InternalFunction::m_functionForConstruct)
+
 
 _llint_op_get_enumerable_length:
     traceExecution()

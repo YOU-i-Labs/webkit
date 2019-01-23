@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
 
 # Copyright (C) 2005-2007, 2009, 2013-2014 Apple Inc. All rights reserved.
 # Copyright (C) 2009, Julien Chaffraix <jchaffraix@webkit.org>
@@ -30,6 +30,7 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use strict;
+use warnings;
 use FindBin;
 use lib "$FindBin::Bin/../bindings/scripts";
 
@@ -136,9 +137,6 @@ END
     print F StaticString::GenerateStringAsserts(\%parameters);
 
     for my $name (sort keys %parameters) {
-        # FIXME: Would like to use static_cast here, but there are differences in const
-        # depending on whether SKIP_STATIC_CONSTRUCTORS_ON_GCC is used, so stick with a
-        # C-style cast for now.
         print F "    ${name}.construct(&${name}Data);\n";
     }
 
@@ -572,7 +570,6 @@ sub printCppHead
     print F "#endif\n\n";
 
     print F "#include \"${namespace}Names.h\"\n\n";
-    print F "#include <wtf/StaticConstructors.h>\n";
 
     print F "namespace WebCore {\n\n";
     print F "namespace ${namespace}Names {\n\n";
@@ -662,8 +659,7 @@ namespace WebCore {
 class $class;
 }
 namespace WTF {
-template <typename ArgType>
-class TypeCastTraits<const WebCore::$class, ArgType, false /* isBaseType */> {
+template<typename ArgType> class TypeCastTraits<const WebCore::$class, ArgType, false /* isBaseType */> {
 public:
     static bool isOfType(ArgType& node) { return checkTagName(node); }
 private:
@@ -683,6 +679,7 @@ END
            ;
        }
        print F <<END
+    static bool checkTagName(const WebCore::EventTarget& target) { return is<WebCore::Node>(target) && checkTagName(downcast<WebCore::Node>(target)); }
 };
 }
 END

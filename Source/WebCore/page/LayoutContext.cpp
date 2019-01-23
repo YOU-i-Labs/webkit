@@ -31,10 +31,12 @@
 #include "Document.h"
 #include "FrameView.h"
 #include "InspectorInstrumentation.h"
+#include "LayoutDisallowedScope.h"
+#include "LayoutState.h"
 #include "Logging.h"
-#include "NoEventDispatchAssertion.h"
 #include "RenderElement.h"
 #include "RenderView.h"
+#include "ScriptDisallowedScope.h"
 #include "Settings.h"
 
 #include <wtf/SetForScope.h>
@@ -50,45 +52,6 @@ static bool isObjectAncestorContainerOf(RenderElement& ancestor, RenderElement& 
     }
     return false;
 }
-
-class SubtreeLayoutStateMaintainer {
-public:
-    SubtreeLayoutStateMaintainer(RenderElement* subtreeLayoutRoot)
-        : m_subtreeLayoutRoot(subtreeLayoutRoot)
-    {
-        if (m_subtreeLayoutRoot) {
-            RenderView& view = m_subtreeLayoutRoot->view();
-            view.pushLayoutState(*m_subtreeLayoutRoot);
-            if (shouldDisableLayoutStateForSubtree()) {
-                view.disableLayoutState();
-                m_didDisableLayoutState = true;
-            }
-        }
-    }
-
-    ~SubtreeLayoutStateMaintainer()
-    {
-        if (m_subtreeLayoutRoot) {
-            RenderView& view = m_subtreeLayoutRoot->view();
-            view.popLayoutState(*m_subtreeLayoutRoot);
-            if (m_didDisableLayoutState)
-                view.enableLayoutState();
-        }
-    }
-
-    bool shouldDisableLayoutStateForSubtree()
-    {
-        for (auto* renderer = m_subtreeLayoutRoot; renderer; renderer = renderer->container()) {
-            if (renderer->hasTransform() || renderer->hasReflection())
-                return true;
-        }
-        return false;
-    }
-    
-private:
-    RenderElement* m_subtreeLayoutRoot { nullptr };
-    bool m_didDisableLayoutState { false };
-};
 
 #ifndef NDEBUG
 class RenderTreeNeedsLayoutChecker {
@@ -157,7 +120,10 @@ LayoutContext::LayoutContext(FrameView& frameView)
 
 void LayoutContext::layout()
 {
+    LOG_WITH_STREAM(Layout, stream << "FrameView " << &view() << " LayoutContext::layout() with size " << view().layoutSize());
+
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(!frame().document()->inRenderTreeUpdate());
+    ASSERT(LayoutDisallowedScope::isLayoutAllowed());
     ASSERT(!view().isPainting());
     ASSERT(frame().view() == &view());
     ASSERT(frame().document());
@@ -180,7 +146,7 @@ void LayoutContext::layout()
 
 #if !LOG_DISABLED
     if (m_firstLayout && !frame().ownerElement())
-        LOG(Layout, "FrameView %p elapsed time before first layout: %.3fs\n", this, document()->timeSinceDocumentCreation().value());
+        LOG(Layout, "FrameView %p elapsed time before first layout: %.3fs", this, document()->timeSinceDocumentCreation().value());
 #endif
 #if PLATFORM(IOS)
     if (view().updateFixedPositionLayoutRect() && subtreeLayoutRoot())
@@ -211,7 +177,7 @@ void LayoutContext::layout()
     }
     {
         SetForScope<LayoutPhase> layoutPhase(m_layoutPhase, LayoutPhase::InRenderTreeLayout);
-        NoEventDispatchAssertion noEventDispatchAssertion;
+        ScriptDisallowedScope::InMainThread scriptDisallowedScope;
         SubtreeLayoutStateMaintainer subtreeLayoutStateMaintainer(subtreeLayoutRoot());
         RenderView::RepaintRegionAccumulator repaintRegionAccumulator(renderView());
 #ifndef NDEBUG
@@ -517,13 +483,8 @@ void LayoutContext::updateStyleForLayout()
 {
     Document& document = *frame().document();
     // Viewport-dependent media queries may cause us to need completely different style information.
-    auto* styleResolver = document.styleScope().resolverIfExists();
-    if (!styleResolver || styleResolver->hasMediaQueriesAffectedByViewportChange()) {
-        LOG(Layout, "  hasMediaQueriesAffectedByViewportChange, enqueueing style recalc");
-        document.styleScope().didChangeStyleSheetEnvironment();
-        // FIXME: This instrumentation event is not strictly accurate since cached media query results do not persist across StyleResolver rebuilds.
-        InspectorInstrumentation::mediaQueryResultChanged(document);
-    }
+    document.styleScope().evaluateMediaQueriesForViewportChange();
+
     document.evaluateMediaQueryList();
     // If there is any pagination to apply, it will affect the RenderView's style, so we should
     // take care of that now.
@@ -570,6 +531,76 @@ void LayoutContext::startLayoutAtMainFrameViewIfNeeded()
     LOG(Layout, "  frame flattening, starting from root");
     parentView->layoutContext().layout();
 }
+
+LayoutSize LayoutContext::layoutDelta() const
+{
+    if (auto* layoutState = this->layoutState())
+        return layoutState->layoutDelta();
+    return { };
+}
+    
+void LayoutContext::addLayoutDelta(const LayoutSize& delta)
+{
+    if (auto* layoutState = this->layoutState())
+        layoutState->addLayoutDelta(delta);
+}
+    
+#if !ASSERT_DISABLED
+bool LayoutContext::layoutDeltaMatches(const LayoutSize& delta)
+{
+    if (auto* layoutState = this->layoutState())
+        return layoutState->layoutDeltaMatches(delta);
+    return false;
+}
+#endif
+
+LayoutState* LayoutContext::layoutState() const
+{
+    if (m_layoutStateStack.isEmpty())
+        return nullptr;
+    return m_layoutStateStack.last().get();
+}
+
+void LayoutContext::pushLayoutState(RenderElement& root)
+{
+    ASSERT(!m_paintOffsetCacheDisableCount);
+    ASSERT(!layoutState());
+
+    m_layoutStateStack.append(std::make_unique<LayoutState>(root));
+}
+
+bool LayoutContext::pushLayoutStateForPaginationIfNeeded(RenderBlockFlow& layoutRoot)
+{
+    if (layoutState())
+        return false;
+    m_layoutStateStack.append(std::make_unique<LayoutState>(layoutRoot, LayoutState::IsPaginated::Yes));
+    return true;
+}
+    
+bool LayoutContext::pushLayoutState(RenderBox& renderer, const LayoutSize& offset, LayoutUnit pageHeight, bool pageHeightChanged)
+{
+    // We push LayoutState even if layoutState is disabled because it stores layoutDelta too.
+    auto* layoutState = this->layoutState();
+    if (!layoutState || !needsFullRepaint() || layoutState->isPaginated() || renderer.enclosingFragmentedFlow()
+        || layoutState->lineGrid() || (renderer.style().lineGrid() != RenderStyle::initialLineGrid() && renderer.isRenderBlockFlow())) {
+        m_layoutStateStack.append(std::make_unique<LayoutState>(m_layoutStateStack, renderer, offset, pageHeight, pageHeightChanged));
+        return true;
+    }
+    return false;
+}
+    
+void LayoutContext::popLayoutState()
+{
+    m_layoutStateStack.removeLast();
+}
+    
+#ifndef NDEBUG
+void LayoutContext::checkLayoutState()
+{
+    ASSERT(layoutDeltaMatches(LayoutSize()));
+    ASSERT(!m_paintOffsetCacheDisableCount);
+}
+#endif
 
 Frame& LayoutContext::frame() const
 {

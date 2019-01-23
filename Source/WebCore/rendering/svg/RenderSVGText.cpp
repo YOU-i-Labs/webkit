@@ -46,9 +46,12 @@
 #include "SVGURIReference.h"
 #include "TransformState.h"
 #include "VisiblePosition.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGText);
 
 RenderSVGText::RenderSVGText(SVGTextElement& element, RenderStyle&& style)
     : RenderSVGBlock(element, WTFMove(style))
@@ -517,13 +520,9 @@ FloatRect RenderSVGText::repaintRectInLocalCoordinates() const
     return repaintRect;
 }
 
-void RenderSVGText::addChild(RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
+void RenderSVGText::addChild(RenderTreeBuilder& builder, RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
 {
-    auto& child = *newChild;
-    RenderSVGBlock::addChild(WTFMove(newChild), beforeChild);
-
-    SVGResourcesCache::clientWasAddedToTree(child);
-    subtreeChildWasAdded(&child);
+    builder.insertChildToSVGText(*this, WTFMove(newChild), beforeChild);
 }
 
 RenderPtr<RenderObject> RenderSVGText::takeChild(RenderObject& child)

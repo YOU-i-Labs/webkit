@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
- * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2017 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -76,7 +76,7 @@ void SVGFontFaceUriElement::childrenChanged(const ChildChange& change)
     if (!parentNode() || !parentNode()->hasTagName(font_face_srcTag))
         return;
     
-    ContainerNode* grandparent = parentNode()->parentNode();
+    auto grandparent = makeRefPtr(parentNode()->parentNode());
     if (grandparent && grandparent->hasTagName(font_faceTag))
         downcast<SVGFontFaceElement>(*grandparent).rebuildFontFace();
 }
@@ -106,7 +106,7 @@ void SVGFontFaceUriElement::loadFont()
         CachedResourceLoader& cachedResourceLoader = document().cachedResourceLoader();
         CachedResourceRequest request(ResourceRequest(document().completeURL(href)), options);
         request.setInitiator(*this);
-        m_cachedFont = cachedResourceLoader.requestFont(WTFMove(request), isSVGFontTarget(*this)).valueOr(nullptr);
+        m_cachedFont = cachedResourceLoader.requestFont(WTFMove(request), isSVGFontTarget(*this)).value_or(nullptr);
         if (m_cachedFont) {
             m_cachedFont->addClient(*this);
             m_cachedFont->beginLoadIfNeeded(cachedResourceLoader);

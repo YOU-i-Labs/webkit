@@ -473,7 +473,9 @@ static inline bool dispatchSelectStart(Node* node)
     if (!node || !node->renderer())
         return true;
 
-    return node->dispatchEvent(Event::create(eventNames().selectstartEvent, true, true));
+    auto event = Event::create(eventNames().selectstartEvent, true, true);
+    node->dispatchEvent(event);
+    return !event->defaultPrevented();
 }
 
 static Node* nodeToSelectOnMouseDownForNode(Node& targetNode)
@@ -1591,10 +1593,12 @@ void EventHandler::cancelAutoHideCursorTimer()
 
 void EventHandler::autoHideCursorTimerFired()
 {
-    m_currentMouseCursor = noneCursor();
     FrameView* view = m_frame.view();
-    if (view && view->isActive())
-        view->setCursor(m_currentMouseCursor);
+    if (!view || !view->isActive())
+        return;
+
+    if (auto page = m_frame.page())
+        page->chrome().setCursorHiddenUntilMouseMoves(true);
 }
 #endif
 
@@ -2320,10 +2324,8 @@ EventHandler::DragTargetResponse EventHandler::updateDragAndDrop(const PlatformM
                 response = targetFrame->eventHandler().updateDragAndDrop(event, makePasteboard, sourceOperation, draggingFiles);
         } else if (newTarget) {
             // As per section 7.9.4 of the HTML 5 spec., we must always fire a drag event before firing a dragenter, dragleave, or dragover event.
-            if (dragState().source && dragState().shouldDispatchEvents) {
-                // for now we don't care if event handler cancels default behavior, since there is none
+            if (dragState().source && dragState().shouldDispatchEvents)
                 dispatchDragSrcEvent(eventNames().dragEvent, event);
-            }
             response = dispatchDragEnterOrDragOverEvent(eventNames().dragenterEvent, *newTarget, event, makePasteboard(), sourceOperation, draggingFiles);
         }
 
@@ -2349,10 +2351,8 @@ EventHandler::DragTargetResponse EventHandler::updateDragAndDrop(const PlatformM
                 response = targetFrame->eventHandler().updateDragAndDrop(event, makePasteboard, sourceOperation, draggingFiles);
         } else if (newTarget) {
             // Note, when dealing with sub-frames, we may need to fire only a dragover event as a drag event may have been fired earlier.
-            if (!m_shouldOnlyFireDragOverEvent && dragState().source && dragState().shouldDispatchEvents) {
-                // for now we don't care if event handler cancels default behavior, since there is none
+            if (!m_shouldOnlyFireDragOverEvent && dragState().source && dragState().shouldDispatchEvents)
                 dispatchDragSrcEvent(eventNames().dragEvent, event);
-            }
             response = dispatchDragEnterOrDragOverEvent(eventNames().dragoverEvent, *newTarget, event, makePasteboard(), sourceOperation, draggingFiles);
             m_shouldOnlyFireDragOverEvent = false;
         }
@@ -2678,16 +2678,30 @@ void EventHandler::platformNotifyIfEndGesture(const PlatformWheelEvent&, const W
 {
 }
 
-IntPoint EventHandler::effectiveMousePositionForSelectionAutoscroll() const
-{
-    return m_lastKnownMousePosition;
-}
-
 void EventHandler::clearOrScheduleClearingLatchedStateIfNeeded(const PlatformWheelEvent&)
 {
     clearLatchedState();
 }
-#endif
+    
+#if !PLATFORM(IOS)
+    
+IntPoint EventHandler::targetPositionInWindowForSelectionAutoscroll() const
+{
+    return m_lastKnownMousePosition;
+}
+    
+#endif // !PLATFORM(IOS)
+    
+#endif // !PLATFORM(MAC)
+    
+#if !PLATFORM(IOS)
+    
+bool EventHandler::shouldUpdateAutoscroll()
+{
+    return mousePressed();
+}
+    
+#endif // !PLATFORM(IOS)
 
 Widget* EventHandler::widgetForEventTarget(Element* eventTarget)
 {
@@ -3259,7 +3273,7 @@ bool EventHandler::internalKeyEvent(const PlatformKeyboardEvent& initialKeyEvent
         keydown->setDefaultHandled();
     }
     
-    if (accessibilityPreventsEventPropogation(keydown))
+    if (accessibilityPreventsEventPropagation(keydown))
         keydown->stopPropagation();
 
     element->dispatchEvent(keydown);
@@ -3402,7 +3416,7 @@ void EventHandler::handleKeyboardSelectionMovementForAccessibility(KeyboardEvent
     }
 }
 
-bool EventHandler::accessibilityPreventsEventPropogation(KeyboardEvent& event)
+bool EventHandler::accessibilityPreventsEventPropagation(KeyboardEvent& event)
 {
 #if PLATFORM(COCOA)
     if (!AXObjectCache::accessibilityEnhancedUserInterfaceEnabled())
@@ -3548,7 +3562,6 @@ void EventHandler::dragSourceEndedAt(const PlatformMouseEvent& event, DragOperat
 
     if (dragState().source && dragState().shouldDispatchEvents) {
         dragState().dataTransfer->setDestinationOperation(operation);
-        // For now we don't care if event handler cancels default behavior, since there is no default behavior.
         dispatchDragSrcEvent(eventNames().dragendEvent, event);
     }
     invalidateDataTransfer();
@@ -3571,11 +3584,10 @@ void EventHandler::updateDragStateAfterEditDragIfNeeded(Element& rootEditableEle
         dragState().source = &rootEditableElement;
 }
 
-// Return value indicates if we should continue "default processing", i.e., whether event handler canceled.
-bool EventHandler::dispatchDragSrcEvent(const AtomicString& eventType, const PlatformMouseEvent& event)
+void EventHandler::dispatchDragSrcEvent(const AtomicString& eventType, const PlatformMouseEvent& event)
 {
     ASSERT(dragState().dataTransfer);
-    return !dispatchDragEvent(eventType, *dragState().source, event, *dragState().dataTransfer);
+    dispatchDragEvent(eventType, *dragState().source, event, *dragState().dataTransfer);
 }
 
 bool EventHandler::dispatchDragStartEventOnSourceElement(DataTransfer& dataTransfer)
@@ -4120,12 +4132,12 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             // No hittest is performed on move or stationary, since the target is not allowed to change anyway.
             touchTarget = m_originatingTouchPointTargets.get(touchPointTargetKey);
 
-        if (!touchTarget.get())
+        if (!is<Node>(touchTarget))
             continue;
-        Document& doc = touchTarget->toNode()->document();
-        if (!doc.hasTouchEventHandlers())
+        auto& document = downcast<Node>(*touchTarget).document();
+        if (!document.hasTouchEventHandlers())
             continue;
-        Frame* targetFrame = doc.frame();
+        auto* targetFrame = document.frame();
         if (!targetFrame)
             continue;
 
@@ -4185,16 +4197,17 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         RefPtr<TouchList>& effectiveTouches(isTouchCancelEvent ? emptyList : touches);
         const AtomicString& stateName(eventNameForTouchPointState(static_cast<PlatformTouchPoint::State>(state)));
 
-        for (auto& taget : changedTouches[state].m_targets) {
-            EventTarget* touchEventTarget = taget.get();
-            RefPtr<TouchList> targetTouches(isTouchCancelEvent ? emptyList : touchesByTarget.get(touchEventTarget));
+        for (auto& target : changedTouches[state].m_targets) {
+            ASSERT(is<Node>(target));
+
+            RefPtr<TouchList> targetTouches(isTouchCancelEvent ? emptyList : touchesByTarget.get(target.get()));
             ASSERT(targetTouches);
 
             Ref<TouchEvent> touchEvent =
                 TouchEvent::create(effectiveTouches.get(), targetTouches.get(), changedTouches[state].m_touches.get(),
-                    stateName, touchEventTarget->toNode()->document().defaultView(),
+                    stateName, downcast<Node>(*target).document().defaultView(),
                     0, 0, 0, 0, event.ctrlKey(), event.altKey(), event.shiftKey(), event.metaKey());
-            touchEventTarget->toNode()->dispatchTouchEvent(touchEvent);
+            target->dispatchEvent(touchEvent);
             swallowedEvent = swallowedEvent || touchEvent->defaultPrevented() || touchEvent->defaultHandled();
         }
     }

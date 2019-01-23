@@ -44,15 +44,16 @@
 #include "SecurityOriginHash.h"
 #include "Timer.h"
 #include "VideoTrackPrivate.h"
-#include <pal/Logger.h>
 #include <runtime/Uint8Array.h>
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
+#include <wtf/Logger.h>
 #include <wtf/MediaTime.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
+#include <wtf/WallTime.h>
 #include <wtf/text/StringHash.h>
 
 #if ENABLE(AVF_CAPTIONS)
@@ -303,7 +304,7 @@ public:
 
 #if !RELEASE_LOG_DISABLED
     virtual const void* mediaPlayerLogIdentifier() { return nullptr; }
-    virtual const PAL::Logger& mediaPlayerLogger() = 0;
+    virtual const Logger& mediaPlayerLogger() = 0;
 #endif
 };
 
@@ -329,7 +330,7 @@ public:
     static void getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>&);
     static bool isAvailable();
     static HashSet<RefPtr<SecurityOrigin>> originsInMediaCache(const String& path);
-    static void clearMediaCache(const String& path, std::chrono::system_clock::time_point modifiedSince);
+    static void clearMediaCache(const String& path, WallTime modifiedSince);
     static void clearMediaCacheForOrigins(const String& path, const HashSet<RefPtr<SecurityOrigin>>&);
     static bool supportsKeySystem(const String& keySystem, const String& mimeType);
 
@@ -394,9 +395,9 @@ public:
 #endif
 
 #if ENABLE(ENCRYPTED_MEDIA)
-    void cdmInstanceAttached(const CDMInstance&);
-    void cdmInstanceDetached(const CDMInstance&);
-    void attemptToDecryptWithInstance(const CDMInstance&);
+    void cdmInstanceAttached(CDMInstance&);
+    void cdmInstanceDetached(CDMInstance&);
+    void attemptToDecryptWithInstance(CDMInstance&);
 #endif
 
     bool paused() const;
@@ -633,9 +634,12 @@ public:
     bool shouldCheckHardwareSupport() const;
 
 #if !RELEASE_LOG_DISABLED
-    const PAL::Logger& mediaPlayerLogger();
+    const Logger& mediaPlayerLogger();
     const void* mediaPlayerLogIdentifier() { return client().mediaPlayerLogIdentifier(); }
 #endif
+
+    void applicationWillResignActive();
+    void applicationDidBecomeActive();
 
 private:
     MediaPlayer(MediaPlayerClient&);
@@ -674,7 +678,7 @@ using CreateMediaEnginePlayer = WTF::Function<std::unique_ptr<MediaPlayerPrivate
 typedef void (*MediaEngineSupportedTypes)(HashSet<String, ASCIICaseInsensitiveHash>& types);
 typedef MediaPlayer::SupportsType (*MediaEngineSupportsType)(const MediaEngineSupportParameters& parameters);
 typedef HashSet<RefPtr<SecurityOrigin>> (*MediaEngineOriginsInMediaCache)(const String& path);
-typedef void (*MediaEngineClearMediaCache)(const String& path, std::chrono::system_clock::time_point modifiedSince);
+typedef void (*MediaEngineClearMediaCache)(const String& path, WallTime modifiedSince);
 typedef void (*MediaEngineClearMediaCacheForOrigins)(const String& path, const HashSet<RefPtr<SecurityOrigin>>&);
 typedef bool (*MediaEngineSupportsKeySystem)(const String& keySystem, const String& mimeType);
 
@@ -689,14 +693,14 @@ public:
 
 } // namespace WebCore
 
-namespace PAL {
+namespace WTF {
 
 template<typename Type>
 struct LogArgument;
 
 template <>
-struct LogArgument<WTF::MediaTime> {
-    static String toString(const WTF::MediaTime& time)
+struct LogArgument<MediaTime> {
+    static String toString(const MediaTime& time)
     {
         return time.toString();
     }

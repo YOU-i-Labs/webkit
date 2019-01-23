@@ -79,7 +79,7 @@ void JIT::emit_op_new_object(Instruction* currentInstruction)
 {
     Structure* structure = currentInstruction[3].u.objectAllocationProfile->structure();
     size_t allocationSize = JSFinalObject::allocationSize(structure->inlineCapacity());
-    MarkedAllocator* allocator = subspaceFor<JSFinalObject>(*m_vm)->allocatorFor(allocationSize);
+    BlockDirectory* allocator = subspaceFor<JSFinalObject>(*m_vm)->allocatorForNonVirtual(allocationSize, AllocatorForMode::AllocatorIfExists);
 
     RegisterID resultReg = returnValueGPR;
     RegisterID allocatorReg = regT1;
@@ -89,7 +89,9 @@ void JIT::emit_op_new_object(Instruction* currentInstruction)
     if (allocator)
         addSlowCase(Jump());
     JumpList slowCases;
-    emitAllocateJSObject(resultReg, allocator, allocatorReg, TrustedImmPtr(structure), TrustedImmPtr(0), scratchReg, slowCases);
+    auto butterfly = TrustedImmPtr(nullptr);
+    auto mask = TrustedImm32(0);
+    emitAllocateJSObject(resultReg, allocator, allocatorReg, TrustedImmPtr(structure), butterfly, mask, scratchReg, slowCases);
     emitInitializeInlineStorage(resultReg, structure->inlineCapacity());
     addSlowCase(slowCases);
     emitStoreCell(currentInstruction[1].u.operand, resultReg);
@@ -328,14 +330,6 @@ void JIT::emit_op_to_primitive(Instruction* currentInstruction)
         emitStore(dst, regT1, regT0);
 }
 
-void JIT::emitSlow_op_to_primitive(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
-{
-    linkAllSlowCases(iter);
-
-    JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_to_primitive);
-    slowPathCall.call();
-}
-
 void JIT::emit_op_set_function_name(Instruction* currentInstruction)
 {
     int func = currentInstruction[1].u.operand;
@@ -357,14 +351,6 @@ void JIT::emit_op_not(Instruction* currentInstruction)
     xor32(TrustedImm32(1), regT0);
 
     emitStoreBool(dst, regT0, (dst == src));
-}
-
-void JIT::emitSlow_op_not(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
-{
-    linkAllSlowCases(iter);
-
-    JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_not);
-    slowPathCall.call();
 }
 
 void JIT::emit_op_jfalse(Instruction* currentInstruction)
@@ -585,25 +571,9 @@ void JIT::emit_op_stricteq(Instruction* currentInstruction)
     compileOpStrictEq(currentInstruction, OpStrictEq);
 }
 
-void JIT::emitSlow_op_stricteq(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
-{
-    linkAllSlowCases(iter);
-
-    JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_stricteq);
-    slowPathCall.call();
-}
-
 void JIT::emit_op_nstricteq(Instruction* currentInstruction)
 {
     compileOpStrictEq(currentInstruction, OpNStrictEq);
-}
-
-void JIT::emitSlow_op_nstricteq(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
-{
-    linkAllSlowCases(iter);
-
-    JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_nstricteq);
-    slowPathCall.call();
 }
 
 void JIT::emit_op_eq_null(Instruction* currentInstruction)
@@ -693,14 +663,6 @@ void JIT::emit_op_to_number(Instruction* currentInstruction)
         emitStore(dst, regT1, regT0);
 }
 
-void JIT::emitSlow_op_to_number(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
-{
-    linkAllSlowCases(iter);
-
-    JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_to_number);
-    slowPathCall.call();
-}
-
 void JIT::emit_op_to_string(Instruction* currentInstruction)
 {
     int dst = currentInstruction[1].u.operand;
@@ -715,12 +677,19 @@ void JIT::emit_op_to_string(Instruction* currentInstruction)
         emitStore(dst, regT1, regT0);
 }
 
-void JIT::emitSlow_op_to_string(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
+void JIT::emit_op_to_object(Instruction* currentInstruction)
 {
-    linkAllSlowCases(iter);
+    int dst = currentInstruction[1].u.operand;
+    int src = currentInstruction[2].u.operand;
 
-    JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_to_string);
-    slowPathCall.call();
+    emitLoad(src, regT1, regT0);
+
+    addSlowCase(branch32(NotEqual, regT1, TrustedImm32(JSValue::CellTag)));
+    addSlowCase(branch8(Below, Address(regT0, JSCell::typeInfoTypeOffset()), TrustedImm32(ObjectType)));
+
+    emitValueProfilingSite();
+    if (src != dst)
+        emitStore(dst, regT1, regT0);
 }
 
 void JIT::emit_op_catch(Instruction* currentInstruction)
@@ -897,17 +866,11 @@ void JIT::emit_op_create_this(Instruction* currentInstruction)
     hasSeenMultipleCallees.link(this);
 
     JumpList slowCases;
-    emitAllocateJSObject(resultReg, nullptr, allocatorReg, structureReg, TrustedImmPtr(0), scratchReg, slowCases);
+    auto butterfly = TrustedImmPtr(nullptr);
+    auto mask = TrustedImm32(0);
+    emitAllocateJSObject(resultReg, nullptr, allocatorReg, structureReg, butterfly, mask, scratchReg, slowCases);
     addSlowCase(slowCases);
     emitStoreCell(currentInstruction[1].u.operand, resultReg);
-}
-
-void JIT::emitSlow_op_create_this(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
-{
-    linkAllSlowCases(iter);
-
-    JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_create_this);
-    slowPathCall.call();
 }
 
 void JIT::emit_op_to_this(Instruction* currentInstruction)
@@ -924,26 +887,10 @@ void JIT::emit_op_to_this(Instruction* currentInstruction)
     addSlowCase(branchPtr(NotEqual, regT0, regT2));
 }
 
-void JIT::emitSlow_op_to_this(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
-{
-    linkAllSlowCases(iter);
-
-    JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_to_this);
-    slowPathCall.call();
-}
-
 void JIT::emit_op_check_tdz(Instruction* currentInstruction)
 {
     emitLoadTag(currentInstruction[1].u.operand, regT0);
     addSlowCase(branch32(Equal, regT0, TrustedImm32(JSValue::EmptyValueTag)));
-}
-
-void JIT::emitSlow_op_check_tdz(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
-{
-    linkAllSlowCases(iter);
-
-    JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_throw_tdz_error);
-    slowPathCall.call();
 }
 
 void JIT::emit_op_has_structure_property(Instruction* currentInstruction)
@@ -1093,14 +1040,6 @@ void JIT::emit_op_get_direct_pname(Instruction* currentInstruction)
     done.link(this);
     emitValueProfilingSite();
     emitStore(dst, regT1, regT0);
-}
-
-void JIT::emitSlow_op_get_direct_pname(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
-{
-    linkAllSlowCases(iter);
-
-    JITSlowPathCall slowPathCall(this, currentInstruction, slow_path_get_direct_pname);
-    slowPathCall.call();
 }
 
 void JIT::emit_op_enumerator_structure_pname(Instruction* currentInstruction)

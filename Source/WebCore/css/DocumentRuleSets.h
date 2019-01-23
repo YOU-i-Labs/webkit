@@ -44,11 +44,13 @@ public:
     ~DocumentRuleSets();
 
     bool isAuthorStyleDefined() const { return m_isAuthorStyleDefined; }
+    RuleSet* userAgentMediaQueryStyle() const;
     RuleSet& authorStyle() const { return *m_authorStyle.get(); }
     RuleSet* userStyle() const;
     const RuleFeatureSet& features() const;
     RuleSet* sibling() const { return m_siblingRuleSet.get(); }
     RuleSet* uncommonAttribute() const { return m_uncommonAttributeRuleSet.get(); }
+    RuleSet* subjectClassRules(const AtomicString& className) const;
     RuleSet* ancestorClassRules(const AtomicString& className) const;
 
     struct AttributeRules {
@@ -59,28 +61,37 @@ public:
     };
     const AttributeRules* ancestorAttributeRulesForHTML(const AtomicString&) const;
 
+    void setIsForShadowScope() { m_isForShadowScope = true; }
+
     void setUsesSharedUserStyle(bool b) { m_usesSharedUserStyle = b; }
     void initializeUserStyle();
 
     void resetAuthorStyle();
     void appendAuthorStyleSheets(const Vector<RefPtr<CSSStyleSheet>>&, MediaQueryEvaluator*, InspectorCSSOMWrappers&, StyleResolver*);
 
+    void resetUserAgentMediaQueryStyle();
+
     RuleFeatureSet& mutableFeatures();
 
 private:
     void collectFeatures() const;
     void collectRulesFromUserStyleSheets(const Vector<RefPtr<CSSStyleSheet>>&, RuleSet& userStyle, const MediaQueryEvaluator&, StyleResolver&);
+    void updateUserAgentMediaQueryStyleIfNeeded() const;
 
+    bool m_isForShadowScope { false };
     bool m_isAuthorStyleDefined { false };
     std::unique_ptr<RuleSet> m_authorStyle;
+    mutable std::unique_ptr<RuleSet> m_userAgentMediaQueryStyle;
     std::unique_ptr<RuleSet> m_userStyle;
     bool m_usesSharedUserStyle { false };
 
     StyleResolver& m_styleResolver;
     mutable RuleFeatureSet m_features;
     mutable unsigned m_defaultStyleVersionOnFeatureCollection { 0 };
+    mutable unsigned m_userAgentMediaQueryRuleCountOnUpdate { 0 };
     mutable std::unique_ptr<RuleSet> m_siblingRuleSet;
     mutable std::unique_ptr<RuleSet> m_uncommonAttributeRuleSet;
+    mutable HashMap<AtomicString, std::unique_ptr<RuleSet>> m_subjectClassRuleSets;
     mutable HashMap<AtomicString, std::unique_ptr<RuleSet>> m_ancestorClassRuleSets;
     mutable HashMap<AtomicString, std::unique_ptr<AttributeRules>> m_ancestorAttributeRuleSetsForHTML;
 };

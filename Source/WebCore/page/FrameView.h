@@ -39,6 +39,7 @@
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
+#include <wtf/IsoMalloc.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/text/WTFString.h>
 
@@ -67,6 +68,7 @@ enum class FrameFlattening;
 Pagination::Mode paginationModeForRenderStyle(const RenderStyle&);
 
 class FrameView final : public ScrollView {
+    WTF_MAKE_ISO_ALLOCATED(FrameView);
 public:
     friend class RenderView;
     friend class Internals;
@@ -217,7 +219,7 @@ public:
     float visibleContentScaleFactor() const final;
 
 #if USE(COORDINATED_GRAPHICS)
-    void setFixedVisibleContentRect(const IntRect&) final;
+    WEBCORE_EXPORT void setFixedVisibleContentRect(const IntRect&) final;
 #endif
     WEBCORE_EXPORT void setScrollPosition(const ScrollPosition&) final;
     void updateLayerPositionsAfterScrolling() final;
@@ -250,6 +252,8 @@ public:
     // Used with delegated scrolling (i.e. iOS).
     WEBCORE_EXPORT void setLayoutViewportOverrideRect(std::optional<LayoutRect>, TriggerLayoutOrNot = TriggerLayoutOrNot::Yes);
 
+    WEBCORE_EXPORT void setVisualViewportOverrideRect(std::optional<LayoutRect>);
+
     // These are in document coordinates, unaffected by page scale (but affected by zooming).
     WEBCORE_EXPORT LayoutRect layoutViewportRect() const;
     WEBCORE_EXPORT LayoutRect visualViewportRect() const;
@@ -273,8 +277,8 @@ public:
     void setIsOverlapped(bool);
     void setContentIsOpaque(bool);
 
-    void addSlowRepaintObject(RenderElement*);
-    void removeSlowRepaintObject(RenderElement*);
+    void addSlowRepaintObject(RenderElement&);
+    void removeSlowRepaintObject(RenderElement&);
     bool hasSlowRepaintObject(const RenderElement& renderer) const { return m_slowRepaintObjects && m_slowRepaintObjects->contains(&renderer); }
     bool hasSlowRepaintObjects() const { return m_slowRepaintObjects && m_slowRepaintObjects->size(); }
 
@@ -466,6 +470,7 @@ public:
     FloatSize documentToClientOffset() const;
     FloatRect documentToClientRect(FloatRect) const;
     FloatPoint documentToClientPoint(FloatPoint) const;
+    WEBCORE_EXPORT FloatRect clientToDocumentRect(FloatRect) const;
     WEBCORE_EXPORT FloatPoint clientToDocumentPoint(FloatPoint) const;
 
     FloatRect layoutViewportToAbsoluteRect(FloatRect) const;
@@ -516,7 +521,8 @@ public:
     bool containsScrollableArea(ScrollableArea*) const;
     const ScrollableAreaSet* scrollableAreas() const { return m_scrollableAreas.get(); }
 
-    void removeChild(Widget&) final;
+    WEBCORE_EXPORT void addChild(Widget&) final;
+    WEBCORE_EXPORT void removeChild(Widget&) final;
 
     // This function exists for ports that need to handle wheel events manually.
     // On Mac WebKit1 the underlying NSScrollView just does the scrolling, but on most other platforms
@@ -590,6 +596,8 @@ public:
     void setHasFlippedBlockRenderers(bool b) { m_hasFlippedBlockRenderers = b; }
 
     void updateWidgetPositions();
+    void scheduleUpdateWidgetPositions();
+
     void didAddWidgetToRenderTree(Widget&);
     void willRemoveWidgetFromRenderTree(Widget&);
 
@@ -737,10 +745,14 @@ private:
     void updateEmbeddedObjectsTimerFired();
     bool updateEmbeddedObjects();
     void updateEmbeddedObject(RenderEmbeddedObject&);
+
+    void updateWidgetPositionsTimerFired();
+
     void scrollToAnchor();
     void scrollPositionChanged(const ScrollPosition& oldPosition, const ScrollPosition& newPosition);
     void scrollableAreaSetChanged();
     void sendScrollEvent();
+    void resetScrollAnchor();
 
     bool hasCustomScrollbars() const;
 
@@ -786,6 +798,8 @@ private:
     bool m_contentIsOpaque;
 
     Timer m_updateEmbeddedObjectsTimer;
+    Timer m_updateWidgetPositionsTimer;
+
     bool m_firstLayoutCallbackPending;
 
     bool m_isTransparent;
@@ -820,6 +834,7 @@ private:
     
     LayoutPoint m_layoutViewportOrigin;
     std::optional<LayoutRect> m_layoutViewportOverrideRect;
+    std::optional<LayoutRect> m_visualViewportOverrideRect; // Used when the iOS keyboard is showing.
 
     RefPtr<Node> m_nodeToDraw;
     PaintBehavior m_paintBehavior;

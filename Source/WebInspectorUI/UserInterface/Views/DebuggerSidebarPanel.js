@@ -25,11 +25,9 @@
 
 WI.DebuggerSidebarPanel = class DebuggerSidebarPanel extends WI.NavigationSidebarPanel
 {
-    constructor(contentBrowser)
+    constructor()
     {
         super("debugger", WI.UIString("Debugger"), true);
-
-        this.contentBrowser = contentBrowser;
 
         WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
         WI.Frame.addEventListener(WI.Frame.Event.ResourceWasAdded, this._resourceAdded, this);
@@ -146,8 +144,6 @@ WI.DebuggerSidebarPanel = class DebuggerSidebarPanel extends WI.NavigationSideba
         let breakpointsGroup = new WI.DetailsSectionGroup([breakpointsRow]);
         let breakpointsSection = new WI.DetailsSection("breakpoints", WI.UIString("Breakpoints"), [breakpointsGroup]);
         this.contentView.element.appendChild(breakpointsSection.element);
-
-        this._breakpointSectionElement = breakpointsSection.element;
 
         this._breakpointsContentTreeOutline.addEventListener(WI.TreeOutline.Event.SelectionDidChange, this._treeSelectionDidChange, this);
         this._breakpointsContentTreeOutline.ondelete = this._breakpointTreeOutlineDeleteTreeElement.bind(this);
@@ -377,10 +373,10 @@ WI.DebuggerSidebarPanel = class DebuggerSidebarPanel extends WI.NavigationSideba
             this._allUncaughtExceptionsBreakpointTreeElement.revealAndSelect();
         else if (cookie[WI.DebuggerSidebarPanel.SelectedAssertionsCookieKey])
             this._assertionsBreakpointTreeElement.revealAndSelect();
-        else if (cookie[WI.DebuggerSidebarPanel.SelectedAllRequestsCookieKey])
+        else if (cookie[WI.DebuggerSidebarPanel.SelectedAllRequestsCookieKey]) {
             if (this._xhrBreakpointTreeController)
                 this._xhrBreakpointTreeController.revealAndSelect(WI.domDebuggerManager.allRequestsBreakpoint);
-        else
+        } else
             super.restoreStateFromCookie(cookie, relaxedMatchDelay);
     }
 

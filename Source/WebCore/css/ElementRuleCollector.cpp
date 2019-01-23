@@ -83,6 +83,7 @@ ElementRuleCollector::ElementRuleCollector(const Element& element, const Documen
     : m_element(element)
     , m_authorStyle(ruleSets.authorStyle())
     , m_userStyle(ruleSets.userStyle())
+    , m_userAgentMediaQueryStyle(ruleSets.userAgentMediaQueryStyle())
     , m_selectorFilter(selectorFilter)
 {
     ASSERT(!m_selectorFilter || m_selectorFilter->parentStackIsConsistent(element.parentNode()));
@@ -320,20 +321,23 @@ void ElementRuleCollector::matchUARules()
         m_result.isCacheable = false;
     RuleSet* userAgentStyleSheet = m_isPrintStyle
         ? CSSDefaultStyleSheets::defaultPrintStyle : CSSDefaultStyleSheets::defaultStyle;
-    matchUARules(userAgentStyleSheet);
+    matchUARules(*userAgentStyleSheet);
 
     // In quirks mode, we match rules from the quirks user agent sheet.
     if (m_element.document().inQuirksMode())
-        matchUARules(CSSDefaultStyleSheets::defaultQuirksStyle);
+        matchUARules(*CSSDefaultStyleSheets::defaultQuirksStyle);
+
+    if (m_userAgentMediaQueryStyle)
+        matchUARules(*m_userAgentMediaQueryStyle);
 }
 
-void ElementRuleCollector::matchUARules(RuleSet* rules)
+void ElementRuleCollector::matchUARules(const RuleSet& rules)
 {
     clearMatchedRules();
     
     m_result.ranges.lastUARule = m_result.matchedProperties().size() - 1;
     StyleResolver::RuleRange ruleRange = m_result.ranges.UARuleRange();
-    collectMatchingRules(MatchRequest(rules), ruleRange);
+    collectMatchingRules(MatchRequest(&rules), ruleRange);
 
     sortAndTransferMatchedRules();
 }
@@ -381,10 +385,9 @@ inline bool ElementRuleCollector::ruleMatches(const RuleData& ruleData, unsigned
 #if ENABLE(CSS_SELECTOR_JIT)
     void* compiledSelectorChecker = ruleData.compiledSelectorCodeRef().code().executableAddress();
     if (!compiledSelectorChecker && ruleData.compilationStatus() == SelectorCompilationStatus::NotCompiled) {
-        JSC::VM& vm = m_element.document().scriptExecutionContext()->vm();
         SelectorCompilationStatus compilationStatus;
         JSC::MacroAssemblerCodeRef compiledSelectorCodeRef;
-        compilationStatus = SelectorCompiler::compileSelector(ruleData.selector(), &vm, SelectorCompiler::SelectorContext::RuleCollector, compiledSelectorCodeRef);
+        compilationStatus = SelectorCompiler::compileSelector(ruleData.selector(), SelectorCompiler::SelectorContext::RuleCollector, compiledSelectorCodeRef);
 
         ruleData.setCompiledSelector(compilationStatus, compiledSelectorCodeRef);
         compiledSelectorChecker = ruleData.compiledSelectorCodeRef().code().executableAddress();
@@ -460,7 +463,7 @@ void ElementRuleCollector::collectMatchingRulesForList(const RuleSet::RuleDataVe
         if (!ruleData.canMatchPseudoElement() && m_pseudoStyleRequest.pseudoId != NOPSEUDO)
             continue;
 
-        if (m_selectorFilter && m_selectorFilter->fastRejectSelector<RuleData::maximumIdentifierCount>(ruleData.descendantSelectorIdentifierHashes()))
+        if (m_selectorFilter && m_selectorFilter->fastRejectSelector(ruleData.descendantSelectorIdentifierHashes()))
             continue;
 
         StyleRule* rule = ruleData.rule();
@@ -470,10 +473,6 @@ void ElementRuleCollector::collectMatchingRulesForList(const RuleSet::RuleDataVe
         // and that means we always have to consider it.
         const StyleProperties* properties = rule->propertiesWithoutDeferredParsing();
         if (properties && properties->isEmpty() && !matchRequest.includeEmptyRules)
-            continue;
-
-        // FIXME: Exposing the non-standard getMatchedCSSRules API to web is the only reason this is needed.
-        if (m_sameOriginOnly && !ruleData.hasDocumentSecurityOrigin())
             continue;
 
         unsigned specificity;

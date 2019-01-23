@@ -27,6 +27,7 @@
 
 #if ENABLE(VIDEO)
 
+#include <wtf/CompletionHandler.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RefCounted.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -43,16 +44,13 @@ public:
     virtual ~PlatformMediaResourceClient() = default;
 
     virtual void responseReceived(PlatformMediaResource&, const ResourceResponse&) { }
-    virtual void redirectReceived(PlatformMediaResource&, ResourceRequest&, const ResourceResponse&) { }
+    virtual void redirectReceived(PlatformMediaResource&, ResourceRequest&& request, const ResourceResponse&, CompletionHandler<void(ResourceRequest&&)>&& completionHandler) { completionHandler(WTFMove(request)); }
     virtual bool shouldCacheResponse(PlatformMediaResource&, const ResourceResponse&) { return true; }
     virtual void dataSent(PlatformMediaResource&, unsigned long long, unsigned long long) { }
     virtual void dataReceived(PlatformMediaResource&, const char*, int) { }
     virtual void accessControlCheckFailed(PlatformMediaResource&, const ResourceError&) { }
     virtual void loadFailed(PlatformMediaResource&, const ResourceError&) { }
     virtual void loadFinished(PlatformMediaResource&) { }
-#if USE(SOUP)
-    virtual char* getOrCreateReadBuffer(PlatformMediaResource&, size_t /*requestedSize*/, size_t& /*actualSize*/) { return nullptr; };
-#endif
 };
 
 class PlatformMediaResourceLoader : public ThreadSafeRefCounted<PlatformMediaResourceLoader> {

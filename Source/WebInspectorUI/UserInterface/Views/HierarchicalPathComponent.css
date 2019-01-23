@@ -82,7 +82,6 @@ body[dir=rtl] .hierarchical-path-component > :matches(.icon, .selector-arrows) {
     width: 5px;
     height: 16px;
     opacity: 0.6;
-    content: url(../Images/UpDownArrows.svg);
 }
 
 .hierarchical-path-component > .title {
@@ -145,7 +144,7 @@ body[dir=rtl] .hierarchical-path-component > select {
     width: 7px;
     height: 20px;
 
-    --path-component-separator-margin-start: 2px;
+    --path-component-separator-margin-start: 3px;
 }
 
 body[dir=ltr] .hierarchical-path-component > .separator {

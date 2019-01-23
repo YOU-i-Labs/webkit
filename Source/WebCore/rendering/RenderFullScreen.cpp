@@ -31,10 +31,15 @@
 #include "RenderBlockFlow.h"
 #include "RenderLayer.h"
 #include "RenderLayerCompositor.h"
+#include "RenderTreeBuilder.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderFullScreen);
+
 class RenderFullScreenPlaceholder final : public RenderBlockFlow {
+    WTF_MAKE_ISO_ALLOCATED(RenderFullScreenPlaceholder);
 public:
     RenderFullScreenPlaceholder(Document& document, RenderStyle&& style)
         : RenderBlockFlow(document, WTFMove(style))
@@ -44,6 +49,8 @@ public:
 private:
     bool isRenderFullScreenPlaceholder() const override { return true; }
 };
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderFullScreenPlaceholder);
 
 RenderFullScreen::RenderFullScreen(Document& document, RenderStyle&& style)
     : RenderFlexibleBox(document, WTFMove(style))
@@ -87,7 +94,7 @@ static RenderStyle createFullScreenStyle()
     return fullscreenStyle;
 }
 
-RenderPtr<RenderFullScreen> RenderFullScreen::wrapNewRenderer(RenderPtr<RenderElement> renderer, RenderElement& parent, Document& document)
+RenderPtr<RenderFullScreen> RenderFullScreen::wrapNewRenderer(RenderTreeBuilder& builder, RenderPtr<RenderElement> renderer, RenderElement& parent, Document& document)
 {
     auto newFullscreenRenderer = createRenderer<RenderFullScreen>(document, createFullScreenStyle());
     newFullscreenRenderer->initializeStyle();
@@ -96,7 +103,7 @@ RenderPtr<RenderFullScreen> RenderFullScreen::wrapNewRenderer(RenderPtr<RenderEl
     if (!parent.isChildAllowed(fullscreenRenderer, fullscreenRenderer.style()))
         return nullptr;
 
-    fullscreenRenderer.addChild(WTFMove(renderer));
+    builder.insertChild(fullscreenRenderer, WTFMove(renderer));
     fullscreenRenderer.setNeedsLayoutAndPrefWidthsRecalc();
 
     document.setFullScreenRenderer(&fullscreenRenderer);
@@ -106,6 +113,9 @@ RenderPtr<RenderFullScreen> RenderFullScreen::wrapNewRenderer(RenderPtr<RenderEl
 
 void RenderFullScreen::wrapExistingRenderer(RenderElement& renderer, Document& document)
 {
+    // FIXME: This should be done by RenderTreeUpdater.
+    RenderTreeBuilder builder(*document.renderView());
+
     auto newFullscreenRenderer = createRenderer<RenderFullScreen>(document, createFullScreenStyle());
     newFullscreenRenderer->initializeStyle();
 
@@ -120,7 +130,7 @@ void RenderFullScreen::wrapExistingRenderer(RenderElement& renderer, Document& d
     // the line box tree underneath our |containingBlock| is not longer valid.
     containingBlock->deleteLines();
 
-    parent.addChild(WTFMove(newFullscreenRenderer), &renderer);
+    builder.insertChild(parent, WTFMove(newFullscreenRenderer), &renderer);
 
     auto toMove = parent.takeChild(renderer);
 
@@ -130,7 +140,7 @@ void RenderFullScreen::wrapExistingRenderer(RenderElement& renderer, Document& d
     parent.setNeedsLayoutAndPrefWidthsRecalc();
     containingBlock->setNeedsLayoutAndPrefWidthsRecalc();
 
-    fullscreenRenderer.addChild(WTFMove(toMove));
+    builder.insertChild(fullscreenRenderer, WTFMove(toMove));
     fullscreenRenderer.setNeedsLayoutAndPrefWidthsRecalc();
 
     document.setFullScreenRenderer(&fullscreenRenderer);
@@ -138,6 +148,8 @@ void RenderFullScreen::wrapExistingRenderer(RenderElement& renderer, Document& d
 
 void RenderFullScreen::unwrapRenderer(bool& requiresRenderTreeRebuild)
 {
+    RenderTreeBuilder builder(view());
+
     requiresRenderTreeRebuild = false;
     if (parent()) {
         auto* child = firstChild();
@@ -167,7 +179,7 @@ void RenderFullScreen::unwrapRenderer(bool& requiresRenderTreeRebuild)
             if (is<RenderBox>(*child))
                 downcast<RenderBox>(*child).clearOverrideSize();
             auto childToMove = child->parent()->takeChild(*child);
-            parent()->addChild(WTFMove(childToMove), this);
+            builder.insertChild(*parent(), WTFMove(childToMove), this);
             parent()->setNeedsLayoutAndPrefWidthsRecalc();
         }
     }
@@ -198,7 +210,7 @@ void RenderFullScreen::createPlaceholder(std::unique_ptr<RenderStyle> style, con
 
     m_placeholder = makeWeakPtr(*newPlaceholder);
 
-    parent()->addChild(WTFMove(newPlaceholder), this);
+    RenderTreeBuilder::current()->insertChild(*parent(), WTFMove(newPlaceholder), this);
     parent()->setNeedsLayoutAndPrefWidthsRecalc();
 }
 

@@ -143,6 +143,8 @@ public:
     // materialization
     enum class Kind { Escaped, Object, Activation, Function, GeneratorFunction, AsyncFunction, AsyncGeneratorFunction };
 
+    using Fields = HashMap<PromotedLocationDescriptor, Node*>;
+
     explicit Allocation(Node* identifier = nullptr, Kind kind = Kind::Escaped)
         : m_identifier(identifier)
         , m_kind(kind)
@@ -150,7 +152,12 @@ public:
     }
 
 
-    const HashMap<PromotedLocationDescriptor, Node*>& fields() const
+    const Fields& fields() const
+    {
+        return m_fields;
+    }
+
+    Fields& fields()
     {
         return m_fields;
     }
@@ -301,7 +308,7 @@ public:
 private:
     Node* m_identifier; // This is the actual node that created the allocation
     Kind m_kind;
-    HashMap<PromotedLocationDescriptor, Node*> m_fields;
+    Fields m_fields;
     RegisteredStructureSet m_structures;
 };
 
@@ -468,25 +475,12 @@ public:
                 for (const auto& fieldEntry : allocationIter->value.fields())
                     toEscape.addVoid(fieldEntry.value);
             } else {
-                mergePointerSets(
-                    allocationEntry.value.fields(), allocationIter->value.fields(),
-                    [&] (Node* identifier) {
-                        toEscape.addVoid(identifier);
-                    },
-                    [&] (PromotedLocationDescriptor field) {
-                        allocationEntry.value.remove(field);
-                    });
+                mergePointerSets(allocationEntry.value.fields(), allocationIter->value.fields(), toEscape);
                 allocationEntry.value.mergeStructures(allocationIter->value.structures());
             }
         }
 
-        mergePointerSets(m_pointers, other.m_pointers,
-            [&] (Node* identifier) {
-                toEscape.addVoid(identifier);
-            },
-            [&] (Node* field) {
-                m_pointers.remove(field);
-            });
+        mergePointerSets(m_pointers, other.m_pointers, toEscape);
 
         for (Node* identifier : toEscape)
             escapeAllocation(identifier);
@@ -507,14 +501,10 @@ public:
 
     void pruneByLiveness(const NodeSet& live)
     {
-        Vector<Node*> toRemove;
-        for (const auto& entry : m_pointers) {
-            if (!live.contains(entry.key))
-                toRemove.append(entry.key);
-        }
-        for (Node* node : toRemove)
-            m_pointers.remove(node);
-
+        m_pointers.removeIf(
+            [&] (const auto& entry) {
+                return !live.contains(entry.key);
+            });
         prune();
     }
 
@@ -617,30 +607,30 @@ private:
     //  3: GetByOffset(@0, x)
     //  4: GetByOffset(@3, val)
     //  -: Return(@4)
-    template<typename Key, typename EscapeFunctor, typename RemoveFunctor>
-    void mergePointerSets(
-        const HashMap<Key, Node*>& my, const HashMap<Key, Node*>& their,
-        const EscapeFunctor& escape, const RemoveFunctor& remove)
+    template<typename Key>
+    static void mergePointerSets(HashMap<Key, Node*>& my, const HashMap<Key, Node*>& their, NodeSet& toEscape)
     {
-        Vector<Key> toRemove;
-        for (const auto& entry : my) {
+        auto escape = [&] (Node* identifier) {
+            toEscape.addVoid(identifier);
+        };
+
+        for (const auto& entry : their) {
+            if (!my.contains(entry.key))
+                escape(entry.value);
+        }
+        my.removeIf([&] (const auto& entry) {
             auto iter = their.find(entry.key);
             if (iter == their.end()) {
-                toRemove.append(entry.key);
                 escape(entry.value);
-            } else if (iter->value != entry.value) {
-                toRemove.append(entry.key);
+                return true;
+            }
+            if (iter->value != entry.value) {
                 escape(entry.value);
                 escape(iter->value);
+                return true;
             }
-        }
-        for (const auto& entry : their) {
-            if (my.contains(entry.key))
-                continue;
-            escape(entry.value);
-        }
-        for (Key key : toRemove)
-            remove(key);
+            return false;
+        });
     }
 
     void escapeAllocation(Node* identifier)
@@ -682,15 +672,10 @@ private:
         }
 
         // Remove unreachable allocations
-        {
-            Vector<Node*> toRemove;
-            for (const auto& entry : m_allocations) {
-                if (!reachable.contains(entry.key))
-                    toRemove.append(entry.key);
-            }
-            for (Node* identifier : toRemove)
-                m_allocations.remove(identifier);
-        }
+        m_allocations.removeIf(
+            [&] (const auto& entry) {
+                return !reachable.contains(entry.key);
+            });
     }
 
     bool m_reached = false;
@@ -1249,14 +1234,10 @@ private:
     {
         // We don't create materializations if the escapee is not a
         // sink candidate
-        Vector<Node*> toRemove;
-        for (const auto& entry : escapees) {
-            if (!m_sinkCandidates.contains(entry.key))
-                toRemove.append(entry.key);
-        }
-        for (Node* identifier : toRemove)
-            escapees.remove(identifier);
-
+        escapees.removeIf(
+            [&] (const auto& entry) {
+                return !m_sinkCandidates.contains(entry.key);
+            });
         if (escapees.isEmpty())
             return;
 

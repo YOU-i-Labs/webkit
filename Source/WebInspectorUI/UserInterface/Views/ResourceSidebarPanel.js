@@ -25,11 +25,9 @@
 
 WI.ResourceSidebarPanel = class ResourceSidebarPanel extends WI.NavigationSidebarPanel
 {
-    constructor(contentBrowser)
+    constructor()
     {
         super("resource", WI.UIString("Resources"), true);
-
-        this.contentBrowser = contentBrowser;
 
         this._navigationBar = new WI.NavigationBar;
         this.addSubview(this._navigationBar);
@@ -70,10 +68,18 @@ WI.ResourceSidebarPanel = class ResourceSidebarPanel extends WI.NavigationSideba
         this.contentTreeOutline.addEventListener(WI.TreeOutline.Event.SelectionDidChange, this._treeSelectionDidChange, this);
         this.contentTreeOutline.includeSourceMapResourceChildren = true;
 
-        if (WI.sharedApp.debuggableType === WI.DebuggableType.JavaScript) {
+        if (ResourceSidebarPanel.shouldPlaceResourcesAtTopLevel()) {
             this.contentTreeOutline.disclosureButtons = false;
             WI.SourceCode.addEventListener(WI.SourceCode.Event.SourceMapAdded, () => { this.contentTreeOutline.disclosureButtons = true; }, this);
         }
+    }
+
+    // Static
+
+    static shouldPlaceResourcesAtTopLevel()
+    {
+        return (WI.sharedApp.debuggableType === WI.DebuggableType.JavaScript && !WI.sharedApp.hasExtraDomains)
+            || WI.sharedApp.debuggableType === WI.DebuggableType.ServiceWorker;
     }
 
     // Public
@@ -197,7 +203,7 @@ WI.ResourceSidebarPanel = class ResourceSidebarPanel extends WI.NavigationSideba
         for (let script of WI.debuggerManager.knownNonResourceScripts) {
             this._addScript(script);
 
-            if (script.sourceMaps.length && WI.sharedApp.debuggableType === WI.DebuggableType.JavaScript)
+            if (script.sourceMaps.length && ResourceSidebarPanel.shouldPlaceResourcesAtTopLevel())
                 this.contentTreeOutline.disclosureButtons = true;
         }
     }
@@ -304,10 +310,11 @@ WI.ResourceSidebarPanel = class ResourceSidebarPanel extends WI.NavigationSideba
         if (!script.url && !script.sourceURL)
             return;
 
-        // Worker script.
-        if (script.target !== WI.mainTarget) {
+        // Target main resource.
+        if (script.target !== WI.pageTarget) {
             if (script.isMainResource())
                 this._addTargetWithMainResource(script.target);
+            this.contentTreeOutline.disclosureButtons = true;
             return;
         }
 
@@ -326,7 +333,7 @@ WI.ResourceSidebarPanel = class ResourceSidebarPanel extends WI.NavigationSideba
 
             parentFolderTreeElement = this._extensionScriptsFolderTreeElement;
         } else {
-            if (WI.sharedApp.debuggableType === WI.DebuggableType.JavaScript && !WI.sharedApp.hasExtraDomains)
+            if (ResourceSidebarPanel.shouldPlaceResourcesAtTopLevel())
                 insertIntoTopLevel = true;
             else {
                 if (!this._extraScriptsFolderTreeElement) {
@@ -425,7 +432,7 @@ WI.ResourceSidebarPanel = class ResourceSidebarPanel extends WI.NavigationSideba
 
     _addTargetWithMainResource(target)
     {
-        console.assert(target.type === WI.Target.Type.Worker);
+        console.assert(target.type === WI.Target.Type.Worker || target.type === WI.Target.Type.ServiceWorker);
 
         let targetTreeElement = new WI.WorkerTreeElement(target);
         this._targetTreeElementMap.set(target, targetTreeElement);
@@ -484,7 +491,7 @@ WI.ResourceSidebarPanel = class ResourceSidebarPanel extends WI.NavigationSideba
 
     _extraDomainsActivated()
     {
-        if (WI.sharedApp.debuggableType === WI.DebuggableType.JavaScript)
+        if (ResourceSidebarPanel.shouldPlaceResourcesAtTopLevel())
             this.contentTreeOutline.disclosureButtons = true;
     }
 

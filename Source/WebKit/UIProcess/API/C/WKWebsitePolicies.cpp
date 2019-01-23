@@ -32,7 +32,6 @@
 #include "WKArray.h"
 #include "WKDictionary.h"
 #include "WKRetainPtr.h"
-#include "WebsitePolicies.h"
 
 using namespace WebKit;
 
@@ -73,7 +72,7 @@ WK_EXPORT void WKWebsitePoliciesSetCustomHeaderFields(WKWebsitePoliciesRef websi
     for (size_t i = 0; i < length; ++i) {
         WKStringRef name = static_cast<WKStringRef>(WKArrayGetItemAtIndex(keys.get(), i));
         auto field = WebCore::HTTPHeaderField::create(toImpl(name)->string(), toImpl(static_cast<WKStringRef>(WKDictionaryGetItemForKey(dictionary, name)))->string());
-        if (field && field->name().startsWithIgnoringASCIICase("X-"))
+        if (field && startsWithLettersIgnoringASCIICase(field->name(), "x-"))
             fields.uncheckedAppend(WTFMove(*field));
     }
     toImpl(websitePolicies)->setCustomHeaderFields(WTFMove(fields));
@@ -141,6 +140,36 @@ void WKWebsitePoliciesSetAutoplayPolicy(WKWebsitePoliciesRef websitePolicies, WK
         return;
     case kWKWebsiteAutoplayPolicyDeny:
         toImpl(websitePolicies)->setAutoplayPolicy(WebsiteAutoplayPolicy::Deny);
+        return;
+    }
+    ASSERT_NOT_REACHED();
+}
+
+WKWebsitePopUpPolicy WKWebsitePoliciesGetPopUpPolicy(WKWebsitePoliciesRef websitePolicies)
+{
+    switch (toImpl(websitePolicies)->popUpPolicy()) {
+    case WebsitePopUpPolicy::Default:
+        return kWKWebsitePopUpPolicyDefault;
+    case WebsitePopUpPolicy::Allow:
+        return kWKWebsitePopUpPolicyAllow;
+    case WebsitePopUpPolicy::Block:
+        return kWKWebsitePopUpPolicyBlock;
+    }
+    ASSERT_NOT_REACHED();
+    return kWKWebsitePopUpPolicyDefault;
+}
+
+void WKWebsitePoliciesSetPopUpPolicy(WKWebsitePoliciesRef websitePolicies, WKWebsitePopUpPolicy policy)
+{
+    switch (policy) {
+    case kWKWebsitePopUpPolicyDefault:
+        toImpl(websitePolicies)->setPopUpPolicy(WebsitePopUpPolicy::Default);
+        return;
+    case kWKWebsitePopUpPolicyAllow:
+        toImpl(websitePolicies)->setPopUpPolicy(WebsitePopUpPolicy::Allow);
+        return;
+    case kWKWebsitePopUpPolicyBlock:
+        toImpl(websitePolicies)->setPopUpPolicy(WebsitePopUpPolicy::Block);
         return;
     }
     ASSERT_NOT_REACHED();

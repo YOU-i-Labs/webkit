@@ -40,12 +40,11 @@
 #include "LocalizedStrings.h"
 #include "RenderFileUploadControl.h"
 #include "RuntimeEnabledFeatures.h"
-#include "ScriptController.h"
 #include "Settings.h"
 #include "ShadowRoot.h"
+#include "UserGestureIndicator.h"
 #include <wtf/TypeCasts.h>
 #include <wtf/text/StringBuilder.h>
-
 
 namespace WebCore {
 class UploadButtonElement;
@@ -113,11 +112,13 @@ FileInputType::~FileInputType()
 Vector<FileChooserFileInfo> FileInputType::filesFromFormControlState(const FormControlState& state)
 {
     Vector<FileChooserFileInfo> files;
-    for (size_t i = 0; i < state.valueSize(); i += 2) {
+    size_t size = state.size();
+    files.reserveInitialCapacity(size / 2);
+    for (size_t i = 0; i < size; i += 2) {
         if (!state[i + 1].isEmpty())
-            files.append({ state[i], state[i + 1] });
+            files.uncheckedAppend({ state[i], state[i + 1] });
         else
-            files.append({ state[i] });
+            files.uncheckedAppend({ state[i] });
     }
     return files;
 }
@@ -145,14 +146,12 @@ FormControlState FileInputType::saveFormControlState() const
 
 void FileInputType::restoreFormControlState(const FormControlState& state)
 {
-    if (state.valueSize() % 2)
-        return;
     filesChosen(filesFromFormControlState(state));
 }
 
 bool FileInputType::appendFormData(DOMFormData& formData, bool multipart) const
 {
-    auto* fileList = element().files();
+    auto fileList = makeRefPtr(element().files());
     ASSERT(fileList);
 
     auto name = element().name();
@@ -200,7 +199,7 @@ void FileInputType::handleDOMActivateEvent(Event& event)
     if (input.isDisabledFormControl())
         return;
 
-    if (!ScriptController::processingUserGesture())
+    if (!UserGestureIndicator::processingUserGesture())
         return;
 
     if (auto* chrome = this->chrome()) {
@@ -288,7 +287,7 @@ void FileInputType::disabledAttributeChanged()
     if (!root)
         return;
     
-    if (auto* button = childrenOfType<UploadButtonElement>(*root).first())
+    if (auto button = makeRefPtr(childrenOfType<UploadButtonElement>(*root).first()))
         button->setBooleanAttribute(disabledAttr, element().isDisabledFormControl());
 }
 
@@ -300,7 +299,7 @@ void FileInputType::multipleAttributeChanged()
     if (!root)
         return;
 
-    if (auto* button = childrenOfType<UploadButtonElement>(*root).first())
+    if (auto button = makeRefPtr(childrenOfType<UploadButtonElement>(*root).first()))
         button->setValue(element().multiple() ? fileButtonChooseMultipleFilesLabel() : fileButtonChooseFileLabel());
 }
 

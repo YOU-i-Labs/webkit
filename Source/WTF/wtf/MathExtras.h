@@ -334,7 +334,7 @@ inline void doubleToInteger(double d, unsigned long long& value)
 namespace WTF {
 
 // From http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-inline uint32_t roundUpToPowerOfTwo(uint32_t v)
+inline constexpr uint32_t roundUpToPowerOfTwo(uint32_t v)
 {
     v--;
     v |= v >> 1;
@@ -344,6 +344,13 @@ inline uint32_t roundUpToPowerOfTwo(uint32_t v)
     v |= v >> 16;
     v++;
     return v;
+}
+
+inline constexpr unsigned maskForSize(unsigned size)
+{
+    if (!size)
+        return 0;
+    return roundUpToPowerOfTwo(size) - 1;
 }
 
 inline unsigned fastLog2(unsigned i)
@@ -464,6 +471,13 @@ inline bool rangesOverlap(T leftMin, T leftMax, T rightMin, T rightMax)
         return false;
 
     return nonEmptyRangesOverlap(leftMin, leftMax, rightMin, rightMax);
+}
+
+// This mask is not necessarily the minimal mask, specifically if size is
+// a power of 2. It has the advantage that it's fast to compute, however.
+inline uint32_t computeIndexingMask(uint32_t size)
+{
+    return static_cast<uint64_t>(static_cast<uint32_t>(-1)) >> std::clz(size);
 }
 
 } // namespace WTF

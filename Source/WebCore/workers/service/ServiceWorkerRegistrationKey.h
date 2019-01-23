@@ -32,40 +32,61 @@
 
 namespace WebCore {
 
-struct ServiceWorkerRegistrationKey {
-    URL clientCreationURL;
-    SecurityOriginData topOrigin;
+class ServiceWorkerRegistrationKey {
+public:
+    ServiceWorkerRegistrationKey() = default;
+    WEBCORE_EXPORT ServiceWorkerRegistrationKey(SecurityOriginData&& topOrigin, URL&& scope);
 
     static ServiceWorkerRegistrationKey emptyKey();
     unsigned hash() const;
 
     bool operator==(const ServiceWorkerRegistrationKey&) const;
+    WEBCORE_EXPORT bool isMatching(const SecurityOriginData& topOrigin, const URL& clientURL) const;
+    bool originIsMatching(const SecurityOriginData& topOrigin, const URL& clientURL) const;
+    size_t scopeLength() const { return m_scope.string().length(); }
+
+    const SecurityOriginData& topOrigin() const { return m_topOrigin; }
+    const URL& scope() const { return m_scope; }
+    void setScope(URL&& scope) { m_scope = WTFMove(scope); }
+
+    bool relatesToOrigin(const SecurityOrigin&) const;
 
     ServiceWorkerRegistrationKey isolatedCopy() const;
 
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<ServiceWorkerRegistrationKey> decode(Decoder&);
+
+    String toDatabaseKey() const;
+    static std::optional<ServiceWorkerRegistrationKey> fromDatabaseKey(const String&);
+
+#ifndef NDEBUG
+    String loggingString() const;
+#endif
+
+private:
+    SecurityOriginData m_topOrigin;
+    URL m_scope;
 };
 
 template<class Encoder>
 void ServiceWorkerRegistrationKey::encode(Encoder& encoder) const
 {
-    encoder << clientCreationURL << topOrigin;
+    encoder << m_topOrigin << m_scope;
 }
 
 template<class Decoder>
 std::optional<ServiceWorkerRegistrationKey> ServiceWorkerRegistrationKey::decode(Decoder& decoder)
 {
-    URL clientCreationURL;
-    if (!decoder.decode(clientCreationURL))
-        return std::nullopt;
-
     std::optional<SecurityOriginData> topOrigin;
     decoder >> topOrigin;
     if (!topOrigin)
         return std::nullopt;
-    
-    return {{ WTFMove(clientCreationURL), WTFMove(*topOrigin) }};
+
+    URL scope;
+    if (!decoder.decode(scope))
+        return std::nullopt;
+
+    return ServiceWorkerRegistrationKey { WTFMove(*topOrigin), WTFMove(scope) };
 }
 
 } // namespace WebCore
@@ -81,8 +102,8 @@ struct ServiceWorkerRegistrationKeyHash {
 template<> struct HashTraits<WebCore::ServiceWorkerRegistrationKey> : GenericHashTraits<WebCore::ServiceWorkerRegistrationKey> {
     static WebCore::ServiceWorkerRegistrationKey emptyValue() { return WebCore::ServiceWorkerRegistrationKey::emptyKey(); }
 
-    static void constructDeletedValue(WebCore::ServiceWorkerRegistrationKey& slot) { slot.clientCreationURL = WebCore::URL(HashTableDeletedValue); }
-    static bool isDeletedValue(const WebCore::ServiceWorkerRegistrationKey& slot) { return slot.clientCreationURL.isHashTableDeletedValue(); }
+    static void constructDeletedValue(WebCore::ServiceWorkerRegistrationKey& slot) { slot.setScope(WebCore::URL(HashTableDeletedValue)); }
+    static bool isDeletedValue(const WebCore::ServiceWorkerRegistrationKey& slot) { return slot.scope().isHashTableDeletedValue(); }
 };
 
 template<> struct DefaultHash<WebCore::ServiceWorkerRegistrationKey> {

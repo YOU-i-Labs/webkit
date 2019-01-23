@@ -100,15 +100,17 @@ public:
     static HashMapBucket* createSentinel(VM& vm)
     {
         auto* bucket = create(vm);
-        bucket->setDeleted(true);
         bucket->setKey(vm, jsUndefined());
         bucket->setValue(vm, jsUndefined());
+        ASSERT(!bucket->deleted());
         return bucket;
     }
 
     HashMapBucket(VM& vm, Structure* structure)
         : Base(vm, structure)
-    { }
+    {
+        ASSERT(deleted());
+    }
 
     ALWAYS_INLINE void setNext(VM& vm, HashMapBucket* bucket)
     {
@@ -145,8 +147,12 @@ public:
     ALWAYS_INLINE HashMapBucket* next() const { return m_next.get(); }
     ALWAYS_INLINE HashMapBucket* prev() const { return m_prev.get(); }
 
-    ALWAYS_INLINE bool deleted() const { return m_deleted; }
-    ALWAYS_INLINE void setDeleted(bool deleted) { m_deleted = deleted; }
+    ALWAYS_INLINE bool deleted() const { return !key(); }
+    ALWAYS_INLINE void makeDeleted(VM& vm)
+    {
+        setKey(vm, JSValue());
+        setValue(vm, JSValue());
+    }
 
     static ptrdiff_t offsetOfKey()
     {
@@ -164,11 +170,6 @@ public:
         return OBJECT_OFFSETOF(HashMapBucket, m_next);
     }
 
-    static ptrdiff_t offsetOfDeleted()
-    {
-        return OBJECT_OFFSETOF(HashMapBucket, m_deleted);
-    }
-
     template <typename T = Data>
     ALWAYS_INLINE static typename std::enable_if<std::is_same<T, HashMapBucketDataKeyValue>::value, JSValue>::type extractValue(const HashMapBucket& bucket)
     {
@@ -184,7 +185,6 @@ public:
 private:
     WriteBarrier<HashMapBucket> m_next;
     WriteBarrier<HashMapBucket> m_prev;
-    uint32_t m_deleted { false };
     Data m_data;
 };
 
@@ -207,7 +207,7 @@ public:
     {
         auto scope = DECLARE_THROW_SCOPE(vm);
         size_t allocationSize = HashMapBuffer::allocationSize(capacity);
-        void* data = vm.jsValueGigacageAuxiliarySpace.tryAllocate(allocationSize);
+        void* data = vm.jsValueGigacageAuxiliarySpace.allocateNonVirtual(allocationSize, nullptr, AllocationFailureMode::ReturnNull);
         if (!data) {
             throwOutOfMemoryError(exec, scope);
             return nullptr;
@@ -233,6 +233,8 @@ ALWAYS_INLINE static bool areKeysEqual(ExecState* exec, JSValue a, JSValue b)
     return sameValue(exec, a, b);
 }
 
+// Note that normalization is inlined in DFG's NormalizeMapKey.
+// Keep in sync with the implementation of DFG and FTL normalization.
 ALWAYS_INLINE JSValue normalizeMapKey(JSValue key)
 {
     if (!key.isNumber())
@@ -268,15 +270,6 @@ static ALWAYS_INLINE uint32_t wangsInt64Hash(uint64_t key)
     return static_cast<unsigned>(key);
 }
 
-struct WeakMapHash {
-    static unsigned hash(JSObject* key)
-    {
-        return wangsInt64Hash(JSValue::encode(key));
-    }
-    static bool equal(JSObject* a, JSObject* b) { return a == b; }
-    static const bool safeToCompareToEmptyOrDeleted = true;
-};
-
 ALWAYS_INLINE uint32_t jsMapHash(ExecState* exec, VM& vm, JSValue value)
 {
     ASSERT_WITH_MESSAGE(normalizeMapKey(value) == value, "We expect normalized values flowing into this function.");
@@ -306,6 +299,41 @@ ALWAYS_INLINE std::optional<uint32_t> concurrentJSMapHash(JSValue key)
 
     uint64_t rawValue = JSValue::encode(key);
     return wangsInt64Hash(rawValue);
+}
+
+ALWAYS_INLINE uint32_t shouldShrink(uint32_t capacity, uint32_t keyCount)
+{
+    return 8 * keyCount <= capacity && capacity > 4;
+}
+
+ALWAYS_INLINE uint32_t shouldRehashAfterAdd(uint32_t capacity, uint32_t keyCount, uint32_t deleteCount)
+{
+    return 2 * (keyCount + deleteCount) >= capacity;
+}
+
+ALWAYS_INLINE uint32_t nextCapacity(uint32_t capacity, uint32_t keyCount)
+{
+    if (shouldShrink(capacity, keyCount)) {
+        ASSERT((capacity / 2) >= 4);
+        return capacity / 2;
+    }
+
+    if (3 * keyCount <= capacity && capacity > 64) {
+        // We stay at the same size if rehashing would cause us to be no more than
+        // 1/3rd full. This comes up for programs like this:
+        // Say the hash table grew to a key count of 64, causing it to grow to a capacity of 256.
+        // Then, the table added 63 items. The load is now 127. Then, 63 items are deleted.
+        // The load is still 127. Then, another item is added. The load is now 128, and we
+        // decide that we need to rehash. The key count is 65, almost exactly what it was
+        // when we grew to a capacity of 256. We don't really need to grow to a capacity
+        // of 512 in this situation. Instead, we choose to rehash at the same size. This
+        // will bring the load down to 65. We rehash into the same size when we determine
+        // that the new load ratio will be under 1/3rd. (We also pick a minumum capacity
+        // at which this rule kicks in because otherwise we will be too sensitive to rehashing
+        // at the same capacity).
+        return capacity;
+    }
+    return (Checked<uint32_t>(capacity) * 2).unsafeGet();
 }
 
 template <typename HashMapBucketType>
@@ -441,6 +469,19 @@ public:
             rehash(exec);
     }
 
+    ALWAYS_INLINE HashMapBucketType* addNormalized(ExecState* exec, JSValue key, JSValue value, uint32_t hash)
+    {
+        ASSERT_WITH_MESSAGE(normalizeMapKey(key) == key, "We expect normalized values flowing into this function.");
+        ASSERT_WITH_MESSAGE(jsMapHash(exec, exec->vm(), key) == hash, "We expect hash value is what we expect.");
+
+        auto* bucket = addNormalizedInternal(exec->vm(), key, value, hash, [&] (HashMapBucketType* bucket) {
+            return !isDeleted(bucket) && areKeysEqual(exec, key, bucket->key());
+        });
+        if (shouldRehashAfterAdd())
+            rehash(exec);
+        return bucket;
+    }
+
     ALWAYS_INLINE bool remove(ExecState* exec, JSValue key)
     {
         HashMapBucketType** bucket = findBucket(exec, key);
@@ -451,7 +492,7 @@ public:
         HashMapBucketType* impl = *bucket;
         impl->next()->setPrev(vm, impl->prev());
         impl->prev()->setNext(vm, impl->next());
-        impl->setDeleted(true);
+        impl->makeDeleted(vm);
 
         *bucket = deletedValue();
 
@@ -482,7 +523,7 @@ public:
             HashMapBucketType* next = bucket->next();
             // We restart each iterator by pointing it to the head of the list.
             bucket->setNext(vm, head);
-            bucket->setDeleted(true);
+            bucket->makeDeleted(vm);
             bucket = next;
         }
         m_head->setNext(vm, m_tail.get());
@@ -527,12 +568,12 @@ public:
 private:
     ALWAYS_INLINE uint32_t shouldRehashAfterAdd() const
     {
-        return 2 * (m_keyCount + m_deleteCount) >= m_capacity;
+        return JSC::shouldRehashAfterAdd(m_capacity, m_keyCount, m_deleteCount);
     }
 
     ALWAYS_INLINE uint32_t shouldShrink() const
     {
-        return 8 * m_keyCount <= m_capacity && m_capacity > 4;
+        return JSC::shouldShrink(m_capacity, m_keyCount);
     }
 
     ALWAYS_INLINE void setUpHeadAndTail(ExecState*, VM& vm)
@@ -542,8 +583,8 @@ private:
 
         m_head->setNext(vm, m_tail.get());
         m_tail->setPrev(vm, m_head.get());
-        m_head->setDeleted(true);
-        m_tail->setDeleted(true);
+        ASSERT(m_head->deleted());
+        ASSERT(m_tail->deleted());
     }
 
     ALWAYS_INLINE void addNormalizedNonExistingForCloning(ExecState* exec, JSValue key, JSValue value = JSValue())
@@ -556,20 +597,28 @@ private:
     template<typename CanUseBucket>
     ALWAYS_INLINE void addNormalizedInternal(ExecState* exec, JSValue key, JSValue value, const CanUseBucket& canUseBucket)
     {
-        ASSERT_WITH_MESSAGE(normalizeMapKey(key) == key, "We expect normalized values flowing into this function.");
-
         VM& vm = exec->vm();
         auto scope = DECLARE_THROW_SCOPE(vm);
 
-        const uint32_t mask = m_capacity - 1;
-        uint32_t index = jsMapHash(exec, vm, key) & mask;
+        uint32_t hash = jsMapHash(exec, vm, key);
         RETURN_IF_EXCEPTION(scope, void());
+        scope.release();
+        addNormalizedInternal(vm, key, value, hash, canUseBucket);
+    }
+
+    template<typename CanUseBucket>
+    ALWAYS_INLINE HashMapBucketType* addNormalizedInternal(VM& vm, JSValue key, JSValue value, uint32_t hash, const CanUseBucket& canUseBucket)
+    {
+        ASSERT_WITH_MESSAGE(normalizeMapKey(key) == key, "We expect normalized values flowing into this function.");
+
+        const uint32_t mask = m_capacity - 1;
+        uint32_t index = hash & mask;
         HashMapBucketType** buffer = this->buffer();
         HashMapBucketType* bucket = buffer[index];
         while (!isEmpty(bucket)) {
             if (canUseBucket(bucket)) {
                 bucket->setValue(vm, value);
-                return;
+                return bucket;
             }
             index = (index + 1) & mask;
             bucket = buffer[index];
@@ -579,14 +628,15 @@ private:
         buffer[index] = newEntry;
         newEntry->setKey(vm, key);
         newEntry->setValue(vm, value);
-        newEntry->setDeleted(false);
+        ASSERT(!newEntry->deleted());
         HashMapBucketType* newTail = HashMapBucketType::create(vm);
         m_tail.set(vm, this, newTail);
         newTail->setPrev(vm, newEntry);
-        newTail->setDeleted(true);
+        ASSERT(newTail->deleted());
         newEntry->setNext(vm, newTail);
 
         ++m_keyCount;
+        return newEntry;
     }
 
     ALWAYS_INLINE HashMapBucketType** findBucketAlreadyHashedAndNormalized(ExecState* exec, JSValue key, uint32_t hash)
@@ -611,24 +661,7 @@ private:
         auto scope = DECLARE_THROW_SCOPE(vm);
 
         uint32_t oldCapacity = m_capacity;
-        if (shouldShrink()) {
-            m_capacity = m_capacity / 2;
-            ASSERT(m_capacity >= 4);
-        } else if (3 * m_keyCount <= m_capacity && m_capacity > 64) {
-            // We stay at the same size if rehashing would cause us to be no more than
-            // 1/3rd full. This comes up for programs like this:
-            // Say the hash table grew to a key count of 64, causing it to grow to a capacity of 256.
-            // Then, the table added 63 items. The load is now 127. Then, 63 items are deleted.
-            // The load is still 127. Then, another item is added. The load is now 128, and we
-            // decide that we need to rehash. The key count is 65, almost exactly what it was
-            // when we grew to a capacity of 256. We don't really need to grow to a capacity
-            // of 512 in this situation. Instead, we choose to rehash at the same size. This
-            // will bring the load down to 65. We rehash into the same size when we determine
-            // that the new load ratio will be under 1/3rd. (We also pick a minumum capacity
-            // at which this rule kicks in because otherwise we will be too sensitive to rehashing
-            // at the same capacity).
-        } else
-            m_capacity = (Checked<uint32_t>(m_capacity) * 2).unsafeGet();
+        m_capacity = nextCapacity(m_capacity, m_keyCount);
 
         if (m_capacity != oldCapacity) {
             makeAndSetNewBuffer(exec, vm);
@@ -698,7 +731,7 @@ private:
 
     WriteBarrier<HashMapBucketType> m_head;
     WriteBarrier<HashMapBucketType> m_tail;
-    CagedBarrierPtr<Gigacage::JSValue, HashMapBufferType> m_buffer;
+    AuxiliaryBarrier<HashMapBufferType*> m_buffer;
     uint32_t m_keyCount;
     uint32_t m_deleteCount;
     uint32_t m_capacity;

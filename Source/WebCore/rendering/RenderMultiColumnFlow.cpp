@@ -31,10 +31,14 @@
 #include "RenderIterator.h"
 #include "RenderMultiColumnSet.h"
 #include "RenderMultiColumnSpannerPlaceholder.h"
+#include "RenderTreeBuilder.h"
 #include "RenderView.h"
 #include "TransformState.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMultiColumnFlow);
 
 bool RenderMultiColumnFlow::gShiftingSpanner = false;
 
@@ -289,12 +293,12 @@ RenderObject* RenderMultiColumnFlow::processPossibleSpannerDescendant(RenderObje
         // end flowing one column set and move to the next one.
         auto newPlaceholder = RenderMultiColumnSpannerPlaceholder::createAnonymous(*this, downcast<RenderBox>(descendant), container->style());
         auto& placeholder = *newPlaceholder;
-        container->addChild(WTFMove(newPlaceholder), descendant.nextSibling());
+        RenderTreeBuilder::current()->insertChild(*container, WTFMove(newPlaceholder), descendant.nextSibling());
         auto takenDescendant = container->takeChild(descendant);
         
         // This is a guard to stop an ancestor flow thread from processing the spanner.
         gShiftingSpanner = true;
-        multicolContainer->RenderBlock::addChild(WTFMove(takenDescendant), insertBeforeMulticolChild);
+        RenderTreeBuilder::current()->insertChildToRenderBlock(*multicolContainer, WTFMove(takenDescendant), insertBeforeMulticolChild);
         gShiftingSpanner = false;
         
         // The spanner has now been moved out from the flow thread, but we don't want to
@@ -331,7 +335,7 @@ RenderObject* RenderMultiColumnFlow::processPossibleSpannerDescendant(RenderObje
     auto newSet = createRenderer<RenderMultiColumnSet>(*this, RenderStyle::createAnonymousStyleWithDisplay(multicolContainer->style(), BLOCK));
     newSet->initializeStyle();
     auto& set = *newSet;
-    multicolContainer->RenderBlock::addChild(WTFMove(newSet), insertBeforeMulticolChild);
+    RenderTreeBuilder::current()->insertChildToRenderBlock(*multicolContainer, WTFMove(newSet), insertBeforeMulticolChild);
     invalidateFragments();
 
     // We cannot handle immediate column set siblings at the moment (and there's no need for
@@ -347,46 +351,26 @@ void RenderMultiColumnFlow::fragmentedFlowDescendantInserted(RenderObject& newDe
     if (gShiftingSpanner || newDescendant.isInFlowRenderFragmentedFlow())
         return;
 
-    Vector<RenderPtr<RenderObject>> spannersToDelete;
-
-    RenderObject* subtreeRoot = &newDescendant;
-    for (auto* descendant = &newDescendant; descendant; descendant = (descendant ? descendant->nextInPreOrder(subtreeRoot) : nullptr)) {
+    auto* subtreeRoot = &newDescendant;
+    auto* descendant = subtreeRoot;
+    while (descendant) {
+        // Skip nested multicolumn flows.
+        if (is<RenderMultiColumnFlow>(*descendant)) {
+            descendant = descendant->nextSibling();
+            continue;
+        }
         if (is<RenderMultiColumnSpannerPlaceholder>(*descendant)) {
             // A spanner's placeholder has been inserted. The actual spanner renderer is moved from
             // where it would otherwise occur (if it weren't a spanner) to becoming a sibling of the
             // column sets.
             RenderMultiColumnSpannerPlaceholder& placeholder = downcast<RenderMultiColumnSpannerPlaceholder>(*descendant);
-            if (placeholder.fragmentedFlow() != this) {
-                // This isn't our spanner! It shifted here from an ancestor multicolumn block. It's going to end up
-                // becoming our spanner instead, but for it to do that we first have to nuke the original spanner,
-                // and get the spanner content back into this flow thread.
-                RenderBox* spanner = placeholder.spanner();
-                
-                // Insert after the placeholder, but don't let a notification happen.
-                gShiftingSpanner = true;
-                RenderBlockFlow& ancestorBlock = downcast<RenderBlockFlow>(*spanner->parent());
-                ancestorBlock.moveChildTo(placeholder.parentBox(), spanner, placeholder.nextSibling(), true);
-                gShiftingSpanner = false;
-                
-                // We have to nuke the placeholder, since the ancestor already lost the mapping to it when
-                // we shifted the placeholder down into this flow thread.
-                placeholder.fragmentedFlow()->spannerMap().remove(spanner);
-
-                spannersToDelete.append(placeholder.parent()->takeChild(placeholder));
-
-                if (subtreeRoot == descendant)
-                    subtreeRoot = spanner;
-                // Now we process the spanner.
-                descendant = processPossibleSpannerDescendant(subtreeRoot, *spanner);
-                continue;
-            }
-            
             ASSERT(!spannerMap().get(placeholder.spanner()));
-            spannerMap().add(placeholder.spanner(), makeWeakPtr(placeholder));
+            spannerMap().add(placeholder.spanner(), makeWeakPtr(downcast<RenderMultiColumnSpannerPlaceholder>(descendant)));
             ASSERT(!placeholder.firstChild()); // There should be no children here, but if there are, we ought to skip them.
-            continue;
-        }
-        descendant = processPossibleSpannerDescendant(subtreeRoot, *descendant);
+        } else
+            descendant = processPossibleSpannerDescendant(subtreeRoot, *descendant);
+        if (descendant)
+            descendant = descendant->nextInPreOrder(subtreeRoot);
     }
 }
 
@@ -538,52 +522,6 @@ bool RenderMultiColumnFlow::addForcedFragmentBreak(const RenderBlock* block, Lay
         return true;
     }
     return false;
-}
-
-void RenderMultiColumnFlow::computeLineGridPaginationOrigin(LayoutState& layoutState) const
-{
-    if (!progressionIsInline())
-        return;
-    
-    // We need to cache a line grid pagination origin so that we understand how to reset the line grid
-    // at the top of each column.
-    // Get the current line grid and offset.
-    const auto lineGrid = layoutState.lineGrid();
-    if (!lineGrid)
-        return;
-
-    // Get the hypothetical line box used to establish the grid.
-    auto lineGridBox = lineGrid->lineGridBox();
-    if (!lineGridBox)
-        return;
-    
-    bool isHorizontalWritingMode = lineGrid->isHorizontalWritingMode();
-
-    LayoutUnit lineGridBlockOffset = isHorizontalWritingMode ? layoutState.lineGridOffset().height() : layoutState.lineGridOffset().width();
-
-    // Now determine our position on the grid. Our baseline needs to be adjusted to the nearest baseline multiple
-    // as established by the line box.
-    // FIXME: Need to handle crazy line-box-contain values that cause the root line box to not be considered. I assume
-    // the grid should honor line-box-contain.
-    LayoutUnit gridLineHeight = lineGridBox->lineBottomWithLeading() - lineGridBox->lineTopWithLeading();
-    if (!gridLineHeight)
-        return;
-
-    LayoutUnit firstLineTopWithLeading = lineGridBlockOffset + lineGridBox->lineTopWithLeading();
-    
-    if (layoutState.isPaginated() && layoutState.pageLogicalHeight()) {
-        LayoutUnit pageLogicalTop = isHorizontalWritingMode ? layoutState.pageOffset().height() : layoutState.pageOffset().width();
-        if (pageLogicalTop > firstLineTopWithLeading) {
-            // Shift to the next highest line grid multiple past the page logical top. Cache the delta
-            // between this new value and the page logical top as the pagination origin.
-            LayoutUnit remainder = roundToInt(pageLogicalTop - firstLineTopWithLeading) % roundToInt(gridLineHeight);
-            LayoutUnit paginationDelta = gridLineHeight - remainder;
-            if (isHorizontalWritingMode)
-                layoutState.setLineGridPaginationOrigin(LayoutSize(layoutState.lineGridPaginationOrigin().width(), paginationDelta));
-            else
-                layoutState.setLineGridPaginationOrigin(LayoutSize(paginationDelta, layoutState.lineGridPaginationOrigin().height()));
-        }
-    }
 }
 
 LayoutSize RenderMultiColumnFlow::offsetFromContainer(RenderElement& enclosingContainer, const LayoutPoint& physicalPoint, bool* offsetDependsOnPoint) const

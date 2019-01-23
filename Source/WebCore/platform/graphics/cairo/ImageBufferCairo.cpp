@@ -231,7 +231,9 @@ ImageBuffer::ImageBuffer(const FloatSize& size, float resolutionScale, ColorSpac
         static cairo_user_data_key_t s_surfaceDataKey;
 
         int stride = cairo_format_stride_for_width(CAIRO_FORMAT_ARGB32, m_size.width());
-        auto* surfaceData = fastZeroedMalloc(m_size.height() * stride);
+        void* surfaceData;
+        if (!tryFastZeroedMalloc(m_size.height() * stride).getValue(surfaceData))
+            return;
 
         m_data.m_surface = adoptRef(cairo_image_surface_create_for_data(static_cast<unsigned char*>(surfaceData), CAIRO_FORMAT_ARGB32, m_size.width(), m_size.height(), stride));
         cairo_surface_set_user_data(m_data.m_surface.get(), &s_surfaceDataKey, surfaceData, [](void* data) { fastFree(data); });
@@ -260,12 +262,12 @@ GraphicsContext& ImageBuffer::context() const
     return *m_data.m_context;
 }
 
-RefPtr<Image> ImageBuffer::sinkIntoImage(std::unique_ptr<ImageBuffer> imageBuffer, ScaleBehavior scaleBehavior)
+RefPtr<Image> ImageBuffer::sinkIntoImage(std::unique_ptr<ImageBuffer> imageBuffer, PreserveResolution preserveResolution)
 {
-    return imageBuffer->copyImage(DontCopyBackingStore, scaleBehavior);
+    return imageBuffer->copyImage(DontCopyBackingStore, preserveResolution);
 }
 
-RefPtr<Image> ImageBuffer::copyImage(BackingStoreCopy copyBehavior, ScaleBehavior) const
+RefPtr<Image> ImageBuffer::copyImage(BackingStoreCopy copyBehavior, PreserveResolution) const
 {
     // copyCairoImageSurface inherits surface's device scale factor.
     if (copyBehavior == CopyBackingStore)
@@ -337,7 +339,7 @@ RefPtr<cairo_surface_t> copySurfaceToImageAndAdjustRect(cairo_surface_t* surface
     return adoptRef(cairo_image_surface_create(CAIRO_FORMAT_ARGB32, rect.width(), rect.height()));
 }
 
-template <Multiply multiplied>
+template <AlphaPremultiplication premultiplied>
 RefPtr<Uint8ClampedArray> getImageData(const IntRect& rect, const IntRect& logicalRect, const ImageBufferData& data, const IntSize& size, const IntSize& logicalSize, float resolutionScale)
 {
     auto result = Uint8ClampedArray::createUninitialized(rect.width() * rect.height() * 4);
@@ -401,7 +403,7 @@ RefPtr<Uint8ClampedArray> getImageData(const IntRect& rect, const IntRect& logic
             unsigned green = (*pixel & 0x0000FF00) >> 8;
             unsigned blue = (*pixel & 0x000000FF);
 
-            if (multiplied == Unmultiplied) {
+            if (premultiplied == AlphaPremultiplication::Unpremultiplied) {
                 if (alpha && alpha != 255) {
                     red = red * 255 / alpha;
                     green = green * 255 / alpha;
@@ -446,7 +448,7 @@ RefPtr<Uint8ClampedArray> ImageBuffer::getUnmultipliedImageData(const IntRect& r
     IntRect backingStoreRect = backingStoreUnit(rect, coordinateSystem, m_resolutionScale);
     if (pixelArrayDimensions)
         *pixelArrayDimensions = backingStoreRect.size();
-    return getImageData<Unmultiplied>(backingStoreRect, logicalRect, m_data, m_size, m_logicalSize, m_resolutionScale);
+    return getImageData<AlphaPremultiplication::Unpremultiplied>(backingStoreRect, logicalRect, m_data, m_size, m_logicalSize, m_resolutionScale);
 }
 
 RefPtr<Uint8ClampedArray> ImageBuffer::getPremultipliedImageData(const IntRect& rect, IntSize* pixelArrayDimensions, CoordinateSystem coordinateSystem) const
@@ -455,10 +457,10 @@ RefPtr<Uint8ClampedArray> ImageBuffer::getPremultipliedImageData(const IntRect& 
     IntRect backingStoreRect = backingStoreUnit(rect, coordinateSystem, m_resolutionScale);
     if (pixelArrayDimensions)
         *pixelArrayDimensions = backingStoreRect.size();
-    return getImageData<Premultiplied>(backingStoreRect, logicalRect, m_data, m_size, m_logicalSize, m_resolutionScale);
+    return getImageData<AlphaPremultiplication::Premultiplied>(backingStoreRect, logicalRect, m_data, m_size, m_logicalSize, m_resolutionScale);
 }
 
-void ImageBuffer::putByteArray(Multiply multiplied, Uint8ClampedArray* source, const IntSize& sourceSize, const IntRect& sourceRect, const IntPoint& destPoint, CoordinateSystem coordinateSystem)
+void ImageBuffer::putByteArray(const Uint8ClampedArray& source, AlphaPremultiplication sourceFormat, const IntSize& sourceSize, const IntRect& sourceRect, const IntPoint& destPoint, CoordinateSystem coordinateSystem)
 {
     IntRect scaledSourceRect = backingStoreUnit(sourceRect, coordinateSystem, m_resolutionScale);
     IntSize scaledSourceSize = backingStoreUnit(sourceSize, coordinateSystem, m_resolutionScale);
@@ -506,12 +508,12 @@ void ImageBuffer::putByteArray(Multiply multiplied, Uint8ClampedArray* source, c
     destx = imageRect.x();
     desty = imageRect.y();
 
-    unsigned char* pixelData = cairo_image_surface_get_data(imageSurface.get());
+    uint8_t* pixelData = cairo_image_surface_get_data(imageSurface.get());
 
     unsigned srcBytesPerRow = 4 * scaledSourceSize.width();
     int stride = cairo_image_surface_get_stride(imageSurface.get());
 
-    unsigned char* srcRows = source->data() + originy * srcBytesPerRow + originx * 4;
+    const uint8_t* srcRows = source.data() + originy * srcBytesPerRow + originx * 4;
     for (int y = 0; y < numRows; ++y) {
         unsigned* row = reinterpret_cast_ptr<unsigned*>(pixelData + stride * (y + desty));
         for (int x = 0; x < numColumns; x++) {
@@ -525,7 +527,7 @@ void ImageBuffer::putByteArray(Multiply multiplied, Uint8ClampedArray* source, c
             unsigned blue = srcRows[basex + 2];
             unsigned alpha = srcRows[basex + 3];
 
-            if (multiplied == Unmultiplied) {
+            if (sourceFormat == AlphaPremultiplication::Unpremultiplied) {
                 if (alpha != 255) {
                     red = (red * alpha + 254) / 255;
                     green = (green * alpha + 254) / 255;
@@ -562,7 +564,7 @@ static bool encodeImage(cairo_surface_t* image, const String& mimeType, Vector<u
     return cairo_surface_write_to_png_stream(image, writeFunction, output) == CAIRO_STATUS_SUCCESS;
 }
 
-String ImageBuffer::toDataURL(const String& mimeType, std::optional<double> quality, CoordinateSystem) const
+String ImageBuffer::toDataURL(const String& mimeType, std::optional<double> quality, PreserveResolution) const
 {
     Vector<uint8_t> encodedImage = toData(mimeType, quality);
     if (encodedImage.isEmpty())

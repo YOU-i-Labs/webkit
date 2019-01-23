@@ -28,30 +28,53 @@
 #if ENABLE(SERVICE_WORKER)
 
 #include "Connection.h"
+#include <WebCore/FetchLoader.h>
+#include <WebCore/FetchLoaderClient.h>
 #include <WebCore/ServiceWorkerFetch.h>
+#include <WebCore/ServiceWorkerTypes.h>
 
 namespace WebKit {
 
 class WebServiceWorkerFetchTaskClient final : public WebCore::ServiceWorkerFetch::Client {
 public:
-    static Ref<WebServiceWorkerFetchTaskClient> create(Ref<IPC::Connection>&& connection, uint64_t serverConnectionIdentifier, uint64_t fetchTaskIdentifier)
+    static Ref<WebServiceWorkerFetchTaskClient> create(Ref<IPC::Connection>&& connection, WebCore::ServiceWorkerIdentifier serviceWorkerIdentifier,  WebCore::SWServerConnectionIdentifier serverConnectionIdentifier, uint64_t fetchTaskIdentifier)
     {
-        return adoptRef(*new WebServiceWorkerFetchTaskClient(WTFMove(connection), serverConnectionIdentifier, fetchTaskIdentifier));
+        return adoptRef(*new WebServiceWorkerFetchTaskClient(WTFMove(connection), serviceWorkerIdentifier, serverConnectionIdentifier, fetchTaskIdentifier));
     }
 
     ~WebServiceWorkerFetchTaskClient();
 
 private:
-    WebServiceWorkerFetchTaskClient(Ref<IPC::Connection>&&, uint64_t serverConnectionIdentifier, uint64_t fetchTaskIdentifier);
+    WebServiceWorkerFetchTaskClient(Ref<IPC::Connection>&&, WebCore::ServiceWorkerIdentifier, WebCore::SWServerConnectionIdentifier, uint64_t fetchTaskIdentifier);
 
     void didReceiveResponse(const WebCore::ResourceResponse&) final;
     void didReceiveData(Ref<WebCore::SharedBuffer>&&) final;
+    void didReceiveFormDataAndFinish(Ref<WebCore::FormData>&&) final;
     void didFail() final;
     void didFinish() final;
+    void didNotHandle() final;
+
+    void didReceiveBlobChunk(const char* data, size_t size);
+    void didFinishBlobLoading();
+
+    struct BlobLoader final : WebCore::FetchLoaderClient {
+        explicit BlobLoader(WebServiceWorkerFetchTaskClient& client) : client(client) { }
+
+        // FetchLoaderClient API
+        void didReceiveResponse(const WebCore::ResourceResponse&) final { }
+        void didReceiveData(const char* data, size_t size) final { client->didReceiveBlobChunk(data, size); }
+        void didFail(const WebCore::ResourceError&) final { client->didFail(); }
+        void didSucceed() final { client->didFinishBlobLoading(); }
+
+        Ref<WebServiceWorkerFetchTaskClient> client;
+        std::unique_ptr<WebCore::FetchLoader> loader;
+    };
 
     RefPtr<IPC::Connection> m_connection;
-    uint64_t m_serverConnectionIdentifier { 0 };
+    WebCore::SWServerConnectionIdentifier m_serverConnectionIdentifier;
+    WebCore::ServiceWorkerIdentifier m_serviceWorkerIdentifier;
     uint64_t m_fetchTaskIdentifier { 0 };
+    std::optional<BlobLoader> m_blobLoader;
 };
 
 } // namespace WebKit

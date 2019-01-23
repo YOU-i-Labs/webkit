@@ -68,8 +68,6 @@ public:
     const PaymentContact& shippingContact() const { return m_shippingContact; }
     void setShippingContact(const PaymentContact& shippingContact) { m_shippingContact = shippingContact; }
 
-    static bool isValidSupportedNetwork(unsigned version, const String&);
-
     const Vector<String>& supportedNetworks() const { return m_supportedNetworks; }
     void setSupportedNetworks(const Vector<String>& supportedNetworks) { m_supportedNetworks = supportedNetworks; }
 
@@ -129,6 +127,14 @@ public:
     const Vector<String>& supportedCountries() const { return m_supportedCountries; }
     void setSupportedCountries(Vector<String>&& supportedCountries) { m_supportedCountries = WTFMove(supportedCountries); }
 
+    enum class Requester {
+        ApplePayJS,
+        PaymentRequest,
+    };
+
+    Requester requester() const { return m_requester; }
+    void setRequester(Requester requester) { m_requester = requester; }
+
 private:
     String m_countryCode;
     String m_currencyCode;
@@ -150,6 +156,8 @@ private:
 
     String m_applicationData;
     Vector<String> m_supportedCountries;
+
+    Requester m_requester { Requester::ApplePayJS };
 };
 
 struct PaymentError {
@@ -223,10 +231,13 @@ template<> struct EnumTraits<WebCore::PaymentError::ContactField> {
         WebCore::PaymentError::ContactField::PhoneNumber,
         WebCore::PaymentError::ContactField::EmailAddress,
         WebCore::PaymentError::ContactField::Name,
+        WebCore::PaymentError::ContactField::PhoneticName,
         WebCore::PaymentError::ContactField::PostalAddress,
         WebCore::PaymentError::ContactField::AddressLines,
+        WebCore::PaymentError::ContactField::SubLocality,
         WebCore::PaymentError::ContactField::Locality,
         WebCore::PaymentError::ContactField::PostalCode,
+        WebCore::PaymentError::ContactField::SubAdministrativeArea,
         WebCore::PaymentError::ContactField::AdministrativeArea,
         WebCore::PaymentError::ContactField::Country,
         WebCore::PaymentError::ContactField::CountryCode

@@ -65,30 +65,31 @@ public:
     const String& shippingOption() const { return m_shippingOption; }
     std::optional<PaymentShippingType> shippingType() const;
 
-    const PaymentOptions& paymentOptions() const { return m_options; }
-    const PaymentDetailsInit& paymentDetails() const { return m_details; }
-
-    void shippingAddressChanged(Ref<PaymentAddress>&&);
-    void shippingOptionChanged(const String& shippingOption);
-    ExceptionOr<void> updateWith(Event&, Ref<DOMPromise>&&);
-    void accept(const String& methodName, JSC::Strong<JSC::JSObject>&& details, Ref<PaymentAddress>&& shippingAddress, const String& payerName, const String& payerEmail, const String& payerPhone);
-    void complete(std::optional<PaymentComplete>&&);
-    void cancel();
-
-    // EventTarget
-    bool dispatchEvent(Event&) final;
-
-    using MethodIdentifier = Variant<String, URL>;
-    using RefCounted<PaymentRequest>::ref;
-    using RefCounted<PaymentRequest>::deref;
-
-private:
     enum class State {
         Created,
         Interactive,
         Closed,
     };
 
+    State state() const { return m_state; }
+
+    const PaymentOptions& paymentOptions() const { return m_options; }
+    const PaymentDetailsInit& paymentDetails() const { return m_details; }
+    const Vector<String>& serializedModifierData() const { return m_serializedModifierData; }
+
+    void shippingAddressChanged(Ref<PaymentAddress>&&);
+    void shippingOptionChanged(const String& shippingOption);
+    ExceptionOr<void> updateWith(Event&, Ref<DOMPromise>&&);
+    ExceptionOr<void> completeMerchantValidation(Event&, Ref<DOMPromise>&&);
+    void accept(const String& methodName, JSC::Strong<JSC::JSObject>&& details, Ref<PaymentAddress>&& shippingAddress, const String& payerName, const String& payerEmail, const String& payerPhone);
+    void complete(std::optional<PaymentComplete>&&);
+    void cancel();
+
+    using MethodIdentifier = Variant<String, URL>;
+    using RefCounted<PaymentRequest>::ref;
+    using RefCounted<PaymentRequest>::deref;
+
+private:
     struct Method {
         MethodIdentifier identifier;
         String serializedData;
@@ -120,6 +121,7 @@ private:
     std::optional<ShowPromise> m_showPromise;
     RefPtr<PaymentHandler> m_activePaymentHandler;
     RefPtr<DOMPromise> m_detailsPromise;
+    RefPtr<DOMPromise> m_merchantSessionPromise;
     bool m_isUpdating { false };
 };
 

@@ -66,6 +66,7 @@
 #include "RegExpObject.h"
 #include "ShadowChicken.h"
 #include "StructureRareDataInlines.h"
+#include "SuperSampler.h"
 #include "VMInlines.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StringPrintStream.h>
@@ -190,7 +191,8 @@ namespace JSC { namespace LLInt {
 extern "C" SlowPathReturnType llint_trace_operand(ExecState* exec, Instruction* pc, int fromWhere, int operand)
 {
     LLINT_BEGIN();
-    dataLogF("%p / %p: executing bc#%zu, op#%u: Trace(%d): %d: %d\n",
+    dataLogF("<%p> %p / %p: executing bc#%zu, op#%u: Trace(%d): %d: %d\n",
+            &Thread::current(),
             exec->codeBlock(),
             exec,
             static_cast<intptr_t>(pc - exec->codeBlock()->instructions().begin()),
@@ -213,7 +215,8 @@ extern "C" SlowPathReturnType llint_trace_value(ExecState* exec, Instruction* pc
     } u;
     u.asValue = JSValue::encode(value);
     dataLogF(
-        "%p / %p: executing bc#%zu, op#%u: Trace(%d): %d: %d: %08x:%08x: %s\n",
+        "<%p> %p / %p: executing bc#%zu, op#%u: Trace(%d): %d: %d: %08x:%08x: %s\n",
+        &Thread::current(),
         exec->codeBlock(),
         exec,
         static_cast<intptr_t>(pc - exec->codeBlock()->instructions().begin()),
@@ -229,7 +232,7 @@ extern "C" SlowPathReturnType llint_trace_value(ExecState* exec, Instruction* pc
 
 LLINT_SLOW_PATH_DECL(trace_prologue)
 {
-    dataLogF("%p / %p: in prologue of ", exec->codeBlock(), exec);
+    dataLogF("<%p> %p / %p: in prologue of ", &Thread::current(), exec->codeBlock(), exec);
     dataLog(*exec->codeBlock(), "\n");
     LLINT_END_IMPL();
 }
@@ -239,7 +242,7 @@ static void traceFunctionPrologue(ExecState* exec, const char* comment, CodeSpec
     JSFunction* callee = jsCast<JSFunction*>(exec->jsCallee());
     FunctionExecutable* executable = callee->jsExecutable();
     CodeBlock* codeBlock = executable->codeBlockFor(kind);
-    dataLogF("%p / %p: in %s of ", codeBlock, exec, comment);
+    dataLogF("<%p> %p / %p: in %s of ", &Thread::current(), codeBlock, exec, comment);
     dataLog(*codeBlock);
     dataLogF(" function %p, executable %p; numVars = %u, numParameters = %u, numCalleeLocals = %u, caller = %p.\n",
         callee, executable, codeBlock->m_numVars, codeBlock->numParameters(), codeBlock->m_numCalleeLocals, exec->callerFrame());
@@ -272,7 +275,8 @@ LLINT_SLOW_PATH_DECL(trace_arityCheck_for_construct)
 LLINT_SLOW_PATH_DECL(trace)
 {
     OpcodeID opcodeID = Interpreter::getOpcodeID(pc[0].u.opcode);
-    dataLogF("%p / %p: executing bc#%zu, %s, pc = %p\n",
+    dataLogF("<%p> %p / %p: executing bc#%zu, %s, pc = %p\n",
+            &Thread::current(),
             exec->codeBlock(),
             exec,
             static_cast<intptr_t>(pc - exec->codeBlock()->instructions().begin()),
@@ -290,7 +294,8 @@ LLINT_SLOW_PATH_DECL(trace)
 
 LLINT_SLOW_PATH_DECL(special_trace)
 {
-    dataLogF("%p / %p: executing special case bc#%zu, op#%u, return PC is %p\n",
+    dataLogF("<%p> %p / %p: executing special case bc#%zu, op#%u, return PC is %p\n",
+            &Thread::current(),
             exec->codeBlock(),
             exec,
             static_cast<intptr_t>(pc - exec->codeBlock()->instructions().begin()),
@@ -313,13 +318,13 @@ static FunctionWhitelist& ensureGlobalJITWhitelist()
     return baselineWhitelist;
 }
 
-inline bool shouldJIT(ExecState* exec, CodeBlock* codeBlock)
+inline bool shouldJIT(CodeBlock* codeBlock)
 {
     if (!Options::bytecodeRangeToJITCompile().isInRange(codeBlock->instructionCount())
         || !ensureGlobalJITWhitelist().contains(codeBlock))
         return false;
 
-    return exec->vm().canUseJIT() && Options::useBaselineJIT();
+    return VM::canUseJIT() && Options::useBaselineJIT();
 }
 
 // Returns true if we should try to OSR.
@@ -365,7 +370,7 @@ static SlowPathReturnType entryOSR(ExecState* exec, Instruction*, CodeBlock* cod
             codeBlock->llintExecuteCounter(), "\n");
     }
     
-    if (!shouldJIT(exec, codeBlock)) {
+    if (!shouldJIT(codeBlock)) {
         codeBlock->dontJITAnytimeSoon();
         LLINT_RETURN_TWO(0, 0);
     }
@@ -425,7 +430,7 @@ LLINT_SLOW_PATH_DECL(loop_osr)
     
     unsigned loopOSREntryBytecodeOffset = pc - codeBlock->instructions().begin();
 
-    if (!shouldJIT(exec, codeBlock)) {
+    if (!shouldJIT(codeBlock)) {
         codeBlock->dontJITAnytimeSoon();
         LLINT_RETURN_TWO(0, 0);
     }
@@ -465,7 +470,7 @@ LLINT_SLOW_PATH_DECL(replace)
             codeBlock->llintExecuteCounter(), "\n");
     }
     
-    if (shouldJIT(exec, codeBlock))
+    if (shouldJIT(codeBlock))
         jitCompileAndSetHeuristics(codeBlock, exec);
     else
         codeBlock->dontJITAnytimeSoon();
@@ -543,18 +548,11 @@ LLINT_SLOW_PATH_DECL(slow_path_new_array_with_size)
     LLINT_RETURN(constructArrayWithSizeQuirk(exec, pc[3].u.arrayAllocationProfile, exec->lexicalGlobalObject(), LLINT_OP_C(2).jsValue()));
 }
 
-LLINT_SLOW_PATH_DECL(slow_path_new_array_buffer)
-{
-    LLINT_BEGIN();
-    LLINT_RETURN(constructArray(exec, pc[4].u.arrayAllocationProfile, exec->codeBlock()->constantBuffer(pc[2].u.operand), pc[3].u.operand));
-}
-
 LLINT_SLOW_PATH_DECL(slow_path_new_regexp)
 {
     LLINT_BEGIN();
     RegExp* regExp = exec->codeBlock()->regexp(pc[2].u.operand);
-    if (!regExp->isValid())
-        LLINT_THROW(createSyntaxError(exec, regExp->errorMessage()));
+    ASSERT(regExp->isValid());
     LLINT_RETURN(RegExpObject::create(vm, exec->lexicalGlobalObject()->regExpStructure(), regExp));
 }
 
@@ -1304,6 +1302,7 @@ static SlowPathReturnType handleHostCall(ExecState* execCallee, Instruction* pc,
             execCallee->setCallee(asObject(callee));
             vm.hostCallReturnValue = JSValue::decode(callData.native.function(execCallee));
             
+            PoisonedMasmPtr::assertIsNotPoisoned(LLInt::getCodePtr(getHostCallReturnValue));
             LLINT_CALL_RETURN(execCallee, execCallee, LLInt::getCodePtr(getHostCallReturnValue));
         }
         
@@ -1327,6 +1326,7 @@ static SlowPathReturnType handleHostCall(ExecState* execCallee, Instruction* pc,
         execCallee->setCallee(asObject(callee));
         vm.hostCallReturnValue = JSValue::decode(constructData.native.function(execCallee));
 
+        PoisonedMasmPtr::assertIsNotPoisoned(LLInt::getCodePtr(getHostCallReturnValue));
         LLINT_CALL_RETURN(execCallee, execCallee, LLInt::getCodePtr(getHostCallReturnValue));
     }
     
@@ -1350,6 +1350,26 @@ inline SlowPathReturnType setUpCall(ExecState* execCallee, Instruction* pc, Code
     
     JSCell* calleeAsFunctionCell = getJSFunction(calleeAsValue);
     if (!calleeAsFunctionCell) {
+        if (calleeAsValue.isCell() && calleeAsValue.asCell()->type() == InternalFunctionType) {
+            auto* internalFunction = jsCast<InternalFunction*>(calleeAsValue.asCell());
+            MacroAssemblerCodePtr codePtr = vm.getCTIInternalFunctionTrampolineFor(kind);
+            ASSERT(!!codePtr);
+
+            if (!LLINT_ALWAYS_ACCESS_SLOW && callLinkInfo) {
+                CodeBlock* callerCodeBlock = exec->codeBlock();
+
+                ConcurrentJSLocker locker(callerCodeBlock->m_lock);
+
+                if (callLinkInfo->isOnList())
+                    callLinkInfo->remove();
+                callLinkInfo->callee.set(vm, callerCodeBlock, internalFunction);
+                callLinkInfo->lastSeenCallee.set(vm, callerCodeBlock, internalFunction);
+                callLinkInfo->machineCodeTarget = codePtr;
+            }
+
+            PoisonedMasmPtr::assertIsNotPoisoned(codePtr.executableAddress());
+            LLINT_CALL_RETURN(exec, execCallee, codePtr.executableAddress());
+        }
         throwScope.release();
         return handleHostCall(execCallee, pc, calleeAsValue, kind);
     }
@@ -1398,6 +1418,7 @@ inline SlowPathReturnType setUpCall(ExecState* execCallee, Instruction* pc, Code
             codeBlock->linkIncomingCall(exec, callLinkInfo);
     }
 
+    PoisonedMasmPtr::assertIsNotPoisoned(codePtr.executableAddress());
     LLINT_CALL_RETURN(exec, execCallee, codePtr.executableAddress());
 }
 
@@ -1711,6 +1732,24 @@ LLINT_SLOW_PATH_DECL(slow_path_profile_catch)
     });
 
     LLINT_END();
+}
+
+LLINT_SLOW_PATH_DECL(slow_path_super_sampler_begin)
+{
+    // FIXME: It seems like we should be able to do this in asm but llint doesn't seem to like global variables.
+    // See: https://bugs.webkit.org/show_bug.cgi?id=179438
+    UNUSED_PARAM(exec);
+    g_superSamplerCount++;
+    LLINT_END_IMPL();
+}
+
+LLINT_SLOW_PATH_DECL(slow_path_super_sampler_end)
+{
+    // FIXME: It seems like we should be able to do this in asm but llint doesn't seem to like global variables.
+    // See: https://bugs.webkit.org/show_bug.cgi?id=179438
+    UNUSED_PARAM(exec);
+    g_superSamplerCount--;
+    LLINT_END_IMPL();
 }
 
 extern "C" SlowPathReturnType llint_throw_stack_overflow_error(VM* vm, ProtoCallFrame* protoFrame)

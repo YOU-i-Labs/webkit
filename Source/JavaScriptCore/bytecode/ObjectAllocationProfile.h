@@ -33,6 +33,8 @@
 
 namespace JSC {
 
+class FunctionRareData;
+
 class ObjectAllocationProfile {
     friend class LLIntOffsetsExtractor;
 public:
@@ -48,7 +50,7 @@ public:
 
     bool isNull() { return !m_structure; }
 
-    void initializeProfile(VM&, JSGlobalObject*, JSCell* owner, JSObject* prototype, unsigned inferredInlineCapacity, JSFunction* constructor = nullptr);
+    void initializeProfile(VM&, JSGlobalObject*, JSCell* owner, JSObject* prototype, unsigned inferredInlineCapacity, JSFunction* constructor = nullptr, FunctionRareData* = nullptr);
 
     Structure* structure()
     {
@@ -75,7 +77,7 @@ public:
 private:
     unsigned possibleDefaultPropertyCount(VM&, JSObject* prototype);
 
-    MarkedAllocator* m_allocator; // Precomputed to make things easier for generated code.
+    BlockDirectory* m_allocator; // Precomputed to make things easier for generated code.
     WriteBarrier<Structure> m_structure;
     unsigned m_inlineCapacity;
 };

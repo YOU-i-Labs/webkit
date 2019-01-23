@@ -70,6 +70,7 @@
 #include <WebCore/PrintContext.h>
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/RuntimeEnabledFeatures.h>
+#include <WebCore/SWContextManager.h>
 #include <WebCore/ScriptController.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityPolicy.h>
@@ -88,11 +89,11 @@ using namespace JSC;
 
 namespace WebKit {
 
-RefPtr<InjectedBundle> InjectedBundle::create(const WebProcessCreationParameters& parameters, API::Object* initializationUserData)
+RefPtr<InjectedBundle> InjectedBundle::create(WebProcessCreationParameters& parameters, API::Object* initializationUserData)
 {
     auto bundle = adoptRef(*new InjectedBundle(parameters));
 
-    bundle->m_sandboxExtension = SandboxExtension::create(parameters.injectedBundlePathExtensionHandle);
+    bundle->m_sandboxExtension = SandboxExtension::create(WTFMove(parameters.injectedBundlePathExtensionHandle));
     if (!bundle->initialize(parameters, initializationUserData))
         return nullptr;
 
@@ -116,6 +117,13 @@ void InjectedBundle::setClient(std::unique_ptr<API::InjectedBundle::Client>&& cl
         m_client = std::make_unique<API::InjectedBundle::Client>();
     else
         m_client = WTFMove(client);
+}
+
+void InjectedBundle::setServiceWorkerProxyCreationCallback(void (*callback)(uint64_t))
+{
+#if ENABLE(SERVICE_WORKER)
+    SWContextManager::singleton().setServiceWorkerCreationCallback(callback);
+#endif
 }
 
 void InjectedBundle::postMessage(const String& messageName, API::Object* messageBody)
@@ -224,6 +232,8 @@ void InjectedBundle::overrideBoolPreferenceForTestRunner(WebPageGroupProxy* page
 #if ENABLE(MEDIA_STREAM)
     if (preference == "WebKitMediaDevicesEnabled")
         RuntimeEnabledFeatures::sharedFeatures().setMediaDevicesEnabled(enabled);
+    if (preference == "WebKitScreenCaptureEnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setScreenCaptureEnabled(enabled);
 #endif
 
 #if ENABLE(WEB_RTC)
@@ -321,7 +331,7 @@ void InjectedBundle::setPrivateBrowsingEnabled(WebPageGroupProxy* pageGroup, boo
 {
     if (enabled) {
         WebProcess::singleton().ensureLegacyPrivateBrowsingSessionInNetworkProcess();
-        WebFrameNetworkingContext::ensurePrivateBrowsingSession({ { }, { }, { }, { }, { }, { }, { PAL::SessionID::legacyPrivateSessionID(), { }, { }, AllowsCellularAccess::Yes }});
+        WebFrameNetworkingContext::ensureWebsiteDataStoreSession({ { }, { }, { }, { }, { }, { }, { PAL::SessionID::legacyPrivateSessionID(), { }, { }, AllowsCellularAccess::Yes }});
     } else
         SessionTracker::destroySession(PAL::SessionID::legacyPrivateSessionID());
 
@@ -433,7 +443,7 @@ bool InjectedBundle::isPageBoxVisible(WebFrame* frame, int pageIndex)
 
 bool InjectedBundle::isProcessingUserGesture()
 {
-    return ScriptController::processingUserGesture();
+    return UserGestureIndicator::processingUserGesture();
 }
 
 void InjectedBundle::addUserScript(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld, String&& source, String&& url, API::Array* whitelist, API::Array* blacklist, WebCore::UserScriptInjectionTime injectionTime, WebCore::UserContentInjectedFrames injectedFrames)
@@ -581,6 +591,7 @@ uint64_t InjectedBundle::webNotificationID(JSContextRef jsContext, JSValueRef js
 Ref<API::Data> InjectedBundle::createWebDataFromUint8Array(JSContextRef context, JSValueRef data)
 {
     JSC::ExecState* execState = toJS(context);
+    JSLockHolder lock(execState);
     RefPtr<Uint8Array> arrayData = WebCore::toUnsharedUint8Array(execState->vm(), toJS(execState, data));
     return API::Data::create(static_cast<unsigned char*>(arrayData->baseAddress()), arrayData->byteLength());
 }

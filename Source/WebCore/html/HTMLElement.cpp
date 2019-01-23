@@ -402,7 +402,7 @@ Node::Editability HTMLElement::editabilityFromContentEditableAttr(const Node& no
         }
     }
 
-    auto* containingShadowRoot = node.containingShadowRoot();
+    auto containingShadowRoot = makeRefPtr(node.containingShadowRoot());
     if (containingShadowRoot && containingShadowRoot->mode() == ShadowRootMode::UserAgent)
         return Editability::ReadOnly;
 
@@ -443,7 +443,7 @@ static Ref<DocumentFragment> textToFragment(Document& document, const String& te
     auto fragment = DocumentFragment::create(document);
 
     // It's safe to dispatch events on the new fragment since author scripts have no access to it yet.
-    NoEventDispatchAssertion::EventAllowedScope allowedScope(fragment);
+    ScriptDisallowedScope::EventAllowedScope allowedScope(fragment);
 
     for (unsigned start = 0, length = text.length(); start < length; ) {
         // Find next line break.
@@ -533,7 +533,7 @@ ExceptionOr<void> HTMLElement::setInnerText(const String& text)
     auto fragment = textToFragment(document(), text);
     // FIXME: This should use replaceAllChildren() once it accepts DocumentFragments as input.
     // It's safe to dispatch events on the new fragment since author scripts have no access to it yet.
-    NoEventDispatchAssertion::EventAllowedScope allowedScope(fragment.get());
+    ScriptDisallowedScope::EventAllowedScope allowedScope(fragment.get());
     return replaceChildrenWithFragment(*this, WTFMove(fragment));
 }
 
@@ -561,12 +561,12 @@ ExceptionOr<void> HTMLElement::setOuterText(const String& text)
         return replaceResult.releaseException();
 
     RefPtr<Node> node = next ? next->previousSibling() : nullptr;
-    if (is<Text>(node.get())) {
+    if (is<Text>(node)) {
         auto result = mergeWithNextTextNode(downcast<Text>(*node));
         if (result.hasException())
             return result.releaseException();
     }
-    if (is<Text>(prev.get())) {
+    if (is<Text>(prev)) {
         auto result = mergeWithNextTextNode(downcast<Text>(*prev));
         if (result.hasException())
             return result.releaseException();
@@ -793,7 +793,7 @@ TextDirection HTMLElement::directionalityIfhasDirAutoAttribute(bool& isAuto) con
 
 TextDirection HTMLElement::directionality(Node** strongDirectionalityTextNode) const
 {
-    if (is<HTMLTextFormControlElement>(*this)) {
+    if (isTextField()) {
         HTMLTextFormControlElement& textElement = downcast<HTMLTextFormControlElement>(const_cast<HTMLElement&>(*this));
         bool hasStrongDirectionality;
         UCharDirection textDirection = textElement.value().defaultWritingDirection(&hasStrongDirectionality);
@@ -806,7 +806,7 @@ TextDirection HTMLElement::directionality(Node** strongDirectionalityTextNode) c
     while (node) {
         // Skip bdi, script, style and text form controls.
         if (equalLettersIgnoringASCIICase(node->nodeName(), "bdi") || node->hasTagName(scriptTag) || node->hasTagName(styleTag)
-            || (is<Element>(*node) && downcast<Element>(*node).isTextFormControl())) {
+            || (is<Element>(*node) && downcast<Element>(*node).isTextField())) {
             node = NodeTraversal::nextSkippingChildren(*node, this);
             continue;
         }
@@ -840,7 +840,7 @@ void HTMLElement::dirAttributeChanged(const AtomicString& value)
 {
     RefPtr<Element> parent = parentElement();
 
-    if (is<HTMLElement>(parent.get()) && parent->selfOrAncestorHasDirAutoAttribute())
+    if (is<HTMLElement>(parent) && parent->selfOrAncestorHasDirAutoAttribute())
         downcast<HTMLElement>(*parent).adjustDirectionalityIfNeededAfterChildAttributeChanged(this);
 
     if (equalLettersIgnoringASCIICase(value, "auto"))

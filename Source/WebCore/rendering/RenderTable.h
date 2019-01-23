@@ -42,6 +42,7 @@ class TableLayout;
 enum SkipEmptySectionsValue { DoNotSkipEmptySections, SkipEmptySections };
 
 class RenderTable : public RenderBlock {
+    WTF_MAKE_ISO_ALLOCATED(RenderTable);
 public:
     RenderTable(Element&, RenderStyle&&);
     RenderTable(Document&, RenderStyle&&);
@@ -126,7 +127,7 @@ public:
     LayoutUnit calcBorderEnd() const;
     void recalcBordersInRowDirection();
 
-    void addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild = 0) final;
+    void addChild(RenderTreeBuilder&, RenderPtr<RenderObject> child, RenderObject* beforeChild = 0) final;
 
     struct ColumnStruct {
         explicit ColumnStruct(unsigned initialSpan = 1)

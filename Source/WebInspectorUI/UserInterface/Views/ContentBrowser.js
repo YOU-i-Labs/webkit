@@ -64,8 +64,6 @@ WI.ContentBrowser = class ContentBrowser extends WI.View
 
             let navigationButtonsGroup = new WI.GroupNavigationItem([this._backNavigationItem, this._forwardNavigationItem]);
             this._navigationBar.addNavigationItem(navigationButtonsGroup);
-
-            this._navigationBar.addNavigationItem(new WI.DividerNavigationItem);
         }
 
         if (!disableFindBanner) {
@@ -231,6 +229,9 @@ WI.ContentBrowser = class ContentBrowser extends WI.View
 
     shown()
     {
+        this._updateContentViewSelectionPathNavigationItem(this.currentContentView);
+        this.updateHierarchicalPathForCurrentContentView()
+
         this._contentViewContainer.shown();
     }
 
@@ -324,7 +325,7 @@ WI.ContentBrowser = class ContentBrowser extends WI.View
             return;
 
         currentContentView.automaticallyRevealFirstSearchResult = false;
-        currentContentView.searchCleared();
+        currentContentView.searchHidden();
     }
 
     _contentViewNumberOfSearchResultsDidChange(event)
@@ -423,13 +424,6 @@ WI.ContentBrowser = class ContentBrowser extends WI.View
 
         // Go through each of the items of the new content view and add a divider before them.
         currentContentView.navigationItems.forEach(function(navigationItem, index) {
-            // Add dividers before items unless it's the first item and not a button.
-            if (index !== 0 || navigationItem instanceof WI.ButtonNavigationItem) {
-                let divider = new WI.DividerNavigationItem;
-                if (shouldInsert)
-                    navigationBar.insertNavigationItem(divider, insertionIndex++);
-                newNavigationItems.push(divider);
-            }
             if (shouldInsert)
                 navigationBar.insertNavigationItem(navigationItem, insertionIndex++);
             newNavigationItems.push(navigationItem);
@@ -487,6 +481,10 @@ WI.ContentBrowser = class ContentBrowser extends WI.View
         if (event.target !== this.currentContentView)
             return;
 
+        // If the ContentView is a tombstone within our ContentViewContainer, do nothing. Let the owning ContentBrowser react.
+        if (event.target.parentContainer !== this._contentViewContainer)
+            return;
+
         this._updateContentViewSelectionPathNavigationItem(event.target);
         this._updateBackForwardButtons();
 
@@ -500,6 +498,10 @@ WI.ContentBrowser = class ContentBrowser extends WI.View
     _contentViewSupplementalRepresentedObjectsDidChange(event)
     {
         if (event.target !== this.currentContentView)
+            return;
+
+        // If the ContentView is a tombstone within our ContentViewContainer, do nothing. Let the owning ContentBrowser react.
+        if (event.target.parentContainer !== this._contentViewContainer)
             return;
 
         this.soon._dispatchCurrentRepresentedObjectsDidChangeEvent();
@@ -526,6 +528,10 @@ WI.ContentBrowser = class ContentBrowser extends WI.View
     _contentViewNavigationItemsDidChange(event)
     {
         if (event.target !== this.currentContentView)
+            return;
+
+        // If the ContentView is a tombstone within our ContentViewContainer, do nothing. Let the owning ContentBrowser react.
+        if (event.target.parentContainer !== this._contentViewContainer)
             return;
 
         const forceUpdate = true;

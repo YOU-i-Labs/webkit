@@ -54,7 +54,7 @@ class NetworkSession;
 class PendingDownload;
 enum class AuthenticationChallengeDisposition;
 
-using RedirectCompletionHandler = CompletionHandler<void(const WebCore::ResourceRequest&)>;
+using RedirectCompletionHandler = CompletionHandler<void(WebCore::ResourceRequest&&)>;
 using ChallengeCompletionHandler = CompletionHandler<void(AuthenticationChallengeDisposition, const WebCore::Credential&)>;
 using ResponseCompletionHandler = CompletionHandler<void(WebCore::PolicyAction)>;
 
@@ -119,7 +119,7 @@ public:
         m_pendingDownload = &pendingDownload;
     }
 
-    virtual void setPendingDownloadLocation(const String& filename, const SandboxExtension::Handle&, bool /*allowOverwrite*/) { m_pendingDownloadLocation = filename; }
+    virtual void setPendingDownloadLocation(const String& filename, SandboxExtension::Handle&&, bool /*allowOverwrite*/) { m_pendingDownloadLocation = filename; }
     const String& pendingDownloadLocation() const { return m_pendingDownloadLocation; }
     bool isDownload() const { return !!m_pendingDownloadID.downloadID(); }
 

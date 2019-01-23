@@ -829,6 +829,22 @@
 <a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
 </td>
 <td class="function_name">
+<a class="link" href="WebKitSettings.html#webkit-settings-get-enable-encrypted-media" title="webkit_settings_get_enable_encrypted_media ()">webkit_settings_get_enable_encrypted_media</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">void</span>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitSettings.html#webkit-settings-set-enable-encrypted-media" title="webkit_settings_set_enable_encrypted_media ()">webkit_settings_set_enable_encrypted_media</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
+</td>
+<td class="function_name">
 <a class="link" href="WebKitSettings.html#webkit-settings-get-allow-file-access-from-file-urls" title="webkit_settings_get_allow_file_access_from_file_urls ()">webkit_settings_get_allow_file_access_from_file_urls</a> <span class="c_punctuation">()</span>
 </td>
 </tr>
@@ -870,6 +886,22 @@
 </td>
 <td class="function_name">
 <a class="link" href="WebKitSettings.html#webkit-settings-set-hardware-acceleration-policy" title="webkit_settings_set_hardware_acceleration_policy ()">webkit_settings_set_hardware_acceleration_policy</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<a href="../glib/glib-Basic-Types.html#guint32"><span class="returnvalue">guint32</span></a>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitSettings.html#webkit-settings-font-size-to-points" title="webkit_settings_font_size_to_points ()">webkit_settings_font_size_to_points</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<a href="../glib/glib-Basic-Types.html#guint32"><span class="returnvalue">guint32</span></a>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitSettings.html#webkit-settings-font-size-to-pixels" title="webkit_settings_font_size_to_pixels ()">webkit_settings_font_size_to_pixels</a> <span class="c_punctuation">()</span>
 </td>
 </tr>
 </tbody>
@@ -955,6 +987,11 @@
 <tr>
 <td class="property_type"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></td>
 <td class="property_name"><a class="link" href="WebKitSettings.html#WebKitSettings--enable-dns-prefetching" title="The “enable-dns-prefetching” property">enable-dns-prefetching</a></td>
+<td class="property_flags">Read / Write / Construct</td>
+</tr>
+<tr>
+<td class="property_type"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></td>
+<td class="property_name"><a class="link" href="WebKitSettings.html#WebKitSettings--enable-encrypted-media" title="The “enable-encrypted-media” property">enable-encrypted-media</a></td>
 <td class="property_flags">Read / Write / Construct</td>
 </tr>
 <tr>
@@ -1172,7 +1209,9 @@
 </div>
 <div class="refsect1">
 <a name="WebKitSettings.object-hierarchy"></a><h2>Object Hierarchy</h2>
-<pre class="screen">    <a href="../gobject/gobject-The-Base-Object-Type.html#GObject-struct">GObject</a>
+<pre class="screen">    <a href="/home/cgarcia/gnome/share/gtk-doc/html/gobject/gobject-Enumeration-and-Flag-Types.html">GEnum</a>
+    <span class="lineart">╰──</span> WebKitHardwareAccelerationPolicy
+    <a href="../gobject/gobject-The-Base-Object-Type.html#GObject-struct">GObject</a>
     <span class="lineart">╰──</span> WebKitSettings
 </pre>
 </div>
@@ -2343,7 +2382,7 @@ webkit_settings_get_default_font_size (<em class="parameter"><code><a class="lin
 </div>
 <div class="refsect3">
 <a name="webkit-settings-get-default-font-size.returns"></a><h4>Returns</h4>
-<p> The default font size.</p>
+<p> The default font size, in pixels.</p>
 </div>
 </div>
 <hr>
@@ -2400,7 +2439,7 @@ webkit_settings_get_default_monospace_font_size
 </div>
 <div class="refsect3">
 <a name="webkit-settings-get-default-monospace-font-size.returns"></a><h4>Returns</h4>
-<p> Default monospace font size.</p>
+<p> Default monospace font size, in pixels.</p>
 </div>
 </div>
 <hr>
@@ -2457,7 +2496,7 @@ webkit_settings_get_minimum_font_size (<em class="parameter"><code><a class="lin
 </div>
 <div class="refsect3">
 <a name="webkit-settings-get-minimum-font-size.returns"></a><h4>Returns</h4>
-<p> Minimum font size.</p>
+<p> Minimum font size, in pixels.</p>
 </div>
 </div>
 <hr>
@@ -2483,7 +2522,7 @@ webkit_settings_set_minimum_font_size (<em class="parameter"><code><a class="lin
 </tr>
 <tr>
 <td class="parameter_name"><p>font_size</p></td>
-<td class="parameter_description"><p>minimum font size to be set in points</p></td>
+<td class="parameter_description"><p>minimum font size to be set in pixels</p></td>
 <td class="parameter_annotations"> </td>
 </tr>
 </tbody>
@@ -4045,6 +4084,66 @@ webkit_settings_set_enable_mediasource
 </div>
 <hr>
 <div class="refsect2">
+<a name="webkit-settings-get-enable-encrypted-media"></a><h3>webkit_settings_get_enable_encrypted_media ()</h3>
+<pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
+webkit_settings_get_enable_encrypted_media
+                               (<em class="parameter"><code><a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a> *settings</code></em>);</pre>
+<p>Get the <a class="link" href="WebKitSettings.html#WebKitSettings--enable-encrypted-media" title="The “enable-encrypted-media” property"><span class="type">“enable-encrypted-media”</span></a> property.</p>
+<div class="refsect3">
+<a name="webkit-settings-get-enable-encrypted-media.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>settings</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="webkit-settings-get-enable-encrypted-media.returns"></a><h4>Returns</h4>
+<p> <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS"><code class="literal">TRUE</code></a> if EncryptedMedia support is enabled or <a href="../glib/glib-Standard-Macros.html#FALSE:CAPS"><code class="literal">FALSE</code></a> otherwise.</p>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-20.html#api-index-2.20">2.20</a></p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-settings-set-enable-encrypted-media"></a><h3>webkit_settings_set_enable_encrypted_media ()</h3>
+<pre class="programlisting"><span class="returnvalue">void</span>
+webkit_settings_set_enable_encrypted_media
+                               (<em class="parameter"><code><a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a> *settings</code></em>,
+                                <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> enabled</code></em>);</pre>
+<p>Set the <a class="link" href="WebKitSettings.html#WebKitSettings--enable-encrypted-media" title="The “enable-encrypted-media” property"><span class="type">“enable-encrypted-media”</span></a> property.</p>
+<div class="refsect3">
+<a name="webkit-settings-set-enable-encrypted-media.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="parameter_name"><p>settings</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>enabled</p></td>
+<td class="parameter_description"><p>Value to be set</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-20.html#api-index-2.20">2.20</a></p>
+</div>
+<hr>
+<div class="refsect2">
 <a name="webkit-settings-get-allow-file-access-from-file-urls"></a><h3>webkit_settings_get_allow_file_access_from_file_urls ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
 webkit_settings_get_allow_file_access_from_file_urls
@@ -4219,6 +4318,68 @@ webkit_settings_set_hardware_acceleration_policy
 </table></div>
 </div>
 <p class="since">Since: <a class="link" href="api-index-2-16.html#api-index-2.16">2.16</a></p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-settings-font-size-to-points"></a><h3>webkit_settings_font_size_to_points ()</h3>
+<pre class="programlisting"><a href="../glib/glib-Basic-Types.html#guint32"><span class="returnvalue">guint32</span></a>
+webkit_settings_font_size_to_points (<em class="parameter"><code><a href="../glib/glib-Basic-Types.html#guint32"><span class="type">guint32</span></a> pixels</code></em>);</pre>
+<p>Convert <em class="parameter"><code>pixels</code></em>
+ to the equivalent value in points, based on the current
+screen DPI. Applications can use this function to convert font size values
+in pixels to font size values in points when getting the font size properties
+of <a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a>.</p>
+<div class="refsect3">
+<a name="webkit-settings-font-size-to-points.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>pixels</p></td>
+<td class="parameter_description"><p>the font size in pixels to convert to points</p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="webkit-settings-font-size-to-points.returns"></a><h4>Returns</h4>
+<p> the equivalent font size in points.</p>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-20.html#api-index-2.20">2.20</a></p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-settings-font-size-to-pixels"></a><h3>webkit_settings_font_size_to_pixels ()</h3>
+<pre class="programlisting"><a href="../glib/glib-Basic-Types.html#guint32"><span class="returnvalue">guint32</span></a>
+webkit_settings_font_size_to_pixels (<em class="parameter"><code><a href="../glib/glib-Basic-Types.html#guint32"><span class="type">guint32</span></a> points</code></em>);</pre>
+<p>Convert <em class="parameter"><code>points</code></em>
+ to the equivalent value in pixels, based on the current
+screen DPI. Applications can use this function to convert font size values
+in points to font size values in pixels when setting the font size properties
+of <a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a>.</p>
+<div class="refsect3">
+<a name="webkit-settings-font-size-to-pixels.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>points</p></td>
+<td class="parameter_description"><p>the font size in points to convert to pixels</p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="webkit-settings-font-size-to-pixels.returns"></a><h4>Returns</h4>
+<p> the equivalent font size in pixels.</p>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-20.html#api-index-2.20">2.20</a></p>
 </div>
 </div>
 <div class="refsect1">
@@ -4406,6 +4567,19 @@ using hardware accelerated drawing operations.</p>
 to resolve domain names before a user tries to follow a link.</p>
 <p>Flags: Read / Write / Construct</p>
 <p>Default value: FALSE</p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="WebKitSettings--enable-encrypted-media"></a><h3>The <code class="literal">“enable-encrypted-media”</code> property</h3>
+<pre class="programlisting">  “enable-encrypted-media”   <a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></pre>
+<p>Enable or disable support for Encrypted Media API on pages.
+EncryptedMedia is an experimental JavaScript API for playing encrypted media in HTML.
+This property will only work as intended if the EncryptedMedia feature is enabled at build time
+with the ENABLE_ENCRYPTED_MEDIA flag.</p>
+<p>See https://www.w3.org/TR/encrypted-media/</p>
+<p>Flags: Read / Write / Construct</p>
+<p>Default value: FALSE</p>
+<p class="since">Since: <a class="link" href="api-index-2-20.html#api-index-2.20">2.20</a></p>
 </div>
 <hr>
 <div class="refsect2">
@@ -4725,7 +4899,7 @@ load the media.</p>
 <div class="refsect2">
 <a name="WebKitSettings--minimum-font-size"></a><h3>The <code class="literal">“minimum-font-size”</code> property</h3>
 <pre class="programlisting">  “minimum-font-size”        <a href="../glib/glib-Basic-Types.html#guint"><span class="type">guint</span></a></pre>
-<p>The minimum font size in points used to display text. This setting
+<p>The minimum font size in pixels used to display text. This setting
 controls the absolute smallest size. Values other than 0 can
 potentially break page layouts.</p>
 <p>Flags: Read / Write / Construct</p>

@@ -48,6 +48,7 @@
 #include "SecurityOrigin.h"
 #include "SubresourceLoader.h"
 #include "URL.h"
+#include <wtf/CompletionHandler.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
 #include <wtf/RefCountedLeakCounter.h>
@@ -101,6 +102,10 @@ ResourceLoadPriority CachedResource::defaultPriorityForResourceType(Type type)
     case CachedResource::TextTrackResource:
         return ResourceLoadPriority::Low;
 #endif
+#if ENABLE(APPLICATION_MANIFEST)
+    case CachedResource::ApplicationManifest:
+        return ResourceLoadPriority::Low;
+#endif
     }
     ASSERT_NOT_REACHED();
     return ResourceLoadPriority::Low;
@@ -122,7 +127,7 @@ CachedResource::CachedResource(CachedResourceRequest&& request, Type type, PAL::
     , m_decodedDataDeletionTimer(*this, &CachedResource::destroyDecodedData, deadDecodedDataDeletionIntervalForResourceType(type))
     , m_sessionID(sessionID)
     , m_loadPriority(defaultPriorityForResourceType(type))
-    , m_responseTimestamp(std::chrono::system_clock::now())
+    , m_responseTimestamp(WallTime::now())
     , m_fragmentIdentifierForRequest(request.releaseFragmentIdentifier())
     , m_origin(request.releaseOrigin())
     , m_initiatorName(request.initiatorName())
@@ -150,7 +155,7 @@ CachedResource::CachedResource(const URL& url, Type type, PAL::SessionID session
     : m_resourceRequest(url)
     , m_decodedDataDeletionTimer(*this, &CachedResource::destroyDecodedData, deadDecodedDataDeletionIntervalForResourceType(type))
     , m_sessionID(sessionID)
-    , m_responseTimestamp(std::chrono::system_clock::now())
+    , m_responseTimestamp(WallTime::now())
     , m_fragmentIdentifierForRequest(CachedResourceRequest::splitFragmentIdentifierFromRequestURL(m_resourceRequest))
     , m_type(type)
     , m_status(Cached)
@@ -293,14 +298,15 @@ void CachedResource::load(CachedResourceLoader& cachedResourceLoader)
         }
     }
 
-    m_loader = platformStrategies()->loaderStrategy()->loadResource(frame, *this, request, m_options);
-    if (!m_loader) {
-        RELEASE_LOG_IF_ALLOWED("load: Unable to create SubresourceLoader (frame = %p)", &frame);
-        failBeforeStarting();
-        return;
-    }
-
-    m_status = Pending;
+    platformStrategies()->loaderStrategy()->loadResource(frame, *this, WTFMove(request), m_options, [this, protectedThis = CachedResourceHandle<CachedResource>(this), frame = makeRef(frame), loggingAllowed = cachedResourceLoader.isAlwaysOnLoggingAllowed()] (RefPtr<SubresourceLoader>&& loader) {
+        m_loader = WTFMove(loader);
+        if (!m_loader) {
+            RELEASE_LOG_IF(loggingAllowed, Network, "%p - CachedResource::load: Unable to create SubresourceLoader (frame = %p)", this, frame.ptr());
+            failBeforeStarting();
+            return;
+        }
+        m_status = Pending;
+    });
 }
 
 void CachedResource::loadFrom(const CachedResource& resource)
@@ -431,10 +437,8 @@ static inline bool shouldCacheSchemeIndefinitely(StringView scheme)
     return equalLettersIgnoringASCIICase(scheme, "data");
 }
 
-std::chrono::microseconds CachedResource::freshnessLifetime(const ResourceResponse& response) const
+Seconds CachedResource::freshnessLifetime(const ResourceResponse& response) const
 {
-    using namespace std::literals::chrono_literals;
-
     if (!response.url().protocolIsInHTTPFamily()) {
         StringView protocol = response.url().protocol();
         if (!shouldCacheSchemeIndefinitely(protocol)) {
@@ -442,39 +446,46 @@ std::chrono::microseconds CachedResource::freshnessLifetime(const ResourceRespon
             // FIXME: We should not cache subresources either, but when we tried this
             // it caused performance and flakiness issues in our test infrastructure.
             if (m_type == MainResource || SchemeRegistry::shouldAlwaysRevalidateURLScheme(protocol.toStringWithoutCopying()))
-                return 0us;
+                return 0_us;
         }
 
-        return std::chrono::microseconds::max();
+        return Seconds::infinity();
     }
 
     return computeFreshnessLifetimeForHTTPFamily(response, m_responseTimestamp);
 }
 
-void CachedResource::redirectReceived(ResourceRequest&, const ResourceResponse& response)
+void CachedResource::redirectReceived(ResourceRequest&& request, const ResourceResponse& response, CompletionHandler<void(ResourceRequest&&)>&& completionHandler)
 {
     m_requestedFromNetworkingLayer = true;
     if (response.isNull())
-        return;
+        return completionHandler(WTFMove(request));
 
     updateRedirectChainStatus(m_redirectChainCacheStatus, response);
+    completionHandler(WTFMove(request));
 }
 
 void CachedResource::setResponse(const ResourceResponse& response)
 {
     ASSERT(m_response.type() == ResourceResponse::Type::Default);
     m_response = response;
+    m_varyingHeaderValues = collectVaryingRequestHeaders(m_resourceRequest, m_response, m_sessionID);
+
+#if ENABLE(SERVICE_WORKER)
+    if (m_response.source() == ResourceResponse::Source::ServiceWorker) {
+        m_responseTainting = m_response.tainting();
+        return;
+    }
+#endif
     m_response.setRedirected(m_redirectChainCacheStatus.status != RedirectChainCacheStatus::NoRedirection);
     if (m_response.tainting() == ResourceResponse::Tainting::Basic || m_response.tainting() == ResourceResponse::Tainting::Cors)
         m_response.setTainting(m_responseTainting);
-
-    m_varyingHeaderValues = collectVaryingRequestHeaders(m_resourceRequest, m_response, m_sessionID);
 }
 
 void CachedResource::responseReceived(const ResourceResponse& response)
 {
     setResponse(response);
-    m_responseTimestamp = std::chrono::system_clock::now();
+    m_responseTimestamp = WallTime::now();
     String encoding = response.textEncodingName();
     if (!encoding.isNull())
         setEncoding(encoding);
@@ -752,7 +763,7 @@ void CachedResource::switchClientsToRevalidatedResource()
 
 void CachedResource::updateResponseAfterRevalidation(const ResourceResponse& validatingResponse)
 {
-    m_responseTimestamp = std::chrono::system_clock::now();
+    m_responseTimestamp = WallTime::now();
 
     updateResponseHeadersAfterRevalidation(m_response, validatingResponse);
 }

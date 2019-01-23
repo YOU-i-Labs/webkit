@@ -34,6 +34,7 @@
 #include <WebCore/CachedResource.h>
 #include <WebCore/Exception.h>
 #include <WebCore/ExceptionCode.h>
+#include <WebCore/SchemeRegistry.h>
 #include <WebCore/ServiceWorkerJob.h>
 #include <pal/SessionID.h>
 #include <wtf/text/WTFString.h>
@@ -55,42 +56,29 @@ WebServiceWorkerProvider::WebServiceWorkerProvider()
 
 WebCore::SWClientConnection& WebServiceWorkerProvider::serviceWorkerConnectionForSession(SessionID sessionID)
 {
-    ASSERT(WebProcess::singleton().webToStorageProcessConnection());
-    return WebProcess::singleton().webToStorageProcessConnection()->serviceWorkerConnectionForSession(sessionID);
+    return WebProcess::singleton().ensureWebToStorageProcessConnection(sessionID).serviceWorkerConnectionForSession(sessionID);
 }
 
-static inline bool shouldHandleFetch(const WebSWClientConnection& connection, CachedResource* resource, const ResourceLoaderOptions& options)
+static inline bool shouldHandleFetch(const ResourceLoaderOptions& options)
 {
-    if (options.serviceWorkersMode != ServiceWorkersMode::All)
+    if (options.serviceWorkersMode == ServiceWorkersMode::None)
         return false;
 
     if (isPotentialNavigationOrSubresourceRequest(options.destination))
         return false;
 
-    // FIXME: Implement non-subresource request loads.
-    if (isNonSubresourceRequest(options.destination) || !options.serviceWorkerIdentifier)
-        return false;
-
-    if (!resource)
-        return false;
-
-    return connection.hasServiceWorkerRegisteredForOrigin(*resource->origin());
+    return !!options.serviceWorkerRegistrationIdentifier;
 }
 
-void WebServiceWorkerProvider::handleFetch(ResourceLoader& loader, CachedResource* resource, PAL::SessionID sessionID, ServiceWorkerClientFetch::Callback&& callback)
+void WebServiceWorkerProvider::handleFetch(ResourceLoader& loader, CachedResource* resource, PAL::SessionID sessionID, bool shouldClearReferrerOnHTTPSToHTTPRedirect, ServiceWorkerClientFetch::Callback&& callback)
 {
-    auto& connection = WebProcess::singleton().webToStorageProcessConnection()->serviceWorkerConnectionForSession(sessionID);
-
-    if (!shouldHandleFetch(connection, resource, loader.options())) {
-        // FIXME: Add an option to error resource load for DTL to actually go through preflight.
+    if (!SchemeRegistry::canServiceWorkersHandleURLScheme(loader.request().url().protocol().toStringWithoutCopying()) || !shouldHandleFetch(loader.options())) {
         callback(ServiceWorkerClientFetch::Result::Unhandled);
         return;
     }
 
-    auto fetch = connection.startFetch(*this, loader, loader.identifier(), WTFMove(callback));
-    ASSERT(fetch->isOngoing());
-
-    m_ongoingFetchTasks.add(loader.identifier(), WTFMove(fetch));
+    auto& connection = WebProcess::singleton().ensureWebToStorageProcessConnection(sessionID).serviceWorkerConnectionForSession(sessionID);
+    m_ongoingFetchTasks.add(loader.identifier(), ServiceWorkerClientFetch::create(*this, loader, loader.identifier(), connection, shouldClearReferrerOnHTTPSToHTTPRedirect, WTFMove(callback)));
 }
 
 bool WebServiceWorkerProvider::cancelFetch(uint64_t fetchIdentifier)

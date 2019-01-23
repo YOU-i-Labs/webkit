@@ -27,12 +27,13 @@
 
 #pragma once
 
+#include "CanvasBase.h"
 #include "FloatRect.h"
 #include "HTMLElement.h"
+#include "ImageBitmapRenderingContextSettings.h"
 #include "IntSize.h"
 #include <memory>
 #include <wtf/Forward.h>
-#include <wtf/HashSet.h>
 
 #if ENABLE(WEBGL)
 #include "WebGLContextAttributes.h"
@@ -42,10 +43,8 @@ namespace WebCore {
 
 class BlobCallback;
 class CanvasRenderingContext2D;
-class CanvasRenderingContext;
 class GraphicsContext;
 class GraphicsContextStateSaver;
-class HTMLCanvasElement;
 class Image;
 class ImageBuffer;
 class ImageData;
@@ -59,36 +58,21 @@ namespace DisplayList {
 using AsTextFlags = unsigned;
 }
 
-class CanvasObserver {
-public:
-    virtual ~CanvasObserver() = default;
-
-    virtual bool isCanvasObserverProxy() const { return false; }
-
-    virtual void canvasChanged(HTMLCanvasElement&, const FloatRect& changedRect) = 0;
-    virtual void canvasResized(HTMLCanvasElement&) = 0;
-    virtual void canvasDestroyed(HTMLCanvasElement&) = 0;
-};
-
-class HTMLCanvasElement final : public HTMLElement {
+class HTMLCanvasElement final : public HTMLElement, public CanvasBase {
 public:
     static Ref<HTMLCanvasElement> create(Document&);
     static Ref<HTMLCanvasElement> create(const QualifiedName&, Document&);
     virtual ~HTMLCanvasElement();
 
-    void addObserver(CanvasObserver&);
-    void removeObserver(CanvasObserver&);
-    HashSet<Element*> cssCanvasClients() const;
-
-    unsigned width() const { return size().width(); }
-    unsigned height() const { return size().height(); }
+    unsigned width() const final { return size().width(); }
+    unsigned height() const final { return size().height(); }
 
     WEBCORE_EXPORT ExceptionOr<void> setWidth(unsigned);
     WEBCORE_EXPORT ExceptionOr<void> setHeight(unsigned);
 
-    const IntSize& size() const { return m_size; }
+    const IntSize& size() const final { return m_size; }
 
-    void setSize(const IntSize& newSize)
+    void setSize(const IntSize& newSize) override
     { 
         if (newSize == size())
             return;
@@ -119,8 +103,8 @@ public:
 #endif
 
     static bool isBitmapRendererType(const String&);
-    ImageBitmapRenderingContext* createContextBitmapRenderer(const String&);
-    ImageBitmapRenderingContext* getContextBitmapRenderer(const String&);
+    ImageBitmapRenderingContext* createContextBitmapRenderer(const String&, ImageBitmapRenderingContextSettings&& = { });
+    ImageBitmapRenderingContext* getContextBitmapRenderer(const String&, ImageBitmapRenderingContextSettings&& = { });
 
     WEBCORE_EXPORT ExceptionOr<UncachedString> toDataURL(const String& mimeType, JSC::JSValue quality);
     WEBCORE_EXPORT ExceptionOr<UncachedString> toDataURL(const String& mimeType);
@@ -128,14 +112,11 @@ public:
 
     // Used for rendering
     void didDraw(const FloatRect&);
-    void notifyObserversCanvasChanged(const FloatRect&);
 
     void paint(GraphicsContext&, const LayoutRect&);
 
     GraphicsContext* drawingContext() const;
     GraphicsContext* existingDrawingContext() const;
-
-    CanvasRenderingContext* renderingContext() const { return m_context.get(); }
 
 #if ENABLE(MEDIA_STREAM)
     RefPtr<MediaSample> toMediaSample();
@@ -149,10 +130,7 @@ public:
     void makePresentationCopy();
     void clearPresentationCopy();
 
-    SecurityOrigin* securityOrigin() const;
-    void setOriginClean() { m_originClean = true; }
-    void setOriginTainted() { m_originClean = false; }
-    bool originClean() const { return m_originClean; }
+    SecurityOrigin* securityOrigin() const final;
 
     AffineTransform baseTransform() const;
 
@@ -176,6 +154,8 @@ public:
 private:
     HTMLCanvasElement(const QualifiedName&, Document&);
 
+    bool isHTMLCanvasElement() const final { return true; }
+
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
 
@@ -195,13 +175,12 @@ private:
 
     bool isGPUBased() const;
 
-    HashSet<CanvasObserver*> m_observers;
-    std::unique_ptr<CanvasRenderingContext> m_context;
+    void refCanvasBase() final { HTMLElement::ref(); }
+    void derefCanvasBase() final { HTMLElement::deref(); }
 
     FloatRect m_dirtyRect;
-    IntSize m_size;
+    mutable IntSize m_size;
 
-    bool m_originClean { true };
     bool m_ignoreReset { false };
 
     bool m_usesDisplayListDrawing { false };
@@ -220,3 +199,16 @@ private:
 };
 
 } // namespace WebCore
+
+namespace WTF {
+template<typename ArgType> class TypeCastTraits<const WebCore::HTMLCanvasElement, ArgType, false /* isBaseType */> {
+public:
+    static bool isOfType(ArgType& node) { return checkTagName(node); }
+private:
+    static bool checkTagName(const WebCore::CanvasBase& base) { return base.isHTMLCanvasElement(); }
+    static bool checkTagName(const WebCore::HTMLElement& element) { return element.hasTagName(WebCore::HTMLNames::canvasTag); }
+    static bool checkTagName(const WebCore::Node& node) { return node.hasTagName(WebCore::HTMLNames::canvasTag); }
+    static bool checkTagName(const WebCore::EventTarget& target) { return is<WebCore::Node>(target) && checkTagName(downcast<WebCore::Node>(target)); }
+};
+}
+

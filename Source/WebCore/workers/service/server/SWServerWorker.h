@@ -27,37 +27,100 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include "ServiceWorkerClientData.h"
+#include "ServiceWorkerData.h"
+#include "ServiceWorkerIdentifier.h"
 #include "ServiceWorkerRegistrationKey.h"
+#include "ServiceWorkerTypes.h"
 #include "URL.h"
-#include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
 
+struct ClientOrigin;
+class SWServer;
+class SWServerRegistration;
+struct ServiceWorkerClientData;
+struct ServiceWorkerClientIdentifier;
+struct ServiceWorkerClientQueryOptions;
+struct ServiceWorkerContextData;
+struct ServiceWorkerJobDataIdentifier;
 enum class WorkerType;
 
-class SWServerWorker : public ThreadSafeRefCounted<SWServerWorker> {
+class SWServerWorker : public RefCounted<SWServerWorker> {
 public:
-    static Ref<SWServerWorker> create(const ServiceWorkerRegistrationKey& registrationKey, const URL& url, const String& script, WorkerType type, const String& workerID)
+    template <typename... Args> static Ref<SWServerWorker> create(Args&&... args)
     {
-        return adoptRef(*new SWServerWorker(registrationKey, url, script, type, workerID));
+        return adoptRef(*new SWServerWorker(std::forward<Args>(args)...));
     }
     
     SWServerWorker(const SWServerWorker&) = delete;
-    ~SWServerWorker();
+    WEBCORE_EXPORT ~SWServerWorker();
 
-    const URL& scriptURL() const { return m_scriptURL; }
+    void terminate();
+
+    WEBCORE_EXPORT void whenActivated(WTF::Function<void(bool)>&&);
+
+    enum class State {
+        Running,
+        Terminating,
+        NotRunning,
+    };
+    bool isRunning() const { return m_state == State::Running; }
+    bool isTerminating() const { return m_state == State::Terminating; }
+    void setState(State);
+
+    SWServer& server() { return m_server; }
+    const ServiceWorkerRegistrationKey& registrationKey() const { return m_registrationKey; }
+    const URL& scriptURL() const { return m_data.scriptURL; }
     const String& script() const { return m_script; }
-    WorkerType type() const { return m_type; }
-    const String& workerID() const { return m_workerID; }
-    
-private:
-    SWServerWorker(const ServiceWorkerRegistrationKey&, const URL&, const String& script, WorkerType, const String& workerID);
+    WorkerType type() const { return m_data.type; }
 
+    ServiceWorkerIdentifier identifier() const { return m_data.identifier; }
+
+    SWServerToContextConnectionIdentifier contextConnectionIdentifier() const { return m_contextConnectionIdentifier; }
+    void setContextConnectionIdentifier(SWServerToContextConnectionIdentifier identifier) { m_contextConnectionIdentifier = identifier; }
+
+    ServiceWorkerState state() const { return m_data.state; }
+    void setState(ServiceWorkerState);
+
+    bool hasPendingEvents() const { return m_hasPendingEvents; }
+    void setHasPendingEvents(bool);
+
+    void scriptContextFailedToStart(const std::optional<ServiceWorkerJobDataIdentifier>&, const String& message);
+    void scriptContextStarted(const std::optional<ServiceWorkerJobDataIdentifier>&);
+    void didFinishInstall(const std::optional<ServiceWorkerJobDataIdentifier>&, bool wasSuccessful);
+    void didFinishActivation();
+    void contextTerminated();
+    std::optional<ServiceWorkerClientData> findClientByIdentifier(const ServiceWorkerClientIdentifier&) const;
+    void matchAll(const ServiceWorkerClientQueryOptions&, ServiceWorkerClientsMatchAllCallback&&);
+    void claim();
+
+    void skipWaiting();
+    bool isSkipWaitingFlagSet() const { return m_isSkipWaitingFlagSet; }
+
+    WEBCORE_EXPORT static SWServerWorker* existingWorkerForIdentifier(ServiceWorkerIdentifier);
+
+    const ServiceWorkerData& data() const { return m_data; }
+    ServiceWorkerContextData contextData() const;
+    const ClientOrigin& origin() const;
+
+private:
+    SWServerWorker(SWServer&, SWServerRegistration&, SWServerToContextConnectionIdentifier, const URL&, const String& script, const ContentSecurityPolicyResponseHeaders&,  WorkerType, ServiceWorkerIdentifier);
+
+    void callWhenActivatedHandler(bool success);
+
+    SWServer& m_server;
     ServiceWorkerRegistrationKey m_registrationKey;
-    URL m_scriptURL;
+    SWServerToContextConnectionIdentifier m_contextConnectionIdentifier;
+    ServiceWorkerData m_data;
     String m_script;
-    String m_workerID;
-    WorkerType m_type;
+    ContentSecurityPolicyResponseHeaders m_contentSecurityPolicy;
+    bool m_hasPendingEvents { false };
+    State m_state { State::NotRunning };
+    mutable std::optional<ClientOrigin> m_origin;
+    bool m_isSkipWaitingFlagSet { false };
+    Vector<WTF::Function<void(bool)>> m_whenActivatedHandlers;
 };
 
 } // namespace WebCore

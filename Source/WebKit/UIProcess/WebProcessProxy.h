@@ -77,6 +77,15 @@ struct WebNavigationDataStore;
 struct WebPageCreationParameters;
 struct WebsiteData;
 
+#if PLATFORM(IOS)
+enum ForegroundWebProcessCounterType { };
+typedef RefCounter<ForegroundWebProcessCounterType> ForegroundWebProcessCounter;
+typedef ForegroundWebProcessCounter::Token ForegroundWebProcessToken;
+enum BackgroundWebProcessCounterType { };
+typedef RefCounter<BackgroundWebProcessCounterType> BackgroundWebProcessCounter;
+typedef BackgroundWebProcessCounter::Token BackgroundWebProcessToken;
+#endif
+
 class WebProcessProxy : public ChildProcessProxy, public ResponsivenessTimer::Client, private ProcessThrottlerClient {
 public:
     typedef HashMap<uint64_t, RefPtr<WebBackForwardListItem>> WebBackForwardListItemMap;
@@ -102,6 +111,8 @@ public:
     typename WebPageProxyMap::ValuesConstIteratorRange pages() const { return m_pageMap.values(); }
     unsigned pageCount() const { return m_pageMap.size(); }
     unsigned visiblePageCount() const { return m_visiblePageCounter.value(); }
+
+    virtual bool isServiceWorkerProcess() const { return false; }
 
     void addVisitedLinkStore(VisitedLinkStore&);
     void addWebUserContentControllerProxy(WebUserContentControllerProxy&, WebPageCreationParameters&);
@@ -140,7 +151,7 @@ public:
     void releasePageCache();
 
     void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, Function<void(WebsiteData)>&& completionHandler);
-    void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, std::chrono::system_clock::time_point modifiedSince, Function<void()>&& completionHandler);
+    void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, Function<void()>&& completionHandler);
     void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>&, Function<void()>&& completionHandler);
     static void deleteWebsiteDataForTopPrivatelyControlledDomainsInAllPersistentDataStores(OptionSet<WebsiteDataType>, Vector<String>&& topPrivatelyControlledDomains, bool shouldNotifyPages, Function<void (const HashSet<String>&)>&& completionHandler);
     static void topPrivatelyControlledDomainsWithWebsiteData(OptionSet<WebsiteDataType> dataTypes, bool shouldNotifyPage, Function<void(HashSet<String>&&)>&& completionHandler);
@@ -172,8 +183,6 @@ public:
 
     ProcessThrottler& throttler() { return m_throttler; }
 
-    void reinstateNetworkProcessAssertionState(NetworkProcessProxy&);
-
     void isResponsive(WTF::Function<void(bool isWebProcessResponsive)>&&);
     void didReceiveMainThreadPing();
     void didReceiveBackgroundResponsivenessPing();
@@ -181,10 +190,6 @@ public:
     void memoryPressureStatusChanged(bool isUnderMemoryPressure) { m_isUnderMemoryPressure = isUnderMemoryPressure; }
     bool isUnderMemoryPressure() const { return m_isUnderMemoryPressure; }
     void didExceedInactiveMemoryLimitWhileActive();
-
-#if ENABLE(SERVICE_WORKER)
-    void didGetWorkerContextConnection(const IPC::Attachment& connection);
-#endif
 
     void processTerminated();
 
@@ -194,14 +199,14 @@ public:
 
 protected:
     static uint64_t generatePageID();
-    explicit WebProcessProxy(WebProcessPool&, WebsiteDataStore&);
+    WebProcessProxy(WebProcessPool&, WebsiteDataStore&);
 
-private:
-    // From ChildProcessProxy
+    // ChildProcessProxy
     void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
     void connectionWillOpen(IPC::Connection&) override;
     void processWillShutDown(IPC::Connection&) override;
 
+private:
     // Called when the web process has crashed or we know that it will terminate soon.
     // Will potentially cause the WebProcessProxy object to be freed.
     void shutDown();
@@ -221,7 +226,7 @@ private:
     void getPluginProcessConnection(uint64_t pluginProcessToken, Ref<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply>&&);
 #endif
     void getNetworkProcessConnection(Ref<Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply>&&);
-    void getStorageProcessConnection(Ref<Messages::WebProcessProxy::GetStorageProcessConnection::DelayedReply>&&);
+    void getStorageProcessConnection(PAL::SessionID initialSessionID, Ref<Messages::WebProcessProxy::GetStorageProcessConnection::DelayedReply>&&);
 
     bool platformIsBeingDebugged() const;
 
@@ -282,8 +287,8 @@ private:
     ProcessThrottler m_throttler;
     ProcessThrottler::BackgroundActivityToken m_tokenForHoldingLockedFiles;
 #if PLATFORM(IOS)
-    ProcessThrottler::ForegroundActivityToken m_foregroundTokenForNetworkProcess;
-    ProcessThrottler::BackgroundActivityToken m_backgroundTokenForNetworkProcess;
+    ForegroundWebProcessToken m_foregroundToken;
+    BackgroundWebProcessToken m_backgroundToken;
 #endif
 
     HashMap<String, uint64_t> m_pageURLRetainCountMap;

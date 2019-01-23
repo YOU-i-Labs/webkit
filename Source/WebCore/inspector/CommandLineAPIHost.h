@@ -41,8 +41,6 @@ class JSValue;
 namespace Inspector {
 class InspectorAgent;
 class InspectorConsoleAgent;
-class InspectorObject;
-class InspectorValue;
 }
 
 namespace WebCore {
@@ -110,11 +108,11 @@ public:
 private:
     CommandLineAPIHost();
 
-    Inspector::InspectorAgent* m_inspectorAgent {nullptr};
-    Inspector::InspectorConsoleAgent* m_consoleAgent {nullptr};
-    InspectorDOMAgent* m_domAgent {nullptr};
-    InspectorDOMStorageAgent* m_domStorageAgent {nullptr};
-    InspectorDatabaseAgent* m_databaseAgent {nullptr};
+    Inspector::InspectorAgent* m_inspectorAgent { nullptr };
+    Inspector::InspectorConsoleAgent* m_consoleAgent { nullptr };
+    InspectorDOMAgent* m_domAgent { nullptr };
+    InspectorDOMStorageAgent* m_domStorageAgent { nullptr };
+    InspectorDatabaseAgent* m_databaseAgent { nullptr };
 
     std::unique_ptr<InspectableObject> m_inspectedObject; // $0
     Inspector::PerGlobalObjectWrapperWorld m_wrappers;

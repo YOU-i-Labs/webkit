@@ -13,6 +13,7 @@ set(PROJECT_VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_
 
 WEBKIT_OPTION_BEGIN()
 WEBKIT_OPTION_DEFINE(ENABLE_STATIC_JSC "Whether to build JavaScriptCore as a static library." PUBLIC OFF)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_REMOTE_INSPECTOR PRIVATE OFF)
 if (WIN32)
     # FIXME: Enable FTL on Windows. https://bugs.webkit.org/show_bug.cgi?id=145366
     WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_FTL_JIT PRIVATE OFF)
@@ -47,8 +48,8 @@ endif ()
 
 # FIXME: JSCOnly on WIN32 seems to only work with fully static build
 # https://bugs.webkit.org/show_bug.cgi?id=172862
-if (ENABLE_STATIC_JSC OR WIN32)
-    set(JavaScriptCore_LIBRARY_TYPE STATIC)
+if (NOT ENABLE_STATIC_JSC AND NOT WIN32)
+    set(JavaScriptCore_LIBRARY_TYPE SHARED)
 endif ()
 
 if (WIN32)

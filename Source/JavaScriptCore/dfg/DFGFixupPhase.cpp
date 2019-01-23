@@ -200,6 +200,14 @@ private:
                 node,
                 [&] (Edge& edge) {
                     fixEdge<KnownPrimitiveUse>(edge);
+                    // StrCat automatically coerces the values into strings before concatenating them.
+                    // The ECMA spec says that we're not allowed to automatically coerce a Symbol into
+                    // a string. If a Symbol is encountered, a TypeError will be thrown. As a result,
+                    // our runtime functions for this slow path expect that they will never be passed
+                    // Symbols.
+                    m_insertionSet.insertNode(
+                        m_indexInBlock, SpecNone, Check, node->origin,
+                        Edge(edge.node(), NotSymbolUse));
                 });
             break;
         }
@@ -1087,6 +1095,13 @@ private:
             break;
         }
 
+        case RegExpMatchFast: {
+            fixEdge<KnownCellUse>(node->child1());
+            fixEdge<RegExpObjectUse>(node->child2());
+            fixEdge<StringUse>(node->child3());
+            break;
+        }
+
         case StringReplace:
         case StringReplaceRegExp: {
             if (node->child2()->shouldSpeculateString()) {
@@ -1293,14 +1308,13 @@ private:
             break;
         }
 
-        case CallObjectConstructor: {
-            if (node->child1()->shouldSpeculateObject()) {
-                fixEdge<ObjectUse>(node->child1());
-                node->convertToIdentity();
-                break;
-            }
+        case ToObject: {
+            fixupToObject(node);
+            break;
+        }
 
-            fixEdge<UntypedUse>(node->child1());
+        case CallObjectConstructor: {
+            fixupCallObjectConstructor(node);
             break;
         }
 
@@ -1468,8 +1482,7 @@ private:
         case CheckStructure:
         case CheckCell:
         case CreateThis:
-        case GetButterfly:
-        case GetButterflyWithoutCaging: {
+        case GetButterfly: {
             fixEdge<CellUse>(node->child1());
             break;
         }
@@ -1636,6 +1649,7 @@ private:
         case PhantomCreateRest:
         case PhantomSpread:
         case PhantomNewArrayWithSpread:
+        case PhantomNewArrayBuffer:
         case PhantomClonedArguments:
         case GetMyArgumentByVal:
         case GetMyArgumentByValOutOfBounds:
@@ -1718,7 +1732,8 @@ private:
             break;
         }
         case GetPropertyEnumerator: {
-            fixEdge<CellUse>(node->child1());
+            if (node->child1()->shouldSpeculateCell())
+                fixEdge<CellUse>(node->child1());
             break;
         }
         case GetEnumeratorStructurePname: {
@@ -1933,10 +1948,32 @@ private:
             break;
         }
 
+        case NormalizeMapKey: {
+            fixupNormalizeMapKey(node);
+            break;
+        }
+
         case WeakMapGet: {
-            fixEdge<WeakMapObjectUse>(node->child1());
+            if (node->child1().useKind() == WeakMapObjectUse)
+                fixEdge<WeakMapObjectUse>(node->child1());
+            else if (node->child1().useKind() == WeakSetObjectUse)
+                fixEdge<WeakSetObjectUse>(node->child1());
+            else
+                RELEASE_ASSERT_NOT_REACHED();
             fixEdge<ObjectUse>(node->child2());
             fixEdge<Int32Use>(node->child3());
+            break;
+        }
+
+        case SetAdd: {
+            fixEdge<SetObjectUse>(node->child1());
+            fixEdge<Int32Use>(node->child3());
+            break;
+        }
+
+        case MapSet: {
+            fixEdge<MapObjectUse>(m_graph.varArgChild(node, 0));
+            fixEdge<Int32Use>(m_graph.varArgChild(node, 3));
             break;
         }
 
@@ -1953,6 +1990,14 @@ private:
                 fixEdge<UntypedUse>(propertyEdge);
             fixEdge<UntypedUse>(m_graph.varArgChild(node, 2));
             fixEdge<KnownInt32Use>(m_graph.varArgChild(node, 3));
+            break;
+        }
+
+        case StringSlice: {
+            fixEdge<StringUse>(node->child1());
+            fixEdge<Int32Use>(node->child2());
+            if (node->child3())
+                fixEdge<Int32Use>(node->child3());
             break;
         }
 
@@ -2056,7 +2101,6 @@ private:
         case GetArgument:
         case Flush:
         case PhantomLocal:
-        case GetLocalUnlinked:
         case GetGlobalVar:
         case GetGlobalLexicalVariable:
         case NotifyWrite:
@@ -2096,9 +2140,12 @@ private:
         case TailCallVarargs:
         case Throw:
         case CountExecution:
+        case SuperSamplerBegin:
+        case SuperSamplerEnd:
         case ForceOSRExit:
         case CheckBadCell:
         case CheckNotEmpty:
+        case AssertNotEmpty:
         case CheckTraps:
         case Unreachable:
         case ExtractOSREntryLocal:
@@ -2116,6 +2163,8 @@ private:
         case CompareEqPtr:
         case NumberToStringWithValidRadixConstant:
         case GetGlobalThis:
+        case ExtractValueFromWeakMapGet:
+        case CPUIntrinsic:
             break;
 #else
         default:
@@ -2500,6 +2549,72 @@ private:
 
         fixEdge<UntypedUse>(node->child1());
         node->setResult(NodeResultJS);
+    }
+
+    void fixupToObject(Node* node)
+    {
+        if (node->child1()->shouldSpeculateObject()) {
+            fixEdge<ObjectUse>(node->child1());
+            node->convertToIdentity();
+            return;
+        }
+
+        // ToObject(Null/Undefined) can throw an error. We can emit filters to convert ToObject to CallObjectConstructor.
+
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+
+        if (node->child1()->shouldSpeculateString()) {
+            insertCheck<StringUse>(node->child1().node());
+            fixEdge<KnownStringUse>(node->child1());
+            node->convertToNewStringObject(m_graph.registerStructure(globalObject->stringObjectStructure()));
+            return;
+        }
+
+        if (node->child1()->shouldSpeculateSymbol()) {
+            insertCheck<SymbolUse>(node->child1().node());
+            node->convertToCallObjectConstructor(m_graph.freeze(globalObject));
+            return;
+        }
+
+        if (node->child1()->shouldSpeculateNumber()) {
+            insertCheck<NumberUse>(node->child1().node());
+            node->convertToCallObjectConstructor(m_graph.freeze(globalObject));
+            return;
+        }
+
+        if (node->child1()->shouldSpeculateBoolean()) {
+            insertCheck<BooleanUse>(node->child1().node());
+            node->convertToCallObjectConstructor(m_graph.freeze(globalObject));
+            return;
+        }
+
+        fixEdge<UntypedUse>(node->child1());
+    }
+
+    void fixupCallObjectConstructor(Node* node)
+    {
+        if (node->child1()->shouldSpeculateObject()) {
+            fixEdge<ObjectUse>(node->child1());
+            node->convertToIdentity();
+            return;
+        }
+
+        if (node->child1()->shouldSpeculateString()) {
+            auto* globalObject = jsCast<JSGlobalObject*>(node->cellOperand()->cell());
+            insertCheck<StringUse>(node->child1().node());
+            fixEdge<KnownStringUse>(node->child1());
+            node->convertToNewStringObject(m_graph.registerStructure(globalObject->stringObjectStructure()));
+            return;
+        }
+
+        // While ToObject(Null/Undefined) throws an error, CallObjectConstructor(Null/Undefined) generates a new empty object.
+        if (node->child1()->shouldSpeculateOther()) {
+            insertCheck<OtherUse>(node->child1().node());
+            node->convertToNewObject(m_graph.registerStructure(jsCast<JSGlobalObject*>(node->cellOperand()->cell())->objectStructureForObjectConstructor()));
+            return;
+        }
+
+        fixEdge<UntypedUse>(node->child1());
     }
     
     void fixupToStringOrCallStringConstructor(Node* node)
@@ -3106,6 +3221,47 @@ private:
 
         fixEdge<CellUse>(node->child1());
         fixEdge<Int32Use>(node->child2());
+    }
+
+    void fixupNormalizeMapKey(Node* node)
+    {
+        if (node->child1()->shouldSpeculateBoolean()) {
+            fixEdge<BooleanUse>(node->child1());
+            node->convertToIdentity();
+            return;
+        }
+
+        if (node->child1()->shouldSpeculateInt32()) {
+            fixEdge<Int32Use>(node->child1());
+            node->convertToIdentity();
+            return;
+        }
+
+        if (node->child1()->shouldSpeculateSymbol()) {
+            fixEdge<SymbolUse>(node->child1());
+            node->convertToIdentity();
+            return;
+        }
+
+        if (node->child1()->shouldSpeculateObject()) {
+            fixEdge<ObjectUse>(node->child1());
+            node->convertToIdentity();
+            return;
+        }
+
+        if (node->child1()->shouldSpeculateString()) {
+            fixEdge<StringUse>(node->child1());
+            node->convertToIdentity();
+            return;
+        }
+
+        if (node->child1()->shouldSpeculateCell()) {
+            fixEdge<CellUse>(node->child1());
+            node->convertToIdentity();
+            return;
+        }
+
+        fixEdge<UntypedUse>(node->child1());
     }
 
     bool attemptToMakeCallDOM(Node* node)

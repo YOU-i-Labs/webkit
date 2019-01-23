@@ -53,6 +53,7 @@ public:
 };
 
 class RenderTableSection final : public RenderBox {
+    WTF_MAKE_ISO_ALLOCATED(RenderTableSection);
 public:
     RenderTableSection(Element&, RenderStyle&&);
     RenderTableSection(Document&, RenderStyle&&);
@@ -61,7 +62,7 @@ public:
     RenderTableRow* firstRow() const;
     RenderTableRow* lastRow() const;
 
-    void addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild = 0) override;
+    void addChild(RenderTreeBuilder&, RenderPtr<RenderObject> child, RenderObject* beforeChild = 0) override;
 
     std::optional<int> firstLineBaseline() const override;
 
@@ -126,6 +127,7 @@ public:
     unsigned numColumns() const;
     void recalcCells();
     void recalcCellsIfNeeded();
+    void removeRedundantColumns();
 
     bool needsCellRecalc() const { return m_needsCellRecalc; }
     void setNeedsCellRecalc();

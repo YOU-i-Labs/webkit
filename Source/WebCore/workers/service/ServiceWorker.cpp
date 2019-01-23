@@ -28,31 +28,69 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include "Document.h"
 #include "EventNames.h"
 #include "MessagePort.h"
 #include "SWClientConnection.h"
 #include "ScriptExecutionContext.h"
 #include "SerializedScriptValue.h"
+#include "ServiceWorkerClientData.h"
+#include "ServiceWorkerGlobalScope.h"
 #include "ServiceWorkerProvider.h"
 #include <runtime/JSCJSValueInlines.h>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
-ServiceWorker::ServiceWorker(ScriptExecutionContext& context, uint64_t serviceWorkerIdentifier, const URL& scriptURL)
-    : ContextDestructionObserver(&context)
-    , m_identifier(serviceWorkerIdentifier)
-    , m_scriptURL(scriptURL)
+Ref<ServiceWorker> ServiceWorker::getOrCreate(ScriptExecutionContext& context, ServiceWorkerData&& data)
 {
+    if (auto existingServiceWorker = context.serviceWorker(data.identifier))
+        return *existingServiceWorker;
+    return adoptRef(*new ServiceWorker(context, WTFMove(data)));
 }
 
-void ServiceWorker::setState(State state)
+ServiceWorker::ServiceWorker(ScriptExecutionContext& context, ServiceWorkerData&& data)
+    : ActiveDOMObject(&context)
+    , m_data(WTFMove(data))
 {
-    m_state = state;
-    dispatchEvent(Event::create(eventNames().statechangeEvent, false, false));
+    suspendIfNeeded();
+
+    context.registerServiceWorker(*this);
+
+    relaxAdoptionRequirement();
+    updatePendingActivityForEventDispatch();
+}
+
+ServiceWorker::~ServiceWorker()
+{
+    if (auto* context = scriptExecutionContext())
+        context->unregisterServiceWorker(*this);
+}
+
+void ServiceWorker::scheduleTaskToUpdateState(State state)
+{
+    auto* context = scriptExecutionContext();
+    if (!context)
+        return;
+
+    context->postTask([this, protectedThis = makeRef(*this), state](ScriptExecutionContext&) {
+        ASSERT(this->state() != state);
+
+        m_data.state = state;
+        if (state != State::Installing && !m_isStopped) {
+            ASSERT(m_pendingActivityForEventDispatch);
+            dispatchEvent(Event::create(eventNames().statechangeEvent, false, false));
+        }
+
+        updatePendingActivityForEventDispatch();
+    });
 }
 
 ExceptionOr<void> ServiceWorker::postMessage(ScriptExecutionContext& context, JSC::JSValue messageValue, Vector<JSC::Strong<JSC::JSObject>>&& transfer)
 {
+    if (m_isStopped)
+        return Exception { InvalidStateError };
+
     if (state() == State::Redundant)
         return Exception { InvalidStateError, ASCIILiteral("Service Worker state is redundant") };
 
@@ -76,9 +114,18 @@ ExceptionOr<void> ServiceWorker::postMessage(ScriptExecutionContext& context, JS
     if (channels && !channels->isEmpty())
         return Exception { NotSupportedError, ASCIILiteral("Passing MessagePort objects to postMessage is not yet supported") };
 
-    auto& swConnection = ServiceWorkerProvider::singleton().serviceWorkerConnectionForSession(context.sessionID());
-    swConnection.postMessageToServiceWorkerGlobalScope(m_identifier, message.releaseReturnValue(), context);
+    ServiceWorkerOrClientIdentifier sourceIdentifier;
+    if (is<ServiceWorkerGlobalScope>(context))
+        sourceIdentifier = downcast<ServiceWorkerGlobalScope>(context).thread().identifier();
+    else {
+        auto& connection = ServiceWorkerProvider::singleton().serviceWorkerConnectionForSession(context.sessionID());
+        sourceIdentifier = ServiceWorkerClientIdentifier { connection.serverConnectionIdentifier(), downcast<Document>(context).identifier() };
+    }
 
+    callOnMainThread([sessionID = context.sessionID(), destinationIdentifier = identifier(), message = WTFMove(message), sourceIdentifier = WTFMove(sourceIdentifier)]() mutable {
+        auto& connection = ServiceWorkerProvider::singleton().serviceWorkerConnectionForSession(sessionID);
+        connection.postMessageToServiceWorker(destinationIdentifier, message.releaseReturnValue(), sourceIdentifier);
+    });
     return { };
 }
 
@@ -90,6 +137,37 @@ EventTargetInterface ServiceWorker::eventTargetInterface() const
 ScriptExecutionContext* ServiceWorker::scriptExecutionContext() const
 {
     return ContextDestructionObserver::scriptExecutionContext();
+}
+
+const char* ServiceWorker::activeDOMObjectName() const
+{
+    return "ServiceWorker";
+}
+
+bool ServiceWorker::canSuspendForDocumentSuspension() const
+{
+    // FIXME: We should do better as this prevents the page from entering PageCache when there is a Service Worker.
+    return !hasPendingActivity();
+}
+
+void ServiceWorker::stop()
+{
+    m_isStopped = true;
+    removeAllEventListeners();
+    scriptExecutionContext()->unregisterServiceWorker(*this);
+    updatePendingActivityForEventDispatch();
+}
+
+void ServiceWorker::updatePendingActivityForEventDispatch()
+{
+    // ServiceWorkers can dispatch events until they become redundant or they are stopped.
+    if (m_isStopped || state() == State::Redundant) {
+        m_pendingActivityForEventDispatch = nullptr;
+        return;
+    }
+    if (m_pendingActivityForEventDispatch)
+        return;
+    m_pendingActivityForEventDispatch = makePendingActivity(*this);
 }
 
 } // namespace WebCore

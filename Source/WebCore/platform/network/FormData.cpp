@@ -81,16 +81,17 @@ Ref<FormData> FormData::create(const void* data, size_t size)
 
 Ref<FormData> FormData::create(const CString& string)
 {
-    auto result = create();
-    result->appendData(string.data(), string.length());
-    return result;
+    return create(string.data(), string.length());
 }
 
 Ref<FormData> FormData::create(const Vector<char>& vector)
 {
-    auto result = create();
-    result->appendData(vector.data(), vector.size());
-    return result;
+    return create(vector.data(), vector.size());
+}
+
+Ref<FormData> FormData::create(const Vector<uint8_t>& vector)
+{
+    return create(vector.data(), vector.size());
 }
 
 Ref<FormData> FormData::create(const DOMFormData& formData, EncodingType encodingType)
@@ -114,7 +115,9 @@ Ref<FormData> FormData::copy() const
 
 Ref<FormData> FormData::isolatedCopy() const
 {
-    // FIXME: isolatedCopy() (historically deepCopy()) only copies certain values from `this`. Why is that?
+    // FIXME: isolatedCopy() does not copy m_identifier, m_boundary, or m_containsPasswordData.
+    // Is all of that correct and intentional?
+
     auto formData = create();
 
     formData->m_alwaysStream = m_alwaysStream;
@@ -135,12 +138,12 @@ uint64_t FormDataElement::lengthInBytes() const
         if (m_fileLength != BlobDataItem::toEndOfFile)
             return m_fileLength;
         long long fileSize;
-        if (getFileSize(m_shouldGenerateFile ? m_generatedFilename : m_filename, fileSize))
+        if (FileSystem::getFileSize(m_shouldGenerateFile ? m_generatedFilename : m_filename, fileSize))
             return fileSize;
         return 0;
     }
     case Type::EncodedBlob:
-        return blobRegistry().blobSize(m_url);
+        return ThreadableBlobRegistry::blobSize(m_url);
     }
     ASSERT_NOT_REACHED();
     return 0;
@@ -167,7 +170,7 @@ void FormData::appendData(const void* data, size_t size)
 
 void FormData::appendFile(const String& filename, bool shouldGenerateFile)
 {
-    m_elements.append(FormDataElement(filename, 0, BlobDataItem::toEndOfFile, invalidFileTime(), shouldGenerateFile));
+    m_elements.append(FormDataElement(filename, 0, BlobDataItem::toEndOfFile, FileSystem::invalidFileTime(), shouldGenerateFile));
     m_lengthInBytes = std::nullopt;
 }
 
@@ -183,9 +186,9 @@ void FormData::appendBlob(const URL& blobURL)
     m_lengthInBytes = std::nullopt;
 }
 
-static CString normalizeStringData(TextEncoding& encoding, const String& value)
+static Vector<uint8_t> normalizeStringData(TextEncoding& encoding, const String& value)
 {
-    return normalizeLineEndingsToCRLF(encoding.encode(value, EntitiesForUnencodables));
+    return normalizeLineEndingsToCRLF(encoding.encode(value, UnencodableHandling::Entities));
 }
 
 void FormData::appendMultiPartFileValue(const File& file, Vector<char>& header, TextEncoding& encoding, Document* document)
@@ -230,7 +233,7 @@ void FormData::appendMultiPartStringValue(const String& string, Vector<char>& he
     appendData(header.data(), header.size());
 
     auto normalizedStringData = normalizeStringData(encoding, string);
-    appendData(normalizedStringData.data(), normalizedStringData.length());
+    appendData(normalizedStringData.data(), normalizedStringData.size());
 }
 
 void FormData::appendMultiPartKeyValuePairItems(const DOMFormData& formData, Document* document)
@@ -408,9 +411,9 @@ void FormData::removeGeneratedFilesIfNeeded()
         if (element.m_type == FormDataElement::Type::EncodedFile && element.m_ownsGeneratedFile) {
             ASSERT(!element.m_generatedFilename.isEmpty());
             ASSERT(element.m_shouldGenerateFile);
-            String directory = directoryName(element.m_generatedFilename);
-            deleteFile(element.m_generatedFilename);
-            deleteEmptyDirectory(directory);
+            String directory = FileSystem::directoryName(element.m_generatedFilename);
+            FileSystem::deleteFile(element.m_generatedFilename);
+            FileSystem::deleteEmptyDirectory(directory);
             element.m_generatedFilename = String();
             element.m_ownsGeneratedFile = false;
         }
@@ -426,6 +429,24 @@ uint64_t FormData::lengthInBytes() const
         m_lengthInBytes = length;
     }
     return *m_lengthInBytes;
+}
+
+RefPtr<SharedBuffer> FormData::asSharedBuffer() const
+{
+    for (auto& element : m_elements) {
+        if (element.m_type != FormDataElement::Type::Data)
+            return nullptr;
+    }
+    return SharedBuffer::create(flatten());
+}
+
+URL FormData::asBlobURL() const
+{
+    if (m_elements.size() != 1)
+        return { };
+
+    ASSERT(m_elements.first().m_type == FormDataElement::Type::EncodedBlob || m_elements.first().m_url.isNull());
+    return m_elements.first().m_url;
 }
 
 } // namespace WebCore

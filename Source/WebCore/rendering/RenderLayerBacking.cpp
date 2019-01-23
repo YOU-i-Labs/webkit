@@ -592,7 +592,7 @@ void RenderLayerBacking::updateCompositedBounds()
         auto* rootLayer = view.layer();
 
         LayoutRect clippingBounds;
-        if (renderer().style().position() == FixedPosition && renderer().container() == &view)
+        if (renderer().isFixedPositioned() && renderer().container() == &view)
             clippingBounds = view.frameView().rectForFixedPositionLayout();
         else
             clippingBounds = view.unscaledDocumentRect();
@@ -629,7 +629,7 @@ void RenderLayerBacking::updateAfterWidgetResize()
     }
 }
 
-void RenderLayerBacking::updateAfterLayout(UpdateAfterLayoutFlags flags)
+void RenderLayerBacking::updateAfterLayout(OptionSet<UpdateAfterLayoutFlags> flags)
 {
     LOG(Compositing, "RenderLayerBacking %p updateAfterLayout (layer %p)", this, &m_owningLayer);
 
@@ -642,18 +642,19 @@ void RenderLayerBacking::updateAfterLayout(UpdateAfterLayoutFlags flags)
         // The solution is to update compositing children of this layer here,
         // via updateCompositingChildrenGeometry().
         updateCompositedBounds();
-        compositor().updateCompositingDescendantGeometry(m_owningLayer, m_owningLayer, flags & CompositingChildrenOnly);
+        compositor().updateCompositingDescendantGeometry(m_owningLayer, m_owningLayer);
         
-        if (flags & IsUpdateRoot) {
+        if (flags.contains(UpdateAfterLayoutFlags::IsUpdateRoot)) {
             updateGeometry();
+            updateAfterDescendants();
             compositor().updateRootLayerPosition();
             auto* stackingContainer = m_owningLayer.enclosingStackingContainer();
             if (!compositor().compositingLayersNeedRebuild() && stackingContainer && (stackingContainer != &m_owningLayer))
-                compositor().updateCompositingDescendantGeometry(*stackingContainer, *stackingContainer, flags & CompositingChildrenOnly);
+                compositor().updateCompositingDescendantGeometry(*stackingContainer, *stackingContainer);
         }
     }
     
-    if (flags & NeedsFullRepaint && canIssueSetNeedsDisplay())
+    if (flags.contains(UpdateAfterLayoutFlags::NeedsFullRepaint) && canIssueSetNeedsDisplay())
         setContentsNeedDisplay();
 }
 
@@ -984,7 +985,7 @@ void RenderLayerBacking::updateGeometry()
 
     auto computeAnimationExtent = [&] () -> std::optional<FloatRect> {
         LayoutRect animatedBounds;
-        if (isRunningAcceleratedTransformAnimation && m_owningLayer.getOverlapBoundsIncludingChildrenAccountingForTransformAnimations(animatedBounds))
+        if (isRunningAcceleratedTransformAnimation && m_owningLayer.getOverlapBoundsIncludingChildrenAccountingForTransformAnimations(animatedBounds, RenderLayer::IncludeCompositedDescendants))
             return FloatRect(animatedBounds);
         return { };
     };
@@ -1018,7 +1019,7 @@ void RenderLayerBacking::updateGeometry()
         positionOverflowControlsLayers();
     }
 
-    if (!m_isMainFrameRenderViewLayer) {
+    if (!m_isMainFrameRenderViewLayer && !m_isFrameLayerWithTiledBacking) {
         // For non-root layers, background is always painted by the primary graphics layer.
         ASSERT(!m_backgroundLayer);
         // Subpixel offset from graphics layer or size changed.
@@ -1420,7 +1421,15 @@ bool RenderLayerBacking::updateDescendantClippingLayer(bool needsDescendantClip)
 
 void RenderLayerBacking::setBackgroundLayerPaintsFixedRootBackground(bool backgroundLayerPaintsFixedRootBackground)
 {
+    if (backgroundLayerPaintsFixedRootBackground == m_backgroundLayerPaintsFixedRootBackground)
+        return;
+
     m_backgroundLayerPaintsFixedRootBackground = backgroundLayerPaintsFixedRootBackground;
+
+    if (m_backgroundLayerPaintsFixedRootBackground) {
+        ASSERT(m_isFrameLayerWithTiledBacking);
+        renderer().view().frameView().removeSlowRepaintObject(*renderer().view().rendererForRootBackground());
+    }
 }
 
 bool RenderLayerBacking::requiresHorizontalScrollbarLayer() const
@@ -1922,12 +1931,14 @@ void RenderLayerBacking::updateRootLayerConfiguration()
     bool viewIsTransparent = compositor().viewHasTransparentBackground(&backgroundColor);
 
     if (m_backgroundLayerPaintsFixedRootBackground && m_backgroundLayer) {
-        m_backgroundLayer->setBackgroundColor(backgroundColor);
-        m_backgroundLayer->setContentsOpaque(!viewIsTransparent);
+        if (m_isMainFrameRenderViewLayer) {
+            m_backgroundLayer->setBackgroundColor(backgroundColor);
+            m_backgroundLayer->setContentsOpaque(!viewIsTransparent);
+        }
 
         m_graphicsLayer->setBackgroundColor(Color());
         m_graphicsLayer->setContentsOpaque(false);
-    } else {
+    } else if (m_isMainFrameRenderViewLayer) {
         m_graphicsLayer->setBackgroundColor(backgroundColor);
         m_graphicsLayer->setContentsOpaque(!viewIsTransparent);
     }
@@ -2212,7 +2223,7 @@ void RenderLayerBacking::contentChanged(ContentChangeType changeType)
     if ((changeType == MaskImageChanged) && m_maskLayer) {
         // The composited layer bounds relies on box->maskClipRect(), which changes
         // when the mask image becomes available.
-        updateAfterLayout(CompositingChildrenOnly | IsUpdateRoot);
+        updateAfterLayout(UpdateAfterLayoutFlags::IsUpdateRoot);
     }
 
 #if ENABLE(WEBGL) || ENABLE(ACCELERATED_2D_CANVAS)

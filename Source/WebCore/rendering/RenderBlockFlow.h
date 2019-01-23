@@ -33,7 +33,6 @@
 namespace WebCore {
 
 class FloatWithRect;
-class LayoutStateMaintainer;
 class LineBreaker;
 class LineInfo;
 class RenderMultiColumnFlow;
@@ -51,6 +50,7 @@ enum LineCount {
 #endif
 
 class RenderBlockFlow : public RenderBlock {
+    WTF_MAKE_ISO_ALLOCATED(RenderBlockFlow);
 public:
     RenderBlockFlow(Element&, RenderStyle&&);
     RenderBlockFlow(Document&, RenderStyle&&);
@@ -257,7 +257,7 @@ public:
     void clearDidBreakAtLineToAvoidWidow();
     void setDidBreakAtLineToAvoidWidow();
     bool didBreakAtLineToAvoidWidow() const { return hasRareBlockFlowData() && rareBlockFlowData()->m_didBreakAtLineToAvoidWidow; }
-    bool relayoutToAvoidWidows(LayoutStateMaintainer&);
+    bool relayoutToAvoidWidows();
 
     RootInlineBox* lineGridBox() const { return hasRareBlockFlowData() ? rareBlockFlowData()->m_lineGridBox.get() : nullptr; }
     void setLineGridBox(std::unique_ptr<RootInlineBox> box)
@@ -378,7 +378,7 @@ public:
     LayoutUnit logicalHeightForChildForFragmentation(const RenderBox& child) const;
     bool hasNextPage(LayoutUnit logicalOffset, PageBoundaryRule = ExcludePageBoundary) const;
 
-    void addChild(RenderPtr<RenderObject> newChild, RenderObject* beforeChild = 0) override;
+    void addChild(RenderTreeBuilder&, RenderPtr<RenderObject> newChild, RenderObject* beforeChild = 0) override;
     RenderPtr<RenderObject> takeChild(RenderObject&) override;
 
     void updateColumnProgressionFromStyle(RenderStyle&);
@@ -393,6 +393,8 @@ public:
     // unbreakable content, between orphans and widows, etc.). This will be used as a hint to the
     // column balancer to help set a good minimum column height.
     void updateMinimumPageHeight(LayoutUnit offset, LayoutUnit minHeight);
+
+    void addFloatsToNewParent(RenderBlockFlow& toBlockFlow) const;
 
 protected:
     void computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const override;
@@ -453,8 +455,6 @@ protected:
     bool isTopLayoutOverflowAllowed() const override;
     bool isLeftLayoutOverflowAllowed() const override;
 
-    void addFloatsToNewParent(RenderBlockFlow& toBlockFlow) const;
-    
     virtual void computeColumnCountAndWidth();
 
     virtual void cachePriorCharactersIfNeeded(const LazyLineBreakIterator&) {};
@@ -475,7 +475,7 @@ private:
     void paintInlineChildren(PaintInfo&, const LayoutPoint&) override;
     void paintFloats(PaintInfo&, const LayoutPoint&, bool preservePhase = false) override;
 
-    void moveAllChildrenIncludingFloatsTo(RenderBlock& toBlock, bool fullRemoveInsert) override;
+    void moveAllChildrenIncludingFloatsTo(RenderBlock& toBlock, RenderBoxModelObject::NormalizeAfterInsertion) override;
     void repaintOverhangingFloats(bool paintAllDescendants) final;
     void clipOutFloatingObjects(RenderBlock&, const PaintInfo*, const LayoutPoint&, const LayoutSize&) override;
 
@@ -600,7 +600,7 @@ public:
     void updateFragmentForLine(RootInlineBox*) const;
 
     // Pagination routines.
-    bool relayoutForPagination(LayoutStateMaintainer&);
+    bool relayoutForPagination();
 
     bool hasRareBlockFlowData() const { return m_rareBlockFlowData.get(); }
     RenderBlockFlowRareData* rareBlockFlowData() const { ASSERT_WITH_SECURITY_IMPLICATION(hasRareBlockFlowData()); return m_rareBlockFlowData.get(); }

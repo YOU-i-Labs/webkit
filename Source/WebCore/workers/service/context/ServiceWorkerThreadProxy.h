@@ -30,27 +30,57 @@
 #include "CacheStorageConnection.h"
 #include "Document.h"
 #include "Page.h"
+#include "SecurityOrigin.h"
+#include "ServiceWorkerDebuggable.h"
+#include "ServiceWorkerIdentifier.h"
+#include "ServiceWorkerInspectorProxy.h"
 #include "ServiceWorkerThread.h"
+#include "WorkerDebuggerProxy.h"
 #include "WorkerLoaderProxy.h"
 #include <wtf/HashMap.h>
 
 namespace WebCore {
+
 class CacheStorageProvider;
+class FetchLoader;
+class FetchLoaderClient;
 class PageConfiguration;
+class ServiceWorkerInspectorProxy;
 struct ServiceWorkerContextData;
 
-class ServiceWorkerThreadProxy final : public ThreadSafeRefCounted<ServiceWorkerThreadProxy>, public WorkerLoaderProxy {
+class ServiceWorkerThreadProxy final : public ThreadSafeRefCounted<ServiceWorkerThreadProxy>, public WorkerLoaderProxy, public WorkerDebuggerProxy {
 public:
-    WEBCORE_EXPORT static Ref<ServiceWorkerThreadProxy> create(PageConfiguration&&, uint64_t serverConnectionIdentifier, const ServiceWorkerContextData&, PAL::SessionID, CacheStorageProvider&);
+    template<typename... Args> static Ref<ServiceWorkerThreadProxy> create(Args&&... args)
+    {
+        return adoptRef(*new ServiceWorkerThreadProxy(std::forward<Args>(args)...));
+    }
+    ~ServiceWorkerThreadProxy();
 
-    uint64_t identifier() const { return m_serviceWorkerThread->identifier(); }
+    ServiceWorkerIdentifier identifier() const { return m_serviceWorkerThread->identifier(); }
     ServiceWorkerThread& thread() { return m_serviceWorkerThread.get(); }
+    ServiceWorkerInspectorProxy& inspectorProxy() { return m_inspectorProxy; }
+
+    bool isTerminatingOrTerminated() const { return m_isTerminatingOrTerminated; }
+    void setAsTerminatingOrTerminated() { m_isTerminatingOrTerminated = true; }
+
+    WEBCORE_EXPORT std::unique_ptr<FetchLoader> createBlobLoader(FetchLoaderClient&, const URL&);
+
+    // Public only for testing purposes.
+    WEBCORE_TESTSUPPORT_EXPORT void notifyNetworkStateChange(bool isOnline);
 
 private:
-    ServiceWorkerThreadProxy(PageConfiguration&&, uint64_t serverConnectionIdentifier, const ServiceWorkerContextData&, PAL::SessionID, CacheStorageProvider&);
+    WEBCORE_EXPORT ServiceWorkerThreadProxy(PageConfiguration&&, const ServiceWorkerContextData&, PAL::SessionID, String&& userAgent, CacheStorageProvider&, SecurityOrigin::StorageBlockingPolicy);
+
+    WEBCORE_EXPORT static void networkStateChanged(bool isOnLine);
+
+    // WorkerLoaderProxy
     bool postTaskForModeToWorkerGlobalScope(ScriptExecutionContext::Task&&, const String& mode) final;
     void postTaskToLoader(ScriptExecutionContext::Task&&) final;
     Ref<CacheStorageConnection> createCacheStorageConnection() final;
+
+    // WorkerDebuggerProxy
+    void postMessageToDebugger(const String&) final;
+    void setResourceCachingDisabled(bool) final;
 
     UniqueRef<Page> m_page;
     Ref<Document> m_document;
@@ -58,6 +88,12 @@ private:
     CacheStorageProvider& m_cacheStorageProvider;
     RefPtr<CacheStorageConnection> m_cacheStorageConnection;
     PAL::SessionID m_sessionID;
+    bool m_isTerminatingOrTerminated { false };
+
+    ServiceWorkerInspectorProxy m_inspectorProxy;
+#if ENABLE(REMOTE_INSPECTOR)
+    std::unique_ptr<ServiceWorkerDebuggable> m_remoteDebuggable;
+#endif
 };
 
 } // namespace WebKit

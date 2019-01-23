@@ -28,11 +28,13 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include "CrossOriginAccessControl.h"
 #include "EventNames.h"
 #include "FetchEvent.h"
 #include "FetchRequest.h"
 #include "FetchResponse.h"
 #include "ResourceRequest.h"
+#include "ServiceWorkerClientIdentifier.h"
 #include "WorkerGlobalScope.h"
 
 namespace WebCore {
@@ -56,7 +58,9 @@ static void processResponse(Ref<Client>&& client, FetchResponse* response)
                 client->didFail();
                 return;
             }
-            client->didReceiveData(result.releaseReturnValue().releaseNonNull());
+
+            if (auto buffer = result.releaseReturnValue())
+                client->didReceiveData(buffer.releaseNonNull());
             client->didFinish();
         });
         return;
@@ -68,41 +72,77 @@ static void processResponse(Ref<Client>&& client, FetchResponse* response)
                 client->didFail();
                 return;
             }
-            client->didReceiveData(result.releaseReturnValue().releaseNonNull());
+
+            if (auto buffer = result.releaseReturnValue())
+                client->didReceiveData(buffer.releaseNonNull());
             client->didFinish();
         });
         return;
     }
 
     auto body = response->consumeBody();
-    WTF::switchOn(body, [] (Ref<FormData>&) {
-        // FIXME: Support FormData response bodies.
+    WTF::switchOn(body, [&] (Ref<FormData>& formData) {
+        client->didReceiveFormDataAndFinish(WTFMove(formData));
     }, [&] (Ref<SharedBuffer>& buffer) {
         client->didReceiveData(WTFMove(buffer));
-    }, [] (std::nullptr_t&) {
+        client->didFinish();
+    }, [&] (std::nullptr_t&) {
+        client->didFinish();
     });
-
-    client->didFinish();
 }
 
-void dispatchFetchEvent(Ref<Client>&& client, WorkerGlobalScope& globalScope, ResourceRequest&& request, FetchOptions&& options)
+void dispatchFetchEvent(Ref<Client>&& client, ServiceWorkerGlobalScope& globalScope, std::optional<ServiceWorkerClientIdentifier> clientId, ResourceRequest&& request, String&& referrer, FetchOptions&& options)
 {
-    ASSERT(globalScope.isServiceWorkerGlobalScope());
-
-    // FIXME: Set request body and referrer.
     auto requestHeaders = FetchHeaders::create(FetchHeaders::Guard::Immutable, HTTPHeaderMap { request.httpHeaderFields() });
-    auto fetchRequest = FetchRequest::create(globalScope, std::nullopt, WTFMove(requestHeaders),  WTFMove(request), WTFMove(options), { });
 
-    // FIXME: Initialize other FetchEvent::Init fields.
+    bool isNavigation = options.mode == FetchOptions::Mode::Navigate;
+    bool isNonSubresourceRequest = WebCore::isNonSubresourceRequest(options.destination);
+
+    auto* formData = request.httpBody();
+    std::optional<FetchBody> body;
+    if (formData && !formData->isEmpty()) {
+        body = FetchBody::fromFormData(*formData);
+        if (!body) {
+            client->didNotHandle();
+            return;
+        }
+    }
+    // FIXME: loading code should set redirect mode to manual.
+    if (isNavigation)
+        options.redirect = FetchOptions::Redirect::Manual;
+
+    auto fetchRequest = FetchRequest::create(globalScope, WTFMove(body), WTFMove(requestHeaders),  WTFMove(request), WTFMove(options), WTFMove(referrer));
+
     FetchEvent::Init init;
     init.request = WTFMove(fetchRequest);
+    if (isNavigation) {
+        // FIXME: Set reservedClientId.
+        if (clientId)
+            init.targetClientId = clientId->toString();
+    } else if (clientId)
+        init.clientId = clientId->toString();
+    init.cancelable = true;
     auto event = FetchEvent::create(eventNames().fetchEvent, WTFMove(init), Event::IsTrusted::Yes);
 
-    event->onResponse([client = WTFMove(client)] (FetchResponse* response) mutable {
+    event->onResponse([client = client.copyRef()] (FetchResponse* response) mutable {
         processResponse(WTFMove(client), response);
     });
 
     globalScope.dispatchEvent(event);
+
+    if (!event->respondWithEntered()) {
+        if (event->defaultPrevented()) {
+            client->didFail();
+            return;
+        }
+        client->didNotHandle();
+    }
+
+    globalScope.updateExtendedEventsSet(event.ptr());
+
+    auto& registration = globalScope.registration();
+    if (isNonSubresourceRequest || registration.needsUpdate())
+        registration.softUpdate();
 }
 
 } // namespace ServiceWorkerFetch

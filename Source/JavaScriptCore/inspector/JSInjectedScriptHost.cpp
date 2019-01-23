@@ -58,7 +58,6 @@
 #include "SetIteratorPrototype.h"
 #include "SourceCode.h"
 #include "TypedArrayInlines.h"
-#include "WeakMapBase.h"
 
 using namespace JSC;
 
@@ -272,6 +271,10 @@ JSValue JSInjectedScriptHost::getInternalProperties(ExecState* exec)
     auto scope = DECLARE_THROW_SCOPE(vm);
     JSValue value = exec->uncheckedArgument(0);
 
+    JSValue internalProperties = impl().getInternalProperties(vm, exec, value);
+    if (internalProperties)
+        return internalProperties;
+
     if (JSPromise* promise = jsDynamicCast<JSPromise*>(vm, value)) {
         unsigned index = 0;
         JSArray* array = constructEmptyArray(exec, nullptr);
@@ -445,7 +448,6 @@ JSValue JSInjectedScriptHost::weakMapEntries(ExecState* exec)
     if (!weakMap)
         return jsUndefined();
 
-    unsigned fetched = 0;
     unsigned numberToFetch = 100;
 
     JSValue numberToFetchArg = exec->argument(1);
@@ -455,14 +457,16 @@ JSValue JSInjectedScriptHost::weakMapEntries(ExecState* exec)
 
     JSArray* array = constructEmptyArray(exec, nullptr);
     RETURN_IF_EXCEPTION(scope, JSValue());
-    for (auto it = weakMap->begin(); it != weakMap->end(); ++it) {
+
+    MarkedArgumentBuffer buffer;
+    weakMap->takeSnapshot(buffer, numberToFetch);
+
+    for (unsigned index = 0; index < buffer.size(); index += 2) {
         JSObject* entry = constructEmptyObject(exec);
-        entry->putDirect(vm, Identifier::fromString(exec, "key"), it->key);
-        entry->putDirect(vm, Identifier::fromString(exec, "value"), it->value.get());
-        array->putDirectIndex(exec, fetched++, entry);
+        entry->putDirect(vm, Identifier::fromString(exec, "key"), buffer.at(index));
+        entry->putDirect(vm, Identifier::fromString(exec, "value"), buffer.at(index + 1));
+        array->putDirectIndex(exec, index / 2, entry);
         RETURN_IF_EXCEPTION(scope, JSValue());
-        if (numberToFetch && fetched >= numberToFetch)
-            break;
     }
 
     return array;
@@ -494,7 +498,6 @@ JSValue JSInjectedScriptHost::weakSetEntries(ExecState* exec)
     if (!weakSet)
         return jsUndefined();
 
-    unsigned fetched = 0;
     unsigned numberToFetch = 100;
 
     JSValue numberToFetchArg = exec->argument(1);
@@ -504,13 +507,15 @@ JSValue JSInjectedScriptHost::weakSetEntries(ExecState* exec)
 
     JSArray* array = constructEmptyArray(exec, nullptr);
     RETURN_IF_EXCEPTION(scope, JSValue());
-    for (auto it = weakSet->begin(); it != weakSet->end(); ++it) {
+
+    MarkedArgumentBuffer buffer;
+    weakSet->takeSnapshot(buffer, numberToFetch);
+
+    for (unsigned index = 0; index < buffer.size(); ++index) {
         JSObject* entry = constructEmptyObject(exec);
-        entry->putDirect(vm, Identifier::fromString(exec, "value"), it->key);
-        array->putDirectIndex(exec, fetched++, entry);
+        entry->putDirect(vm, Identifier::fromString(exec, "value"), buffer.at(index));
+        array->putDirectIndex(exec, index, entry);
         RETURN_IF_EXCEPTION(scope, JSValue());
-        if (numberToFetch && fetched >= numberToFetch)
-            break;
     }
 
     return array;

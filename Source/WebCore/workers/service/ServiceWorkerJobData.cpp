@@ -30,25 +30,26 @@
 
 namespace WebCore {
 
-ServiceWorkerJobData::ServiceWorkerJobData(uint64_t jobIdentifier, uint64_t connectionIdentifier)
-    : ThreadSafeIdentified(jobIdentifier)
-    , m_connectionIdentifier(connectionIdentifier)
+ServiceWorkerJobData::ServiceWorkerJobData(const Identifier& identifier)
+    : m_identifier(identifier)
 {
 }
 
-ServiceWorkerJobData::ServiceWorkerJobData(uint64_t connectionIdentifier)
-    : m_connectionIdentifier(connectionIdentifier)
+ServiceWorkerJobData::ServiceWorkerJobData(SWServerConnectionIdentifier connectionIdentifier)
+    : m_identifier { connectionIdentifier, generateThreadSafeObjectIdentifier<ServiceWorkerJobIdentifierType>() }
 {
 }
 
 ServiceWorkerRegistrationKey ServiceWorkerJobData::registrationKey() const
 {
-    return { clientCreationURL, topOrigin };
+    URL scope = scopeURL;
+    scope.removeFragmentIdentifier();
+    return { SecurityOriginData { topOrigin }, WTFMove(scope) };
 }
 
 ServiceWorkerJobData ServiceWorkerJobData::isolatedCopy() const
 {
-    ServiceWorkerJobData result { identifier(), m_connectionIdentifier };
+    ServiceWorkerJobData result { identifier() };
     result.type = type;
 
     result.scriptURL = scriptURL.isolatedCopy();

@@ -26,23 +26,38 @@
 #pragma once
 
 #include "WasmName.h"
+#include <wtf/Noncopyable.h>
+#include <wtf/text/CString.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Vector.h>
+#include <utility>
 
 namespace JSC { namespace Wasm {
 
-struct NameSection : ThreadSafeRefCounted<NameSection> {
-    static Ref<NameSection> create()
+struct NameSection : public ThreadSafeRefCounted<NameSection> {
+    WTF_MAKE_NONCOPYABLE(NameSection);
+
+public:
+    NameSection(const std::optional<CString> &hash)
+        : moduleHash(hash ? hash->length() : 3)
     {
-        return adoptRef(*new NameSection());
+        if (hash) {
+            for (size_t i = 0; i < hash->length(); ++i)
+                moduleHash[i] = static_cast<uint8_t>(*(hash->data() + i));
+        } else {
+            moduleHash[0] = '<';
+            moduleHash[1] = '?';
+            moduleHash[2] = '>';
+        }
     }
 
-    Name moduleName;
-    Vector<Name> functionNames;
-    const Name* get(size_t functionIndexSpace)
+    std::pair<const Name*, RefPtr<NameSection>> get(size_t functionIndexSpace)
     {
-        return functionIndexSpace < functionNames.size() ? &functionNames[functionIndexSpace] : nullptr;
+        return std::make_pair(functionIndexSpace < functionNames.size() ? &functionNames[functionIndexSpace] : nullptr, makeRefPtr(this));
     }
+    Name moduleName;
+    Name moduleHash;
+    Vector<Name> functionNames;
 };
 
 } } // namespace JSC::Wasm

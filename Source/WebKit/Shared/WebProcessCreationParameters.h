@@ -95,6 +95,7 @@ struct WebProcessCreationParameters {
     String mediaKeyStorageDirectory;
 
     String webCoreLoggingChannels;
+    String webKitLoggingChannels;
 
     Vector<String> urlSchemesRegisteredAsEmptyDocument;
     Vector<String> urlSchemesRegisteredAsSecure;
@@ -106,6 +107,7 @@ struct WebProcessCreationParameters {
     Vector<String> urlSchemesRegisteredAsCORSEnabled;
     Vector<String> urlSchemesRegisteredAsAlwaysRevalidated;
     Vector<String> urlSchemesRegisteredAsCachePartitioned;
+    Vector<String> urlSchemesServiceWorkersCanHandle;
 
     Vector<String> fontWhitelist;
     Vector<String> languages;
@@ -133,7 +135,7 @@ struct WebProcessCreationParameters {
 
     TextCheckerState textCheckerState;
 
-#if PLATFORM(COCOA) || USE(CFURLCONNECTION)
+#if PLATFORM(COCOA)
     String uiProcessBundleIdentifier;
 #endif
 
@@ -177,6 +179,10 @@ struct WebProcessCreationParameters {
 
 #if USE(SOUP)
     WebCore::SoupNetworkProxySettings proxySettings;
+#endif
+
+#if HAVE(CFNETWORK_STORAGE_PARTITIONING) && !RELEASE_LOG_DISABLED
+    bool shouldLogUserInteraction { false };
 #endif
 };
 

@@ -28,13 +28,17 @@
 #if ENABLE(SERVICE_WORKER)
 
 #include "ExceptionOr.h"
+#include "ServiceWorkerClientData.h"
+#include "ServiceWorkerClientQueryOptions.h"
+#include "ServiceWorkerIdentifier.h"
 #include "ServiceWorkerThreadProxy.h"
+#include <wtf/CompletionHandler.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
 
 class SerializedScriptValue;
-struct ServiceWorkerClientIdentifier;
+class ServiceWorkerGlobalScope;
 
 class SWContextManager {
 public:
@@ -44,21 +48,47 @@ public:
     public:
         virtual ~Connection() { }
 
-        virtual void postMessageToServiceWorkerClient(const ServiceWorkerClientIdentifier& destinationIdentifier, Ref<SerializedScriptValue>&& message, uint64_t sourceServiceWorkerIdentifier, const String& sourceOrigin) = 0;
+        virtual void postMessageToServiceWorkerClient(const ServiceWorkerClientIdentifier& destinationIdentifier, Ref<SerializedScriptValue>&& message, ServiceWorkerIdentifier source, const String& sourceOrigin) = 0;
+        virtual void serviceWorkerStartedWithMessage(std::optional<ServiceWorkerJobDataIdentifier>, ServiceWorkerIdentifier, const String& exceptionMessage) = 0;
+        virtual void didFinishInstall(std::optional<ServiceWorkerJobDataIdentifier>, ServiceWorkerIdentifier, bool wasSuccessful) = 0;
+        virtual void didFinishActivation(ServiceWorkerIdentifier) = 0;
+        virtual void setServiceWorkerHasPendingEvents(ServiceWorkerIdentifier, bool) = 0;
+        virtual void workerTerminated(ServiceWorkerIdentifier) = 0;
+        virtual void skipWaiting(ServiceWorkerIdentifier, WTF::Function<void()>&& callback) = 0;
+
+        using FindClientByIdentifierCallback = WTF::CompletionHandler<void(ExceptionOr<std::optional<ServiceWorkerClientData>>&&)>;
+        virtual void findClientByIdentifier(ServiceWorkerIdentifier, ServiceWorkerClientIdentifier, FindClientByIdentifierCallback&&) = 0;
+        virtual void matchAll(ServiceWorkerIdentifier, const ServiceWorkerClientQueryOptions&, ServiceWorkerClientsMatchAllCallback&&) = 0;
+        virtual void claim(ServiceWorkerIdentifier, WTF::CompletionHandler<void()>&&) = 0;
     };
 
     WEBCORE_EXPORT void setConnection(std::unique_ptr<Connection>&&);
     WEBCORE_EXPORT Connection* connection() const;
 
-    WEBCORE_EXPORT void registerServiceWorkerThread(Ref<ServiceWorkerThreadProxy>&&);
-    WEBCORE_EXPORT ServiceWorkerThreadProxy* serviceWorkerThreadProxy(uint64_t) const;
-    WEBCORE_EXPORT void postMessageToServiceWorkerGlobalScope(uint64_t destinationServiceWorkerIdentifier, Ref<SerializedScriptValue>&& message, const ServiceWorkerClientIdentifier& sourceIdentifier, const String& sourceOrigin);
+    WEBCORE_EXPORT void registerServiceWorkerThreadForInstall(Ref<ServiceWorkerThreadProxy>&&);
+    WEBCORE_EXPORT ServiceWorkerThreadProxy* serviceWorkerThreadProxy(ServiceWorkerIdentifier) const;
+    WEBCORE_EXPORT void postMessageToServiceWorker(ServiceWorkerIdentifier destination, Ref<SerializedScriptValue>&& message, ServiceWorkerOrClientData&& sourceData);
+    WEBCORE_EXPORT void fireInstallEvent(ServiceWorkerIdentifier);
+    WEBCORE_EXPORT void fireActivateEvent(ServiceWorkerIdentifier);
+    WEBCORE_EXPORT void terminateWorker(ServiceWorkerIdentifier, Function<void()>&&);
+
+    void forEachServiceWorkerThread(const WTF::Function<void(ServiceWorkerThreadProxy&)>&);
+
+    WEBCORE_EXPORT bool postTaskToServiceWorker(ServiceWorkerIdentifier, WTF::Function<void(ServiceWorkerGlobalScope&)>&&);
+
+    using ServiceWorkerCreationCallback = void(uint64_t);
+    void setServiceWorkerCreationCallback(ServiceWorkerCreationCallback* callback) { m_serviceWorkerCreationCallback = callback; }
+
+    ServiceWorkerThreadProxy* workerByID(ServiceWorkerIdentifier identifier) { return m_workerMap.get(identifier); }
 
 private:
     SWContextManager() = default;
 
-    HashMap<uint64_t, RefPtr<ServiceWorkerThreadProxy>> m_workerMap;
+    void startedServiceWorker(std::optional<ServiceWorkerJobDataIdentifier>, ServiceWorkerIdentifier, const String& exceptionMessage);
+
+    HashMap<ServiceWorkerIdentifier, RefPtr<ServiceWorkerThreadProxy>> m_workerMap;
     std::unique_ptr<Connection> m_connection;
+    ServiceWorkerCreationCallback* m_serviceWorkerCreationCallback { nullptr };
 };
 
 } // namespace WebCore

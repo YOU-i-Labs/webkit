@@ -333,6 +333,19 @@ public:
                     VALIDATE((node), type == Array::ArrayStorage || type == Array::SlowPutArrayStorage);
                     break;
                 }
+                case CPUIntrinsic: {
+                    switch (node->intrinsic()) {
+                    case CPUMfenceIntrinsic:
+                    case CPURdtscIntrinsic:
+                    case CPUCpuidIntrinsic:
+                    case CPUPauseIntrinsic:
+                        break;
+                    default:
+                        VALIDATE((node), false);
+                        break;
+                    }
+                    break;
+                }
                 default:
                     break;
                 }
@@ -702,7 +715,6 @@ private:
                     
                 case GetLocal:
                 case SetLocal:
-                case GetLocalUnlinked:
                 case SetArgument:
                 case Phantom:
                     VALIDATE((node), !"bad node type for SSA");
@@ -747,8 +759,8 @@ private:
 
                 case PhantomSpread:
                     VALIDATE((node), m_graph.m_form == SSA);
-                    // We currently only support PhantomSpread over PhantomCreateRest.
-                    VALIDATE((node), node->child1()->op() == PhantomCreateRest);
+                    // We currently support PhantomSpread over PhantomCreateRest and PhantomNewArrayBuffer.
+                    VALIDATE((node), node->child1()->op() == PhantomCreateRest || node->child1()->op() == PhantomNewArrayBuffer);
                     break;
 
                 case PhantomNewArrayWithSpread: {
@@ -757,13 +769,17 @@ private:
                     for (unsigned i = 0; i < node->numChildren(); i++) {
                         Node* child = m_graph.varArgChild(node, i).node();
                         if (bitVector->get(i)) {
-                            // We currently only support PhantomSpread over PhantomCreateRest.
+                            // We currently support PhantomSpread over PhantomCreateRest and PhantomNewArrayBuffer.
                             VALIDATE((node), child->op() == PhantomSpread);
                         } else
                             VALIDATE((node), !child->isPhantomAllocation());
                     }
                     break;
                 }
+
+                case PhantomNewArrayBuffer:
+                    VALIDATE((node), m_graph.m_form == SSA);
+                    break;
 
                 case NewArrayWithSpread: {
                     BitVector* bitVector = node->bitVector();
@@ -777,6 +793,10 @@ private:
                     }
                     break;
                 }
+
+                case Spread:
+                    VALIDATE((node), !node->child1()->isPhantomAllocation() || node->child1()->op() == PhantomCreateRest || node->child1()->op() == PhantomNewArrayBuffer);
+                    break;
 
                 case EntrySwitch:
                     VALIDATE((node), node->entrySwitchData()->cases.size() == m_graph.m_numberOfEntrypoints);

@@ -26,10 +26,22 @@
 #import "config.h"
 #include "ServiceWorkerProcessProxy.h"
 
+#include "AuthenticationChallengeProxy.h"
+#include "WebCredential.h"
 #include "WebPreferencesStore.h"
 #include "WebProcessMessages.h"
+#include "WebProcessPool.h"
+#include "WebSWContextManagerConnectionMessages.h"
+#include <WebCore/NotImplemented.h>
 
 namespace WebKit {
+
+Ref<ServiceWorkerProcessProxy> ServiceWorkerProcessProxy::create(WebProcessPool& pool, WebsiteDataStore& store)
+{
+    auto proxy = adoptRef(*new ServiceWorkerProcessProxy { pool, store });
+    proxy->connect();
+    return proxy;
+}
 
 ServiceWorkerProcessProxy::ServiceWorkerProcessProxy(WebProcessPool& pool, WebsiteDataStore& store)
     : WebProcessProxy { pool, store }
@@ -41,9 +53,42 @@ ServiceWorkerProcessProxy::~ServiceWorkerProcessProxy()
 {
 }
 
-void ServiceWorkerProcessProxy::start(const WebPreferencesStore& store)
+void ServiceWorkerProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
 {
-    send(Messages::WebProcess::GetWorkerContextConnection(m_serviceWorkerPageID, store), 0);
+    WebProcessProxy::getLaunchOptions(launchOptions);
+
+    launchOptions.extraInitializationData.add(ASCIILiteral("service-worker-process"), ASCIILiteral("1"));
+}
+
+void ServiceWorkerProcessProxy::start(const WebPreferencesStore& store, std::optional<PAL::SessionID> initialSessionID)
+{
+    send(Messages::WebProcess::EstablishWorkerContextConnectionToStorageProcess { m_serviceWorkerPageID, store, initialSessionID.value_or(PAL::SessionID::defaultSessionID()) }, 0);
+}
+
+void ServiceWorkerProcessProxy::setUserAgent(const String& userAgent)
+{
+    send(Messages::WebSWContextManagerConnection::SetUserAgent { userAgent }, 0);
+}
+
+void ServiceWorkerProcessProxy::updatePreferencesStore(const WebPreferencesStore& store)
+{
+    send(Messages::WebSWContextManagerConnection::UpdatePreferencesStore { store }, 0);
+}
+
+void ServiceWorkerProcessProxy::didReceiveAuthenticationChallenge(uint64_t pageID, uint64_t frameID, Ref<AuthenticationChallengeProxy>&& challenge)
+{
+    UNUSED_PARAM(pageID);
+    UNUSED_PARAM(frameID);
+
+    // FIXME: Expose an API to delegate the actual decision to the application layer.
+    auto& protectionSpace = challenge->core().protectionSpace();
+    if (protectionSpace.authenticationScheme() == WebCore::ProtectionSpaceAuthenticationSchemeServerTrustEvaluationRequested && processPool().allowsAnySSLCertificateForServiceWorker()) {
+        auto credential = WebCore::Credential(ASCIILiteral("accept server trust"), emptyString(), WebCore::CredentialPersistenceNone);
+        challenge->useCredential(WebCredential::create(credential).ptr());
+        return;
+    }
+    notImplemented();
+    challenge->performDefaultHandling();
 }
 
 } // namespace WebKit

@@ -29,7 +29,19 @@ WI.CanvasOverviewContentView = class CanvasOverviewContentView extends WI.Collec
     {
         console.assert(representedObject instanceof WI.CanvasCollection);
 
-        super(representedObject, WI.CanvasContentView, WI.UIString("No canvas contexts found"));
+        let contentPlaceholder = WI.createMessageTextView(WI.UIString("No Canvas Contexts"));
+        let descriptionElement = contentPlaceholder.appendChild(document.createElement("div"));
+        descriptionElement.className = "description";
+        descriptionElement.textContent = WI.UIString("Waiting for canvas contexts created by script or CSS.");
+
+        let importNavigationItem = new WI.ButtonNavigationItem("import-recording", WI.UIString("Import"), "Images/Import.svg", 15, 15);
+        importNavigationItem.buttonStyle = WI.ButtonNavigationItem.Style.ImageAndText;
+        importNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, () => { WI.canvasManager.importRecording(); });
+
+        let importHelpElement = WI.createNavigationItemHelp(WI.UIString("Press %s to load a recording from file."), importNavigationItem);
+        contentPlaceholder.appendChild(importHelpElement);
+
+        super(representedObject, WI.CanvasContentView, contentPlaceholder);
 
         this.element.classList.add("canvas-overview");
 
@@ -49,9 +61,15 @@ WI.CanvasOverviewContentView = class CanvasOverviewContentView extends WI.Collec
             new WI.KeyboardShortcut(null, WI.KeyboardShortcut.Key.Right, this._handleRight.bind(this)),
             new WI.KeyboardShortcut(null, WI.KeyboardShortcut.Key.Down, this._handleDown.bind(this)),
             new WI.KeyboardShortcut(null, WI.KeyboardShortcut.Key.Left, this._handleLeft.bind(this)),
-            new WI.KeyboardShortcut(null, WI.KeyboardShortcut.Key.Space, this._handleSpace.bind(this)),
-            new WI.KeyboardShortcut(WI.KeyboardShortcut.Modifier.Shift, WI.KeyboardShortcut.Key.Space, this._handleSpace.bind(this)),
         ];
+
+        let recordShortcut = new WI.KeyboardShortcut(null, WI.KeyboardShortcut.Key.Space, this._handleSpace.bind(this));
+        recordShortcut.implicitlyPreventsDefault = false;
+        this._keyboardShortcuts.push(recordShortcut);
+
+        let recordSingleFrameShortcut = new WI.KeyboardShortcut(WI.KeyboardShortcut.Modifier.Shift, WI.KeyboardShortcut.Key.Space, this._handleSpace.bind(this));
+        recordSingleFrameShortcut.implicitlyPreventsDefault = false;
+        this._keyboardShortcuts.push(recordSingleFrameShortcut);
 
         for (let shortcut of this._keyboardShortcuts)
             shortcut.disabled = true;
@@ -229,6 +247,9 @@ WI.CanvasOverviewContentView = class CanvasOverviewContentView extends WI.Collec
 
     _handleSpace(event)
     {
+        if (WI.isEventTargetAnEditableField(event))
+            return;
+
         if (!this._selectedItem)
             return;
 
@@ -238,6 +259,8 @@ WI.CanvasOverviewContentView = class CanvasOverviewContentView extends WI.Collec
             let singleFrame = !!event.shiftKey;
             WI.canvasManager.startRecording(this._selectedItem, singleFrame);
         }
+
+        event.preventDefault();
     }
 
     _updateShowImageGrid()

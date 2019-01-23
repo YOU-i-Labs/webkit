@@ -144,7 +144,7 @@ void HTMLImageElement::setBestFitURLAndDPRFromImageCandidate(const ImageCandidat
 
 ImageCandidate HTMLImageElement::bestFitSourceFromPictureElement()
 {
-    auto* picture = pictureElement();
+    auto picture = makeRefPtr(pictureElement());
     if (!picture)
         return { };
     picture->clearViewportDependentResults();
@@ -163,11 +163,11 @@ ImageCandidate HTMLImageElement::bestFitSourceFromPictureElement()
             String type = typeAttribute.string();
             type.truncate(type.find(';'));
             type = stripLeadingAndTrailingHTMLSpaces(type);
-            if (!type.isEmpty() && !MIMETypeRegistry::isSupportedImageOrSVGMIMEType(type))
+            if (!type.isEmpty() && !MIMETypeRegistry::isSupportedImageVideoOrSVGMIMEType(type))
                 continue;
         }
 
-        auto* documentElement = document().documentElement();
+        auto documentElement = makeRefPtr(document().documentElement());
         MediaQueryEvaluator evaluator { document().printing() ? "print" : "screen", document(), documentElement ? documentElement->computedStyle() : nullptr };
         auto* queries = source.parsedMediaAttribute();
         LOG(MediaQueries, "HTMLImageElement %p bestFitSourceFromPictureElement evaluating media queries", this);
@@ -538,6 +538,16 @@ bool HTMLImageElement::complete() const
     return m_imageLoader.imageComplete();
 }
 
+DecodingMode HTMLImageElement::decodingMode() const
+{
+    const AtomicString& decodingMode = attributeWithoutSynchronization(decodingAttr);
+    if (equalLettersIgnoringASCIICase(decodingMode, "sync"))
+        return DecodingMode::Synchronous;
+    if (equalLettersIgnoringASCIICase(decodingMode, "async"))
+        return DecodingMode::Asynchronous;
+    return DecodingMode::Auto;
+}
+    
 void HTMLImageElement::decode(Ref<DeferredPromise>&& promise)
 {
     return m_imageLoader.decode(WTFMove(promise));

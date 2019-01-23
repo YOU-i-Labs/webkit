@@ -26,9 +26,22 @@ messages -> WebSWServerConnection {
     # When possible, these messages can be implemented directly by WebCore::SWClientConnection
     ScheduleJobInServer(struct WebCore::ServiceWorkerJobData jobData)
     FinishFetchingScriptInServer(struct WebCore::ServiceWorkerFetchResult result)
+    AddServiceWorkerRegistrationInServer(WebCore::ServiceWorkerRegistrationIdentifier identifier)
+    RemoveServiceWorkerRegistrationInServer(WebCore::ServiceWorkerRegistrationIdentifier identifier)
 
-    StartFetch(uint64_t identifier, uint64_t serviceWorkerIdentifier, WebCore::ResourceRequest request, struct WebCore::FetchOptions options)
-    PostMessageToServiceWorkerGlobalScope(uint64_t destinationServiceWorkerIdentifier, IPC::DataReference message, uint64_t sourceScriptExecutionContextIdentifier, String sourceOrigin)
+    StartFetch(uint64_t identifier, WebCore::ServiceWorkerRegistrationIdentifier serviceWorkerRegistrationIdentifier, WebCore::ResourceRequest request, struct WebCore::FetchOptions options, IPC::FormDataReference requestBody, String referrer)
+
+    PostMessageToServiceWorker(WebCore::ServiceWorkerIdentifier destination, IPC::DataReference message, WebCore::ServiceWorkerOrClientIdentifier source)
+
+    DidResolveRegistrationPromise(WebCore::ServiceWorkerRegistrationKey key)
+
+    MatchRegistration(uint64_t serviceRegistrationMatchRequestIdentifier, struct WebCore::SecurityOriginData topOrigin, WebCore::URL clientURL)
+    WhenRegistrationReady(uint64_t serviceRegistrationMatchRequestIdentifier, struct WebCore::SecurityOriginData topOrigin, WebCore::URL clientURL)
+    GetRegistrations(uint64_t serviceRegistrationMatchRequestIdentifier, struct WebCore::SecurityOriginData topOrigin, WebCore::URL clientURL)
+    RegisterServiceWorkerClient(struct WebCore::SecurityOriginData topOrigin, struct WebCore::ServiceWorkerClientData data, std::optional<WebCore::ServiceWorkerIdentifier> controllingServiceWorkerIdentifier)
+    UnregisterServiceWorkerClient(struct WebCore::ServiceWorkerClientIdentifier identifier)
+
+    SyncTerminateWorker(WebCore::ServiceWorkerIdentifier workerIdentifier) -> ()
 }
 
 #endif // ENABLE(SERVICE_WORKER)

@@ -28,19 +28,28 @@
 #include "WebProcessProxy.h"
 
 namespace WebKit {
+class AuthenticationChallengeProxy;
 struct WebPreferencesStore;
 
 class ServiceWorkerProcessProxy final : public WebProcessProxy {
 public:
-    static Ref<ServiceWorkerProcessProxy> create(WebProcessPool& pool, WebsiteDataStore& store)
-    {
-        return adoptRef(*new ServiceWorkerProcessProxy { pool, store });
-    }
+    static Ref<ServiceWorkerProcessProxy> create(WebProcessPool&, WebsiteDataStore&);
     ~ServiceWorkerProcessProxy();
 
-    void start(const WebPreferencesStore&);
+    void didReceiveAuthenticationChallenge(uint64_t pageID, uint64_t frameID, Ref<AuthenticationChallengeProxy>&&);
+
+    void start(const WebPreferencesStore&, std::optional<PAL::SessionID> initialSessionID);
+    void setUserAgent(const String&);
+    void updatePreferencesStore(const WebPreferencesStore&);
+
+    uint64_t pageID() const { return m_serviceWorkerPageID; }
 
 private:
+    // ChildProcessProxy
+    void getLaunchOptions(ProcessLauncher::LaunchOptions&) final;
+
+    bool isServiceWorkerProcess() const final { return true; }
+
     ServiceWorkerProcessProxy(WebProcessPool&, WebsiteDataStore&);
     uint64_t m_serviceWorkerPageID { 0 };
 };

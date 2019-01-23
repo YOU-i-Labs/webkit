@@ -33,6 +33,7 @@
 #include "FrameDestructionObserver.h"
 #include "ImageBitmap.h"
 #include "ScrollToOptions.h"
+#include "ScrollTypes.h"
 #include "Supplementable.h"
 #include <heap/HandleTypes.h>
 #include <wtf/Function.h>
@@ -76,6 +77,7 @@ class ScheduledAction;
 class Screen;
 class Storage;
 class StyleMedia;
+class VisualViewport;
 class WebKitNamespace;
 class WebKitPoint;
 
@@ -136,6 +138,7 @@ public:
     BarProp* statusbar() const;
     BarProp* toolbar() const;
     Navigator* navigator() const;
+    Navigator* optionalNavigator() const { return m_navigator.get(); }
     Navigator* clientInformation() const { return navigator(); }
 
     Location* location() const;
@@ -195,6 +198,7 @@ public:
     DOMWindow* frames() const { return self(); }
 
     DOMWindow* opener() const;
+    void disownOpener();
     DOMWindow* parent() const;
     DOMWindow* top() const;
 
@@ -232,14 +236,16 @@ public:
 
     void scrollBy(const ScrollToOptions&) const;
     void scrollBy(double x, double y) const;
-    void scrollTo(const ScrollToOptions&) const;
-    void scrollTo(double x, double y) const;
+    void scrollTo(const ScrollToOptions&, ScrollClamping = ScrollClamping::Clamped) const;
+    void scrollTo(double x, double y, ScrollClamping = ScrollClamping::Clamped) const;
 
     void moveBy(float x, float y) const;
     void moveTo(float x, float y) const;
 
     void resizeBy(float x, float y) const;
     void resizeTo(float width, float height) const;
+
+    VisualViewport* visualViewport() const;
 
     // Timers
     ExceptionOr<int> setTimeout(JSC::ExecState&, std::unique_ptr<ScheduledAction>, int timeout, Vector<JSC::Strong<JSC::Unknown>>&& arguments);
@@ -265,7 +271,7 @@ public:
     void removeAllEventListeners() final;
 
     using EventTarget::dispatchEvent;
-    bool dispatchEvent(Event&, EventTarget*);
+    void dispatchEvent(Event&, EventTarget*);
 
     void dispatchLoadEvent();
 
@@ -300,7 +306,7 @@ public:
 #endif
 
     Performance* performance() const;
-    double nowTimestamp() const;
+    WEBCORE_EXPORT double nowTimestamp() const;
 
 #if PLATFORM(IOS)
     void incrementScrollEventListenersCount();
@@ -338,8 +344,6 @@ private:
 
     EventTargetInterface eventTargetInterface() const final { return DOMWindowEventTargetInterfaceType; }
     ScriptExecutionContext* scriptExecutionContext() const final { return ContextDestructionObserver::scriptExecutionContext(); }
-
-    DOMWindow* toDOMWindow() final;
 
     Page* page();
     bool allowedToChangeWindowGeometry() const;
@@ -384,6 +388,7 @@ private:
     mutable RefPtr<BarProp> m_statusbar;
     mutable RefPtr<BarProp> m_toolbar;
     mutable RefPtr<Location> m_location;
+    mutable RefPtr<VisualViewport> m_visualViewport;
 
     String m_status;
     String m_defaultStatus;
@@ -429,3 +434,7 @@ inline String DOMWindow::defaultStatus() const
 }
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::DOMWindow)
+    static bool isType(const WebCore::EventTarget& target) { return target.eventTargetInterface() == WebCore::DOMWindowEventTargetInterfaceType; }
+SPECIALIZE_TYPE_TRAITS_END()

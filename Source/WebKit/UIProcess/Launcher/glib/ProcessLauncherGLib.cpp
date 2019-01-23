@@ -79,7 +79,7 @@ void ProcessLauncher::launchProcess()
             executablePath.append('2');
 #endif
         pluginPath = m_launchOptions.extraInitializationData.get("plugin-path");
-        realPluginPath = fileSystemRepresentation(pluginPath);
+        realPluginPath = FileSystem::fileSystemRepresentation(pluginPath);
         break;
 #endif
     case ProcessLauncher::ProcessType::Network:
@@ -93,9 +93,10 @@ void ProcessLauncher::launchProcess()
         return;
     }
 
-    realExecutablePath = fileSystemRepresentation(executablePath);
+    realExecutablePath = FileSystem::fileSystemRepresentation(executablePath);
+    GUniquePtr<gchar> processIdentifier(g_strdup_printf("%" PRIu64, m_launchOptions.processIdentifier.toUInt64()));
     GUniquePtr<gchar> webkitSocket(g_strdup_printf("%d", socketPair.client));
-    unsigned nargs = 4; // size of the argv array for g_spawn_async()
+    unsigned nargs = 5; // size of the argv array for g_spawn_async()
 
 #if PLATFORM(WPE)
     GUniquePtr<gchar> wpeSocket;
@@ -124,6 +125,7 @@ void ProcessLauncher::launchProcess()
         argv[i++] = const_cast<char*>(arg.data());
 #endif
     argv[i++] = const_cast<char*>(realExecutablePath.data());
+    argv[i++] = processIdentifier.get();
     argv[i++] = webkitSocket.get();
 #if PLATFORM(WPE)
     if (m_launchOptions.processType == ProcessLauncher::ProcessType::Web)

@@ -1696,7 +1696,8 @@ sub NeedsRuntimeCheck
     return $context->extendedAttributes->{EnabledAtRuntime}
         || $context->extendedAttributes->{EnabledForWorld}
         || $context->extendedAttributes->{EnabledBySetting}
-        || $context->extendedAttributes->{SecureContext};
+        || $context->extendedAttributes->{SecureContext}
+        || $context->extendedAttributes->{ContextHasServiceWorkerScheme};
 }
 
 # https://heycam.github.io/webidl/#es-operations
@@ -2735,7 +2736,7 @@ sub GenerateHeader
             # this just calls visitAdditionalChildren, you usually don't have to worry about this.
             push(@headerContent, "    static void visitOutputConstraints(JSCell*, JSC::SlotVisitor&);\n");
             my $subspaceFunc = IsDOMGlobalObject($interface) ? "globalObjectOutputConstraintSubspaceFor" : "outputConstraintSubspaceFor";
-            push(@headerContent, "    template<typename> static JSC::Subspace* subspaceFor(JSC::VM& vm) { return $subspaceFunc(vm); }\n");
+            push(@headerContent, "    template<typename> static JSC::CompleteSubspace* subspaceFor(JSC::VM& vm) { return $subspaceFunc(vm); }\n");
         }
     }
     
@@ -3649,7 +3650,17 @@ sub GenerateRuntimeEnableConditionalString
     if ($context->extendedAttributes->{SecureContext}) {
         AddToImplIncludes("ScriptExecutionContext.h");
 
-        push(@conjuncts, "jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->isSecureContext()");
+        if ($context->extendedAttributes->{ContextHasServiceWorkerScheme}) {
+            push(@conjuncts, "(jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->isSecureContext() || jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->hasServiceWorkerScheme())");
+        } else {
+            push(@conjuncts, "jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->isSecureContext()");
+        }
+    } else {
+        if ($context->extendedAttributes->{ContextHasServiceWorkerScheme}) {
+            AddToImplIncludes("ScriptExecutionContext.h");
+
+            push(@conjuncts, "jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->hasServiceWorkerScheme()");
+        }
     }
 
     if ($context->extendedAttributes->{Exposed}) {
@@ -5882,6 +5893,10 @@ sub GenerateCallbackHeaderContent
 
     push(@$contentRef, "    ${className}(JSC::JSObject*, JSDOMGlobalObject*);\n\n");
 
+    if ($interfaceOrCallback->extendedAttributes->{IsWeakCallback}) {
+        push(@$contentRef, "    bool hasCallback() const final { return m_data && m_data->callback(); }\n\n");
+    }
+
     push(@$contentRef, "    void visitJSFunction(JSC::SlotVisitor&) override;\n\n") if $interfaceOrCallback->extendedAttributes->{IsWeakCallback};
 
     push(@$contentRef, "    ${callbackDataType}* m_data;\n");
@@ -6040,6 +6055,7 @@ sub GenerateCallbackImplementationContent
             foreach my $argument (@{$operation->arguments}) {
                 push(@$contentRef, "    args.append(" . NativeToJSValueUsingReferences($argument, $interfaceOrCallback, $argument->name, "globalObject") . ");\n");
             }
+            push(@$contentRef, "    ASSERT(!args.hasOverflowed());\n");
 
             push(@$contentRef, "\n    NakedPtr<JSC::Exception> returnedException;\n");
 

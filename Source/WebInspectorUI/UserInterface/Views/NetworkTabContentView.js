@@ -58,7 +58,7 @@ WI.NetworkTabContentView = class NetworkTabContentView extends WI.TabContentView
 
     static isTabAllowed()
     {
-        return !!window.NetworkAgent && !!window.PageAgent;
+        return !!window.NetworkAgent;
     }
 
     // Protected
@@ -96,6 +96,12 @@ WI.NetworkTabContentView = class NetworkTabContentView extends WI.TabContentView
     canShowRepresentedObject(representedObject)
     {
         return representedObject instanceof WI.Resource;
+    }
+
+    showRepresentedObject(representedObject, cookie)
+    {
+        console.assert(this._contentBrowser.currentContentView === this._networkTableContentView);
+        this._networkTableContentView.showRepresentedObject(representedObject, cookie);
     }
 
     get supportsSplitContentBrowser()

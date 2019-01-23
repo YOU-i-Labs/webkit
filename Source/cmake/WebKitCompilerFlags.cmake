@@ -128,6 +128,11 @@ if (COMPILER_IS_GCC_OR_CLANG)
                                          -Wno-maybe-uninitialized
                                          -Wno-noexcept-type
                                          -Wno-parentheses-equality)
+
+    # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80947
+    if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "8.0" AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        WEBKIT_PREPEND_GLOBAL_CXX_FLAGS(-Wno-attributes)
+    endif ()
 endif ()
 
 # -Wexpansion-to-defined produces false positives with GCC but not Clang
@@ -155,9 +160,9 @@ if (NOT MSVC)
     string(REGEX MATCHALL "-fsanitize=[^ ]*" ENABLED_COMPILER_SANITIZERS ${CMAKE_CXX_FLAGS})
 endif ()
 
-#if (UNIX AND NOT APPLE AND NOT ENABLED_COMPILER_SANITIZERS)
-#    set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined ${CMAKE_SHARED_LINKER_FLAGS}")
-#endif ()
+if (UNIX AND NOT APPLE AND NOT ENABLED_COMPILER_SANITIZERS)
+    set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined ${CMAKE_SHARED_LINKER_FLAGS}")
+endif ()
 
 
 # CODE_GENERATOR_PREPROCESSOR_WITH_LINEMARKERS only matters with GCC >= 4.7.0.  Since this

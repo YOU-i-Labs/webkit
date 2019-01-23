@@ -32,6 +32,10 @@
 #include <WebCore/Settings.h>
 #include <wtf/RefPtr.h>
 
+#if ENABLE(APPLE_PAY)
+#include "WebPaymentCoordinatorProxy.h"
+#endif
+
 using namespace WebKit;
 
 WKTypeID WKPreferencesGetTypeID()
@@ -870,14 +874,14 @@ bool WKPreferencesGetModernMediaControlsEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->modernMediaControlsEnabled();
 }
 
-void WKPreferencesSetCredentialManagementEnabled(WKPreferencesRef preferencesRef, bool flag)
+void WKPreferencesSetWebAuthenticationEnabled(WKPreferencesRef preferencesRef, bool flag)
 {
-    toImpl(preferencesRef)->setCredentialManagementEnabled(flag);
+    toImpl(preferencesRef)->setWebAuthenticationEnabled(flag);
 }
 
-bool WKPreferencesGetCredentialManagementEnabled(WKPreferencesRef preferencesRef)
+bool WKPreferencesGetWebAuthenticationEnabled(WKPreferencesRef preferencesRef)
 {
-    return toImpl(preferencesRef)->credentialManagementEnabled();
+    return toImpl(preferencesRef)->webAuthenticationEnabled();
 }
 
 void WKPreferencesSetInvisibleMediaAutoplayPermitted(WKPreferencesRef preferencesRef, bool flag)
@@ -1412,12 +1416,12 @@ bool WKPreferencesGetPeerConnectionEnabled(WKPreferencesRef preferencesRef)
 
 void WKPreferencesSetWebRTCLegacyAPIEnabled(WKPreferencesRef preferencesRef, bool enabled)
 {
-    toImpl(preferencesRef)->setWebRTCLegacyAPIDisabled(!enabled);
+    toImpl(preferencesRef)->setWebRTCLegacyAPIEnabled(enabled);
 }
 
 bool WKPreferencesGetWebRTCLegacyAPIEnabled(WKPreferencesRef preferencesRef)
 {
-    return !toImpl(preferencesRef)->webRTCLegacyAPIDisabled();
+    return toImpl(preferencesRef)->webRTCLegacyAPIEnabled();
 }
 
 void WKPreferencesSetSpatialNavigationEnabled(WKPreferencesRef preferencesRef, bool enabled)
@@ -1720,6 +1724,16 @@ bool WKPreferencesGetIntersectionObserverEnabled(WKPreferencesRef preferencesRef
     return toImpl(preferencesRef)->intersectionObserverEnabled();
 }
 
+void WKPreferencesSetMenuItemElementEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    return toImpl(preferencesRef)->setMenuItemElementEnabled(flag);
+}
+
+bool WKPreferencesGetMenuItemElementEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->menuItemElementEnabled();
+}
+
 void WKPreferencesSetUserTimingEnabled(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setUserTimingEnabled(flag);
@@ -1767,6 +1781,10 @@ WK_EXPORT bool WKPreferencesGetApplePayEnabled(WKPreferencesRef preferencesRef)
 
 void WKPreferencesSetApplePayEnabled(WKPreferencesRef preferencesRef, bool enabled)
 {
+#if ENABLE(APPLE_PAY)
+    if (!WebPaymentCoordinatorProxy::platformSupportsPayments())
+        enabled = false;
+#endif
     WebKit::toImpl(preferencesRef)->setApplePayEnabled(enabled);
 }
 
@@ -1899,3 +1917,34 @@ bool WKPreferencesGetStorageAccessAPIEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->storageAccessAPIEnabled();
 }
+
+void WKPreferencesSetAccessibilityObjectModelEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setAccessibilityObjectModelEnabled(flag);
+}
+
+bool WKPreferencesGetAccessibilityObjectModelEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->accessibilityObjectModelEnabled();
+}
+
+void WKPreferencesSetShouldAllowUserInstalledFonts(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setShouldAllowUserInstalledFonts(flag);
+}
+
+bool WKPreferencesGetShouldAllowUserInstalledFonts(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->shouldAllowUserInstalledFonts();
+}
+
+void WKPreferencesSetMediaCapabilitiesEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setMediaCapabilitiesEnabled(enabled);
+}
+
+bool WKPreferencesGetMediaCapabilitiesEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->mediaCapabilitiesEnabled();
+}
+

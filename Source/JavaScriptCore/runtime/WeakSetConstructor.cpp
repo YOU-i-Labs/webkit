@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2016 Apple, Inc. All rights reserved.
+ * Copyright (C) 2015-2017 Apple, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,6 +45,14 @@ void WeakSetConstructor::finishCreation(VM& vm, WeakSetPrototype* prototype)
     putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(0), PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly);
 }
 
+static EncodedJSValue JSC_HOST_CALL callWeakSet(ExecState*);
+static EncodedJSValue JSC_HOST_CALL constructWeakSet(ExecState*);
+
+WeakSetConstructor::WeakSetConstructor(VM& vm, Structure* structure)
+    : Base(vm, structure, callWeakSet, constructWeakSet)
+{
+}
+
 static EncodedJSValue JSC_HOST_CALL callWeakSet(ExecState* exec)
 {
     VM& vm = exec->vm();
@@ -60,7 +68,7 @@ static EncodedJSValue JSC_HOST_CALL constructWeakSet(ExecState* exec)
     JSGlobalObject* globalObject = asInternalFunction(exec->jsCallee())->globalObject();
     Structure* weakSetStructure = InternalFunction::createSubclassStructure(exec, exec->newTarget(), globalObject->weakSetStructure());
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
-    JSWeakSet* weakSet = JSWeakSet::create(exec, weakSetStructure);
+    JSWeakSet* weakSet = JSWeakSet::create(vm, weakSetStructure);
     JSValue iterable = exec->argument(0);
     if (iterable.isUndefinedOrNull())
         return JSValue::encode(weakSet);
@@ -77,22 +85,11 @@ static EncodedJSValue JSC_HOST_CALL constructWeakSet(ExecState* exec)
     forEachInIterable(exec, iterable, [&](VM&, ExecState* exec, JSValue nextValue) {
         MarkedArgumentBuffer arguments;
         arguments.append(nextValue);
+        ASSERT(!arguments.hasOverflowed());
         call(exec, adderFunction, adderFunctionCallType, adderFunctionCallData, weakSet, arguments);
     });
 
     return JSValue::encode(weakSet);
-}
-
-ConstructType WeakSetConstructor::getConstructData(JSCell*, ConstructData& constructData)
-{
-    constructData.native.function = constructWeakSet;
-    return ConstructType::Host;
-}
-
-CallType WeakSetConstructor::getCallData(JSCell*, CallData& callData)
-{
-    callData.native.function = callWeakSet;
-    return CallType::Host;
 }
 
 }

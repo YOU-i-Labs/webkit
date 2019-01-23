@@ -41,6 +41,15 @@ namespace WebCore {
 MockPaymentCoordinator::MockPaymentCoordinator(MainFrame& mainFrame)
     : m_mainFrame { mainFrame }
 {
+    m_availablePaymentNetworks.append("amex");
+    m_availablePaymentNetworks.append("carteBancaire");
+    m_availablePaymentNetworks.append("chinaUnionPay");
+    m_availablePaymentNetworks.append("discover");
+    m_availablePaymentNetworks.append("interac");
+    m_availablePaymentNetworks.append("jcb");
+    m_availablePaymentNetworks.append("masterCard");
+    m_availablePaymentNetworks.append("privateLabel");
+    m_availablePaymentNetworks.append("visa");
 }
 
 bool MockPaymentCoordinator::supportsVersion(unsigned version)
@@ -103,6 +112,41 @@ void MockPaymentCoordinator::completeMerchantValidation(const PaymentMerchantSes
         ApplePayPaymentContact contact = shippingAddress;
         mainFrame->paymentCoordinator().didSelectShippingContact(MockPaymentContact { WTFMove(contact) });
     });
+}
+
+static ApplePayLineItem convert(const ApplePaySessionPaymentRequest::LineItem& lineItem)
+{
+    ApplePayLineItem result;
+    result.type = lineItem.type;
+    result.label = lineItem.label;
+    result.amount = lineItem.amount;
+    return result;
+}
+
+void MockPaymentCoordinator::updateTotalAndLineItems(const ApplePaySessionPaymentRequest::TotalAndLineItems& totalAndLineItems)
+{
+    m_total = convert(totalAndLineItems.total);
+    m_lineItems.clear();
+    for (auto& lineItem : totalAndLineItems.lineItems)
+        m_lineItems.append(convert(lineItem));
+}
+
+void MockPaymentCoordinator::completeShippingMethodSelection(std::optional<ShippingMethodUpdate>&& shippingMethodUpdate)
+{
+    if (shippingMethodUpdate)
+        updateTotalAndLineItems(shippingMethodUpdate->newTotalAndLineItems);
+}
+
+void MockPaymentCoordinator::completeShippingContactSelection(std::optional<ShippingContactUpdate>&& shippingContactUpdate)
+{
+    if (shippingContactUpdate)
+        updateTotalAndLineItems(shippingContactUpdate->newTotalAndLineItems);
+}
+    
+void MockPaymentCoordinator::completePaymentMethodSelection(std::optional<PaymentMethodUpdate>&& paymentMethodUpdate)
+{
+    if (paymentMethodUpdate)
+        updateTotalAndLineItems(paymentMethodUpdate->newTotalAndLineItems);
 }
 
 void MockPaymentCoordinator::changeShippingOption(String&& shippingOption)

@@ -34,6 +34,7 @@ class RenderMultiColumnSet;
 class RenderMultiColumnSpannerPlaceholder;
 
 class RenderMultiColumnFlow final : public RenderFragmentedFlow {
+    WTF_MAKE_ISO_ALLOCATED(RenderMultiColumnFlow);
 public:
     RenderMultiColumnFlow(Document&, RenderStyle&&);
     ~RenderMultiColumnFlow();
@@ -74,8 +75,6 @@ public:
     bool progressionIsReversed() const { return m_progressionIsReversed; }
     void setProgressionIsReversed(bool reversed) { m_progressionIsReversed = reversed; }
     
-    void computeLineGridPaginationOrigin(LayoutState&) const;
-    
     RenderFragmentContainer* mapFromFlowToFragment(TransformState&) const override;
     
     // This method takes a logical offset and returns a physical translation that can be applied to map
@@ -97,7 +96,7 @@ public:
     bool shouldCheckColumnBreaks() const override;
 
     typedef HashMap<RenderBox*, WeakPtr<RenderMultiColumnSpannerPlaceholder>> SpannerMap;
-    std::unique_ptr<SpannerMap> takeSpannerMap() { return WTFMove(m_spannerMap); }
+    SpannerMap& spannerMap() { return *m_spannerMap; }
 
 private:
     bool isRenderMultiColumnFlow() const override { return true; }
@@ -120,8 +119,6 @@ private:
     void handleSpannerRemoval(RenderObject& spanner);
     RenderObject* processPossibleSpannerDescendant(RenderObject*& subtreeRoot, RenderObject& descendant);
 
-    SpannerMap& spannerMap() { return *m_spannerMap; }
-    
 private:
     std::unique_ptr<SpannerMap> m_spannerMap;
 

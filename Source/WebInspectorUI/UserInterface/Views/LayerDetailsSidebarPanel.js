@@ -63,14 +63,21 @@ WI.LayerDetailsSidebarPanel = class LayerDetailsSidebarPanel extends WI.DetailsS
 
     selectNodeByLayerId(layerId)
     {
+        if (!this.parentSidebar)
+            return;
+
         let node = this._dataGridNodesByLayerId.get(layerId);
         if (node === this._dataGrid.selectedNode)
             return;
 
-        if (node)
-            node.revealAndSelect();
-        else if (this._dataGrid.selectedNode)
-            this._dataGrid.selectedNode.deselect();
+        const suppressEvent = true;
+        if (node) {
+            this.parentSidebar.selectedSidebarPanel = this;
+            this.parentSidebar.collapsed = false;
+            node.revealAndSelect(suppressEvent);
+            this._showPopoverForSelectedNode();
+        } else if (this._dataGrid.selectedNode)
+            this._dataGrid.selectedNode.deselect(suppressEvent);
     }
 
     // Private

@@ -30,6 +30,7 @@
 #include "HitTestResult.h"
 #include "InlineElementBox.h"
 #include "InlineTextBox.h"
+#include "LayoutState.h"
 #include "RenderBlock.h"
 #include "RenderChildIterator.h"
 #include "RenderFragmentedFlow.h"
@@ -41,17 +42,21 @@
 #include "RenderListMarker.h"
 #include "RenderTable.h"
 #include "RenderTheme.h"
+#include "RenderTreeBuilder.h"
 #include "RenderView.h"
 #include "Settings.h"
 #include "StyleInheritedData.h"
 #include "TransformState.h"
 #include "VisiblePosition.h"
+#include <wtf/IsoMallocInlines.h>
 
 #if ENABLE(DASHBOARD_SUPPORT)
 #include "Frame.h"
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderInline);
 
 RenderInline::RenderInline(Element& element, RenderStyle&& style)
     : RenderBoxModelObject(element, WTFMove(style), RenderInlineFlag)
@@ -70,7 +75,7 @@ void RenderInline::willBeDestroyed()
 #if !ASSERT_DISABLED
     // Make sure we do not retain "this" in the continuation outline table map of our containing blocks.
     if (parent() && style().visibility() == VISIBLE && hasOutline()) {
-        bool containingBlockPaintsContinuationOutline = continuation() || isInlineElementContinuation();
+        bool containingBlockPaintsContinuationOutline = continuation() || isContinuation();
         if (containingBlockPaintsContinuationOutline) {
             if (RenderBlock* cb = containingBlock()) {
                 if (RenderBlock* cbCb = cb->containingBlock())
@@ -80,10 +85,6 @@ void RenderInline::willBeDestroyed()
     }
 #endif
 
-    // Make sure to destroy anonymous children first while they are still connected to the rest of the tree, so that they will
-    // properly dirty line boxes that they are removed from.  Effects that do :before/:after only on hover could crash otherwise.
-    destroyLeftoverChildren();
-    
     if (!renderTreeBeingDestroyed()) {
         if (firstLineBox()) {
             // We can't wait for RenderBoxModelObject::destroy to clear the selection,
@@ -107,18 +108,6 @@ void RenderInline::willBeDestroyed()
     m_lineBoxes.deleteLineBoxes();
 
     RenderBoxModelObject::willBeDestroyed();
-}
-
-RenderInline* RenderInline::inlineElementContinuation() const
-{
-    RenderBoxModelObject* continuation = this->continuation();
-    if (!continuation)
-        return nullptr;
-
-    if (is<RenderInline>(*continuation))
-        return downcast<RenderInline>(continuation);
-
-    return is<RenderBlock>(*continuation) ? downcast<RenderBlock>(*continuation).inlineElementContinuation() : nullptr;
 }
 
 void RenderInline::updateFromStyle()
@@ -151,12 +140,12 @@ static void updateStyleOfAnonymousBlockContinuations(const RenderBlock& block, c
             continue;
 
         RenderBlock& block = downcast<RenderBlock>(*box);
-        if (!block.isAnonymousBlockContinuation())
+        if (!block.isContinuation())
             continue;
         
         // If we are no longer in-flow positioned but our descendant block(s) still have an in-flow positioned ancestor then
         // their containing anonymous block should keep its in-flow positioning. 
-        RenderInline* continuation = block.inlineElementContinuation();
+        RenderInline* continuation = block.inlineContinuation();
         if (oldStyle->hasInFlowPosition() && inFlowPositionedInlineAncestor(continuation))
             continue;
         auto blockStyle = RenderStyle::createAnonymousStyleWithDisplay(block.style(), BLOCK);
@@ -188,14 +177,10 @@ void RenderInline::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
     // and after the block share the same style, but the block doesn't
     // need to pass its style on to anyone else.
     auto& newStyle = style();
-    RenderInline* continuation = inlineElementContinuation();
-    if (continuation) {
-        for (RenderInline* currCont = continuation; currCont; currCont = currCont->inlineElementContinuation()) {
-            RenderBoxModelObject* nextCont = currCont->continuation();
-            currCont->setContinuation(nullptr);
+    RenderInline* continuation = inlineContinuation();
+    if (continuation && !isContinuation()) {
+        for (RenderInline* currCont = continuation; currCont; currCont = currCont->inlineContinuation())
             currCont->setStyle(RenderStyle::clone(newStyle));
-            currCont->setContinuation(nextCont);
-        }
         // If an inline's in-flow positioning has changed and it is part of an active continuation as a descendant of an anonymous containing block,
         // then any descendant blocks will need to change their in-flow positioning accordingly.
         // Do this by updating the position of the descendant blocks' containing anonymous blocks - there may be more than one.
@@ -270,336 +255,14 @@ LayoutRect RenderInline::localCaretRect(InlineBox* inlineBox, unsigned, LayoutUn
     return caretRect;
 }
 
-void RenderInline::addChild(RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
+void RenderInline::addChild(RenderTreeBuilder& builder, RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
 {
-    auto* beforeChildOrPlaceholder = beforeChild;
-    if (auto* fragmentedFlow = enclosingFragmentedFlow())
-        beforeChildOrPlaceholder = fragmentedFlow->resolveMovedChild(beforeChild);
-    if (continuation()) {
-        addChildToContinuation(WTFMove(newChild), beforeChildOrPlaceholder);
-        return;
-    }
-    addChildIgnoringContinuation(WTFMove(newChild), beforeChildOrPlaceholder);
+    builder.insertChildToRenderInline(*this, WTFMove(newChild), beforeChild);
 }
 
-static RenderBoxModelObject* nextContinuation(RenderObject* renderer)
+void RenderInline::addChildIgnoringContinuation(RenderTreeBuilder& builder, RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
 {
-    if (is<RenderInline>(*renderer) && !renderer->isReplaced())
-        return downcast<RenderInline>(*renderer).continuation();
-    return downcast<RenderBlock>(*renderer).inlineElementContinuation();
-}
-
-RenderBoxModelObject* RenderInline::continuationBefore(RenderObject* beforeChild)
-{
-    if (beforeChild && beforeChild->parent() == this)
-        return this;
-
-    RenderBoxModelObject* curr = nextContinuation(this);
-    RenderBoxModelObject* nextToLast = this;
-    RenderBoxModelObject* last = this;
-    while (curr) {
-        if (beforeChild && beforeChild->parent() == curr) {
-            if (curr->firstChild() == beforeChild)
-                return last;
-            return curr;
-        }
-
-        nextToLast = last;
-        last = curr;
-        curr = nextContinuation(curr);
-    }
-
-    if (!beforeChild && !last->firstChild())
-        return nextToLast;
-    return last;
-}
-
-static bool newChildIsInline(const RenderObject& newChild, const RenderInline& parent)
-{
-    // inline parent generates inline-table.
-    return newChild.isInline() | (parent.childRequiresTable(newChild) && parent.style().display() == INLINE);
-}
-
-void RenderInline::addChildIgnoringContinuation(RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
-{
-    // Make sure we don't append things after :after-generated content if we have it.
-    if (!beforeChild && isAfterContent(lastChild()))
-        beforeChild = lastChild();
-    
-    bool childInline = newChildIsInline(*newChild, *this);
-    // This code is for the old block-inside-inline model that uses continuations.
-    if (!childInline && !newChild->isFloatingOrOutOfFlowPositioned()) {
-        // We are placing a block inside an inline. We have to perform a split of this
-        // inline into continuations.  This involves creating an anonymous block box to hold
-        // |newChild|.  We then make that block box a continuation of this inline.  We take all of
-        // the children after |beforeChild| and put them in a clone of this object.
-        auto newStyle = RenderStyle::createAnonymousStyleWithDisplay(style(), BLOCK);
-        
-        // If inside an inline affected by in-flow positioning the block needs to be affected by it too.
-        // Giving the block a layer like this allows it to collect the x/y offsets from inline parents later.
-        if (auto positionedAncestor = inFlowPositionedInlineAncestor(this))
-            newStyle.setPosition(positionedAncestor->style().position());
-
-        auto newBox = createRenderer<RenderBlockFlow>(document(), WTFMove(newStyle));
-        newBox->initializeStyle();
-        newBox->setIsContinuation();
-        RenderBoxModelObject* oldContinuation = continuation();
-        setContinuation(newBox.get());
-
-        splitFlow(beforeChild, WTFMove(newBox), WTFMove(newChild), oldContinuation);
-        return;
-    }
-
-    auto& child = *newChild;
-    RenderBoxModelObject::addChild(WTFMove(newChild), beforeChild);
-    child.setNeedsLayoutAndPrefWidthsRecalc();
-}
-
-RenderPtr<RenderInline> RenderInline::cloneAsContinuation() const
-{
-    RenderPtr<RenderInline> cloneInline = createRenderer<RenderInline>(*element(), RenderStyle::clone(style()));
-    cloneInline->initializeStyle();
-    cloneInline->setFragmentedFlowState(fragmentedFlowState());
-    cloneInline->setHasOutlineAutoAncestor(hasOutlineAutoAncestor());
-    cloneInline->setIsContinuation();
-    return cloneInline;
-}
-
-void RenderInline::splitInlines(RenderBlock* fromBlock, RenderBlock* toBlock,
-                                RenderBlock* middleBlock,
-                                RenderObject* beforeChild, RenderBoxModelObject* oldCont)
-{
-    // Create a clone of this inline.
-    RenderPtr<RenderInline> cloneInline = cloneAsContinuation();
-#if ENABLE(FULLSCREEN_API)
-    // If we're splitting the inline containing the fullscreened element,
-    // |beforeChild| may be the renderer for the fullscreened element. However,
-    // that renderer is wrapped in a RenderFullScreen, so |this| is not its
-    // parent. Since the splitting logic expects |this| to be the parent, set
-    // |beforeChild| to be the RenderFullScreen.
-    const Element* fullScreenElement = document().webkitCurrentFullScreenElement();
-    if (fullScreenElement && beforeChild && beforeChild->node() == fullScreenElement)
-        beforeChild = document().fullScreenRenderer();
-#endif
-    // Now take all of the children from beforeChild to the end and remove
-    // them from |this| and place them in the clone.
-    for (RenderObject* rendererToMove = beforeChild; rendererToMove;) {
-        RenderObject* nextSibling = rendererToMove->nextSibling();
-        // When anonymous wrapper is present, we might need to move the whole subtree instead.
-        if (rendererToMove->parent() != this) {
-            auto* anonymousParent = rendererToMove->parent();
-            while (anonymousParent && anonymousParent->parent() != this) {
-                ASSERT(anonymousParent->isAnonymous());
-                anonymousParent = anonymousParent->parent();
-            }
-            if (!anonymousParent) {
-                ASSERT_NOT_REACHED();
-                break;
-            }
-            // If beforeChild is the first child in the subtree, we could just move the whole subtree.
-            if (!rendererToMove->previousSibling()) {
-                // Reparent the whole anonymous wrapper tree.
-                rendererToMove = anonymousParent;
-                // Skip to the next sibling that is not in this subtree.
-                nextSibling = anonymousParent->nextSibling();
-            } else if (!rendererToMove->nextSibling()) {
-                // This is the last renderer in the subtree. We need to jump out of the wrapper subtree, so that
-                // the siblings are getting reparented too.
-                nextSibling = anonymousParent->nextSibling();
-            }
-            // Otherwise just move the renderer to the inline clone. Should the renderer need an anon
-            // wrapper, the addChild() will generate one for it.
-            // FIXME: When the anonymous wrapper has multiple children, we end up traversing up to the topmost wrapper
-            // every time, which is a bit wasteful.
-        }
-        auto childToMove = rendererToMove->parent()->takeChildInternal(*rendererToMove, NotifyChildren);
-        cloneInline->addChildIgnoringContinuation(WTFMove(childToMove));
-        rendererToMove->setNeedsLayoutAndPrefWidthsRecalc();
-        rendererToMove = nextSibling;
-    }
-    cloneInline->setContinuation(oldCont);
-    // Hook |clone| up as the continuation of the middle block.
-    middleBlock->setContinuation(cloneInline.get());
-
-    // We have been reparented and are now under the fromBlock.  We need
-    // to walk up our inline parent chain until we hit the containing block.
-    // Once we hit the containing block we're done.
-    RenderBoxModelObject* current = downcast<RenderBoxModelObject>(parent());
-    RenderBoxModelObject* currentChild = this;
-    
-    // FIXME: Because splitting is O(n^2) as tags nest pathologically, we cap the depth at which we're willing to clone.
-    // There will eventually be a better approach to this problem that will let us nest to a much
-    // greater depth (see bugzilla bug 13430) but for now we have a limit.  This *will* result in
-    // incorrect rendering, but the alternative is to hang forever.
-    unsigned splitDepth = 1;
-    const unsigned cMaxSplitDepth = 200; 
-    while (current && current != fromBlock) {
-        if (splitDepth < cMaxSplitDepth) {
-            // Create a new clone.
-            RenderPtr<RenderInline> cloneChild = WTFMove(cloneInline);
-            cloneInline = downcast<RenderInline>(*current).cloneAsContinuation();
-
-            // Insert our child clone as the first child.
-            cloneInline->addChildIgnoringContinuation(WTFMove(cloneChild));
-
-            // Hook the clone up as a continuation of |curr|.
-            RenderInline& currentInline = downcast<RenderInline>(*current);
-            oldCont = currentInline.continuation();
-            currentInline.setContinuation(cloneInline.get());
-            cloneInline->setContinuation(oldCont);
-
-            // Now we need to take all of the children starting from the first child
-            // *after* currentChild and append them all to the clone.
-            for (auto* current = currentChild->nextSibling(); current;) {
-                auto* next = current->nextSibling();
-                auto childToMove = currentInline.takeChildInternal(*current, NotifyChildren);
-                cloneInline->addChildIgnoringContinuation(WTFMove(childToMove));
-                current->setNeedsLayoutAndPrefWidthsRecalc();
-                current = next;
-            }
-        }
-        
-        // Keep walking up the chain.
-        currentChild = current;
-        current = downcast<RenderBoxModelObject>(current->parent());
-        ++splitDepth;
-    }
-
-    // Clear the flow thread containing blocks cached during the detached state insertions.
-    for (auto& cloneBlockChild : childrenOfType<RenderBlock>(*cloneInline))
-        cloneBlockChild.resetEnclosingFragmentedFlowAndChildInfoIncludingDescendants();
-
-    // Now we are at the block level. We need to put the clone into the toBlock.
-    toBlock->insertChildInternal(WTFMove(cloneInline), nullptr, NotifyChildren);
-
-    // Now take all the children after currentChild and remove them from the fromBlock
-    // and put them in the toBlock.
-    for (auto* current = currentChild->nextSibling(); current;) {
-        auto* next = current->nextSibling();
-        auto childToMove = fromBlock->takeChildInternal(*current, NotifyChildren);
-        toBlock->insertChildInternal(WTFMove(childToMove), nullptr, NotifyChildren);
-        current = next;
-    }
-}
-
-void RenderInline::splitFlow(RenderObject* beforeChild, RenderPtr<RenderBlock> newBlockBox, RenderPtr<RenderObject> newChild, RenderBoxModelObject* oldCont)
-{
-    auto& addedBlockBox = *newBlockBox;
-    RenderBlock* pre = nullptr;
-    RenderBlock* block = containingBlock();
-
-    // Delete our line boxes before we do the inline split into continuations.
-    block->deleteLines();
-
-    RenderPtr<RenderBlock> createdPre;
-    bool madeNewBeforeBlock = false;
-    if (block->isAnonymousBlock() && (!block->parent() || !block->parent()->createsAnonymousWrapper())) {
-        // We can reuse this block and make it the preBlock of the next continuation.
-        pre = block;
-        pre->removePositionedObjects(nullptr);
-        // FIXME-BLOCKFLOW: The enclosing method should likely be switched over
-        // to only work on RenderBlockFlow, in which case this conversion can be
-        // removed.
-        if (is<RenderBlockFlow>(*pre))
-            downcast<RenderBlockFlow>(*pre).removeFloatingObjects();
-        block = block->containingBlock();
-    } else {
-        // No anonymous block available for use.  Make one.
-        createdPre = block->createAnonymousBlock();
-        pre = createdPre.get();
-        madeNewBeforeBlock = true;
-    }
-
-    auto createdPost = pre->createAnonymousBoxWithSameTypeAs(*block);
-    auto& post = downcast<RenderBlock>(*createdPost);
-
-    RenderObject* boxFirst = madeNewBeforeBlock ? block->firstChild() : pre->nextSibling();
-    if (createdPre)
-        block->insertChildInternal(WTFMove(createdPre), boxFirst, NotifyChildren);
-    block->insertChildInternal(WTFMove(newBlockBox), boxFirst, NotifyChildren);
-    block->insertChildInternal(WTFMove(createdPost), boxFirst, NotifyChildren);
-    block->setChildrenInline(false);
-    
-    if (madeNewBeforeBlock) {
-        RenderObject* o = boxFirst;
-        while (o) {
-            RenderObject* no = o;
-            o = no->nextSibling();
-            auto childToMove = block->takeChildInternal(*no, NotifyChildren);
-            pre->insertChildInternal(WTFMove(childToMove), nullptr, NotifyChildren);
-            no->setNeedsLayoutAndPrefWidthsRecalc();
-        }
-    }
-
-    splitInlines(pre, &post, &addedBlockBox, beforeChild, oldCont);
-
-    // We already know the newBlockBox isn't going to contain inline kids, so avoid wasting
-    // time in makeChildrenNonInline by just setting this explicitly up front.
-    addedBlockBox.setChildrenInline(false);
-
-    // We delayed adding the newChild until now so that the |newBlockBox| would be fully
-    // connected, thus allowing newChild access to a renderArena should it need
-    // to wrap itself in additional boxes (e.g., table construction).
-    addedBlockBox.addChild(WTFMove(newChild));
-
-    // Always just do a full layout in order to ensure that line boxes (especially wrappers for images)
-    // get deleted properly.  Because objects moves from the pre block into the post block, we want to
-    // make new line boxes instead of leaving the old line boxes around.
-    pre->setNeedsLayoutAndPrefWidthsRecalc();
-    block->setNeedsLayoutAndPrefWidthsRecalc();
-    post.setNeedsLayoutAndPrefWidthsRecalc();
-}
-
-static bool canUseAsParentForContinuation(const RenderObject* renderer)
-{
-    if (!renderer)
-        return false;
-    if (!is<RenderBlock>(renderer) && renderer->isAnonymous())
-        return false;
-    if (is<RenderTable>(renderer))
-        return false;
-    return true;
-}
-
-void RenderInline::addChildToContinuation(RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
-{
-    auto* flow = continuationBefore(beforeChild);
-    // It may or may not be the direct parent of the beforeChild.
-    RenderBoxModelObject* beforeChildAncestor = nullptr;
-    if (!beforeChild) {
-        auto* continuation = nextContinuation(flow);
-        beforeChildAncestor = continuation ? continuation : flow;
-    } else if (canUseAsParentForContinuation(beforeChild->parent()))
-        beforeChildAncestor = downcast<RenderBoxModelObject>(beforeChild->parent());
-    else if (beforeChild->parent()) {
-        // In case of anonymous wrappers, the parent of the beforeChild is mostly irrelevant. What we need is the topmost wrapper.
-        auto* parent = beforeChild->parent();
-        while (parent && parent->parent() && parent->parent()->isAnonymous()) {
-            // The ancestor candidate needs to be inside the continuation.
-            if (parent->hasContinuation())
-                break;
-            parent = parent->parent();
-        }
-        ASSERT(parent && parent->parent());
-        beforeChildAncestor = downcast<RenderBoxModelObject>(parent->parent());
-    } else
-        ASSERT_NOT_REACHED();
-
-    if (newChild->isFloatingOrOutOfFlowPositioned())
-        return beforeChildAncestor->addChildIgnoringContinuation(WTFMove(newChild), beforeChild);
-
-    if (flow == beforeChildAncestor)
-        return flow->addChildIgnoringContinuation(WTFMove(newChild), beforeChild);
-    // A continuation always consists of two potential candidates: an inline or an anonymous
-    // block box holding block children.
-    bool childInline = newChildIsInline(*newChild, *this);
-    // The goal here is to match up if we can, so that we can coalesce and create the
-    // minimal # of continuations needed for the inline.
-    if (childInline == beforeChildAncestor->isInline())
-        return beforeChildAncestor->addChildIgnoringContinuation(WTFMove(newChild), beforeChild);
-    if (flow->isInline() == childInline)
-        return flow->addChildIgnoringContinuation(WTFMove(newChild)); // Just treat like an append.
-    return beforeChildAncestor->addChildIgnoringContinuation(WTFMove(newChild), beforeChild);
+    builder.insertChildToRenderInlineIgnoringContinuation(*this, WTFMove(newChild), beforeChild);
 }
 
 void RenderInline::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
@@ -846,9 +509,9 @@ LayoutUnit RenderInline::marginAfter(const RenderStyle* otherStyle) const
 
 const char* RenderInline::renderName() const
 {
-    if (isRelPositioned())
+    if (isRelativelyPositioned())
         return "RenderInline (relative positioned)";
-    if (isStickyPositioned())
+    if (isStickilyPositioned())
         return "RenderInline (sticky positioned)";
     // FIXME: Temporary hack while the new generated content system is being implemented.
     if (isPseudoElement())
@@ -929,7 +592,7 @@ VisiblePosition RenderInline::positionForPoint(const LayoutPoint& point, const R
         RenderBlock* currentBlock = continuation->isInline() ? continuation->containingBlock() : downcast<RenderBlock>(continuation);
         if (continuation->isInline() || continuation->firstChild())
             return continuation->positionForPoint(parentBlockPoint - currentBlock->locationOffset(), fragment);
-        continuation = downcast<RenderBlock>(*continuation).inlineElementContinuation();
+        continuation = continuation->inlineContinuation();
     }
     
     return RenderBoxModelObject::positionForPoint(point, fragment);
@@ -1165,7 +828,7 @@ LayoutRect RenderInline::linesVisualOverflowBoundingBoxInFragment(const RenderFr
 LayoutRect RenderInline::clippedOverflowRectForRepaint(const RenderLayerModelObject* repaintContainer) const
 {
     // Only first-letter renderers are allowed in here during layout. They mutate the tree triggering repaints.
-    ASSERT(!view().layoutStateEnabled() || style().styleType() == FIRST_LETTER || hasSelfPaintingLayer());
+    ASSERT(!view().frameView().layoutContext().isPaintOffsetCacheEnabled() || style().styleType() == FIRST_LETTER || hasSelfPaintingLayer());
 
     if (!firstLineBoxIncludingCulling() && !continuation())
         return LayoutRect();
@@ -1220,15 +883,15 @@ LayoutRect RenderInline::rectWithOutlineForRepaint(const RenderLayerModelObject*
 
 LayoutRect RenderInline::computeRectForRepaint(const LayoutRect& rect, const RenderLayerModelObject* repaintContainer, RepaintContext context) const
 {
-    // LayoutState is only valid for root-relative repainting
+    // Repaint offset cache is only valid for root-relative repainting
     LayoutRect adjustedRect = rect;
-    if (view().layoutStateEnabled() && !repaintContainer) {
-        LayoutState* layoutState = view().layoutState();
+    if (view().frameView().layoutContext().isPaintOffsetCacheEnabled() && !repaintContainer) {
+        auto* layoutState = view().frameView().layoutContext().layoutState();
         if (style().hasInFlowPosition() && layer())
             adjustedRect.move(layer()->offsetForInFlowPosition());
-        adjustedRect.move(layoutState->m_paintOffset);
-        if (layoutState->m_clipped)
-            adjustedRect.intersect(layoutState->m_clipRect);
+        adjustedRect.move(layoutState->paintOffset());
+        if (layoutState->isClipped())
+            adjustedRect.intersect(layoutState->clipRect());
         return adjustedRect;
     }
 
@@ -1290,9 +953,9 @@ void RenderInline::mapLocalToContainer(const RenderLayerModelObject* repaintCont
     if (repaintContainer == this)
         return;
 
-    if (view().layoutStateEnabled() && !repaintContainer) {
-        LayoutState* layoutState = view().layoutState();
-        LayoutSize offset = layoutState->m_paintOffset;
+    if (view().frameView().layoutContext().isPaintOffsetCacheEnabled() && !repaintContainer) {
+        auto* layoutState = view().frameView().layoutContext().layoutState();
+        LayoutSize offset = layoutState->paintOffset();
         if (style().hasInFlowPosition() && layer())
             offset += layer()->offsetForInFlowPosition();
         transformState.move(offset);
@@ -1379,10 +1042,12 @@ void RenderInline::childBecameNonInline(RenderElement& child)
     auto newBox = containingBlock()->createAnonymousBlock();
     newBox->setIsContinuation();
     RenderBoxModelObject* oldContinuation = continuation();
-    setContinuation(newBox.get());
+    if (oldContinuation)
+        oldContinuation->removeFromContinuationChain();
+    newBox->insertIntoContinuationChainAfter(*this);
     RenderObject* beforeChild = child.nextSibling();
-    auto removedChild = takeChildInternal(child, NotifyChildren);
-    splitFlow(beforeChild, WTFMove(newBox), WTFMove(removedChild), oldContinuation);
+    auto removedChild = takeChildInternal(child);
+    RenderTreeBuilder::current()->splitFlow(*this, beforeChild, WTFMove(newBox), WTFMove(removedChild), oldContinuation);
 }
 
 void RenderInline::updateHitTestResult(HitTestResult& result, const LayoutPoint& point)
@@ -1392,7 +1057,7 @@ void RenderInline::updateHitTestResult(HitTestResult& result, const LayoutPoint&
 
     LayoutPoint localPoint(point);
     if (Element* element = this->element()) {
-        if (isInlineElementContinuation()) {
+        if (isContinuation()) {
             // We're in the continuation of a split inline.  Adjust our local point to be in the coordinate space
             // of the principal renderer's containing block.  This will end up being the innerNonSharedNode.
             RenderBlock* firstBlock = element->renderer()->containingBlock();

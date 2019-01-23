@@ -264,12 +264,12 @@ void WKContextSetDownloadClient(WKContextRef contextRef, const WKContextDownload
             m_client.processDidCrash(toAPI(&processPool), toAPI(&downloadProxy), m_client.base.clientInfo);
         }
 
-        void willSendRequest(WebProcessPool& processPool, DownloadProxy& downloadProxy, ResourceRequest&& request, const ResourceResponse&, Function<void(ResourceRequest&&)>&& callback) final
+        void willSendRequest(WebProcessPool& processPool, DownloadProxy& downloadProxy, ResourceRequest&& request, const ResourceResponse&, CompletionHandler<void(ResourceRequest&&)>&& completionHandler) final
         {
             if (m_client.didReceiveServerRedirect)
                 m_client.didReceiveServerRedirect(toAPI(&processPool), toAPI(&downloadProxy), toURLRef(request.url().string().impl()), m_client.base.clientInfo);
 
-            callback(WTFMove(request));
+            completionHandler(WTFMove(request));
         }
 
 
@@ -556,6 +556,13 @@ void WKContextSetAllowsAnySSLCertificateForWebSocketTesting(WKContextRef context
     toImpl(context)->setAllowsAnySSLCertificateForWebSocket(allows);
 }
 
+void WKContextSetAllowsAnySSLCertificateForServiceWorkerTesting(WKContextRef context, bool allows)
+{
+#if ENABLE(SERVICE_WORKER)
+    toImpl(context)->setAllowsAnySSLCertificateForServiceWorker(allows);
+#endif
+}
+
 void WKContextClearCachedCredentials(WKContextRef context)
 {
     toImpl(context)->clearCachedCredentials();
@@ -605,6 +612,11 @@ void WKContextSetFontWhitelist(WKContextRef contextRef, WKArrayRef arrayRef)
 void WKContextTerminateNetworkProcess(WKContextRef context)
 {
     toImpl(context)->terminateNetworkProcess();
+}
+
+void WKContextTerminateServiceWorkerProcess(WKContextRef context)
+{
+    toImpl(context)->terminateServiceWorkerProcess();
 }
 
 ProcessID WKContextGetNetworkProcessIdentifier(WKContextRef contextRef)

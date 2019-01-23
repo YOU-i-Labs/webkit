@@ -283,10 +283,7 @@ bool SecurityOrigin::passesFileCheck(const SecurityOrigin& other) const
 {
     ASSERT(isLocal() && other.isLocal());
 
-    if (!m_enforceFilePathSeparation && !other.m_enforceFilePathSeparation)
-        return true;
-
-    return (m_filePath == other.m_filePath);
+    return !m_enforceFilePathSeparation && !other.m_enforceFilePathSeparation;
 }
 
 bool SecurityOrigin::canRequest(const URL& url) const
@@ -334,14 +331,16 @@ bool SecurityOrigin::canReceiveDragData(const SecurityOrigin& dragInitiator) con
 // This function should be removed as an outcome of https://bugs.webkit.org/show_bug.cgi?id=69196
 static bool isFeedWithNestedProtocolInHTTPFamily(const URL& url)
 {
-    const String& urlString = url.string();
-    if (!urlString.startsWith("feed", false))
+    const String& string = url.string();
+    if (!startsWithLettersIgnoringASCIICase(string, "feed"))
         return false;
-
-    return urlString.startsWith("feed://", false) 
-        || urlString.startsWith("feed:http:", false) || urlString.startsWith("feed:https:", false)
-        || urlString.startsWith("feeds:http:", false) || urlString.startsWith("feeds:https:", false)
-        || urlString.startsWith("feedsearch:http:", false) || urlString.startsWith("feedsearch:https:", false);
+    return startsWithLettersIgnoringASCIICase(string, "feed://")
+        || startsWithLettersIgnoringASCIICase(string, "feed:http:")
+        || startsWithLettersIgnoringASCIICase(string, "feed:https:")
+        || startsWithLettersIgnoringASCIICase(string, "feeds:http:")
+        || startsWithLettersIgnoringASCIICase(string, "feeds:https:")
+        || startsWithLettersIgnoringASCIICase(string, "feedsearch:http:")
+        || startsWithLettersIgnoringASCIICase(string, "feedsearch:https:");
 }
 
 bool SecurityOrigin::canDisplay(const URL& url) const
@@ -350,7 +349,7 @@ bool SecurityOrigin::canDisplay(const URL& url) const
         return true;
 
 #if !PLATFORM(IOS)
-    if (m_protocol == "file" && url.isLocalFile() && !filesHaveSameVolume(m_filePath, url.fileSystemPath()))
+    if (m_protocol == "file" && url.isLocalFile() && !FileSystem::filesHaveSameVolume(m_filePath, url.fileSystemPath()))
         return false;
 #endif
 

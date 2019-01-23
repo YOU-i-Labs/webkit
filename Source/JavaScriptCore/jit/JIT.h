@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,6 +38,7 @@
 #define ASSERT_JIT_OFFSET(actual, expected) ASSERT_WITH_MESSAGE(actual == expected, "JIT Offset \"%s\" should be %d, not %d.\n", #expected, static_cast<int>(expected), static_cast<int>(actual));
 
 #include "CodeBlock.h"
+#include "CommonSlowPaths.h"
 #include "JITDisassembler.h"
 #include "JITInlineCacheGenerator.h"
 #include "JITMathIC.h"
@@ -56,7 +57,7 @@ namespace JSC {
     class JIT;
     class Identifier;
     class Interpreter;
-    class MarkedAllocator;
+    class BlockDirectory;
     class Register;
     class StructureChain;
     class StructureStubInfo;
@@ -528,6 +529,8 @@ namespace JSC {
         void emit_op_loop_hint(Instruction*);
         void emit_op_check_traps(Instruction*);
         void emit_op_nop(Instruction*);
+        void emit_op_super_sampler_begin(Instruction*);
+        void emit_op_super_sampler_end(Instruction*);
         void emit_op_lshift(Instruction*);
         void emit_op_mod(Instruction*);
         void emit_op_mov(Instruction*);
@@ -537,7 +540,6 @@ namespace JSC {
         void emit_op_neq_null(Instruction*);
         void emit_op_new_array(Instruction*);
         void emit_op_new_array_with_size(Instruction*);
-        void emit_op_new_array_buffer(Instruction*);
         void emit_op_new_func(Instruction*);
         void emit_op_new_func_exp(Instruction*);
         void emit_op_new_generator_func(Instruction*);
@@ -575,6 +577,7 @@ namespace JSC {
         void emit_op_throw(Instruction*);
         void emit_op_to_number(Instruction*);
         void emit_op_to_string(Instruction*);
+        void emit_op_to_object(Instruction*);
         void emit_op_to_primitive(Instruction*);
         void emit_op_unexpected_load(Instruction*);
         void emit_op_unsigned(Instruction*);
@@ -588,9 +591,6 @@ namespace JSC {
         void emit_op_log_shadow_chicken_tail(Instruction*);
 
         void emitSlow_op_add(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_bitand(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_bitor(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_bitxor(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_call(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_tail_call(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_call_eval(Instruction*, Vector<SlowCaseEntry>::iterator&);
@@ -599,10 +599,6 @@ namespace JSC {
         void emitSlow_op_tail_call_forward_arguments(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_construct_varargs(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_construct(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_to_this(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_create_this(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_check_tdz(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_div(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_eq(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_get_callee(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_try_get_by_id(Instruction*, Vector<SlowCaseEntry>::iterator&);
@@ -624,38 +620,25 @@ namespace JSC {
         void emitSlow_op_jtrue(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_loop_hint(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_check_traps(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_lshift(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_mod(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_mul(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_negate(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_neq(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_new_object(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_not(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_nstricteq(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_dec(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_inc(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_put_by_id(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_put_by_val(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_rshift(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_stricteq(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_sub(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_to_number(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_to_string(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_to_primitive(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_unsigned(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_urshift(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_has_indexed_property(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_has_structure_property(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_get_direct_pname(Instruction*, Vector<SlowCaseEntry>::iterator&);
 
         void emit_op_resolve_scope(Instruction*);
         void emit_op_get_from_scope(Instruction*);
         void emit_op_put_to_scope(Instruction*);
         void emit_op_get_from_arguments(Instruction*);
         void emit_op_put_to_arguments(Instruction*);
-        void emitSlow_op_resolve_scope(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_get_from_scope(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_put_to_scope(Instruction*, Vector<SlowCaseEntry>::iterator&);
+
+        void emitSlowCaseCall(Instruction*, Vector<SlowCaseEntry>::iterator&, SlowPathFunction);
 
         void emitRightShift(Instruction*, bool isUnsigned);
         void emitRightShiftSlowCase(Instruction*, Vector<SlowCaseEntry>::iterator&, bool isUnsigned);
@@ -736,6 +719,7 @@ namespace JSC {
         MacroAssembler::Call callOperation(C_JITOperation_EL, GPRReg);
         MacroAssembler::Call callOperation(C_JITOperation_EL, TrustedImmPtr);
         MacroAssembler::Call callOperation(C_JITOperation_ESt, Structure*);
+        MacroAssembler::Call callOperation(C_JITOperation_EC, JSCell*);
         MacroAssembler::Call callOperation(C_JITOperation_EZ, int32_t);
         MacroAssembler::Call callOperation(Z_JITOperation_EJZZ, GPRReg, int32_t, int32_t);
         MacroAssembler::Call callOperation(J_JITOperation_E, int);
@@ -919,8 +903,8 @@ namespace JSC {
         Instruction* copiedInstruction(Instruction*);
 
         Interpreter* m_interpreter;
-        
-        RefCountedArray<Instruction> m_instructions;
+
+        PoisonedRefCountedArray<POISON(CodeBlock), Instruction> m_instructions;
 
         Vector<CallRecord> m_calls;
         Vector<Label> m_labels;
@@ -960,6 +944,7 @@ namespace JSC {
         bool m_canBeOptimized;
         bool m_canBeOptimizedOrInlined;
         bool m_shouldEmitProfiling;
+        bool m_shouldUseIndexMasking;
         unsigned m_loopOSREntryBytecodeOffset { 0 };
     } JIT_CLASS_ALIGNMENT;
 

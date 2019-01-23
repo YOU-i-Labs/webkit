@@ -48,14 +48,20 @@ WebViewTest::~WebViewTest()
 void WebViewTest::initializeWebView()
 {
     g_assert(!m_webView);
-    m_webView = WEBKIT_WEB_VIEW(g_object_new(WEBKIT_TYPE_WEB_VIEW, "web-context", m_webContext.get(), "user-content-manager", m_userContentManager.get(), nullptr));
+    m_webView = WEBKIT_WEB_VIEW(g_object_new(WEBKIT_TYPE_WEB_VIEW,
+#if PLATFORM(WPE)
+        "backend", Test::createWebViewBackend(),
+#endif
+        "web-context", m_webContext.get(),
+        "user-content-manager", m_userContentManager.get(),
+        nullptr));
     platformInitializeWebView();
     assertObjectIsDeletedWhenTestFinishes(G_OBJECT(m_webView));
 
-    g_signal_connect(m_webView, "web-process-crashed", G_CALLBACK(WebViewTest::webProcessCrashed), this);
+    g_signal_connect(m_webView, "web-process-terminated", G_CALLBACK(WebViewTest::webProcessTerminated), this);
 }
 
-gboolean WebViewTest::webProcessCrashed(WebKitWebView*, WebViewTest* test)
+gboolean WebViewTest::webProcessTerminated(WebKitWebView*, WebKitWebProcessTerminationReason, WebViewTest* test)
 {
     if (test->m_expectedWebProcessCrash) {
         test->m_expectedWebProcessCrash = false;

@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003-2009, 2013, 2015-2016 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2018 Apple Inc. All rights reserved.
  *  Copyright (C) 2007 Cameron Zwarich (cwzwarich@uwaterloo.ca)
  *  Copyright (C) 2007 Maks Orlovich
  *  Copyright (C) 2007 Eric Seidel <eric@webkit.org>
@@ -162,6 +162,7 @@ namespace JSC {
 
         virtual bool isNumber() const { return false; }
         virtual bool isString() const { return false; }
+        virtual bool isBigInt() const { return false; }
         virtual bool isObjectLiteral() const { return false; }
         virtual bool isArrayLiteral() const { return false; }
         virtual bool isNull() const { return false; }
@@ -326,6 +327,19 @@ namespace JSC {
         JSValue jsValue(BytecodeGenerator&) const override;
 
         const Identifier& m_value;
+    };
+
+    class BigIntNode final : public ConstantNode {
+    public:
+        BigIntNode(const JSTokenLocation&, const Identifier&, uint8_t radix);
+        const Identifier& value() { return m_value; }
+
+    private:
+        bool isBigInt() const final { return true; }
+        JSValue jsValue(BytecodeGenerator&) const final;
+
+        const Identifier& m_value;
+        const uint8_t m_radix;
     };
 
     class ThrowableExpressionData {
@@ -683,6 +697,8 @@ namespace JSC {
         Type type() const { return static_cast<Type>(m_type); }
         bool needsSuperBinding() const { return m_needsSuperBinding; }
         bool isClassProperty() const { return m_isClassProperty; }
+        bool isOverriddenByDuplicate() const { return m_isOverriddenByDuplicate; }
+        void setIsOverriddenByDuplicate() { m_isOverriddenByDuplicate = true; }
         PutType putType() const { return static_cast<PutType>(m_putType); }
 
     private:
@@ -694,6 +710,7 @@ namespace JSC {
         unsigned m_needsSuperBinding : 1;
         unsigned m_putType : 1;
         unsigned m_isClassProperty: 1;
+        unsigned m_isOverriddenByDuplicate: 1;
     };
 
     class PropertyListNode : public ExpressionNode {

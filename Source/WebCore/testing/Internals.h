@@ -52,7 +52,6 @@ class DOMWindow;
 class Document;
 class Element;
 class ExtendableEvent;
-class FetchEvent;
 class FetchResponse;
 class File;
 class Frame;
@@ -76,9 +75,9 @@ class MockPageOverlay;
 class MockPaymentCoordinator;
 class NodeList;
 class Page;
+class RTCPeerConnection;
 class Range;
 class RenderedDocumentMarker;
-class RTCPeerConnection;
 class SVGSVGElement;
 class SerializedScriptValue;
 class SourceBuffer;
@@ -86,10 +85,15 @@ class StringCallback;
 class StyleSheet;
 class TimeRanges;
 class TypeConversions;
+class VoidCallback;
 class WebGLRenderingContext;
 class XMLHttpRequest;
 
-class Internals final : public RefCounted<Internals>,  private ContextDestructionObserver
+#if ENABLE(SERVICE_WORKER)
+class ServiceWorker;
+#endif
+
+class Internals final : public RefCounted<Internals>, private ContextDestructionObserver
 #if ENABLE(MEDIA_STREAM)
     , private RealtimeMediaSource::Observer
 #endif
@@ -102,6 +106,9 @@ public:
 
     ExceptionOr<String> elementRenderTreeAsText(Element&);
     bool hasPausedImageAnimations(Element&);
+
+    bool isPaintingFrequently(Element&);
+    void incrementFrequentPaintCounter(Element&);
 
     String address(Node&);
     bool nodeNeedsStyleRecalc(Node&);
@@ -211,6 +218,7 @@ public:
     ExceptionOr<void> setLowPowerModeEnabled(bool);
 
     ExceptionOr<void> setScrollViewPosition(int x, int y);
+    ExceptionOr<void> unconstrainedScrollTo(Element&, double x, double y);
 
     ExceptionOr<Ref<DOMRect>> layoutViewportRect();
     ExceptionOr<Ref<DOMRect>> visualViewportRect();
@@ -225,8 +233,10 @@ public:
     bool elementShouldAutoComplete(HTMLInputElement&);
     void setEditingValue(HTMLInputElement&, const String&);
     void setAutofilled(HTMLInputElement&, bool enabled);
-    enum class AutoFillButtonType { AutoFillButtonTypeNone, AutoFillButtonTypeContacts, AutoFillButtonTypeCredentials };
+    enum class AutoFillButtonType { None, Contacts, Credentials, StrongPassword, StrongConfirmationPassword };
     void setShowAutoFillButton(HTMLInputElement&, AutoFillButtonType);
+    AutoFillButtonType autoFillButtonType(const HTMLInputElement&);
+    AutoFillButtonType lastAutoFillButtonType(const HTMLInputElement&);
     ExceptionOr<void> scrollElementToRect(Element&, int x, int y, int w, int h);
 
     ExceptionOr<String> autofillFieldName(Element&);
@@ -519,6 +529,7 @@ public:
     String pageMediaState();
 
     void setPageDefersLoading(bool);
+    ExceptionOr<bool> pageDefersLoading();
 
     RefPtr<File> createFile(const String&);
     void queueMicroTask(int);
@@ -553,6 +564,8 @@ public:
 
     bool isProcessingUserGesture();
     double lastHandledUserGestureTimestamp();
+
+    void withUserGesture(RefPtr<VoidCallback>&&);
 
     RefPtr<GCObservation> observeGC(JSC::JSValue);
 
@@ -612,19 +625,17 @@ public:
     void setConsoleMessageListener(RefPtr<StringCallback>&&);
 
 #if ENABLE(SERVICE_WORKER)
-    void waitForFetchEventToFinish(FetchEvent&, DOMPromiseDeferred<IDLInterface<FetchResponse>>&&);
-    void waitForExtendableEventToFinish(ExtendableEvent&, DOMPromiseDeferred<void>&&);
-    Ref<FetchEvent> createBeingDispatchedFetchEvent(ScriptExecutionContext&);
-    Ref<ExtendableEvent> createTrustedExtendableEvent();
+    using HasRegistrationPromise = DOMPromiseDeferred<IDLBoolean>;
+    void hasServiceWorkerRegistration(const String& clientURL, HasRegistrationPromise&&);
+    void terminateServiceWorker(ServiceWorker&);
 #endif
 
-    bool hasServiceWorkerRegisteredForOrigin(const String&);
-        
 #if ENABLE(APPLE_PAY)
     MockPaymentCoordinator& mockPaymentCoordinator() const;
 #endif
 
     String timelineDescription(AnimationTimeline&);
+    void pauseTimeline(AnimationTimeline&);
     void setTimelineCurrentTime(AnimationTimeline&, double);
 
 private:

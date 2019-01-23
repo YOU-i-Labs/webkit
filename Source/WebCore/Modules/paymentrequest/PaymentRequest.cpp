@@ -382,8 +382,10 @@ static ExceptionOr<JSC::JSValue> parse(ScriptExecutionContext& context, const St
 // https://www.w3.org/TR/payment-request/#show()-method
 void PaymentRequest::show(Document& document, ShowPromise&& promise)
 {
-    // FIXME: Reject promise with SecurityError if show() was not triggered by a user gesture.
-    // Find a way to do this without breaking the payment-request web platform tests.
+    if (!UserGestureIndicator::processingUserGesture()) {
+        promise.reject(Exception { SecurityError, "show() must be triggered by user activation." });
+        return;
+    }
 
     if (m_state != State::Created) {
         promise.reject(Exception { InvalidStateError });
@@ -526,30 +528,18 @@ void PaymentRequest::shippingAddressChanged(Ref<PaymentAddress>&& shippingAddres
 {
     ASSERT(m_state == State::Interactive);
     m_shippingAddress = WTFMove(shippingAddress);
-    auto event = PaymentRequestUpdateEvent::create(eventNames().shippingaddresschangeEvent, *this);
-    dispatchEvent(event.get());
+    if (m_isUpdating)
+        return;
+    dispatchEvent(PaymentRequestUpdateEvent::create(eventNames().shippingaddresschangeEvent, *this));
 }
 
 void PaymentRequest::shippingOptionChanged(const String& shippingOption)
 {
     ASSERT(m_state == State::Interactive);
     m_shippingOption = shippingOption;
-    auto event = PaymentRequestUpdateEvent::create(eventNames().shippingoptionchangeEvent, *this);
-    dispatchEvent(event.get());
-}
-
-bool PaymentRequest::dispatchEvent(Event& event)
-{
-    if (!event.isTrusted())
-        return EventTargetWithInlineData::dispatchEvent(event);
-
     if (m_isUpdating)
-        return false;
-
-    if (m_state != State::Interactive)
-        return false;
-
-    return EventTargetWithInlineData::dispatchEvent(event);
+        return;
+    dispatchEvent(PaymentRequestUpdateEvent::create(eventNames().shippingoptionchangeEvent, *this));
 }
 
 ExceptionOr<void> PaymentRequest::updateWith(Event& event, Ref<DOMPromise>&& promise)
@@ -567,6 +557,34 @@ ExceptionOr<void> PaymentRequest::updateWith(Event& event, Ref<DOMPromise>&& pro
     m_detailsPromise = WTFMove(promise);
     m_detailsPromise->whenSettled([this, protectedThis = makeRefPtr(this), type = event.type()]() {
         settleDetailsPromise(type);
+    });
+
+    return { };
+}
+
+ExceptionOr<void> PaymentRequest::completeMerchantValidation(Event& event, Ref<DOMPromise>&& merchantSessionPromise)
+{
+    if (m_state != State::Interactive)
+        return Exception { InvalidStateError };
+
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    m_merchantSessionPromise = WTFMove(merchantSessionPromise);
+    m_merchantSessionPromise->whenSettled([this, protectedThis = makeRefPtr(this)]() {
+        if (m_state != State::Interactive)
+            return;
+
+        if (m_merchantSessionPromise->status() == DOMPromise::Status::Rejected) {
+            stop();
+            return;
+        }
+
+        auto exception = m_activePaymentHandler->merchantValidationCompleted(m_merchantSessionPromise->result());
+        if (exception.hasException()) {
+            abortWithException(exception.releaseException());
+            return;
+        }
     });
 
     return { };

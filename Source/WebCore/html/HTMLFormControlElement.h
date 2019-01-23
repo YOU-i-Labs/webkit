@@ -72,7 +72,6 @@ public:
 
     bool isDisabledFormControl() const override;
 
-    bool isFocusable() const override;
     bool isEnumeratable() const override { return false; }
 
     bool isRequired() const;
@@ -166,7 +165,6 @@ private:
     bool matchesInvalidPseudoClass() const override;
 
     bool isFormControlElement() const final { return true; }
-    bool alwaysCreateUserAgentShadowRoot() const override { return true; }
 
     int tabIndex() const final;
 

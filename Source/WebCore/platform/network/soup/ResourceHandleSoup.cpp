@@ -56,6 +56,7 @@
 #if !COMPILER(MSVC)
 #include <unistd.h>
 #endif
+#include <wtf/CompletionHandler.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
@@ -90,9 +91,9 @@ SoupSession* ResourceHandleInternal::soupSession()
     return m_session ? m_session->soupSession() : sessionFromContext(m_context.get());
 }
 
-RefPtr<ResourceHandle> ResourceHandle::create(SoupNetworkSession& session, const ResourceRequest& request, ResourceHandleClient* client, bool defersLoading, bool shouldContentSniff)
+RefPtr<ResourceHandle> ResourceHandle::create(SoupNetworkSession& session, const ResourceRequest& request, ResourceHandleClient* client, bool defersLoading, bool shouldContentSniff, bool shouldContentEncodingSniff)
 {
-    auto newHandle = adoptRef(*new ResourceHandle(session, request, client, defersLoading, shouldContentSniff));
+    auto newHandle = adoptRef(*new ResourceHandle(session, request, client, defersLoading, shouldContentSniff, shouldContentEncodingSniff));
 
     if (newHandle->d->m_scheduledFailureType != NoFailure)
         return WTFMove(newHandle);
@@ -103,8 +104,8 @@ RefPtr<ResourceHandle> ResourceHandle::create(SoupNetworkSession& session, const
     return nullptr;
 }
 
-ResourceHandle::ResourceHandle(SoupNetworkSession& session, const ResourceRequest& request, ResourceHandleClient* client, bool defersLoading, bool shouldContentSniff)
-    : d(std::make_unique<ResourceHandleInternal>(this, nullptr, request, client, defersLoading, shouldContentSniff && shouldContentSniffURL(request.url())))
+ResourceHandle::ResourceHandle(SoupNetworkSession& session, const ResourceRequest& request, ResourceHandleClient* client, bool defersLoading, bool shouldContentSniff, bool shouldContentEncodingSniff)
+    : d(std::make_unique<ResourceHandleInternal>(this, nullptr, request, client, defersLoading, shouldContentSniff && shouldContentSniffURL(request.url()), shouldContentEncodingSniff))
 {
     if (!request.url().isValid()) {
         scheduleFailure(InvalidURLFailure);
@@ -134,17 +135,9 @@ void ResourceHandle::ensureReadBuffer()
     if (d->m_soupBuffer)
         return;
 
-    // Non-NetworkProcess clients are able to give a buffer to the ResourceHandle to avoid expensive copies. If
-    // we do get a buffer from the client, we want the client to free it, so we create the soup buffer with
-    // SOUP_MEMORY_TEMPORARY.
-    size_t bufferSize;
-    char* bufferFromClient = client()->getOrCreateReadBuffer(gDefaultReadBufferSize, bufferSize);
-    if (bufferFromClient)
-        d->m_soupBuffer.reset(soup_buffer_new(SOUP_MEMORY_TEMPORARY, bufferFromClient, bufferSize));
-    else {
-        auto* buffer = static_cast<uint8_t*>(fastMalloc(gDefaultReadBufferSize));
-        d->m_soupBuffer.reset(soup_buffer_new_with_owner(buffer, gDefaultReadBufferSize, buffer, fastFree));
-    }
+
+    auto* buffer = static_cast<uint8_t*>(fastMalloc(gDefaultReadBufferSize));
+    d->m_soupBuffer.reset(soup_buffer_new_with_owner(buffer, gDefaultReadBufferSize, buffer, fastFree));
 
     ASSERT(d->m_soupBuffer);
 }
@@ -353,13 +346,9 @@ static void doRedirect(ResourceHandle* handle)
     cleanupSoupRequestOperation(handle);
 
     ResourceResponse responseCopy = d->m_response;
-    if (d->client()->usesAsyncCallbacks())
-        d->client()->willSendRequestAsync(handle, WTFMove(newRequest), WTFMove(responseCopy));
-    else {
-        auto request = d->client()->willSendRequest(handle, WTFMove(newRequest), WTFMove(responseCopy));
-        continueAfterWillSendRequest(handle, WTFMove(request));
-    }
-
+    d->client()->willSendRequestAsync(handle, WTFMove(newRequest), WTFMove(responseCopy), [handle = makeRef(*handle)] (ResourceRequest&& request) {
+        continueAfterWillSendRequest(handle.ptr(), WTFMove(request));
+    });
 }
 
 static void redirectSkipCallback(GObject*, GAsyncResult* asyncResult, gpointer data)
@@ -738,7 +727,7 @@ bool ResourceHandle::start()
 RefPtr<ResourceHandle> ResourceHandle::releaseForDownload(ResourceHandleClient* downloadClient)
 {
     // We don't adopt the ref, as it will be released by cleanupSoupRequestOperation, which should always run.
-    ResourceHandle* newHandle = new ResourceHandle(d->m_context.get(), firstRequest(), nullptr, d->m_defersLoading, d->m_shouldContentSniff);
+    ResourceHandle* newHandle = new ResourceHandle(d->m_context.get(), firstRequest(), nullptr, d->m_defersLoading, d->m_shouldContentSniff, d->m_shouldContentEncodingSniff);
     newHandle->relaxAdoptionRequirement();
     std::swap(d, newHandle->d);
 
@@ -1030,15 +1019,8 @@ static void readCallback(GObject*, GAsyncResult* asyncResult, gpointer data)
         d->m_cancellable.get(), readCallback, handle.get());
 }
 
-void ResourceHandle::continueWillSendRequest(ResourceRequest&& request)
-{
-    ASSERT(!client() || client()->usesAsyncCallbacks());
-    continueAfterWillSendRequest(this, WTFMove(request));
-}
-
 void ResourceHandle::continueDidReceiveResponse()
 {
-    ASSERT(!client() || client()->usesAsyncCallbacks());
     continueAfterDidReceiveResponse(this);
 }
 

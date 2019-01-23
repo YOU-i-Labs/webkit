@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,6 +50,10 @@
 #include "ColorSpaceData.h"
 #endif
 
+#if ENABLE(APPLICATION_MANIFEST)
+#include <WebCore/ApplicationManifest.h>
+#endif
+
 namespace IPC {
 class Decoder;
 class Encoder;
@@ -76,6 +80,9 @@ struct WebPageCreationParameters {
 
     bool useFixedLayout;
     WebCore::IntSize fixedLayoutSize;
+
+    bool alwaysShowsHorizontalScroller;
+    bool alwaysShowsVerticalScroller;
 
     bool suppressScrollbarAnimations;
 
@@ -137,7 +144,8 @@ struct WebPageCreationParameters {
     WebCore::FloatSize availableScreenSize;
     float textAutosizingWidth;
     bool ignoresViewportScaleLimits;
-    bool allowsBlockSelection;
+    WebCore::FloatSize viewportConfigurationMinimumLayoutSize;
+    WebCore::FloatSize maximumUnobscuredSize;
 #endif
 #if PLATFORM(COCOA)
     bool smartInsertDeleteEnabled;
@@ -153,6 +161,10 @@ struct WebPageCreationParameters {
 
     HashMap<String, uint64_t> urlSchemeHandlers;
 
+#if ENABLE(APPLICATION_MANIFEST)
+    std::optional<WebCore::ApplicationManifest> applicationManifest;
+#endif
+
     // WebRTC members.
     bool iceCandidateFilteringEnabled { true };
     bool enumeratingAllNetworkInterfacesEnabled { false };
@@ -164,6 +176,10 @@ struct WebPageCreationParameters {
     Vector<WebScriptMessageHandlerData> messageHandlers;
 #if ENABLE(CONTENT_EXTENSIONS)
     Vector<std::pair<String, WebCompiledContentRuleListData>> contentRuleLists;
+#endif
+
+#if ENABLE(APPLE_PAY)
+    Vector<String> availablePaymentNetworks;
 #endif
 };
 

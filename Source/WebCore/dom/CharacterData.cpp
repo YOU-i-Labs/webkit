@@ -30,7 +30,6 @@
 #include "MutationEvent.h"
 #include "MutationObserverInterestGroup.h"
 #include "MutationRecord.h"
-#include "NoEventDispatchAssertion.h"
 #include "ProcessingInstruction.h"
 #include "RenderText.h"
 #include "StyleInheritedData.h"
@@ -173,11 +172,6 @@ ExceptionOr<void> CharacterData::replaceData(unsigned offset, unsigned count, co
 String CharacterData::nodeValue() const
 {
     return m_data;
-}
-
-bool CharacterData::containsOnlyWhitespace() const
-{
-    return m_data.containsOnlyWhitespace();
 }
 
 ExceptionOr<void> CharacterData::setNodeValue(const String& nodeValue)

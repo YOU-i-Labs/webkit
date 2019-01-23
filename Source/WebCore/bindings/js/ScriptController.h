@@ -64,6 +64,7 @@ class Widget;
 struct ExceptionDetails;
 
 enum ReasonForCallingCanExecuteScripts {
+    AboutToCreateEventListener,
     AboutToExecuteScript,
     NotAboutToExecuteScript
 };
@@ -133,9 +134,6 @@ public:
     void enableWebAssembly();
     void disableEval(const String& errorMessage);
     void disableWebAssembly(const String& errorMessage);
-
-    WEBCORE_EXPORT static bool processingUserGesture();
-    WEBCORE_EXPORT static bool processingUserGestureForMedia();
 
     static bool canAccessFromCurrentOrigin(Frame*);
     WEBCORE_EXPORT bool canExecuteScripts(ReasonForCallingCanExecuteScripts);

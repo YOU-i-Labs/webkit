@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,6 +43,8 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << underlayColor;
     encoder << useFixedLayout;
     encoder << fixedLayoutSize;
+    encoder << alwaysShowsHorizontalScroller;
+    encoder << alwaysShowsVerticalScroller;
     encoder.encodeEnum(paginationMode);
     encoder << paginationBehavesLikeColumns;
     encoder << pageLength;
@@ -85,7 +87,8 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << availableScreenSize;
     encoder << textAutosizingWidth;
     encoder << ignoresViewportScaleLimits;
-    encoder << allowsBlockSelection;
+    encoder << viewportConfigurationMinimumLayoutSize;
+    encoder << maximumUnobscuredSize;
 #endif
 #if PLATFORM(COCOA)
     encoder << smartInsertDeleteEnabled;
@@ -97,6 +100,9 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << overrideContentSecurityPolicy;
     encoder << cpuLimit;
     encoder << urlSchemeHandlers;
+#if ENABLE(APPLICATION_MANIFEST)
+    encoder << applicationManifest;
+#endif
     encoder << iceCandidateFilteringEnabled;
     encoder << enumeratingAllNetworkInterfacesEnabled;
     encoder << userContentWorlds;
@@ -105,6 +111,9 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << messageHandlers;
 #if ENABLE(CONTENT_EXTENSIONS)
     encoder << contentRuleLists;
+#endif
+#if ENABLE(APPLE_PAY)
+    encoder << availablePaymentNetworks;
 #endif
 }
 
@@ -133,6 +142,10 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
     if (!decoder.decode(parameters.useFixedLayout))
         return std::nullopt;
     if (!decoder.decode(parameters.fixedLayoutSize))
+        return std::nullopt;
+    if (!decoder.decode(parameters.alwaysShowsHorizontalScroller))
+        return std::nullopt;
+    if (!decoder.decode(parameters.alwaysShowsVerticalScroller))
         return std::nullopt;
     if (!decoder.decodeEnum(parameters.paginationMode))
         return std::nullopt;
@@ -228,7 +241,9 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
         return std::nullopt;
     if (!decoder.decode(parameters.ignoresViewportScaleLimits))
         return std::nullopt;
-    if (!decoder.decode(parameters.allowsBlockSelection))
+    if (!decoder.decode(parameters.viewportConfigurationMinimumLayoutSize))
+        return std::nullopt;
+    if (!decoder.decode(parameters.maximumUnobscuredSize))
         return std::nullopt;
 #endif
 
@@ -259,6 +274,14 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
 
     if (!decoder.decode(parameters.urlSchemeHandlers))
         return std::nullopt;
+
+#if ENABLE(APPLICATION_MANIFEST)
+    std::optional<std::optional<WebCore::ApplicationManifest>> applicationManifest;
+    decoder >> applicationManifest;
+    if (!applicationManifest)
+        return std::nullopt;
+    parameters.applicationManifest = WTFMove(*applicationManifest);
+#endif
 
     if (!decoder.decode(parameters.iceCandidateFilteringEnabled))
         return std::nullopt;
@@ -297,6 +320,15 @@ std::optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::
         return std::nullopt;
     parameters.contentRuleLists = WTFMove(*contentRuleLists);
 #endif
+
+#if ENABLE(APPLE_PAY)
+    std::optional<Vector<String>> availablePaymentNetworks;
+    decoder >> availablePaymentNetworks;
+    if (!availablePaymentNetworks)
+        return std::nullopt;
+    parameters.availablePaymentNetworks = WTFMove(*availablePaymentNetworks);
+#endif
+
     return WTFMove(parameters);
 }
 

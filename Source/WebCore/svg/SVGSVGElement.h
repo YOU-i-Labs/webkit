@@ -113,7 +113,8 @@ public: // DOM
 public:
     static Ref<SVGSVGElement> create(const QualifiedName&, Document&);
     static Ref<SVGSVGElement> create(Document&);
-    void scrollToAnchor(const String& fragmentIdentifier, Element* anchor);
+    bool scrollToFragment(const String& fragmentIdentifier);
+    void resetScrollAnchor();
 
     using SVGGraphicsElement::ref;
     using SVGGraphicsElement::deref;
@@ -151,15 +152,20 @@ private:
     void resumeFromDocumentSuspension() override;
     AffineTransform localCoordinateSpaceTransform(SVGLocatable::CTMScope) const override;
 
-    Frame* frameForCurrentScale() const;
+    RefPtr<Frame> frameForCurrentScale() const;
     void inheritViewAttributes(const SVGViewElement&);
-    Ref<NodeList> collectIntersectionOrEnclosureList(SVGRect&, SVGElement*, bool (*checkFunction)(RefPtr<SVGElement>&&, SVGRect&));
+    Ref<NodeList> collectIntersectionOrEnclosureList(SVGRect&, SVGElement*, bool (*checkFunction)(SVGElement&, SVGRect&));
+
+    SVGViewElement* findViewAnchor(const String& fragmentIdentifier) const;
+    SVGSVGElement* findRootAnchor(const SVGViewElement*) const;
+    SVGSVGElement* findRootAnchor(const String&) const;
 
     bool m_useCurrentView { false };
     SVGZoomAndPanType m_zoomAndPan { SVGZoomAndPanMagnify };
     Ref<SMILTimeContainer> m_timeContainer;
     FloatPoint m_currentTranslate;
     RefPtr<SVGViewSpec> m_viewSpec;
+    String m_currentViewFragmentIdentifier;
 };
 
 inline bool SVGSVGElement::useCurrentView() const

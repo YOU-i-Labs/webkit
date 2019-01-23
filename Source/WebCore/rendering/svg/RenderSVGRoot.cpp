@@ -28,12 +28,14 @@
 #include "GraphicsContext.h"
 #include "HitTestResult.h"
 #include "LayoutRepainter.h"
+#include "LayoutState.h"
 #include "Page.h"
 #include "RenderIterator.h"
 #include "RenderLayer.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGResourceContainer.h"
 #include "RenderSVGResourceFilter.h"
+#include "RenderTreeBuilder.h"
 #include "RenderView.h"
 #include "SVGImage.h"
 #include "SVGRenderingContext.h"
@@ -42,9 +44,12 @@
 #include "SVGSVGElement.h"
 #include "SVGViewSpec.h"
 #include "TransformState.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGRoot);
 
 RenderSVGRoot::RenderSVGRoot(SVGSVGElement& element, RenderStyle&& style)
     : RenderReplaced(element, WTFMove(style))
@@ -142,7 +147,7 @@ void RenderSVGRoot::layout()
     m_resourcesNeedingToInvalidateClients.clear();
 
     // Arbitrary affine transforms are incompatible with LayoutState.
-    LayoutStateDisabler layoutStateDisabler(view());
+    LayoutStateDisabler layoutStateDisabler(view().frameView().layoutContext());
 
     bool needsLayout = selfNeedsLayout();
     LayoutRepainter repainter(*this, checkForRepaintDuringLayout() && needsLayout);
@@ -298,11 +303,9 @@ void RenderSVGRoot::styleDidChange(StyleDifference diff, const RenderStyle* oldS
     SVGResourcesCache::clientStyleChanged(*this, diff, style());
 }
 
-void RenderSVGRoot::addChild(RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
+void RenderSVGRoot::addChild(RenderTreeBuilder& builder, RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
 {
-    auto& child = *newChild;
-    RenderReplaced::addChild(WTFMove(newChild), beforeChild);
-    SVGResourcesCache::clientWasAddedToTree(child);
+    builder.insertChildToSVGRoot(*this, WTFMove(newChild), beforeChild);
 }
 
 RenderPtr<RenderObject> RenderSVGRoot::takeChild(RenderObject& child)

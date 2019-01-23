@@ -30,8 +30,12 @@
 #include "FrameView.h"
 #include "HTMLFrameElementBase.h"
 #include "RenderView.h"
+#include "ScriptDisallowedScope.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderFrameBase);
 
 RenderFrameBase::RenderFrameBase(HTMLFrameElementBase& element, RenderStyle&& style)
     : RenderWidget(element, WTFMove(style))
@@ -70,6 +74,8 @@ RenderView* RenderFrameBase::childRenderView() const
 
 void RenderFrameBase::performLayoutWithFlattening(bool hasFixedWidth, bool hasFixedHeight)
 {
+    // FIXME: Refactor frame flattening code so that we don't need to disable assertions here.
+    ScriptDisallowedScope::DisableAssertionsInScope scope;
     if (!childRenderView())
         return;
 

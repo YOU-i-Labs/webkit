@@ -111,6 +111,8 @@ const char* intrinsicName(Intrinsic intrinsic)
         return "RegExpTestIntrinsic";
     case RegExpTestFastIntrinsic:
         return "RegExpTestFastIntrinsic";
+    case RegExpMatchFastIntrinsic:
+        return "RegExpMatchFastIntrinsic";
     case ObjectGetPrototypeOfIntrinsic:
         return "ObjectGetPrototypeOfIntrinsic";
     case ReflectGetPrototypeOfIntrinsic:
@@ -121,6 +123,8 @@ const char* intrinsicName(Intrinsic intrinsic)
         return "StringPrototypeReplaceIntrinsic";
     case StringPrototypeReplaceRegExpIntrinsic:
         return "StringPrototypeReplaceRegExpIntrinsic";
+    case StringPrototypeSliceIntrinsic:
+        return "StringPrototypeSliceIntrinsic";
     case StringPrototypeToLowerCaseIntrinsic:
         return "StringPrototypeToLowerCaseIntrinsic";
     case NumberPrototypeToStringIntrinsic:
@@ -141,6 +145,8 @@ const char* intrinsicName(Intrinsic intrinsic)
         return "JSMapGetIntrinsic";
     case JSMapHasIntrinsic:
         return "JSMapHasIntrinsic";
+    case JSMapSetIntrinsic:
+        return "JSMapSetIntrinsic";
     case JSMapBucketHeadIntrinsic:
         return "JSMapBucketHeadIntrinsic";
     case JSMapBucketNextIntrinsic:
@@ -151,6 +157,8 @@ const char* intrinsicName(Intrinsic intrinsic)
         return "JSMapBucketValueIntrinsic";
     case JSSetHasIntrinsic:
         return "JSSetHasIntrinsic";
+    case JSSetAddIntrinsic:
+        return "JSSetAddIntrinsic";
     case JSSetBucketHeadIntrinsic:
         return "JSSetBucketHeadIntrinsic";
     case JSSetBucketNextIntrinsic:
@@ -159,6 +167,10 @@ const char* intrinsicName(Intrinsic intrinsic)
         return "JSSetBucketKeyIntrinsic";
     case JSWeakMapGetIntrinsic:
         return "JSWeakMapGetIntrinsic";
+    case JSWeakMapHasIntrinsic:
+        return "JSWeakMapHasIntrinsic";
+    case JSWeakSetHasIntrinsic:
+        return "JSWeakSetHasIntrinsic";
     case HasOwnPropertyIntrinsic:
         return "HasOwnPropertyIntrinsic";
     case AtomicsAddIntrinsic:
@@ -207,6 +219,14 @@ const char* intrinsicName(Intrinsic intrinsic)
         return "CheckInt32Intrinsic";
     case FiatInt52Intrinsic:
         return "FiatInt52Intrinsic";
+    case CPUMfenceIntrinsic:
+        return "CPUMfenceIntrinsic";
+    case CPURdtscIntrinsic:
+        return "CPURdtscIntrinsic";
+    case CPUCpuidIntrinsic:
+        return "CPUCpuidIntrinsic";
+    case CPUPauseIntrinsic:
+        return "CPUPauseIntrinsic";
     }
     RELEASE_ASSERT_NOT_REACHED();
     return nullptr;

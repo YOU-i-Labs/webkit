@@ -51,11 +51,11 @@ namespace WebCore {
 
 // <ruby> when used as 'display:inline'
 class RenderRubyAsInline final : public RenderInline {
+    WTF_MAKE_ISO_ALLOCATED(RenderRubyAsInline);
 public:
     RenderRubyAsInline(Element&, RenderStyle&&);
     virtual ~RenderRubyAsInline();
 
-    void addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild = 0) override;
     RenderPtr<RenderObject> takeChild(RenderObject& child) override;
 
 protected:
@@ -69,13 +69,13 @@ private:
 
 // <ruby> when used as 'display:block' or 'display:inline-block'
 class RenderRubyAsBlock final : public RenderBlockFlow {
+    WTF_MAKE_ISO_ALLOCATED(RenderRubyAsBlock);
 public:
     RenderRubyAsBlock(Element&, RenderStyle&&);
     virtual ~RenderRubyAsBlock();
 
     Element& element() const { return downcast<Element>(nodeForNonAnonymous()); }
 
-    void addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild = 0) override;
     RenderPtr<RenderObject> takeChild(RenderObject& child) override;
 
 protected:

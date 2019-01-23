@@ -132,19 +132,6 @@ static uint64_t nameHashForShader(const char* name, size_t length)
     return result;
 }
 
-RefPtr<GraphicsContext3D> GraphicsContext3D::createForCurrentGLContext()
-{
-    auto context = adoptRef(*new GraphicsContext3D({ }, 0, GraphicsContext3D::RenderToCurrentGLContext));
-#if USE(TEXTURE_MAPPER)
-    if (!context->m_texmapLayer)
-        return nullptr;
-#else
-    if (!context->m_private)
-        return nullptr;
-#endif
-    return WTFMove(context);
-}
-
 void GraphicsContext3D::validateDepthStencil(const char* packedDepthStencilExtension)
 {
     Extensions3D& extensions = getExtensions();
@@ -410,7 +397,7 @@ bool GraphicsContext3D::checkVaryingsPacking(Platform3DObject vertexShader, Plat
         variables.push_back(varyingSymbol);
 
     GC3Dint maxVaryingVectors = 0;
-#if !PLATFORM(IOS) && !((PLATFORM(WIN) || PLATFORM(GTK) || PLATFORM(WPE)) && USE(OPENGL_ES_2))
+#if !PLATFORM(IOS) && !USE(OPENGL_ES_2)
     GC3Dint maxVaryingFloats = 0;
     ::glGetIntegerv(GL_MAX_VARYING_FLOATS, &maxVaryingFloats);
     maxVaryingVectors = maxVaryingFloats / 4;
@@ -1668,7 +1655,7 @@ String GraphicsContext3D::getUnmangledInfoLog(Platform3DObject shaders[2], GC3Ds
 {
     LOG(WebGL, "Original ShaderInfoLog:\n%s", log.utf8().data());
 
-    JSC::Yarr::RegularExpression regExp("webgl_[0123456789abcdefABCDEF]+", TextCaseSensitive);
+    JSC::Yarr::RegularExpression regExp("webgl_[0123456789abcdefABCDEF]+");
 
     StringBuilder processedLog;
     

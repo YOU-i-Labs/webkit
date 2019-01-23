@@ -146,6 +146,8 @@ public:
 
     static HangingPunctuation convertHangingPunctuation(StyleResolver&, const CSSValue&);
 
+    static ESpeakAs convertSpeakAs(StyleResolver&, const CSSValue&);
+
     static Length convertPositionComponentX(StyleResolver&, const CSSValue&);
     static Length convertPositionComponentY(StyleResolver&, const CSSValue&);
     
@@ -909,7 +911,7 @@ inline bool StyleBuilderConverter::createGridTrackList(const CSSValue& value, Tr
 
     unsigned currentNamedGridLine = 0;
     for (auto& currentValue : downcast<CSSValueList>(value)) {
-        if (is<CSSGridLineNamesValue>(currentValue.get())) {
+        if (is<CSSGridLineNamesValue>(currentValue)) {
             createGridLineNamesList(currentValue.get(), currentNamedGridLine, tracksData.m_namedGridLines, tracksData.m_orderedNamedGridLines);
             continue;
         }
@@ -921,7 +923,7 @@ inline bool StyleBuilderConverter::createGridTrackList(const CSSValue& value, Tr
             ASSERT(autoRepeatID == CSSValueAutoFill || autoRepeatID == CSSValueAutoFit);
             tracksData.m_autoRepeatType = autoRepeatID == CSSValueAutoFill ? AutoFill : AutoFit;
             for (auto& autoRepeatValue : downcast<CSSValueList>(currentValue.get())) {
-                if (is<CSSGridLineNamesValue>(autoRepeatValue.get())) {
+                if (is<CSSGridLineNamesValue>(autoRepeatValue)) {
                     createGridLineNamesList(autoRepeatValue.get(), autoRepeatIndex, tracksData.m_autoRepeatNamedGridLines, tracksData.m_autoRepeatOrderedNamedGridLines);
                     continue;
                 }
@@ -1514,6 +1516,16 @@ inline BreakInside StyleBuilderConverter::convertColumnBreakInside(StyleResolver
     if (primitiveValue.valueID() == CSSValueAvoid)
         return AvoidColumnBreakInside;
     return primitiveValue;
+}
+    
+inline ESpeakAs StyleBuilderConverter::convertSpeakAs(StyleResolver&, const CSSValue& value)
+{
+    ESpeakAs result = RenderStyle::initialSpeakAs();
+    if (is<CSSValueList>(value)) {
+        for (auto& currentValue : downcast<CSSValueList>(value))
+            result |= downcast<CSSPrimitiveValue>(currentValue.get());
+    }
+    return result;
 }
 
 inline HangingPunctuation StyleBuilderConverter::convertHangingPunctuation(StyleResolver&, const CSSValue& value)

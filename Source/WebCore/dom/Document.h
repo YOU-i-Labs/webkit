@@ -30,7 +30,7 @@
 #include "Color.h"
 #include "ContainerNode.h"
 #include "DocumentEventQueue.h"
-#include "DocumentTimeline.h"
+#include "DocumentIdentifier.h"
 #include "DocumentTiming.h"
 #include "FocusDirection.h"
 #include "FontSelectorClient.h"
@@ -51,12 +51,13 @@
 #include "UserActionElementSet.h"
 #include "ViewportArguments.h"
 #include "VisibilityState.h"
-#include <pal/Logger.h>
 #include <pal/SessionID.h>
 #include <wtf/Deque.h>
 #include <wtf/Forward.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
+#include <wtf/Logger.h>
+#include <wtf/ObjectIdentifier.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/AtomicStringHash.h>
 
@@ -75,6 +76,7 @@ class InputCursor;
 
 namespace WebCore {
 
+class ApplicationStateChangeListener;
 class AXObjectCache;
 class Attr;
 class CDATASection;
@@ -102,6 +104,7 @@ class DocumentLoader;
 class DocumentMarkerController;
 class DocumentParser;
 class DocumentSharedObjectPool;
+class DocumentTimeline;
 class DocumentType;
 class ExtensionStyleSheets;
 class FloatQuad;
@@ -152,6 +155,8 @@ class RenderView;
 class RequestAnimationFrameCallback;
 class SVGDocumentExtensions;
 class SVGSVGElement;
+class SVGUseElement;
+class SWClientConnection;
 class ScriptElementData;
 class ScriptModuleLoader;
 class ScriptRunner;
@@ -173,6 +178,7 @@ class TextResourceDecoder;
 class TreeWalker;
 class VisibilityChangeClient;
 class VisitedLinkState;
+class WebAnimation;
 class WebGL2RenderingContext;
 class WebGLRenderingContext;
 class WebGPURenderingContext;
@@ -214,6 +220,10 @@ class TextAutoSizing;
 
 #if ENABLE(MEDIA_SESSION)
 class MediaSession;
+#endif
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+class HTMLAttachmentElement;
 #endif
 
 namespace Style {
@@ -305,7 +315,7 @@ class Document
     , public FontSelectorClient
     , public FrameDestructionObserver
     , public Supplementable<Document>
-    , public PAL::Logger::Observer {
+    , public Logger::Observer {
 public:
     static Ref<Document> create(Frame* frame, const URL& url)
     {
@@ -347,9 +357,9 @@ public:
 
     void removedLastRef();
 
-    uint64_t identifier() const { return m_identifier; }
+    DocumentIdentifier identifier() const { return m_identifier; }
 
-    using DocumentsMap = HashMap<uint64_t, Document*>;
+    using DocumentsMap = HashMap<DocumentIdentifier, Document*>;
     WEBCORE_EXPORT static DocumentsMap::ValuesIteratorRange allDocuments();
     WEBCORE_EXPORT static DocumentsMap& allDocumentsMap();
 
@@ -816,7 +826,8 @@ public:
         FORCEWILLBEGIN_LISTENER              = 1 << 13,
         FORCECHANGED_LISTENER                = 1 << 14,
         FORCEDOWN_LISTENER                   = 1 << 15,
-        FORCEUP_LISTENER                     = 1 << 16
+        FORCEUP_LISTENER                     = 1 << 16,
+        RESIZE_LISTENER                      = 1 << 17
     };
 
     bool hasListenerType(ListenerType listenerType) const { return (m_listenerTypes & listenerType); }
@@ -979,6 +990,7 @@ public:
     // Extension for manipulating canvas drawing contexts for use in CSS
     std::optional<RenderingContext> getCSSCanvasContext(const String& type, const String& name, int width, int height);
     HTMLCanvasElement* getCSSCanvasElement(const String& name);
+    String nameForCSSCanvasElement(const HTMLCanvasElement&) const;
 
     bool isDNSPrefetchEnabled() const { return m_isDNSPrefetchEnabled; }
     void parseDNSPrefetchControlHeader(const String&);
@@ -1069,6 +1081,10 @@ public:
     WEBCORE_EXPORT const SVGDocumentExtensions* svgExtensions();
     WEBCORE_EXPORT SVGDocumentExtensions& accessSVGExtensions();
 
+    void addSVGUseElement(SVGUseElement&);
+    void removeSVGUseElement(SVGUseElement&);
+    HashSet<SVGUseElement*> const svgUseElements() const { return m_svgUseElements; }
+
     void initSecurityContext();
     void initContentSecurityPolicy();
 
@@ -1150,7 +1166,7 @@ public:
 
     const DocumentTiming& timing() const { return m_documentTiming; }
 
-    double monotonicTimestamp() const;
+    WEBCORE_EXPORT double monotonicTimestamp() const;
 
     int requestAnimationFrame(Ref<RequestAnimationFrameCallback>&&);
     void cancelAnimationFrame(int id);
@@ -1235,6 +1251,7 @@ public:
 
     bool inStyleRecalc() const { return m_inStyleRecalc; }
     bool inRenderTreeUpdate() const { return m_inRenderTreeUpdate; }
+    bool isSafeToUpdateStyleOrLayout() const;
 
     void updateTextRenderer(Text&, unsigned offsetOfReplacedText, unsigned lengthOfReplacedText);
 
@@ -1363,16 +1380,33 @@ public:
     TextAutoSizing& textAutoSizing();
 #endif
 
-    PAL::Logger& logger();
+    Logger& logger();
 
-    bool hasStorageAccess() const { return m_hasStorageAccess; };
+    void hasStorageAccess(Ref<DeferredPromise>&& passedPromise);
     void requestStorageAccess(Ref<DeferredPromise>&& passedPromise);
     void setUserGrantsStorageAccessOverride(bool value) { m_grantStorageAccessOverride = value; }
 
     WEBCORE_EXPORT void setConsoleMessageListener(RefPtr<StringCallback>&&); // For testing.
 
     DocumentTimeline& timeline();
+    DocumentTimeline* existingTimeline() const { return m_timeline.get(); }
+    Vector<RefPtr<WebAnimation>> getAnimations();
         
+#if ENABLE(ATTACHMENT_ELEMENT)
+    void didInsertAttachmentElement(HTMLAttachmentElement&);
+    void didRemoveAttachmentElement(HTMLAttachmentElement&);
+    WEBCORE_EXPORT RefPtr<HTMLAttachmentElement> attachmentForIdentifier(const String& identifier) const;
+    const HashMap<String, Ref<HTMLAttachmentElement>>& attachmentElementsByIdentifier() const { return m_attachmentIdentifierToElementMap; }
+#endif
+
+#if ENABLE(SERVICE_WORKER)
+    void setServiceWorkerConnection(SWClientConnection*);
+#endif
+
+    void addApplicationStateChangeListener(ApplicationStateChangeListener&);
+    void removeApplicationStateChangeListener(ApplicationStateChangeListener&);
+    void forEachApplicationStateChangeListener(const Function<void(ApplicationStateChangeListener&)>&);
+
 protected:
     enum ConstructionFlags { Synthesized = 1, NonRenderedPlaceholder = 1 << 1 };
     Document(Frame*, const URL&, unsigned = DefaultDocumentClass, unsigned constructionFlags = 0);
@@ -1592,6 +1626,7 @@ private:
     RefPtr<XPathEvaluator> m_xpathEvaluator;
 
     std::unique_ptr<SVGDocumentExtensions> m_svgExtensions;
+    HashSet<SVGUseElement*> m_svgUseElements;
 
 #if ENABLE(DASHBOARD_SUPPORT)
     Vector<AnnotatedRegionValue> m_annotatedRegions;
@@ -1671,7 +1706,12 @@ private:
 
     void notifyMediaCaptureOfVisibilityChanged();
 
-    void didLogMessage(const WTFLogChannel&, WTFLogLevel, const String&) final;
+    void didLogMessage(const WTFLogChannel&, WTFLogLevel, Vector<JSONLogValue>&&) final;
+
+#if HAVE(CFNETWORK_STORAGE_PARTITIONING)
+    bool hasFrameSpecificStorageAccess() const;
+    void setHasFrameSpecificStorageAccess(bool);
+#endif
 
 #if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS)
     std::unique_ptr<DeviceMotionClient> m_deviceMotionClient;
@@ -1719,6 +1759,10 @@ private:
 
 #if ENABLE(INDEXED_DATABASE)
     RefPtr<IDBClient::IDBConnectionProxy> m_idbConnectionProxy;
+#endif
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+    HashMap<String, Ref<HTMLAttachmentElement>> m_attachmentIdentifierToElementMap;
 #endif
 
     Timer m_didAssociateFormControlsTimer;
@@ -1831,16 +1875,22 @@ private:
 
     OrientationNotifier m_orientationNotifier;
     mutable PAL::SessionID m_sessionID;
-    mutable RefPtr<PAL::Logger> m_logger;
+    mutable RefPtr<Logger> m_logger;
     RefPtr<StringCallback> m_consoleMessageListener;
 
     static bool hasEverCreatedAnAXObjectCache;
 
-    bool m_hasStorageAccess { false };
+    bool m_hasFrameSpecificStorageAccess { false };
     bool m_grantStorageAccessOverride { false };
 
     RefPtr<DocumentTimeline> m_timeline;
-    uint64_t m_identifier;
+    DocumentIdentifier m_identifier;
+
+#if ENABLE(SERVICE_WORKER)
+    RefPtr<SWClientConnection> m_serviceWorkerConnection;
+#endif
+
+    HashSet<ApplicationStateChangeListener*> m_applicationStateChangeListeners;
 };
 
 Element* eventTargetElementForDocument(Document*);

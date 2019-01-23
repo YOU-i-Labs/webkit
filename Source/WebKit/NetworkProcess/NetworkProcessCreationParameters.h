@@ -98,6 +98,7 @@ struct NetworkProcessCreationParameters {
     RetainPtr<CFDataRef> networkATSContext;
 #endif
     bool cookieStoragePartitioningEnabled;
+    bool storageAccessAPIEnabled;
 #endif
 
 #if USE(SOUP)
@@ -107,6 +108,10 @@ struct NetworkProcessCreationParameters {
     bool ignoreTLSErrors { false };
     Vector<String> languages;
     WebCore::SoupNetworkProxySettings proxySettings;
+#endif
+
+#if HAVE(CFNETWORK_STORAGE_PARTITIONING) && !RELEASE_LOG_DISABLED
+    bool logCookieInformation { false };
 #endif
 
 #if OS(LINUX)

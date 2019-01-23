@@ -25,6 +25,9 @@
 
 #pragma once
 
+#include "ActiveDOMObject.h"
+#include "DOMPromiseProxy.h"
+#include "EventTarget.h"
 #include "ExceptionOr.h"
 #include <wtf/Forward.h>
 #include <wtf/Optional.h>
@@ -36,16 +39,23 @@
 namespace WebCore {
 
 class AnimationEffect;
+class AnimationPlaybackEvent;
 class AnimationTimeline;
+class Document;
+class RenderStyle;
 
-class WebAnimation final : public RefCounted<WebAnimation> {
+class WebAnimation final : public RefCounted<WebAnimation>, public EventTargetWithInlineData, public ActiveDOMObject {
 public:
-    static Ref<WebAnimation> create(AnimationTimeline*);
+    static Ref<WebAnimation> create(Document&, AnimationEffect*, AnimationTimeline*);
     ~WebAnimation();
+
+    const String& id() const { return m_id; }
+    void setId(const String& id) { m_id = id; }
 
     AnimationEffect* effect() const { return m_effect.get(); }
     void setEffect(RefPtr<AnimationEffect>&&);
     AnimationTimeline* timeline() const { return m_timeline.get(); }
+    void setTimeline(RefPtr<AnimationTimeline>&&);
 
     std::optional<double> bindingsStartTime() const;
     void setBindingsStartTime(std::optional<double>);
@@ -55,20 +65,92 @@ public:
     std::optional<double> bindingsCurrentTime() const;
     ExceptionOr<void> setBindingsCurrentTime(std::optional<double>);
     std::optional<Seconds> currentTime() const;
-    void setCurrentTime(std::optional<Seconds>);
+    ExceptionOr<void> setCurrentTime(std::optional<Seconds>);
 
     double playbackRate() const { return m_playbackRate; }
     void setPlaybackRate(double);
 
+    enum class PlayState { Idle, Pending, Running, Paused, Finished };
+    PlayState playState() const;
+
+    bool pending() const { return hasPendingPauseTask() || hasPendingPlayTask(); }
+
+    using ReadyPromise = DOMPromiseProxyWithResolveCallback<IDLInterface<WebAnimation>>;
+    ReadyPromise& ready() { return m_readyPromise; }
+
+    using FinishedPromise = DOMPromiseProxyWithResolveCallback<IDLInterface<WebAnimation>>;
+    FinishedPromise& finished() { return m_finishedPromise; }
+
+    void cancel();
+    ExceptionOr<void> finish();
+    ExceptionOr<void> play();
+    ExceptionOr<void> pause();
+
+    Seconds timeToNextRequiredTick(Seconds) const;
+    void resolve(RenderStyle&);
+    void acceleratedRunningStateDidChange();
+    void startOrStopAccelerated();
+
+    enum class DidSeek { Yes, No };
+    enum class SynchronouslyNotify { Yes, No };
+    void updateFinishedState(DidSeek, SynchronouslyNotify);
+
     String description();
 
-private:
-    WebAnimation(AnimationTimeline*);
+    using RefCounted::ref;
+    using RefCounted::deref;
 
+private:
+    explicit WebAnimation(Document&);
+
+    enum class RespectHoldTime { Yes, No };
+    enum class AutoRewind { Yes, No };
+    enum class TimeToRunPendingTask { NotScheduled, ASAP, WhenReady };
+
+    void enqueueAnimationPlaybackEvent(const AtomicString&, std::optional<Seconds>, std::optional<Seconds>);
+    Seconds effectEndTime() const;
+    WebAnimation& readyPromiseResolve();
+    WebAnimation& finishedPromiseResolve();
+    std::optional<Seconds> currentTime(RespectHoldTime) const;
+    ExceptionOr<void> silentlySetCurrentTime(std::optional<Seconds>);
+    void finishNotificationSteps();
+    void scheduleMicrotaskIfNeeded();
+    void performMicrotask();
+    void setTimeToRunPendingPauseTask(TimeToRunPendingTask);
+    void setTimeToRunPendingPlayTask(TimeToRunPendingTask);
+    bool hasPendingPauseTask() const { return m_timeToRunPendingPauseTask != TimeToRunPendingTask::NotScheduled; }
+    bool hasPendingPlayTask() const { return m_timeToRunPendingPlayTask != TimeToRunPendingTask::NotScheduled; }
+    void updatePendingTasks();
+    ExceptionOr<void> play(AutoRewind);
+    void runPendingPauseTask();
+    void runPendingPlayTask();
+    void resetPendingTasks();
+    
+    String m_id;
     RefPtr<AnimationEffect> m_effect;
     RefPtr<AnimationTimeline> m_timeline;
+    std::optional<Seconds> m_previousCurrentTime;
     std::optional<Seconds> m_startTime;
+    std::optional<Seconds> m_holdTime;
     double m_playbackRate { 1 };
+    bool m_isStopped { false };
+    bool m_finishNotificationStepsMicrotaskPending;
+    bool m_scheduledMicrotask;
+    ReadyPromise m_readyPromise;
+    FinishedPromise m_finishedPromise;
+    TimeToRunPendingTask m_timeToRunPendingPlayTask { TimeToRunPendingTask::NotScheduled };
+    TimeToRunPendingTask m_timeToRunPendingPauseTask { TimeToRunPendingTask::NotScheduled };
+
+    // ActiveDOMObject.
+    const char* activeDOMObjectName() const final;
+    bool canSuspendForDocumentSuspension() const final;
+    void stop() final;
+
+    // EventTarget
+    EventTargetInterface eventTargetInterface() const final { return WebAnimationEventTargetInterfaceType; }
+    void refEventTarget() final { ref(); }
+    void derefEventTarget() final { deref(); }
+    ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
 };
 
 } // namespace WebCore

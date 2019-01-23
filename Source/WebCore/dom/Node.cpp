@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
@@ -29,6 +29,7 @@
 #include "Attr.h"
 #include "BeforeLoadEvent.h"
 #include "ChildListMutationScope.h"
+#include "CommonVM.h"
 #include "ComposedTreeAncestorIterator.h"
 #include "ContainerNodeAlgorithms.h"
 #include "ContextMenuController.h"
@@ -51,7 +52,6 @@
 #include "KeyboardEvent.h"
 #include "Logging.h"
 #include "MutationEvent.h"
-#include "NoEventDispatchAssertion.h"
 #include "NodeRenderStyle.h"
 #include "ProcessingInstruction.h"
 #include "ProgressEvent.h"
@@ -61,6 +61,7 @@
 #include "RenderTextControl.h"
 #include "RenderView.h"
 #include "ScopedEventQueue.h"
+#include "ScriptDisallowedScope.h"
 #include "StorageEvent.h"
 #include "StyleResolver.h"
 #include "StyleSheetContents.h"
@@ -325,8 +326,8 @@ void Node::willBeDeletedFrom(Document& document)
     document.removeTouchEventHandler(*this, EventHandlerRemoval::All);
 #endif
 
-    if (AXObjectCache* cache = document.existingAXObjectCache())
-        cache->remove(this);
+    if (auto* cache = document.existingAXObjectCache())
+        cache->remove(*this);
 }
 
 void Node::materializeRareData()
@@ -356,9 +357,9 @@ void Node::clearRareData()
     clearFlag(HasRareDataFlag);
 }
 
-RefPtr<Node> Node::toNode()
+bool Node::isNode() const
 {
-    return this;
+    return true;
 }
 
 String Node::nodeValue() const
@@ -1966,8 +1967,8 @@ void Node::moveTreeToNewScope(Node& root, TreeScope& oldScope, TreeScope& newSco
             shadowRoot.moveShadowRootToNewParentScope(newScope, newDocument);
             moveShadowTreeToNewDocument(shadowRoot, oldDocument, newDocument);
         });
-        oldDocument.decrementReferencingNodeCount();
         RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&oldScope.documentScope() == &oldDocument && &newScope.documentScope() == &newDocument);
+        oldDocument.decrementReferencingNodeCount();
     } else {
         traverseSubtreeToUpdateTreeScope(root, [&](Node& node) {
             ASSERT(!node.isTreeScope());
@@ -2008,7 +2009,7 @@ void Node::moveNodeToNewDocument(Document& oldDocument, Document& newDocument)
 
     if (AXObjectCache::accessibilityEnabled()) {
         if (auto* cache = oldDocument.existingAXObjectCache())
-            cache->remove(this);
+            cache->remove(*this);
     }
 
     if (auto* eventTargetData = this->eventTargetData()) {
@@ -2162,7 +2163,14 @@ EventTargetData* Node::eventTargetData()
 
 EventTargetData* Node::eventTargetDataConcurrently()
 {
-    auto locker = holdLock(s_eventTargetDataMapLock);
+    // Not holding the lock when the world is stopped accelerates parallel constraint solving, which
+    // calls this function from many threads. Parallel constraint solving can happen with the world
+    // running or stopped, but if we do it with a running world, then we're usually mixing constraint
+    // solving with other work. Therefore, the most likely time for contention on this lock is when the
+    // world is stopped. We don't have to hold the lock when the world is stopped, because a stopped world
+    // means that we will never mutate the event target data map.
+    JSC::VM* vm = commonVMOrNull();
+    auto locker = holdLockIf(s_eventTargetDataMapLock, vm && vm->heap.worldIsRunning());
     return hasEventTargetData() ? eventTargetDataMap().get(this) : nullptr;
 }
 
@@ -2171,6 +2179,9 @@ EventTargetData& Node::ensureEventTargetData()
     if (hasEventTargetData())
         return *eventTargetDataMap().get(this);
 
+    JSC::VM* vm = commonVMOrNull();
+    RELEASE_ASSERT(!vm || vm->heap.worldIsRunning());
+
     auto locker = holdLock(s_eventTargetDataMapLock);
     setHasEventTargetData(true);
     return *eventTargetDataMap().add(this, std::make_unique<EventTargetData>()).iterator->value;
@@ -2178,6 +2189,8 @@ EventTargetData& Node::ensureEventTargetData()
 
 void Node::clearEventTargetData()
 {
+    JSC::VM* vm = commonVMOrNull();
+    RELEASE_ASSERT(!vm || vm->heap.worldIsRunning());
     auto locker = holdLock(s_eventTargetDataMapLock);
     eventTargetDataMap().remove(this);
 }
@@ -2202,7 +2215,7 @@ HashSet<MutationObserverRegistration*>* Node::transientMutationObserverRegistry(
     return &data->transientRegistry;
 }
 
-template<typename Registry> static inline void collectMatchingObserversForMutation(HashMap<MutationObserver*, MutationRecordDeliveryOptions>& observers, Registry* registry, Node& target, MutationObserver::MutationType type, const QualifiedName* attributeName)
+template<typename Registry> static inline void collectMatchingObserversForMutation(HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions>& observers, Registry* registry, Node& target, MutationObserver::MutationType type, const QualifiedName* attributeName)
 {
     if (!registry)
         return;
@@ -2210,16 +2223,16 @@ template<typename Registry> static inline void collectMatchingObserversForMutati
     for (auto& registration : *registry) {
         if (registration->shouldReceiveMutationFrom(target, type, attributeName)) {
             auto deliveryOptions = registration->deliveryOptions();
-            auto result = observers.add(&registration->observer(), deliveryOptions);
+            auto result = observers.add(registration->observer(), deliveryOptions);
             if (!result.isNewEntry)
                 result.iterator->value |= deliveryOptions;
         }
     }
 }
 
-HashMap<MutationObserver*, MutationRecordDeliveryOptions> Node::registeredMutationObservers(MutationObserver::MutationType type, const QualifiedName* attributeName)
+HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions> Node::registeredMutationObservers(MutationObserver::MutationType type, const QualifiedName* attributeName)
 {
-    HashMap<MutationObserver*, MutationRecordDeliveryOptions> result;
+    HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions> result;
     ASSERT((type == MutationObserver::Attributes && attributeName) || !attributeName);
     collectMatchingObserversForMutation(result, mutationObserverRegistry(), *this, type, attributeName);
     collectMatchingObserversForMutation(result, transientMutationObserverRegistry(), *this, type, attributeName);
@@ -2312,13 +2325,9 @@ void Node::dispatchScopedEvent(Event& event)
     EventDispatcher::dispatchScopedEvent(*this, event);
 }
 
-bool Node::dispatchEvent(Event& event)
+void Node::dispatchEvent(Event& event)
 {
-#if ENABLE(TOUCH_EVENTS) && !PLATFORM(IOS)
-    if (is<TouchEvent>(event))
-        return dispatchTouchEvent(downcast<TouchEvent>(event));
-#endif
-    return EventDispatcher::dispatchEvent(*this, event);
+    EventDispatcher::dispatchEvent(*this, event);
 }
 
 void Node::dispatchSubtreeModifiedEvent()
@@ -2326,7 +2335,7 @@ void Node::dispatchSubtreeModifiedEvent()
     if (isInShadowTree())
         return;
 
-    RELEASE_ASSERT(NoEventDispatchAssertion::isEventDispatchAllowedInSubtree(*this));
+    ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isEventDispatchAllowedInSubtree(*this));
 
     if (!document().hasListenerType(Document::DOMSUBTREEMODIFIED_LISTENER))
         return;
@@ -2337,21 +2346,16 @@ void Node::dispatchSubtreeModifiedEvent()
     dispatchScopedEvent(MutationEvent::create(subtreeModifiedEventName, true));
 }
 
-bool Node::dispatchDOMActivateEvent(int detail, Event& underlyingEvent)
+void Node::dispatchDOMActivateEvent(Event& underlyingClickEvent)
 {
-    RELEASE_ASSERT(NoEventDispatchAssertion::isEventAllowedInMainThread());
-    Ref<UIEvent> event = UIEvent::create(eventNames().DOMActivateEvent, true, true, document().defaultView(), detail);
-    event->setUnderlyingEvent(&underlyingEvent);
+    ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed());
+    int detail = is<UIEvent>(underlyingClickEvent) ? downcast<UIEvent>(underlyingClickEvent).detail() : 0;
+    auto event = UIEvent::create(eventNames().DOMActivateEvent, true, true, document().defaultView(), detail);
+    event->setUnderlyingEvent(&underlyingClickEvent);
     dispatchScopedEvent(event);
-    return event->defaultHandled();
+    if (event->defaultHandled())
+        underlyingClickEvent.setDefaultHandled();
 }
-
-#if ENABLE(TOUCH_EVENTS) && !PLATFORM(IOS)
-bool Node::dispatchTouchEvent(TouchEvent& event)
-{
-    return EventDispatcher::dispatchEvent(*this, event);
-}
-#endif
 
 bool Node::dispatchBeforeLoadEvent(const String& sourceURL)
 {
@@ -2359,9 +2363,9 @@ bool Node::dispatchBeforeLoadEvent(const String& sourceURL)
         return true;
 
     Ref<Node> protectedThis(*this);
-    Ref<BeforeLoadEvent> beforeLoadEvent = BeforeLoadEvent::create(sourceURL);
-    dispatchEvent(beforeLoadEvent);
-    return !beforeLoadEvent->defaultPrevented();
+    auto event = BeforeLoadEvent::create(sourceURL);
+    dispatchEvent(event);
+    return !event->defaultPrevented();
 }
 
 void Node::dispatchInputEvent()
@@ -2380,9 +2384,7 @@ void Node::defaultEventHandler(Event& event)
                 frame->eventHandler().defaultKeyboardEventHandler(downcast<KeyboardEvent>(event));
         }
     } else if (eventType == eventNames().clickEvent) {
-        int detail = is<UIEvent>(event) ? downcast<UIEvent>(event).detail() : 0;
-        if (dispatchDOMActivateEvent(detail, event))
-            event.setDefaultHandled();
+        dispatchDOMActivateEvent(event);
 #if ENABLE(CONTEXT_MENUS)
     } else if (eventType == eventNames().contextmenuEvent) {
         if (Frame* frame = document().frame())

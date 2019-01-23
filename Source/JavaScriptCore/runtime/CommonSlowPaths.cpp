@@ -267,10 +267,22 @@ SLOW_PATH_DECL(slow_path_to_this)
         pc[3].u.toThisStatus = ToThisConflicted;
         pc[2].u.structure.clear();
     }
-    RETURN(v1.toThis(exec, exec->codeBlock()->isStrictMode() ? StrictMode : NotStrictMode));
+    // Note: We only need to do this value profiling here on the slow path. The fast path
+    // just returns the input to to_this if the structure check succeeds. If the structure
+    // check succeeds, doing value profiling here is equivalent to doing it with a potentially
+    // different object that still has the same structure on the fast path since it'll produce
+    // the same SpeculatedType. Therefore, we don't need to worry about value profiling on the
+    // fast path.
+    RETURN_PROFILED(op_to_this, v1.toThis(exec, exec->codeBlock()->isStrictMode() ? StrictMode : NotStrictMode));
 }
 
 SLOW_PATH_DECL(slow_path_throw_tdz_error)
+{
+    BEGIN();
+    THROW(createTDZError(exec));
+}
+
+SLOW_PATH_DECL(slow_path_check_tdz)
 {
     BEGIN();
     THROW(createTDZError(exec));
@@ -433,6 +445,19 @@ SLOW_PATH_DECL(slow_path_to_number)
     JSValue argument = OP_C(2).jsValue();
     JSValue result = jsNumber(argument.toNumber(exec));
     RETURN_PROFILED(op_to_number, result);
+}
+
+SLOW_PATH_DECL(slow_path_to_object)
+{
+    BEGIN();
+    JSValue argument = OP_C(2).jsValue();
+    if (UNLIKELY(argument.isUndefinedOrNull())) {
+        const Identifier& ident = exec->codeBlock()->identifier(pc[3].u.operand);
+        if (!ident.isEmpty())
+            THROW(createTypeError(exec, ident.impl()));
+    }
+    JSObject* result = argument.toObject(exec);
+    RETURN_PROFILED(op_to_object, result);
 }
 
 SLOW_PATH_DECL(slow_path_add)
@@ -782,13 +807,6 @@ SLOW_PATH_DECL(slow_path_profile_type_clear_log)
     END();
 }
 
-SLOW_PATH_DECL(slow_path_assert)
-{
-    BEGIN();
-    RELEASE_ASSERT_WITH_MESSAGE(OP(1).jsValue().asBoolean(), "JS assertion failed at line %d in:\n%s\n", pc[2].u.operand, exec->codeBlock()->sourceCodeForTools().data());
-    END();
-}
-
 SLOW_PATH_DECL(slow_path_unreachable)
 {
     BEGIN();
@@ -1055,6 +1073,13 @@ SLOW_PATH_DECL(slow_path_new_array_with_spread)
     RETURN(result);
 }
 
+SLOW_PATH_DECL(slow_path_new_array_buffer)
+{
+    BEGIN();
+    auto* fixedArray = jsCast<JSFixedArray*>(OP_C(2).jsValue());
+    RETURN(constructArray(exec, pc[3].u.arrayAllocationProfile, fixedArray->values(), fixedArray->length()));
+}
+
 SLOW_PATH_DECL(slow_path_spread)
 {
     BEGIN();
@@ -1082,6 +1107,7 @@ SLOW_PATH_DECL(slow_path_spread)
 
         MarkedArgumentBuffer arguments;
         arguments.append(iterable);
+        ASSERT(!arguments.hasOverflowed());
         JSValue arrayResult = call(exec, iterationFunction, callType, callData, jsNull(), arguments);
         CHECK_EXCEPTION();
         array = jsCast<JSArray*>(arrayResult);

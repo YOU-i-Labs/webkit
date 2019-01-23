@@ -38,11 +38,14 @@
 #include "RenderText.h"
 #include "RenderView.h"
 #include "StyleInheritedData.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 
 namespace WebCore {
 
 using namespace std;
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderRubyRun);
 
 RenderRubyRun::RenderRubyRun(Document& document, RenderStyle&& style)
     : RenderBlockFlow(document, WTFMove(style))
@@ -90,7 +93,7 @@ RenderRubyBase* RenderRubyRun::rubyBaseSafe()
     if (!base) {
         auto newBase = createRubyBase();
         base = newBase.get();
-        RenderBlockFlow::addChild(WTFMove(newBase));
+        RenderTreeBuilder::current()->insertChildToRenderBlockFlow(*this, WTFMove(newBase));
     }
     return base;
 }
@@ -103,51 +106,6 @@ RenderBlock* RenderRubyRun::firstLineBlock() const
 bool RenderRubyRun::isChildAllowed(const RenderObject& child, const RenderStyle&) const
 {
     return child.isInline() || child.isRubyText();
-}
-
-void RenderRubyRun::addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild)
-{
-    ASSERT(child);
-
-    if (child->isRubyText()) {
-        if (!beforeChild) {
-            // RenderRuby has already ascertained that we can add the child here.
-            ASSERT(!hasRubyText());
-            // prepend ruby texts as first child
-            RenderBlockFlow::addChild(WTFMove(child), firstChild());
-        }  else if (beforeChild->isRubyText()) {
-            // New text is inserted just before another.
-            // In this case the new text takes the place of the old one, and
-            // the old text goes into a new run that is inserted as next sibling.
-            ASSERT(beforeChild->parent() == this);
-            RenderElement* ruby = parent();
-            ASSERT(isRuby(ruby));
-            auto newRun = staticCreateRubyRun(ruby);
-            ruby->addChild(WTFMove(newRun), nextSibling());
-            // Add the new ruby text and move the old one to the new run
-            // Note: Doing it in this order and not using RenderRubyRun's methods,
-            // in order to avoid automatic removal of the ruby run in case there is no
-            // other child besides the old ruby text.
-            RenderBlockFlow::addChild(WTFMove(child), beforeChild);
-            auto takenBeforeChild = RenderBlockFlow::takeChild(*beforeChild);
-            newRun->addChild(WTFMove(takenBeforeChild));
-        } else if (hasRubyBase()) {
-            // Insertion before a ruby base object.
-            // In this case we need insert a new run before the current one and split the base.
-            RenderElement* ruby = parent();
-            auto newRun = staticCreateRubyRun(ruby);
-            auto& run = *newRun;
-            ruby->addChild(WTFMove(newRun), this);
-            run.addChild(WTFMove(child));
-            rubyBaseSafe()->moveChildren(run.rubyBaseSafe(), beforeChild);
-        }
-    } else {
-        // child is not a text -> insert it into the base
-        // (append it instead if beforeChild is the ruby text)
-        if (beforeChild && beforeChild->isRubyText())
-            beforeChild = 0;
-        rubyBaseSafe()->addChild(WTFMove(child), beforeChild);
-    }
 }
 
 RenderPtr<RenderObject> RenderRubyRun::takeChild(RenderObject& child)
@@ -163,9 +121,9 @@ RenderPtr<RenderObject> RenderRubyRun::takeChild(RenderObject& child)
             if (rightRun.hasRubyBase()) {
                 RenderRubyBase* rightBase = rightRun.rubyBaseSafe();
                 // Collect all children in a single base, then swap the bases.
-                rightBase->mergeChildrenWithBase(*base);
-                moveChildTo(&rightRun, base);
-                rightRun.moveChildTo(this, rightBase);
+                RenderTreeBuilder::current()->moveRubyChildren(*rightBase, *base);
+                moveChildTo(&rightRun, base, RenderBoxModelObject::NormalizeAfterInsertion::No);
+                rightRun.moveChildTo(this, rightBase, RenderBoxModelObject::NormalizeAfterInsertion::No);
                 // The now empty ruby base will be removed below.
                 ASSERT(!rubyBase()->firstChild());
             }
@@ -180,12 +138,6 @@ RenderPtr<RenderObject> RenderRubyRun::takeChild(RenderObject& child)
         if (base && !base->firstChild()) {
             auto takenBase = RenderBlockFlow::takeChild(*base);
             base->deleteLines();
-        }
-
-        // If any of the above leaves the run empty, destroy it as well.
-        if (!hasRubyText() && !hasRubyBase()) {
-            auto takenThis = parent()->takeChild(*this);
-            deleteLines();
         }
     }
 

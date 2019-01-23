@@ -41,7 +41,6 @@
 #include "JSCInlines.h"
 #include "ScriptArguments.h"
 #include "ScriptCallFrame.h"
-#include "ScriptCallStack.h"
 #include "ScriptValue.h"
 #include "StackVisitor.h"
 #include <wtf/text/WTFString.h>
@@ -90,6 +89,7 @@ Ref<ScriptCallStack> createScriptCallStack(JSC::ExecState* exec, size_t maxStack
     if (!exec)
         return ScriptCallStack::create();
 
+    JSLockHolder locker(exec);
     Vector<ScriptCallFrame> frames;
 
     CallFrame* frame = exec->vm().topCallFrame;
@@ -104,6 +104,7 @@ Ref<ScriptCallStack> createScriptCallStackForConsole(JSC::ExecState* exec, size_
     if (!exec)
         return ScriptCallStack::create();
 
+    JSLockHolder locker(exec);
     Vector<ScriptCallFrame> frames;
 
     CallFrame* frame = exec->vm().topCallFrame;

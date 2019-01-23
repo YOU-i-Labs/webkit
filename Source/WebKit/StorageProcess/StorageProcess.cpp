@@ -33,16 +33,23 @@
 #include "WebCoreArgumentCoders.h"
 #include "WebSWOriginStore.h"
 #include "WebSWServerConnection.h"
+#include "WebSWServerToContextConnection.h"
 #include "WebsiteData.h"
 #include <WebCore/FileSystem.h>
 #include <WebCore/IDBKeyData.h>
 #include <WebCore/NotImplemented.h>
+#include <WebCore/SWServerWorker.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/ServiceWorkerClientIdentifier.h>
 #include <WebCore/TextEncoding.h>
 #include <pal/SessionID.h>
+#include <wtf/CallbackAggregator.h>
 #include <wtf/CrossThreadTask.h>
 #include <wtf/MainThread.h>
+
+#if ENABLE(SERVICE_WORKER)
+#include "WebSWServerToContextConnectionMessages.h"
+#endif
 
 using namespace WebCore;
 
@@ -76,10 +83,50 @@ bool StorageProcess::shouldTerminate()
     return true;
 }
 
-void StorageProcess::didClose(IPC::Connection&)
+void StorageProcess::didClose(IPC::Connection& connection)
 {
+#if ENABLE(SERVICE_WORKER)
+    if (m_serverToContextConnection && m_serverToContextConnection->ipcConnection() == &connection) {
+        connectionToContextProcessWasClosed();
+        return;
+    }
+#else
+    UNUSED_PARAM(connection);
+#endif
     stopRunLoop();
 }
+
+#if ENABLE(SERVICE_WORKER)
+void StorageProcess::connectionToContextProcessWasClosed()
+{
+    if (!m_serverToContextConnection)
+        return;
+
+    bool shouldRelaunch = needsServerToContextConnection();
+
+    m_serverToContextConnection->connectionClosed();
+    m_serverToContextConnection = nullptr;
+
+    for (auto& swServer : m_swServers.values())
+        swServer->markAllWorkersAsTerminated();
+
+    if (shouldRelaunch)
+        createServerToContextConnection(std::nullopt);
+}
+
+// The rule is that we need a context process (and a connection to it) as long as we have SWServerConnections to regular WebProcesses.
+bool StorageProcess::needsServerToContextConnection() const
+{
+    if (m_swServerConnections.isEmpty())
+        return false;
+
+    // If the last SWServerConnection is to the context process, then we no longer need the context connection.
+    if (m_swServerConnections.size() == 1 && m_serverToContextConnection && &m_swServerConnections.begin()->value->ipcConnection() == m_serverToContextConnection->ipcConnection())
+        return false;
+
+    return true;
+}
+#endif
 
 void StorageProcess::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
@@ -90,6 +137,16 @@ void StorageProcess::didReceiveMessage(IPC::Connection& connection, IPC::Decoder
         didReceiveStorageProcessMessage(connection, decoder);
         return;
     }
+
+#if ENABLE(SERVICE_WORKER)
+    if (decoder.messageReceiverName() == Messages::WebSWServerToContextConnection::messageReceiverName()) {
+        if (auto* swConnection = SWServerToContextConnection::globalServerToContextConnection()) {
+            auto* webSWConnection = static_cast<WebSWServerToContextConnection*>(swConnection);
+            webSWConnection->didReceiveMessage(connection, decoder);
+            return;        
+        }
+    }
+#endif
 }
 
 #if ENABLE(INDEXED_DATABASE)
@@ -118,14 +175,25 @@ void StorageProcess::initializeWebsiteDataStore(const StorageProcessCreationPara
     // IMPORTANT: Do not change the directory structure for indexed databases on disk without first consulting a reviewer from Apple (<rdar://problem/17454712>)
     // *********
 
-    auto addResult = m_idbDatabasePaths.add(parameters.sessionID, String());
-    if (!addResult.isNewEntry)
-        return;
+    auto addResult = m_idbDatabasePaths.ensure(parameters.sessionID, [path = parameters.indexedDatabaseDirectory] {
+        return path;
+    });
+    if (addResult.isNewEntry) {
+        SandboxExtension::consumePermanently(parameters.indexedDatabaseDirectoryExtensionHandle);
+        postStorageTask(createCrossThreadTask(*this, &StorageProcess::ensurePathExists, parameters.indexedDatabaseDirectory));
+    }
+#endif
+#if ENABLE(SERVICE_WORKER)
+    addResult = m_swDatabasePaths.ensure(parameters.sessionID, [path = parameters.serviceWorkerRegistrationDirectory] {
+        return path;
+    });
+    if (addResult.isNewEntry) {
+        SandboxExtension::consumePermanently(parameters.serviceWorkerRegistrationDirectoryExtensionHandle);
+        postStorageTask(createCrossThreadTask(*this, &StorageProcess::ensurePathExists, parameters.serviceWorkerRegistrationDirectory));
+    }
 
-    addResult.iterator->value = parameters.indexedDatabaseDirectory;
-    SandboxExtension::consumePermanently(parameters.indexedDatabaseDirectoryExtensionHandle);
-
-    postStorageTask(createCrossThreadTask(*this, &StorageProcess::ensurePathExists, parameters.indexedDatabaseDirectory));
+    for (auto& scheme : parameters.urlSchemesServiceWorkersCanHandle)
+        registerURLSchemeServiceWorkersCanHandle(scheme);
 #endif
 }
 
@@ -133,7 +201,7 @@ void StorageProcess::ensurePathExists(const String& path)
 {
     ASSERT(!RunLoop::isMain());
 
-    if (!makeAllDirectories(path))
+    if (!FileSystem::makeAllDirectories(path))
         LOG_ERROR("Failed to make all directories for path '%s'", path.utf8().data());
 }
 
@@ -164,7 +232,7 @@ void StorageProcess::performNextStorageTask()
     task.performTask();
 }
 
-void StorageProcess::createStorageToWebProcessConnection()
+void StorageProcess::createStorageToWebProcessConnection(bool isServiceWorkerProcess)
 {
 #if USE(UNIX_DOMAIN_SOCKETS)
     IPC::Connection::SocketPair socketPair = IPC::Connection::createPlatformConnection();
@@ -183,94 +251,98 @@ void StorageProcess::createStorageToWebProcessConnection()
 #else
     notImplemented();
 #endif
+
+#if ENABLE(SERVICE_WORKER)
+    if (isServiceWorkerProcess && !m_storageToWebProcessConnections.isEmpty()) {
+        ASSERT(m_waitingForServerToContextProcessConnection);
+        m_serverToContextConnection = WebSWServerToContextConnection::create(m_storageToWebProcessConnections.last()->connection());
+        m_waitingForServerToContextProcessConnection = false;
+
+        for (auto& connection : m_storageToWebProcessConnections)
+            connection->workerContextProcessConnectionCreated();
+    }
+#else
+    UNUSED_PARAM(isServiceWorkerProcess);
+#endif
 }
 
 void StorageProcess::fetchWebsiteData(PAL::SessionID sessionID, OptionSet<WebsiteDataType> websiteDataTypes, uint64_t callbackID)
 {
-    auto completionHandler = [this, callbackID](const WebsiteData& websiteData) {
-        parentProcessConnection()->send(Messages::StorageProcessProxy::DidFetchWebsiteData(callbackID, websiteData), 0);
-    };
+    auto websiteData = std::make_unique<WebsiteData>();
+    WebsiteData* rawWebsiteData = websiteData.get();
+    auto callbackAggregator = CallbackAggregator::create([this, websiteData = WTFMove(websiteData), callbackID]() {
+        parentProcessConnection()->send(Messages::StorageProcessProxy::DidFetchWebsiteData(callbackID, *websiteData), 0);
+    });
+
+    String path;
+#if ENABLE(SERVICE_WORKER)
+    path = m_swDatabasePaths.get(sessionID);
+    if (!path.isEmpty() && websiteDataTypes.contains(WebsiteDataType::ServiceWorkerRegistrations)) {
+        swServerForSession(sessionID).getOriginsWithRegistrations([rawWebsiteData, callbackAggregator = callbackAggregator.copyRef()](const HashSet<SecurityOriginData>& origins) mutable {
+            for (auto& origin : origins)
+                rawWebsiteData->entries.append({ origin, WebsiteDataType::ServiceWorkerRegistrations, 0 });
+        });
+    }
+#endif
+
+#if ENABLE(INDEXED_DATABASE)
+    path = m_idbDatabasePaths.get(sessionID);
+    if (!path.isEmpty() && websiteDataTypes.contains(WebsiteDataType::IndexedDBDatabases)) {
+        // FIXME: Pick the right database store based on the session ID.
+        postStorageTask(CrossThreadTask([this, callbackAggregator = callbackAggregator.copyRef(), path = WTFMove(path), rawWebsiteData]() mutable {
+            RunLoop::main().dispatch([callbackAggregator = WTFMove(callbackAggregator), rawWebsiteData, securityOrigins = indexedDatabaseOrigins(path)] {
+                for (const auto& securityOrigin : securityOrigins)
+                    rawWebsiteData->entries.append({ securityOrigin, WebsiteDataType::IndexedDBDatabases, 0 });
+            });
+        }));
+    }
+#endif
+}
+
+void StorageProcess::deleteWebsiteData(PAL::SessionID sessionID, OptionSet<WebsiteDataType> websiteDataTypes, WallTime modifiedSince, uint64_t callbackID)
+{
+    auto callbackAggregator = CallbackAggregator::create([this, callbackID] {
+        parentProcessConnection()->send(Messages::StorageProcessProxy::DidDeleteWebsiteData(callbackID), 0);
+    });
 
 #if ENABLE(SERVICE_WORKER)
     if (websiteDataTypes.contains(WebsiteDataType::ServiceWorkerRegistrations))
-        notImplemented();
+        swServerForSession(sessionID).clearAll([callbackAggregator = callbackAggregator.copyRef()] { });
 #endif
 
 #if ENABLE(INDEXED_DATABASE)
-    String path = m_idbDatabasePaths.get(sessionID);
-    if (!path.isEmpty() && websiteDataTypes.contains(WebsiteDataType::IndexedDBDatabases)) {
-        // FIXME: Pick the right database store based on the session ID.
-        postStorageTask(CrossThreadTask([this, completionHandler = WTFMove(completionHandler), path = WTFMove(path)]() mutable {
-            RunLoop::main().dispatch([completionHandler = WTFMove(completionHandler), securityOrigins = indexedDatabaseOrigins(path)] {
-                WebsiteData websiteData;
-                for (const auto& securityOrigin : securityOrigins)
-                    websiteData.entries.append({ securityOrigin, WebsiteDataType::IndexedDBDatabases, 0 });
-
-                completionHandler(websiteData);
-            });
-        }));
-        return;
-    }
+    if (websiteDataTypes.contains(WebsiteDataType::IndexedDBDatabases))
+        idbServer(sessionID).closeAndDeleteDatabasesModifiedSince(modifiedSince, [callbackAggregator = WTFMove(callbackAggregator)] { });
 #endif
-
-    completionHandler({ });
-}
-
-void StorageProcess::deleteWebsiteData(PAL::SessionID sessionID, OptionSet<WebsiteDataType> websiteDataTypes, std::chrono::system_clock::time_point modifiedSince, uint64_t callbackID)
-{
-    auto completionHandler = [this, callbackID]() {
-        parentProcessConnection()->send(Messages::StorageProcessProxy::DidDeleteWebsiteData(callbackID), 0);
-    };
-
-#if ENABLE(SERVICE_WORKER)
-    if (websiteDataTypes.contains(WebsiteDataType::ServiceWorkerRegistrations)) {
-        if (auto* store = swOriginStoreForSession(sessionID))
-            store->clear();
-    }
-#endif
-
-#if ENABLE(INDEXED_DATABASE)
-    if (websiteDataTypes.contains(WebsiteDataType::IndexedDBDatabases)) {
-        idbServer(sessionID).closeAndDeleteDatabasesModifiedSince(modifiedSince, WTFMove(completionHandler));
-        return;
-    }
-#endif
-
-    completionHandler();
 }
 
 void StorageProcess::deleteWebsiteDataForOrigins(PAL::SessionID sessionID, OptionSet<WebsiteDataType> websiteDataTypes, const Vector<SecurityOriginData>& securityOriginDatas, uint64_t callbackID)
 {
-    auto completionHandler = [this, callbackID]() {
+    auto callbackAggregator = CallbackAggregator::create([this, callbackID]() {
         parentProcessConnection()->send(Messages::StorageProcessProxy::DidDeleteWebsiteDataForOrigins(callbackID), 0);
-    };
+    });
 
 #if ENABLE(SERVICE_WORKER)
     if (websiteDataTypes.contains(WebsiteDataType::ServiceWorkerRegistrations)) {
-        if (auto* store = swOriginStoreForSession(sessionID)) {
-            for (auto& originData : securityOriginDatas)
-                store->remove(originData.securityOrigin());
-        }
+        auto& server = swServerForSession(sessionID);
+        for (auto& originData : securityOriginDatas)
+            server.clear(originData.securityOrigin(), [callbackAggregator = callbackAggregator.copyRef()] { });
     }
 #endif
 
 #if ENABLE(INDEXED_DATABASE)
-    if (!websiteDataTypes.contains(WebsiteDataType::IndexedDBDatabases)) {
-        idbServer(sessionID).closeAndDeleteDatabasesForOrigins(securityOriginDatas, WTFMove(completionHandler));
-        return;
-    }
+    if (!websiteDataTypes.contains(WebsiteDataType::IndexedDBDatabases))
+        idbServer(sessionID).closeAndDeleteDatabasesForOrigins(securityOriginDatas, [callbackAggregator = WTFMove(callbackAggregator)] { });
 #endif
-
-    completionHandler();
 }
 
 #if ENABLE(SANDBOX_EXTENSIONS)
-void StorageProcess::grantSandboxExtensionsForBlobs(const Vector<String>& paths, const SandboxExtension::HandleArray& handles)
+void StorageProcess::grantSandboxExtensionsForBlobs(const Vector<String>& paths, SandboxExtension::HandleArray&& handles)
 {
     ASSERT(paths.size() == handles.size());
 
     for (size_t i = 0; i < paths.size(); ++i) {
-        auto result = m_blobTemporaryFileSandboxExtensions.add(paths[i], SandboxExtension::create(handles[i]));
+        auto result = m_blobTemporaryFileSandboxExtensions.add(paths[i], SandboxExtension::create(WTFMove(handles[i])));
         ASSERT_UNUSED(result, result.isNewEntry);
     }
 }
@@ -288,7 +360,7 @@ void StorageProcess::accessToTemporaryFileComplete(const String& path)
     // We've either hard linked the temporary blob file to the database directory, copied it there,
     // or the transaction is being aborted.
     // In any of those cases, we can delete the temporary blob file now.
-    deleteFile(path);
+    FileSystem::deleteFile(path);
 
     if (auto extension = m_blobTemporaryFileSandboxExtensions.take(path))
         extension->revoke();
@@ -300,8 +372,8 @@ Vector<WebCore::SecurityOriginData> StorageProcess::indexedDatabaseOrigins(const
         return { };
 
     Vector<WebCore::SecurityOriginData> securityOrigins;
-    for (auto& originPath : listDirectory(path, "*")) {
-        String databaseIdentifier = pathGetFileName(originPath);
+    for (auto& originPath : FileSystem::listDirectory(path, "*")) {
+        String databaseIdentifier = FileSystem::pathGetFileName(originPath);
 
         if (auto securityOrigin = SecurityOriginData::fromDatabaseIdentifier(databaseIdentifier))
             securityOrigins.append(WTFMove(*securityOrigin));
@@ -333,128 +405,96 @@ void StorageProcess::didGetSandboxExtensionsForBlobFiles(uint64_t requestID, San
 SWServer& StorageProcess::swServerForSession(PAL::SessionID sessionID)
 {
     auto result = m_swServers.add(sessionID, nullptr);
-    if (result.isNewEntry)
-        result.iterator->value = std::make_unique<SWServer>();
+    if (!result.isNewEntry) {
+        ASSERT(result.iterator->value);
+        return *result.iterator->value;
+    }
 
-    ASSERT(result.iterator->value);
+    auto path = m_swDatabasePaths.get(sessionID);
+    // There should already be a registered path for this PAL::SessionID.
+    // If there's not, then where did this PAL::SessionID come from?
+    ASSERT(sessionID.isEphemeral() || !path.isEmpty());
+
+    result.iterator->value = std::make_unique<SWServer>(makeUniqueRef<WebSWOriginStore>(), WTFMove(path), sessionID);
     return *result.iterator->value;
 }
 
-IPC::Connection* StorageProcess::workerContextProcessConnection()
+WebSWOriginStore& StorageProcess::swOriginStoreForSession(PAL::SessionID sessionID)
 {
-    return m_workerContextProcessConnection.get();
+    return static_cast<WebSWOriginStore&>(swServerForSession(sessionID).originStore());
 }
 
-void StorageProcess::createWorkerContextProcessConnection()
+WebSWServerToContextConnection* StorageProcess::globalServerToContextConnection()
 {
-    if (m_waitingForWorkerContextProcessConnection)
+    return m_serverToContextConnection.get();
+}
+
+void StorageProcess::createServerToContextConnection(std::optional<PAL::SessionID> sessionID)
+{
+    if (m_waitingForServerToContextProcessConnection)
         return;
     
-    m_waitingForWorkerContextProcessConnection = true;
-    parentProcessConnection()->send(Messages::StorageProcessProxy::GetWorkerContextProcessConnection(), 0);
+    m_waitingForServerToContextProcessConnection = true;
+    if (sessionID)
+        parentProcessConnection()->send(Messages::StorageProcessProxy::EstablishWorkerContextConnectionToStorageProcessForExplicitSession(*sessionID), 0);
+    else
+        parentProcessConnection()->send(Messages::StorageProcessProxy::EstablishWorkerContextConnectionToStorageProcess(), 0);
 }
 
-WebSWOriginStore& StorageProcess::ensureSWOriginStoreForSession(PAL::SessionID sessionID)
-{
-    return *m_swOriginStores.ensure(sessionID, [] {
-        return std::make_unique<WebSWOriginStore>();
-    }).iterator->value;
-}
-
-WebSWOriginStore* StorageProcess::swOriginStoreForSession(PAL::SessionID sessionID) const
-{
-    auto it = m_swOriginStores.find(sessionID);
-    if (it == m_swOriginStores.end())
-        return nullptr;
-    return it->value.get();
-}
-
-void StorageProcess::didGetWorkerContextProcessConnection(IPC::Attachment&& encodedConnectionIdentifier)
-{
-    ASSERT(m_waitingForWorkerContextProcessConnection);
-    m_waitingForWorkerContextProcessConnection = false;
-
-#if USE(UNIX_DOMAIN_SOCKETS)
-    IPC::Connection::Identifier connectionIdentifier = encodedConnectionIdentifier.releaseFileDescriptor();
-#elif OS(DARWIN)
-    IPC::Connection::Identifier connectionIdentifier(encodedConnectionIdentifier.port());
-#else
-    ASSERT_NOT_REACHED();
-#endif
-
-    if (IPC::Connection::identifierIsNull(connectionIdentifier)) {
-        LOG_ERROR("StorageProcess::didGetWorkerContextProcessConnection - Received null connection identifier");
-        return;
-    }
-
-    m_workerContextProcessConnection = IPC::Connection::createClientConnection(connectionIdentifier, *this);
-    m_workerContextProcessConnection->open();
-    
-    for (auto& connection : m_storageToWebProcessConnections)
-        connection->workerContextProcessConnectionCreated();
-}
-
-void StorageProcess::serviceWorkerContextFailedToStart(uint64_t serverConnectionIdentifier, const ServiceWorkerRegistrationKey& registrationKey, const String& workerID, const String& message)
-{
-    if (auto* connection = m_swServerConnections.get(serverConnectionIdentifier))
-        connection->scriptContextFailedToStart(registrationKey, workerID, message);
-}
-
-void StorageProcess::serviceWorkerContextStarted(uint64_t serverConnectionIdentifier, const ServiceWorkerRegistrationKey& registrationKey, uint64_t identifier, const String& workerID)
-{
-    if (auto* connection = m_swServerConnections.get(serverConnectionIdentifier))
-        connection->scriptContextStarted(registrationKey, identifier, workerID);
-}
-
-void StorageProcess::didFailFetch(uint64_t serverConnectionIdentifier, uint64_t fetchIdentifier)
+void StorageProcess::didFailFetch(SWServerConnectionIdentifier serverConnectionIdentifier, uint64_t fetchIdentifier)
 {
     if (auto* connection = m_swServerConnections.get(serverConnectionIdentifier))
         connection->didFailFetch(fetchIdentifier);
 }
 
-void StorageProcess::didNotHandleFetch(uint64_t serverConnectionIdentifier, uint64_t fetchIdentifier)
+void StorageProcess::didNotHandleFetch(SWServerConnectionIdentifier serverConnectionIdentifier, uint64_t fetchIdentifier)
 {
     if (auto* connection = m_swServerConnections.get(serverConnectionIdentifier))
         connection->didNotHandleFetch(fetchIdentifier);
 }
 
-void StorageProcess::didReceiveFetchResponse(uint64_t serverConnectionIdentifier, uint64_t fetchIdentifier, const WebCore::ResourceResponse& response)
+void StorageProcess::didReceiveFetchResponse(SWServerConnectionIdentifier serverConnectionIdentifier, uint64_t fetchIdentifier, const WebCore::ResourceResponse& response)
 {
     if (auto* connection = m_swServerConnections.get(serverConnectionIdentifier))
         connection->didReceiveFetchResponse(fetchIdentifier, response);
 }
 
-void StorageProcess::didReceiveFetchData(uint64_t serverConnectionIdentifier, uint64_t fetchIdentifier, const IPC::DataReference& data, int64_t encodedDataLength)
+void StorageProcess::didReceiveFetchData(SWServerConnectionIdentifier serverConnectionIdentifier, uint64_t fetchIdentifier, const IPC::DataReference& data, int64_t encodedDataLength)
 {
     if (auto* connection = m_swServerConnections.get(serverConnectionIdentifier))
         connection->didReceiveFetchData(fetchIdentifier, data, encodedDataLength);
 }
 
-void StorageProcess::didFinishFetch(uint64_t serverConnectionIdentifier, uint64_t fetchIdentifier)
+void StorageProcess::didReceiveFetchFormData(SWServerConnectionIdentifier serverConnectionIdentifier, uint64_t fetchIdentifier, const IPC::FormDataReference& formData)
+{
+    if (auto* connection = m_swServerConnections.get(serverConnectionIdentifier))
+        connection->didReceiveFetchFormData(fetchIdentifier, formData);
+}
+
+void StorageProcess::didFinishFetch(SWServerConnectionIdentifier serverConnectionIdentifier, uint64_t fetchIdentifier)
 {
     if (auto* connection = m_swServerConnections.get(serverConnectionIdentifier))
         connection->didFinishFetch(fetchIdentifier);
 }
 
-void StorageProcess::postMessageToServiceWorkerClient(const ServiceWorkerClientIdentifier& destinationIdentifier, const IPC::DataReference& message, uint64_t sourceServiceWorkerIdentifier, const String& sourceOrigin)
+void StorageProcess::postMessageToServiceWorkerClient(const ServiceWorkerClientIdentifier& destinationIdentifier, const IPC::DataReference& message, ServiceWorkerIdentifier sourceIdentifier, const String& sourceOrigin)
 {
     if (auto* connection = m_swServerConnections.get(destinationIdentifier.serverConnectionIdentifier))
-        connection->postMessageToServiceWorkerClient(destinationIdentifier.scriptExecutionContextIdentifier, message, sourceServiceWorkerIdentifier, sourceOrigin);
+        connection->postMessageToServiceWorkerClient(destinationIdentifier.contextIdentifier, message, sourceIdentifier, sourceOrigin);
 }
 
 void StorageProcess::registerSWServerConnection(WebSWServerConnection& connection)
 {
     ASSERT(!m_swServerConnections.contains(connection.identifier()));
     m_swServerConnections.add(connection.identifier(), &connection);
-    ensureSWOriginStoreForSession(connection.sessionID()).registerSWServerConnection(connection);
+    swOriginStoreForSession(connection.sessionID()).registerSWServerConnection(connection);
 }
 
 void StorageProcess::unregisterSWServerConnection(WebSWServerConnection& connection)
 {
     ASSERT(m_swServerConnections.get(connection.identifier()) == &connection);
     m_swServerConnections.remove(connection.identifier());
-    if (auto* originStore = swOriginStoreForSession(connection.sessionID()))
-        originStore->unregisterSWServerConnection(connection);
+    swOriginStoreForSession(connection.sessionID()).unregisterSWServerConnection(connection);
 }
 #endif
 

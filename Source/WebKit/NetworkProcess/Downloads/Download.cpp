@@ -112,7 +112,10 @@ void Download::start()
 {
     if (m_request.url().protocolIsBlob()) {
         m_downloadClient = std::make_unique<BlobDownloadClient>(*this);
-        m_resourceHandle = ResourceHandle::create(nullptr, m_request, m_downloadClient.get(), false, false);
+        bool defersLoading = false;
+        bool shouldContentSniff = false;
+        bool shouldContentEncodingSniff = true;
+        m_resourceHandle = ResourceHandle::create(nullptr, m_request, m_downloadClient.get(), defersLoading, shouldContentSniff, shouldContentEncodingSniff);
         didStart();
         return;
     }
@@ -124,7 +127,10 @@ void Download::startWithHandle(ResourceHandle* handle, const ResourceResponse& r
 {
     if (m_request.url().protocolIsBlob()) {
         m_downloadClient = std::make_unique<BlobDownloadClient>(*this);
-        m_resourceHandle = ResourceHandle::create(nullptr, m_request, m_downloadClient.get(), false, false);
+        bool defersLoading = false;
+        bool shouldContentSniff = false;
+        bool shouldContentEncodingSniff = true;
+        m_resourceHandle = ResourceHandle::create(nullptr, m_request, m_downloadClient.get(), defersLoading, shouldContentSniff, shouldContentEncodingSniff);
         didStart();
         return;
     }
@@ -204,7 +210,7 @@ String Download::decideDestinationWithSuggestedFilename(const String& filename, 
     if (!sendSync(Messages::DownloadProxy::DecideDestinationWithSuggestedFilename(filename, m_responseMIMEType), Messages::DownloadProxy::DecideDestinationWithSuggestedFilename::Reply(destination, allowOverwrite, sandboxExtensionHandle)))
         return String();
 
-    m_sandboxExtension = SandboxExtension::create(sandboxExtensionHandle);
+    m_sandboxExtension = SandboxExtension::create(WTFMove(sandboxExtensionHandle));
     if (m_sandboxExtension)
         m_sandboxExtension->consume();
 
@@ -216,10 +222,10 @@ void Download::decideDestinationWithSuggestedFilenameAsync(const String& suggest
     send(Messages::DownloadProxy::DecideDestinationWithSuggestedFilenameAsync(downloadID(), suggestedFilename));
 }
 
-void Download::didDecideDownloadDestination(const String& destinationPath, const SandboxExtension::Handle& sandboxExtensionHandle, bool allowOverwrite)
+void Download::didDecideDownloadDestination(const String& destinationPath, SandboxExtension::Handle&& sandboxExtensionHandle, bool allowOverwrite)
 {
     ASSERT(!m_sandboxExtension);
-    m_sandboxExtension = SandboxExtension::create(sandboxExtensionHandle);
+    m_sandboxExtension = SandboxExtension::create(WTFMove(sandboxExtensionHandle));
     if (m_sandboxExtension)
         m_sandboxExtension->consume();
 

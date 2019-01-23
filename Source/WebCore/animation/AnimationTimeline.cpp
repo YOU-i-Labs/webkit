@@ -45,23 +45,55 @@ AnimationTimeline::~AnimationTimeline()
 void AnimationTimeline::addAnimation(Ref<WebAnimation>&& animation)
 {
     m_animations.add(WTFMove(animation));
+    animationTimingModelDidChange();
 }
 
 void AnimationTimeline::removeAnimation(Ref<WebAnimation>&& animation)
 {
     m_animations.remove(WTFMove(animation));
+    animationTimingModelDidChange();
 }
 
-std::optional<double> AnimationTimeline::bindingsCurrentTime() const
+std::optional<double> AnimationTimeline::bindingsCurrentTime()
 {
-    if (!m_currentTime)
+    auto time = currentTime();
+    if (!time)
         return std::nullopt;
-    return m_currentTime->value();
+    return time->milliseconds();
 }
 
 void AnimationTimeline::setCurrentTime(Seconds currentTime)
 {
     m_currentTime = currentTime;
+    animationTimingModelDidChange();
+}
+
+void AnimationTimeline::animationWasAddedToElement(WebAnimation& animation, Element& element)
+{
+    auto result = m_elementToAnimationsMap.ensure(&element, [] {
+        return Vector<RefPtr<WebAnimation>>();
+    });
+    result.iterator->value.append(&animation);
+}
+
+void AnimationTimeline::animationWasRemovedFromElement(WebAnimation& animation, Element& element)
+{
+    auto iterator = m_elementToAnimationsMap.find(&element);
+    if (iterator == m_elementToAnimationsMap.end())
+        return;
+
+    auto& animations = iterator->value;
+    animations.removeFirst(&animation);
+    if (!animations.size())
+        m_elementToAnimationsMap.remove(iterator);
+}
+
+Vector<RefPtr<WebAnimation>> AnimationTimeline::animationsForElement(Element& element)
+{
+    Vector<RefPtr<WebAnimation>> animations;
+    if (m_elementToAnimationsMap.contains(&element))
+        animations = m_elementToAnimationsMap.get(&element);
+    return animations;
 }
 
 String AnimationTimeline::description()

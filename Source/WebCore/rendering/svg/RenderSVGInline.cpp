@@ -27,8 +27,11 @@
 #include "RenderSVGText.h"
 #include "SVGInlineFlowBox.h"
 #include "SVGResourcesCache.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGInline);
     
 RenderSVGInline::RenderSVGInline(SVGGraphicsElement& element, RenderStyle&& style)
     : RenderInline(element, WTFMove(style))
@@ -120,14 +123,9 @@ void RenderSVGInline::updateFromStyle()
     setInline(true);
 }
 
-void RenderSVGInline::addChild(RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
+void RenderSVGInline::addChild(RenderTreeBuilder& builder, RenderPtr<RenderObject> newChild, RenderObject* beforeChild)
 {
-    auto& child = *newChild;
-    RenderInline::addChild(WTFMove(newChild), beforeChild);
-    SVGResourcesCache::clientWasAddedToTree(child);
-
-    if (auto* textAncestor = RenderSVGText::locateRenderSVGTextAncestor(*this))
-        textAncestor->subtreeChildWasAdded(&child);
+    builder.insertChildToSVGInline(*this, WTFMove(newChild), beforeChild);
 }
 
 RenderPtr<RenderObject> RenderSVGInline::takeChild(RenderObject& child)

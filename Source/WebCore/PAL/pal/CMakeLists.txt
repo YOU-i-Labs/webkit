@@ -1,4 +1,5 @@
 set(PAL_SOURCES
+    FileSizeFormatter.cpp
     Logging.cpp
     SessionID.cpp
 
@@ -22,7 +23,7 @@ set(PAL_SYSTEM_INCLUDE_DIRECTORIES
 )
 
 set(PAL_LIBRARIES
-    PRIVATE WTF
+    JavaScriptCore${DEBUG_SUFFIX}
 )
 
 WEBKIT_FRAMEWORK_DECLARE(PAL)

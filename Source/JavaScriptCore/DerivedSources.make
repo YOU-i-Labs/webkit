@@ -141,6 +141,8 @@ OBJECT_LUT_HEADERS = \
     ArrayConstructor.lut.h \
     ArrayIteratorPrototype.lut.h \
     AsyncGeneratorPrototype.lut.h \
+    BigIntPrototype.lut.h \
+    BigIntConstructor.lut.h \
     BooleanPrototype.lut.h \
     DateConstructor.lut.h \
     DatePrototype.lut.h \
@@ -251,6 +253,10 @@ endif
 
 ifeq ($(findstring ENABLE_RESOURCE_USAGE,$(FEATURE_DEFINES)), ENABLE_RESOURCE_USAGE)
     INSPECTOR_DOMAINS := $(INSPECTOR_DOMAINS) $(JavaScriptCore)/inspector/protocol/Memory.json
+endif
+
+ifeq ($(findstring ENABLE_SERVICE_WORKER,$(FEATURE_DEFINES)), ENABLE_SERVICE_WORKER)
+    INSPECTOR_DOMAINS := $(INSPECTOR_DOMAINS) $(JavaScriptCore)/inspector/protocol/ServiceWorker.json
 endif
 
 INSPECTOR_GENERATOR_SCRIPTS = \

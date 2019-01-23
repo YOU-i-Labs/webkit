@@ -58,6 +58,9 @@ WI.RecordingNavigationSidebarPanel = class RecordingNavigationSidebarPanel exten
         }
 
         this._recording.actions.then((actions) => {
+            if (recording !== this._recording)
+                return;
+
             this.contentTreeOutline.element.dataset.indent = Number.countDigits(actions.length);
 
             if (actions[0] instanceof WI.RecordingInitialStateAction)
@@ -70,6 +73,11 @@ WI.RecordingNavigationSidebarPanel = class RecordingNavigationSidebarPanel exten
 
                 for (let i = 0; i < frame.actions.length; ++i)
                     folder.appendChild(new WI.RecordingActionTreeElement(frame.actions[i], cumulativeActionIndex + i, this._recording.type));
+
+                if (!isNaN(frame.duration)) {
+                    const higherResolution = true;
+                    folder.status = Number.secondsToString(frame.duration / 1000, higherResolution);
+                }
 
                 if (frame.incomplete)
                     folder.subtitle = WI.UIString("Incomplete");
@@ -126,7 +134,7 @@ WI.RecordingNavigationSidebarPanel = class RecordingNavigationSidebarPanel exten
 
         this._importButton = importNavigationItem.element.appendChild(document.createElement("button"));
         this._importButton.textContent = importLabel;
-        this._importButton.addEventListener("click", this._importNavigationItemClicked.bind(this));
+        this._importButton.addEventListener("click", () => { WI.canvasManager.importRecording(); });
 
         const exportLabel = WI.UIString("Export");
         let exportNavigationItem = new WI.NavigationItem("recording-export", role, exportLabel);
@@ -162,24 +170,6 @@ WI.RecordingNavigationSidebarPanel = class RecordingNavigationSidebarPanel exten
     }
 
     // Private
-
-    _importNavigationItemClicked(event)
-    {
-        WI.loadDataFromFile((data, filename) => {
-            if (!data)
-                return;
-
-            let payload = null;
-            try {
-                payload = JSON.parse(data);
-            } catch (e) {
-                WI.Recording.synthesizeError(e);
-                return;
-            }
-
-            this.dispatchEventToListeners(WI.RecordingNavigationSidebarPanel.Event.Import, {payload, filename});
-        });
-    }
 
     _exportNavigationItemClicked(event)
     {

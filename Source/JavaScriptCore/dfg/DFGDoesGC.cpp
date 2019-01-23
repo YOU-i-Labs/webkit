@@ -64,7 +64,6 @@ bool doesGC(Graph& graph, Node* node)
     case Phi:
     case Flush:
     case PhantomLocal:
-    case GetLocalUnlinked:
     case SetArgument:
     case BitAnd:
     case BitOr:
@@ -119,7 +118,6 @@ bool doesGC(Graph& graph, Node* node)
     case CheckStructureImmediate:
     case GetExecutable:
     case GetButterfly:
-    case GetButterflyWithoutCaging:
     case CheckSubClass:
     case CheckArray:
     case GetScope:
@@ -136,9 +134,11 @@ bool doesGC(Graph& graph, Node* node)
     case PutGlobalVariable:
     case CheckCell:
     case CheckNotEmpty:
+    case AssertNotEmpty:
     case CheckStringIdent:
     case RegExpExec:
     case RegExpTest:
+    case RegExpMatchFast:
     case CompareLess:
     case CompareLessEq:
     case CompareGreater:
@@ -197,15 +197,20 @@ bool doesGC(Graph& graph, Node* node)
     case TailCallVarargs:
     case Throw:
     case CountExecution:
+    case SuperSamplerBegin:
+    case SuperSamplerEnd:
     case ForceOSRExit:
+    case CPUIntrinsic:
     case CheckTraps:
     case StringFromCharCode:
     case MapHash:
+    case NormalizeMapKey:
     case GetMapBucket:
     case GetMapBucketHead:
     case GetMapBucketNext:
     case LoadKeyFromMapBucket:
     case LoadValueFromMapBucket:
+    case ExtractValueFromWeakMapGet:
     case WeakMapGet:
     case Unreachable:
     case ExtractCatchLocal:
@@ -264,6 +269,7 @@ bool doesGC(Graph& graph, Node* node)
     case PhantomDirectArguments:
     case PhantomCreateRest:
     case PhantomNewArrayWithSpread:
+    case PhantomNewArrayBuffer:
     case PhantomSpread:
     case PhantomClonedArguments:
     case GetMyArgumentByVal:
@@ -301,6 +307,7 @@ bool doesGC(Graph& graph, Node* node)
     case CreateScopedArguments:
     case CreateClonedArguments:
     case CallObjectConstructor:
+    case ToObject:
     case ToThis:
     case CreateThis:
     case AllocatePropertyStorage:
@@ -332,6 +339,7 @@ bool doesGC(Graph& graph, Node* node)
     case StrCat:
     case StringReplace:
     case StringReplaceRegExp:
+    case StringSlice:
     case CreateRest:
     case ToLowerCase:
     case CallDOMGetter:
@@ -339,6 +347,8 @@ bool doesGC(Graph& graph, Node* node)
     case ArraySlice:
     case ArrayIndexOf:
     case ParseInt: // We might resolve a rope even though we don't clobber anything.
+    case SetAdd:
+    case MapSet:
         return true;
         
     case MultiPutByOffset:

@@ -59,10 +59,7 @@ void WKCookieManagerDeleteAllCookies(WKCookieManagerRef cookieManagerRef)
 
 void WKCookieManagerDeleteAllCookiesModifiedAfterDate(WKCookieManagerRef cookieManagerRef, double date)
 {
-    using namespace std::chrono;
-
-    auto time = system_clock::time_point(duration_cast<system_clock::duration>(duration<double>(date)));
-    toImpl(cookieManagerRef)->deleteAllCookiesModifiedSince(PAL::SessionID::defaultSessionID(), time, [](CallbackBase::Error){});
+    toImpl(cookieManagerRef)->deleteAllCookiesModifiedSince(PAL::SessionID::defaultSessionID(), WallTime::fromRawSeconds(date), [](CallbackBase::Error){});
 }
 
 void WKCookieManagerSetHTTPCookieAcceptPolicy(WKCookieManagerRef cookieManager, WKHTTPCookieAcceptPolicy policy)
@@ -78,6 +75,11 @@ void WKCookieManagerGetHTTPCookieAcceptPolicy(WKCookieManagerRef cookieManager, 
 void WKCookieManagerSetCookieStoragePartitioningEnabled(WKCookieManagerRef cookieManager, bool enabled)
 {
     toImpl(cookieManager)->setCookieStoragePartitioningEnabled(enabled);
+}
+
+void WKCookieManagerSetStorageAccessAPIEnabled(WKCookieManagerRef cookieManager, bool enabled)
+{
+    toImpl(cookieManager)->setStorageAccessAPIEnabled(enabled);
 }
 
 void WKCookieManagerStartObservingCookieChanges(WKCookieManagerRef cookieManager)

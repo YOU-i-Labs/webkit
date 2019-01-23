@@ -31,6 +31,7 @@
 #include "ResourceLoaderOptions.h"
 #include "ResourceRequest.h"
 #include "SecurityOrigin.h"
+#include "ServiceWorkerIdentifier.h"
 #include <wtf/RefPtr.h>
 #include <wtf/text/AtomicString.h>
 
@@ -42,6 +43,7 @@ struct BlockedStatus;
 
 class Document;
 class FrameLoader;
+struct ServiceWorkerRegistrationData;
 enum class ReferrerPolicy;
 
 bool isRequestCrossOrigin(SecurityOrigin*, const URL& requestURL, const ResourceLoaderOptions&);
@@ -73,7 +75,8 @@ public:
     void setAsPotentiallyCrossOrigin(const String&, Document&);
     void updateForAccessControl(Document&);
 
-    void updateReferrerOriginAndUserAgentHeaders(FrameLoader&, ReferrerPolicy);
+    void updateReferrerPolicy(ReferrerPolicy);
+    void updateReferrerOriginAndUserAgentHeaders(FrameLoader&);
     void upgradeInsecureRequestIfNeeded(Document&);
     void setAcceptHeaderIfNone(CachedResource::Type);
     void updateAccordingCacheMode();
@@ -96,7 +99,9 @@ public:
     static String splitFragmentIdentifierFromRequestURL(ResourceRequest&);
 
 #if ENABLE(SERVICE_WORKER)
-    void setSelectedServiceWorkerIdentifierIfNeeded(uint64_t serviceWorkerIdentifier);
+    void setClientIdentifierIfNeeded(DocumentIdentifier);
+    void setSelectedServiceWorkerRegistrationIdentifierIfNeeded(ServiceWorkerRegistrationIdentifier);
+    void setNavigationServiceWorkerRegistrationData(const std::optional<ServiceWorkerRegistrationData>&);
 #endif
 
 private:

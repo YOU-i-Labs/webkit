@@ -39,7 +39,7 @@ WI.Resource = class Resource extends WI.SourceCode
         this._urlComponents = null;
         this._mimeType = mimeType;
         this._mimeTypeComponents = null;
-        this._type = type || WI.Resource.typeFromMIMEType(mimeType);
+        this._type = Resource.resolvedType(type, mimeType);
         this._loaderIdentifier = loaderIdentifier || null;
         this._requestIdentifier = requestIdentifier || null;
         this._queryStringParameters = undefined;
@@ -94,6 +94,14 @@ WI.Resource = class Resource extends WI.SourceCode
     }
 
     // Static
+
+    static resolvedType(type, mimeType)
+    {
+        if (type && type !== WI.Resource.Type.Other)
+            return type;
+
+        return Resource.typeFromMIMEType(mimeType);
+    }
 
     static typeFromMIMEType(mimeType)
     {
@@ -230,6 +238,8 @@ WI.Resource = class Resource extends WI.SourceCode
             return WI.Resource.ResponseSource.MemoryCache;
         case NetworkAgent.ResponseSource.DiskCache:
             return WI.Resource.ResponseSource.DiskCache;
+        case NetworkAgent.ResponseSource.ServiceWorker:
+            return WI.Resource.ResponseSource.ServiceWorker;
         default:
             console.error("Unknown response source type", source);
             return WI.Resource.ResponseSource.Unknown;
@@ -369,6 +379,11 @@ WI.Resource = class Resource extends WI.SourceCode
 
         if (content instanceof Blob)
             return URL.createObjectURL(content);
+
+        if (typeof content === "string") {
+            let blob = textToBlob(content, this._mimeType);
+            return URL.createObjectURL(blob);
+        }
 
         return null;
     }
@@ -517,11 +532,6 @@ WI.Resource = class Resource extends WI.SourceCode
         return this.timingData.responseEnd || this.lastDataReceivedTimestamp || this.responseReceivedTimestamp || this.lastRedirectReceivedTimestamp || this.requestSentTimestamp;
     }
 
-    get duration()
-    {
-        return this.timingData.responseEnd - this.timingData.requestStart;
-    }
-
     get latency()
     {
         return this.timingData.responseStart - this.timingData.requestStart;
@@ -530,6 +540,11 @@ WI.Resource = class Resource extends WI.SourceCode
     get receiveDuration()
     {
         return this.timingData.responseEnd - this.timingData.responseStart;
+    }
+
+    get totalDuration()
+    {
+        return this.timingData.responseEnd - this.timingData.startTime;
     }
 
     get cached()
@@ -662,7 +677,9 @@ WI.Resource = class Resource extends WI.SourceCode
 
         var oldURL = this._url;
 
-        this._url = url;
+        if (url)
+            this._url = url;
+
         this._requestHeaders = requestHeaders || {};
         this._requestCookies = null;
         this._lastRedirectReceivedTimestamp = elapsedTime || NaN;
@@ -680,7 +697,7 @@ WI.Resource = class Resource extends WI.SourceCode
 
     hasResponse()
     {
-        return !isNaN(this._statusCode) || this._finished;
+        return !isNaN(this._statusCode) || this._finished || this._failed;
     }
 
     hasRequestFormParameters()
@@ -702,9 +719,11 @@ WI.Resource = class Resource extends WI.SourceCode
         if (type in WI.Resource.Type)
             type = WI.Resource.Type[type];
 
-        this._url = url;
+        if (url)
+            this._url = url;
+
         this._mimeType = mimeType;
-        this._type = type || WI.Resource.typeFromMIMEType(mimeType);
+        this._type = Resource.resolvedType(type, mimeType);
         this._statusCode = statusCode;
         this._statusText = statusText;
         this._responseHeaders = responseHeaders || {};
@@ -1099,6 +1118,7 @@ WI.Resource.ResponseSource = {
     Network: Symbol("network"),
     MemoryCache: Symbol("memory-cache"),
     DiskCache: Symbol("disk-cache"),
+    ServiceWorker: Symbol("service-worker"),
 };
 
 WI.Resource.NetworkPriority = {
@@ -1114,7 +1134,6 @@ WI.Resource._mimeTypeMap = {
     "text/xml": WI.Resource.Type.Document,
     "text/plain": WI.Resource.Type.Document,
     "application/xhtml+xml": WI.Resource.Type.Document,
-    "image/svg+xml": WI.Resource.Type.Document,
 
     "text/css": WI.Resource.Type.Stylesheet,
     "text/xsl": WI.Resource.Type.Stylesheet,
@@ -1123,6 +1142,7 @@ WI.Resource._mimeTypeMap = {
     "text/x-scss": WI.Resource.Type.Stylesheet,
 
     "application/pdf": WI.Resource.Type.Image,
+    "image/svg+xml": WI.Resource.Type.Image,
 
     "application/x-font-type1": WI.Resource.Type.Font,
     "application/x-font-ttf": WI.Resource.Type.Font,
@@ -1145,6 +1165,8 @@ WI.Resource._mimeTypeMap = {
     "text/livescript": WI.Resource.Type.Script,
     "text/x-livescript": WI.Resource.Type.Script,
     "text/typescript": WI.Resource.Type.Script,
+    "text/typescript-jsx": WI.Resource.Type.Script,
+    "text/jsx": WI.Resource.Type.Script,
     "text/x-clojure": WI.Resource.Type.Script,
-    "text/x-coffeescript": WI.Resource.Type.Script
+    "text/x-coffeescript": WI.Resource.Type.Script,
 };

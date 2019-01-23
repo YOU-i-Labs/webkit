@@ -93,12 +93,12 @@ HTMLFrameOwnerElement::~HTMLFrameOwnerElement()
 
 Document* HTMLFrameOwnerElement::contentDocument() const
 {
-    return m_contentFrame ? m_contentFrame->document() : 0;
+    return m_contentFrame ? m_contentFrame->document() : nullptr;
 }
 
 DOMWindow* HTMLFrameOwnerElement::contentWindow() const
 {
-    return m_contentFrame ? m_contentFrame->document()->domWindow() : 0;
+    return m_contentFrame ? m_contentFrame->document()->domWindow() : nullptr;
 }
 
 void HTMLFrameOwnerElement::setSandboxFlags(SandboxFlags flags)

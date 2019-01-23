@@ -193,10 +193,10 @@ bool InputType::shouldSaveAndRestoreFormControlState() const
 
 FormControlState InputType::saveFormControlState() const
 {
-    String currentValue = element().value();
+    auto currentValue = element().value();
     if (currentValue == element().defaultValue())
-        return FormControlState();
-    return FormControlState(currentValue);
+        return { };
+    return { { currentValue } };
 }
 
 void InputType::restoreFormControlState(const FormControlState& state)
@@ -697,7 +697,7 @@ void InputType::willDispatchClick(InputElementClickState&)
 {
 }
 
-void InputType::didDispatchClick(Event*, const InputElementClickState&)
+void InputType::didDispatchClick(Event&, const InputElementClickState&)
 {
 }
 
@@ -1142,7 +1142,7 @@ Color InputType::valueAsColor() const
     return Color::transparent;
 }
 
-void InputType::selectColor(const Color&)
+void InputType::selectColor(StringView)
 {
 }
 

@@ -49,6 +49,7 @@
 #include "WebProcessProxyMessages.h"
 #include "WebUserContentControllerProxy.h"
 #include "WebsiteData.h"
+#include "WebsiteDataFetchOption.h"
 #include <WebCore/DiagnosticLoggingKeys.h>
 #include <WebCore/PublicSuffix.h>
 #include <WebCore/SuddenTermination.h>
@@ -92,7 +93,9 @@ static WebProcessProxy::WebPageProxyMap& globalPageMap()
 
 Ref<WebProcessProxy> WebProcessProxy::create(WebProcessPool& processPool, WebsiteDataStore& websiteDataStore)
 {
-    return adoptRef(*new WebProcessProxy(processPool, websiteDataStore));
+    auto proxy = adoptRef(*new WebProcessProxy(processPool, websiteDataStore));
+    proxy->connect();
+    return proxy;
 }
 
 WebProcessProxy::WebProcessProxy(WebProcessPool& processPool, WebsiteDataStore& websiteDataStore)
@@ -111,8 +114,6 @@ WebProcessProxy::WebProcessProxy(WebProcessPool& processPool, WebsiteDataStore& 
 #endif
 {
     WebPasteboardProxy::singleton().addWebProcessProxy(*this);
-
-    connect();
 }
 
 WebProcessProxy::~WebProcessProxy()
@@ -244,6 +245,7 @@ void WebProcessProxy::deleteWebsiteDataForTopPrivatelyControlledDomainsInAllPers
     };
     
     RefPtr<CallbackAggregator> callbackAggregator = adoptRef(new CallbackAggregator(WTFMove(completionHandler)));
+    OptionSet<WebsiteDataFetchOption> fetchOptions = WebsiteDataFetchOption::DoNotCreateProcesses;
 
     HashSet<PAL::SessionID> visitedSessionIDs;
     for (auto& page : globalPageMap()) {
@@ -252,7 +254,7 @@ void WebProcessProxy::deleteWebsiteDataForTopPrivatelyControlledDomainsInAllPers
             continue;
         visitedSessionIDs.add(dataStore.sessionID());
         callbackAggregator->addPendingCallback();
-        dataStore.removeDataForTopPrivatelyControlledDomains(dataTypes, { }, topPrivatelyControlledDomains, [callbackAggregator, shouldNotifyPage, page](HashSet<String>&& domainsWithDeletedWebsiteData) {
+        dataStore.removeDataForTopPrivatelyControlledDomains(dataTypes, fetchOptions, topPrivatelyControlledDomains, [callbackAggregator, shouldNotifyPage, page](HashSet<String>&& domainsWithDeletedWebsiteData) {
             // When completing the task, we should be getting called on the main thread.
             ASSERT(RunLoop::isMain());
             
@@ -358,7 +360,7 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, uint64_t pageID)
     ASSERT(!m_pageMap.contains(pageID));
     ASSERT(!globalPageMap().contains(pageID));
 
-    m_processPool->pageAddedToProcess(webPage);
+    m_processPool->pageBeginUsingWebsiteDataStore(webPage);
 
     m_pageMap.set(pageID, &webPage);
     globalPageMap().set(pageID, &webPage);
@@ -373,7 +375,7 @@ void WebProcessProxy::removeWebPage(WebPageProxy& webPage, uint64_t pageID)
     removedPage = globalPageMap().take(pageID);
     ASSERT_UNUSED(removedPage, removedPage == &webPage);
 
-    m_processPool->pageRemovedFromProcess(webPage);
+    m_processPool->pageEndUsingWebsiteDataStore(webPage);
 
     updateBackgroundResponsivenessTimer();
     
@@ -445,10 +447,13 @@ void WebProcessProxy::assumeReadAccessToBaseURL(const String& urlString)
     // There's a chance that urlString does not point to a directory.
     // Get url's base URL to add to m_localPathsWithAssumedReadAccess.
     URL baseURL(URL(), url.baseAsString());
+    String path = baseURL.fileSystemPath();
+    if (path.isNull())
+        return;
     
     // Client loads an alternate string. This doesn't grant universal file read, but the web process is assumed
     // to have read access to this directory already.
-    m_localPathsWithAssumedReadAccess.add(baseURL.fileSystemPath());
+    m_localPathsWithAssumedReadAccess.add(path);
 }
 
 bool WebProcessProxy::hasAssumedReadAccessToURL(const URL& url) const
@@ -571,9 +576,9 @@ void WebProcessProxy::getNetworkProcessConnection(Ref<Messages::WebProcessProxy:
     m_processPool->getNetworkProcessConnection(WTFMove(reply));
 }
 
-void WebProcessProxy::getStorageProcessConnection(Ref<Messages::WebProcessProxy::GetStorageProcessConnection::DelayedReply>&& reply)
+void WebProcessProxy::getStorageProcessConnection(PAL::SessionID initialSessionID, Ref<Messages::WebProcessProxy::GetStorageProcessConnection::DelayedReply>&& reply)
 {
-    m_processPool->getStorageProcessConnection(WTFMove(reply));
+    m_processPool->getStorageProcessConnection(isServiceWorkerProcess(), initialSessionID, WTFMove(reply));
 }
 
 #if !PLATFORM(COCOA)
@@ -847,7 +852,7 @@ void WebProcessProxy::fetchWebsiteData(PAL::SessionID sessionID, OptionSet<Websi
     });
 }
 
-void WebProcessProxy::deleteWebsiteData(PAL::SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, std::chrono::system_clock::time_point modifiedSince, Function<void()>&& completionHandler)
+void WebProcessProxy::deleteWebsiteData(PAL::SessionID sessionID, OptionSet<WebsiteDataType> dataTypes, WallTime modifiedSince, Function<void()>&& completionHandler)
 {
     ASSERT(canSendMessage());
 
@@ -1054,51 +1059,39 @@ void WebProcessProxy::didCancelProcessSuspension()
     m_throttler.didCancelProcessSuspension();
 }
 
-void WebProcessProxy::reinstateNetworkProcessAssertionState(NetworkProcessProxy& newNetworkProcessProxy)
-{
-#if PLATFORM(IOS)
-    ASSERT(!m_backgroundTokenForNetworkProcess || !m_foregroundTokenForNetworkProcess);
-
-    // The network process crashed; take new tokens for the new network process.
-    if (m_backgroundTokenForNetworkProcess)
-        m_backgroundTokenForNetworkProcess = newNetworkProcessProxy.throttler().backgroundActivityToken();
-    else if (m_foregroundTokenForNetworkProcess)
-        m_foregroundTokenForNetworkProcess = newNetworkProcessProxy.throttler().foregroundActivityToken();
-#else
-    UNUSED_PARAM(newNetworkProcessProxy);
-#endif
-}
-
 void WebProcessProxy::didSetAssertionState(AssertionState state)
 {
 #if PLATFORM(IOS)
-    ASSERT(!m_backgroundTokenForNetworkProcess || !m_foregroundTokenForNetworkProcess);
+    if (isServiceWorkerProcess())
+        return;
+
+    ASSERT(!m_backgroundToken || !m_foregroundToken);
 
     switch (state) {
     case AssertionState::Suspended:
         RELEASE_LOG(ProcessSuspension, "%p - WebProcessProxy::didSetAssertionState(Suspended) release all assertions for network process", this);
-        m_foregroundTokenForNetworkProcess = nullptr;
-        m_backgroundTokenForNetworkProcess = nullptr;
+        m_foregroundToken = nullptr;
+        m_backgroundToken = nullptr;
         for (auto& page : m_pageMap.values())
             page->processWillBecomeSuspended();
         break;
 
     case AssertionState::Background:
         RELEASE_LOG(ProcessSuspension, "%p - WebProcessProxy::didSetAssertionState(Background) taking background assertion for network process", this);
-        m_backgroundTokenForNetworkProcess = processPool().ensureNetworkProcess().throttler().backgroundActivityToken();
-        m_foregroundTokenForNetworkProcess = nullptr;
+        m_backgroundToken = processPool().backgroundWebProcessToken();
+        m_foregroundToken = nullptr;
         break;
     
     case AssertionState::Foreground:
         RELEASE_LOG(ProcessSuspension, "%p - WebProcessProxy::didSetAssertionState(Foreground) taking foreground assertion for network process", this);
-        m_foregroundTokenForNetworkProcess = processPool().ensureNetworkProcess().throttler().foregroundActivityToken();
-        m_backgroundTokenForNetworkProcess = nullptr;
+        m_foregroundToken = processPool().foregroundWebProcessToken();
+        m_backgroundToken = nullptr;
         for (auto& page : m_pageMap.values())
             page->processWillBecomeForeground();
         break;
     }
 
-    ASSERT(!m_backgroundTokenForNetworkProcess || !m_foregroundTokenForNetworkProcess);
+    ASSERT(!m_backgroundToken || !m_foregroundToken);
 #else
     UNUSED_PARAM(state);
 #endif
@@ -1224,13 +1217,6 @@ const HashSet<String>& WebProcessProxy::platformPathsWithAssumedReadAccess()
 {
     static NeverDestroyed<HashSet<String>> platformPathsWithAssumedReadAccess;
     return platformPathsWithAssumedReadAccess;
-}
-#endif
-
-#if ENABLE(SERVICE_WORKER)
-void WebProcessProxy::didGetWorkerContextConnection(const IPC::Attachment& connection)
-{
-    m_processPool->didGetWorkerContextProcessConnection(connection);
 }
 #endif
 

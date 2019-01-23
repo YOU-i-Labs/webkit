@@ -28,18 +28,169 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include <wtf/NeverDestroyed.h>
+
 namespace WebCore {
 
-SWServerWorker::SWServerWorker(const ServiceWorkerRegistrationKey& registrationKey, const URL& url, const String& script, WorkerType type, const String& workerID)
-    : m_registrationKey(registrationKey)
-    , m_scriptURL(url)
-    , m_script(script)
-    , m_workerID(workerID)
-    , m_type(type)
+static HashMap<ServiceWorkerIdentifier, SWServerWorker*>& allWorkers()
 {
+    static NeverDestroyed<HashMap<ServiceWorkerIdentifier, SWServerWorker*>> workers;
+    return workers;
 }
 
-SWServerWorker::~SWServerWorker() = default;
+SWServerWorker* SWServerWorker::existingWorkerForIdentifier(ServiceWorkerIdentifier identifier)
+{
+    return allWorkers().get(identifier);
+}
+
+// FIXME: Use r-value references for script and contentSecurityPolicy
+SWServerWorker::SWServerWorker(SWServer& server, SWServerRegistration& registration, SWServerToContextConnectionIdentifier contextConnectionIdentifier, const URL& scriptURL, const String& script, const ContentSecurityPolicyResponseHeaders& contentSecurityPolicy, WorkerType type, ServiceWorkerIdentifier identifier)
+    : m_server(server)
+    , m_registrationKey(registration.key())
+    , m_contextConnectionIdentifier(contextConnectionIdentifier)
+    , m_data { identifier, scriptURL, ServiceWorkerState::Redundant, type, registration.identifier() }
+    , m_script(script)
+    , m_contentSecurityPolicy(contentSecurityPolicy)
+{
+    m_data.scriptURL.removeFragmentIdentifier();
+
+    auto result = allWorkers().add(identifier, this);
+    ASSERT_UNUSED(result, result.isNewEntry);
+
+    ASSERT(m_server.getRegistration(m_registrationKey));
+}
+
+SWServerWorker::~SWServerWorker()
+{
+    callWhenActivatedHandler(false);
+
+    auto taken = allWorkers().take(identifier());
+    ASSERT_UNUSED(taken, taken == this);
+}
+
+ServiceWorkerContextData SWServerWorker::contextData() const
+{
+    auto* registration = m_server.getRegistration(m_registrationKey);
+    ASSERT(registration);
+
+    return { std::nullopt, registration->data(), m_data.identifier, m_script, m_contentSecurityPolicy, m_data.scriptURL, m_data.type, false };
+}
+
+void SWServerWorker::terminate()
+{
+    if (isRunning())
+        m_server.terminateWorker(*this);
+}
+
+const ClientOrigin& SWServerWorker::origin() const
+{
+    if (!m_origin)
+        m_origin = ClientOrigin { m_registrationKey.topOrigin(), SecurityOriginData::fromSecurityOrigin(SecurityOrigin::create(m_data.scriptURL)) };
+
+    return *m_origin;
+}
+
+void SWServerWorker::scriptContextFailedToStart(const std::optional<ServiceWorkerJobDataIdentifier>& jobDataIdentifier, const String& message)
+{
+    m_server.scriptContextFailedToStart(jobDataIdentifier, *this, message);
+}
+
+void SWServerWorker::scriptContextStarted(const std::optional<ServiceWorkerJobDataIdentifier>& jobDataIdentifier)
+{
+    m_server.scriptContextStarted(jobDataIdentifier, *this);
+}
+
+void SWServerWorker::didFinishInstall(const std::optional<ServiceWorkerJobDataIdentifier>& jobDataIdentifier, bool wasSuccessful)
+{
+    m_server.didFinishInstall(jobDataIdentifier, *this, wasSuccessful);
+}
+
+void SWServerWorker::didFinishActivation()
+{
+    m_server.didFinishActivation(*this);
+}
+
+void SWServerWorker::contextTerminated()
+{
+    m_server.workerContextTerminated(*this);
+}
+
+std::optional<ServiceWorkerClientData> SWServerWorker::findClientByIdentifier(const ServiceWorkerClientIdentifier& clientId) const
+{
+    return m_server.serviceWorkerClientByID(clientId);
+}
+
+void SWServerWorker::matchAll(const ServiceWorkerClientQueryOptions& options, ServiceWorkerClientsMatchAllCallback&& callback)
+{
+    return m_server.matchAll(*this, options, WTFMove(callback));
+}
+
+void SWServerWorker::claim()
+{
+    return m_server.claim(*this);
+}
+
+void SWServerWorker::skipWaiting()
+{
+    m_isSkipWaitingFlagSet = true;
+
+    auto* registration = m_server.getRegistration(m_registrationKey);
+    ASSERT(registration || isTerminating());
+    if (registration)
+        registration->tryActivate();
+}
+
+void SWServerWorker::setHasPendingEvents(bool hasPendingEvents)
+{
+    if (m_hasPendingEvents == hasPendingEvents)
+        return;
+
+    m_hasPendingEvents = hasPendingEvents;
+    if (m_hasPendingEvents)
+        return;
+
+    // Do tryClear/tryActivate, as per https://w3c.github.io/ServiceWorker/#wait-until-method.
+    auto* registration = m_server.getRegistration(m_registrationKey);
+    if (!registration)
+        return;
+
+    if (registration->isUninstalling() && registration->tryClear())
+        return;
+    registration->tryActivate();
+}
+
+void SWServerWorker::whenActivated(WTF::Function<void(bool)>&& handler)
+{
+    if (state() == ServiceWorkerState::Activated) {
+        handler(true);
+        return;
+    }
+    m_whenActivatedHandlers.append(WTFMove(handler));
+}
+
+void SWServerWorker::setState(ServiceWorkerState state)
+{
+    if (state == ServiceWorkerState::Redundant)
+        terminate();
+
+    m_data.state = state;
+
+    if (state == ServiceWorkerState::Activated || state == ServiceWorkerState::Redundant)
+        callWhenActivatedHandler(state == ServiceWorkerState::Activated);
+}
+
+void SWServerWorker::callWhenActivatedHandler(bool success)
+{
+    auto whenActivatedHandlers = WTFMove(m_whenActivatedHandlers);
+    for (auto& handler : whenActivatedHandlers)
+        handler(success);
+}
+
+void SWServerWorker::setState(State state)
+{
+    ASSERT(state != State::Running || m_server.getRegistration(m_registrationKey));
+    m_state = state;
+}
 
 } // namespace WebCore
 

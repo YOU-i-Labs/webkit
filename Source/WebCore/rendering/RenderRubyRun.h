@@ -41,6 +41,7 @@ class RenderRubyText;
 // See RenderRuby.h for further comments on the structure
 
 class RenderRubyRun final : public RenderBlockFlow {
+    WTF_MAKE_ISO_ALLOCATED(RenderRubyRun);
 public:
     RenderRubyRun(Document&, RenderStyle&&);
     virtual ~RenderRubyRun();
@@ -56,7 +57,6 @@ public:
     void layoutBlock(bool relayoutChildren, LayoutUnit pageHeight = 0) override;
 
     bool isChildAllowed(const RenderObject&, const RenderStyle&) const override;
-    void addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild = 0) override;
     RenderPtr<RenderObject> takeChild(RenderObject&) override;
 
     RenderBlock* firstLineBlock() const override;

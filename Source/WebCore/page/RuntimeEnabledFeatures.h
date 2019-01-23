@@ -73,6 +73,9 @@ public:
     void setCustomElementsEnabled(bool areEnabled) { m_areCustomElementsEnabled = areEnabled; }
     bool customElementsEnabled() const { return m_areCustomElementsEnabled; }
 
+    void setMenuItemElementEnabled(bool isEnabled) { m_isMenuItemElementEnabled = isEnabled; }
+    bool menuItemElementEnabled() const { return m_isMenuItemElementEnabled; }
+    
     void setDirectoryUploadEnabled(bool isEnabled) { m_isDirectoryUploadEnabled = isEnabled; }
     bool directoryUploadEnabled() const { return m_isDirectoryUploadEnabled; }
 
@@ -87,8 +90,8 @@ public:
     void setModernMediaControlsEnabled(bool areEnabled) { m_areModernMediaControlsEnabled = areEnabled; }
     bool modernMediaControlsEnabled() const { return m_areModernMediaControlsEnabled; }
 
-    void setCredentialManagementEnabled(bool isEnabled) { m_isCredentialManagementEnabled = isEnabled; }
-    bool credentialManagementEnabled() const { return m_isCredentialManagementEnabled; }
+    void setWebAuthenticationEnabled(bool isEnabled) { m_isWebAuthenticationEnabled = isEnabled; }
+    bool webAuthenticationEnabled() const { return m_isWebAuthenticationEnabled; }
 
     void setIsSecureContextAttributeEnabled(bool isEnabled) { m_isSecureContextAttributeEnabled = isEnabled; }
     bool isSecureContextAttributeEnabled() const { return m_isSecureContextAttributeEnabled; }
@@ -103,6 +106,8 @@ public:
     void setMediaDevicesEnabled(bool isEnabled) { m_isMediaDevicesEnabled = isEnabled; }
     bool mediaStreamEnabled() const { return m_isMediaStreamEnabled; }
     void setMediaStreamEnabled(bool isEnabled) { m_isMediaStreamEnabled = isEnabled; }
+    bool screenCaptureEnabled() const { return m_isScreenCaptureEnabled; }
+    void setScreenCaptureEnabled(bool isEnabled) { m_isScreenCaptureEnabled = isEnabled; }
 #endif
 
 #if ENABLE(WEB_RTC)
@@ -171,6 +176,9 @@ public:
     bool webGPUEnabled() const { return m_isWebGPUEnabled; }
 #endif
 
+    void setImageBitmapOffscreenCanvasEnabled(bool isEnabled) { m_isImageBitmapOffscreenCanvasEnabled = isEnabled; }
+    bool imageBitmapOffscreenCanvasEnabled() const { return m_isImageBitmapOffscreenCanvasEnabled; }
+
     void setCacheAPIEnabled(bool isEnabled) { m_isCacheAPIEnabled = isEnabled; }
     bool cacheAPIEnabled() const { return m_isCacheAPIEnabled; }
 
@@ -212,6 +220,8 @@ public:
     void setServiceWorkerEnabled(bool isEnabled) { m_serviceWorkerEnabled = isEnabled; }
 #endif
 
+    bool spectreGadgetsEnabled() const;
+
 #if ENABLE(VIDEO)
     bool audioEnabled() const;
 #endif
@@ -221,6 +231,12 @@ public:
 
     void setWebVREnabled(bool isEnabled) { m_webVREnabled = isEnabled; }
     bool webVREnabled() const { return m_webVREnabled; }
+
+    void setAccessibilityObjectModelEnabled(bool isEnabled) { m_accessibilityObjectModelEnabled = isEnabled; }
+    bool accessibilityObjectModelEnabled() const { return m_accessibilityObjectModelEnabled; }
+
+    void setMediaCapabilitiesEnabled(bool isEnabled) { m_mediaCapabilitiesEnabled = isEnabled; }
+    bool mediaCapabilitiesEnabled() const { return m_mediaCapabilitiesEnabled; }
 
     WEBCORE_EXPORT static RuntimeEnabledFeatures& sharedFeatures();
 
@@ -234,12 +250,13 @@ private:
     bool m_isResourceTimingEnabled { false };
     bool m_isUserTimingEnabled { false };
     bool m_isInteractiveFormValidationEnabled { false };
-    bool m_isCredentialManagementEnabled { false };
+    bool m_isWebAuthenticationEnabled { false };
     bool m_isSecureContextAttributeEnabled { false };
 
-    bool m_isDisplayContentsEnabled { false };
+    bool m_isDisplayContentsEnabled { true };
     bool m_isShadowDOMEnabled { true };
     bool m_areCustomElementsEnabled { true };
+    bool m_isMenuItemElementEnabled { false };
     bool m_isDirectoryUploadEnabled { false };
     bool m_areDataTransferItemsEnabled { false };
     bool m_inputEventsEnabled { true };
@@ -255,11 +272,12 @@ private:
 #if ENABLE(MEDIA_STREAM)
     bool m_isMediaDevicesEnabled { false };
     bool m_isMediaStreamEnabled { true };
+    bool m_isScreenCaptureEnabled { false };
 #endif
 
 #if ENABLE(WEB_RTC)
     bool m_isPeerConnectionEnabled { true };
-    bool m_webRTCLegacyAPIEnabled { true };
+    bool m_webRTCLegacyAPIEnabled { false };
 #endif
 
 #if ENABLE(LEGACY_CSS_VENDOR_PREFIXES)
@@ -313,6 +331,8 @@ private:
     bool m_isWebGPUEnabled { false };
 #endif
 
+    bool m_isImageBitmapOffscreenCanvasEnabled { true };
+
     bool m_isCacheAPIEnabled { false };
     bool m_isFetchAPIEnabled { true };
 
@@ -340,6 +360,10 @@ private:
 
     bool m_inspectorAdditionsEnabled { false };
     bool m_webVREnabled { false };
+
+    bool m_accessibilityObjectModelEnabled { false };
+
+    bool m_mediaCapabilitiesEnabled { false };
 
     friend class WTF::NeverDestroyed<RuntimeEnabledFeatures>;
 };

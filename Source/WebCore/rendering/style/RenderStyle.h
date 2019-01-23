@@ -575,8 +575,8 @@ public:
     const Length& marqueeIncrement() const { return m_rareNonInheritedData->marquee->increment; }
     int marqueeSpeed() const { return m_rareNonInheritedData->marquee->speed; }
     int marqueeLoopCount() const { return m_rareNonInheritedData->marquee->loops; }
-    EMarqueeBehavior marqueeBehavior() const { return static_cast<EMarqueeBehavior>(m_rareNonInheritedData->marquee->behavior); }
-    EMarqueeDirection marqueeDirection() const { return static_cast<EMarqueeDirection>(m_rareNonInheritedData->marquee->direction); }
+    MarqueeBehavior marqueeBehavior() const { return static_cast<MarqueeBehavior>(m_rareNonInheritedData->marquee->behavior); }
+    MarqueeDirection marqueeDirection() const { return static_cast<MarqueeDirection>(m_rareNonInheritedData->marquee->direction); }
     EUserModify userModify() const { return static_cast<EUserModify>(m_rareInheritedData->userModify); }
     EUserDrag userDrag() const { return static_cast<EUserDrag>(m_rareNonInheritedData->userDrag); }
     EUserSelect userSelect() const { return static_cast<EUserSelect>(m_rareInheritedData->userSelect); }
@@ -745,7 +745,7 @@ public:
     float imageResolution() const { return m_rareInheritedData->imageResolution; }
 #endif
     
-    ESpeak speak() const { return static_cast<ESpeak>(m_rareInheritedData->speak); }
+    ESpeakAs speakAs() const { return static_cast<ESpeakAs>(m_rareInheritedData->speakAs); }
 
     FilterOperations& mutableFilter() { return m_rareNonInheritedData.access().filter.access().operations; }
     const FilterOperations& filter() const { return m_rareNonInheritedData->filter->operations; }
@@ -1100,8 +1100,8 @@ public:
 
     void setMarqueeIncrement(Length&& length) { SET_NESTED_VAR(m_rareNonInheritedData, marquee, increment, WTFMove(length)); }
     void setMarqueeSpeed(int f) { SET_NESTED_VAR(m_rareNonInheritedData, marquee, speed, f); }
-    void setMarqueeDirection(EMarqueeDirection d) { SET_NESTED_VAR(m_rareNonInheritedData, marquee, direction, d); }
-    void setMarqueeBehavior(EMarqueeBehavior b) { SET_NESTED_VAR(m_rareNonInheritedData, marquee, behavior, b); }
+    void setMarqueeDirection(MarqueeDirection d) { SET_NESTED_VAR(m_rareNonInheritedData, marquee, direction, static_cast<unsigned>(d)); }
+    void setMarqueeBehavior(MarqueeBehavior b) { SET_NESTED_VAR(m_rareNonInheritedData, marquee, behavior, static_cast<unsigned>(b)); }
     void setMarqueeLoopCount(int i) { SET_NESTED_VAR(m_rareNonInheritedData, marquee, loops, i); }
     void setUserModify(EUserModify u) { SET_VAR(m_rareInheritedData, userModify, u); }
     void setUserDrag(EUserDrag d) { SET_VAR(m_rareNonInheritedData, userDrag, d); }
@@ -1142,7 +1142,7 @@ public:
     void setTransformOriginZ(float f) { SET_NESTED_VAR(m_rareNonInheritedData, transform, z, f); }
     void setTransformBox(TransformBox box) { SET_NESTED_VAR(m_rareNonInheritedData, transform, transformBox, box); }
 
-    void setSpeak(ESpeak s) { SET_VAR(m_rareInheritedData, speak, s); }
+    void setSpeakAs(ESpeakAs s) { SET_VAR(m_rareInheritedData, speakAs, s); }
     void setTextCombine(TextCombine v) { SET_VAR(m_rareNonInheritedData, textCombine, v); }
     void setTextDecorationColor(const Color& c) { SET_VAR(m_rareNonInheritedData, textDecorationColor, c); }
     void setTextEmphasisColor(const Color& c) { SET_VAR(m_rareInheritedData, textEmphasisColor, c); }
@@ -1275,7 +1275,8 @@ public:
     void setHasExplicitlySetStrokeColor(bool v) { SET_VAR(m_rareInheritedData, hasSetStrokeColor, static_cast<unsigned>(v)); }
     bool hasExplicitlySetStrokeColor() const { return m_rareInheritedData->hasSetStrokeColor; };
     static Color initialStrokeColor() { return Color(Color::transparent); }
-    
+    Color computedStrokeColor() const;
+
     float strokeMiterLimit() const { return m_rareInheritedData->miterLimit; }
     void setStrokeMiterLimit(float f) { SET_VAR(m_rareInheritedData, miterLimit, f); }
     static float initialStrokeMiterLimit() { return defaultMiterLimit; }
@@ -1361,7 +1362,6 @@ public:
 
     const CounterDirectiveMap* counterDirectives() const;
     CounterDirectiveMap& accessCounterDirectives();
-    const CounterDirectives getCounterDirectives(const AtomicString& identifier) const;
 
     QuotesData* quotes() const { return m_rareInheritedData->quotes.get(); }
     void setQuotes(RefPtr<QuotesData>&&);
@@ -1501,8 +1501,8 @@ public:
     static int initialMarqueeLoopCount() { return -1; }
     static int initialMarqueeSpeed() { return 85; }
     static Length initialMarqueeIncrement() { return Length(6, Fixed); }
-    static EMarqueeBehavior initialMarqueeBehavior() { return MSCROLL; }
-    static EMarqueeDirection initialMarqueeDirection() { return MAUTO; }
+    static MarqueeBehavior initialMarqueeBehavior() { return MarqueeBehavior::Scroll; }
+    static MarqueeDirection initialMarqueeDirection() { return MarqueeDirection::Auto; }
     static EUserModify initialUserModify() { return READ_ONLY; }
     static EUserDrag initialUserDrag() { return DRAG_AUTO; }
     static EUserSelect initialUserSelect() { return SELECT_TEXT; }
@@ -1513,7 +1513,7 @@ public:
     static EOverflowWrap initialOverflowWrap() { return NormalOverflowWrap; }
     static ENBSPMode initialNBSPMode() { return NBNORMAL; }
     static LineBreak initialLineBreak() { return LineBreakAuto; }
-    static ESpeak initialSpeak() { return SpeakNormal; }
+    static ESpeakAs initialSpeakAs() { return SpeakNormal; }
     static Hyphens initialHyphens() { return HyphensManual; }
     static short initialHyphenationLimitBefore() { return -1; }
     static short initialHyphenationLimitAfter() { return -1; }

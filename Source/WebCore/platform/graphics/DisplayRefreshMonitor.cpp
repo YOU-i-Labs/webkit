@@ -57,12 +57,7 @@ RefPtr<DisplayRefreshMonitor> DisplayRefreshMonitor::create(DisplayRefreshMonito
 }
 
 DisplayRefreshMonitor::DisplayRefreshMonitor(PlatformDisplayID displayID)
-    : m_active(true)
-    , m_scheduled(false)
-    , m_previousFrameDone(true)
-    , m_unscheduledFireCount(0)
-    , m_displayID(displayID)
-    , m_clientsToBeNotified(nullptr)
+    : m_displayID(displayID)
 {
 }
 
@@ -90,6 +85,7 @@ void DisplayRefreshMonitor::displayDidRefresh()
 {
     {
         LockHolder lock(m_mutex);
+        LOG(RequestAnimationFrame, "DisplayRefreshMonitor::displayDidRefresh(%p) - m_scheduled(%d), m_unscheduledFireCount(%d)", this, m_scheduled, m_unscheduledFireCount);
         if (!m_scheduled)
             ++m_unscheduledFireCount;
         else
@@ -121,9 +117,9 @@ void DisplayRefreshMonitor::displayDidRefresh()
 
     {
         LockHolder lock(m_mutex);
-        m_previousFrameDone = true;
+        setIsPreviousFrameDone(true);
     }
-    
+
     DisplayRefreshMonitorManager::sharedManager().displayDidRefresh(*this);
 }
 

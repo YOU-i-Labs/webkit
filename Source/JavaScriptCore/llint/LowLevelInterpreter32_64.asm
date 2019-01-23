@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2017 Apple Inc. All rights reserved.
+# Copyright (C) 2011-2018 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -944,6 +944,23 @@ _llint_op_to_string:
     dispatch(constexpr op_to_string_length)
 
 
+_llint_op_to_object:
+    traceExecution()
+    loadi 8[PC], t0
+    loadi 4[PC], t1
+    loadConstantOrVariable(t0, t2, t3)
+    bineq t2, CellTag, .opToObjectSlow
+    bbb JSCell::m_type[t3], ObjectType, .opToObjectSlow
+    storei t2, TagOffset[cfr, t1, 8]
+    storei t3, PayloadOffset[cfr, t1, 8]
+    valueProfile(t2, t3, 16, t1)
+    dispatch(constexpr op_to_object_length)
+
+.opToObjectSlow:
+    callOpcodeSlowPath(_slow_path_to_object)
+    dispatch(constexpr op_to_object_length)
+
+
 _llint_op_negate:
     traceExecution()
     loadi 8[PC], t0
@@ -1564,9 +1581,10 @@ _llint_op_get_by_val:
     andi IndexingShapeMask, t2
     bieq t2, Int32Shape, .opGetByValIsContiguous
     bineq t2, ContiguousShape, .opGetByValNotContiguous
+
 .opGetByValIsContiguous:
-    
     biaeq t1, -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t3], .opGetByValOutOfBounds
+    andi JSObject::m_butterflyIndexingMask[t0], t1
     loadi TagOffset[t3, t1, 8], t2
     loadi PayloadOffset[t3, t1, 8], t1
     jmp .opGetByValDone
@@ -1574,6 +1592,7 @@ _llint_op_get_by_val:
 .opGetByValNotContiguous:
     bineq t2, DoubleShape, .opGetByValNotDouble
     biaeq t1, -sizeof IndexingHeader + IndexingHeader::u.lengths.publicLength[t3], .opGetByValOutOfBounds
+    andi JSObject::m_butterflyIndexingMask[t0], t1
     loadd [t3, t1, 8], ft0
     bdnequn ft0, ft0, .opGetByValSlow
     # FIXME: This could be massively optimized.
@@ -1585,6 +1604,7 @@ _llint_op_get_by_val:
     subi ArrayStorageShape, t2
     bia t2, SlowPutArrayStorageShape - ArrayStorageShape, .opGetByValSlow
     biaeq t1, -sizeof IndexingHeader + IndexingHeader::u.lengths.vectorLength[t3], .opGetByValOutOfBounds
+    andi JSObject::m_butterflyIndexingMask[t0], t1
     loadi ArrayStorage::m_vector + TagOffset[t3, t1, 8], t2
     loadi ArrayStorage::m_vector + PayloadOffset[t3, t1, 8], t1
 
@@ -2065,7 +2085,14 @@ macro nativeCallTrampoline(executableOffsetToFunction)
         loadp MarkedBlock::m_vm[t3], t3
         addp 8, sp
     elsif ARM or ARMv7 or ARMv7_TRADITIONAL or C_LOOP or MIPS
-        subp 8, sp # align stack pointer
+        if MIPS
+        # calling convention says to save stack space for 4 first registers in
+        # all cases. To match our 16-byte alignment, that means we need to
+        # take 24 bytes
+            subp 24, sp
+        else
+            subp 8, sp # align stack pointer
+        end
         # t1 already contains the Callee.
         andp MarkedBlockMask, t1
         loadp MarkedBlock::m_vm[t1], t1
@@ -2082,11 +2109,67 @@ macro nativeCallTrampoline(executableOffsetToFunction)
         loadp Callee + PayloadOffset[cfr], t3
         andp MarkedBlockMask, t3
         loadp MarkedBlock::m_vm[t3], t3
-        addp 8, sp
+        if MIPS
+            addp 24, sp
+        else
+            addp 8, sp
+        end
     else
         error
     end
     
+    btinz VM::m_exception[t3], .handleException
+
+    functionEpilogue()
+    ret
+
+.handleException:
+    storep cfr, VM::topCallFrame[t3]
+    jmp _llint_throw_from_slow_path_trampoline
+end
+
+
+macro internalFunctionCallTrampoline(offsetOfFunction)
+    functionPrologue()
+    storep 0, CodeBlock[cfr]
+    loadi Callee + PayloadOffset[cfr], t1
+    // Callee is still in t1 for code below
+    if X86 or X86_WIN
+        subp 8, sp # align stack pointer
+        andp MarkedBlockMask, t1
+        loadp MarkedBlock::m_vm[t1], t3
+        storep cfr, VM::topCallFrame[t3]
+        move cfr, a0  # a0 = ecx
+        storep a0, [sp]
+        loadi Callee + PayloadOffset[cfr], t1
+        checkStackPointerAlignment(t3, 0xdead0001)
+        call offsetOfFunction[t1]
+        loadp Callee + PayloadOffset[cfr], t3
+        andp MarkedBlockMask, t3
+        loadp MarkedBlock::m_vm[t3], t3
+        addp 8, sp
+    elsif ARM or ARMv7 or ARMv7_TRADITIONAL or C_LOOP or MIPS
+        subp 8, sp # align stack pointer
+        # t1 already contains the Callee.
+        andp MarkedBlockMask, t1
+        loadp MarkedBlock::m_vm[t1], t1
+        storep cfr, VM::topCallFrame[t1]
+        move cfr, a0
+        loadi Callee + PayloadOffset[cfr], t1
+        checkStackPointerAlignment(t3, 0xdead0001)
+        if C_LOOP
+            cloopCallNative offsetOfFunction[t1]
+        else
+            call offsetOfFunction[t1]
+        end
+        loadp Callee + PayloadOffset[cfr], t3
+        andp MarkedBlockMask, t3
+        loadp MarkedBlock::m_vm[t3], t3
+        addp 8, sp
+    else
+        error
+    end
+
     btinz VM::m_exception[t3], .handleException
 
     functionEpilogue()
@@ -2446,7 +2529,8 @@ _llint_op_get_parent_scope:
 _llint_op_profile_type:
     traceExecution()
     loadp CodeBlock[cfr], t1
-    loadp CodeBlock::m_vm[t1], t1
+    loadp CodeBlock::m_poisonedVM[t1], t1
+    unpoison(_g_CodeBlockPoison, t1, t2)
     # t1 is holding the pointer to the typeProfilerLog.
     loadp VM::m_typeProfilerLog[t1], t1
 

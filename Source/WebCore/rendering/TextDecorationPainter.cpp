@@ -241,12 +241,18 @@ static StrokeStyle textDecorationStyleToStrokeStyle(TextDecorationStyle decorati
     return strokeStyle;
 }
 
-TextDecorationPainter::TextDecorationPainter(GraphicsContext& context, unsigned decorations, const RenderText& renderer, bool isFirstLine, PseudoId pseudoId)
+bool TextDecorationPainter::Styles::operator==(const Styles& other) const
+{
+    return underlineColor == other.underlineColor && overlineColor == other.overlineColor && linethroughColor == other.linethroughColor
+        && underlineStyle == other.underlineStyle && overlineStyle == other.overlineStyle && linethroughStyle == other.linethroughStyle;
+}
+
+TextDecorationPainter::TextDecorationPainter(GraphicsContext& context, unsigned decorations, const RenderText& renderer, bool isFirstLine, std::optional<Styles> styles)
     : m_context { context }
     , m_decorations { OptionSet<TextDecoration>::fromRaw(decorations) }
     , m_wavyOffset { wavyOffsetFromDecoration() }
     , m_isPrinting { renderer.document().printing() }
-    , m_styles { stylesForRenderer(renderer, decorations, isFirstLine, pseudoId) }
+    , m_styles { styles ? *WTFMove(styles) : stylesForRenderer(renderer, decorations, isFirstLine, NOPSEUDO) }
     , m_lineStyle { isFirstLine ? renderer.firstLineStyle() : renderer.style() }
 {
 }
@@ -358,7 +364,7 @@ static Color decorationColor(const RenderStyle& style)
         return result;
     if (style.hasPositiveStrokeWidth()) {
         // Prefer stroke color if possible but not if it's fully transparent.
-        result = style.visitedDependentColor(style.hasExplicitlySetStrokeColor() ? CSSPropertyStrokeColor :  CSSPropertyWebkitTextStrokeColor);
+        result = style.computedStrokeColor();
         if (result.isVisible())
             return result;
     }

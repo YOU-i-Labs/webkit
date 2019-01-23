@@ -47,8 +47,8 @@
 #include "Page.h"
 #include "RadioNodeList.h"
 #include "RenderTextControl.h"
-#include "ScriptController.h"
 #include "Settings.h"
+#include "UserGestureIndicator.h"
 #include <limits>
 #include <wtf/Ref.h>
 #include <wtf/SetForScope.h>
@@ -75,7 +75,7 @@ Ref<HTMLFormElement> HTMLFormElement::create(const QualifiedName& tagName, Docum
 
 HTMLFormElement::~HTMLFormElement()
 {
-    document().formController().willDeleteForm(this);
+    document().formController().willDeleteForm(*this);
     if (!shouldAutocomplete())
         document().unregisterForDocumentSuspensionCallbacks(this);
 
@@ -140,8 +140,7 @@ void HTMLFormElement::removedFromAncestor(RemovalType removalType, ContainerNode
 
 void HTMLFormElement::handleLocalEvents(Event& event)
 {
-    auto targetNode = event.target()->toNode();
-    if (event.eventPhase() != Event::CAPTURING_PHASE && targetNode && targetNode != this && (event.type() == eventNames().submitEvent || event.type() == eventNames().resetEvent)) {
+    if (event.eventPhase() != Event::CAPTURING_PHASE && is<Node>(event.target()) && event.target() != this && (event.type() == eventNames().submitEvent || event.type() == eventNames().resetEvent)) {
         event.stopPropagation();
         return;
     }
@@ -150,12 +149,12 @@ void HTMLFormElement::handleLocalEvents(Event& event)
 
 unsigned HTMLFormElement::length() const
 {
-    unsigned len = 0;
+    unsigned length = 0;
     for (auto& associatedElement : m_associatedElements) {
         if (associatedElement->isEnumeratable())
-            ++len;
+            ++length;
     }
-    return len;
+    return length;
 }
 
 HTMLElement* HTMLFormElement::item(unsigned index)
@@ -204,15 +203,6 @@ void HTMLFormElement::submitImplicitly(Event& event, bool fromImplicitSubmission
     // Older iOS apps using WebViews expect the behavior of auto submitting multi-input forms.
     if (fromImplicitSubmissionTrigger && (submissionTriggerCount == 1 || document().settings().allowMultiElementImplicitSubmission()))
         prepareForSubmission(event);
-}
-
-static inline RefPtr<HTMLFormControlElement> submitElementFromEvent(const Event& event)
-{
-    for (RefPtr<Node> node = event.target()->toNode(); node; node = node->parentNode()) {
-        if (is<HTMLFormControlElement>(*node))
-            return downcast<HTMLFormControlElement>(node.get());
-    }
-    return nullptr;
 }
 
 bool HTMLFormElement::validateInteractively()
@@ -269,9 +259,11 @@ void HTMLFormElement::prepareForSubmission(Event& event)
 
     bool shouldValidate = document().page() && document().page()->settings().interactiveFormValidationEnabled() && !noValidate();
 
-    auto submitElement = submitElementFromEvent(event);
-    if (submitElement && submitElement->formNoValidate())
-        shouldValidate = false;
+    if (shouldValidate) {
+        auto submitElement = findSubmitButton(&event);
+        if (submitElement && submitElement->formNoValidate())
+            shouldValidate = false;
+    }
 
     // Interactive validation must be done before dispatching the submit event.
     if (shouldValidate && !validateInteractively()) {
@@ -285,10 +277,13 @@ void HTMLFormElement::prepareForSubmission(Event& event)
     auto formState = FormState::create(*this, textFieldValues(), document(), NotSubmittedByJavaScript);
     targetFrame->loader().client().dispatchWillSendSubmitEvent(WTFMove(formState));
 
-    Ref<HTMLFormElement> protectedThis(*this);
+    auto protectedThis = makeRef(*this);
 
-    // Event handling can result in m_shouldSubmit becoming true, regardless of dispatchEvent() return value.
-    if (dispatchEvent(Event::create(eventNames().submitEvent, true, true)))
+    auto submitEvent = Event::create(eventNames().submitEvent, true, true);
+    dispatchEvent(submitEvent);
+
+    // Event handling could have resulted in m_shouldSubmit becoming true as a side effect, too.
+    if (!submitEvent->defaultPrevented())
         m_shouldSubmit = true;
 
     m_isSubmittingOrPreparingForSubmission = false;
@@ -299,12 +294,12 @@ void HTMLFormElement::prepareForSubmission(Event& event)
 
 void HTMLFormElement::submit()
 {
-    submit(0, false, true, NotSubmittedByJavaScript);
+    submit(nullptr, false, true, NotSubmittedByJavaScript);
 }
 
 void HTMLFormElement::submitFromJavaScript()
 {
-    submit(0, false, ScriptController::processingUserGesture(), SubmittedByJavaScript);
+    submit(nullptr, false, UserGestureIndicator::processingUserGesture(), SubmittedByJavaScript);
 }
 
 StringPairVector HTMLFormElement::textFieldValues() const
@@ -370,18 +365,21 @@ void HTMLFormElement::submit(Event* event, bool activateSubmitButton, bool proce
 
 void HTMLFormElement::reset()
 {
-    RefPtr<Frame> frame = document().frame();
-    if (m_isInResetFunction || !frame)
+    if (m_isInResetFunction)
+        return;
+
+    RefPtr<Frame> protectedFrame = document().frame();
+    if (!protectedFrame)
         return;
 
     Ref<HTMLFormElement> protectedThis(*this);
 
     SetForScope<bool> isInResetFunctionRestorer(m_isInResetFunction, true);
 
-    if (!dispatchEvent(Event::create(eventNames().resetEvent, true, true)))
-        return;
-
-    resetAssociatedFormControlElements();
+    auto event = Event::create(eventNames().resetEvent, true, true);
+    dispatchEvent(event);
+    if (!event->defaultPrevented())
+        resetAssociatedFormControlElements();
 }
 
 void HTMLFormElement::resetAssociatedFormControlElements()
@@ -552,6 +550,9 @@ void HTMLFormElement::removeFormElement(FormAssociatedElement* e)
     removeFromPastNamesMap(e);
     m_associatedElements.remove(index);
 
+    if (auto* nodeLists = this->nodeLists())
+        nodeLists->invalidateCaches();
+
     if (e == m_defaultButton)
         resetDefaultButton();
 }
@@ -667,13 +668,11 @@ bool HTMLFormElement::wasUserSubmitted() const
 
 HTMLFormControlElement* HTMLFormElement::findSubmitButton(const Event* event) const
 {
-    if (event && event->target()) {
-        for (auto node = event->target()->toNode(); node; node = node->parentNode()) {
-            if (is<HTMLFormControlElement>(*node))
-                return downcast<HTMLFormControlElement>(node.get());
-        }
-    }
-    return nullptr;
+    if (!event || !is<Node>(event->target()))
+        return nullptr;
+    auto& node = downcast<Node>(*event->target());
+    auto* element = is<Element>(node) ? &downcast<Element>(node) : node.parentElement();
+    return element ? lineageOfType<HTMLFormControlElement>(*element).first() : nullptr;
 }
 
 HTMLFormControlElement* HTMLFormElement::defaultButton() const

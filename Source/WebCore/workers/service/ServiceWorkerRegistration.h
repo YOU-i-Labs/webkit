@@ -30,48 +30,75 @@
 #include "ActiveDOMObject.h"
 #include "EventTarget.h"
 #include "JSDOMPromiseDeferred.h"
+#include "SWClientConnection.h"
 #include "ServiceWorkerRegistrationData.h"
 
 namespace WebCore {
 
 class ScriptExecutionContext;
 class ServiceWorker;
+class ServiceWorkerContainer;
 
 class ServiceWorkerRegistration final : public RefCounted<ServiceWorkerRegistration>, public EventTargetWithInlineData, public ActiveDOMObject {
 public:
-    static Ref<ServiceWorkerRegistration> create(ScriptExecutionContext& context, ServiceWorkerRegistrationData&& data, Ref<ServiceWorker>&& serviceWorker)
-    {
-        return adoptRef(*new ServiceWorkerRegistration(context, WTFMove(data), WTFMove(serviceWorker)));
-    }
+    static Ref<ServiceWorkerRegistration> getOrCreate(ScriptExecutionContext&, Ref<ServiceWorkerContainer>&&, ServiceWorkerRegistrationData&&);
 
     ~ServiceWorkerRegistration();
+
+    ServiceWorkerRegistrationIdentifier identifier() const { return m_registrationData.identifier; }
 
     ServiceWorker* installing();
     ServiceWorker* waiting();
     ServiceWorker* active();
 
+    ServiceWorker* getNewestWorker();
+
     const String& scope() const;
+
     ServiceWorkerUpdateViaCache updateViaCache() const;
+    void setUpdateViaCache(ServiceWorkerUpdateViaCache);
+
+    WallTime lastUpdateTime() const;
+    void setLastUpdateTime(WallTime);
+
+    bool needsUpdate() const { return lastUpdateTime() && (WallTime::now() - lastUpdateTime()) > 86400_s; }
 
     void update(Ref<DeferredPromise>&&);
     void unregister(Ref<DeferredPromise>&&);
 
+    void softUpdate();
+
     using RefCounted::ref;
     using RefCounted::deref;
+    
+    const ServiceWorkerRegistrationData& data() const { return m_registrationData; }
+
+    void updateStateFromServer(ServiceWorkerRegistrationState, RefPtr<ServiceWorker>&&);
+    void scheduleTaskToFireUpdateFoundEvent();
 
 private:
-    ServiceWorkerRegistration(ScriptExecutionContext&, ServiceWorkerRegistrationData&&, Ref<ServiceWorker>&&);
+    ServiceWorkerRegistration(ScriptExecutionContext&, Ref<ServiceWorkerContainer>&&, ServiceWorkerRegistrationData&&);
+    void updatePendingActivityForEventDispatch();
 
     EventTargetInterface eventTargetInterface() const final;
     ScriptExecutionContext* scriptExecutionContext() const final;
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
 
+    // ActiveDOMObject.
     const char* activeDOMObjectName() const final;
     bool canSuspendForDocumentSuspension() const final;
+    void stop() final;
 
     ServiceWorkerRegistrationData m_registrationData;
-    Ref<ServiceWorker> m_serviceWorker;
+    Ref<ServiceWorkerContainer> m_container;
+
+    RefPtr<ServiceWorker> m_installingWorker;
+    RefPtr<ServiceWorker> m_waitingWorker;
+    RefPtr<ServiceWorker> m_activeWorker;
+
+    bool m_isStopped { false };
+    RefPtr<PendingActivity<ServiceWorkerRegistration>> m_pendingActivityForEventDispatch;
 };
 
 } // namespace WebCore

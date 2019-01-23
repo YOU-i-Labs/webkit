@@ -29,6 +29,7 @@ namespace WebCore {
 class SVGElement;
 
 class RenderSVGContainer : public RenderSVGModelObject {
+    WTF_MAKE_ISO_ALLOCATED(RenderSVGContainer);
 public:
     virtual ~RenderSVGContainer();
 
@@ -47,7 +48,7 @@ protected:
 
     void layout() override;
 
-    void addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild = 0) final;
+    void addChild(RenderTreeBuilder&, RenderPtr<RenderObject> child, RenderObject* beforeChild = 0) final;
     RenderPtr<RenderObject> takeChild(RenderObject&) final;
     void addFocusRingRects(Vector<LayoutRect>&, const LayoutPoint& additionalOffset, const RenderLayerModelObject* paintContainer = 0) final;
 

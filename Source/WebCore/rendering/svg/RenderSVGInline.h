@@ -26,6 +26,7 @@
 namespace WebCore {
 
 class RenderSVGInline : public RenderInline {
+    WTF_MAKE_ISO_ALLOCATED(RenderSVGInline);
 public:
     RenderSVGInline(SVGGraphicsElement&, RenderStyle&&);
 
@@ -60,7 +61,7 @@ private:
     void willBeDestroyed() final;
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) final;
 
-    void addChild(RenderPtr<RenderObject> child, RenderObject* beforeChild = nullptr) final;
+    void addChild(RenderTreeBuilder&, RenderPtr<RenderObject> child, RenderObject* beforeChild = nullptr) final;
     RenderPtr<RenderObject> takeChild(RenderObject&) final;
 };
 

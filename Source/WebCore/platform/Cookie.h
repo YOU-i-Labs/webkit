@@ -43,11 +43,12 @@ struct Cookie {
         : name(WTF::HashTableDeletedValue)
     { }
 
-    Cookie(const String& name, const String& value, const String& domain, const String& path, double expires, bool httpOnly, bool secure, bool session, const String& comment, const URL& commentURL, const Vector<uint16_t> ports)
+    Cookie(const String& name, const String& value, const String& domain, const String& path, double created, double expires, bool httpOnly, bool secure, bool session, const String& comment, const URL& commentURL, const Vector<uint16_t> ports)
         : name(name)
         , value(value)
         , domain(domain)
         , path(path)
+        , created(created)
         , expires(expires)
         , httpOnly(httpOnly)
         , secure(secure)
@@ -67,6 +68,9 @@ struct Cookie {
 #ifdef __OBJC__
     WEBCORE_EXPORT Cookie(NSHTTPCookie *);
     WEBCORE_EXPORT operator NSHTTPCookie *() const;
+#elif USE(SOUP)
+    explicit Cookie(SoupCookie*);
+    SoupCookie* toSoupCookie() const;
 #endif
 
     bool isNull() const
@@ -75,6 +79,7 @@ struct Cookie {
         && value.isNull()
         && domain.isNull()
         && path.isNull()
+        && created == 0
         && expires == 0
         && !httpOnly
         && !secure
@@ -87,7 +92,8 @@ struct Cookie {
     String value;
     String domain;
     String path;
-    // Expiration date, expressed as milliseconds since the UNIX epoch.
+    // Creation and expiration dates are expressed as milliseconds since the UNIX epoch.
+    double created { 0 };
     double expires { 0 };
     bool httpOnly { false };
     bool secure { false };
@@ -113,7 +119,7 @@ struct CookieHash {
 template<class Encoder>
 void Cookie::encode(Encoder& encoder) const
 {
-    encoder << name << value << domain << path << expires << httpOnly << secure << session << comment << commentURL << ports;
+    encoder << name << value << domain << path << created << expires << httpOnly << secure << session << comment << commentURL << ports;
 }
 
 template<class Decoder>
@@ -137,6 +143,11 @@ std::optional<Cookie> Cookie::decode(Decoder& decoder)
     std::optional<String> path;
     decoder >> path;
     if (!path)
+        return std::nullopt;
+
+    std::optional<double> created;
+    decoder >> created;
+    if (!created)
         return std::nullopt;
 
     std::optional<double> expires;
@@ -173,7 +184,7 @@ std::optional<Cookie> Cookie::decode(Decoder& decoder)
     if (!ports)
         return std::nullopt;
 
-    return {{ WTFMove(*name), WTFMove(*value), WTFMove(*domain), WTFMove(*path), WTFMove(*expires), WTFMove(*httpOnly), WTFMove(*secure), WTFMove(*session), WTFMove(*comment), WTFMove(commentURL), WTFMove(*ports) }};
+    return {{ WTFMove(*name), WTFMove(*value), WTFMove(*domain), WTFMove(*path), WTFMove(*created), WTFMove(*expires), WTFMove(*httpOnly), WTFMove(*secure), WTFMove(*session), WTFMove(*comment), WTFMove(commentURL), WTFMove(*ports) }};
 }
 
 }

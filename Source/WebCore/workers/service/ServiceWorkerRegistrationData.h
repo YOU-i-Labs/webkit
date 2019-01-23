@@ -27,7 +27,12 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include "ServiceWorkerData.h"
+#include "ServiceWorkerIdentifier.h"
 #include "ServiceWorkerRegistrationKey.h"
+#include "ServiceWorkerTypes.h"
+#include "ServiceWorkerUpdateViaCache.h"
+#include <wtf/WallTime.h>
 
 namespace WebCore {
 
@@ -35,10 +40,14 @@ enum class ServiceWorkerUpdateViaCache;
 
 struct ServiceWorkerRegistrationData {
     ServiceWorkerRegistrationKey key;
-    uint64_t identifier;
+    ServiceWorkerRegistrationIdentifier identifier;
     URL scopeURL;
-    URL scriptURL;
     ServiceWorkerUpdateViaCache updateViaCache;
+    WallTime lastUpdateTime;
+
+    std::optional<ServiceWorkerData> installingWorker;
+    std::optional<ServiceWorkerData> waitingWorker;
+    std::optional<ServiceWorkerData> activeWorker;
 
     ServiceWorkerRegistrationData isolatedCopy() const;
 
@@ -50,7 +59,7 @@ struct ServiceWorkerRegistrationData {
 template<class Encoder>
 void ServiceWorkerRegistrationData::encode(Encoder& encoder) const
 {
-    encoder << key << identifier << scopeURL << scriptURL << updateViaCache;
+    encoder << key << identifier << scopeURL << updateViaCache << lastUpdateTime.secondsSinceEpoch().value() << installingWorker << waitingWorker << activeWorker;
 }
 
 template<class Decoder>
@@ -61,7 +70,7 @@ std::optional<ServiceWorkerRegistrationData> ServiceWorkerRegistrationData::deco
     if (!key)
         return std::nullopt;
     
-    std::optional<uint64_t> identifier;
+    std::optional<ServiceWorkerRegistrationIdentifier> identifier;
     decoder >> identifier;
     if (!identifier)
         return std::nullopt;
@@ -71,17 +80,32 @@ std::optional<ServiceWorkerRegistrationData> ServiceWorkerRegistrationData::deco
     if (!scopeURL)
         return std::nullopt;
 
-    std::optional<URL> scriptURL;
-    decoder >> scriptURL;
-    if (!scriptURL)
-        return std::nullopt;
-
     std::optional<ServiceWorkerUpdateViaCache> updateViaCache;
     decoder >> updateViaCache;
     if (!updateViaCache)
         return std::nullopt;
 
-    return { { WTFMove(*key), WTFMove(*identifier), WTFMove(*scopeURL), WTFMove(*scriptURL), WTFMove(*updateViaCache) } };
+    std::optional<double> rawWallTime;
+    decoder >> rawWallTime;
+    if (!rawWallTime)
+        return std::nullopt;
+
+    std::optional<std::optional<ServiceWorkerData>> installingWorker;
+    decoder >> installingWorker;
+    if (!installingWorker)
+        return std::nullopt;
+
+    std::optional<std::optional<ServiceWorkerData>> waitingWorker;
+    decoder >> waitingWorker;
+    if (!waitingWorker)
+        return std::nullopt;
+
+    std::optional<std::optional<ServiceWorkerData>> activeWorker;
+    decoder >> activeWorker;
+    if (!activeWorker)
+        return std::nullopt;
+
+    return { { WTFMove(*key), WTFMove(*identifier), WTFMove(*scopeURL), WTFMove(*updateViaCache), WallTime::fromRawSeconds(*rawWallTime), WTFMove(*installingWorker), WTFMove(*waitingWorker), WTFMove(*activeWorker) } };
 }
 
 } // namespace WTF

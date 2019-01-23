@@ -29,8 +29,7 @@
 
 #include "ContextDestructionObserver.h"
 #include "ExceptionOr.h"
-#include "ServiceWorkerClientIdentifier.h"
-#include "ServiceWorkerClientType.h"
+#include "ServiceWorkerClientData.h"
 #include <heap/Strong.h>
 #include <wtf/RefCounted.h>
 
@@ -40,37 +39,32 @@ class JSValue;
 
 namespace WebCore {
 
+class ServiceWorkerGlobalScope;
+
 class ServiceWorkerClient : public RefCounted<ServiceWorkerClient>, public ContextDestructionObserver {
 public:
     using Identifier = ServiceWorkerClientIdentifier;
 
     using Type = ServiceWorkerClientType;
-    enum class FrameType {
-        Auxiliary,
-        TopLevel,
-        Nested,
-        None
-    };
+    using FrameType = ServiceWorkerClientFrameType;
 
-    static Ref<ServiceWorkerClient> create(ScriptExecutionContext& context, const Identifier& identifier, Type type)
-    {
-        return adoptRef(*new ServiceWorkerClient(context, identifier, type));
-    }
+    static Ref<ServiceWorkerClient> getOrCreate(ServiceWorkerGlobalScope&, ServiceWorkerClientData&&);
 
     ~ServiceWorkerClient();
 
-    String url() const;
+    const URL& url() const;
     FrameType frameType() const;
-    Type type() const { return m_type; }
+    Type type() const;
     String id() const;
+
+    Identifier identifier() const { return m_data.identifier; }
 
     ExceptionOr<void> postMessage(ScriptExecutionContext&, JSC::JSValue message, Vector<JSC::Strong<JSC::JSObject>>&& transfer);
 
 protected:
-    ServiceWorkerClient(ScriptExecutionContext&, const Identifier&, Type);
+    ServiceWorkerClient(ServiceWorkerGlobalScope&, ServiceWorkerClientData&&);
 
-    Identifier m_identifier;
-    Type m_type;
+    ServiceWorkerClientData m_data;
 };
 
 } // namespace WebCore

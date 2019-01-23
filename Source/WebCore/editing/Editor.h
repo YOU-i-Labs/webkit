@@ -63,6 +63,7 @@ class EditCommand;
 class EditCommandComposition;
 class EditorClient;
 class EditorInternalCommand;
+class File;
 class Frame;
 class HTMLElement;
 class HitTestResult;
@@ -91,6 +92,11 @@ enum class MailBlockquoteHandling {
     RespectBlockquote,
     IgnoreBlockquote,
 };
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+class HTMLAttachmentElement;
+struct AttachmentDisplayOptions;
+#endif
 
 enum TemporarySelectionOption : uint8_t {
     // By default, no additional options are enabled.
@@ -303,9 +309,9 @@ public:
     bool shouldEndEditing(Range*);
 
     void clearUndoRedoOperations();
-    WEBCORE_EXPORT bool canUndo() const;
+    bool canUndo() const;
     void undo();
-    WEBCORE_EXPORT bool canRedo() const;
+    bool canRedo() const;
     void redo();
 
     void didBeginEditing();
@@ -498,8 +504,23 @@ public:
     void setIsGettingDictionaryPopupInfo(bool b) { m_isGettingDictionaryPopupInfo = b; }
     bool isGettingDictionaryPopupInfo() const { return m_isGettingDictionaryPopupInfo; }
 
+#if ENABLE(ATTACHMENT_ELEMENT)
+    WEBCORE_EXPORT void insertAttachment(const String& identifier, const AttachmentDisplayOptions&, const String& filename, const String& filepath, std::optional<String> contentType = std::nullopt);
+    WEBCORE_EXPORT void insertAttachment(const String& identifier, const AttachmentDisplayOptions&, const String& filename, Ref<SharedBuffer>&& data, std::optional<String> contentType = std::nullopt);
+    void didInsertAttachmentElement(HTMLAttachmentElement&);
+    void didRemoveAttachmentElement(HTMLAttachmentElement&);
+
+#if PLATFORM(COCOA)
+    void getPasteboardTypesAndDataForAttachment(HTMLAttachmentElement&, Vector<String>& outTypes, Vector<RefPtr<SharedBuffer>>& outData);
+#endif
+#endif
+
 private:
     Document& document() const;
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+    void insertAttachmentFromFile(const String& identifier, const AttachmentDisplayOptions&, const String& filename, const String& contentType, Ref<File>&&);
+#endif
 
     bool canDeleteRange(Range*) const;
     bool canSmartReplaceWithPasteboard(Pasteboard&);
@@ -539,6 +560,12 @@ private:
     static RefPtr<SharedBuffer> dataInRTFFormat(NSAttributedString *);
 #endif
 
+    void scheduleEditorUIUpdate();
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+    void notifyClientOfAttachmentUpdates();
+#endif
+
     void postTextStateChangeNotificationForCut(const String&, const VisibleSelection&);
 
     Frame& m_frame;
@@ -557,6 +584,11 @@ private:
     bool m_areMarkedTextMatchesHighlighted { false };
     EditorParagraphSeparator m_defaultParagraphSeparator { EditorParagraphSeparatorIsDiv };
     bool m_overwriteModeEnabled { false };
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+    HashSet<String> m_insertedAttachmentIdentifiers;
+    HashSet<String> m_removedAttachmentIdentifiers;
+#endif
 
     VisibleSelection m_oldSelectionForEditorUIUpdate;
     Timer m_editorUIUpdateTimer;

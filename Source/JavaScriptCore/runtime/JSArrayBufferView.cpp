@@ -66,7 +66,7 @@ JSArrayBufferView::ConstructionContext::ConstructionContext(
         void* temp;
         size_t size = sizeOf(length, elementSize);
         if (size) {
-            temp = vm.primitiveGigacageAuxiliarySpace.tryAllocate(nullptr, size);
+            temp = vm.primitiveGigacageAuxiliarySpace.allocateNonVirtual(size, nullptr, AllocationFailureMode::ReturnNull);
             if (!temp)
                 return;
         } else
@@ -127,10 +127,11 @@ JSArrayBufferView::ConstructionContext::ConstructionContext(
 }
 
 JSArrayBufferView::JSArrayBufferView(VM& vm, ConstructionContext& context)
-    : Base(vm, context.structure(), context.butterfly())
+    : Base(vm, context.structure(), nullptr)
     , m_length(context.length())
     , m_mode(context.mode())
 {
+    setButterflyWithIndexingMask(vm, context.butterfly(), WTF::computeIndexingMask(length()));
     m_vector.setWithoutBarrier(context.vector());
 }
 

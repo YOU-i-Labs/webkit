@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
@@ -486,8 +486,6 @@ public:
 
     WEBCORE_EXPORT unsigned short compareDocumentPosition(Node&);
 
-    RefPtr<Node> toNode() override;
-
     EventTargetInterface eventTargetInterface() const override;
     ScriptExecutionContext* scriptExecutionContext() const final; // Implemented in Document.h
 
@@ -495,22 +493,19 @@ public:
     bool removeEventListener(const AtomicString& eventType, EventListener&, const ListenerOptions&) override;
 
     using EventTarget::dispatchEvent;
-    bool dispatchEvent(Event&) override;
+    void dispatchEvent(Event&) override;
 
     void dispatchScopedEvent(Event&);
 
     virtual void handleLocalEvents(Event&);
 
     void dispatchSubtreeModifiedEvent();
-    bool dispatchDOMActivateEvent(int detail, Event& underlyingEvent);
+    void dispatchDOMActivateEvent(Event& underlyingClickEvent);
 
 #if ENABLE(TOUCH_EVENTS)
     virtual bool allowsDoubleTapGesture() const { return true; }
 #endif
 
-#if ENABLE(TOUCH_EVENTS) && !PLATFORM(IOS)
-    bool dispatchTouchEvent(TouchEvent&);
-#endif
     bool dispatchBeforeLoadEvent(const String& sourceURL);
 
     void dispatchInputEvent();
@@ -533,7 +528,7 @@ public:
     EventTargetData* eventTargetDataConcurrently() final;
     EventTargetData& ensureEventTargetData() final;
 
-    HashMap<MutationObserver*, MutationRecordDeliveryOptions> registeredMutationObservers(MutationObserver::MutationType, const QualifiedName* attributeName);
+    HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions> registeredMutationObservers(MutationObserver::MutationType, const QualifiedName* attributeName);
     void registerMutationObserver(MutationObserver&, MutationObserverOptions, const HashSet<AtomicString>& attributeFilter);
     void unregisterMutationObserver(MutationObserverRegistration&);
     void registerTransientMutationObserver(MutationObserverRegistration&);
@@ -664,8 +659,9 @@ private:
 
     WEBCORE_EXPORT void removedLastRef();
 
-    void refEventTarget() override;
-    void derefEventTarget() override;
+    void refEventTarget() final;
+    void derefEventTarget() final;
+    bool isNode() const final;
 
     void trackForDebugging();
     void materializeRareData();
@@ -807,3 +803,7 @@ inline void Node::setTreeScopeRecursively(TreeScope& newTreeScope)
 void showTree(const WebCore::Node*);
 void showNodePath(const WebCore::Node*);
 #endif
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::Node)
+    static bool isType(const WebCore::EventTarget& target) { return target.isNode(); }
+SPECIALIZE_TYPE_TRAITS_END()

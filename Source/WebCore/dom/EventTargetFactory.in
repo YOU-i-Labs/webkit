@@ -25,6 +25,7 @@ MediaStreamTrack conditional=MEDIA_STREAM
 MessagePort
 Node
 Notification conditional=NOTIFICATIONS
+OffscreenCanvas
 PaymentRequest conditional=PAYMENT_REQUEST
 Performance
 RTCDataChannel conditional=WEB_RTC
@@ -42,6 +43,8 @@ TextTrackCue conditional=VIDEO_TRACK
 TextTrackList conditional=VIDEO_TRACK
 VRDisplay
 VideoTrackList conditional=VIDEO_TRACK
+VisualViewport
+WebAnimation
 WebKitMediaKeySession conditional=LEGACY_ENCRYPTED_MEDIA
 WebSocket
 Worker

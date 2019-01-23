@@ -27,6 +27,7 @@
 
 #include "BytecodeConventions.h"
 #include "CodeType.h"
+#include "DFGExitProfile.h"
 #include "ExpressionRangeInfo.h"
 #include "HandlerInfo.h"
 #include "Identifier.h"
@@ -131,6 +132,8 @@ public:
     EvalContextType evalContextType() const { return static_cast<EvalContextType>(m_evalContextType); }
     bool isArrowFunctionContext() const { return m_isArrowFunctionContext; }
     bool isClassContext() const { return m_isClassContext; }
+    bool hasTailCalls() const { return m_hasTailCalls; }
+    void setHasTailCalls() { m_hasTailCalls = true; }
 
     void addExpressionInfo(unsigned instructionOffset, int divot,
         int startOffset, int endOffset, unsigned line, unsigned column);
@@ -321,29 +324,6 @@ public:
     size_t numberOfPropertyAccessInstructions() const { return m_propertyAccessInstructions.size(); }
     const Vector<unsigned>& propertyAccessInstructions() const { return m_propertyAccessInstructions; }
 
-    typedef Vector<JSValue> ConstantBuffer;
-
-    size_t constantBufferCount() { ASSERT(m_rareData); return m_rareData->m_constantBuffers.size(); }
-    unsigned addConstantBuffer(unsigned length)
-    {
-        createRareDataIfNecessary();
-        unsigned size = m_rareData->m_constantBuffers.size();
-        m_rareData->m_constantBuffers.append(Vector<JSValue>(length));
-        return size;
-    }
-
-    const ConstantBuffer& constantBuffer(unsigned index) const
-    {
-        ASSERT(m_rareData);
-        return m_rareData->m_constantBuffers[index];
-    }
-
-    ConstantBuffer& constantBuffer(unsigned index)
-    {
-        ASSERT(m_rareData);
-        return m_rareData->m_constantBuffers[index];
-    }
-
     bool hasRareData() const { return m_rareData.get(); }
 
     int lineNumberForBytecodeOffset(unsigned bytecodeOffset);
@@ -404,6 +384,21 @@ public:
         return livenessAnalysisSlow(codeBlock);
     }
 
+#if ENABLE(DFG_JIT)
+    bool hasExitSite(const ConcurrentJSLocker& locker, const DFG::FrequentExitSite& site) const
+    {
+        return m_exitProfile.hasExitSite(locker, site);
+    }
+
+    bool hasExitSite(const DFG::FrequentExitSite& site)
+    {
+        ConcurrentJSLocker locker(m_lock);
+        return hasExitSite(locker, site);
+    }
+
+    DFG::ExitProfile& exitProfile() { return m_exitProfile; }
+#endif
+
 protected:
     UnlinkedCodeBlock(VM*, Structure*, CodeType, const ExecutableInfo&, DebuggerMode);
     ~UnlinkedCodeBlock();
@@ -440,6 +435,10 @@ private:
     String m_sourceURLDirective;
     String m_sourceMappingURLDirective;
 
+#if ENABLE(DFG_JIT)
+    DFG::ExitProfile m_exitProfile;
+#endif
+
     unsigned m_usesEval : 1;
     unsigned m_isStrictMode : 1;
     unsigned m_isConstructor : 1;
@@ -453,10 +452,13 @@ private:
     unsigned m_constructorKind : 2;
     unsigned m_derivedContextType : 2;
     unsigned m_evalContextType : 2;
+    unsigned m_hasTailCalls : 1;
     unsigned m_lineCount;
     unsigned m_endColumn;
 
-    Lock m_lock;
+public:
+    ConcurrentJSLock m_lock;
+private:
     TriState m_didOptimize;
     SourceParseMode m_parseMode;
     CodeFeatures m_features;
@@ -491,9 +493,6 @@ public:
 
         // Rare Constants
         Vector<WriteBarrier<RegExp>> m_regexps;
-
-        // Buffers used for large array literals
-        Vector<ConstantBuffer> m_constantBuffers;
 
         // Jump Tables
         Vector<UnlinkedSimpleJumpTable> m_switchJumpTables;

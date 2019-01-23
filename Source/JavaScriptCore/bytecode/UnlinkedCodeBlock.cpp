@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2017 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2012-2018 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -71,6 +71,7 @@ UnlinkedCodeBlock::UnlinkedCodeBlock(VM* vm, Structure* structure, CodeType code
     , m_constructorKind(static_cast<unsigned>(info.constructorKind()))
     , m_derivedContextType(static_cast<unsigned>(info.derivedContextType()))
     , m_evalContextType(static_cast<unsigned>(info.evalContextType()))
+    , m_hasTailCalls(false)
     , m_lineCount(0)
     , m_endColumn(UINT_MAX)
     , m_didOptimize(MixedTriState)
@@ -406,7 +407,6 @@ void UnlinkedCodeBlock::shrinkToFit()
     if (m_rareData) {
         m_rareData->m_exceptionHandlers.shrinkToFit();
         m_rareData->m_regexps.shrinkToFit();
-        m_rareData->m_constantBuffers.shrinkToFit();
         m_rareData->m_switchJumpTables.shrinkToFit();
         m_rareData->m_stringSwitchJumpTables.shrinkToFit();
         m_rareData->m_expressionInfoFatPositions.shrinkToFit();
@@ -422,12 +422,11 @@ BytecodeLivenessAnalysis& UnlinkedCodeBlock::livenessAnalysisSlow(CodeBlock* cod
 {
     RELEASE_ASSERT(codeBlock->unlinkedCodeBlock() == this);
 
-
     {
-        auto locker = holdLock(m_lock);
+        ConcurrentJSLocker locker(m_lock);
         if (!m_liveness) {
             // There is a chance two compiler threads raced to the slow path.
-            // We defend against computing liveness twice.
+            // Grabbing the lock above defends against computing liveness twice.
             m_liveness = std::make_unique<BytecodeLivenessAnalysis>(codeBlock);
         }
     }

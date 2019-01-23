@@ -27,6 +27,7 @@
 
 #if ENABLE(APPLE_PAY)
 
+#include "ApplePayLineItem.h"
 #include "MockPaymentAddress.h"
 #include "PaymentCoordinatorClient.h"
 
@@ -45,6 +46,10 @@ public:
     void acceptPayment();
     void cancelPayment();
 
+    const ApplePayLineItem& total() const { return m_total; }
+    const Vector<ApplePayLineItem>& lineItems() const { return m_lineItems; }
+    const Vector<String>& availablePaymentNetworks() const { return m_availablePaymentNetworks; }
+
     void ref() const { }
     void deref() const { }
 
@@ -55,16 +60,21 @@ private:
     void openPaymentSetup(const String&, const String&, WTF::Function<void(bool)>&&);
     bool showPaymentUI(const URL&, const Vector<URL>&, const ApplePaySessionPaymentRequest&) final;
     void completeMerchantValidation(const PaymentMerchantSession&) final;
-    void completeShippingMethodSelection(std::optional<ShippingMethodUpdate>&&) final { }
-    void completeShippingContactSelection(std::optional<ShippingContactUpdate>&&) final { }
-    void completePaymentMethodSelection(std::optional<PaymentMethodUpdate>&&) final { }
+    void completeShippingMethodSelection(std::optional<ShippingMethodUpdate>&&) final;
+    void completeShippingContactSelection(std::optional<ShippingContactUpdate>&&) final;
+    void completePaymentMethodSelection(std::optional<PaymentMethodUpdate>&&) final;
     void completePaymentSession(std::optional<PaymentAuthorizationResult>&&) final;
     void abortPaymentSession() final;
     void cancelPaymentSession() final;
     void paymentCoordinatorDestroyed() final;
 
+    void updateTotalAndLineItems(const ApplePaySessionPaymentRequest::TotalAndLineItems&);
+
     MainFrame& m_mainFrame;
     MockPaymentAddress m_shippingAddress;
+    ApplePayLineItem m_total;
+    Vector<ApplePayLineItem> m_lineItems;
+    Vector<String> m_availablePaymentNetworks;
 };
 
 } // namespace WebCore

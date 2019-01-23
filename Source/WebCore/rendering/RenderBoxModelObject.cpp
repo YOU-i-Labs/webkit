@@ -53,10 +53,12 @@
 #include "RenderTableRow.h"
 #include "RenderText.h"
 #include "RenderTextFragment.h"
+#include "RenderTreeBuilder.h"
 #include "RenderView.h"
 #include "ScrollingConstraints.h"
 #include "Settings.h"
 #include "TransformState.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 #if !ASSERT_DISABLED
 #include <wtf/SetForScope.h>
@@ -70,6 +72,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderBoxModelObject);
+
 // The HashMap for storing continuation pointers.
 // An inline can be split with blocks occuring in between the inline content.
 // When this occurs we need a pointer to the next object. We can basically be
@@ -77,17 +81,65 @@ using namespace HTMLNames;
 // an anonymous block (that houses other blocks) or it will be an inline flow.
 // <b><i><p>Hello</p></i></b>. In this example the <i> will have a block as
 // its continuation but the <b> will just have an inline as its continuation.
-typedef HashMap<const RenderBoxModelObject*, WeakPtr<RenderBoxModelObject>> ContinuationMap;
-static ContinuationMap& continuationMap()
+
+struct RenderBoxModelObject::ContinuationChainNode {
+    WeakPtr<RenderBoxModelObject> renderer;
+    ContinuationChainNode* previous { nullptr };
+    ContinuationChainNode* next { nullptr };
+
+    ContinuationChainNode(RenderBoxModelObject&);
+    ~ContinuationChainNode();
+
+    void insertAfter(ContinuationChainNode&);
+
+    WTF_MAKE_FAST_ALLOCATED;
+};
+
+RenderBoxModelObject::ContinuationChainNode::ContinuationChainNode(RenderBoxModelObject& renderer)
+    : renderer(makeWeakPtr(renderer))
 {
-    static NeverDestroyed<ContinuationMap> map;
+}
+
+RenderBoxModelObject::ContinuationChainNode::~ContinuationChainNode()
+{
+    if (next) {
+        ASSERT(previous);
+        ASSERT(next->previous == this);
+        next->previous = previous;
+    }
+    if (previous) {
+        ASSERT(previous->next == this);
+        previous->next = next;
+    }
+}
+
+void RenderBoxModelObject::ContinuationChainNode::insertAfter(ContinuationChainNode& after)
+{
+    ASSERT(!previous);
+    ASSERT(!next);
+    if ((next = after.next)) {
+        ASSERT(next->previous == &after);
+        next->previous = this;
+    }
+    previous = &after;
+    after.next = this;
+}
+
+using ContinuationChainNodeMap = HashMap<const RenderBoxModelObject*, std::unique_ptr<RenderBoxModelObject::ContinuationChainNode>>;
+
+static ContinuationChainNodeMap& continuationChainNodeMap()
+{
+    static NeverDestroyed<ContinuationChainNodeMap> map;
     return map;
 }
 
-// This HashMap is similar to the continuation map, but connects first-letter
-// renderers to their remaining text fragments.
-typedef HashMap<const RenderBoxModelObject*, RenderTextFragment*> FirstLetterRemainingTextMap;
-static FirstLetterRemainingTextMap* firstLetterRemainingTextMap = nullptr;
+using FirstLetterRemainingTextMap = HashMap<const RenderBoxModelObject*, WeakPtr<RenderTextFragment>>;
+
+static FirstLetterRemainingTextMap& firstLetterRemainingTextMap()
+{
+    static NeverDestroyed<FirstLetterRemainingTextMap> map;
+    return map;
+}
 
 void RenderBoxModelObject::setSelectionState(SelectionState state)
 {
@@ -187,15 +239,15 @@ RenderBoxModelObject::~RenderBoxModelObject()
 
 void RenderBoxModelObject::willBeDestroyed()
 {
-    if (hasContinuation()) {
-        continuation()->removeFromParentAndDestroy();
-        setContinuation(nullptr);
+    if (continuation() && !isContinuation()) {
+        removeAndDestroyAllContinuations();
+        ASSERT(!continuation());
     }
+    if (hasContinuationChainNode())
+        removeFromContinuationChain();
 
-    // If this is a first-letter object with a remaining text fragment then the
-    // entry needs to be cleared from the map.
-    if (firstLetterRemainingText())
-        setFirstLetterRemainingText(nullptr);
+    if (isFirstLetter())
+        clearFirstLetterRemainingText();
 
     if (!renderTreeBeingDestroyed())
         view().imageQualityController().rendererWillBeDestroyed(*this);
@@ -228,7 +280,7 @@ static LayoutSize accumulateInFlowPositionOffsets(const RenderObject* child)
     if (!child->isAnonymousBlock() || !child->isInFlowPositioned())
         return LayoutSize();
     LayoutSize offset;
-    for (RenderElement* parent = downcast<RenderBlock>(*child).inlineElementContinuation(); is<RenderInline>(parent); parent = parent->parent()) {
+    for (RenderElement* parent = downcast<RenderBlock>(*child).inlineContinuation(); is<RenderInline>(parent); parent = parent->parent()) {
         if (parent->isInFlowPositioned())
             offset += downcast<RenderInline>(*parent).offsetForInFlowPosition();
     }
@@ -323,9 +375,12 @@ DecodingMode RenderBoxModelObject::decodingModeForImageDraw(const Image& image, 
     if (IOSApplication::isIBooksStorytime())
         return DecodingMode::Synchronous;
 #endif
+    if (is<HTMLImageElement>(element())) {
+        auto decodingMode = downcast<HTMLImageElement>(*element()).decodingMode();
+        if (decodingMode != DecodingMode::Auto)
+            return decodingMode;
+    }
     if (bitmapImage.isLargeImageAsyncDecodingEnabledForTesting())
-        return DecodingMode::Asynchronous;
-    if (is<HTMLImageElement>(element()) && element()->hasAttribute(asyncAttr))
         return DecodingMode::Asynchronous;
     if (document().isImageDocument())
         return DecodingMode::Synchronous;
@@ -400,9 +455,9 @@ LayoutPoint RenderBoxModelObject::adjustedPositionRelativeToOffsetParent(const L
         if (is<RenderBox>(*offsetParent) && !offsetParent->isBody() && !is<RenderTable>(*offsetParent))
             referencePoint.move(-downcast<RenderBox>(*offsetParent).borderLeft(), -downcast<RenderBox>(*offsetParent).borderTop());
         if (!isOutOfFlowPositioned() || enclosingFragmentedFlow()) {
-            if (isRelPositioned())
+            if (isRelativelyPositioned())
                 referencePoint.move(relativePositionOffset());
-            else if (isStickyPositioned())
+            else if (isStickilyPositioned())
                 referencePoint.move(stickyPositionOffset());
             
             // CSS regions specification says that region flows should return the body element as their offsetParent.
@@ -553,10 +608,10 @@ LayoutSize RenderBoxModelObject::stickyPositionOffset() const
 
 LayoutSize RenderBoxModelObject::offsetForInFlowPosition() const
 {
-    if (isRelPositioned())
+    if (isRelativelyPositioned())
         return relativePositionOffset();
 
-    if (isStickyPositioned())
+    if (isStickilyPositioned())
         return stickyPositionOffset();
 
     return LayoutSize();
@@ -911,7 +966,7 @@ void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, co
             auto compositeOp = op == CompositeSourceOver ? bgLayer.composite() : op;
             context.setDrawLuminanceMask(bgLayer.maskSourceType() == MaskLuminance);
 
-            if (is<BitmapImage>(image.get()))
+            if (is<BitmapImage>(image))
                 downcast<BitmapImage>(*image).updateFromSettings(settings());
 
             auto interpolation = chooseInterpolationQuality(context, *image, &bgLayer, geometry.tileSize());
@@ -2442,41 +2497,88 @@ void RenderBoxModelObject::paintBoxShadow(const PaintInfo& info, const LayoutRec
 
 LayoutUnit RenderBoxModelObject::containingBlockLogicalWidthForContent() const
 {
-    return containingBlock()->availableLogicalWidth();
+    if (auto* containingBlock = this->containingBlock())
+        return containingBlock->availableLogicalWidth();
+    return { };
 }
 
 RenderBoxModelObject* RenderBoxModelObject::continuation() const
 {
-    if (!hasContinuation())
+    if (!hasContinuationChainNode())
         return nullptr;
-    return continuationMap().get(this).get();
+
+    auto& continuationChainNode = *continuationChainNodeMap().get(this);
+    if (!continuationChainNode.next)
+        return nullptr;
+    return continuationChainNode.next->renderer.get();
 }
 
-void RenderBoxModelObject::setContinuation(RenderBoxModelObject* continuation)
+RenderInline* RenderBoxModelObject::inlineContinuation() const
 {
-    ASSERT(!continuation || continuation->isContinuation());
-    if (continuation)
-        continuationMap().set(this, makeWeakPtr(continuation));
-    else if (hasContinuation())
-        continuationMap().remove(this);
-    setHasContinuation(!!continuation);
+    if (!hasContinuationChainNode())
+        return nullptr;
+
+    for (auto* next = continuationChainNodeMap().get(this)->next; next; next = next->next) {
+        if (is<RenderInline>(*next->renderer))
+            return downcast<RenderInline>(next->renderer.get());
+    }
+    return nullptr;
+}
+
+
+void RenderBoxModelObject::insertIntoContinuationChainAfter(RenderBoxModelObject& afterRenderer)
+{
+    ASSERT(isContinuation());
+    ASSERT(!continuationChainNodeMap().contains(this));
+
+    auto& after = afterRenderer.ensureContinuationChainNode();
+    ensureContinuationChainNode().insertAfter(after);
+}
+
+void RenderBoxModelObject::removeFromContinuationChain()
+{
+    ASSERT(hasContinuationChainNode());
+    ASSERT(continuationChainNodeMap().contains(this));
+    setHasContinuationChainNode(false);
+    continuationChainNodeMap().remove(this);
+}
+
+auto RenderBoxModelObject::ensureContinuationChainNode() -> ContinuationChainNode&
+{
+    setHasContinuationChainNode(true);
+    return *continuationChainNodeMap().ensure(this, [&] {
+        return std::make_unique<ContinuationChainNode>(*this);
+    }).iterator->value;
+}
+
+void RenderBoxModelObject::removeAndDestroyAllContinuations()
+{
+    ASSERT(!isContinuation());
+    ASSERT(hasContinuationChainNode());
+    ASSERT(continuationChainNodeMap().contains(this));
+    auto& continuationChainNode = *continuationChainNodeMap().get(this);
+    while (continuationChainNode.next)
+        continuationChainNode.next->renderer->removeFromParentAndDestroy();
+    removeFromContinuationChain();
 }
 
 RenderTextFragment* RenderBoxModelObject::firstLetterRemainingText() const
 {
-    if (!firstLetterRemainingTextMap)
+    if (!isFirstLetter())
         return nullptr;
-    return firstLetterRemainingTextMap->get(this);
+    return firstLetterRemainingTextMap().get(this).get();
 }
 
-void RenderBoxModelObject::setFirstLetterRemainingText(RenderTextFragment* remainingText)
+void RenderBoxModelObject::setFirstLetterRemainingText(RenderTextFragment& remainingText)
 {
-    if (remainingText) {
-        if (!firstLetterRemainingTextMap)
-            firstLetterRemainingTextMap = new FirstLetterRemainingTextMap;
-        firstLetterRemainingTextMap->set(this, remainingText);
-    } else if (firstLetterRemainingTextMap)
-        firstLetterRemainingTextMap->remove(this);
+    ASSERT(isFirstLetter());
+    firstLetterRemainingTextMap().set(this, makeWeakPtr(remainingText));
+}
+
+void RenderBoxModelObject::clearFirstLetterRemainingText()
+{
+    ASSERT(isFirstLetter());
+    firstLetterRemainingTextMap().remove(this);
 }
 
 LayoutRect RenderBoxModelObject::localCaretRectForEmptyElement(LayoutUnit width, LayoutUnit textIndentOffset)
@@ -2583,32 +2685,31 @@ void RenderBoxModelObject::mapAbsoluteToLocalPoint(MapCoordinatesFlags mode, Tra
         transformState.move(containerOffset.width(), containerOffset.height(), preserve3D ? TransformState::AccumulateTransform : TransformState::FlattenTransform);
 }
 
-void RenderBoxModelObject::moveChildTo(RenderBoxModelObject* toBoxModelObject, RenderObject* child, RenderObject* beforeChild, bool fullRemoveInsert)
+void RenderBoxModelObject::moveChildTo(RenderBoxModelObject* toBoxModelObject, RenderObject* child, RenderObject* beforeChild, NormalizeAfterInsertion normalizeAfterInsertion)
 {
-    // We assume that callers have cleared their positioned objects list for child moves (!fullRemoveInsert) so the
+    // We assume that callers have cleared their positioned objects list for child moves so the
     // positioned renderer maps don't become stale. It would be too slow to do the map lookup on each call.
-    ASSERT(!fullRemoveInsert || !is<RenderBlock>(*this) || !downcast<RenderBlock>(*this).hasPositionedObjects());
+    ASSERT(normalizeAfterInsertion == NormalizeAfterInsertion::No || !is<RenderBlock>(*this) || !downcast<RenderBlock>(*this).hasPositionedObjects());
 
     ASSERT(this == child->parent());
     ASSERT(!beforeChild || toBoxModelObject == beforeChild->parent());
-    if (fullRemoveInsert && (toBoxModelObject->isRenderBlock() || toBoxModelObject->isRenderInline())) {
+    if (normalizeAfterInsertion == NormalizeAfterInsertion::Yes && (toBoxModelObject->isRenderBlock() || toBoxModelObject->isRenderInline())) {
         // Takes care of adding the new child correctly if toBlock and fromBlock
         // have different kind of children (block vs inline).
-        auto childToMove = takeChildInternal(*child, NotifyChildren);
-        toBoxModelObject->addChild(WTFMove(childToMove), beforeChild);
+        auto childToMove = takeChildInternal(*child);
+        RenderTreeBuilder::current()->insertChild(*toBoxModelObject, WTFMove(childToMove), beforeChild);
     } else {
-        NotifyChildrenType notifyType = fullRemoveInsert ? NotifyChildren : DontNotifyChildren;
-        auto childToMove = takeChildInternal(*child, notifyType);
-        toBoxModelObject->insertChildInternal(WTFMove(childToMove), beforeChild, notifyType);
+        auto childToMove = takeChildInternal(*child);
+        toBoxModelObject->insertChildInternal(WTFMove(childToMove), beforeChild);
     }
 }
 
-void RenderBoxModelObject::moveChildrenTo(RenderBoxModelObject* toBoxModelObject, RenderObject* startChild, RenderObject* endChild, RenderObject* beforeChild, bool fullRemoveInsert)
+void RenderBoxModelObject::moveChildrenTo(RenderBoxModelObject* toBoxModelObject, RenderObject* startChild, RenderObject* endChild, RenderObject* beforeChild, NormalizeAfterInsertion normalizeAfterInsertion)
 {
     // This condition is rarely hit since this function is usually called on
     // anonymous blocks which can no longer carry positioned objects (see r120761)
     // or when fullRemoveInsert is false.
-    if (fullRemoveInsert && is<RenderBlock>(*this)) {
+    if (normalizeAfterInsertion == NormalizeAfterInsertion::Yes && is<RenderBlock>(*this)) {
         downcast<RenderBlock>(*this).removePositionedObjects(nullptr);
         if (is<RenderBlockFlow>(*this))
             downcast<RenderBlockFlow>(*this).removeFloatingObjects();
@@ -2636,7 +2737,7 @@ void RenderBoxModelObject::moveChildrenTo(RenderBoxModelObject* toBoxModelObject
                 nextSibling = nextSibling->nextSibling();
         }
 
-        moveChildTo(toBoxModelObject, child, beforeChild, fullRemoveInsert);
+        moveChildTo(toBoxModelObject, child, beforeChild, normalizeAfterInsertion);
         child = nextSibling;
     }
 }

@@ -36,7 +36,6 @@
 #include "JSArrayInlines.h"
 #include "JSCBuiltins.h"
 #include "JSCInlines.h"
-#include "JSStringBuilder.h"
 #include "JSStringJoiner.h"
 #include "Lookup.h"
 #include "ObjectConstructor.h"
@@ -254,6 +253,7 @@ static ALWAYS_INLINE std::pair<SpeciesConstructResult, JSObject*> speciesConstru
 
     MarkedArgumentBuffer args;
     args.append(jsNumber(length));
+    ASSERT(!args.hasOverflowed());
     JSObject* newObject = construct(exec, constructor, args, "Species construction did not get a valid constructor");
     RETURN_IF_EXCEPTION(scope, exceptionResult());
     return std::make_pair(SpeciesConstructResult::CreatedObject, newObject);

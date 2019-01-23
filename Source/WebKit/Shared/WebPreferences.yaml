@@ -486,6 +486,12 @@ MediaStreamEnabled:
   webcoreBinding: RuntimeEnabledFeatures
   condition: ENABLE(MEDIA_STREAM)
 
+ScreenCaptureEnabled:
+  type: bool
+  defaultValue: false
+  webcoreBinding: RuntimeEnabledFeatures
+  condition: ENABLE(MEDIA_STREAM)
+
 PeerConnectionEnabled:
   type: bool
   defaultValue: WebCore::LibWebRTCProvider::webRTCAvailable()
@@ -639,6 +645,11 @@ CustomElementsEnabled:
   defaultValue: true
   webcoreBinding: RuntimeEnabledFeatures
 
+MenuItemElementEnabled:
+  type: bool
+  defaultValue: false
+  webcoreBinding: RuntimeEnabledFeatures
+
 EncryptedMediaAPIEnabled:
   type: bool
   defaultValue: false
@@ -692,11 +703,11 @@ InputEventsEnabled:
   humanReadableDescription: "Enable InputEvents support"
   webcoreBinding: RuntimeEnabledFeatures
 
-CredentialManagementEnabled:
+WebAuthenticationEnabled:
   type: bool
   defaultValue: false
-  humanReadableName: "Credential Management"
-  humanReadableDescription: "Enable Credential Management support"
+  humanReadableName: "Web Authentication"
+  humanReadableDescription: "Enable Web Authentication support"
   webcoreBinding: RuntimeEnabledFeatures
 
 ModernMediaControlsEnabled:
@@ -781,6 +792,13 @@ ViewportFitEnabled:
   defaultValue: true
   humanReadableName: "Viewport Fit"
   humanReadableDescription: "Enable viewport-fit viewport parameter"
+
+DisplayContentsEnabled:
+  type: bool
+  defaultValue: true
+  humanReadableName: "CSS display: contents"
+  humanReadableDescription: "Enable CSS display: contents support"
+  webcoreBinding: RuntimeEnabledFeatures
 
 IncrementalRenderingSuppressionTimeout:
   type: double
@@ -1022,6 +1040,14 @@ VisibleDebugOverlayRegions:
   defaultValue: 0
   category: debug
 
+ShouldAllowUserInstalledFonts:
+  type: bool
+  defaultValue: true
+
+MediaCapabilitiesEnabled:
+    type: bool
+    defaultValue: false
+    webcoreBinding: RuntimeEnabledFeatures
 
 # For experimental features:
 # The type should be boolean.
@@ -1054,20 +1080,20 @@ ConstantPropertiesEnabled:
   humanReadableDescription: "Enable CSS constant() properties"
   category: experimental
 
-DisplayContentsEnabled:
-  type: bool
-  defaultValue: false
-  humanReadableName: "CSS display: contents"
-  humanReadableDescription: "Enable CSS display: contents support"
-  category: experimental
-  webcoreBinding: RuntimeEnabledFeatures
-
 SpringTimingFunctionEnabled:
   type: bool
   defaultValue: DEFAULT_EXPERIMENTAL_FEATURES_ENABLED
   humanReadableName: "CSS Spring Animations"
   humanReadableDescription: "CSS Spring Animation prototype"
   category: experimental
+
+ImageBitmapOffscreenCanvasEnabled:
+  type: bool
+  defaultValue: true
+  humanReadableName: "ImageBitmap and OffscreenCanvas"
+  humanReadableDescription: "Support for the ImageBitmap and OffscreenCanvas APIs"
+  category: experimental
+  webcoreBinding: RuntimeEnabledFeatures
 
 LinkPreloadEnabled:
   type: bool
@@ -1077,13 +1103,12 @@ LinkPreloadEnabled:
   category: experimental
   webcoreBinding: RuntimeEnabledFeatures
 
-WebRTCLegacyAPIDisabled:
+WebRTCLegacyAPIEnabled:
   type: bool
-  defaultValue: DEFAULT_EXPERIMENTAL_FEATURES_ENABLED
-  humanReadableName: "Remove Legacy WebRTC API"
-  humanReadableDescription: "Remove Legacy WebRTC API"
-  category: experimental
-  webcoreBinding: custom
+  defaultValue: false
+  humanReadableName: "Enable Legacy WebRTC API"
+  humanReadableDescription: "Enable Legacy WebRTC API"
+  webcoreBinding: RuntimeEnabledFeatures
   condition: ENABLE(WEB_RTC)
 
 IsSecureContextAttributeEnabled:
@@ -1096,7 +1121,7 @@ IsSecureContextAttributeEnabled:
 
 ServiceWorkersEnabled:
   type: bool
-  defaultValue: false
+  defaultValue: DEFAULT_SERVICE_WORKERS_ENABLED
   humanReadableName: "ServiceWorkers"
   humanReadableDescription: "Enable ServiceWorkers"
   category: experimental
@@ -1106,7 +1131,7 @@ ServiceWorkersEnabled:
 
 StorageAccessAPIEnabled:
   type: bool
-  defaultValue: false
+  defaultValue: true
   humanReadableName: "Storage Access API"
   humanReadableDescription: "Enable Storage Access API"
   category: experimental
@@ -1116,6 +1141,13 @@ SubresourceIntegrityEnabled:
   defaultValue: DEFAULT_EXPERIMENTAL_FEATURES_ENABLED
   humanReadableName: "SubresourceIntegrity"
   humanReadableDescription: "Enable SubresourceIntegrity"
+  category: experimental
+
+VisualViewportAPIEnabled:
+  type: bool
+  defaultValue: DEFAULT_EXPERIMENTAL_FEATURES_ENABLED
+  humanReadableName: "VisualViewportAPI"
+  humanReadableDescription: "Enable Visual Viewport API"
   category: experimental
 
 WebAnimationsEnabled:
@@ -1143,3 +1175,11 @@ WebGPUEnabled:
   category: experimental
   webcoreBinding: RuntimeEnabledFeatures
   condition: ENABLE(WEBGPU)
+
+AccessibilityObjectModelEnabled:
+    type: bool
+    defaultValue: false
+    humanReadableName: "Accessibility Object Model"
+    humanReadableDescription: "Accessibility Object Model support"
+    category: experimental
+    webcoreBinding: RuntimeEnabledFeatures

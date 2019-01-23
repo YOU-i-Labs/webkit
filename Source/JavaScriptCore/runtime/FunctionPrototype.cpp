@@ -25,15 +25,11 @@
 #include "BuiltinNames.h"
 #include "Error.h"
 #include "GetterSetter.h"
-#include "JSArray.h"
 #include "JSAsyncFunction.h"
-#include "JSFunction.h"
-#include "JSGlobalObjectFunctions.h"
-#include "JSString.h"
-#include "JSStringBuilder.h"
-#include "Interpreter.h"
-#include "Lexer.h"
 #include "JSCInlines.h"
+#include "JSFunction.h"
+#include "JSStringInlines.h"
+#include "Lexer.h"
 
 namespace JSC {
 
@@ -43,8 +39,14 @@ const ClassInfo FunctionPrototype::s_info = { "Function", &Base::s_info, nullptr
 
 static EncodedJSValue JSC_HOST_CALL functionProtoFuncToString(ExecState*);
 
+// ECMA 15.3.4
+static EncodedJSValue JSC_HOST_CALL callFunctionPrototype(ExecState*)
+{
+    return JSValue::encode(jsUndefined());
+}
+
 FunctionPrototype::FunctionPrototype(VM& vm, Structure* structure)
-    : InternalFunction(vm, structure)
+    : InternalFunction(vm, structure, callFunctionPrototype, nullptr)
 {
 }
 
@@ -75,18 +77,6 @@ void FunctionPrototype::initRestrictedProperties(ExecState* exec, JSGlobalObject
     GetterSetter* errorGetterSetter = globalObject->throwTypeErrorArgumentsCalleeAndCallerGetterSetter();
     putDirectAccessor(exec, vm.propertyNames->caller, errorGetterSetter, PropertyAttribute::DontEnum | PropertyAttribute::Accessor);
     putDirectAccessor(exec, vm.propertyNames->arguments, errorGetterSetter, PropertyAttribute::DontEnum | PropertyAttribute::Accessor);
-}
-
-static EncodedJSValue JSC_HOST_CALL callFunctionPrototype(ExecState*)
-{
-    return JSValue::encode(jsUndefined());
-}
-
-// ECMA 15.3.4
-CallType FunctionPrototype::getCallData(JSCell*, CallData& callData)
-{
-    callData.native.function = callFunctionPrototype;
-    return CallType::Host;
 }
 
 EncodedJSValue JSC_HOST_CALL functionProtoFuncToString(ExecState* exec)

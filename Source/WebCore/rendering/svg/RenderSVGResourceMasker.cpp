@@ -26,8 +26,11 @@
 #include "Image.h"
 #include "IntRect.h"
 #include "SVGRenderingContext.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGResourceMasker);
 
 RenderSVGResourceMasker::RenderSVGResourceMasker(SVGMaskElement& element, RenderStyle&& style)
     : RenderSVGResourceContainer(element, WTFMove(style))
@@ -110,7 +113,7 @@ bool RenderSVGResourceMasker::drawContentIntoMaskImage(MaskerData* maskerData, C
     }
 
 #if !USE(CG)
-    maskerData->maskImage->transformColorSpace(ColorSpaceDeviceRGB, colorSpace);
+    maskerData->maskImage->transformColorSpace(ColorSpaceSRGB, colorSpace);
 #else
     UNUSED_PARAM(colorSpace);
 #endif

@@ -28,12 +28,12 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef HTTPParsers_h
-#define HTTPParsers_h
+#pragma once
 
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/Optional.h>
+#include <wtf/WallTime.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
@@ -70,7 +70,7 @@ bool isValidAcceptHeaderValue(const String&);
 bool isValidLanguageHeaderValue(const String&);
 bool isValidHTTPToken(const String&);
 bool parseHTTPRefresh(const String& refresh, double& delay, String& url);
-std::optional<std::chrono::system_clock::time_point> parseHTTPDate(const String&);
+std::optional<WallTime> parseHTTPDate(const String&);
 String filenameFromHTTPContentDisposition(const String&);
 String extractMIMETypeFromMediaType(const String&);
 String extractCharsetFromMediaType(const String&);
@@ -111,7 +111,7 @@ inline bool isHTTPSpace(UChar character)
 // Strip leading and trailing whitespace as defined in https://fetch.spec.whatwg.org/#concept-header-value-normalize.
 inline String stripLeadingAndTrailingHTTPSpaces(const String& string)
 {
-    return string.stripWhiteSpace(isHTTPSpace);
+    return string.stripLeadingAndTrailingCharacters(isHTTPSpace);
 }
 
 inline StringView stripLeadingAndTrailingHTTPSpaces(StringView string)
@@ -120,5 +120,3 @@ inline StringView stripLeadingAndTrailingHTTPSpaces(StringView string)
 }
 
 }
-
-#endif

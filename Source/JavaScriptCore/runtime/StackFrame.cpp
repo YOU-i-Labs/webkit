@@ -35,7 +35,6 @@ namespace JSC {
 
 StackFrame::StackFrame(VM& vm, JSCell* owner, JSCell* callee)
     : m_callee(vm, owner, callee)
-    , m_bytecodeOffset(UINT_MAX)
 {
 }
 
@@ -43,6 +42,12 @@ StackFrame::StackFrame(VM& vm, JSCell* owner, JSCell* callee, CodeBlock* codeBlo
     : m_callee(vm, owner, callee)
     , m_codeBlock(vm, owner, codeBlock)
     , m_bytecodeOffset(bytecodeOffset)
+{
+}
+
+StackFrame::StackFrame(Wasm::IndexOrName indexOrName)
+    : m_wasmFunctionIndexOrName(indexOrName)
+    , m_isWasmFrame(true)
 {
 }
 
@@ -70,11 +75,8 @@ String StackFrame::sourceURL() const
 
 String StackFrame::functionName(VM& vm) const
 {
-    if (m_isWasmFrame) {
-        if (m_wasmFunctionIndexOrName.isEmpty())
-            return ASCIILiteral("wasm function");
-        return makeString("wasm function: ", makeString(m_wasmFunctionIndexOrName));
-    }
+    if (m_isWasmFrame)
+        return makeString(m_wasmFunctionIndexOrName);
 
     if (m_codeBlock) {
         switch (m_codeBlock->codeType()) {
@@ -142,9 +144,6 @@ String StackFrame::toString(VM& vm) const
 
 void StackFrame::visitChildren(SlotVisitor& visitor)
 {
-    // FIXME: We should do something here about Wasm::IndexOrName.
-    // https://bugs.webkit.org/show_bug.cgi?id=176644
-    
     if (m_callee)
         visitor.append(m_callee);
     if (m_codeBlock)
