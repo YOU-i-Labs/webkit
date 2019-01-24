@@ -64,6 +64,7 @@ public:
 
     const URL& url() const final { return m_url; }
     String origin() const final;
+    const String& identifier() const { return m_identifier; }
 
 #if ENABLE(INDEXED_DATABASE)
     IDBClient::IDBConnectionProxy* idbConnectionProxy() final;
@@ -89,6 +90,8 @@ public:
 
     virtual ExceptionOr<void> importScripts(const Vector<String>& urls);
     WorkerNavigator& navigator();
+
+    void setIsOnline(bool);
 
     ExceptionOr<int> setTimeout(JSC::ExecState&, std::unique_ptr<ScheduledAction>, int timeout, Vector<JSC::Strong<JSC::Unknown>>&& arguments);
     void clearTimeout(int timeoutId);
@@ -116,8 +119,10 @@ public:
     void createImageBitmap(ImageBitmap::Source&&, ImageBitmapOptions&&, ImageBitmap::Promise&&);
     void createImageBitmap(ImageBitmap::Source&&, int sx, int sy, int sw, int sh, ImageBitmapOptions&&, ImageBitmap::Promise&&);
 
+    unsigned long createUniqueIdentifier() { return m_uniqueIdentifier++; }
+
 protected:
-    WorkerGlobalScope(const URL&, const String& identifier, const String& userAgent, WorkerThread&, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*, PAL::SessionID);
+    WorkerGlobalScope(const URL&, const String& identifier, const String& userAgent, bool isOnline, WorkerThread&, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*, PAL::SessionID);
 
     void applyContentSecurityPolicyResponseHeaders(const ContentSecurityPolicyResponseHeaders&);
 
@@ -176,6 +181,7 @@ private:
     std::unique_ptr<WorkerInspectorController> m_inspectorController;
 
     bool m_closing { false };
+    bool m_isOnline;
     bool m_shouldBypassMainWorldContentSecurityPolicy;
 
     mutable WorkerEventQueue m_eventQueue;
@@ -193,6 +199,8 @@ private:
 
     PAL::SessionID m_sessionID;
     RefPtr<WorkerCacheStorageConnection> m_cacheStorageConnection;
+
+    unsigned long m_uniqueIdentifier { 1 };
 };
 
 } // namespace WebCore

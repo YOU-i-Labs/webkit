@@ -45,6 +45,7 @@
 #include <WebCore/OriginLock.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityOriginData.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/CrossThreadCopier.h>
 #include <wtf/RunLoop.h>
 
@@ -124,8 +125,8 @@ void WebsiteDataStore::resolveDirectoriesIfNecessary()
 
     // Resolve directories for file paths.
     if (!m_configuration.cookieStorageFile.isEmpty()) {
-        m_resolvedConfiguration.cookieStorageFile = resolveAndCreateReadWriteDirectoryForSandboxExtension(WebCore::directoryName(m_configuration.cookieStorageFile));
-        m_resolvedConfiguration.cookieStorageFile = WebCore::pathByAppendingComponent(m_resolvedConfiguration.cookieStorageFile, WebCore::pathGetFileName(m_configuration.cookieStorageFile));
+        m_resolvedConfiguration.cookieStorageFile = resolveAndCreateReadWriteDirectoryForSandboxExtension(WebCore::FileSystem::directoryName(m_configuration.cookieStorageFile));
+        m_resolvedConfiguration.cookieStorageFile = WebCore::FileSystem::pathByAppendingComponent(m_resolvedConfiguration.cookieStorageFile, WebCore::FileSystem::pathGetFileName(m_configuration.cookieStorageFile));
     }
 }
 
@@ -1141,6 +1142,12 @@ void WebsiteDataStore::updatePrevalentDomainsToPartitionOrBlockCookies(const Vec
         processPool->sendToNetworkingProcess(Messages::NetworkProcess::UpdatePrevalentDomainsToPartitionOrBlockCookies(m_sessionID, domainsToPartition, domainsToBlock, domainsToNeitherPartitionNorBlock, shouldClearFirst == ShouldClearFirst::Yes));
 }
 
+void WebsiteDataStore::updateStorageAccessForPrevalentDomainsHandler(const String& resourceDomain, const String& firstPartyDomain, bool value, WTF::CompletionHandler<void(bool wasGranted)>&& callback)
+{
+    for (auto& processPool : processPools())
+        processPool->networkProcess()->updateStorageAccessForPrevalentDomains(m_sessionID, resourceDomain, firstPartyDomain, value, WTFMove(callback));
+}
+
 void WebsiteDataStore::removePrevalentDomains(const Vector<String>& domains)
 {
     for (auto& processPool : processPools())
@@ -1248,7 +1255,7 @@ Vector<PluginModuleInfo> WebsiteDataStore::plugins() const
 
 static String computeMediaKeyFile(const String& mediaKeyDirectory)
 {
-    return WebCore::pathByAppendingComponent(mediaKeyDirectory, "SecureStop.plist");
+    return WebCore::FileSystem::pathByAppendingComponent(mediaKeyDirectory, "SecureStop.plist");
 }
 
 Vector<WebCore::SecurityOriginData> WebsiteDataStore::mediaKeyOrigins(const String& mediaKeysStorageDirectory)
@@ -1257,12 +1264,12 @@ Vector<WebCore::SecurityOriginData> WebsiteDataStore::mediaKeyOrigins(const Stri
 
     Vector<WebCore::SecurityOriginData> origins;
 
-    for (const auto& originPath : WebCore::listDirectory(mediaKeysStorageDirectory, "*")) {
+    for (const auto& originPath : WebCore::FileSystem::listDirectory(mediaKeysStorageDirectory, "*")) {
         auto mediaKeyFile = computeMediaKeyFile(originPath);
-        if (!WebCore::fileExists(mediaKeyFile))
+        if (!WebCore::FileSystem::fileExists(mediaKeyFile))
             continue;
 
-        auto mediaKeyIdentifier = WebCore::pathGetFileName(originPath);
+        auto mediaKeyIdentifier = WebCore::FileSystem::pathGetFileName(originPath);
 
         if (auto securityOrigin = WebCore::SecurityOriginData::fromDatabaseIdentifier(mediaKeyIdentifier))
             origins.append(*securityOrigin);
@@ -1275,18 +1282,18 @@ void WebsiteDataStore::removeMediaKeys(const String& mediaKeysStorageDirectory, 
 {
     ASSERT(!mediaKeysStorageDirectory.isEmpty());
 
-    for (const auto& mediaKeyDirectory : WebCore::listDirectory(mediaKeysStorageDirectory, "*")) {
+    for (const auto& mediaKeyDirectory : WebCore::FileSystem::listDirectory(mediaKeysStorageDirectory, "*")) {
         auto mediaKeyFile = computeMediaKeyFile(mediaKeyDirectory);
 
         time_t modificationTime;
-        if (!WebCore::getFileModificationTime(mediaKeyFile, modificationTime))
+        if (!WebCore::FileSystem::getFileModificationTime(mediaKeyFile, modificationTime))
             continue;
 
         if (std::chrono::system_clock::from_time_t(modificationTime) < modifiedSince)
             continue;
 
-        WebCore::deleteFile(mediaKeyFile);
-        WebCore::deleteEmptyDirectory(mediaKeyDirectory);
+        WebCore::FileSystem::deleteFile(mediaKeyFile);
+        WebCore::FileSystem::deleteEmptyDirectory(mediaKeyDirectory);
     }
 }
 
@@ -1295,11 +1302,11 @@ void WebsiteDataStore::removeMediaKeys(const String& mediaKeysStorageDirectory, 
     ASSERT(!mediaKeysStorageDirectory.isEmpty());
 
     for (const auto& origin : origins) {
-        auto mediaKeyDirectory = WebCore::pathByAppendingComponent(mediaKeysStorageDirectory, origin.databaseIdentifier());
+        auto mediaKeyDirectory = WebCore::FileSystem::pathByAppendingComponent(mediaKeysStorageDirectory, origin.databaseIdentifier());
         auto mediaKeyFile = computeMediaKeyFile(mediaKeyDirectory);
 
-        WebCore::deleteFile(mediaKeyFile);
-        WebCore::deleteEmptyDirectory(mediaKeyDirectory);
+        WebCore::FileSystem::deleteFile(mediaKeyFile);
+        WebCore::FileSystem::deleteEmptyDirectory(mediaKeyDirectory);
     }
 }
 
@@ -1334,7 +1341,9 @@ void WebsiteDataStore::enableResourceLoadStatisticsAndSetTestingCallback(Functio
 #if HAVE(CFNETWORK_STORAGE_PARTITIONING)
     m_resourceLoadStatistics = WebResourceLoadStatisticsStore::create(m_configuration.resourceLoadStatisticsDirectory, WTFMove(callback), [this] (const Vector<String>& domainsToPartition, const Vector<String>& domainsToBlock, const Vector<String>& domainsToNeitherPartitionNorBlock, ShouldClearFirst shouldClearFirst) {
         updatePrevalentDomainsToPartitionOrBlockCookies(domainsToPartition, domainsToBlock, domainsToNeitherPartitionNorBlock, shouldClearFirst);
-    }, [this] (const Vector<String>& domainsToRemove) {
+    }, [this, protectedThis = makeRef(*this)] (const String& resourceDomain, const String& firstPartyDomain, bool value, WTF::Function<void(bool wasGranted)>&& callback) {
+        updateStorageAccessForPrevalentDomainsHandler(resourceDomain, firstPartyDomain, value, WTFMove(callback));
+    }, [this, protectedThis = makeRef(*this)] (const Vector<String>& domainsToRemove) {
         removePrevalentDomains(domainsToRemove);
     });
 #else

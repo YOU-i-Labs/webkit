@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,12 +32,12 @@
 #include "DOMStringList.h"
 #include "DOMWindow.h"
 #include "Event.h"
+#include "EventDispatcher.h"
 #include "EventNames.h"
 #include "EventQueue.h"
 #include "IDBCursorWithValue.h"
 #include "IDBDatabase.h"
 #include "IDBError.h"
-#include "IDBEventDispatcher.h"
 #include "IDBGetRecordData.h"
 #include "IDBIndex.h"
 #include "IDBIterateCursorData.h"
@@ -153,9 +153,8 @@ ExceptionOr<Ref<IDBObjectStore>> IDBTransaction::objectStore(const String& objec
 
     Locker<Lock> locker(m_referencedObjectStoreLock);
 
-    auto iterator = m_referencedObjectStores.find(objectStoreName);
-    if (iterator != m_referencedObjectStores.end())
-        return Ref<IDBObjectStore> { *iterator->value };
+    if (auto* store = m_referencedObjectStores.get(objectStoreName))
+        return makeRef(*store);
 
     bool found = false;
     for (auto& objectStore : m_info.objectStores()) {
@@ -614,7 +613,7 @@ void IDBTransaction::enqueueEvent(Ref<Event>&& event)
     scriptExecutionContext()->eventQueue().enqueueEvent(WTFMove(event));
 }
 
-bool IDBTransaction::dispatchEvent(Event& event)
+void IDBTransaction::dispatchEvent(Event& event)
 {
     LOG(IndexedDB, "IDBTransaction::dispatchEvent");
 
@@ -624,11 +623,9 @@ bool IDBTransaction::dispatchEvent(Event& event)
     ASSERT(event.target() == this);
     ASSERT(event.type() == eventNames().completeEvent || event.type() == eventNames().abortEvent);
 
-    Vector<RefPtr<EventTarget>> targets;
-    targets.append(this);
-    targets.append(db());
+    auto protectedThis = makeRef(*this);
 
-    bool result = IDBEventDispatcher::dispatch(event, targets);
+    EventDispatcher::dispatchEvent({ this, m_database.ptr() }, event);
 
     if (isVersionChange()) {
         ASSERT(m_openDBRequest);
@@ -643,8 +640,6 @@ bool IDBTransaction::dispatchEvent(Event& event)
 
         m_openDBRequest = nullptr;
     }
-
-    return result;
 }
 
 Ref<IDBObjectStore> IDBTransaction::createObjectStore(const IDBObjectStoreInfo& info)

@@ -110,12 +110,6 @@ public:
     // Only the arithmetic composite filter ever needs to perform correction.
     virtual void correctFilterResultIfNeeded() { }
 
-    virtual void platformApplySoftware() = 0;
-#if ENABLE(OPENCL)
-    virtual bool platformApplyOpenCL();
-#endif
-    virtual void dump() = 0;
-
     virtual void determineAbsolutePaintRect();
 
     virtual FilterEffectType filterEffectType() const { return FilterEffectTypeUnknown; }
@@ -144,6 +138,7 @@ public:
     void setEffectBoundaries(const FloatRect& effectBoundaries) { m_effectBoundaries = effectBoundaries; }
 
     Filter& filter() { return m_filter; }
+    const Filter& filter() const { return m_filter; }
 
     bool clipsToBounds() const { return m_clipsToBounds; }
     void setClipsToBounds(bool value) { m_clipsToBounds = value; }
@@ -184,6 +179,8 @@ protected:
     }
 
 private:
+    virtual void platformApplySoftware() = 0;
+
     std::unique_ptr<ImageBuffer> m_imageBufferResult;
     RefPtr<Uint8ClampedArray> m_unmultipliedImageResult;
     RefPtr<Uint8ClampedArray> m_premultipliedImageResult;

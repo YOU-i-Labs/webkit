@@ -270,8 +270,13 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
 
     case HasGenericProperty:
     case HasStructureProperty:
-    case GetEnumerableLength:
     case GetPropertyEnumerator: {
+        read(World);
+        write(Heap);
+        return;
+    }
+
+    case GetEnumerableLength: {
         read(Heap);
         write(SideState);
         return;
@@ -432,6 +437,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case Switch:
     case EntrySwitch:
     case ForceOSRExit:
+    case CPUIntrinsic:
     case CheckBadCell:
     case Return:
     case Unreachable:
@@ -522,7 +528,16 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         write(HeapObjectCount);
         return;
 
+    case ToObject:
+        read(World);
+        write(Heap);
+        return;
+
     case CallObjectConstructor:
+        read(HeapObjectCount);
+        write(HeapObjectCount);
+        return;
+
     case ToThis:
     case CreateThis:
         read(MiscFields);
@@ -769,8 +784,13 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
             return;
             
         case Array::DirectArguments:
-            read(DirectArgumentsProperties);
-            def(HeapLocation(indexedPropertyLoc, DirectArgumentsProperties, node->child1(), node->child2()), LazyNode(node));
+            if (mode.isInBounds()) {
+                read(DirectArgumentsProperties);
+                def(HeapLocation(indexedPropertyLoc, DirectArgumentsProperties, node->child1(), node->child2()), LazyNode(node));
+                return;
+            }
+            read(World);
+            write(Heap);
             return;
             
         case Array::ScopedArguments:
@@ -1561,6 +1581,8 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         }
         
     case CountExecution:
+    case SuperSamplerBegin:
+    case SuperSamplerEnd:
         read(InternalState);
         write(InternalState);
         return;
@@ -1620,6 +1642,10 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         def(HeapLocation(WeakMapGetLoc, MiscFields, mapEdge, keyEdge), LazyNode(node));
         return;
     }
+
+    case StringSlice:
+        def(PureValue(node));
+        return;
 
     case ToLowerCase:
         def(PureValue(node));

@@ -251,7 +251,7 @@ void NetworkConnectionToWebProcess::loadPing(NetworkResourceLoadParameters&& loa
     auto context = RemoteNetworkingContext::create(loadParameters.sessionID, loadParameters.shouldClearReferrerOnHTTPSToHTTPRedirect);
 
     // PingHandle manages its own lifetime, deleting itself when its purpose has been fulfilled.
-    new PingHandle(context.ptr(), loadParameters.request, loadParameters.storedCredentialsPolicy == StoredCredentialsPolicy::Use, PingHandle::UsesAsyncCallbacks::Yes, loadParameters.shouldFollowRedirects, WTFMove(completionHandler));
+    new PingHandle(context.ptr(), loadParameters.request, loadParameters.storedCredentialsPolicy == StoredCredentialsPolicy::Use, loadParameters.shouldFollowRedirects, WTFMove(completionHandler));
 #endif
 }
 
@@ -468,7 +468,7 @@ void NetworkConnectionToWebProcess::setCaptureExtraNetworkLoadMetricsEnabled(boo
 
 void NetworkConnectionToWebProcess::ensureLegacyPrivateBrowsingSession()
 {
-    NetworkProcess::singleton().ensurePrivateBrowsingSession({ { }, { }, { }, { }, WebsiteDataStore::defaultCacheStoragePerOriginQuota, { }, { PAL::SessionID::legacyPrivateSessionID(), { }, { }, AllowsCellularAccess::Yes }});
+    NetworkProcess::singleton().addWebsiteDataStore(WebsiteDataStoreParameters::legacyPrivateSessionParameters());
 }
 
 } // namespace WebKit

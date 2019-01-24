@@ -59,34 +59,25 @@ WebCore::SWClientConnection& WebServiceWorkerProvider::serviceWorkerConnectionFo
     return WebProcess::singleton().webToStorageProcessConnection()->serviceWorkerConnectionForSession(sessionID);
 }
 
-static inline bool shouldHandleFetch(const WebSWClientConnection& connection, CachedResource* resource, const ResourceLoaderOptions& options)
+static inline bool shouldHandleFetch(const ResourceLoaderOptions& options)
 {
-    if (options.serviceWorkersMode != ServiceWorkersMode::All)
+    if (options.serviceWorkersMode == ServiceWorkersMode::None)
         return false;
 
     if (isPotentialNavigationOrSubresourceRequest(options.destination))
         return false;
 
-    // FIXME: Implement non-subresource request loads.
-    if (isNonSubresourceRequest(options.destination) || !options.serviceWorkerIdentifier)
-        return false;
-
-    if (!resource)
-        return false;
-
-    return connection.hasServiceWorkerRegisteredForOrigin(*resource->origin());
+    return !!options.serviceWorkerIdentifier;
 }
 
 void WebServiceWorkerProvider::handleFetch(ResourceLoader& loader, CachedResource* resource, PAL::SessionID sessionID, ServiceWorkerClientFetch::Callback&& callback)
 {
-    auto& connection = WebProcess::singleton().webToStorageProcessConnection()->serviceWorkerConnectionForSession(sessionID);
-
-    if (!shouldHandleFetch(connection, resource, loader.options())) {
-        // FIXME: Add an option to error resource load for DTL to actually go through preflight.
+    if (!loader.request().url().protocolIsInHTTPFamily() || !shouldHandleFetch(loader.options())) {
         callback(ServiceWorkerClientFetch::Result::Unhandled);
         return;
     }
 
+    auto& connection = WebProcess::singleton().webToStorageProcessConnection()->serviceWorkerConnectionForSession(sessionID);
     auto fetch = connection.startFetch(*this, loader, loader.identifier(), WTFMove(callback));
     ASSERT(fetch->isOngoing());
 

@@ -238,7 +238,7 @@ void NetworkProcess::initializeNetworkProcess(NetworkProcessCreationParameters&&
 
     // FIXME: instead of handling this here, a message should be sent later (scales to multiple sessions)
     if (parameters.privateBrowsingEnabled)
-        RemoteNetworkingContext::ensurePrivateBrowsingSession({ { }, { }, { }, { }, WebsiteDataStore::defaultCacheStoragePerOriginQuota, { }, { PAL::SessionID::legacyPrivateSessionID(), { }, { },  AllowsCellularAccess::Yes }});
+        RemoteNetworkingContext::ensureWebsiteDataStoreSession(WebsiteDataStoreParameters::legacyPrivateSessionParameters());
 
     if (parameters.shouldUseTestingNetworkSession)
         NetworkStorageSession::switchToNewTestingSession();
@@ -297,11 +297,6 @@ void NetworkProcess::clearCachedCredentials()
 #endif
 }
 
-void NetworkProcess::ensurePrivateBrowsingSession(WebsiteDataStoreParameters&& parameters)
-{
-    RemoteNetworkingContext::ensurePrivateBrowsingSession(WTFMove(parameters));
-}
-
 void NetworkProcess::addWebsiteDataStore(WebsiteDataStoreParameters&& parameters)
 {
     RemoteNetworkingContext::ensureWebsiteDataStoreSession(WTFMove(parameters));
@@ -332,6 +327,19 @@ void NetworkProcess::updatePrevalentDomainsToPartitionOrBlockCookies(PAL::Sessio
 {
     if (auto* networkStorageSession = NetworkStorageSession::storageSession(sessionID))
         networkStorageSession->setPrevalentDomainsToPartitionOrBlockCookies(domainsToPartition, domainsToBlock, domainsToNeitherPartitionNorBlock, shouldClearFirst);
+}
+
+void NetworkProcess::updateStorageAccessForPrevalentDomains(PAL::SessionID sessionID, const String& resourceDomain, const String& firstPartyDomain, bool shouldGrantStorage, uint64_t contextId)
+{
+    bool isStorageGranted = false;
+    if (auto* networkStorageSession = NetworkStorageSession::storageSession(sessionID)) {
+        networkStorageSession->setStorageAccessGranted(resourceDomain, firstPartyDomain, shouldGrantStorage);
+        ASSERT(networkStorageSession->isStorageAccessGranted(resourceDomain, firstPartyDomain) == shouldGrantStorage);
+        isStorageGranted = shouldGrantStorage;
+    } else
+        ASSERT_NOT_REACHED();
+
+    parentProcessConnection()->send(Messages::NetworkProcessProxy::StorageAccessRequestResult(isStorageGranted, contextId), 0);
 }
 
 void NetworkProcess::removePrevalentDomains(PAL::SessionID sessionID, const Vector<String>& domains)
@@ -601,7 +609,7 @@ void NetworkProcess::setCacheModel(uint32_t cm)
     unsigned urlCacheMemoryCapacity = 0;
     uint64_t urlCacheDiskCapacity = 0;
     uint64_t diskFreeSize = 0;
-    if (WebCore::getVolumeFreeSpace(m_diskCacheDirectory, diskFreeSize)) {
+    if (WebCore::FileSystem::getVolumeFreeSpace(m_diskCacheDirectory, diskFreeSize)) {
         // As a fudge factor, use 1000 instead of 1024, in case the reported byte
         // count doesn't align exactly to a megabyte boundary.
         diskFreeSize /= KB * 1000;

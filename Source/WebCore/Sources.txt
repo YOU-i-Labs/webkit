@@ -70,7 +70,6 @@ Modules/indexeddb/IDBCursor.cpp
 Modules/indexeddb/IDBCursorWithValue.cpp
 Modules/indexeddb/IDBDatabase.cpp
 Modules/indexeddb/IDBDatabaseIdentifier.cpp
-Modules/indexeddb/IDBEventDispatcher.cpp
 Modules/indexeddb/IDBFactory.cpp
 Modules/indexeddb/IDBGetAllResult.cpp
 Modules/indexeddb/IDBGetResult.cpp
@@ -309,6 +308,7 @@ accessibility/AccessibilityTableHeaderContainer.cpp
 accessibility/AccessibilityTableRow.cpp
 accessibility/AccessibilityTree.cpp
 accessibility/AccessibilityTreeItem.cpp
+accessibility/AccessibleNode.cpp
 
 animation/AnimationEffect.cpp
 animation/AnimationEffectTiming.cpp
@@ -392,6 +392,7 @@ bindings/js/JSMessageChannelCustom.cpp
 bindings/js/JSMessageEventCustom.cpp
 bindings/js/JSMessagePortCustom.cpp
 bindings/js/JSMutationObserverCustom.cpp
+bindings/js/JSNavigatorCustom.cpp
 bindings/js/JSNodeCustom.cpp
 bindings/js/JSNodeIteratorCustom.cpp
 bindings/js/JSNodeListCustom.cpp
@@ -889,6 +890,7 @@ html/BaseClickableWithKeyInputType.cpp
 html/BaseDateAndTimeInputType.cpp
 html/BaseTextInputType.cpp
 html/ButtonInputType.cpp
+html/CanvasBase.cpp
 html/CheckboxInputType.cpp
 html/ColorInputType.cpp
 html/DOMFormData.cpp
@@ -952,6 +954,7 @@ html/HTMLMapElement.cpp
 html/HTMLMarqueeElement.cpp
 html/HTMLMediaElement.cpp
 html/HTMLMenuElement.cpp
+html/HTMLMenuItemElement.cpp
 html/HTMLMetaElement.cpp
 html/HTMLMeterElement.cpp
 html/HTMLModElement.cpp
@@ -1011,6 +1014,7 @@ html/MediaElementSession.cpp
 html/MediaFragmentURIParser.cpp
 html/MonthInputType.cpp
 html/NumberInputType.cpp
+html/OffscreenCanvas.cpp
 html/PasswordInputType.cpp
 html/PluginDocument.cpp
 html/PublicURLManager.cpp
@@ -1106,50 +1110,56 @@ inspector/CommandLineAPIHost.cpp
 inspector/CommandLineAPIModule.cpp
 inspector/DOMEditor.cpp
 inspector/DOMPatchSupport.cpp
-inspector/InspectorApplicationCacheAgent.cpp
-inspector/InspectorCSSAgent.cpp
 inspector/InspectorCanvas.cpp
-inspector/InspectorCanvasAgent.cpp
 inspector/InspectorClient.cpp
 inspector/InspectorController.cpp
-inspector/InspectorDOMAgent.cpp
-inspector/InspectorDOMDebuggerAgent.cpp
-inspector/InspectorDOMStorageAgent.cpp
-inspector/InspectorDatabaseAgent.cpp
 inspector/InspectorDatabaseResource.cpp
 inspector/InspectorFrontendClientLocal.cpp
 inspector/InspectorFrontendHost.cpp
 inspector/InspectorHistory.cpp
-inspector/InspectorIndexedDBAgent.cpp
 inspector/InspectorInstrumentation.cpp
 inspector/InspectorInstrumentationCookie.cpp
-inspector/InspectorLayerTreeAgent.cpp
-inspector/InspectorMemoryAgent.cpp
-inspector/InspectorNetworkAgent.cpp
 inspector/InspectorNodeFinder.cpp
 inspector/InspectorOverlay.cpp
-inspector/InspectorPageAgent.cpp
 inspector/InspectorStyleSheet.cpp
-inspector/InspectorTimelineAgent.cpp
-inspector/InspectorWorkerAgent.cpp
 inspector/InstrumentingAgents.cpp
 inspector/NetworkResourcesData.cpp
-inspector/PageConsoleAgent.cpp
-inspector/PageDebuggerAgent.cpp
-inspector/PageHeapAgent.cpp
-inspector/PageRuntimeAgent.cpp
 inspector/PageScriptDebugServer.cpp
 inspector/TimelineRecordFactory.cpp
-inspector/WebConsoleAgent.cpp
-inspector/WebDebuggerAgent.cpp
-inspector/WebHeapAgent.cpp
 inspector/WebInjectedScriptHost.cpp
 inspector/WebInjectedScriptManager.cpp
-inspector/WorkerConsoleAgent.cpp
-inspector/WorkerDebuggerAgent.cpp
 inspector/WorkerInspectorController.cpp
-inspector/WorkerRuntimeAgent.cpp
 inspector/WorkerScriptDebugServer.cpp
+
+inspector/agents/InspectorApplicationCacheAgent.cpp
+inspector/agents/InspectorCSSAgent.cpp
+inspector/agents/InspectorCanvasAgent.cpp
+inspector/agents/InspectorDOMAgent.cpp
+inspector/agents/InspectorDOMDebuggerAgent.cpp
+inspector/agents/InspectorDOMStorageAgent.cpp
+inspector/agents/InspectorDatabaseAgent.cpp
+inspector/agents/InspectorIndexedDBAgent.cpp
+inspector/agents/InspectorLayerTreeAgent.cpp
+inspector/agents/InspectorMemoryAgent.cpp
+inspector/agents/InspectorNetworkAgent.cpp
+inspector/agents/InspectorPageAgent.cpp
+inspector/agents/InspectorTimelineAgent.cpp
+inspector/agents/InspectorWorkerAgent.cpp
+inspector/agents/WebConsoleAgent.cpp
+inspector/agents/WebDebuggerAgent.cpp
+inspector/agents/WebHeapAgent.cpp
+
+inspector/agents/page/PageConsoleAgent.cpp
+inspector/agents/page/PageDebuggerAgent.cpp
+inspector/agents/page/PageHeapAgent.cpp
+inspector/agents/page/PageNetworkAgent.cpp
+inspector/agents/page/PageRuntimeAgent.cpp
+
+inspector/agents/worker/ServiceWorkerAgent.cpp
+inspector/agents/worker/WorkerConsoleAgent.cpp
+inspector/agents/worker/WorkerDebuggerAgent.cpp
+inspector/agents/worker/WorkerNetworkAgent.cpp
+inspector/agents/worker/WorkerRuntimeAgent.cpp
 
 loader/ContentFilter.cpp
 loader/CookieJar.cpp
@@ -1376,7 +1386,7 @@ platform/Cursor.cpp
 platform/DateComponents.cpp
 platform/Decimal.cpp
 platform/DragData.cpp
-platform/DragImage.cpp @no-unify // FIXME: We only have this because WPE fails to build with it unified. See: https://bugs.webkit.org/show_bug.cgi?id=178844
+platform/DragImage.cpp
 platform/EventTrackingRegions.cpp
 platform/FileChooser.cpp
 platform/FileHandle.cpp
@@ -1471,6 +1481,7 @@ platform/encryptedmedia/CDMFactory.cpp
 
 platform/graphics/BitmapImage.cpp
 platform/graphics/Color.cpp
+platform/graphics/ColorUtilities.cpp
 platform/graphics/ComplexTextController.cpp
 platform/graphics/CrossfadeGeneratedImage.cpp
 platform/graphics/DisplayRefreshMonitor.cpp
@@ -1495,16 +1506,17 @@ platform/graphics/FontTaggedSettings.cpp
 platform/graphics/FontGenericFamilies.cpp
 platform/graphics/FontPlatformData.cpp
 platform/graphics/FontRanges.cpp
+platform/graphics/FourCC.cpp
 platform/graphics/GeneratedImage.cpp
 platform/graphics/GeometryUtilities.cpp
 platform/graphics/Gradient.cpp
 platform/graphics/GradientImage.cpp
 platform/graphics/GraphicsContext.cpp
+platform/graphics/GraphicsContextImpl.cpp
 platform/graphics/GraphicsLayer.cpp
 platform/graphics/GraphicsLayerTransform.cpp
 platform/graphics/GraphicsLayerUpdater.cpp
 platform/graphics/GraphicsTypes.cpp
-platform/graphics/ISOVTTCue.cpp
 platform/graphics/Image.cpp
 platform/graphics/ImageBuffer.cpp
 platform/graphics/ImageDecoder.cpp
@@ -1588,6 +1600,14 @@ platform/graphics/gpu/GPURenderPipelineDescriptor.cpp
 platform/graphics/gpu/GPURenderPipelineState.cpp
 platform/graphics/gpu/GPUTexture.cpp
 platform/graphics/gpu/GPUTextureDescriptor.cpp
+
+platform/graphics/iso/ISOBox.cpp
+platform/graphics/iso/ISOOriginalFormatBox.cpp
+platform/graphics/iso/ISOProtectionSchemeInfoBox.cpp
+platform/graphics/iso/ISOSchemeInformationBox.cpp
+platform/graphics/iso/ISOSchemeTypeBox.cpp
+platform/graphics/iso/ISOTrackEncryptionBox.cpp
+platform/graphics/iso/ISOVTTCue.cpp
 
 platform/graphics/opentype/OpenTypeMathData.cpp
 
@@ -1913,6 +1933,7 @@ rendering/svg/RenderSVGResourceRadialGradient.cpp
 rendering/svg/RenderSVGResourceSolidColor.cpp
 rendering/svg/RenderSVGRoot.cpp
 rendering/svg/RenderSVGShape.cpp
+rendering/svg/RenderSVGTSpan.cpp
 rendering/svg/RenderSVGText.cpp
 rendering/svg/RenderSVGTextPath.cpp
 rendering/svg/RenderSVGTransformableContainer.cpp
@@ -2153,9 +2174,11 @@ workers/service/ExtendableMessageEvent.cpp
 workers/service/FetchEvent.cpp
 workers/service/ServiceWorker.cpp
 workers/service/ServiceWorkerClient.cpp
+workers/service/ServiceWorkerClientData.cpp
 workers/service/ServiceWorkerClients.cpp
 workers/service/ServiceWorkerContainer.cpp
 workers/service/ServiceWorkerContextData.cpp
+workers/service/ServiceWorkerData.cpp
 workers/service/ServiceWorkerGlobalScope.cpp
 workers/service/ServiceWorkerJob.cpp
 workers/service/ServiceWorkerJobData.cpp
@@ -2166,14 +2189,19 @@ workers/service/ServiceWorkerRegistrationKey.cpp
 workers/service/ServiceWorkerRegistrationOptions.cpp
 workers/service/ServiceWorkerWindowClient.cpp
 
+workers/service/context/ServiceWorkerDebuggable.cpp
 workers/service/context/ServiceWorkerFetch.cpp
+workers/service/context/ServiceWorkerInspectorProxy.cpp
 workers/service/context/ServiceWorkerThread.cpp
 workers/service/context/ServiceWorkerThreadProxy.cpp
 workers/service/context/SWContextManager.cpp
 
 workers/service/server/SWClientConnection.cpp
+workers/service/server/SWOriginStore.cpp
 workers/service/server/SWServer.cpp
+workers/service/server/SWServerJobQueue.cpp
 workers/service/server/SWServerRegistration.cpp
+workers/service/server/SWServerToContextConnection.cpp
 workers/service/server/SWServerWorker.cpp
 
 xml/DOMParser.cpp
@@ -2234,6 +2262,7 @@ JSHTMLElementWrapperFactory.cpp
 JSAbortController.cpp
 JSAbortSignal.cpp
 JSAbstractWorker.cpp
+JSAccessibleNode.cpp
 JSAesCbcCfbParams.cpp
 JSAesCtrParams.cpp
 JSAesGcmParams.cpp
@@ -2253,7 +2282,6 @@ JSAudioListener.cpp
 JSAudioNode.cpp
 JSAudioParam.cpp
 JSAudioProcessingEvent.cpp
-JSAudioTrackMediaSource.cpp
 JSBarProp.cpp
 JSBasicCredential.cpp
 JSBeforeLoadEvent.cpp
@@ -2494,6 +2522,7 @@ JSHTMLMarqueeElement.cpp
 JSHTMLMediaElement.cpp
 JSHTMLMediaElementMediaSession.cpp
 JSHTMLMenuElement.cpp
+JSHTMLMenuItemElement.cpp
 JSHTMLMetaElement.cpp
 JSHTMLMeterElement.cpp
 JSHTMLModElement.cpp
@@ -2615,6 +2644,7 @@ JSNotificationPermission.cpp
 JSNotificationPermissionCallback.cpp
 JSOfflineAudioCompletionEvent.cpp
 JSOfflineAudioContext.cpp
+JSOffscreenCanvas.cpp
 JSOscillatorNode.cpp
 JSOverconstrainedError.cpp
 JSOverconstrainedErrorEvent.cpp
@@ -2891,7 +2921,6 @@ JSTextDecoder.cpp
 JSTextEncoder.cpp
 JSTextEvent.cpp
 JSTextMetrics.cpp
-JSTextTrackMediaSource.cpp
 JSTimeRanges.cpp
 JSTransitionEvent.cpp
 JSTreeWalker.cpp
@@ -2911,7 +2940,6 @@ JSVRPose.cpp
 JSVRStageParameters.cpp
 JSValidityState.cpp
 JSVideoPlaybackQuality.cpp
-JSVideoTrackMediaSource.cpp
 JSVisibilityState.cpp
 JSVoidCallback.cpp
 JSWaveShaperNode.cpp
@@ -3069,6 +3097,12 @@ JSVTTRegion.cpp
 JSVTTRegionList.cpp
 JSVideoTrack.cpp
 JSVideoTrackList.cpp
+
+#if ENABLE_MEDIA_SOURCE
+JSAudioTrackMediaSource.cpp
+JSTextTrackMediaSource.cpp
+JSVideoTrackMediaSource.cpp
+#endif
 
 #endif
 

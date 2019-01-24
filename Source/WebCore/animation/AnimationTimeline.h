@@ -28,6 +28,7 @@
 
 #include "WebAnimation.h"
 #include <wtf/Forward.h>
+#include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Optional.h>
 #include <wtf/Ref.h>
@@ -36,6 +37,8 @@
 
 namespace WebCore {
 
+class AnimationEffect;
+class Element;
 class WebAnimation;
 
 class AnimationTimeline : public RefCounted<AnimationTimeline> {
@@ -43,10 +46,18 @@ public:
     bool isDocumentTimeline() const { return m_classType == DocumentTimelineClass; }
     void addAnimation(Ref<WebAnimation>&&);
     void removeAnimation(Ref<WebAnimation>&&);
-    std::optional<double> bindingsCurrentTime() const;
-    std::optional<Seconds> currentTime() const { return m_currentTime; }
+    std::optional<double> bindingsCurrentTime();
+    virtual std::optional<Seconds> currentTime() { return m_currentTime; }
     WEBCORE_EXPORT void setCurrentTime(Seconds);
     WEBCORE_EXPORT String description();
+    WEBCORE_EXPORT virtual void pause() { };
+
+    virtual void animationTimingModelDidChange() { };
+
+    const HashSet<RefPtr<WebAnimation>>& animations() const { return m_animations; }
+    Vector<RefPtr<WebAnimation>> animationsForElement(Element&);
+    void animationWasAddedToElement(WebAnimation&, Element&);
+    void animationWasRemovedFromElement(WebAnimation&, Element&);
 
     virtual ~AnimationTimeline();
 
@@ -59,9 +70,12 @@ protected:
 
     explicit AnimationTimeline(ClassType);
 
+    const HashMap<RefPtr<Element>, Vector<RefPtr<WebAnimation>>>& elementToAnimationsMap() { return m_elementToAnimationsMap; }
+
 private:
     ClassType m_classType;
     std::optional<Seconds> m_currentTime;
+    HashMap<RefPtr<Element>, Vector<RefPtr<WebAnimation>>> m_elementToAnimationsMap;
     HashSet<RefPtr<WebAnimation>> m_animations;
 };
 

@@ -29,6 +29,7 @@
 
 #include "AXObjectCache.h"
 #include "ActiveDOMCallbackMicrotask.h"
+#include "AnimationTimeline.h"
 #include "ApplicationCacheStorage.h"
 #include "AudioSession.h"
 #include "Autofill.h"
@@ -132,6 +133,7 @@
 #include "SecurityOrigin.h"
 #include "SerializedScriptValue.h"
 #include "ServiceWorkerProvider.h"
+#include "ServiceWorkerRegistrationData.h"
 #include "Settings.h"
 #include "ShadowRoot.h"
 #include "SourceBuffer.h"
@@ -147,6 +149,7 @@
 #include "UserGestureIndicator.h"
 #include "UserMediaController.h"
 #include "ViewportArguments.h"
+#include "VoidCallback.h"
 #include "WebCoreJSClientData.h"
 #if ENABLE(WEBGL)
 #include "WebGLRenderingContext.h"
@@ -984,6 +987,17 @@ bool Internals::hasPausedImageAnimations(Element& element)
 {
     return element.renderer() && element.renderer()->hasPausedImageAnimations();
 }
+    
+bool Internals::isPaintingFrequently(Element& element)
+{
+    return element.renderer() && element.renderer()->enclosingLayer() && element.renderer()->enclosingLayer()->paintingFrequently();
+}
+
+void Internals::incrementFrequentPaintCounter(Element& element)
+{
+    if (element.renderer() && element.renderer()->enclosingLayer())
+        element.renderer()->enclosingLayer()->simulateFrequentPaint();
+}
 
 Ref<CSSComputedStyleDeclaration> Internals::computedStyleIncludingVisitedInfo(Element& element) const
 {
@@ -1033,7 +1047,7 @@ static unsigned deferredStyleRulesCountForList(const Vector<RefPtr<StyleRuleBase
 {
     unsigned count = 0;
     for (auto rule : childRules) {
-        if (is<StyleRule>(rule.get())) {
+        if (is<StyleRule>(rule)) {
             auto* cssRule = downcast<StyleRule>(rule.get());
             if (!cssRule->propertiesWithoutDeferredParsing())
                 count++;
@@ -1041,9 +1055,9 @@ static unsigned deferredStyleRulesCountForList(const Vector<RefPtr<StyleRuleBase
         }
 
         StyleRuleGroup* groupRule = nullptr;
-        if (is<StyleRuleMedia>(rule.get()))
+        if (is<StyleRuleMedia>(rule))
             groupRule = downcast<StyleRuleMedia>(rule.get());
-        else if (is<StyleRuleSupports>(rule.get()))
+        else if (is<StyleRuleSupports>(rule))
             groupRule = downcast<StyleRuleSupports>(rule.get());
         if (!groupRule)
             continue;
@@ -1068,9 +1082,9 @@ static unsigned deferredGroupRulesCountForList(const Vector<RefPtr<StyleRuleBase
     unsigned count = 0;
     for (auto rule : childRules) {
         StyleRuleGroup* groupRule = nullptr;
-        if (is<StyleRuleMedia>(rule.get()))
+        if (is<StyleRuleMedia>(rule))
             groupRule = downcast<StyleRuleMedia>(rule.get());
-        else if (is<StyleRuleSupports>(rule.get()))
+        else if (is<StyleRuleSupports>(rule))
             groupRule = downcast<StyleRuleSupports>(rule.get());
         if (!groupRule)
             continue;
@@ -1093,7 +1107,7 @@ static unsigned deferredKeyframesRulesCountForList(const Vector<RefPtr<StyleRule
 {
     unsigned count = 0;
     for (auto rule : childRules) {
-        if (is<StyleRuleKeyframes>(rule.get())) {
+        if (is<StyleRuleKeyframes>(rule)) {
             auto* cssRule = downcast<StyleRuleKeyframes>(rule.get());
             if (!cssRule->keyframesWithoutDeferredParsing())
                 count++;
@@ -1101,9 +1115,9 @@ static unsigned deferredKeyframesRulesCountForList(const Vector<RefPtr<StyleRule
         }
 
         StyleRuleGroup* groupRule = nullptr;
-        if (is<StyleRuleMedia>(rule.get()))
+        if (is<StyleRuleMedia>(rule))
             groupRule = downcast<StyleRuleMedia>(rule.get());
-        else if (is<StyleRuleSupports>(rule.get()))
+        else if (is<StyleRuleSupports>(rule))
             groupRule = downcast<StyleRuleSupports>(rule.get());
         if (!groupRule)
             continue;
@@ -1507,6 +1521,16 @@ ExceptionOr<void> Internals::setScrollViewPosition(int x, int y)
     frameView.setScrollbarsSuppressed(scrollbarsSuppressedOldValue);
     frameView.setConstrainsScrollingToContentEdge(constrainsScrollingToContentEdgeOldValue);
 
+    return { };
+}
+
+ExceptionOr<void> Internals::unconstrainedScrollTo(Element& element, double x, double y)
+{
+    Document* document = contextDocument();
+    if (!document || !document->view())
+        return Exception { InvalidAccessError };
+
+    element.scrollTo({ x, y }, ScrollClamping::Unclamped);
     return { };
 }
 
@@ -2720,7 +2744,7 @@ Ref<MemoryInfo> Internals::memoryInfo() const
 Vector<String> Internals::getReferencedFilePaths() const
 {
     frame()->loader().history().saveDocumentAndScrollState();
-    return FormController::getReferencedFilePaths(frame()->loader().history().currentItem()->documentState());
+    return FormController::referencedFilePaths(frame()->loader().history().currentItem()->documentState());
 }
 
 ExceptionOr<void> Internals::startTrackingRepaints()
@@ -3837,6 +3861,7 @@ JSValue Internals::cloneArrayBuffer(JSC::ExecState& state, JSValue buffer, JSVal
     arguments.append(buffer);
     arguments.append(srcByteOffset);
     arguments.append(srcLength);
+    ASSERT(!arguments.hasOverflowed());
 
     return JSC::call(&state, function, callType, callData, JSC::jsUndefined(), arguments);
 }
@@ -3872,6 +3897,12 @@ String Internals::composedTreeAsText(Node& node)
 bool Internals::isProcessingUserGesture()
 {
     return UserGestureIndicator::processingUserGesture();
+}
+
+void Internals::withUserGesture(RefPtr<VoidCallback>&& callback)
+{
+    UserGestureIndicator gestureIndicator(ProcessingUserGesture, contextDocument());
+    callback->handleEvent();
 }
 
 double Internals::lastHandledUserGestureTimestamp()
@@ -4201,19 +4232,6 @@ void Internals::setConsoleMessageListener(RefPtr<StringCallback>&& listener)
     contextDocument()->setConsoleMessageListener(WTFMove(listener));
 }
 
-bool Internals::hasServiceWorkerRegisteredForOrigin(const String& origin)
-{
-#if ENABLE(SERVICE_WORKER)
-    if (!contextDocument())
-        return false;
-
-    return ServiceWorkerProvider::singleton().serviceWorkerConnectionForSession(contextDocument()->sessionID()).hasServiceWorkerRegisteredForOrigin(SecurityOrigin::createFromString(origin));
-#else
-    UNUSED_PARAM(origin);
-    return false;
-#endif
-}
-
 void Internals::setResponseSizeWithPadding(FetchResponse& response, uint64_t size)
 {
     response.setBodySizeWithPadding(size);
@@ -4235,18 +4253,6 @@ void Internals::waitForFetchEventToFinish(FetchEvent& event, DOMPromiseDeferred<
     });
 }
 
-void Internals::waitForExtendableEventToFinish(ExtendableEvent& event, DOMPromiseDeferred<void>&& promise)
-{
-    event.onFinishedWaitingForTesting([promise = WTFMove(promise)] () mutable {
-        promise.resolve();
-    });
-}
-
-Ref<ExtendableEvent> Internals::createTrustedExtendableEvent()
-{
-    return ExtendableEvent::create("ExtendableEvent", { }, Event::IsTrusted::Yes);
-}
-
 Ref<FetchEvent> Internals::createBeingDispatchedFetchEvent(ScriptExecutionContext& context)
 {
     auto event = FetchEvent::createForTesting(context);
@@ -4254,6 +4260,17 @@ Ref<FetchEvent> Internals::createBeingDispatchedFetchEvent(ScriptExecutionContex
     return event;
 }
 
+void Internals::hasServiceWorkerRegistration(const String& clientURL, HasRegistrationPromise&& promise)
+{
+    if (!contextDocument())
+        return;
+
+    URL parsedURL = contextDocument()->completeURL(clientURL);
+
+    return ServiceWorkerProvider::singleton().serviceWorkerConnectionForSession(contextDocument()->sessionID()).matchRegistration(contextDocument()->topOrigin(), parsedURL, [promise = WTFMove(promise)] (auto&& result) mutable {
+        promise.resolve(!!result);
+    });
+}
 #endif
 
 String Internals::timelineDescription(AnimationTimeline& timeline)
@@ -4261,9 +4278,14 @@ String Internals::timelineDescription(AnimationTimeline& timeline)
     return timeline.description();
 }
 
+void Internals::pauseTimeline(AnimationTimeline& timeline)
+{
+    timeline.pause();
+}
+
 void Internals::setTimelineCurrentTime(AnimationTimeline& timeline, double currentTime)
 {
-    timeline.setCurrentTime(Seconds(currentTime));
+    timeline.setCurrentTime(Seconds::fromMilliseconds(currentTime));
 }
 
 #if ENABLE(APPLE_PAY)

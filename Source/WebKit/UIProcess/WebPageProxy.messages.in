@@ -157,6 +157,7 @@ messages -> WebPageProxy {
     # Callback messages
     VoidCallback(WebKit::CallbackID callbackID)
     DataCallback(IPC::DataReference resultData, WebKit::CallbackID callbackID)
+    SharedBufferCallback(IPC::DataReference resultData, bool isNull, WebKit::CallbackID callbackID);
     ImageCallback(WebKit::ShareableBitmap::Handle bitmapHandle, WebKit::CallbackID callbackID)
     StringCallback(String resultString, WebKit::CallbackID callbackID)
     InvalidateStringCallback(WebKit::CallbackID callbackID)
@@ -498,4 +499,9 @@ messages -> WebPageProxy {
     StopURLSchemeTask(uint64_t handlerIdentifier, uint64_t taskIdentifier)
 
     RequestStorageAccess(String subFrameHost, String topFrameHost, uint64_t contextID)
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+    DidInsertAttachment(String identifier)
+    DidRemoveAttachment(String identifier)
+#endif
 }

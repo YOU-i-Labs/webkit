@@ -30,6 +30,7 @@
 #include "ResourceResponse.h"
 #include "ServiceWorkerJobClient.h"
 #include "ServiceWorkerJobData.h"
+#include "ServiceWorkerTypes.h"
 #include "WorkerScriptLoader.h"
 #include "WorkerScriptLoaderClient.h"
 #include <wtf/RefPtr.h>
@@ -55,9 +56,12 @@ public:
     WEBCORE_EXPORT ~ServiceWorkerJob();
 
     void failedWithException(const Exception&);
-    void resolvedWithRegistration(ServiceWorkerRegistrationData&&);
+    void resolvedWithRegistration(ServiceWorkerRegistrationData&&, WTF::Function<void()>&& promiseResolvedHandler);
     void resolvedWithUnregistrationResult(bool);
     void startScriptFetch();
+
+    using Identifier = ServiceWorkerJobIdentifier;
+    Identifier identifier() const { return m_jobData.identifier().jobIdentifier; }
 
     ServiceWorkerJobData data() const { return m_jobData; }
     DeferredPromise& promise() { return m_promise.get(); }

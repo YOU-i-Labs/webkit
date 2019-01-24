@@ -37,6 +37,9 @@ page/scrolling/coordinatedgraphics/ScrollingStateNodeCoordinatedGraphics.cpp
 
 platform/UserAgentQuirks.cpp
 
+// This can't go into SourcesGLib.txt because it has to go into WebCorePlatformGTK.
+platform/glib/EventHandlerGLib.cpp
+
 platform/graphics/GLContext.cpp
 platform/graphics/GraphicsContext3DPrivate.cpp
 platform/graphics/PlatformDisplay.cpp
@@ -62,6 +65,7 @@ platform/text/LocaleICU.cpp
 platform/unix/LoggingUnix.cpp
 
 platform/wpe/CursorWPE.cpp
+platform/wpe/DragImageWPE.cpp
 platform/wpe/LocalizedStringsWPE.cpp
 platform/wpe/PasteboardWPE.cpp
 platform/wpe/PlatformKeyboardEventWPE.cpp

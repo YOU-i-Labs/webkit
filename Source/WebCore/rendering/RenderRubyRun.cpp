@@ -38,11 +38,14 @@
 #include "RenderText.h"
 #include "RenderView.h"
 #include "StyleInheritedData.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 
 namespace WebCore {
 
 using namespace std;
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderRubyRun);
 
 RenderRubyRun::RenderRubyRun(Document& document, RenderStyle&& style)
     : RenderBlockFlow(document, WTFMove(style))
@@ -164,8 +167,8 @@ RenderPtr<RenderObject> RenderRubyRun::takeChild(RenderObject& child)
                 RenderRubyBase* rightBase = rightRun.rubyBaseSafe();
                 // Collect all children in a single base, then swap the bases.
                 rightBase->mergeChildrenWithBase(*base);
-                moveChildTo(&rightRun, base);
-                rightRun.moveChildTo(this, rightBase);
+                moveChildTo(&rightRun, base, RenderBoxModelObject::NormalizeAfterInsertion::No);
+                rightRun.moveChildTo(this, rightBase, RenderBoxModelObject::NormalizeAfterInsertion::No);
                 // The now empty ruby base will be removed below.
                 ASSERT(!rubyBase()->firstChild());
             }
@@ -180,12 +183,6 @@ RenderPtr<RenderObject> RenderRubyRun::takeChild(RenderObject& child)
         if (base && !base->firstChild()) {
             auto takenBase = RenderBlockFlow::takeChild(*base);
             base->deleteLines();
-        }
-
-        // If any of the above leaves the run empty, destroy it as well.
-        if (!hasRubyText() && !hasRubyBase()) {
-            auto takenThis = parent()->takeChild(*this);
-            deleteLines();
         }
     }
 

@@ -26,22 +26,46 @@
 #pragma once
 
 #include "AnimationEffect.h"
+#include "CSSPropertyBlendingClient.h"
+#include "RenderStyle.h"
 #include <wtf/Ref.h>
 
 namespace WebCore {
 
 class Element;
 
-class KeyframeEffect final : public AnimationEffect {
+struct Keyframe {
+    RenderStyle style;
+    Vector<CSSPropertyID> properties;
+};
+
+class KeyframeEffect final : public AnimationEffect
+    , public CSSPropertyBlendingClient {
 public:
-    static Ref<KeyframeEffect> create(Element*);
+    static ExceptionOr<Ref<KeyframeEffect>> create(JSC::ExecState&, Element*, JSC::Strong<JSC::JSObject>&&);
     ~KeyframeEffect() { }
 
     Element* target() const { return m_target.get(); }
+    ExceptionOr<void> setKeyframes(JSC::ExecState&, JSC::Strong<JSC::JSObject>&&);
+    void applyAtLocalTime(Seconds, RenderStyle&) override;
+
+    RenderElement* renderer() const override;
+    const RenderStyle& currentStyle() const override;
+    bool isAccelerated() const override { return false; }
+    bool filterFunctionListsMatch() const override { return false; }
+    bool transformFunctionListsMatch() const override { return false; }
+#if ENABLE(FILTERS_LEVEL_2)
+    bool backdropFilterFunctionListsMatch() const override { return false; }
+#endif
 
 private:
     KeyframeEffect(Element*);
+    ExceptionOr<void> processKeyframes(JSC::ExecState&, JSC::Strong<JSC::JSObject>&&);
+    void computeStackingContextImpact();
+
     RefPtr<Element> m_target;
+    Vector<Keyframe> m_keyframes;
+    bool m_triggersStackingContext { false };
 
 };
 

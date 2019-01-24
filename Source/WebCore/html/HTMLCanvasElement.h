@@ -27,8 +27,10 @@
 
 #pragma once
 
+#include "CanvasBase.h"
 #include "FloatRect.h"
 #include "HTMLElement.h"
+#include "ImageBitmapRenderingContextSettings.h"
 #include "IntSize.h"
 #include <memory>
 #include <wtf/Forward.h>
@@ -70,7 +72,7 @@ public:
     virtual void canvasDestroyed(HTMLCanvasElement&) = 0;
 };
 
-class HTMLCanvasElement final : public HTMLElement {
+class HTMLCanvasElement final : public HTMLElement, public CanvasBase {
 public:
     static Ref<HTMLCanvasElement> create(Document&);
     static Ref<HTMLCanvasElement> create(const QualifiedName&, Document&);
@@ -80,15 +82,15 @@ public:
     void removeObserver(CanvasObserver&);
     HashSet<Element*> cssCanvasClients() const;
 
-    unsigned width() const { return size().width(); }
-    unsigned height() const { return size().height(); }
+    unsigned width() const override { return size().width(); }
+    unsigned height() const override { return size().height(); }
 
     WEBCORE_EXPORT ExceptionOr<void> setWidth(unsigned);
     WEBCORE_EXPORT ExceptionOr<void> setHeight(unsigned);
 
-    const IntSize& size() const { return m_size; }
+    const IntSize& size() const override { return m_size; }
 
-    void setSize(const IntSize& newSize)
+    void setSize(const IntSize& newSize) override
     { 
         if (newSize == size())
             return;
@@ -98,6 +100,8 @@ public:
         m_ignoreReset = false;
         reset();
     }
+
+    bool isHTMLCanvasElement() const override { return true; }
 
     ExceptionOr<std::optional<RenderingContext>> getContext(JSC::ExecState&, const String& contextId, Vector<JSC::Strong<JSC::Unknown>>&& arguments);
 
@@ -119,8 +123,8 @@ public:
 #endif
 
     static bool isBitmapRendererType(const String&);
-    ImageBitmapRenderingContext* createContextBitmapRenderer(const String&);
-    ImageBitmapRenderingContext* getContextBitmapRenderer(const String&);
+    ImageBitmapRenderingContext* createContextBitmapRenderer(const String&, ImageBitmapRenderingContextSettings&& = { });
+    ImageBitmapRenderingContext* getContextBitmapRenderer(const String&, ImageBitmapRenderingContextSettings&& = { });
 
     WEBCORE_EXPORT ExceptionOr<UncachedString> toDataURL(const String& mimeType, JSC::JSValue quality);
     WEBCORE_EXPORT ExceptionOr<UncachedString> toDataURL(const String& mimeType);
@@ -149,10 +153,7 @@ public:
     void makePresentationCopy();
     void clearPresentationCopy();
 
-    SecurityOrigin* securityOrigin() const;
-    void setOriginClean() { m_originClean = true; }
-    void setOriginTainted() { m_originClean = false; }
-    bool originClean() const { return m_originClean; }
+    SecurityOrigin* securityOrigin() const override;
 
     AffineTransform baseTransform() const;
 
@@ -199,9 +200,8 @@ private:
     std::unique_ptr<CanvasRenderingContext> m_context;
 
     FloatRect m_dirtyRect;
-    IntSize m_size;
+    mutable IntSize m_size;
 
-    bool m_originClean { true };
     bool m_ignoreReset { false };
 
     bool m_usesDisplayListDrawing { false };

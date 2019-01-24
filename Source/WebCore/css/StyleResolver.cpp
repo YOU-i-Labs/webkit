@@ -231,6 +231,7 @@ StyleResolver::StyleResolver(Document& document)
         m_mediaQueryEvaluator = MediaQueryEvaluator { view->mediaType(), m_document, m_rootDefaultStyle.get() };
 
     m_ruleSets.resetAuthorStyle();
+    m_ruleSets.resetUserAgentMediaQueryStyle();
 }
 
 void StyleResolver::addCurrentSVGFontFaceRules()
@@ -318,7 +319,7 @@ StyleResolver::State::State(const Element& element, const RenderStyle* parentSty
 
 inline void StyleResolver::State::updateConversionData()
 {
-    m_cssToLengthConversionData = CSSToLengthConversionData(m_style.get(), m_rootElementStyle, m_element ? document().renderView() : nullptr);
+    m_cssToLengthConversionData = CSSToLengthConversionData(m_style.get(), m_rootElementStyle, m_element ? m_element->document().renderView() : nullptr);
 }
 
 inline void StyleResolver::State::setStyle(std::unique_ptr<RenderStyle> style)
@@ -799,6 +800,10 @@ static void adjustDisplayContentsStyle(RenderStyle& style, const Element* elemen
     if (!element) {
         if (style.styleType() != BEFORE && style.styleType() != AFTER)
             style.setDisplay(NONE);
+        return;
+    }
+    if (element->document().documentElement() == element) {
+        style.setDisplay(BLOCK);
         return;
     }
     if (hasEffectiveDisplayNoneForDisplayContents(*element))
@@ -1697,7 +1702,7 @@ void StyleResolver::applyProperty(CSSPropertyID id, CSSValue* value, SelectorChe
 
 RefPtr<CSSValue> StyleResolver::resolvedVariableValue(CSSPropertyID propID, const CSSValue& value)
 {
-    CSSParser parser(m_state.document());
+    CSSParser parser(document());
     return parser.parseValueWithVariableReferences(propID, value, m_state.style()->customProperties(), m_state.style()->direction(), m_state.style()->writingMode());
 }
 
@@ -1821,11 +1826,11 @@ Color StyleResolver::colorFromPrimitiveValue(const CSSPrimitiveValue& value, boo
     case 0:
         return Color();
     case CSSValueWebkitText:
-        return state.document().textColor();
+        return document().textColor();
     case CSSValueWebkitLink:
-        return (state.element()->isLink() && forVisitedLink) ? state.document().visitedLinkColor() : state.document().linkColor();
+        return (state.element()->isLink() && forVisitedLink) ? document().visitedLinkColor() : document().linkColor();
     case CSSValueWebkitActivelink:
-        return state.document().activeLinkColor();
+        return document().activeLinkColor();
     case CSSValueWebkitFocusRingColor:
         return RenderTheme::focusRingColor();
     case CSSValueCurrentcolor:
@@ -1917,20 +1922,20 @@ bool StyleResolver::createFilterOperations(const CSSValue& inValue, FilterOperat
     FilterOperations operations;
     for (auto& currentValue : downcast<CSSValueList>(inValue)) {
 
-        if (is<CSSPrimitiveValue>(currentValue.get())) {
+        if (is<CSSPrimitiveValue>(currentValue)) {
             auto& primitiveValue = downcast<CSSPrimitiveValue>(currentValue.get());
             if (!primitiveValue.isURI())
                 continue;
 
             String cssUrl = primitiveValue.stringValue();
-            URL url = m_state.document().completeURL(cssUrl);
+            URL url = document().completeURL(cssUrl);
 
             RefPtr<ReferenceFilterOperation> operation = ReferenceFilterOperation::create(cssUrl, url.fragmentIdentifier());
             operations.operations().append(operation);
             continue;
         }
 
-        if (!is<CSSFunctionValue>(currentValue.get()))
+        if (!is<CSSFunctionValue>(currentValue))
             continue;
 
         auto& filterValue = downcast<CSSFunctionValue>(currentValue.get());

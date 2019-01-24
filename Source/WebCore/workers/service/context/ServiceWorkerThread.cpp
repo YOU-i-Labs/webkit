@@ -30,7 +30,9 @@
 
 #include "CacheStorageProvider.h"
 #include "ContentSecurityPolicyResponseHeaders.h"
+#include "EventNames.h"
 #include "ExtendableMessageEvent.h"
+#include "JSDOMPromise.h"
 #include "SecurityOrigin.h"
 #include "ServiceWorkerFetch.h"
 #include "ServiceWorkerGlobalScope.h"
@@ -38,6 +40,7 @@
 #include "WorkerDebuggerProxy.h"
 #include "WorkerLoaderProxy.h"
 #include "WorkerObjectProxy.h"
+#include <inspector/IdentifiersFactory.h>
 #include <pal/SessionID.h>
 #include <runtime/RuntimeFlags.h>
 #include <wtf/NeverDestroyed.h>
@@ -46,7 +49,7 @@ using namespace PAL;
 
 namespace WebCore {
 
-class DummyServiceWorkerThreadProxy : public WorkerObjectProxy, public WorkerDebuggerProxy {
+class DummyServiceWorkerThreadProxy : public WorkerObjectProxy {
 public:
     static DummyServiceWorkerThreadProxy& shared()
     {
@@ -56,7 +59,6 @@ public:
 
 private:
     void postExceptionToWorkerObject(const String&, int, int, const String&) final { };
-    void postMessageToDebugger(const String&) final { }
     void workerGlobalScopeDestroyed() final { };
     void postMessageToWorkerObject(Ref<SerializedScriptValue>&&, std::unique_ptr<MessagePortChannelArray>&&) final { };
     void confirmMessageFromWorkerObject(bool) final { };
@@ -64,16 +66,15 @@ private:
 };
 
 // FIXME: Use a valid WorkerReportingProxy
-// FIXME: Use a valid WorkerDebuggerProxy
 // FIXME: Use a valid WorkerObjectProxy
 // FIXME: Use a valid IDBConnection
 // FIXME: Use a valid SocketProvider
 // FIXME: Use a valid user agent
+// FIXME: Use a valid isOnline flag
 // FIXME: Use valid runtime flags
 
-ServiceWorkerThread::ServiceWorkerThread(uint64_t serverConnectionIdentifier, const ServiceWorkerContextData& data, PAL::SessionID, WorkerLoaderProxy& loaderProxy)
-    : WorkerThread(data.scriptURL, data.workerID, ASCIILiteral("WorkerUserAgent"), data.script, loaderProxy, DummyServiceWorkerThreadProxy::shared(), DummyServiceWorkerThreadProxy::shared(), WorkerThreadStartMode::Normal, ContentSecurityPolicyResponseHeaders { }, false, SecurityOrigin::create(data.scriptURL).get(), MonotonicTime::now(), nullptr, nullptr, JSC::RuntimeFlags::createAllEnabled(), SessionID::defaultSessionID())
-    , m_serverConnectionIdentifier(serverConnectionIdentifier)
+ServiceWorkerThread::ServiceWorkerThread(const ServiceWorkerContextData& data, PAL::SessionID, WorkerLoaderProxy& loaderProxy, WorkerDebuggerProxy& debuggerProxy)
+    : WorkerThread(data.scriptURL, "serviceworker:" + Inspector::IdentifiersFactory::createIdentifier(), ASCIILiteral("WorkerUserAgent"), /* isOnline */ false, data.script, loaderProxy, debuggerProxy, DummyServiceWorkerThreadProxy::shared(), WorkerThreadStartMode::Normal, ContentSecurityPolicyResponseHeaders { }, false, SecurityOrigin::create(data.scriptURL).get(), MonotonicTime::now(), nullptr, nullptr, JSC::RuntimeFlags::createAllEnabled(), SessionID::defaultSessionID())
     , m_data(data.isolatedCopy())
     , m_workerObjectProxy(DummyServiceWorkerThreadProxy::shared())
 {
@@ -82,9 +83,9 @@ ServiceWorkerThread::ServiceWorkerThread(uint64_t serverConnectionIdentifier, co
 
 ServiceWorkerThread::~ServiceWorkerThread() = default;
 
-Ref<WorkerGlobalScope> ServiceWorkerThread::createWorkerGlobalScope(const URL& url, const String& identifier, const String& userAgent, const ContentSecurityPolicyResponseHeaders&, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, PAL::SessionID sessionID)
+Ref<WorkerGlobalScope> ServiceWorkerThread::createWorkerGlobalScope(const URL& url, const String& identifier, const String& userAgent, bool isOnline, const ContentSecurityPolicyResponseHeaders&, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, PAL::SessionID sessionID)
 {
-    return ServiceWorkerGlobalScope::create(m_serverConnectionIdentifier, m_data, url, identifier, userAgent, *this, shouldBypassMainWorldContentSecurityPolicy, WTFMove(topOrigin), timeOrigin, idbConnectionProxy(), socketProvider(), sessionID);
+    return ServiceWorkerGlobalScope::create(m_data, url, identifier, userAgent, isOnline, *this, shouldBypassMainWorldContentSecurityPolicy, WTFMove(topOrigin), timeOrigin, idbConnectionProxy(), socketProvider(), sessionID);
 }
 
 void ServiceWorkerThread::runEventLoop()
@@ -97,21 +98,96 @@ void ServiceWorkerThread::postFetchTask(Ref<ServiceWorkerFetch::Client>&& client
 {
     // FIXME: instead of directly using runLoop(), we should be using something like WorkerGlobalScopeProxy.
     // FIXME: request and options come straigth from IPC so are already isolated. We should be able to take benefit of that.
-    runLoop().postTaskForMode([client = WTFMove(client), request = request.isolatedCopy(), options = options.isolatedCopy()] (ScriptExecutionContext& context) mutable {
-        ServiceWorkerFetch::dispatchFetchEvent(WTFMove(client), downcast<WorkerGlobalScope>(context), WTFMove(request), WTFMove(options));
+    runLoop().postTaskForMode([this, client = WTFMove(client), request = request.isolatedCopy(), options = options.isolatedCopy()] (ScriptExecutionContext& context) mutable {
+        auto fetchEvent = ServiceWorkerFetch::dispatchFetchEvent(WTFMove(client), downcast<WorkerGlobalScope>(context), WTFMove(request), WTFMove(options));
+        updateExtendedEventsSet(fetchEvent.ptr());
     }, WorkerRunLoop::defaultMode());
 }
 
-void ServiceWorkerThread::postMessageToServiceWorkerGlobalScope(Ref<SerializedScriptValue>&& message, std::unique_ptr<MessagePortChannelArray>&& channels, const ServiceWorkerClientIdentifier& sourceIdentifier, const String& sourceOrigin)
+void ServiceWorkerThread::postMessageToServiceWorkerGlobalScope(Ref<SerializedScriptValue>&& message, std::unique_ptr<MessagePortChannelArray>&& channels, ServiceWorkerClientIdentifier sourceIdentifier, ServiceWorkerClientData&& sourceData)
 {
-    ScriptExecutionContext::Task task([channels = WTFMove(channels), message = WTFMove(message), sourceIdentifier, sourceOrigin = sourceOrigin.isolatedCopy()] (ScriptExecutionContext& context) mutable {
+    ScriptExecutionContext::Task task([this, channels = WTFMove(channels), message = WTFMove(message), sourceIdentifier, sourceData = sourceData.isolatedCopy()] (ScriptExecutionContext& context) mutable {
         auto& serviceWorkerGlobalScope = downcast<ServiceWorkerGlobalScope>(context);
         auto ports = MessagePort::entanglePorts(serviceWorkerGlobalScope, WTFMove(channels));
-        ExtendableMessageEventSource source = RefPtr<ServiceWorkerClient> { ServiceWorkerWindowClient::create(context, sourceIdentifier) };
-        serviceWorkerGlobalScope.dispatchEvent(ExtendableMessageEvent::create(WTFMove(ports), WTFMove(message), sourceOrigin, { }, WTFMove(source)));
+        RefPtr<ServiceWorkerClient> source = ServiceWorkerWindowClient::create(context, sourceIdentifier, WTFMove(sourceData));
+        auto sourceOrigin = SecurityOrigin::create(source->url());
+        auto messageEvent = ExtendableMessageEvent::create(WTFMove(ports), WTFMove(message), sourceOrigin->toString(), { }, ExtendableMessageEventSource { source });
+        serviceWorkerGlobalScope.dispatchEvent(messageEvent);
         serviceWorkerGlobalScope.thread().workerObjectProxy().confirmMessageFromWorkerObject(serviceWorkerGlobalScope.hasPendingActivity());
+        updateExtendedEventsSet(messageEvent.ptr());
     });
     runLoop().postTask(WTFMove(task));
+}
+
+void ServiceWorkerThread::fireInstallEvent()
+{
+    ScriptExecutionContext::Task task([jobDataIdentifier = m_data.jobDataIdentifier, serviceWorkerIdentifier = this->identifier()] (ScriptExecutionContext& context) mutable {
+        auto& serviceWorkerGlobalScope = downcast<ServiceWorkerGlobalScope>(context);
+        auto installEvent = ExtendableEvent::create(eventNames().installEvent, { }, ExtendableEvent::IsTrusted::Yes);
+        serviceWorkerGlobalScope.dispatchEvent(installEvent);
+
+        installEvent->whenAllExtendLifetimePromisesAreSettled([jobDataIdentifier, serviceWorkerIdentifier](HashSet<Ref<DOMPromise>>&& extendLifetimePromises) {
+            bool hasRejectedAnyPromise = false;
+            for (auto& promise : extendLifetimePromises) {
+                if (promise->status() == DOMPromise::Status::Rejected) {
+                    hasRejectedAnyPromise = true;
+                    break;
+                }
+            }
+            callOnMainThread([jobDataIdentifier, serviceWorkerIdentifier, hasRejectedAnyPromise] () mutable {
+                if (auto* connection = SWContextManager::singleton().connection())
+                    connection->didFinishInstall(jobDataIdentifier, serviceWorkerIdentifier, !hasRejectedAnyPromise);
+            });
+        });
+    });
+    runLoop().postTask(WTFMove(task));
+}
+
+void ServiceWorkerThread::fireActivateEvent()
+{
+    ScriptExecutionContext::Task task([serviceWorkerIdentifier = this->identifier()] (ScriptExecutionContext& context) mutable {
+        auto& serviceWorkerGlobalScope = downcast<ServiceWorkerGlobalScope>(context);
+        auto activateEvent = ExtendableEvent::create(eventNames().activateEvent, { }, ExtendableEvent::IsTrusted::Yes);
+        serviceWorkerGlobalScope.dispatchEvent(activateEvent);
+
+        activateEvent->whenAllExtendLifetimePromisesAreSettled([serviceWorkerIdentifier](HashSet<Ref<DOMPromise>>&&) {
+            callOnMainThread([serviceWorkerIdentifier] () mutable {
+                if (auto* connection = SWContextManager::singleton().connection())
+                    connection->didFinishActivation(serviceWorkerIdentifier);
+            });
+        });
+    });
+    runLoop().postTask(WTFMove(task));
+}
+
+// https://w3c.github.io/ServiceWorker/#update-service-worker-extended-events-set-algorithm
+void ServiceWorkerThread::updateExtendedEventsSet(ExtendableEvent* newEvent)
+{
+    ASSERT(!isMainThread());
+    ASSERT(!newEvent || !newEvent->isBeingDispatched());
+    bool hadPendingEvents = hasPendingEvents();
+    m_extendedEvents.removeAllMatching([](auto& event) {
+        return !event->pendingPromiseCount();
+    });
+
+    if (newEvent && newEvent->pendingPromiseCount()) {
+        m_extendedEvents.append(*newEvent);
+        newEvent->whenAllExtendLifetimePromisesAreSettled([this](auto&&) {
+            updateExtendedEventsSet();
+        });
+        // Clear out the event's target as it is the WorkerGlobalScope and we do not want to keep it
+        // alive unnecessarily.
+        newEvent->setTarget(nullptr);
+    }
+
+    bool hasPendingEvents = this->hasPendingEvents();
+    if (hasPendingEvents == hadPendingEvents)
+        return;
+
+    callOnMainThread([identifier = this->identifier(), hasPendingEvents] {
+        if (auto* connection = SWContextManager::singleton().connection())
+            connection->setServiceWorkerHasPendingEvents(identifier, hasPendingEvents);
+    });
 }
 
 } // namespace WebCore

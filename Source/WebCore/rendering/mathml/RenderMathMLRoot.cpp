@@ -38,10 +38,13 @@
 #include "RenderIterator.h"
 #include "RenderMathMLMenclose.h"
 #include "RenderMathMLOperator.h"
+#include <wtf/IsoMallocInlines.h>
 
 static const UChar gRadicalCharacter = 0x221A;
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMathMLRoot);
 
 RenderMathMLRoot::RenderMathMLRoot(MathMLRowElement& element, RenderStyle&& style)
     : RenderMathMLRow(element, WTFMove(style))
@@ -185,7 +188,7 @@ void RenderMathMLRoot::layoutBlock(bool relayoutChildren, LayoutUnit)
     m_baseWidth = 0;
 
     if (!isValid()) {
-        layoutInvalidMarkup();
+        layoutInvalidMarkup(relayoutChildren);
         return;
     }
 
@@ -252,6 +255,9 @@ void RenderMathMLRoot::layoutBlock(bool relayoutChildren, LayoutUnit)
     }
 
     setLogicalHeight(ascent + descent);
+
+    layoutPositionedObjects(relayoutChildren);
+
     clearNeedsLayout();
 }
 

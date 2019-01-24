@@ -56,7 +56,9 @@ static void processResponse(Ref<Client>&& client, FetchResponse* response)
                 client->didFail();
                 return;
             }
-            client->didReceiveData(result.releaseReturnValue().releaseNonNull());
+
+            if (auto buffer = result.releaseReturnValue())
+                client->didReceiveData(buffer.releaseNonNull());
             client->didFinish();
         });
         return;
@@ -68,15 +70,17 @@ static void processResponse(Ref<Client>&& client, FetchResponse* response)
                 client->didFail();
                 return;
             }
-            client->didReceiveData(result.releaseReturnValue().releaseNonNull());
+
+            if (auto buffer = result.releaseReturnValue())
+                client->didReceiveData(buffer.releaseNonNull());
             client->didFinish();
         });
         return;
     }
 
     auto body = response->consumeBody();
-    WTF::switchOn(body, [] (Ref<FormData>&) {
-        // FIXME: Support FormData response bodies.
+    WTF::switchOn(body, [&] (Ref<FormData>& formData) {
+        client->didReceiveFormData(WTFMove(formData));
     }, [&] (Ref<SharedBuffer>& buffer) {
         client->didReceiveData(WTFMove(buffer));
     }, [] (std::nullptr_t&) {
@@ -85,24 +89,34 @@ static void processResponse(Ref<Client>&& client, FetchResponse* response)
     client->didFinish();
 }
 
-void dispatchFetchEvent(Ref<Client>&& client, WorkerGlobalScope& globalScope, ResourceRequest&& request, FetchOptions&& options)
+Ref<FetchEvent> dispatchFetchEvent(Ref<Client>&& client, WorkerGlobalScope& globalScope, ResourceRequest&& request, FetchOptions&& options)
 {
     ASSERT(globalScope.isServiceWorkerGlobalScope());
 
-    // FIXME: Set request body and referrer.
     auto requestHeaders = FetchHeaders::create(FetchHeaders::Guard::Immutable, HTTPHeaderMap { request.httpHeaderFields() });
-    auto fetchRequest = FetchRequest::create(globalScope, std::nullopt, WTFMove(requestHeaders),  WTFMove(request), WTFMove(options), { });
+    auto fetchRequest = FetchRequest::create(globalScope, FetchBody::fromFormData(request.httpBody()), WTFMove(requestHeaders),  WTFMove(request), WTFMove(options), request.httpReferrer());
 
     // FIXME: Initialize other FetchEvent::Init fields.
     FetchEvent::Init init;
     init.request = WTFMove(fetchRequest);
+    init.cancelable = true;
     auto event = FetchEvent::create(eventNames().fetchEvent, WTFMove(init), Event::IsTrusted::Yes);
 
-    event->onResponse([client = WTFMove(client)] (FetchResponse* response) mutable {
+    event->onResponse([client = client.copyRef()] (FetchResponse* response) mutable {
         processResponse(WTFMove(client), response);
     });
 
     globalScope.dispatchEvent(event);
+
+    if (!event->respondWithEntered()) {
+        if (event->defaultPrevented()) {
+            client->didFail();
+            return event;
+        }
+        client->didNotHandle();
+        // FIXME: Handle soft update.
+    }
+    return event;
 }
 
 } // namespace ServiceWorkerFetch

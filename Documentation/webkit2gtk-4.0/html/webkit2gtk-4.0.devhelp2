@@ -408,6 +408,8 @@
     <keyword type="function" name="webkit_settings_set_allow_universal_access_from_file_urls ()" link="WebKitSettings.html#webkit-settings-set-allow-universal-access-from-file-urls" since="2.14"/>
     <keyword type="function" name="webkit_settings_get_hardware_acceleration_policy ()" link="WebKitSettings.html#webkit-settings-get-hardware-acceleration-policy" since="2.16"/>
     <keyword type="function" name="webkit_settings_set_hardware_acceleration_policy ()" link="WebKitSettings.html#webkit-settings-set-hardware-acceleration-policy" since="2.16"/>
+    <keyword type="function" name="webkit_settings_font_size_to_points ()" link="WebKitSettings.html#webkit-settings-font-size-to-points" since="2.20"/>
+    <keyword type="function" name="webkit_settings_font_size_to_pixels ()" link="WebKitSettings.html#webkit-settings-font-size-to-pixels" since="2.20"/>
     <keyword type="struct" name="struct WebKitSettings" link="WebKitSettings.html#WebKitSettings-struct"/>
     <keyword type="enum" name="enum WebKitHardwareAccelerationPolicy" link="WebKitSettings.html#WebKitHardwareAccelerationPolicy" since="2.16"/>
     <keyword type="property" name="The “allow-file-access-from-file-urls” property" link="WebKitSettings.html#WebKitSettings--allow-file-access-from-file-urls"/>
@@ -699,6 +701,12 @@
     <keyword type="function" name="webkit_cookie_manager_get_accept_policy_finish ()" link="WebKitCookieManager.html#webkit-cookie-manager-get-accept-policy-finish"/>
     <keyword type="function" name="webkit_cookie_manager_get_domains_with_cookies ()" link="WebKitCookieManager.html#webkit-cookie-manager-get-domains-with-cookies" deprecated="2.16: Use webkit_website_data_manager_fetch() instead."/>
     <keyword type="function" name="webkit_cookie_manager_get_domains_with_cookies_finish ()" link="WebKitCookieManager.html#webkit-cookie-manager-get-domains-with-cookies-finish" deprecated="2.16: Use webkit_website_data_manager_fetch_finish() instead."/>
+    <keyword type="function" name="webkit_cookie_manager_add_cookie ()" link="WebKitCookieManager.html#webkit-cookie-manager-add-cookie" since="2.20"/>
+    <keyword type="function" name="webkit_cookie_manager_add_cookie_finish ()" link="WebKitCookieManager.html#webkit-cookie-manager-add-cookie-finish" since="2.20"/>
+    <keyword type="function" name="webkit_cookie_manager_get_cookies ()" link="WebKitCookieManager.html#webkit-cookie-manager-get-cookies" since="2.20"/>
+    <keyword type="function" name="webkit_cookie_manager_get_cookies_finish ()" link="WebKitCookieManager.html#webkit-cookie-manager-get-cookies-finish" since="2.20"/>
+    <keyword type="function" name="webkit_cookie_manager_delete_cookie ()" link="WebKitCookieManager.html#webkit-cookie-manager-delete-cookie" since="2.20"/>
+    <keyword type="function" name="webkit_cookie_manager_delete_cookie_finish ()" link="WebKitCookieManager.html#webkit-cookie-manager-delete-cookie-finish" since="2.20"/>
     <keyword type="function" name="webkit_cookie_manager_delete_cookies_for_domain ()" link="WebKitCookieManager.html#webkit-cookie-manager-delete-cookies-for-domain" deprecated="2.16: Use webkit_website_data_manager_remove() instead."/>
     <keyword type="function" name="webkit_cookie_manager_delete_all_cookies ()" link="WebKitCookieManager.html#webkit-cookie-manager-delete-all-cookies" deprecated="2.16: Use webkit_website_data_manager_clear() instead."/>
     <keyword type="struct" name="struct WebKitCookieManager" link="WebKitCookieManager.html#WebKitCookieManager-struct"/>

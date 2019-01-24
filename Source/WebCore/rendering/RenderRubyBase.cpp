@@ -33,8 +33,11 @@
 #include "RenderRubyBase.h"
 #include "RenderRubyRun.h"
 #include "RenderRubyText.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderRubyBase);
 
 RenderRubyBase::RenderRubyBase(Document& document, RenderStyle&& style)
     : RenderBlockFlow(document, WTFMove(style))
@@ -96,11 +99,11 @@ void RenderRubyBase::moveInlineChildren(RenderRubyBase* toBase, RenderObject* be
         else {
             auto newToBlock = toBase->createAnonymousBlock();
             toBlock = newToBlock.get();
-            toBase->insertChildInternal(WTFMove(newToBlock), nullptr, NotifyChildren);
+            toBase->insertChildInternal(WTFMove(newToBlock), nullptr);
         }
     }
     // Move our inline children into the target block we determined above.
-    moveChildrenTo(toBlock, firstChild(), beforeChild);
+    moveChildrenTo(toBlock, firstChild(), beforeChild, RenderBoxModelObject::NormalizeAfterInsertion::No);
 }
 
 void RenderRubyBase::moveBlockChildren(RenderRubyBase* toBase, RenderObject* beforeChild)
@@ -121,12 +124,12 @@ void RenderRubyBase::moveBlockChildren(RenderRubyBase* toBase, RenderObject* bef
             && lastChildThere && lastChildThere->isAnonymousBlock() && lastChildThere->childrenInline()) {            
         RenderBlock* anonBlockHere = downcast<RenderBlock>(firstChildHere);
         RenderBlock* anonBlockThere = downcast<RenderBlock>(lastChildThere);
-        anonBlockHere->moveAllChildrenTo(anonBlockThere, true);
+        anonBlockHere->moveAllChildrenTo(anonBlockThere, RenderBoxModelObject::NormalizeAfterInsertion::Yes);
         anonBlockHere->deleteLines();
         anonBlockHere->removeFromParentAndDestroy();
     }
     // Move all remaining children normally.
-    moveChildrenTo(toBase, firstChild(), beforeChild);
+    moveChildrenTo(toBase, firstChild(), beforeChild, RenderBoxModelObject::NormalizeAfterInsertion::No);
 }
 
 RenderRubyRun* RenderRubyBase::rubyRun() const

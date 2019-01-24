@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "LayoutUnit.h"
 #include "Timer.h"
 
 #include <wtf/WeakPtr.h>
@@ -35,6 +36,11 @@ class Document;
 class Frame;
 class FrameView;
 class LayoutScope;
+class LayoutSize;
+class LayoutState;
+class RenderBlockFlow;
+class RenderBox;
+class RenderObject;
 class RenderElement;
 class RenderView;
     
@@ -86,8 +92,28 @@ public:
 
     void flushAsynchronousTasks();
 
+    LayoutState* layoutState() const;
+    // Returns true if layoutState should be used for its cached offset and clip.
+    bool isPaintOffsetCacheEnabled() const { return !m_paintOffsetCacheDisableCount && layoutState(); }
+#ifndef NDEBUG
+    void checkLayoutState();
+#endif
+    // layoutDelta is used transiently during layout to store how far an object has moved from its
+    // last layout location, in order to repaint correctly.
+    // If we're doing a full repaint m_layoutState will be 0, but in that case layoutDelta doesn't matter.
+    LayoutSize layoutDelta() const;
+    void addLayoutDelta(const LayoutSize& delta);
+#if !ASSERT_DISABLED
+    bool layoutDeltaMatches(const LayoutSize& delta);
+#endif
+    using LayoutStateStack = Vector<std::unique_ptr<LayoutState>>;
+
 private:
     friend class LayoutScope;
+    friend class LayoutStateMaintainer;
+    friend class LayoutStateDisabler;
+    friend class SubtreeLayoutStateMaintainer;
+    friend class PaginatedLayoutStateMaintainer;
 
     bool canPerformLayout() const;
     bool layoutDisallowed() const { return m_layoutDisallowedCount; }
@@ -107,6 +133,21 @@ private:
 
     bool handleLayoutWithFrameFlatteningIfNeeded();
     void startLayoutAtMainFrameViewIfNeeded();
+
+    // These functions may only be accessed by LayoutStateMaintainer.
+    // Subtree push/pop
+    void pushLayoutState(RenderElement&);
+    bool pushLayoutStateForPaginationIfNeeded(RenderBlockFlow&);
+    bool pushLayoutState(RenderBox& renderer, const LayoutSize& offset, LayoutUnit pageHeight = 0, bool pageHeightChanged = false);
+    void popLayoutState();
+
+    // Suspends the LayoutState optimization. Used under transforms that cannot be represented by
+    // LayoutState (common in SVG) and when manipulating the render tree during layout in ways
+    // that can trigger repaint of a non-child (e.g. when a list item moves its list marker around).
+    // Note that even when disabled, LayoutState is still used to store layoutDelta.
+    // These functions may only be accessed by LayoutStateMaintainer or LayoutStateDisabler.
+    void disablePaintOffsetCache() { m_paintOffsetCacheDisableCount++; }
+    void enablePaintOffsetCache() { ASSERT(m_paintOffsetCacheDisableCount > 0); m_paintOffsetCacheDisableCount--; }
 
     Frame& frame() const;
     FrameView& view() const;
@@ -130,6 +171,8 @@ private:
     unsigned m_disableSetNeedsLayoutCount { 0 };
     int m_layoutDisallowedCount { 0 };
     WeakPtr<RenderElement> m_subtreeLayoutRoot;
+    LayoutStateStack m_layoutStateStack;
+    unsigned m_paintOffsetCacheDisableCount { 0 };
 };
 
 } // namespace WebCore

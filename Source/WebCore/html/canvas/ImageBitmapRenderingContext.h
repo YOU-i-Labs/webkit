@@ -28,6 +28,7 @@
 #include "CanvasRenderingContext.h"
 
 #include "ExceptionOr.h"
+#include "ImageBitmapRenderingContextSettings.h"
 #include "ImageBufferData.h"
 #include <wtf/RefPtr.h>
 
@@ -38,17 +39,16 @@ class ImageBuffer;
 
 class ImageBitmapRenderingContext final : public CanvasRenderingContext {
 public:
-    struct Settings {
-        bool alpha = true;
-    };
 
     enum class BitmapMode {
         Valid,
         Blank
     };
 
-    ImageBitmapRenderingContext(HTMLCanvasElement&);
+    ImageBitmapRenderingContext(CanvasBase&, ImageBitmapRenderingContextSettings&&);
     ~ImageBitmapRenderingContext();
+
+    HTMLCanvasElement* canvas() const;
 
     ExceptionOr<void> transferFromImageBitmap(RefPtr<ImageBitmap>);
 
@@ -62,7 +62,7 @@ private:
     void setOutputBitmap(RefPtr<ImageBitmap>);
 
     BitmapMode m_bitmapMode { BitmapMode::Blank };
-    Settings m_settings;
+    ImageBitmapRenderingContextSettings m_settings;
 };
 
 }

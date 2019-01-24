@@ -42,6 +42,8 @@
 
 namespace WebCore {
 
+namespace FileSystem {
+
 // The following lower-ASCII characters need escaping to be used in a filename
 // across all systems, including Windows:
 //     - Unprintable ASCII (00-1F)
@@ -205,7 +207,7 @@ String lastComponentOfPathIgnoringTrailingSlash(const String& path)
 
 bool appendFileContentsToFileHandle(const String& path, PlatformFileHandle& target)
 {
-    auto source = openFile(path, OpenForRead);
+    auto source = openFile(path, FileOpenMode::Read);
 
     if (!isHandleValid(source))
         return false;
@@ -328,7 +330,7 @@ MappedFileData::MappedFileData(const String& filePath, bool& success)
 #endif
 }
 
-PlatformFileHandle openAndLockFile(const String& path, FileOpenMode openMode, FileLockMode lockMode)
+PlatformFileHandle openAndLockFile(const String& path, FileOpenMode openMode, OptionSet<FileLockMode> lockMode)
 {
     auto handle = openFile(path, openMode);
     if (handle == invalidPlatformFileHandle)
@@ -359,4 +361,5 @@ bool fileIsDirectory(const String& path, ShouldFollowSymbolicLinks shouldFollowS
     return metadata.value().type == FileMetadata::Type::Directory;
 }
 
+} // namespace FileSystem
 } // namespace WebCore

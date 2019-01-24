@@ -58,6 +58,7 @@
 #include "DocumentLoader.h"
 #include "DocumentMarkerController.h"
 #include "DocumentSharedObjectPool.h"
+#include "DocumentTimeline.h"
 #include "DocumentType.h"
 #include "Editing.h"
 #include "Editor.h"
@@ -74,6 +75,7 @@
 #include "GenericCachedHTMLCollection.h"
 #include "HTMLAllCollection.h"
 #include "HTMLAnchorElement.h"
+#include "HTMLAttachmentElement.h"
 #include "HTMLBaseElement.h"
 #include "HTMLBodyElement.h"
 #include "HTMLCanvasElement.h"
@@ -194,6 +196,7 @@
 #include "ValidationMessageClient.h"
 #include "VisibilityChangeClient.h"
 #include "VisitedLinkState.h"
+#include "WebAnimation.h"
 #include "WheelEvent.h"
 #include "WindowFeatures.h"
 #include "XMLDocument.h"
@@ -654,7 +657,7 @@ void Document::removedLastRef()
         m_titleElement = nullptr;
         m_documentElement = nullptr;
         m_focusNavigationStartingNode = nullptr;
-        m_userActionElements.documentDidRemoveLastRef();
+        m_userActionElements.clear();
 #if ENABLE(FULLSCREEN_API)
         m_fullScreenElement = nullptr;
         m_fullScreenElementStack.clear();
@@ -1793,7 +1796,7 @@ void Document::resolveStyle(ResolveStyleType type)
     // hits a null-dereference due to security code always assuming the document has a SecurityOrigin.
 
     {
-        NoEventDispatchAssertion noEventDispatchAssertion;
+        NoEventDispatchAssertion::InMainThread noEventDispatchAssertion;
         styleScope().flushPendingUpdate();
         frameView.willRecalcStyle();
     }
@@ -1804,7 +1807,7 @@ void Document::resolveStyle(ResolveStyleType type)
     {
         Style::PostResolutionCallbackDisabler disabler(*this);
         WidgetHierarchyUpdatesSuspensionScope suspendWidgetHierarchyUpdates;
-        NoEventDispatchAssertion noEventDispatchAssertion;
+        NoEventDispatchAssertion::InMainThread noEventDispatchAssertion;
 
         m_inStyleRecalc = true;
 
@@ -1921,14 +1924,28 @@ bool Document::needsStyleRecalc() const
     return false;
 }
 
+inline bool static isSafeToUpdateStyleOrLayout(FrameView* frameView)
+{
+#if USE(WEB_THREAD)
+    // FIXME: Remove this code: <rdar://problem/35522719>
+    bool usingWebThread = WebThreadIsEnabled();
+#else
+    bool usingWebThread = false;
+#endif
+    bool isSafeToExecuteScript = NoEventDispatchAssertion::InMainThread::isEventAllowed();
+    bool isInFrameFlattening = frameView && frameView->isInChildFrameWithFrameFlattening();
+    return isSafeToExecuteScript || isInFrameFlattening || usingWebThread;
+}
+
 bool Document::updateStyleIfNeeded()
 {
+    RefPtr<FrameView> frameView = view();
     {
-        NoEventDispatchAssertion noEventDispatchAssertion;
+        NoEventDispatchAssertion::InMainThread noEventDispatchAssertion;
         ASSERT(isMainThread());
-        ASSERT(!view() || !view()->isPainting());
+        ASSERT(!frameView || !frameView->isPainting());
 
-        if (!view() || view()->layoutContext().isInRenderTreeLayout())
+        if (!frameView || frameView->layoutContext().isInRenderTreeLayout())
             return false;
 
         styleScope().flushPendingUpdate();
@@ -1937,14 +1954,17 @@ bool Document::updateStyleIfNeeded()
             return false;
     }
 
+    // The early exit above for !needsStyleRecalc() is needed when updateWidgetPositions() is called in runOrScheduleAsynchronousTasks().
+    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(isSafeToUpdateStyleOrLayout(frameView.get()));
+
     resolveStyle();
     return true;
 }
 
 void Document::updateLayout()
 {
-    ASSERT(LayoutDisallowedScope::isLayoutAllowed());
     ASSERT(isMainThread());
+    ASSERT(LayoutDisallowedScope::isLayoutAllowed());
 
     RefPtr<FrameView> frameView = view();
     if (frameView && frameView->layoutContext().isInRenderTreeLayout()) {
@@ -1952,6 +1972,7 @@ void Document::updateLayout()
         ASSERT_NOT_REACHED();
         return;
     }
+    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(isSafeToUpdateStyleOrLayout(frameView.get()));
 
     RenderView::RepaintRegionAccumulator repaintRegionAccumulator(renderView());
 
@@ -2302,8 +2323,17 @@ void Document::prepareForDestruction()
     if (m_hasPreparedForDestruction)
         return;
 
+    if (m_timeline) {
+        m_timeline->detachFromDocument();
+        m_timeline = nullptr;
+    }
+
     if (m_frame)
         m_frame->animation().detachFromDocument(this);
+
+#if ENABLE(SERVICE_WORKER)
+    setActiveServiceWorker(nullptr);
+#endif
 
 #if ENABLE(IOS_TOUCH_EVENTS)
     clearTouchEventHandlersAndListeners();
@@ -2645,7 +2675,7 @@ HTMLElement* Document::bodyOrFrameset() const
 
 ExceptionOr<void> Document::setBodyOrFrameset(RefPtr<HTMLElement>&& newBody)
 {
-    if (!is<HTMLBodyElement>(newBody.get()) && !is<HTMLFrameSetElement>(newBody.get()))
+    if (!is<HTMLBodyElement>(newBody) && !is<HTMLFrameSetElement>(newBody))
         return Exception { HierarchyRequestError };
 
     auto* currentBody = bodyOrFrameset();
@@ -3844,7 +3874,7 @@ bool Document::setFocusedElement(Element* element, FocusDirection direction, Foc
                 view()->setFocus(false);
         }
 
-        if (is<HTMLInputElement>(oldFocusedElement.get())) {
+        if (is<HTMLInputElement>(oldFocusedElement)) {
             // HTMLInputElement::didBlur just scrolls text fields back to the beginning.
             // FIXME: This could be done asynchronusly.
             // Updating style may dispatch events due to PostResolutionCallback
@@ -4085,7 +4115,7 @@ void Document::updateRangesAfterChildrenChanged(ContainerNode& container)
 
 void Document::nodeChildrenWillBeRemoved(ContainerNode& container)
 {
-    NoEventDispatchAssertion assertNoEventDispatch;
+    ASSERT(!NoEventDispatchAssertion::InMainThread::isEventAllowed());
 
     removeFocusedNodeOfSubtree(container, true /* amongChildrenOnly */);
     removeFocusNavigationNodeOfSubtree(container, true /* amongChildrenOnly */);
@@ -4118,7 +4148,7 @@ void Document::nodeChildrenWillBeRemoved(ContainerNode& container)
 
 void Document::nodeWillBeRemoved(Node& node)
 {
-    NoEventDispatchAssertion assertNoEventDispatch;
+    ASSERT(!NoEventDispatchAssertion::InMainThread::isEventAllowed());
 
     removeFocusedNodeOfSubtree(node);
     removeFocusNavigationNodeOfSubtree(node);
@@ -4262,7 +4292,7 @@ EventListener* Document::getWindowAttributeEventListener(const AtomicString& eve
 
 void Document::dispatchWindowEvent(Event& event, EventTarget* target)
 {
-    RELEASE_ASSERT(NoEventDispatchAssertion::isEventAllowedInMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(NoEventDispatchAssertion::InMainThread::isEventAllowed());
     if (!m_domWindow)
         return;
     m_domWindow->dispatchEvent(event, target);
@@ -4270,7 +4300,7 @@ void Document::dispatchWindowEvent(Event& event, EventTarget* target)
 
 void Document::dispatchWindowLoadEvent()
 {
-    RELEASE_ASSERT(NoEventDispatchAssertion::isEventAllowedInMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(NoEventDispatchAssertion::InMainThread::isEventAllowed());
     if (!m_domWindow)
         return;
     m_domWindow->dispatchLoadEvent();
@@ -5100,7 +5130,7 @@ void Document::applyPendingXSLTransformsTimerFired()
         return;
 
     m_hasPendingXSLTransforms = false;
-    ASSERT(NoEventDispatchAssertion::isEventAllowedInMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(NoEventDispatchAssertion::InMainThread::isEventAllowed());
     for (auto& processingInstruction : styleScope().collectXSLTransforms()) {
         ASSERT(processingInstruction->isXSL());
 
@@ -5808,6 +5838,9 @@ void Document::windowScreenDidChange(PlatformDisplayID displayID)
 {
     if (m_scriptedAnimationController)
         m_scriptedAnimationController->windowScreenDidChange(displayID);
+
+    if (m_timeline)
+        m_timeline->windowScreenDidChange(displayID);
 
     if (RenderView* view = renderView()) {
         if (view->usesCompositing())
@@ -6775,7 +6808,7 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
         // We are clearing the :active chain because the mouse has been released.
         for (Element* currentElement = oldActiveElement; currentElement; currentElement = currentElement->parentElementInComposedTree()) {
             currentElement->setActive(false);
-            m_userActionElements.setInActiveChain(currentElement, false);
+            m_userActionElements.setInActiveChain(*currentElement, false);
         }
         m_activeElement = nullptr;
     } else {
@@ -6787,7 +6820,7 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
                 Element* element = curr->element();
                 if (!element || curr->isTextOrLineBreak())
                     continue;
-                m_userActionElements.setInActiveChain(element, true);
+                m_userActionElements.setInActiveChain(*element, true);
             }
 
             m_activeElement = newActiveElement;
@@ -6847,7 +6880,7 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
                 elementsToRemoveFromChain.append(element);
         }
         // Unset hovered nodes in sub frame documents if the old hovered node was a frame owner.
-        if (is<HTMLFrameOwnerElement>(oldHoveredElement.get())) {
+        if (is<HTMLFrameOwnerElement>(oldHoveredElement)) {
             if (Document* contentDocument = downcast<HTMLFrameOwnerElement>(*oldHoveredElement).contentDocument())
                 contentDocument->updateHoverActiveState(request, nullptr);
         }
@@ -7445,9 +7478,54 @@ void Document::setConsoleMessageListener(RefPtr<StringCallback>&& listener)
 DocumentTimeline& Document::timeline()
 {
     if (!m_timeline)
-        m_timeline = DocumentTimeline::create();
+        m_timeline = DocumentTimeline::create(*this, page() ? page()->chrome().displayID() : 0);
+
     return *m_timeline;
 }
+
+Vector<RefPtr<WebAnimation>> Document::getAnimations()
+{
+    Vector<RefPtr<WebAnimation>> animations;
+    if (m_timeline) {
+        // FIXME: Filter and order the list as specified (webkit.org/b/179535).
+        for (auto& animation : m_timeline->animations())
+            animations.append(animation);
+    }
+    return animations;
+}
+
+#if ENABLE(ATTACHMENT_ELEMENT)
+
+void Document::didInsertAttachmentElement(HTMLAttachmentElement& attachment)
+{
+    auto identifier = attachment.uniqueIdentifier();
+    if (!identifier)
+        return;
+
+    m_attachmentIdentifierToElementMap.set(identifier, attachment);
+
+    if (frame())
+        frame()->editor().didInsertAttachmentElement(attachment);
+}
+
+void Document::didRemoveAttachmentElement(HTMLAttachmentElement& attachment)
+{
+    auto identifier = attachment.uniqueIdentifier();
+    if (!identifier)
+        return;
+
+    m_attachmentIdentifierToElementMap.remove(identifier);
+
+    if (frame())
+        frame()->editor().didRemoveAttachmentElement(attachment);
+}
+
+RefPtr<HTMLAttachmentElement> Document::attachmentForIdentifier(const String& identifier) const
+{
+    return m_attachmentIdentifierToElementMap.get(identifier);
+}
+
+#endif // ENABLE(ATTACHMENT_ELEMENT)
 
 static MessageSource messageSourceForWTFLogChannel(const WTFLogChannel& channel)
 {

@@ -1,6 +1,6 @@
 {
     "domain": "Canvas",
-    "availability": "web",
+    "availability": ["web"],
     "description": "Canvas domain allows tracking of canvases that have an associated graphics context. Tracks canvases in the DOM and CSS canvases created with -webkit-canvas.",
     "types": [
         {
@@ -171,9 +171,24 @@
             ]
         },
         {
+            "name": "extensionEnabled",
+            "parameters": [
+                { "name": "canvasId", "$ref": "CanvasId" },
+                { "name": "extension", "type": "string", "description": "Name of the extension that was enabled." }
+            ]
+        },
+        {
             "name": "cssCanvasClientNodesChanged",
             "parameters": [
                 { "name": "canvasId", "$ref": "CanvasId", "description": "Identifier of canvas that changed." }
+            ]
+        },
+        {
+            "name": "recordingProgress",
+            "parameters": [
+                { "name": "canvasId", "$ref": "CanvasId" },
+                { "name": "frames", "type": "array", "items": { "$ref": "Recording.Frame" }},
+                { "name": "bufferUsed", "type": "integer", "description": "Total memory size in bytes of all data recorded since the recording began." }
             ]
         },
         {

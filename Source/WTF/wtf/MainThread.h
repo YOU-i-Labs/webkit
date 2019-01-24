@@ -31,6 +31,7 @@
 #define MainThread_h
 
 #include <stdint.h>
+#include <wtf/Forward.h>
 #include <wtf/Function.h>
 #include <wtf/Optional.h>
 #include <wtf/ThreadingPrimitives.h>
@@ -42,7 +43,7 @@ class PrintStream;
 // Must be called from the main thread.
 WTF_EXPORT_PRIVATE void initializeMainThread();
 
-WTF_EXPORT_PRIVATE void callOnMainThread(Function<void ()>&&);
+WTF_EXPORT_PRIVATE void callOnMainThread(Function<void()>&&);
 
 #if PLATFORM(COCOA)
 WTF_EXPORT_PRIVATE void callOnWebThreadOrDispatchAsyncOnMainThread(void (^block)());

@@ -57,6 +57,7 @@ VPATH = \
     $(WebCore)/Modules/webdriver \
     $(WebCore)/Modules/websockets \
     $(WebCore)/Modules/webvr \
+    $(WebCore)/accessibility \
     $(WebCore)/animation \
     $(WebCore)/bindings/js \
     $(WebCore)/crypto \
@@ -343,6 +344,8 @@ JS_BINDING_IDLS = \
     $(WebCore)/Modules/webvr/VRLayerInit.idl \
     $(WebCore)/Modules/webvr/VRPose.idl \
     $(WebCore)/Modules/webvr/VRStageParameters.idl \
+    $(WebCore)/accessibility/AccessibleNode.idl \
+    $(WebCore)/animation/Animatable.idl \
     $(WebCore)/animation/AnimationEffect.idl \
     $(WebCore)/animation/AnimationEffectTiming.idl \
     $(WebCore)/animation/AnimationTimeline.idl \
@@ -563,6 +566,7 @@ JS_BINDING_IDLS = \
     $(WebCore)/html/HTMLMarqueeElement.idl \
     $(WebCore)/html/HTMLMediaElement.idl \
     $(WebCore)/html/HTMLMenuElement.idl \
+    $(WebCore)/html/HTMLMenuItemElement.idl \
     $(WebCore)/html/HTMLMetaElement.idl \
     $(WebCore)/html/HTMLMeterElement.idl \
     $(WebCore)/html/HTMLModElement.idl \
@@ -604,6 +608,7 @@ JS_BINDING_IDLS = \
     $(WebCore)/html/MediaController.idl \
     $(WebCore)/html/MediaEncryptedEvent.idl \
     $(WebCore)/html/MediaError.idl \
+    $(WebCore)/html/OffscreenCanvas.idl \
     $(WebCore)/html/RadioNodeList.idl \
     $(WebCore)/html/TextMetrics.idl \
     $(WebCore)/html/TimeRanges.idl \
@@ -643,6 +648,7 @@ JS_BINDING_IDLS = \
     $(WebCore)/html/canvas/EXTTextureFilterAnisotropic.idl \
     $(WebCore)/html/canvas/EXTsRGB.idl \
     $(WebCore)/html/canvas/ImageBitmapRenderingContext.idl \
+    $(WebCore)/html/canvas/ImageBitmapRenderingContextSettings.idl \
     $(WebCore)/html/canvas/ImageSmoothingQuality.idl \
     $(WebCore)/html/canvas/OESElementIndexUint.idl \
     $(WebCore)/html/canvas/OESStandardDerivatives.idl \
@@ -1391,6 +1397,7 @@ PREPROCESS_IDLS_SCRIPTS = \
 
 IDL_INCLUDES = \
     $(WebCore)/Modules \
+    $(WebCore)/accessibility \
     $(WebCore)/animation \
     $(WebCore)/css \
     $(WebCore)/crypto \
@@ -1523,27 +1530,4 @@ $(firstword $(WebCore_BUILTINS_WRAPPERS)): $(WebCore_BUILTINS_SOURCES) WebCore_B
 all : $(notdir $(WebCore_BUILTINS_SOURCES:%.js=%Builtins.h)) $(firstword $(WebCore_BUILTINS_WRAPPERS))
 
 # ------------------------
-
-# Mac-specific rules
-
-ifeq ($(OS),MACOS)
-
-all : CharsetData.cpp
-
-# --------
-
-# character set name table
-
-ifeq ($(WTF_PLATFORM_IOS),1)
-ENCODINGS_FILENAME := ios-encodings.txt
-else
-ENCODINGS_FILENAME := mac-encodings.txt
-endif # WTF_PLATFORM_IOS
-
-CharsetData.cpp : platform/text/mac/make-charset-table.pl platform/text/mac/character-sets.txt platform/text/mac/$(ENCODINGS_FILENAME)
-	$(PERL) $^ kTextEncoding > $@
-
-# --------
-
-endif # MACOS
 

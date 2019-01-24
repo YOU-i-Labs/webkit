@@ -29,6 +29,7 @@
 #if ENABLE(SERVICE_WORKER)
 
 #include "DataReference.h"
+#include "FormDataReference.h"
 #include "StorageProcessMessages.h"
 #include "WebCoreArgumentCoders.h"
 #include <WebCore/ResourceResponse.h>
@@ -44,7 +45,7 @@ WebServiceWorkerFetchTaskClient::~WebServiceWorkerFetchTaskClient()
         RunLoop::main().dispatch([connection = WTFMove(m_connection)] { });
 }
 
-WebServiceWorkerFetchTaskClient::WebServiceWorkerFetchTaskClient(Ref<IPC::Connection>&& connection, uint64_t serverConnectionIdentifier, uint64_t fetchTaskIdentifier)
+WebServiceWorkerFetchTaskClient::WebServiceWorkerFetchTaskClient(Ref<IPC::Connection>&& connection, WebCore::SWServerConnectionIdentifier serverConnectionIdentifier, uint64_t fetchTaskIdentifier)
     : m_connection(WTFMove(connection))
     , m_serverConnectionIdentifier(serverConnectionIdentifier)
     , m_fetchTaskIdentifier(fetchTaskIdentifier)
@@ -66,6 +67,14 @@ void WebServiceWorkerFetchTaskClient::didReceiveData(Ref<SharedBuffer>&& buffer)
     m_connection->send(Messages::StorageProcess::DidReceiveFetchData { m_serverConnectionIdentifier, m_fetchTaskIdentifier, dataReference, static_cast<int64_t>(buffer->size()) }, 0);
 }
 
+void WebServiceWorkerFetchTaskClient::didReceiveFormData(Ref<FormData>&& formData)
+{
+    if (!m_connection)
+        return;
+
+    m_connection->send(Messages::StorageProcess::DidReceiveFetchFormData { m_serverConnectionIdentifier, m_fetchTaskIdentifier, IPC::FormDataReference { WTFMove(formData) } }, 0);
+}
+
 void WebServiceWorkerFetchTaskClient::didFail()
 {
     if (!m_connection)
@@ -79,6 +88,14 @@ void WebServiceWorkerFetchTaskClient::didFinish()
     if (!m_connection)
         return;
     m_connection->send(Messages::StorageProcess::DidFinishFetch { m_serverConnectionIdentifier, m_fetchTaskIdentifier }, 0);
+    m_connection = nullptr;
+}
+
+void WebServiceWorkerFetchTaskClient::didNotHandle()
+{
+    if (!m_connection)
+        return;
+    m_connection->send(Messages::StorageProcess::DidNotHandleFetch { m_serverConnectionIdentifier, m_fetchTaskIdentifier }, 0);
     m_connection = nullptr;
 }
 

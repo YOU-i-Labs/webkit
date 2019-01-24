@@ -142,7 +142,7 @@ void dispatchFunctionsFromMainThread()
     }
 }
 
-void callOnMainThread(Function<void ()>&& function)
+void callOnMainThread(Function<void()>&& function)
 {
     ASSERT(function);
 

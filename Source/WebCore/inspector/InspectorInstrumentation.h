@@ -168,8 +168,8 @@ public:
     static InspectorInstrumentationCookie willRecalculateStyle(Document&);
     static void didRecalculateStyle(const InspectorInstrumentationCookie&);
     static void didScheduleStyleRecalculation(Document&);
-
     static void applyEmulatedMedia(Frame&, String&);
+
     static void willSendRequest(Frame*, unsigned long identifier, DocumentLoader*, ResourceRequest&, const ResourceResponse& redirectResponse);
     static void didLoadResourceFromMemoryCache(Page&, DocumentLoader*, CachedResource*);
     static void didReceiveResourceResponse(Frame&, unsigned long identifier, DocumentLoader*, const ResourceResponse&, ResourceLoader*);
@@ -177,9 +177,12 @@ public:
     static void didReceiveData(Frame*, unsigned long identifier, const char* data, int dataLength, int encodedDataLength);
     static void didFinishLoading(Frame*, DocumentLoader*, unsigned long identifier, const NetworkLoadMetrics&, ResourceLoader*);
     static void didFailLoading(Frame*, DocumentLoader*, unsigned long identifier, const ResourceError&);
-    static void continueAfterXFrameOptionsDenied(Frame&, unsigned long identifier, DocumentLoader&, const ResourceResponse&);
-    static void continueWithPolicyDownload(Frame&, unsigned long identifier, DocumentLoader&, const ResourceResponse&);
-    static void continueWithPolicyIgnore(Frame&, unsigned long identifier, DocumentLoader&, const ResourceResponse&);
+
+    static void willSendRequest(WorkerGlobalScope&, unsigned long identifier, ResourceRequest&);
+    static void didReceiveResourceResponse(WorkerGlobalScope&, unsigned long identifier, const ResourceResponse&);
+    static void didReceiveData(WorkerGlobalScope&, unsigned long identifier, const char* data, int dataLength);
+    static void didFinishLoading(WorkerGlobalScope&, unsigned long identifier, const NetworkLoadMetrics&);
+    static void didFailLoading(WorkerGlobalScope&, unsigned long identifier, const ResourceError&);
 
     // Some network requests do not go through the normal network loading path.
     // These network requests have to issue their own willSendRequest / didReceiveResponse / didFinishLoading / didFailLoading
@@ -187,6 +190,9 @@ public:
     enum class LoadType { Ping, Beacon };
     static void willSendRequestOfType(Frame*, unsigned long identifier, DocumentLoader*, ResourceRequest&, LoadType);
 
+    static void continueAfterXFrameOptionsDenied(Frame&, unsigned long identifier, DocumentLoader&, const ResourceResponse&);
+    static void continueWithPolicyDownload(Frame&, unsigned long identifier, DocumentLoader&, const ResourceResponse&);
+    static void continueWithPolicyIgnore(Frame&, unsigned long identifier, DocumentLoader&, const ResourceResponse&);
     static void didFinishXHRLoading(ScriptExecutionContext*, unsigned long identifier, std::optional<String> decodedText);
     static void willLoadXHRSynchronously(ScriptExecutionContext*);
     static void didLoadXHRSynchronously(ScriptExecutionContext*);
@@ -250,8 +256,8 @@ public:
     static void didChangeCanvasMemory(HTMLCanvasElement&);
     static void recordCanvasAction(CanvasRenderingContext&, const String&, Vector<RecordCanvasActionVariant>&& = { });
     static void didFinishRecordingCanvasFrame(HTMLCanvasElement&, bool forceDispatch = false);
-
 #if ENABLE(WEBGL)
+    static void didEnableExtension(WebGLRenderingContextBase&, const String&);
     static void didCreateProgram(WebGLRenderingContextBase&, WebGLProgram&);
     static void willDeleteProgram(WebGLRenderingContextBase&, WebGLProgram&);
     static bool isShaderProgramDisabled(WebGLRenderingContextBase&, WebGLProgram&);
@@ -346,8 +352,8 @@ private:
     static InspectorInstrumentationCookie willRecalculateStyleImpl(InstrumentingAgents&, Document&);
     static void didRecalculateStyleImpl(const InspectorInstrumentationCookie&);
     static void didScheduleStyleRecalculationImpl(InstrumentingAgents&, Document&);
-
     static void applyEmulatedMediaImpl(InstrumentingAgents&, String&);
+
     static void willSendRequestImpl(InstrumentingAgents&, unsigned long identifier, DocumentLoader*, ResourceRequest&, const ResourceResponse& redirectResponse);
     static void willSendRequestOfTypeImpl(InstrumentingAgents&, unsigned long identifier, DocumentLoader*, ResourceRequest&, LoadType);
     static void markResourceAsCachedImpl(InstrumentingAgents&, unsigned long identifier);
@@ -423,6 +429,7 @@ private:
     static void recordCanvasActionImpl(InstrumentingAgents&, CanvasRenderingContext&, const String&, Vector<RecordCanvasActionVariant>&& = { });
     static void didFinishRecordingCanvasFrameImpl(InstrumentingAgents&, HTMLCanvasElement&, bool forceDispatch = false);
 #if ENABLE(WEBGL)
+    static void didEnableExtensionImpl(InstrumentingAgents&, WebGLRenderingContextBase&, const String&);
     static void didCreateProgramImpl(InstrumentingAgents&, WebGLRenderingContextBase&, WebGLProgram&);
     static void willDeleteProgramImpl(InstrumentingAgents&, WebGLProgram&);
     static bool isShaderProgramDisabledImpl(InstrumentingAgents&, WebGLProgram&);
@@ -901,18 +908,27 @@ inline void InspectorInstrumentation::applyEmulatedMedia(Frame& frame, String& m
 
 inline void InspectorInstrumentation::willSendRequest(Frame* frame, unsigned long identifier, DocumentLoader* loader, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
+    FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForFrame(frame))
         willSendRequestImpl(*instrumentingAgents, identifier, loader, request, redirectResponse);
 }
 
+inline void InspectorInstrumentation::willSendRequest(WorkerGlobalScope& workerGlobalScope, unsigned long identifier, ResourceRequest& request)
+{
+    FAST_RETURN_IF_NO_FRONTENDS(void());
+    willSendRequestImpl(instrumentingAgentsForWorkerGlobalScope(workerGlobalScope), identifier, nullptr, request, ResourceResponse { });
+}
+
 inline void InspectorInstrumentation::willSendRequestOfType(Frame* frame, unsigned long identifier, DocumentLoader* loader, ResourceRequest& request, LoadType loadType)
 {
+    FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForFrame(frame))
         willSendRequestOfTypeImpl(*instrumentingAgents, identifier, loader, request, loadType);
 }
 
 inline void InspectorInstrumentation::didLoadResourceFromMemoryCache(Page& page, DocumentLoader* loader, CachedResource* resource)
 {
+    FAST_RETURN_IF_NO_FRONTENDS(void());
     didLoadResourceFromMemoryCacheImpl(instrumentingAgentsForPage(page), loader, resource);
 }
 
@@ -922,28 +938,53 @@ inline void InspectorInstrumentation::didReceiveResourceResponse(Frame& frame, u
         didReceiveResourceResponseImpl(*instrumentingAgents, identifier, loader, response, resourceLoader);
 }
 
+inline void InspectorInstrumentation::didReceiveResourceResponse(WorkerGlobalScope& workerGlobalScope, unsigned long identifier, const ResourceResponse& response)
+{
+    didReceiveResourceResponseImpl(instrumentingAgentsForWorkerGlobalScope(workerGlobalScope), identifier, nullptr, response, nullptr);
+}
+
 inline void InspectorInstrumentation::didReceiveThreadableLoaderResponse(DocumentThreadableLoader& documentThreadableLoader, unsigned long identifier)
 {
+    FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(documentThreadableLoader.document()))
         didReceiveThreadableLoaderResponseImpl(*instrumentingAgents, documentThreadableLoader, identifier);
 }
     
 inline void InspectorInstrumentation::didReceiveData(Frame* frame, unsigned long identifier, const char* data, int dataLength, int encodedDataLength)
 {
+    FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForFrame(frame))
         didReceiveDataImpl(*instrumentingAgents, identifier, data, dataLength, encodedDataLength);
 }
 
+inline void InspectorInstrumentation::didReceiveData(WorkerGlobalScope& workerGlobalScope, unsigned long identifier, const char* data, int dataLength)
+{
+    FAST_RETURN_IF_NO_FRONTENDS(void());
+    didReceiveDataImpl(instrumentingAgentsForWorkerGlobalScope(workerGlobalScope), identifier, data, dataLength, dataLength);
+}
+
 inline void InspectorInstrumentation::didFinishLoading(Frame* frame, DocumentLoader* loader, unsigned long identifier, const NetworkLoadMetrics& networkLoadMetrics, ResourceLoader* resourceLoader)
 {
+    FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForFrame(frame))
         didFinishLoadingImpl(*instrumentingAgents, identifier, loader, networkLoadMetrics, resourceLoader);
+}
+
+inline void InspectorInstrumentation::didFinishLoading(WorkerGlobalScope& workerGlobalScope, unsigned long identifier, const NetworkLoadMetrics& networkLoadMetrics)
+{
+    FAST_RETURN_IF_NO_FRONTENDS(void());
+    didFinishLoadingImpl(instrumentingAgentsForWorkerGlobalScope(workerGlobalScope), identifier, nullptr, networkLoadMetrics, nullptr);
 }
 
 inline void InspectorInstrumentation::didFailLoading(Frame* frame, DocumentLoader* loader, unsigned long identifier, const ResourceError& error)
 {
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForFrame(frame))
         didFailLoadingImpl(*instrumentingAgents, identifier, loader, error);
+}
+
+inline void InspectorInstrumentation::didFailLoading(WorkerGlobalScope& workerGlobalScope, unsigned long identifier, const ResourceError& error)
+{
+    didFailLoadingImpl(instrumentingAgentsForWorkerGlobalScope(workerGlobalScope), identifier, nullptr, error);
 }
 
 inline void InspectorInstrumentation::continueAfterXFrameOptionsDenied(Frame& frame, unsigned long identifier, DocumentLoader& loader, const ResourceResponse& response)
@@ -969,24 +1010,28 @@ inline void InspectorInstrumentation::continueWithPolicyIgnore(Frame& frame, uns
 
 inline void InspectorInstrumentation::didFinishXHRLoading(ScriptExecutionContext* context, unsigned long identifier, std::optional<String> decodedText)
 {
+    FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForContext(context))
         didFinishXHRLoadingImpl(*instrumentingAgents, identifier, decodedText);
 }
 
 inline void InspectorInstrumentation::willLoadXHRSynchronously(ScriptExecutionContext* context)
 {
+    FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForContext(context))
         willLoadXHRSynchronouslyImpl(*instrumentingAgents);
 }
 
 inline void InspectorInstrumentation::didLoadXHRSynchronously(ScriptExecutionContext* context)
 {
+    FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForContext(context))
         didLoadXHRSynchronouslyImpl(*instrumentingAgents);
 }
 
 inline void InspectorInstrumentation::scriptImported(ScriptExecutionContext& context, unsigned long identifier, const String& sourceString)
 {
+    FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForContext(context))
         scriptImportedImpl(*instrumentingAgents, identifier, sourceString);
 }
@@ -999,6 +1044,7 @@ inline void InspectorInstrumentation::scriptExecutionBlockedByCSP(ScriptExecutio
 
 inline void InspectorInstrumentation::didReceiveScriptResponse(ScriptExecutionContext* context, unsigned long identifier)
 {
+    FAST_RETURN_IF_NO_FRONTENDS(void());
     if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForContext(context))
         didReceiveScriptResponseImpl(*instrumentingAgents, identifier);
 }
@@ -1190,8 +1236,11 @@ inline void InspectorInstrumentation::didChangeCanvasMemory(HTMLCanvasElement& c
 inline void InspectorInstrumentation::recordCanvasAction(CanvasRenderingContext& canvasRenderingContext, const String& name, Vector<RecordCanvasActionVariant>&& parameters)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
-    if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(&canvasRenderingContext.canvas().document()))
-        recordCanvasActionImpl(*instrumentingAgents, canvasRenderingContext, name, WTFMove(parameters));
+    auto* canvasElement = canvasRenderingContext.canvasBase().asHTMLCanvasElement();
+    if (canvasElement) {
+        if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(&canvasElement->document()))
+            recordCanvasActionImpl(*instrumentingAgents, canvasRenderingContext, name, WTFMove(parameters));
+    }
 }
 
 inline void InspectorInstrumentation::didFinishRecordingCanvasFrame(HTMLCanvasElement& canvasElement, bool forceDispatch)
@@ -1202,23 +1251,39 @@ inline void InspectorInstrumentation::didFinishRecordingCanvasFrame(HTMLCanvasEl
 }
 
 #if ENABLE(WEBGL)
+inline void InspectorInstrumentation::didEnableExtension(WebGLRenderingContextBase& context, const String& extension)
+{
+    FAST_RETURN_IF_NO_FRONTENDS(void());
+
+    if (auto* canvasElement = context.canvas()) {
+        if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(canvasElement->document()))
+            didEnableExtensionImpl(*instrumentingAgents, context, extension);
+    }
+}
+
 inline void InspectorInstrumentation::didCreateProgram(WebGLRenderingContextBase& context, WebGLProgram& program)
 {
-    if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(context.canvas().document()))
-        didCreateProgramImpl(*instrumentingAgents, context, program);
+    if (auto* canvasElement = context.canvas()) {
+        if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(canvasElement->document()))
+            didCreateProgramImpl(*instrumentingAgents, context, program);
+    }
 }
 
 inline void InspectorInstrumentation::willDeleteProgram(WebGLRenderingContextBase& context, WebGLProgram& program)
 {
-    if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(context.canvas().document()))
-        willDeleteProgramImpl(*instrumentingAgents, program);
+    if (auto* canvasElement = context.canvas()) {
+        if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(canvasElement->document()))
+            willDeleteProgramImpl(*instrumentingAgents, program);
+    }
 }
 
 inline bool InspectorInstrumentation::isShaderProgramDisabled(WebGLRenderingContextBase& context, WebGLProgram& program)
 {
     FAST_RETURN_IF_NO_FRONTENDS(false);
-    if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(context.canvas().document()))
-        return isShaderProgramDisabledImpl(*instrumentingAgents, program);
+    if (auto* canvasElement = context.canvas()) {
+        if (InstrumentingAgents* instrumentingAgents = instrumentingAgentsForDocument(canvasElement->document()))
+            return isShaderProgramDisabledImpl(*instrumentingAgents, program);
+    }
     return false;
 }
 #endif

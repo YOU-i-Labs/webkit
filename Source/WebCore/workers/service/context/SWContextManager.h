@@ -28,6 +28,7 @@
 #if ENABLE(SERVICE_WORKER)
 
 #include "ExceptionOr.h"
+#include "ServiceWorkerIdentifier.h"
 #include "ServiceWorkerThreadProxy.h"
 #include <wtf/HashMap.h>
 
@@ -44,20 +45,28 @@ public:
     public:
         virtual ~Connection() { }
 
-        virtual void postMessageToServiceWorkerClient(const ServiceWorkerClientIdentifier& destinationIdentifier, Ref<SerializedScriptValue>&& message, uint64_t sourceServiceWorkerIdentifier, const String& sourceOrigin) = 0;
+        virtual void postMessageToServiceWorkerClient(const ServiceWorkerClientIdentifier& destinationIdentifier, Ref<SerializedScriptValue>&& message, ServiceWorkerIdentifier source, const String& sourceOrigin) = 0;
+        virtual void serviceWorkerStartedWithMessage(const ServiceWorkerJobDataIdentifier&, ServiceWorkerIdentifier, const String& exceptionMessage) = 0;
+        virtual void didFinishInstall(const ServiceWorkerJobDataIdentifier&, ServiceWorkerIdentifier, bool wasSuccessful) = 0;
+        virtual void didFinishActivation(ServiceWorkerIdentifier) = 0;
+        virtual void setServiceWorkerHasPendingEvents(ServiceWorkerIdentifier, bool) = 0;
+        virtual void workerTerminated(ServiceWorkerIdentifier) = 0;
     };
 
     WEBCORE_EXPORT void setConnection(std::unique_ptr<Connection>&&);
     WEBCORE_EXPORT Connection* connection() const;
 
-    WEBCORE_EXPORT void registerServiceWorkerThread(Ref<ServiceWorkerThreadProxy>&&);
-    WEBCORE_EXPORT ServiceWorkerThreadProxy* serviceWorkerThreadProxy(uint64_t) const;
-    WEBCORE_EXPORT void postMessageToServiceWorkerGlobalScope(uint64_t destinationServiceWorkerIdentifier, Ref<SerializedScriptValue>&& message, const ServiceWorkerClientIdentifier& sourceIdentifier, const String& sourceOrigin);
+    WEBCORE_EXPORT void registerServiceWorkerThreadForInstall(Ref<ServiceWorkerThreadProxy>&&);
+    WEBCORE_EXPORT ServiceWorkerThreadProxy* serviceWorkerThreadProxy(ServiceWorkerIdentifier) const;
+    WEBCORE_EXPORT void postMessageToServiceWorkerGlobalScope(ServiceWorkerIdentifier destination, Ref<SerializedScriptValue>&& message, ServiceWorkerClientIdentifier sourceIdentifier, ServiceWorkerClientData&& sourceData);
+    WEBCORE_EXPORT void fireInstallEvent(ServiceWorkerIdentifier);
+    WEBCORE_EXPORT void fireActivateEvent(ServiceWorkerIdentifier);
+    WEBCORE_EXPORT void terminateWorker(ServiceWorkerIdentifier);
 
 private:
     SWContextManager() = default;
 
-    HashMap<uint64_t, RefPtr<ServiceWorkerThreadProxy>> m_workerMap;
+    HashMap<ServiceWorkerIdentifier, RefPtr<ServiceWorkerThreadProxy>> m_workerMap;
     std::unique_ptr<Connection> m_connection;
 };
 

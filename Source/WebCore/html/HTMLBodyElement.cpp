@@ -194,7 +194,7 @@ Node::InsertedIntoAncestorResult HTMLBodyElement::insertedIntoAncestor(Insertion
     // FIXME: It's surprising this is web compatible since it means a marginwidth and marginheight attribute can
     // magically appear on the <body> of all documents embedded through <iframe> or <frame>.
     // FIXME: Perhaps this code should be in attach() instead of here.
-    auto* ownerElement = document().ownerElement();
+    auto ownerElement = makeRefPtr(document().ownerElement());
     if (!is<HTMLFrameElementBase>(ownerElement))
         return InsertedIntoAncestorResult::Done;
 
@@ -203,7 +203,7 @@ Node::InsertedIntoAncestorResult HTMLBodyElement::insertedIntoAncestor(Insertion
 
 void HTMLBodyElement::didFinishInsertingNode()
 {
-    auto* ownerElement = document().ownerElement();
+    auto ownerElement = makeRefPtr(document().ownerElement());
     RELEASE_ASSERT(is<HTMLFrameElementBase>(ownerElement));
     auto& ownerFrameElement = downcast<HTMLFrameElementBase>(*ownerElement);
 
@@ -299,21 +299,21 @@ void HTMLBodyElement::setScrollTop(int scrollTop)
     return HTMLElement::setScrollTop(scrollTop);
 }
 
-void HTMLBodyElement::scrollTo(const ScrollToOptions& options)
+void HTMLBodyElement::scrollTo(const ScrollToOptions& options, ScrollClamping clamping)
 {
     if (isFirstBodyElementOfDocument()) {
         // If the element is the HTML body element, document is in quirks mode, and the element is not potentially scrollable,
         // invoke scroll() on window with options as the only argument, and terminate these steps.
         // Note that WebKit always uses quirks mode document scrolling behavior. See Document::scrollingElement().
         // FIXME: Scrolling an independently scrollable body is broken: webkit.org/b/161612.
-        auto* window = document().domWindow();
+        auto window = makeRefPtr(document().domWindow());
         if (!window)
             return;
 
         window->scrollTo(options);
         return;
     }
-    return HTMLElement::scrollTo(options);
+    return HTMLElement::scrollTo(options, clamping);
 }
 
 int HTMLBodyElement::scrollHeight()

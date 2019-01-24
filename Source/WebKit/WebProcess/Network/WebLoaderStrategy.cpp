@@ -65,6 +65,7 @@
 #include <WebCore/SubresourceLoader.h>
 #include <WebCore/UserContentProvider.h>
 #include <pal/SessionID.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/text/CString.h>
 
 #if USE(QUICK_LOOK)
@@ -87,22 +88,24 @@ WebLoaderStrategy::~WebLoaderStrategy()
 {
 }
 
-RefPtr<SubresourceLoader> WebLoaderStrategy::loadResource(Frame& frame, CachedResource& resource, const ResourceRequest& request, const ResourceLoaderOptions& options)
+void WebLoaderStrategy::loadResource(Frame& frame, CachedResource& resource, ResourceRequest&& request, const ResourceLoaderOptions& options, CompletionHandler<void(RefPtr<SubresourceLoader>&&)>&& completionHandler)
 {
-    RefPtr<SubresourceLoader> loader = SubresourceLoader::create(frame, resource, request, options);
-    if (loader)
-        scheduleLoad(*loader, &resource, frame.document()->referrerPolicy() == ReferrerPolicy::NoReferrerWhenDowngrade);
-    else
-        RELEASE_LOG_IF_ALLOWED(frame, "loadResource: Unable to create SubresourceLoader (frame = %p", &frame);
-    return loader;
+    SubresourceLoader::create(frame, resource, WTFMove(request), options, [this, completionHandler = WTFMove(completionHandler), resource = CachedResourceHandle<CachedResource>(&resource), frame = makeRef(frame)] (RefPtr<SubresourceLoader>&& loader) mutable {
+        if (loader)
+            scheduleLoad(*loader, resource.get(), frame->document()->referrerPolicy() == ReferrerPolicy::NoReferrerWhenDowngrade);
+        else
+            RELEASE_LOG_IF_ALLOWED(frame.get(), "loadResource: Unable to create SubresourceLoader (frame = %p", &frame);
+        completionHandler(WTFMove(loader));
+    });
 }
 
-RefPtr<NetscapePlugInStreamLoader> WebLoaderStrategy::schedulePluginStreamLoad(Frame& frame, NetscapePlugInStreamLoaderClient& client, const ResourceRequest& request)
+void WebLoaderStrategy::schedulePluginStreamLoad(Frame& frame, NetscapePlugInStreamLoaderClient& client, ResourceRequest&& request, CompletionHandler<void(RefPtr<NetscapePlugInStreamLoader>&&)>&& completionHandler)
 {
-    RefPtr<NetscapePlugInStreamLoader> loader = NetscapePlugInStreamLoader::create(frame, client, request);
-    if (loader)
-        scheduleLoad(*loader, 0, frame.document()->referrerPolicy() == ReferrerPolicy::NoReferrerWhenDowngrade);
-    return loader;
+    NetscapePlugInStreamLoader::create(frame, client, WTFMove(request), [this, completionHandler = WTFMove(completionHandler), frame = makeRef(frame)] (RefPtr<NetscapePlugInStreamLoader>&& loader) mutable {
+        if (loader)
+            scheduleLoad(*loader, 0, frame->document()->referrerPolicy() == ReferrerPolicy::NoReferrerWhenDowngrade);
+        completionHandler(WTFMove(loader));
+    });
 }
 
 static Seconds maximumBufferingTime(CachedResource* resource)
@@ -219,6 +222,14 @@ void WebLoaderStrategy::scheduleLoad(ResourceLoader& resourceLoader, CachedResou
     WebServiceWorkerProvider::singleton().handleFetch(resourceLoader, resource, sessionID, [trackingParameters, sessionID, shouldClearReferrerOnHTTPSToHTTPRedirect, maximumBufferingTime = maximumBufferingTime(resource), resourceLoader = makeRef(resourceLoader)] (ServiceWorkerClientFetch::Result result) mutable {
         if (result != ServiceWorkerClientFetch::Result::Unhandled)
             return;
+        if (resourceLoader->options().serviceWorkersMode == ServiceWorkersMode::Only) {
+            callOnMainThread([resourceLoader = WTFMove(resourceLoader)] {
+                auto error = internalError(resourceLoader->request().url());
+                error.setType(ResourceError::Type::AccessControl);
+                resourceLoader->didFail(error);
+            });
+            return;
+        }
 
         LOG(NetworkScheduling, "(WebProcess) WebLoaderStrategy::scheduleLoad, url '%s' will be scheduled through ServiceWorker handle fetch algorithm", resourceLoader->url().string().latin1().data());
         WebProcess::singleton().webLoaderStrategy().scheduleLoadFromNetworkProcess(resourceLoader.get(), resourceLoader->originalRequest(), trackingParameters, sessionID, shouldClearReferrerOnHTTPSToHTTPRedirect, maximumBufferingTime);
@@ -237,6 +248,7 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
     LOG(NetworkScheduling, "(WebProcess) WebLoaderStrategy::scheduleLoad, url '%s' will be scheduled with the NetworkProcess with priority %d", resourceLoader.url().string().latin1().data(), static_cast<int>(resourceLoader.request().priority()));
 
     ContentSniffingPolicy contentSniffingPolicy = resourceLoader.shouldSniffContent() ? SniffContent : DoNotSniffContent;
+    ContentEncodingSniffingPolicy contentEncodingSniffingPolicy = resourceLoader.shouldSniffContentEncoding() ? ContentEncodingSniffingPolicy::Sniff : ContentEncodingSniffingPolicy::DoNotSniff;
     StoredCredentialsPolicy storedCredentialsPolicy = resourceLoader.shouldUseCredentialStorage() ? StoredCredentialsPolicy::Use : StoredCredentialsPolicy::DoNotUse;
 
     NetworkResourceLoadParameters loadParameters;
@@ -246,6 +258,7 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
     loadParameters.sessionID = sessionID;
     loadParameters.request = request;
     loadParameters.contentSniffingPolicy = contentSniffingPolicy;
+    loadParameters.contentEncodingSniffingPolicy = contentEncodingSniffingPolicy;
     loadParameters.storedCredentialsPolicy = storedCredentialsPolicy;
     // If there is no WebFrame then this resource cannot be authenticated with the client.
     loadParameters.clientCredentialPolicy = (loadParameters.webFrameID && loadParameters.webPageID && resourceLoader.isAllowedToAskUserForCredentials()) ? ClientCredentialPolicy::MayAskClientForCredentials : ClientCredentialPolicy::CannotAskClientForCredentials;
@@ -400,6 +413,7 @@ void WebLoaderStrategy::loadResourceSynchronously(NetworkingContext* context, un
     loadParameters.sessionID = webPage ? webPage->sessionID() : PAL::SessionID::defaultSessionID();
     loadParameters.request = request;
     loadParameters.contentSniffingPolicy = SniffContent;
+    loadParameters.contentEncodingSniffingPolicy = ContentEncodingSniffingPolicy::Sniff;
     loadParameters.storedCredentialsPolicy = storedCredentialsPolicy;
     loadParameters.clientCredentialPolicy = clientCredentialPolicy;
     loadParameters.shouldClearReferrerOnHTTPSToHTTPRedirect = context->shouldClearReferrerOnHTTPSToHTTPRedirect();

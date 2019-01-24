@@ -26,6 +26,7 @@
 
 #include "FontCascade.h"
 #include "RenderBlock.h"
+#include "RenderButton.h"
 #include "RenderInline.h"
 #include "RenderRubyRun.h"
 #include "RenderSVGText.h"
@@ -35,7 +36,7 @@
 
 namespace WebCore {
 
-static RenderStyle styleForFirstLetter(const RenderElement& firstLetterBlock, const RenderObject& firstLetterContainer)
+static RenderStyle styleForFirstLetter(const RenderBlock& firstLetterBlock, const RenderObject& firstLetterContainer)
 {
     auto* containerFirstLetterStyle = firstLetterBlock.getCachedPseudoStyle(FIRST_LETTER, &firstLetterContainer.firstLineStyle());
     // FIXME: There appears to be some path where we have a first letter renderer without first letter style.
@@ -99,9 +100,11 @@ static inline bool shouldSkipForFirstLetter(UChar c)
     return isSpaceOrNewline(c) || c == noBreakSpace || isPunctuationForFirstLetter(c);
 }
 
-static void updateFirstLetterStyle(RenderElement& firstLetterBlock, RenderObject& currentChild)
+static void updateFirstLetterStyle(RenderBlock& firstLetterBlock, RenderObject& currentChild)
 {
     RenderElement* firstLetter = currentChild.parent();
+    ASSERT(firstLetter->isFirstLetter());
+
     RenderElement* firstLetterContainer = firstLetter->parent();
     auto pseudoStyle = styleForFirstLetter(firstLetterBlock, *firstLetterContainer);
     ASSERT(firstLetter->isFloating() || firstLetter->isInline());
@@ -114,6 +117,7 @@ static void updateFirstLetterStyle(RenderElement& firstLetterBlock, RenderObject
         else
             newFirstLetter = createRenderer<RenderBlockFlow>(firstLetterBlock.document(), WTFMove(pseudoStyle));
         newFirstLetter->initializeStyle();
+        newFirstLetter->setIsFirstLetter();
 
         // Move the first letter into the new renderer.
         while (RenderObject* child = firstLetter->firstChild()) {
@@ -128,7 +132,7 @@ static void updateFirstLetterStyle(RenderElement& firstLetterBlock, RenderObject
             ASSERT(remainingText->isAnonymous() || remainingText->textNode()->renderer() == remainingText);
             // Replace the old renderer with the new one.
             remainingText->setFirstLetter(*newFirstLetter);
-            newFirstLetter->setFirstLetterRemainingText(remainingText);
+            newFirstLetter->setFirstLetterRemainingText(*remainingText);
         }
         firstLetterContainer->removeAndDestroyChild(*firstLetter);
         firstLetterContainer->addChild(WTFMove(newFirstLetter), nextSibling);
@@ -136,7 +140,7 @@ static void updateFirstLetterStyle(RenderElement& firstLetterBlock, RenderObject
         firstLetter->setStyle(WTFMove(pseudoStyle));
 }
 
-static void createFirstLetterRenderer(RenderElement& firstLetterBlock, RenderText& currentTextChild)
+static void createFirstLetterRenderer(RenderBlock& firstLetterBlock, RenderText& currentTextChild)
 {
     RenderElement* firstLetterContainer = currentTextChild.parent();
     auto pseudoStyle = styleForFirstLetter(firstLetterBlock, *firstLetterContainer);
@@ -146,6 +150,8 @@ static void createFirstLetterRenderer(RenderElement& firstLetterBlock, RenderTex
     else
         newFirstLetter = createRenderer<RenderBlockFlow>(firstLetterBlock.document(), WTFMove(pseudoStyle));
     newFirstLetter->initializeStyle();
+    newFirstLetter->setIsFirstLetter();
+
     auto& firstLetter = *newFirstLetter;
     firstLetterContainer->addChild(WTFMove(newFirstLetter), &currentTextChild);
 
@@ -177,29 +183,26 @@ static void createFirstLetterRenderer(RenderElement& firstLetterBlock, RenderTex
                 length = scanLength + 1;
         }
 
+        auto* textNode = currentTextChild.textNode();
+        auto* beforeChild = currentTextChild.nextSibling();
+        firstLetterContainer->removeAndDestroyChild(currentTextChild);
+
         // Construct a text fragment for the text after the first letter.
         // This text fragment might be empty.
         RenderPtr<RenderTextFragment> newRemainingText;
-        if (currentTextChild.textNode())
-            newRemainingText = createRenderer<RenderTextFragment>(*currentTextChild.textNode(), oldText, length, oldText.length() - length);
-        else
+        if (textNode) {
+            newRemainingText = createRenderer<RenderTextFragment>(*textNode, oldText, length, oldText.length() - length);
+            textNode->setRenderer(newRemainingText.get());
+        } else
             newRemainingText = createRenderer<RenderTextFragment>(firstLetterBlock.document(), oldText, length, oldText.length() - length);
 
-        if (newRemainingText->textNode())
-            newRemainingText->textNode()->setRenderer(newRemainingText.get());
-
         RenderTextFragment& remainingText = *newRemainingText;
-        firstLetterContainer->addChild(WTFMove(newRemainingText), &currentTextChild);
-        firstLetterContainer->removeAndDestroyChild(currentTextChild);
+        firstLetterContainer->addChild(WTFMove(newRemainingText), beforeChild);
         remainingText.setFirstLetter(firstLetter);
-        firstLetter.setFirstLetterRemainingText(&remainingText);
+        firstLetter.setFirstLetterRemainingText(remainingText);
 
         // construct text fragment for the first letter
-        RenderPtr<RenderTextFragment> letter;
-        if (remainingText.textNode())
-            letter = createRenderer<RenderTextFragment>(*remainingText.textNode(), oldText, 0, length);
-        else
-            letter = createRenderer<RenderTextFragment>(firstLetterBlock.document(), oldText, 0, length);
+        auto letter = createRenderer<RenderTextFragment>(firstLetterBlock.document(), oldText, 0, length);
 
         firstLetter.addChild(WTFMove(letter));
     }
@@ -207,42 +210,47 @@ static void createFirstLetterRenderer(RenderElement& firstLetterBlock, RenderTex
 
 static bool supportsFirstLetter(RenderBlock& block)
 {
-    if (is<RenderTable>(block))
+    if (is<RenderButton>(block))
+        return true;
+    if (!is<RenderBlockFlow>(block))
         return false;
     if (is<RenderSVGText>(block))
         return false;
     if (is<RenderRubyRun>(block))
         return false;
-    return true;
+    return block.canHaveGeneratedChildren();
 }
 
 void RenderTreeUpdater::FirstLetter::update(RenderBlock& block)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(!block.view().layoutState());
-
+    if (!block.style().hasPseudoStyle(FIRST_LETTER))
+        return;
     if (!supportsFirstLetter(block))
         return;
 
-    RenderObject* firstLetterObj;
+    // FIXME: This should be refactored, firstLetterContainer is not needed.
+    RenderObject* firstLetterRenderer;
     RenderElement* firstLetterContainer;
-    // FIXME: The first letter might be composed of a variety of code units, and therefore might
-    // be contained within multiple RenderElements.
-    block.getFirstLetter(firstLetterObj, firstLetterContainer);
+    block.getFirstLetter(firstLetterRenderer, firstLetterContainer);
 
-    if (!firstLetterObj || !firstLetterContainer)
+    if (!firstLetterRenderer)
+        return;
+
+    // Other containers are handled when updating their renderers.
+    if (&block != firstLetterContainer)
         return;
 
     // If the child already has style, then it has already been created, so we just want
     // to update it.
-    if (firstLetterObj->parent()->style().styleType() == FIRST_LETTER) {
-        updateFirstLetterStyle(*firstLetterContainer, *firstLetterObj);
+    if (firstLetterRenderer->parent()->style().styleType() == FIRST_LETTER) {
+        updateFirstLetterStyle(block, *firstLetterRenderer);
         return;
     }
 
-    if (!is<RenderText>(*firstLetterObj))
+    if (!is<RenderText>(firstLetterRenderer))
         return;
 
-    createFirstLetterRenderer(*firstLetterContainer, downcast<RenderText>(*firstLetterObj));
+    createFirstLetterRenderer(block, downcast<RenderText>(*firstLetterRenderer));
 }
 
 };

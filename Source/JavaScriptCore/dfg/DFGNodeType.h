@@ -356,6 +356,7 @@ namespace JSC { namespace DFG {
     macro(ToPrimitive, NodeResultJS | NodeMustGenerate) \
     macro(ToString, NodeResultJS | NodeMustGenerate) \
     macro(ToNumber, NodeResultJS | NodeMustGenerate) \
+    macro(ToObject, NodeResultJS | NodeMustGenerate) \
     macro(CallObjectConstructor, NodeResultJS) \
     macro(CallStringConstructor, NodeResultJS | NodeMustGenerate) \
     macro(NumberToStringWithRadix, NodeResultJS | NodeMustGenerate) \
@@ -407,6 +408,9 @@ namespace JSC { namespace DFG {
     \
     /* Count execution. */\
     macro(CountExecution, NodeMustGenerate) \
+    /* Super sampler. */\
+    macro(SuperSamplerBegin, NodeMustGenerate) \
+    macro(SuperSamplerEnd, NodeMustGenerate) \
     \
     /* This is a pseudo-terminal. It means that execution should fall out of DFG at */\
     /* this point, but execution does continue in the basic block - just in a */\
@@ -444,6 +448,7 @@ namespace JSC { namespace DFG {
     /* Nodes for JSWeakMap and JSWeakSet */ \
     macro(WeakMapGet, NodeResultJS) \
     \
+    macro(StringSlice, NodeResultJS) \
     macro(ToLowerCase, NodeResultJS) \
     /* Nodes for DOM JIT */\
     macro(CallDOMGetter, NodeResultJS | NodeMustGenerate) \
@@ -451,7 +456,11 @@ namespace JSC { namespace DFG {
     /* Metadata node that initializes the state for flushed argument types at an entrypoint in the program. */ \
     /* Currently, we only use this for the blocks an EntrySwitch branches to at the root of the program. */ \
     /* This is only used in SSA. */ \
-    macro(InitializeEntrypointArguments, NodeMustGenerate)
+    macro(InitializeEntrypointArguments, NodeMustGenerate) \
+    \
+    /* Used for $vm performance debugging */ \
+    macro(CPUIntrinsic, NodeResultJS | NodeMustGenerate) \
+
 
 // This enum generates a monotonically increasing id for all Node types,
 // and is used by the subsequent enum to fill out the id (as accessed via the NodeIdMask).

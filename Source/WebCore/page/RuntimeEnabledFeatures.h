@@ -73,6 +73,9 @@ public:
     void setCustomElementsEnabled(bool areEnabled) { m_areCustomElementsEnabled = areEnabled; }
     bool customElementsEnabled() const { return m_areCustomElementsEnabled; }
 
+    void setMenuItemElementEnabled(bool isEnabled) { m_isMenuItemElementEnabled = isEnabled; }
+    bool menuItemElementEnabled() const { return m_isMenuItemElementEnabled; }
+    
     void setDirectoryUploadEnabled(bool isEnabled) { m_isDirectoryUploadEnabled = isEnabled; }
     bool directoryUploadEnabled() const { return m_isDirectoryUploadEnabled; }
 
@@ -222,6 +225,9 @@ public:
     void setWebVREnabled(bool isEnabled) { m_webVREnabled = isEnabled; }
     bool webVREnabled() const { return m_webVREnabled; }
 
+    void setAccessibilityObjectModelEnabled(bool isEnabled) { m_accessibilityObjectModelEnabled = isEnabled; }
+    bool accessibilityObjectModelEnabled() const { return m_accessibilityObjectModelEnabled; }
+
     WEBCORE_EXPORT static RuntimeEnabledFeatures& sharedFeatures();
 
 private:
@@ -237,9 +243,10 @@ private:
     bool m_isCredentialManagementEnabled { false };
     bool m_isSecureContextAttributeEnabled { false };
 
-    bool m_isDisplayContentsEnabled { false };
+    bool m_isDisplayContentsEnabled { true };
     bool m_isShadowDOMEnabled { true };
     bool m_areCustomElementsEnabled { true };
+    bool m_isMenuItemElementEnabled { false };
     bool m_isDirectoryUploadEnabled { false };
     bool m_areDataTransferItemsEnabled { false };
     bool m_inputEventsEnabled { true };
@@ -340,6 +347,8 @@ private:
 
     bool m_inspectorAdditionsEnabled { false };
     bool m_webVREnabled { false };
+
+    bool m_accessibilityObjectModelEnabled { false };
 
     friend class WTF::NeverDestroyed<RuntimeEnabledFeatures>;
 };

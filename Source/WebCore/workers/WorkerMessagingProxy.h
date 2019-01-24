@@ -46,7 +46,7 @@ public:
 private:
     // Implementations of WorkerGlobalScopeProxy.
     // (Only use these functions in the worker object thread.)
-    void startWorkerGlobalScope(const URL& scriptURL, const String& userAgent, const String& sourceCode, const ContentSecurityPolicyResponseHeaders&, bool shouldBypassMainWorldContentSecurityPolicy, MonotonicTime timeOrigin, JSC::RuntimeFlags, PAL::SessionID) final;
+    void startWorkerGlobalScope(const URL& scriptURL, const String& userAgent, bool isOnline, const String& sourceCode, const ContentSecurityPolicyResponseHeaders&, bool shouldBypassMainWorldContentSecurityPolicy, MonotonicTime timeOrigin, JSC::RuntimeFlags, PAL::SessionID) final;
     void terminateWorkerGlobalScope() final;
     void postMessageToWorkerGlobalScope(Ref<SerializedScriptValue>&&, std::unique_ptr<MessagePortChannelArray>&&) final;
     bool hasPendingActivity() const final;
@@ -65,6 +65,7 @@ private:
     // Implementation of WorkerDebuggerProxy.
     // (Only use these functions in the worker context thread.)
     void postMessageToDebugger(const String&) final;
+    void setResourceCachingDisabled(bool) final;
 
     // Implementation of WorkerLoaderProxy.
     // These functions are called on different threads to schedule loading

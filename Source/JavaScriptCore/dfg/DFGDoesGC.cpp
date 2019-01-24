@@ -197,7 +197,10 @@ bool doesGC(Graph& graph, Node* node)
     case TailCallVarargs:
     case Throw:
     case CountExecution:
+    case SuperSamplerBegin:
+    case SuperSamplerEnd:
     case ForceOSRExit:
+    case CPUIntrinsic:
     case CheckTraps:
     case StringFromCharCode:
     case MapHash:
@@ -301,6 +304,7 @@ bool doesGC(Graph& graph, Node* node)
     case CreateScopedArguments:
     case CreateClonedArguments:
     case CallObjectConstructor:
+    case ToObject:
     case ToThis:
     case CreateThis:
     case AllocatePropertyStorage:
@@ -332,6 +336,7 @@ bool doesGC(Graph& graph, Node* node)
     case StrCat:
     case StringReplace:
     case StringReplaceRegExp:
+    case StringSlice:
     case CreateRest:
     case ToLowerCase:
     case CallDOMGetter:

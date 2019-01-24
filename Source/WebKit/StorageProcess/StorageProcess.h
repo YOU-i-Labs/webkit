@@ -29,22 +29,29 @@
 #include "SandboxExtension.h"
 #include <WebCore/IDBBackingStore.h>
 #include <WebCore/IDBServer.h>
+#include <WebCore/ServiceWorkerIdentifier.h>
+#include <WebCore/ServiceWorkerTypes.h>
 #include <WebCore/UniqueIDBDatabase.h>
 #include <pal/SessionID.h>
 #include <wtf/CrossThreadTask.h>
 #include <wtf/Function.h>
 
+namespace IPC {
+class FormDataReference;
+}
+
 namespace WebCore {
 class SWServer;
 struct SecurityOriginData;
 struct ServiceWorkerClientIdentifier;
-struct ServiceWorkerRegistrationKey;
+class ServiceWorkerRegistrationKey;
 }
 
 namespace WebKit {
 
 class StorageToWebProcessConnection;
 class WebSWServerConnection;
+class WebSWServerToContextConnection;
 enum class WebsiteDataType;
 struct StorageProcessCreationParameters;
 
@@ -79,11 +86,10 @@ public:
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-    IPC::Connection* workerContextProcessConnection();
-    void createWorkerContextProcessConnection();
-
-    WebSWOriginStore& ensureSWOriginStoreForSession(PAL::SessionID);
-    WebSWOriginStore* swOriginStoreForSession(PAL::SessionID) const;
+    // For now we just have one global connection to service worker context processes.
+    // This will change in the future.
+    WebSWServerToContextConnection* globalServerToContextConnection();
+    void createServerToContextConnection();
 
     WebCore::SWServer& swServerForSession(PAL::SessionID);
     void registerSWServerConnection(WebSWServerConnection&);
@@ -118,16 +124,16 @@ private:
 #endif
 #if ENABLE(SERVICE_WORKER)
     void didGetWorkerContextProcessConnection(IPC::Attachment&& encodedConnectionIdentifier);
-    void serviceWorkerContextFailedToStart(uint64_t serverConnectionIdentifier, const WebCore::ServiceWorkerRegistrationKey&, const String& workerID, const String& message);
-    void serviceWorkerContextStarted(uint64_t serverConnectionIdentifier, const WebCore::ServiceWorkerRegistrationKey&, uint64_t identifier, const String& workerID);
 
-    void didReceiveFetchResponse(uint64_t serverConnectionIdentifier, uint64_t fetchIdentifier, const WebCore::ResourceResponse&);
-    void didReceiveFetchData(uint64_t serverConnectionIdentifier, uint64_t fetchIdentifier, const IPC::DataReference&, int64_t encodedDataLength);
-    void didFinishFetch(uint64_t serverConnectionIdentifier, uint64_t fetchIdentifier);
-    void didFailFetch(uint64_t serverConnectionIdentifier, uint64_t fetchIdentifier);
-    void didNotHandleFetch(uint64_t serverConnectionIdentifier, uint64_t fetchIdentifier);
+    void didReceiveFetchResponse(WebCore::SWServerConnectionIdentifier, uint64_t fetchIdentifier, const WebCore::ResourceResponse&);
+    void didReceiveFetchData(WebCore::SWServerConnectionIdentifier, uint64_t fetchIdentifier, const IPC::DataReference&, int64_t encodedDataLength);
+    void didReceiveFetchFormData(WebCore::SWServerConnectionIdentifier, uint64_t fetchIdentifier, const IPC::FormDataReference&);
+    void didFinishFetch(WebCore::SWServerConnectionIdentifier, uint64_t fetchIdentifier);
+    void didFailFetch(WebCore::SWServerConnectionIdentifier, uint64_t fetchIdentifier);
+    void didNotHandleFetch(WebCore::SWServerConnectionIdentifier, uint64_t fetchIdentifier);
 
-    void postMessageToServiceWorkerClient(const WebCore::ServiceWorkerClientIdentifier& destinationIdentifier, const IPC::DataReference& message, uint64_t sourceServiceWorkerIdentifier, const String& sourceOrigin);
+    void postMessageToServiceWorkerClient(const WebCore::ServiceWorkerClientIdentifier& destinationIdentifier, const IPC::DataReference& message, WebCore::ServiceWorkerIdentifier sourceIdentifier, const String& sourceOrigin);
+    WebSWOriginStore& swOriginStoreForSession(PAL::SessionID);
 #endif
 #if ENABLE(INDEXED_DATABASE)
     Vector<WebCore::SecurityOriginData> indexedDatabaseOrigins(const String& path);
@@ -154,11 +160,10 @@ private:
 #if ENABLE(SERVICE_WORKER)
     void didCreateWorkerContextProcessConnection(const IPC::Attachment&);
 
-    RefPtr<IPC::Connection> m_workerContextProcessConnection;
-    bool m_waitingForWorkerContextProcessConnection { false };
+    RefPtr<WebSWServerToContextConnection> m_serverToContextConnection;
+    bool m_waitingForServerToContextProcessConnection { false };
     HashMap<PAL::SessionID, std::unique_ptr<WebCore::SWServer>> m_swServers;
-    HashMap<uint64_t, WebSWServerConnection*> m_swServerConnections;
-    HashMap<PAL::SessionID, std::unique_ptr<WebSWOriginStore>> m_swOriginStores;
+    HashMap<WebCore::SWServerConnectionIdentifier, WebSWServerConnection*> m_swServerConnections;
 #endif
 };
 

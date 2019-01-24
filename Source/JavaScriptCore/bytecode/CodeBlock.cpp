@@ -576,6 +576,7 @@ bool CodeBlock::finishCreation(VM& vm, ScriptExecutable* ownerExecutable, Unlink
         case op_get_by_val_with_this:
         case op_get_from_arguments:
         case op_to_number:
+        case op_to_object:
         case op_get_argument: {
             linkValueProfile(i, opLength);
             break;
@@ -2797,30 +2798,6 @@ size_t CodeBlock::predictedMachineCodeSize()
         return 0;
     
     return static_cast<size_t>(doubleResult);
-}
-
-bool CodeBlock::usesOpcode(OpcodeID opcodeID)
-{
-    Instruction* instructionsBegin = instructions().begin();
-    unsigned instructionCount = instructions().size();
-    
-    for (unsigned bytecodeOffset = 0; bytecodeOffset < instructionCount; ) {
-        switch (Interpreter::getOpcodeID(instructionsBegin[bytecodeOffset])) {
-#define DEFINE_OP(curOpcode, length)        \
-        case curOpcode:                     \
-            if (curOpcode == opcodeID)      \
-                return true;                \
-            bytecodeOffset += length;       \
-            break;
-            FOR_EACH_OPCODE_ID(DEFINE_OP)
-#undef DEFINE_OP
-        default:
-            RELEASE_ASSERT_NOT_REACHED();
-            break;
-        }
-    }
-    
-    return false;
 }
 
 String CodeBlock::nameForRegister(VirtualRegister virtualRegister)

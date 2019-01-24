@@ -254,6 +254,40 @@ static const char* mediaStreamBlobProtocol = "blob";
 
 using namespace HTMLNames;
 
+String convertEnumerationToString(HTMLMediaElement::ReadyState enumerationValue)
+{
+    static const NeverDestroyed<String> values[] = {
+        MAKE_STATIC_STRING_IMPL("HAVE_NOTHING"),
+        MAKE_STATIC_STRING_IMPL("HAVE_METADATA"),
+        MAKE_STATIC_STRING_IMPL("HAVE_CURRENT_DATA"),
+        MAKE_STATIC_STRING_IMPL("HAVE_FUTURE_DATA"),
+        MAKE_STATIC_STRING_IMPL("HAVE_ENOUGH_DATA"),
+    };
+    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_NOTHING) == 0, "HTMLMediaElement::HAVE_NOTHING is not 0 as expected");
+    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_METADATA) == 1, "HTMLMediaElement::HAVE_METADATA is not 1 as expected");
+    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_CURRENT_DATA) == 2, "HTMLMediaElement::HAVE_CURRENT_DATA is not 2 as expected");
+    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_FUTURE_DATA) == 3, "HTMLMediaElement::HAVE_FUTURE_DATA is not 3 as expected");
+    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_ENOUGH_DATA) == 4, "HTMLMediaElement::HAVE_ENOUGH_DATA is not 4 as expected");
+    ASSERT(static_cast<size_t>(enumerationValue) < WTF_ARRAY_LENGTH(values));
+    return values[static_cast<size_t>(enumerationValue)];
+}
+
+String convertEnumerationToString(HTMLMediaElement::NetworkState enumerationValue)
+{
+    static const NeverDestroyed<String> values[] = {
+        MAKE_STATIC_STRING_IMPL("NETWORK_EMPTY"),
+        MAKE_STATIC_STRING_IMPL("NETWORK_IDLE"),
+        MAKE_STATIC_STRING_IMPL("NETWORK_LOADING"),
+        MAKE_STATIC_STRING_IMPL("NETWORK_NO_SOURCE"),
+    };
+    static_assert(static_cast<size_t>(HTMLMediaElementEnums::NETWORK_EMPTY) == 0, "HTMLMediaElement::NETWORK_EMPTY is not 0 as expected");
+    static_assert(static_cast<size_t>(HTMLMediaElementEnums::NETWORK_IDLE) == 1, "HTMLMediaElement::NETWORK_IDLE is not 1 as expected");
+    static_assert(static_cast<size_t>(HTMLMediaElementEnums::NETWORK_LOADING) == 2, "HTMLMediaElement::NETWORK_LOADING is not 2 as expected");
+    static_assert(static_cast<size_t>(HTMLMediaElementEnums::NETWORK_NO_SOURCE) == 3, "HTMLMediaElement::NETWORK_NO_SOURCE is not 3 as expected");
+    ASSERT(static_cast<size_t>(enumerationValue) < WTF_ARRAY_LENGTH(values));
+    return values[static_cast<size_t>(enumerationValue)];
+}
+
 typedef HashMap<Document*, HashSet<HTMLMediaElement*>> DocumentElementSetMap;
 static DocumentElementSetMap& documentToElementSetMap()
 {
@@ -641,7 +675,7 @@ static bool needsAutoplayPlayPauseEventsQuirk(const Document& document)
     if (!page || !page->settings().needsSiteSpecificQuirks())
         return false;
 
-    auto* loader = document.loader();
+    auto loader = makeRefPtr(document.loader());
     return loader && loader->allowedAutoplayQuirks().contains(AutoplayQuirk::SynthesizedPauseEvents);
 }
 
@@ -988,7 +1022,7 @@ void HTMLMediaElement::didRecalcStyle(Style::Change)
 
 void HTMLMediaElement::scheduleDelayedAction(DelayedActionType actionType)
 {
-    if (actionType ^ m_pendingActionFlags)
+    if (!(actionType & m_pendingActionFlags))
         ALWAYS_LOG(LOGIDENTIFIER, "setting ", actionName(actionType), " flag");
 
 #if ENABLE(VIDEO_TRACK)
@@ -1088,7 +1122,7 @@ void HTMLMediaElement::pendingActionTimerFired()
     if (!pendingActions)
         return;
 
-    ALWAYS_LOG(LOGIDENTIFIER, "setting ", actionName(static_cast<DelayedActionType>(pendingActions)), " flag");
+    ALWAYS_LOG(LOGIDENTIFIER, "processing ", actionName(static_cast<DelayedActionType>(pendingActions)), " flag");
 
 #if ENABLE(VIDEO_TRACK)
     if (pendingActions & ConfigureTextTracks)
@@ -1521,7 +1555,7 @@ void HTMLMediaElement::loadResource(const URL& initialURL, ContentType& contentT
     }
 
 #if ENABLE(CONTENT_EXTENSIONS)
-    if (auto* documentLoader = frame->loader().documentLoader()) {
+    if (auto documentLoader = makeRefPtr(frame->loader().documentLoader())) {
         if (page->userContentProvider().processContentExtensionRulesForLoad(url, ResourceType::Media, *documentLoader).blockedLoad) {
             mediaLoadingFailed(MediaPlayer::FormatError);
             return;
@@ -1854,7 +1888,7 @@ void HTMLMediaElement::updateActiveTextTrackCues(const MediaTime& movieTime)
         // simple event named cuechange at the track element as well.
         if (is<LoadableTextTrack>(*affectedTrack)) {
             auto event = Event::create(eventNames().cuechangeEvent, false, false);
-            auto* trackElement = downcast<LoadableTextTrack>(*affectedTrack).trackElement();
+            auto trackElement = makeRefPtr(downcast<LoadableTextTrack>(*affectedTrack).trackElement());
             ASSERT(trackElement);
             event->setTarget(trackElement);
             m_asyncEventQueue.enqueueEvent(WTFMove(event));
@@ -2296,7 +2330,7 @@ void HTMLMediaElement::mediaLoadingFailed(MediaPlayer::NetworkState error)
 void HTMLMediaElement::setNetworkState(MediaPlayer::NetworkState state)
 {
     if (static_cast<int>(state) != static_cast<int>(m_networkState))
-        ALWAYS_LOG(LOGIDENTIFIER, "new state = ", static_cast<int>(state), ", current state = ", static_cast<int>(m_networkState));
+        ALWAYS_LOG(LOGIDENTIFIER, "new state = ", state, ", current state = ", m_networkState);
 
     if (state == MediaPlayer::Empty) {
         // Just update the cached state and leave, we can't do anything.
@@ -2402,7 +2436,7 @@ void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
     bool tracksAreReady = true;
 #endif
 
-    ALWAYS_LOG(LOGIDENTIFIER, "new state = ", static_cast<int>(state), ", current state = ", static_cast<int>(m_readyState));
+    ALWAYS_LOG(LOGIDENTIFIER, "new state = ", state, ", current state = ", m_readyState);
 
     if (tracksAreReady)
         m_readyState = newState;
@@ -2505,8 +2539,10 @@ void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
             m_playbackStartedTime = currentMediaTime().toDouble();
             scheduleEvent(eventNames().playEvent);
             scheduleNotifyAboutPlaying();
-        } else if (success.value() == MediaPlaybackDenialReason::UserGestureRequired)
+        } else if (success.value() == MediaPlaybackDenialReason::UserGestureRequired) {
+            ALWAYS_LOG(LOGIDENTIFIER, "Autoplay blocked, user gesture required");
             setPlaybackWithoutUserGesture(PlaybackWithoutUserGesture::Prevented);
+        }
 
         shouldUpdateDisplayState = true;
     }
@@ -2514,6 +2550,10 @@ void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
     // If we transition to the Future Data state and we're about to begin playing, ensure playback is actually permitted first,
     // honoring any playback denial reasons such as the requirement of a user gesture.
     if (m_readyState == HAVE_FUTURE_DATA && oldState < HAVE_FUTURE_DATA && potentiallyPlaying() && !m_mediaSession->playbackPermitted(*this)) {
+        auto canTransition = canTransitionFromAutoplayToPlay();
+        if (canTransition && canTransition.value() == MediaPlaybackDenialReason::UserGestureRequired)
+            ALWAYS_LOG(LOGIDENTIFIER, "Autoplay blocked, user gesture required");
+
         pauseInternal();
         setPlaybackWithoutUserGesture(PlaybackWithoutUserGesture::Prevented);
     }
@@ -2567,7 +2607,7 @@ String HTMLMediaElement::mediaPlayerMediaKeysStorageDirectory() const
     if (storageDirectory.isEmpty())
         return emptyString();
 
-    return pathByAppendingComponent(storageDirectory, SecurityOriginData::fromSecurityOrigin(document().securityOrigin()).databaseIdentifier());
+    return FileSystem::pathByAppendingComponent(storageDirectory, SecurityOriginData::fromSecurityOrigin(document().securityOrigin()).databaseIdentifier());
 }
 
 void HTMLMediaElement::webkitSetMediaKeys(WebKitMediaKeys* mediaKeys)
@@ -3952,7 +3992,7 @@ void HTMLMediaElement::removeAudioTrack(AudioTrack& track)
 void HTMLMediaElement::removeTextTrack(TextTrack& track, bool scheduleEvent)
 {
     TrackDisplayUpdateScope scope { *this };
-    if (auto* cues = track.cues())
+    if (auto cues = makeRefPtr(track.cues()))
         textTrackRemoveCues(track, *cues);
     track.clearClient();
     if (m_textTracks)
@@ -4277,6 +4317,7 @@ void HTMLMediaElement::updateCaptionContainer()
         return;
 
     JSC::MarkedArgumentBuffer noArguments;
+    ASSERT(!noArguments.hasOverflowed());
     JSC::call(exec, methodObject, callType, callData, controllerObject, noArguments);
     scope.clearException();
 
@@ -4287,7 +4328,7 @@ void HTMLMediaElement::updateCaptionContainer()
 void HTMLMediaElement::layoutSizeChanged()
 {
 #if ENABLE(MEDIA_CONTROLS_SCRIPT)
-    if (auto* frameView = document().view()) {
+    if (auto frameView = makeRefPtr(document().view())) {
         auto task = [this, protectedThis = makeRef(*this)] {
             if (auto root = userAgentShadowRoot())
                 root->dispatchEvent(Event::create("resize", false, false));
@@ -5343,7 +5384,12 @@ void HTMLMediaElement::userCancelledLoad()
     // Reset m_readyState since m_player is gone.
     m_readyState = HAVE_NOTHING;
     updateMediaController();
+
 #if ENABLE(VIDEO_TRACK)
+    auto* context = scriptExecutionContext();
+    if (!context || context->activeDOMObjectsAreStopped())
+        return; // Document is about to be destructed. Avoid updating layout in updateActiveTextTrackCues.
+
     updateActiveTextTrackCues(MediaTime::zeroTime());
 #endif
 }
@@ -5621,7 +5667,7 @@ void HTMLMediaElement::mediaPlayerCurrentPlaybackTargetIsWirelessChanged(MediaPl
     updateSleepDisabling();
 }
 
-bool HTMLMediaElement::dispatchEvent(Event& event)
+void HTMLMediaElement::dispatchEvent(Event& event)
 {
     if (event.type() == eventNames().webkitcurrentplaybacktargetiswirelesschangedEvent) {
         m_failedToPlayToWirelessTarget = false;
@@ -5630,7 +5676,7 @@ bool HTMLMediaElement::dispatchEvent(Event& event)
 
     DEBUG_LOG(LOGIDENTIFIER, "dispatching '", event.type(), "'");
 
-    return HTMLElement::dispatchEvent(event);
+    HTMLElement::dispatchEvent(event);
 }
 
 bool HTMLMediaElement::addEventListener(const AtomicString& eventType, Ref<EventListener>&& listener, const AddEventListenerOptions& options)
@@ -5772,10 +5818,12 @@ void HTMLMediaElement::enterFullscreen(VideoFullscreenMode mode)
 
 #if ENABLE(FULLSCREEN_API)
     if (document().settings().fullScreenEnabled()) {
+#if ENABLE(VIDEO_USES_ELEMENT_FULLSCREEN)
         if (mode == VideoFullscreenModeStandard) {
             document().requestFullScreenForElement(this, Document::ExemptIFrameAllowFullScreenRequirement);
             return;
         }
+#endif
 
         // If this media element is not going to standard fullscreen mode but there's
         // an element that's currently in full screen in the document, exit full screen
@@ -7029,7 +7077,7 @@ void HTMLMediaElement::setControllerJSProperty(const char* propertyName, JSC::JS
     controllerObject->methodTable(vm)->put(controllerObject, exec, JSC::Identifier::fromString(exec, propertyName), propertyValue, propertySlot);
 }
 
-void HTMLMediaElement::didAddUserAgentShadowRoot(ShadowRoot* root)
+void HTMLMediaElement::didAddUserAgentShadowRoot(ShadowRoot& root)
 {
     DEBUG_LOG(LOGIDENTIFIER);
 
@@ -7072,6 +7120,7 @@ void HTMLMediaElement::didAddUserAgentShadowRoot(ShadowRoot* root)
     argList.append(toJS(exec, globalObject, root));
     argList.append(mediaJSWrapper);
     argList.append(mediaControlsHostJSWrapper);
+    ASSERT(!argList.hasOverflowed());
 
     JSC::JSObject* function = functionValue.toObject(exec);
     scope.assertNoException();
@@ -7165,6 +7214,7 @@ void HTMLMediaElement::updateMediaControlsAfterPresentationModeChange()
         return;
 
     JSC::MarkedArgumentBuffer argList;
+    ASSERT(!argList.hasOverflowed());
     JSC::call(exec, function, callType, callData, controllerObject, argList);
 }
 
@@ -7204,6 +7254,7 @@ String HTMLMediaElement::getCurrentMediaControlsStatus()
     JSC::CallData callData;
     JSC::CallType callType = function->methodTable(vm)->getCallData(function, callData);
     JSC::MarkedArgumentBuffer argList;
+    ASSERT(!argList.hasOverflowed());
     if (callType == JSC::CallType::None)
         return emptyString();
 

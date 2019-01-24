@@ -31,6 +31,7 @@ class ControlStates;
 class RenderBlock;
 
 class RenderElement : public RenderObject {
+    WTF_MAKE_ISO_ALLOCATED(RenderElement);
 public:
     virtual ~RenderElement();
 
@@ -98,9 +99,8 @@ public:
     void moveLayers(RenderLayer* oldParent, RenderLayer* newParent);
     RenderLayer* findNextLayer(RenderLayer* parentLayer, RenderObject* startPoint, bool checkParent = true);
 
-    enum NotifyChildrenType { NotifyChildren, DontNotifyChildren };
-    void insertChildInternal(RenderPtr<RenderObject>, RenderObject* beforeChild, NotifyChildrenType);
-    RenderPtr<RenderObject> takeChildInternal(RenderObject&, NotifyChildrenType) WARN_UNUSED_RETURN;
+    void insertChildInternal(RenderPtr<RenderObject>, RenderObject* beforeChild);
+    RenderPtr<RenderObject> takeChildInternal(RenderObject&) WARN_UNUSED_RETURN;
 
     virtual RenderElement* hoverAncestor() const;
 
@@ -221,11 +221,15 @@ public:
     // the child.
     virtual void updateAnonymousChildStyle(const RenderObject&, RenderStyle&) const { };
 
-    bool hasContinuation() const { return m_hasContinuation; }
+    void removeAnonymousWrappersForInlinesIfNecessary();
+
+    bool hasContinuationChainNode() const { return m_hasContinuationChainNode; }
     bool isContinuation() const { return m_isContinuation; }
     void setIsContinuation() { m_isContinuation = true; }
-    bool isElementContinuation() const { return isContinuation() && !isAnonymous(); }
-    bool isInlineElementContinuation() const { return isElementContinuation() && isInline(); }
+    bool isFirstLetter() const { return m_isFirstLetter; }
+    void setIsFirstLetter() { m_isFirstLetter = true; }
+
+    void destroyLeftoverChildren();
 
 protected:
     enum BaseTypeFlag {
@@ -252,7 +256,6 @@ protected:
 
     void setFirstChild(RenderObject* child) { m_firstChild = child; }
     void setLastChild(RenderObject* child) { m_lastChild = child; }
-    void destroyLeftoverChildren();
 
     virtual void styleWillChange(StyleDifference, const RenderStyle& newStyle);
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
@@ -264,7 +267,7 @@ protected:
     void setRenderInlineAlwaysCreatesLineBoxes(bool b) { m_renderInlineAlwaysCreatesLineBoxes = b; }
     bool renderInlineAlwaysCreatesLineBoxes() const { return m_renderInlineAlwaysCreatesLineBoxes; }
 
-    void setHasContinuation(bool b) { m_hasContinuation = b; }
+    void setHasContinuationChainNode(bool b) { m_hasContinuationChainNode = b; }
 
     void setRenderBlockHasMarginBeforeQuirk(bool b) { m_renderBlockHasMarginBeforeQuirk = b; }
     void setRenderBlockHasMarginAfterQuirk(bool b) { m_renderBlockHasMarginAfterQuirk = b; }
@@ -303,7 +306,6 @@ private:
     // again.  We have to make sure the render tree updates as needed to accommodate the new
     // normal flow object.
     void handleDynamicFloatPositionChange();
-    void removeAnonymousWrappersForInlinesIfNecessary();
 
     bool shouldRepaintForStyleDifference(StyleDifference) const;
     bool hasImmediateNonWhitespaceTextChildOrBorderOrOutline() const;
@@ -336,8 +338,9 @@ private:
     unsigned m_renderBoxNeedsLazyRepaint : 1;
     unsigned m_hasPausedImageAnimations : 1;
     unsigned m_hasCounterNodeMap : 1;
-    unsigned m_hasContinuation : 1;
+    unsigned m_hasContinuationChainNode : 1;
     unsigned m_isContinuation : 1;
+    unsigned m_isFirstLetter : 1;
     mutable unsigned m_hasValidCachedFirstLineStyle : 1;
 
     unsigned m_renderBlockHasMarginBeforeQuirk : 1;

@@ -470,6 +470,10 @@ WK_EXPORT void WKPreferencesSetIntersectionObserverEnabled(WKPreferencesRef, boo
 WK_EXPORT bool WKPreferencesGetIntersectionObserverEnabled(WKPreferencesRef);
 
 // Defaults to false
+WK_EXPORT void WKPreferencesSetMenuItemElementEnabled(WKPreferencesRef, bool flag);
+WK_EXPORT bool WKPreferencesGetMenuItemElementEnabled(WKPreferencesRef);
+    
+// Defaults to false
 WK_EXPORT void WKPreferencesSetDisplayContentsEnabled(WKPreferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetDisplayContentsEnabled(WKPreferencesRef);
     
@@ -536,6 +540,10 @@ WK_EXPORT bool WKPreferencesGetInspectorAdditionsEnabled(WKPreferencesRef);
 // Defaults to false.
 WK_EXPORT void WKPreferencesSetStorageAccessAPIEnabled(WKPreferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetStorageAccessAPIEnabled(WKPreferencesRef);
+
+// Defaults to false
+WK_EXPORT void WKPreferencesSetAccessibilityObjectModelEnabled(WKPreferencesRef, bool flag);
+WK_EXPORT bool WKPreferencesGetAccessibilityObjectModelEnabled(WKPreferencesRef);
     
 #ifdef __cplusplus
 }

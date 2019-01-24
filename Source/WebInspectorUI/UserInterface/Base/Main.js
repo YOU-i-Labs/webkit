@@ -303,7 +303,7 @@ WI.contentLoaded = function()
 
     this.searchKeyboardShortcut = new WI.KeyboardShortcut(WI.KeyboardShortcut.Modifier.CommandOrControl | WI.KeyboardShortcut.Modifier.Shift, "F", this._focusSearchField.bind(this));
     this._findKeyboardShortcut = new WI.KeyboardShortcut(WI.KeyboardShortcut.Modifier.CommandOrControl, "F", this._find.bind(this));
-    this._saveKeyboardShortcut = new WI.KeyboardShortcut(WI.KeyboardShortcut.Modifier.CommandOrControl, "S", this._save.bind(this));
+    this.saveKeyboardShortcut = new WI.KeyboardShortcut(WI.KeyboardShortcut.Modifier.CommandOrControl, "S", this._save.bind(this));
     this._saveAsKeyboardShortcut = new WI.KeyboardShortcut(WI.KeyboardShortcut.Modifier.Shift | WI.KeyboardShortcut.Modifier.CommandOrControl, "S", this._saveAs.bind(this));
 
     this.openResourceKeyboardShortcut = new WI.KeyboardShortcut(WI.KeyboardShortcut.Modifier.CommandOrControl | WI.KeyboardShortcut.Modifier.Shift, "O", this._showOpenResourceDialog.bind(this));
@@ -500,24 +500,6 @@ WI.contentLoaded = function()
 
     if (this.runBootstrapOperations)
         this.runBootstrapOperations();
-};
-
-// This function returns a lazily constructed instance of a class scoped to this WebInspector
-// instance. In the unlikely event that we ever need to construct multiple WebInspector instances
-// this allows us to scope objects within the WI.
-// Classes can prevent usage of this function via a static `disallowInstanceForClass` function that
-// returns true. It is then their responsibility to ensure that the returned value is tracked.
-// Currently it is only used for sidebars.
-WI.instanceForClass = function(constructor)
-{
-    console.assert(typeof constructor === "function");
-    if (typeof constructor.disallowInstanceForClass === "function" && constructor.disallowInstanceForClass())
-        return new constructor;
-
-    let key = `__${constructor.name}`;
-    if (!WI[key])
-        WI[key] = new constructor;
-    return WI[key];
 };
 
 WI.isTabTypeAllowed = function(tabType)
@@ -991,6 +973,11 @@ WI.showNetworkTab = function()
         tabContentView = new WI.NetworkTabContentView;
 
     this.tabBrowser.showTabForContentView(tabContentView);
+};
+
+WI.isShowingNetworkTab = function()
+{
+    return this.tabBrowser.selectedTabContentView instanceof WI.NetworkTabContentView;
 };
 
 WI.showTimelineTab = function()
@@ -1782,7 +1769,7 @@ WI._domNodeWasInspected = function(event)
     InspectorFrontendHost.bringToFront();
 
     this.showElementsTab();
-    this.showMainFrameDOMTree(event.data.node);
+    this.showMainFrameDOMTree(event.data.node, {ignoreSearchTab: true});
 };
 
 WI._inspectModeStateChanged = function(event)

@@ -273,8 +273,8 @@ public:
     void setIsOverlapped(bool);
     void setContentIsOpaque(bool);
 
-    void addSlowRepaintObject(RenderElement*);
-    void removeSlowRepaintObject(RenderElement*);
+    void addSlowRepaintObject(RenderElement&);
+    void removeSlowRepaintObject(RenderElement&);
     bool hasSlowRepaintObject(const RenderElement& renderer) const { return m_slowRepaintObjects && m_slowRepaintObjects->contains(&renderer); }
     bool hasSlowRepaintObjects() const { return m_slowRepaintObjects && m_slowRepaintObjects->size(); }
 
@@ -466,6 +466,7 @@ public:
     FloatSize documentToClientOffset() const;
     FloatRect documentToClientRect(FloatRect) const;
     FloatPoint documentToClientPoint(FloatPoint) const;
+    WEBCORE_EXPORT FloatRect clientToDocumentRect(FloatRect) const;
     WEBCORE_EXPORT FloatPoint clientToDocumentPoint(FloatPoint) const;
 
     FloatRect layoutViewportToAbsoluteRect(FloatRect) const;
@@ -741,6 +742,7 @@ private:
     void scrollPositionChanged(const ScrollPosition& oldPosition, const ScrollPosition& newPosition);
     void scrollableAreaSetChanged();
     void sendScrollEvent();
+    void resetScrollAnchor();
 
     bool hasCustomScrollbars() const;
 

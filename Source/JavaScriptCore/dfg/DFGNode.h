@@ -718,6 +718,30 @@ public:
         setOpAndDefaultFlags(GetGlobalThis);
         children.setChild1(Edge());
     }
+
+    void convertToCallObjectConstructor(FrozenValue* globalObject)
+    {
+        ASSERT(m_op == ToObject);
+        setOpAndDefaultFlags(CallObjectConstructor);
+        m_opInfo = globalObject;
+    }
+
+    void convertToNewStringObject(RegisteredStructure structure)
+    {
+        ASSERT(m_op == CallObjectConstructor || m_op == ToObject);
+        setOpAndDefaultFlags(NewStringObject);
+        m_opInfo = structure;
+        m_opInfo2 = OpInfoWrapper();
+    }
+
+    void convertToNewObject(RegisteredStructure structure)
+    {
+        ASSERT(m_op == CallObjectConstructor);
+        setOpAndDefaultFlags(NewObject);
+        children.reset();
+        m_opInfo = structure;
+        m_opInfo2 = OpInfoWrapper();
+    }
     
     void convertToDirectCall(FrozenValue*);
 
@@ -1003,6 +1027,7 @@ public:
         case PutDynamicVar:
         case ResolveScopeForHoistingFuncDeclInEval:
         case ResolveScope:
+        case ToObject:
             return true;
         default:
             return false;
@@ -1417,6 +1442,12 @@ public:
         ASSERT(isEntrySwitch());
         return m_opInfo.as<EntrySwitchData*>();
     }
+
+    Intrinsic intrinsic()
+    {
+        RELEASE_ASSERT(op() == CPUIntrinsic);
+        return m_opInfo.as<Intrinsic>();
+    }
     
     unsigned numSuccessors()
     {
@@ -1578,6 +1609,8 @@ public:
         case StringReplace:
         case StringReplaceRegExp:
         case ToNumber:
+        case ToObject:
+        case CallObjectConstructor:
         case LoadKeyFromMapBucket:
         case LoadValueFromMapBucket:
         case CallDOMGetter:
@@ -1643,6 +1676,7 @@ public:
         case MaterializeCreateActivation:
         case NewRegexp:
         case CompareEqPtr:
+        case CallObjectConstructor:
         case DirectCall:
         case DirectTailCall:
         case DirectConstruct:

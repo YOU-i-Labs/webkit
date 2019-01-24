@@ -28,17 +28,22 @@
 #include "WebProcessProxy.h"
 
 namespace WebKit {
+class AuthenticationChallengeProxy;
 struct WebPreferencesStore;
 
 class ServiceWorkerProcessProxy final : public WebProcessProxy {
 public:
-    static Ref<ServiceWorkerProcessProxy> create(WebProcessPool& pool, WebsiteDataStore& store)
-    {
-        return adoptRef(*new ServiceWorkerProcessProxy { pool, store });
-    }
+    static Ref<ServiceWorkerProcessProxy> create(WebProcessPool&, WebsiteDataStore&);
     ~ServiceWorkerProcessProxy();
 
+    void didReceiveAuthenticationChallenge(uint64_t pageID, uint64_t frameID, Ref<AuthenticationChallengeProxy>&&);
+
     void start(const WebPreferencesStore&);
+    uint64_t pageID() const { return m_serviceWorkerPageID; }
+
+protected:
+    // ChildProcessProxy
+    void getLaunchOptions(ProcessLauncher::LaunchOptions&) final;
 
 private:
     ServiceWorkerProcessProxy(WebProcessPool&, WebsiteDataStore&);

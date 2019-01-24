@@ -1720,6 +1720,16 @@ bool WKPreferencesGetIntersectionObserverEnabled(WKPreferencesRef preferencesRef
     return toImpl(preferencesRef)->intersectionObserverEnabled();
 }
 
+void WKPreferencesSetMenuItemElementEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    return toImpl(preferencesRef)->setMenuItemElementEnabled(flag);
+}
+
+bool WKPreferencesGetMenuItemElementEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->menuItemElementEnabled();
+}
+
 void WKPreferencesSetUserTimingEnabled(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setUserTimingEnabled(flag);
@@ -1898,4 +1908,14 @@ void WKPreferencesSetStorageAccessAPIEnabled(WKPreferencesRef preferencesRef, bo
 bool WKPreferencesGetStorageAccessAPIEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->storageAccessAPIEnabled();
+}
+
+void WKPreferencesSetAccessibilityObjectModelEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setAccessibilityObjectModelEnabled(flag);
+}
+
+bool WKPreferencesGetAccessibilityObjectModelEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->accessibilityObjectModelEnabled();
 }

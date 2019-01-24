@@ -247,7 +247,7 @@ void CachedResourceRequest::updateReferrerOriginAndUserAgentHeaders(FrameLoader&
         m_resourceRequest.setHTTPReferrer(outgoingReferrer);
     FrameLoader::addHTTPOriginIfNeeded(m_resourceRequest, outgoingOrigin);
 
-    frameLoader.applyUserAgent(m_resourceRequest);
+    frameLoader.applyUserAgentIfNeeded(m_resourceRequest);
 }
 
 bool isRequestCrossOrigin(SecurityOrigin* origin, const URL& requestURL, const ResourceLoaderOptions& options)
@@ -274,19 +274,28 @@ void CachedResourceRequest::setDestinationIfNotSet(FetchOptions::Destination des
 }
 
 #if ENABLE(SERVICE_WORKER)
-void CachedResourceRequest::setSelectedServiceWorkerIdentifierIfNeeded(uint64_t serviceWorkerIdentifier)
+void CachedResourceRequest::setSelectedServiceWorkerIdentifierIfNeeded(ServiceWorkerIdentifier identifier)
 {
     if (isNonSubresourceRequest(m_options.destination))
         return;
     if (isPotentialNavigationOrSubresourceRequest(m_options.destination))
         return;
 
-    if (m_options.serviceWorkersMode != ServiceWorkersMode::All)
+    if (m_options.serviceWorkersMode == ServiceWorkersMode::None)
         return;
     if (m_options.serviceWorkerIdentifier)
         return;
 
-    m_options.serviceWorkerIdentifier = serviceWorkerIdentifier;
+    m_options.serviceWorkerIdentifier = identifier;
+}
+
+void CachedResourceRequest::setNavigationServiceWorkerRegistrationData(const std::optional<ServiceWorkerRegistrationData>& data)
+{
+    if (!data || !data->activeWorker) {
+        m_options.serviceWorkersMode = ServiceWorkersMode::None;
+        return;
+    }
+    m_options.serviceWorkerIdentifier = data->activeWorker->identifier;
 }
 #endif
 

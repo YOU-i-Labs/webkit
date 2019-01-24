@@ -73,6 +73,7 @@
 #include "StylePendingResources.h"
 #include "StyleResolver.h"
 #include "TextAutoSizing.h"
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/MathExtras.h>
 #include <wtf/StackStats.h>
 
@@ -80,8 +81,10 @@
 
 namespace WebCore {
 
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderElement);
+
 struct SameSizeAsRenderElement : public RenderObject {
-    uint32_t bitfields;
+    unsigned bitfields : 25;
     void* firstChild;
     void* lastChild;
     RenderStyle style;
@@ -101,8 +104,9 @@ inline RenderElement::RenderElement(ContainerNode& elementOrDocument, RenderStyl
     , m_renderBoxNeedsLazyRepaint(false)
     , m_hasPausedImageAnimations(false)
     , m_hasCounterNodeMap(false)
-    , m_hasContinuation(false)
+    , m_hasContinuationChainNode(false)
     , m_isContinuation(false)
+    , m_isFirstLetter(false)
     , m_hasValidCachedFirstLineStyle(false)
     , m_renderBlockHasMarginBeforeQuirk(false)
     , m_renderBlockHasMarginAfterQuirk(false)
@@ -487,7 +491,7 @@ void RenderElement::addChild(RenderPtr<RenderObject> newChild, RenderObject* bef
 
         table->addChild(WTFMove(newChild));
     } else
-        insertChildInternal(WTFMove(newChild), beforeChild, NotifyChildren);
+        insertChildInternal(WTFMove(newChild), beforeChild);
 
     if (is<RenderText>(child))
         downcast<RenderText>(child).styleDidChange(StyleDifferenceEqual, nullptr);
@@ -508,7 +512,7 @@ void RenderElement::addChild(RenderPtr<RenderObject> newChild, RenderObject* bef
 
 RenderPtr<RenderObject> RenderElement::takeChild(RenderObject& oldChild)
 {
-    return takeChildInternal(oldChild, NotifyChildren);
+    return takeChildInternal(oldChild);
 }
 
 void RenderElement::removeAndDestroyChild(RenderObject& oldChild)
@@ -525,9 +529,9 @@ void RenderElement::destroyLeftoverChildren()
     }
 }
 
-void RenderElement::insertChildInternal(RenderPtr<RenderObject> newChildPtr, RenderObject* beforeChild, NotifyChildrenType notifyChildren)
+void RenderElement::insertChildInternal(RenderPtr<RenderObject> newChildPtr, RenderObject* beforeChild)
 {
-    RELEASE_ASSERT_WITH_MESSAGE(!view().layoutState(), "Layout must not mutate render tree");
+    RELEASE_ASSERT_WITH_MESSAGE(!view().frameView().layoutContext().layoutState(), "Layout must not mutate render tree");
 
     ASSERT(canHaveChildren() || canHaveGeneratedChildren());
     ASSERT(!newChildPtr->parent());
@@ -537,6 +541,7 @@ void RenderElement::insertChildInternal(RenderPtr<RenderObject> newChildPtr, Ren
         beforeChild = beforeChild->parent();
 
     ASSERT(!beforeChild || beforeChild->parent() == this);
+    ASSERT(!is<RenderText>(beforeChild) || !downcast<RenderText>(*beforeChild).inlineWrapperForDisplayContents());
 
     // Take the ownership.
     auto* newChild = newChildPtr.release();
@@ -562,8 +567,7 @@ void RenderElement::insertChildInternal(RenderPtr<RenderObject> newChildPtr, Ren
 
     newChild->initializeFragmentedFlowStateOnInsertion();
     if (!renderTreeBeingDestroyed()) {
-        if (notifyChildren == NotifyChildren)
-            newChild->insertedIntoTree();
+        newChild->insertedIntoTree();
         if (is<RenderElement>(*newChild))
             RenderCounter::rendererSubtreeAttached(downcast<RenderElement>(*newChild));
     }
@@ -581,9 +585,9 @@ void RenderElement::insertChildInternal(RenderPtr<RenderObject> newChildPtr, Ren
         newChild->setHasOutlineAutoAncestor();
 }
 
-RenderPtr<RenderObject> RenderElement::takeChildInternal(RenderObject& oldChild, NotifyChildrenType notifyChildren)
+RenderPtr<RenderObject> RenderElement::takeChildInternal(RenderObject& oldChild)
 {
-    RELEASE_ASSERT_WITH_MESSAGE(!view().layoutState(), "Layout must not mutate render tree");
+    RELEASE_ASSERT_WITH_MESSAGE(!view().frameView().layoutContext().layoutState(), "Layout must not mutate render tree");
 
     ASSERT(canHaveChildren() || canHaveGeneratedChildren());
     ASSERT(oldChild.parent() == this);
@@ -594,7 +598,7 @@ RenderPtr<RenderObject> RenderElement::takeChildInternal(RenderObject& oldChild,
     // So that we'll get the appropriate dirty bit set (either that a normal flow child got yanked or
     // that a positioned child got yanked). We also repaint, so that the area exposed when the child
     // disappears gets repainted properly.
-    if (!renderTreeBeingDestroyed() && notifyChildren == NotifyChildren && oldChild.everHadLayout()) {
+    if (!renderTreeBeingDestroyed() && oldChild.everHadLayout()) {
         oldChild.setNeedsLayoutAndPrefWidthsRecalc();
         // We only repaint |oldChild| if we have a RenderLayer as its visual overflow may not be tracked by its parent.
         if (oldChild.isBody())
@@ -617,7 +621,7 @@ RenderPtr<RenderObject> RenderElement::takeChildInternal(RenderObject& oldChild,
     if (!renderTreeBeingDestroyed() && oldChild.isSelectionBorder())
         frame().selection().setNeedsSelectionUpdate();
 
-    if (!renderTreeBeingDestroyed() && notifyChildren == NotifyChildren)
+    if (!renderTreeBeingDestroyed())
         oldChild.willBeRemovedFromTree();
 
     oldChild.resetFragmentedFlowStateOnRemoval();
@@ -813,7 +817,7 @@ void RenderElement::propagateStyleToAnonymousChildren(StylePropagationType propa
 
         // Preserve the position style of anonymous block continuations as they can have relative or sticky position when
         // they contain block descendants of relative or sticky positioned inlines.
-        if (elementChild.isInFlowPositioned() && downcast<RenderBlock>(elementChild).isAnonymousBlockContinuation())
+        if (elementChild.isInFlowPositioned() && elementChild.isContinuation())
             newStyle.setPosition(elementChild.style().position());
 
         updateAnonymousChildStyle(elementChild, newStyle);
@@ -909,31 +913,19 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         s_noLongerAffectsParentBlock = false;
     }
 
-    bool newStyleUsesFixedBackgrounds = newStyle.hasFixedBackgroundImage();
-    bool oldStyleUsesFixedBackgrounds = m_style.hasFixedBackgroundImage();
-    if (newStyleUsesFixedBackgrounds || oldStyleUsesFixedBackgrounds) {
-        bool repaintFixedBackgroundsOnScroll = !settings().fixedBackgroundsPaintRelativeToDocument();
-        bool newStyleSlowScroll = repaintFixedBackgroundsOnScroll && newStyleUsesFixedBackgrounds;
-        bool oldStyleSlowScroll = oldStyle && repaintFixedBackgroundsOnScroll && oldStyleUsesFixedBackgrounds;
+    bool newStyleSlowScroll = false;
+    if (newStyle.hasFixedBackgroundImage() && !settings().fixedBackgroundsPaintRelativeToDocument()) {
+        newStyleSlowScroll = true;
         bool drawsRootBackground = isDocumentElementRenderer() || (isBody() && !rendererHasBackground(document().documentElement()->renderer()));
-        if (drawsRootBackground && repaintFixedBackgroundsOnScroll) {
-            if (view().compositor().supportsFixedRootBackgroundCompositing()) {
-                if (newStyleSlowScroll && newStyle.hasEntirelyFixedBackground())
-                    newStyleSlowScroll = false;
-
-                if (oldStyleSlowScroll && m_style.hasEntirelyFixedBackground())
-                    oldStyleSlowScroll = false;
-            }
-        }
-
-        if (oldStyleSlowScroll != newStyleSlowScroll) {
-            if (oldStyleSlowScroll)
-                view().frameView().removeSlowRepaintObject(this);
-
-            if (newStyleSlowScroll)
-                view().frameView().addSlowRepaintObject(this);
-        }
+        if (drawsRootBackground && newStyle.hasEntirelyFixedBackground() && view().compositor().supportsFixedRootBackgroundCompositing())
+            newStyleSlowScroll = false;
     }
+
+    if (view().frameView().hasSlowRepaintObject(*this)) {
+        if (!newStyleSlowScroll)
+            view().frameView().removeSlowRepaintObject(*this);
+    } else if (newStyleSlowScroll)
+        view().frameView().addSlowRepaintObject(*this);
 
     if (isDocumentElementRenderer() || isBody())
         view().frameView().updateExtendBackgroundIfNecessary();
@@ -952,17 +944,20 @@ void RenderElement::handleDynamicFloatPositionChange()
             // An anonymous block must be made to wrap this inline.
             auto newBlock = downcast<RenderBlock>(*parent()).createAnonymousBlock();
             auto& block = *newBlock;
-            parent()->insertChildInternal(WTFMove(newBlock), this, RenderElement::NotifyChildren);
-            auto thisToMove = parent()->takeChildInternal(*this, RenderElement::NotifyChildren);
-            block.insertChildInternal(WTFMove(thisToMove), nullptr, RenderElement::NotifyChildren);
+            parent()->insertChildInternal(WTFMove(newBlock), this);
+            auto thisToMove = parent()->takeChildInternal(*this);
+            block.insertChildInternal(WTFMove(thisToMove), nullptr);
         }
     }
 }
 
 void RenderElement::removeAnonymousWrappersForInlinesIfNecessary()
 {
-    RenderBlock& parentBlock = downcast<RenderBlock>(*parent());
-    if (!parentBlock.canDropAnonymousBlockChild())
+    // FIXME: Move to RenderBlock.
+    if (!is<RenderBlock>(*this))
+        return;
+    RenderBlock& thisBlock = downcast<RenderBlock>(*this);
+    if (!thisBlock.canDropAnonymousBlockChild())
         return;
 
     // We have changed to floated or out-of-flow positioning so maybe all our parent's
@@ -970,18 +965,18 @@ void RenderElement::removeAnonymousWrappersForInlinesIfNecessary()
     // otherwise we can proceed to stripping solitary anonymous wrappers from the inlines.
     // FIXME: We should also handle split inlines here - we exclude them at the moment by returning
     // if we find a continuation.
-    RenderObject* current = parent()->firstChild();
-    while (current && ((current->isAnonymousBlock() && !downcast<RenderBlock>(*current).isAnonymousBlockContinuation()) || current->style().isFloating() || current->style().hasOutOfFlowPosition()))
+    RenderObject* current = firstChild();
+    while (current && ((current->isAnonymousBlock() && !downcast<RenderBlock>(*current).isContinuation()) || current->style().isFloating() || current->style().hasOutOfFlowPosition()))
         current = current->nextSibling();
 
     if (current)
         return;
 
     RenderObject* next;
-    for (current = parent()->firstChild(); current; current = next) {
+    for (current = firstChild(); current; current = next) {
         next = current->nextSibling();
         if (current->isAnonymousBlock())
-            parentBlock.dropAnonymousBoxChild(parentBlock, downcast<RenderBlock>(*current));
+            thisBlock.dropAnonymousBoxChild(downcast<RenderBlock>(*current));
     }
 }
 
@@ -1010,7 +1005,7 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
         handleDynamicFloatPositionChange();
 
     if (s_noLongerAffectsParentBlock)
-        removeAnonymousWrappersForInlinesIfNecessary();
+        parent()->removeAnonymousWrappersForInlinesIfNecessary();
 
     SVGRenderSupport::styleChanged(*this, oldStyle);
 
@@ -1117,9 +1112,7 @@ inline void RenderElement::clearSubtreeLayoutRootIfNeeded() const
 void RenderElement::willBeDestroyed()
 {
     if (m_style.hasFixedBackgroundImage() && !settings().fixedBackgroundsPaintRelativeToDocument())
-        view().frameView().removeSlowRepaintObject(this);
-
-    destroyLeftoverChildren();
+        view().frameView().removeSlowRepaintObject(*this);
 
     unregisterForVisibleInViewportCallback();
 
@@ -2152,8 +2145,10 @@ void RenderElement::updateOutlineAutoAncestor(bool hasOutlineAuto)
             continue;
         downcast<RenderElement>(child).updateOutlineAutoAncestor(hasOutlineAuto);
     }
-    if (hasContinuation())
-        downcast<RenderBoxModelObject>(*this).continuation()->updateOutlineAutoAncestor(hasOutlineAuto);
+    if (is<RenderBoxModelObject>(*this)) {
+        if (auto* continuation = downcast<RenderBoxModelObject>(*this).continuation())
+            continuation->updateOutlineAutoAncestor(hasOutlineAuto);
+    }
 }
 
 bool RenderElement::hasOutlineAnnotation() const

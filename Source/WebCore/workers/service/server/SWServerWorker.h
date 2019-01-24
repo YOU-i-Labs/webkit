@@ -27,37 +27,65 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include "ServiceWorkerData.h"
+#include "ServiceWorkerIdentifier.h"
 #include "ServiceWorkerRegistrationKey.h"
+#include "ServiceWorkerTypes.h"
 #include "URL.h"
 #include <wtf/ThreadSafeRefCounted.h>
 
 namespace WebCore {
 
+class SWServer;
 enum class WorkerType;
+struct ServiceWorkerJobDataIdentifier;
 
 class SWServerWorker : public ThreadSafeRefCounted<SWServerWorker> {
 public:
-    static Ref<SWServerWorker> create(const ServiceWorkerRegistrationKey& registrationKey, const URL& url, const String& script, WorkerType type, const String& workerID)
+    template <typename... Args> static Ref<SWServerWorker> create(Args&&... args)
     {
-        return adoptRef(*new SWServerWorker(registrationKey, url, script, type, workerID));
+        return adoptRef(*new SWServerWorker(std::forward<Args>(args)...));
     }
     
     SWServerWorker(const SWServerWorker&) = delete;
-    ~SWServerWorker();
+    WEBCORE_EXPORT ~SWServerWorker();
 
-    const URL& scriptURL() const { return m_scriptURL; }
+    void terminate();
+
+    SWServer& server();
+    const ServiceWorkerRegistrationKey& registrationKey() const { return m_registrationKey; }
+    const URL& scriptURL() const { return m_data.scriptURL; }
     const String& script() const { return m_script; }
-    WorkerType type() const { return m_type; }
-    const String& workerID() const { return m_workerID; }
-    
-private:
-    SWServerWorker(const ServiceWorkerRegistrationKey&, const URL&, const String& script, WorkerType, const String& workerID);
+    WorkerType type() const { return m_data.type; }
 
+    ServiceWorkerIdentifier identifier() const { return m_data.identifier; }
+    SWServerToContextConnectionIdentifier contextConnectionIdentifier() const { return m_contextConnectionIdentifier; }
+
+    ServiceWorkerState state() const { return m_data.state; }
+    void setState(ServiceWorkerState state) { m_data.state = state; }
+
+    bool hasPendingEvents() const { return m_hasPendingEvents; }
+    void setHasPendingEvents(bool value) { m_hasPendingEvents = value; }
+
+    void scriptContextFailedToStart(const ServiceWorkerJobDataIdentifier&, const String& message);
+    void scriptContextStarted(const ServiceWorkerJobDataIdentifier&);
+    void didFinishInstall(const ServiceWorkerJobDataIdentifier&, bool wasSuccessful);
+    void didFinishActivation();
+    void contextTerminated();
+
+    WEBCORE_EXPORT static SWServerWorker* existingWorkerForIdentifier(ServiceWorkerIdentifier);
+
+    const ServiceWorkerData& data() const { return m_data; }
+
+private:
+    SWServerWorker(SWServer&, const ServiceWorkerRegistrationKey&, SWServerToContextConnectionIdentifier, const URL&, const String& script, WorkerType, ServiceWorkerIdentifier);
+
+    SWServer& m_server;
     ServiceWorkerRegistrationKey m_registrationKey;
-    URL m_scriptURL;
+    SWServerToContextConnectionIdentifier m_contextConnectionIdentifier;
+    ServiceWorkerData m_data;
     String m_script;
-    String m_workerID;
-    WorkerType m_type;
+    bool m_hasPendingEvents { false };
 };
 
 } // namespace WebCore

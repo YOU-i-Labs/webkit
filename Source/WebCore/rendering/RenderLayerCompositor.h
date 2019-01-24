@@ -110,9 +110,6 @@ public:
 
     bool canRender3DTransforms() const;
 
-    // Copy the accelerated compositing related flags from Settings
-    void cacheAcceleratedCompositingFlags();
-
     // Called when the layer hierarchy needs to be updated (compositing layers have been
     // created, destroyed or re-parented).
     void setCompositingLayersNeedRebuild(bool needRebuild = true);
@@ -151,7 +148,7 @@ public:
     bool updateLayerCompositingState(RenderLayer&, CompositingChangeRepaint = CompositingChangeRepaintNow);
 
     // Update the geometry for compositing children of compositingAncestor.
-    void updateCompositingDescendantGeometry(RenderLayer& compositingAncestor, RenderLayer&, bool compositedChildrenOnly);
+    void updateCompositingDescendantGeometry(RenderLayer& compositingAncestor, RenderLayer&);
     
     // Whether layer's backing needs a graphics layer to do clipping by an ancestor (non-stacking-context parent with overflow).
     bool clippedByAncestor(RenderLayer&) const;
@@ -346,6 +343,10 @@ private:
     // GraphicsLayerUpdaterClient implementation
     void flushLayersSoon(GraphicsLayerUpdater&) override;
 
+    // Copy the accelerated compositing related flags from Settings
+    void cacheAcceleratedCompositingFlags();
+    void cacheAcceleratedCompositingFlagsAfterLayout();
+
     // Whether the given RL needs a compositing layer.
     bool needsToBeComposited(const RenderLayer&, RenderLayer::ViewportConstrainedNotCompositedReason* = nullptr) const;
     // Whether the layer has an intrinsic need for compositing layer.
@@ -407,6 +408,8 @@ private:
     bool isFlushingLayers() const { return m_flushingLayers; }
     void updateScrollCoordinatedLayersAfterFlushIncludingSubframes();
     void updateScrollCoordinatedLayersAfterFlush();
+
+    FloatRect visibleRectForLayerFlushing() const;
     
     Page& page() const;
     

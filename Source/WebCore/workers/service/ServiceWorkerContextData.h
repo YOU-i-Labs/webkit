@@ -25,18 +25,23 @@
 
 #pragma once
 
+#include "ServiceWorkerIdentifier.h"
+#include "ServiceWorkerJobDataIdentifier.h"
 #include "ServiceWorkerRegistrationKey.h"
 #include "URL.h"
+#include "WorkerType.h"
 
 #if ENABLE(SERVICE_WORKER)
 
 namespace WebCore {
 
 struct ServiceWorkerContextData {
+    ServiceWorkerJobDataIdentifier jobDataIdentifier;
     ServiceWorkerRegistrationKey registrationKey;
-    String workerID;
+    ServiceWorkerIdentifier serviceWorkerIdentifier;
     String script;
     URL scriptURL;
+    WorkerType workerType;
     
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<ServiceWorkerContextData> decode(Decoder&);
@@ -47,18 +52,23 @@ struct ServiceWorkerContextData {
 template<class Encoder>
 void ServiceWorkerContextData::encode(Encoder& encoder) const
 {
-    encoder << registrationKey << workerID << script << scriptURL;
+    encoder << jobDataIdentifier << registrationKey << serviceWorkerIdentifier << script << scriptURL << workerType;
 }
 
 template<class Decoder>
 std::optional<ServiceWorkerContextData> ServiceWorkerContextData::decode(Decoder& decoder)
 {
+    std::optional<ServiceWorkerJobDataIdentifier> jobDataIdentifier;
+    decoder >> jobDataIdentifier;
+    if (!jobDataIdentifier)
+        return std::nullopt;
+
     auto registrationKey = ServiceWorkerRegistrationKey::decode(decoder);
     if (!registrationKey)
         return std::nullopt;
 
-    String workerID;
-    if (!decoder.decode(workerID))
+    auto serviceWorkerIdentifier = ServiceWorkerIdentifier::decode(decoder);
+    if (!serviceWorkerIdentifier)
         return std::nullopt;
 
     String script;
@@ -68,8 +78,12 @@ std::optional<ServiceWorkerContextData> ServiceWorkerContextData::decode(Decoder
     URL scriptURL;
     if (!decoder.decode(scriptURL))
         return std::nullopt;
-
-    return {{ WTFMove(*registrationKey), WTFMove(workerID), WTFMove(script), WTFMove(scriptURL) }};
+    
+    WorkerType workerType;
+    if (!decoder.decodeEnum(workerType))
+        return std::nullopt;
+    
+    return {{ WTFMove(*jobDataIdentifier), WTFMove(*registrationKey), WTFMove(*serviceWorkerIdentifier), WTFMove(script), WTFMove(scriptURL), workerType }};
 }
 
 } // namespace WebCore

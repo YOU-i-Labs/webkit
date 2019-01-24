@@ -50,7 +50,6 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
 
         // FIXME: Network Timeline.
         // FIXME: Throttling.
-        // FIXME: HAR Export.
 
         const exclusive = true;
         this._typeFilterScopeBarItemAll = new WI.ScopeBarItem("network-type-filter-all", WI.UIString("All"), exclusive);
@@ -89,6 +88,11 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
 
         this._emptyFilterResultsMessageElement = null;
 
+        this._harExportNavigationItem = new WI.ButtonNavigationItem("har-export", WI.UIString("Export"), "Images/Export.svg", 15, 15);
+        this._harExportNavigationItem.buttonStyle = WI.ButtonNavigationItem.Style.ImageAndText;
+        this._harExportNavigationItem.toolTip = WI.UIString("HAR Export (%s)").format(WI.saveKeyboardShortcut.displayName);
+        this._harExportNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, () => { this._exportHAR(); });
+
         // COMPATIBILITY (iOS 10.3): Network.setDisableResourceCaching did not exist.
         if (window.NetworkAgent && NetworkAgent.setResourceCachingDisabled) {
             let toolTipForDisableResourceCache = WI.UIString("Ignore the resource cache when loading resources");
@@ -101,7 +105,7 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
         }
 
         this._clearNetworkItemsNavigationItem = new WI.ButtonNavigationItem("clear-network-items", WI.UIString("Clear Network Items (%s)").format(WI.clearKeyboardShortcut.displayName), "Images/NavigationItemTrash.svg", 15, 15);
-        this._clearNetworkItemsNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, () => this.reset());
+        this._clearNetworkItemsNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, () => { this.reset(); });
 
         WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
         WI.Resource.addEventListener(WI.Resource.Event.LoadingDidFinish, this._resourceLoadingDidFinish, this);
@@ -169,7 +173,7 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
 
     get navigationItems()
     {
-        let items = [];
+        let items = [this._harExportNavigationItem, new WI.DividerNavigationItem];
         if (this._disableResourceCacheNavigationItem)
             items.push(this._disableResourceCacheNavigationItem);
         items.push(this._clearNetworkItemsNavigationItem);
@@ -227,6 +231,7 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
 
         WI.Frame.removeEventListener(null, null, this);
         WI.Resource.removeEventListener(null, null, this);
+        WI.resourceCachingDisabledSetting.removeEventListener(null, null, this);
         WI.frameResourceManager.removeEventListener(WI.FrameResourceManager.Event.MainFrameDidChange, this._mainFrameDidChange, this);
         WI.timelineManager.persistentNetworkTimeline.removeEventListener(WI.Timeline.Event.RecordAdded, this._networkTimelineRecordAdded, this);
 
@@ -246,6 +251,7 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
         this._waterfallStartTime = NaN;
         this._waterfallEndTime = NaN;
         this._updateWaterfallTimelineRuler();
+        this._updateExportButton();
 
         if (this._table) {
             this._selectedResource = null;
@@ -254,6 +260,21 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
             this._hidePopover();
             this._hideResourceDetailView();
         }
+    }
+
+    showRepresentedObject(representedObject, cookie)
+    {
+        console.assert(representedObject instanceof WI.Resource);
+
+        let rowIndex = this._rowIndexForResource(representedObject);
+        if (rowIndex === -1) {
+            this._selectedResource = null;
+            this._table.clearSelectedRow();
+            this._hideResourceDetailView();
+            return;
+        }
+   
+        this._table.selectRow(rowIndex);
     }
 
     // NetworkResourceDetailView delegate
@@ -338,7 +359,7 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
             this._populateNameCell(cell, entry);
             break;
         case "domain":
-            cell.textContent = entry.domain || emDash;
+            this._populateDomainCell(cell, entry);
             break;
         case "type":
             cell.textContent = entry.displayType || emDash;
@@ -407,6 +428,24 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
         nameElement.textContent = entry.name;
     }
 
+    _populateDomainCell(cell, entry)
+    {
+        console.assert(!cell.firstChild, "We expect the cell to be empty.", cell, cell.firstChild);
+
+        if (!entry.domain) {
+            cell.textContent = emDash;
+            return;
+        }
+
+        let secure = entry.scheme === "https" || entry.scheme === "wss";
+        if (secure) {
+            let lockIconElement = cell.appendChild(document.createElement("img"));
+            lockIconElement.className = "lock";
+        }
+
+        cell.append(entry.domain);
+    }
+
     _populateTransferSizeCell(cell, entry)
     {
         let responseSource = entry.resource.responseSource;
@@ -418,6 +457,11 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
         if (responseSource === WI.Resource.ResponseSource.DiskCache) {
             cell.classList.add("cache-type");
             cell.textContent = WI.UIString("(disk)");
+            return;
+        }
+        if (responseSource === WI.Resource.ResponseSource.ServiceWorker) {
+            cell.classList.add("cache-type");
+            cell.textContent = WI.UIString("(service worker)");
             return;
         }
 
@@ -569,12 +613,16 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
                     transferSizeA = -20;
                 else if (sourceA === WI.Resource.ResponseSource.DiskCache)
                     transferSizeA = -10;
+                else if (sourceA === WI.Resource.ResponseSource.ServiceWorker)
+                    transferSizeA = -5;
 
                 let sourceB = b.resource.responseSource;
                 if (sourceB === WI.Resource.ResponseSource.MemoryCache)
                     transferSizeB = -20;
                 else if (sourceB === WI.Resource.ResponseSource.DiskCache)
                     transferSizeB = -10;
+                else if (sourceB === WI.Resource.ResponseSource.ServiceWorker)
+                    transferSizeB = -5;
 
                 return transferSizeA - transferSizeB;
             };
@@ -737,6 +785,7 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
         this._processPendingEntries();
         this._positionDetailView();
         this._positionEmptyFilterMessage();
+        this._updateExportButton();
     }
 
     handleClearShortcut(event)
@@ -767,6 +816,12 @@ WI.NetworkTableContentView = class NetworkTableContentView extends WI.ContentVie
             this._waterfallTimelineRuler.startTime = this._waterfallStartTime - padSeconds;
             this._waterfallTimelineRuler.endTime = this._waterfallEndTime + padSeconds;
         }
+    }
+
+    _updateExportButton()
+    {
+        let enabled = this._filteredEntries.length > 0;
+        this._harExportNavigationItem.enabled = enabled;
     }
 
     _processPendingEntries()

@@ -45,9 +45,8 @@
 #include "WebKitIconLoadingClient.h"
 #include "WebKitInstallMissingMediaPluginsPermissionRequestPrivate.h"
 #include "WebKitJavascriptResultPrivate.h"
-#include "WebKitLoaderClient.h"
+#include "WebKitNavigationClient.h"
 #include "WebKitNotificationPrivate.h"
-#include "WebKitPolicyClient.h"
 #include "WebKitPrivate.h"
 #include "WebKitResponsePolicyDecision.h"
 #include "WebKitScriptDialogPrivate.h"
@@ -85,6 +84,7 @@
 #if PLATFORM(WPE)
 #include "APIViewClient.h"
 #include "WPEView.h"
+#include "WebKitWebViewBackendPrivate.h"
 #endif
 
 #if USE(LIBNOTIFY)
@@ -162,6 +162,10 @@ enum {
 enum {
     PROP_0,
 
+#if PLATFORM(WPE)
+    PROP_BACKEND,
+#endif
+
     PROP_WEB_CONTEXT,
     PROP_RELATED_VIEW,
     PROP_SETTINGS,
@@ -193,9 +197,14 @@ struct _WebKitWebViewPrivate {
         // For modal dialogs, make sure the main loop is stopped when finalizing the webView.
         if (modalLoop && g_main_loop_is_running(modalLoop.get()))
             g_main_loop_quit(modalLoop.get());
+#if PLATFORM(WPE)
+        view = nullptr;
+        webkitWebViewBackendUnref(backend);
+#endif
     }
 
 #if PLATFORM(WPE)
+    WebKitWebViewBackend* backend;
     std::unique_ptr<WKWPE::View> view;
 #endif
 
@@ -620,6 +629,10 @@ static void webkitWebViewConstructed(GObject* object)
 
     WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
     WebKitWebViewPrivate* priv = webView->priv;
+#if PLATFORM(WPE)
+    if (!priv->backend)
+        priv->backend = webkitWebViewBackendCreateDefault();
+#endif
     if (priv->relatedView) {
         priv->context = webkit_web_view_get_context(priv->relatedView);
         priv->isEphemeral = webkit_web_view_is_ephemeral(priv->relatedView);
@@ -648,9 +661,8 @@ static void webkitWebViewConstructed(GObject* object)
     // The related view is only valid during the construction.
     priv->relatedView = nullptr;
 
-    attachLoaderClientToView(webView);
+    attachNavigationClientToView(webView);
     attachUIClientToView(webView);
-    attachPolicyClientToView(webView);
     attachContextMenuClientToView(webView);
     attachFormClientToView(webView);
 
@@ -675,6 +687,13 @@ static void webkitWebViewSetProperty(GObject* object, guint propId, const GValue
     WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
 
     switch (propId) {
+#if PLATFORM(WPE)
+    case PROP_BACKEND: {
+        gpointer backend = g_value_get_boxed(value);
+        webView->priv->backend = backend ? static_cast<WebKitWebViewBackend*>(backend) : nullptr;
+        break;
+    }
+#endif
     case PROP_WEB_CONTEXT: {
         gpointer webContext = g_value_get_object(value);
         webView->priv->context = webContext ? WEBKIT_WEB_CONTEXT(webContext) : nullptr;
@@ -717,6 +736,11 @@ static void webkitWebViewGetProperty(GObject* object, guint propId, GValue* valu
     WebKitWebView* webView = WEBKIT_WEB_VIEW(object);
 
     switch (propId) {
+#if PLATFORM(WPE)
+    case PROP_BACKEND:
+        g_value_set_static_boxed(value, webView->priv->backend);
+        break;
+#endif
     case PROP_WEB_CONTEXT:
         g_value_set_object(value, webView->priv->context.get());
         break;
@@ -822,6 +846,25 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
     webViewClass->run_file_chooser = webkitWebViewRunFileChooser;
     webViewClass->authenticate = webkitWebViewAuthenticate;
     webViewClass->show_notification = webkitWebViewShowNotification;
+
+#if PLATFORM(WPE)
+    /**
+     * WebKitWebView:backend:
+     *
+     * The #WebKitWebViewBackend of the view.
+     *
+     * since: 2.20
+     */
+    g_object_class_install_property(
+        gObjectClass,
+        PROP_BACKEND,
+        g_param_spec_boxed(
+            "backend",
+            _("Backend"),
+            _("The backend for the web view"),
+            WEBKIT_TYPE_WEB_VIEW_BACKEND,
+            static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
+#endif
 
     /**
      * WebKitWebView:web-context:
@@ -1917,7 +1960,7 @@ void webkitWebViewCreatePage(WebKitWebView* webView, Ref<API::PageConfiguration>
 #if PLATFORM(GTK)
     webkitWebViewBaseCreateWebPage(WEBKIT_WEB_VIEW_BASE(webView), WTFMove(configuration));
 #elif PLATFORM(WPE)
-    webView->priv->view.reset(WKWPE::View::create(nullptr, configuration.get()));
+    webView->priv->view.reset(WKWPE::View::create(webkit_web_view_backend_get_wpe_backend(webView->priv->backend), configuration.get()));
 #endif
 }
 
@@ -2346,6 +2389,25 @@ bool webkitWebViewShowOptionMenu(WebKitWebView* webView, const IntRect& rect, We
     gboolean handled;
     g_signal_emit(webView, signals[SHOW_OPTION_MENU], 0, menu, event, &menuRect, &handled);
     return handled;
+}
+#endif
+
+#if PLATFORM(WPE)
+/**
+ * webkit_web_view_get_backend:
+ * @web_view: a #WebKitWebView
+ *
+ * Get the #WebKitWebViewBackend of @web_view
+ *
+ * Returns: (transfer none): the #WebKitWebViewBackend of @web_view
+ *
+ * Since: 2.20
+ */
+WebKitWebViewBackend* webkit_web_view_get_backend(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), nullptr);
+
+    return webView->priv->backend;
 }
 #endif
 
@@ -3087,24 +3149,10 @@ void webkit_web_view_can_execute_editing_command(WebKitWebView* webView, const c
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
     g_return_if_fail(command);
 
-    GTask* task = g_task_new(webView, cancellable, callback, userData);
-    WebKitEditorState* state = webkit_web_view_get_editor_state(webView);
-
-    if (!strcmp(command, WEBKIT_EDITING_COMMAND_CUT))
-        g_task_return_boolean(adoptGRef(task).get(), webkit_editor_state_is_cut_available(state));
-    else if (!strcmp(command, WEBKIT_EDITING_COMMAND_COPY))
-        g_task_return_boolean(adoptGRef(task).get(), webkit_editor_state_is_copy_available(state));
-    else if (!strcmp(command, WEBKIT_EDITING_COMMAND_PASTE))
-        g_task_return_boolean(adoptGRef(task).get(), webkit_editor_state_is_paste_available(state));
-    else if (!strcmp(command, WEBKIT_EDITING_COMMAND_UNDO))
-        g_task_return_boolean(adoptGRef(task).get(), webkit_editor_state_is_undo_available(state));
-    else if (!strcmp(command, WEBKIT_EDITING_COMMAND_REDO))
-        g_task_return_boolean(adoptGRef(task).get(), webkit_editor_state_is_redo_available(state));
-    else {
-        getPage(webView).validateCommand(String::fromUTF8(command), [task](const String&, bool isEnabled, int32_t, WebKit::CallbackBase::Error) {
-            g_task_return_boolean(adoptGRef(task).get(), isEnabled);        
-        });
-    }
+    GRefPtr<GTask> task = adoptGRef(g_task_new(webView, cancellable, callback, userData));
+    getPage(webView).validateCommand(String::fromUTF8(command), [task = WTFMove(task)](const String&, bool isEnabled, int32_t, WebKit::CallbackBase::Error) {
+        g_task_return_boolean(task.get(), isEnabled);
+    });
 }
 
 /**
@@ -3909,7 +3957,7 @@ WebKitEditorState* webkit_web_view_get_editor_state(WebKitWebView *webView)
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), nullptr);
 
     if (!webView->priv->editorState)
-        webView->priv->editorState = adoptGRef(webkitEditorStateCreate(getPage(webView).editorState()));
+        webView->priv->editorState = adoptGRef(webkitEditorStateCreate(getPage(webView)));
 
     return webView->priv->editorState.get();
 }

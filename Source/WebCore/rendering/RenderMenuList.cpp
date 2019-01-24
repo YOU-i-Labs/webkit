@@ -27,6 +27,7 @@
 
 #include "AXObjectCache.h"
 #include "AccessibilityMenuList.h"
+#include "AccessibleNode.h"
 #include "CSSFontSelector.h"
 #include "Chrome.h"
 #include "Frame.h"
@@ -45,6 +46,7 @@
 #include "StyleResolver.h"
 #include "TextRun.h"
 #include <math.h>
+#include <wtf/IsoMallocInlines.h>
 
 #if PLATFORM(IOS)
 #include "LocalizedStrings.h"
@@ -53,6 +55,8 @@
 namespace WebCore {
 
 using namespace HTMLNames;
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMenuList);
 
 #if PLATFORM(IOS)
 static size_t selectedOptionCount(const RenderMenuList& renderMenuList)
@@ -473,7 +477,7 @@ String RenderMenuList::itemAccessibilityText(unsigned listIndex) const
     const Vector<HTMLElement*>& listItems = selectElement().listItems();
     if (listIndex >= listItems.size())
         return String();
-    return listItems[listIndex]->attributeWithoutSynchronization(aria_labelAttr);
+    return AccessibleNode::effectiveStringValueForElement(*listItems[listIndex], AXPropertyName::Label);
 }
     
 String RenderMenuList::itemToolTip(unsigned listIndex) const

@@ -163,7 +163,7 @@ static inline bool isInlineWithContinuation(RenderObject& object)
 
 static inline RenderObject* firstChildInContinuation(RenderInline& renderer)
 {
-    auto continuation = renderer.continuation();
+    auto* continuation = renderer.continuation();
 
     while (continuation) {
         if (is<RenderBlock>(*continuation))
@@ -183,7 +183,7 @@ static inline RenderObject* firstChildConsideringContinuation(RenderObject& rend
     // We don't want to include the end of a continuation as the firstChild of the
     // anonymous parent, because everything has already been linked up via continuation.
     // CSS first-letter selector is an example of this case.
-    if (renderer.isAnonymous() && is<RenderElement>(firstChild) && downcast<RenderElement>(*firstChild).isInlineElementContinuation())
+    if (renderer.isAnonymous() && is<RenderInline>(firstChild) && downcast<RenderInline>(*firstChild).isContinuation())
         firstChild = nullptr;
     
     if (!firstChild && isInlineWithContinuation(renderer))
@@ -199,18 +199,11 @@ static inline RenderObject* lastChildConsideringContinuation(RenderObject& rende
         return &renderer;
 
     RenderObject* lastChild = downcast<RenderBoxModelObject>(renderer).lastChild();
-    RenderBoxModelObject* previous;
     for (auto* current = &downcast<RenderBoxModelObject>(renderer); current; ) {
-        previous = current;
-
         if (RenderObject* newLastChild = current->lastChild())
             lastChild = newLastChild;
 
-        if (is<RenderInline>(*current)) {
-            current = downcast<RenderInline>(*current).inlineElementContinuation();
-            ASSERT_UNUSED(previous, current || !downcast<RenderInline>(*previous).continuation());
-        } else
-            current = downcast<RenderBlock>(*current).inlineElementContinuation();
+        current = current->inlineContinuation();
     }
 
     return lastChild;
@@ -251,12 +244,12 @@ static inline RenderInline* startOfContinuations(RenderObject& renderer)
     if (!is<RenderElement>(renderer))
         return nullptr;
     auto& renderElement = downcast<RenderElement>(renderer);
-    if (renderElement.isInlineElementContinuation() && is<RenderInline>(renderElement.element()->renderer()))
+    if (is<RenderInline>(renderElement) && renderElement.isContinuation() && is<RenderInline>(renderElement.element()->renderer()))
         return downcast<RenderInline>(renderer.node()->renderer());
 
     // Blocks with a previous continuation always have a next continuation
-    if (is<RenderBlock>(renderElement) && downcast<RenderBlock>(renderElement).inlineElementContinuation())
-        return downcast<RenderInline>(downcast<RenderBlock>(renderElement).inlineElementContinuation()->element()->renderer());
+    if (is<RenderBlock>(renderElement) && downcast<RenderBlock>(renderElement).inlineContinuation())
+        return downcast<RenderInline>(downcast<RenderBlock>(renderElement).inlineContinuation()->element()->renderer());
 
     return nullptr;
 }
@@ -269,11 +262,7 @@ static inline RenderObject* endOfContinuations(RenderObject& renderer)
     auto* previous = &downcast<RenderBoxModelObject>(renderer);
     for (auto* current = previous; current; ) {
         previous = current;
-        if (is<RenderInline>(*current)) {
-            current = downcast<RenderInline>(*current).inlineElementContinuation();
-            ASSERT(current || !downcast<RenderInline>(*previous).continuation());
-        } else 
-            current = downcast<RenderBlock>(*current).inlineElementContinuation();
+        current = current->inlineContinuation();
     }
 
     return previous;
@@ -293,13 +282,13 @@ static inline RenderObject* childBeforeConsideringContinuations(RenderInline* re
                 current = current->nextSibling();
             }
 
-            currentContainer = downcast<RenderInline>(*currentContainer).continuation();
+            currentContainer = currentContainer->continuation();
         } else if (is<RenderBlock>(*currentContainer)) {
             if (currentContainer == child)
                 return previous;
 
             previous = currentContainer;
-            currentContainer = downcast<RenderBlock>(*currentContainer).inlineElementContinuation();
+            currentContainer = currentContainer->inlineContinuation();
         }
     }
 
@@ -310,7 +299,7 @@ static inline RenderObject* childBeforeConsideringContinuations(RenderInline* re
 static inline bool firstChildIsInlineContinuation(RenderElement& renderer)
 {
     RenderObject* child = renderer.firstChild();
-    return is<RenderElement>(child) && downcast<RenderElement>(*child).isInlineElementContinuation();
+    return is<RenderInline>(child) && downcast<RenderInline>(*child).isContinuation();
 }
 
 AccessibilityObject* AccessibilityRenderObject::previousSibling() const
@@ -368,7 +357,7 @@ AccessibilityObject* AccessibilityRenderObject::nextSibling() const
     // Case 1: node is a block and has an inline continuation. Next sibling is the inline continuation's
     // first child.
     RenderInline* inlineContinuation;
-    if (is<RenderBlock>(*m_renderer) && (inlineContinuation = downcast<RenderBlock>(*m_renderer).inlineElementContinuation()))
+    if (is<RenderBlock>(*m_renderer) && (inlineContinuation = downcast<RenderBlock>(*m_renderer).inlineContinuation()))
         nextSibling = firstChildConsideringContinuation(*inlineContinuation);
 
     // Case 2: Anonymous block parent of the start of a continuation - skip all the way to
@@ -426,7 +415,7 @@ static RenderBoxModelObject* nextContinuation(RenderObject& renderer)
     if (is<RenderInline>(renderer) && !renderer.isReplaced())
         return downcast<RenderInline>(renderer).continuation();
     if (is<RenderBlock>(renderer))
-        return downcast<RenderBlock>(renderer).inlineElementContinuation();
+        return downcast<RenderBlock>(renderer).inlineContinuation();
     return nullptr;
 }
     
@@ -743,7 +732,7 @@ String AccessibilityRenderObject::stringValue() const
 
     RenderBoxModelObject* cssBox = renderBoxModelObject();
 
-    if (ariaRoleAttribute() == AccessibilityRole::StaticText) {
+    if (isARIAStaticText()) {
         String staticText = text();
         if (!staticText.length())
             staticText = textUnderElement();
@@ -760,7 +749,7 @@ String AccessibilityRenderObject::stringValue() const
         int selectedIndex = selectElement.selectedIndex();
         const Vector<HTMLElement*>& listItems = selectElement.listItems();
         if (selectedIndex >= 0 && static_cast<size_t>(selectedIndex) < listItems.size()) {
-            const AtomicString& overriddenDescription = listItems[selectedIndex]->attributeWithoutSynchronization(aria_labelAttr);
+            const AtomicString& overriddenDescription = AccessibleNode::effectiveStringValueForElement(*listItems[selectedIndex], AXPropertyName::Label);
             if (!overriddenDescription.isNull())
                 return overriddenDescription;
         }
@@ -789,6 +778,11 @@ String AccessibilityRenderObject::stringValue() const
     // this would require subclassing or making accessibilityAttributeNames do something other than return a
     // single static array.
     return String();
+}
+
+bool AccessibilityRenderObject::canHavePlainText() const
+{
+    return isARIAStaticText() || is<RenderText>(*m_renderer) || isTextControl();
 }
 
 HTMLLabelElement* AccessibilityRenderObject::labelElementContainer() const
@@ -1012,9 +1006,9 @@ bool AccessibilityRenderObject::hasTextAlternative() const
     return ariaAccessibilityDescription().length();
 }
     
-bool AccessibilityRenderObject::ariaHasPopup() const
+bool AccessibilityRenderObject::hasPopup() const
 {
-    return !equalLettersIgnoringASCIICase(ariaPopupValue(), "false");
+    return !equalLettersIgnoringASCIICase(hasPopupValue(), "false");
 }
 
 bool AccessibilityRenderObject::supportsARIADropping() const 
@@ -1065,7 +1059,7 @@ bool AccessibilityRenderObject::exposesTitleUIElement() const
     // titleUIElement, otherwise its inner text will be announced by a screenreader.
     if (isLabelable()) {
         if (HTMLLabelElement* label = labelForElement(downcast<Element>(node()))) {
-            if (!label->attributeWithoutSynchronization(aria_labelAttr).isEmpty())
+            if (!AccessibleNode::effectiveStringValueForElement(*label, AXPropertyName::Label).isEmpty())
                 return false;
             if (AccessibilityObject* labelObject = axObjectCache()->getOrCreate(label)) {
                 if (!labelObject->ariaLabeledByAttribute().isEmpty())
@@ -1146,9 +1140,11 @@ AccessibilityObjectInclusion AccessibilityRenderObject::defaultObjectInclusion()
 
     if (m_renderer->style().visibility() != VISIBLE) {
         // aria-hidden is meant to override visibility as the determinant in AX hierarchy inclusion.
-        if (equalLettersIgnoringASCIICase(getAttribute(aria_hiddenAttr), "false"))
-            return AccessibilityObjectInclusion::DefaultBehavior;
-        
+        if (auto hidden = boolValueForProperty(AXPropertyName::Hidden)) {
+            if (!hidden.value())
+                return AccessibilityObjectInclusion::DefaultBehavior;
+        }
+
         return AccessibilityObjectInclusion::IgnoreObject;
     }
 
@@ -1232,6 +1228,9 @@ bool AccessibilityRenderObject::computeAccessibilityIsIgnored() const
         if (!renderText.hasRenderedText())
             return true;
 
+        if (renderText.parent()->isFirstLetter())
+            return true;
+
         // static text beneath TextControls is reported along with the text control text so it's ignored.
         for (AccessibilityObject* parent = parentObject(); parent; parent = parent->parentObject()) { 
             if (parent->roleValue() == AccessibilityRole::TextField)
@@ -1249,8 +1248,6 @@ bool AccessibilityRenderObject::computeAccessibilityIsIgnored() const
                 return true;
             if (altTextInclusion == AccessibilityObjectInclusion::IncludeObject)
                 return false;
-            if (downcast<RenderTextFragment>(renderText).firstLetter())
-                return true;
         }
 
         // text elements that are just empty whitespace should not be returned
@@ -1635,7 +1632,7 @@ bool AccessibilityRenderObject::isSelected() const
     if (!m_renderer->node())
         return false;
     
-    if (equalLettersIgnoringASCIICase(getAttribute(aria_selectedAttr), "true"))
+    if (boolValueForProperty(AXPropertyName::Selected).value())
         return true;    
     
     if (isTabItem() && isTabItemSelected())
@@ -2524,7 +2521,7 @@ AccessibilityObject* AccessibilityRenderObject::correspondingControlForLabelElem
     if (!labelElement)
         return nullptr;
     
-    HTMLElement* correspondingControl = labelElement->control();
+    auto correspondingControl = labelElement->control();
     if (!correspondingControl)
         return nullptr;
 
@@ -2532,7 +2529,7 @@ AccessibilityObject* AccessibilityRenderObject::correspondingControlForLabelElem
     if (correspondingControl->renderer() && !correspondingControl->renderer()->parent())
         return nullptr;
     
-    return axObjectCache()->getOrCreate(correspondingControl);     
+    return axObjectCache()->getOrCreate(correspondingControl.get());
 }
 
 AccessibilityObject* AccessibilityRenderObject::correspondingLabelForControlElement() const
@@ -2646,7 +2643,7 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
         return AccessibilityRole::StaticText;
     if (cssBox && cssBox->isImage()) {
         if (is<HTMLInputElement>(node))
-            return ariaHasPopup() ? AccessibilityRole::PopUpButton : AccessibilityRole::Button;
+            return hasPopup() ? AccessibilityRole::PopUpButton : AccessibilityRole::Button;
         if (isSVGImage())
             return AccessibilityRole::SVGRoot;
         return AccessibilityRole::Image;
@@ -2773,7 +2770,7 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
     // The HTML AAM spec says it is "strongly recommended" that ATs only convey and provide navigation
     // for section elements which have names.
     if (node && node->hasTagName(sectionTag))
-        return hasAttribute(aria_labelAttr) || hasAttribute(aria_labelledbyAttr) ? AccessibilityRole::LandmarkRegion : AccessibilityRole::TextGroup;
+        return hasProperty(AXPropertyName::Label) || hasAttribute(aria_labelledbyAttr) ? AccessibilityRole::LandmarkRegion : AccessibilityRole::TextGroup;
 
     if (node && node->hasTagName(addressTag))
         return AccessibilityRole::LandmarkContentInfo;
@@ -2846,7 +2843,7 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
 
 AccessibilityOrientation AccessibilityRenderObject::orientation() const
 {
-    const AtomicString& ariaOrientation = getAttribute(aria_orientationAttr);
+    const AtomicString& ariaOrientation = stringValueForProperty(AXPropertyName::Orientation);
     if (equalLettersIgnoringASCIICase(ariaOrientation, "horizontal"))
         return AccessibilityOrientation::Horizontal;
     if (equalLettersIgnoringASCIICase(ariaOrientation, "vertical"))
@@ -2947,8 +2944,9 @@ bool AccessibilityRenderObject::canSetExpandedAttribute() const
         return true;
     
     // An object can be expanded if it aria-expanded is true or false.
-    const AtomicString& ariaExpanded = getAttribute(aria_expandedAttr);
-    return equalLettersIgnoringASCIICase(ariaExpanded, "true") || equalLettersIgnoringASCIICase(ariaExpanded, "false");
+    if (boolValueForProperty(AXPropertyName::Expanded))
+        return true;
+    return false;
 }
 
 bool AccessibilityRenderObject::canSetTextRangeAttributes() const
@@ -2969,7 +2967,7 @@ void AccessibilityRenderObject::textChanged()
         if (!parent)
             continue;
         
-        if (parent->supportsARIALiveRegion())
+        if (parent->supportsLiveRegion())
             cache->postLiveRegionChangeNotification(parent);
 
         if (parent->isNonNativeTextControl())
@@ -3071,7 +3069,7 @@ AccessibilitySVGRoot* AccessibilityRenderObject::remoteSVGRootElement(CreationCh
     if (!is<SVGDocument>(document))
         return nullptr;
     
-    SVGSVGElement* rootElement = SVGDocument::rootElement(*document);
+    auto rootElement = SVGDocument::rootElement(*document);
     if (!rootElement)
         return nullptr;
     RenderObject* rendererRoot = rootElement->renderer();
@@ -3258,9 +3256,9 @@ bool AccessibilityRenderObject::canHaveChildren() const
     return AccessibilityNodeObject::canHaveChildren();
 }
 
-const String AccessibilityRenderObject::ariaLiveRegionStatus() const
+const String AccessibilityRenderObject::liveRegionStatus() const
 {
-    const AtomicString& liveRegionStatus = getAttribute(aria_liveAttr);
+    const AtomicString& liveRegionStatus = stringValueForProperty(AXPropertyName::Live);
     // These roles have implicit live region status.
     if (liveRegionStatus.isEmpty())
         return defaultLiveRegionStatusForRole(roleValue());
@@ -3268,25 +3266,21 @@ const String AccessibilityRenderObject::ariaLiveRegionStatus() const
     return liveRegionStatus;
 }
 
-const AtomicString& AccessibilityRenderObject::ariaLiveRegionRelevant() const
+const String AccessibilityRenderObject::liveRegionRelevant() const
 {
-    static NeverDestroyed<const AtomicString> defaultLiveRegionRelevant("additions text", AtomicString::ConstructFromLiteral);
-    const AtomicString& relevant = getAttribute(aria_relevantAttr);
+    const AtomicString& relevant = stringValueForProperty(AXPropertyName::Relevant);
 
     // Default aria-relevant = "additions text".
     if (relevant.isEmpty())
-        return defaultLiveRegionRelevant;
+        return "additions text";
     
     return relevant;
 }
 
-bool AccessibilityRenderObject::ariaLiveRegionAtomic() const
+bool AccessibilityRenderObject::liveRegionAtomic() const
 {
-    const AtomicString& atomic = getAttribute(aria_atomicAttr);
-    if (equalLettersIgnoringASCIICase(atomic, "true"))
-        return true;
-    if (equalLettersIgnoringASCIICase(atomic, "false"))
-        return false;
+    if (auto atomic = boolValueForProperty(AXPropertyName::Atomic))
+        return atomic.value();
 
     // WAI-ARIA "alert" and "status" roles have an implicit aria-atomic value of true.
     switch (roleValue()) {
@@ -3300,7 +3294,7 @@ bool AccessibilityRenderObject::ariaLiveRegionAtomic() const
 
 bool AccessibilityRenderObject::isBusy() const
 {
-    return elementAttributeValue(aria_busyAttr);    
+    return boolValueForProperty(AXPropertyName::Busy).value();
 }
 
 bool AccessibilityRenderObject::canHaveSelectedChildren() const
@@ -3545,9 +3539,11 @@ bool AccessibilityRenderObject::hasPlainText() const
 {
     if (!m_renderer)
         return false;
-    
+
+    if (!canHavePlainText())
+        return false;
+
     const RenderStyle& style = m_renderer->style();
-    
     return style.fontDescription().weight() == normalWeightValue()
         && style.fontDescription().italic() == normalItalicValue()
         && style.textDecorationsInEffect() == TextDecorationNone;
@@ -3722,7 +3718,7 @@ void AccessibilityRenderObject::scrollTo(const IntPoint& point) const
         return;
 
     // FIXME: is point a ScrollOffset or ScrollPosition? Test in RTL overflow.
-    box.layer()->scrollToOffset(point, RenderLayer::ScrollOffsetClamped);
+    box.layer()->scrollToOffset(point);
 }
 
 #if ENABLE(MATHML)

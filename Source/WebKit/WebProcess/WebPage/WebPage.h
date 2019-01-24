@@ -153,6 +153,7 @@ class MediaPlayerRequestInstallMissingPluginsCallback;
 }
 
 namespace WebKit {
+class DataReference;
 class DrawingArea;
 class DownloadID;
 class FindController;
@@ -998,6 +999,11 @@ public:
     void requestStorageAccess(String&& subFrameHost, String&& topFrameHost, WTF::Function<void (bool)>&& callback);
     void storageAccessResponse(bool wasGranted, uint64_t contextId);
 
+#if ENABLE(ATTACHMENT_ELEMENT)
+    void insertAttachment(const String& identifier, const String& filename, std::optional<String> contentType, const IPC::DataReference&, CallbackID);
+    void requestAttachmentData(const String& identifier, CallbackID);
+#endif
+
 private:
     WebPage(uint64_t pageID, WebPageCreationParameters&&);
 
@@ -1100,6 +1106,8 @@ private:
     void restoreSessionInternal(const Vector<BackForwardListItemState>&, WasRestoredByAPIRequest);
     void restoreSession(const Vector<BackForwardListItemState>&);
     void didRemoveBackForwardItem(uint64_t);
+
+    void invokeSharedBufferCallback(RefPtr<WebCore::SharedBuffer>&&, CallbackID);
 
 #if ENABLE(REMOTE_INSPECTOR)
     void setAllowsRemoteInspection(bool);
@@ -1518,7 +1526,6 @@ private:
     WebCore::FloatSize m_availableScreenSize;
     RefPtr<WebCore::Range> m_currentBlockSelection;
     WebCore::IntRect m_blockRectForTextSelection;
-    bool m_allowsBlockSelection { false };
 
     RefPtr<WebCore::Range> m_initialSelection;
     WebCore::VisibleSelection m_storedSelectionForAccessibility { WebCore::VisibleSelection() };

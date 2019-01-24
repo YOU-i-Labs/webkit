@@ -77,6 +77,9 @@ set(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/html/shadow"
     "${WEBCORE_DIR}/html/track"
     "${WEBCORE_DIR}/inspector"
+    "${WEBCORE_DIR}/inspector/agents"
+    "${WEBCORE_DIR}/inspector/agents/page"
+    "${WEBCORE_DIR}/inspector/agents/worker"
     "${WEBCORE_DIR}/loader"
     "${WEBCORE_DIR}/loader/appcache"
     "${WEBCORE_DIR}/loader/archive"
@@ -101,6 +104,7 @@ set(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/graphics/filters"
     "${WEBCORE_DIR}/platform/graphics/harfbuzz"
     "${WEBCORE_DIR}/platform/graphics/harfbuzz/ng"
+    "${WEBCORE_DIR}/platform/graphics/iso"
     "${WEBCORE_DIR}/platform/graphics/opentype"
     "${WEBCORE_DIR}/platform/graphics/transforms"
     "${WEBCORE_DIR}/platform/mediastream"
@@ -267,14 +271,11 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediasession/MediaRemoteControls.idl
     Modules/mediasession/MediaSession.idl
 
-    Modules/mediasource/AudioTrackMediaSource.idl
     Modules/mediasource/DOMURLMediaSource.idl
     Modules/mediasource/MediaSource.idl
     Modules/mediasource/SourceBuffer.idl
     Modules/mediasource/SourceBufferList.idl
-    Modules/mediasource/TextTrackMediaSource.idl
     Modules/mediasource/VideoPlaybackQuality.idl
-    Modules/mediasource/VideoTrackMediaSource.idl
 
     Modules/mediastream/CanvasCaptureMediaStreamTrack.idl
     Modules/mediastream/DoubleRange.idl
@@ -418,6 +419,9 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webvr/VRPose.idl
     Modules/webvr/VRStageParameters.idl
 
+    accessibility/AccessibleNode.idl
+
+    animation/Animatable.idl
     animation/AnimationEffect.idl
     animation/AnimationEffectTiming.idl
     animation/AnimationTimeline.idl
@@ -647,6 +651,7 @@ set(WebCore_NON_SVG_IDL_FILES
     html/HTMLMarqueeElement.idl
     html/HTMLMediaElement.idl
     html/HTMLMenuElement.idl
+    html/HTMLMenuItemElement.idl
     html/HTMLMetaElement.idl
     html/HTMLMeterElement.idl
     html/HTMLModElement.idl
@@ -687,6 +692,7 @@ set(WebCore_NON_SVG_IDL_FILES
     html/ImageData.idl
     html/MediaController.idl
     html/MediaError.idl
+    html/OffscreenCanvas.idl
     html/RadioNodeList.idl
     html/TextMetrics.idl
     html/TimeRanges.idl
@@ -1221,6 +1227,14 @@ if (ENABLE_VIDEO_TRACK)
         html/track/VideoTrackList.idl
     )
 
+    if (ENABLE_MEDIA_SOURCE)
+        list(APPEND WebCore_IDL_FILES
+            Modules/mediasource/AudioTrackMediaSource.idl
+            Modules/mediasource/TextTrackMediaSource.idl
+            Modules/mediasource/VideoTrackMediaSource.idl
+        )
+    endif ()
+
     list(APPEND WebCore_SOURCES
         html/track/AudioTrack.cpp
         html/track/AudioTrackList.cpp
@@ -1465,7 +1479,7 @@ endif ()
 
 if (USE_WOFF2)
   list(APPEND WebCore_INCLUDE_DIRECTORIES "${WOFF2DEC_INCLUDE_DIRS}")
-  list(APPEND WebCore_LIBRARIES "${BROTLIDEC_LIBRARIES}" "${WOFF2DEC_LIBRARIES}")
+  list(APPEND WebCore_LIBRARIES "${WOFF2DEC_LIBRARIES}")
 endif ()
 
 if (USE_XDGMIME)
@@ -1853,8 +1867,7 @@ list(APPEND WebCore_DERIVED_SOURCES ${DERIVED_SOURCES_WEBCORE_DIR}/XMLNSNames.cp
 GENERATE_DOM_NAMES(XML ${WEBCORE_DIR}/xml/xmlattrs.in)
 list(APPEND WebCore_DERIVED_SOURCES ${DERIVED_SOURCES_WEBCORE_DIR}/XMLNames.cpp)
 
-if (ENABLE_ALLINONE_BUILD AND WIN32)
-    message(STATUS "All-in-One DerivedSources build is enabled.")
+if (WIN32)
     PROCESS_ALLINONE_FILE("${WebCore_DERIVED_SOURCES}" DerivedSources.cpp newSources TRUE)
     set(WebCore_DERIVED_SOURCES DerivedSources.cpp ${newSources})
 endif ()

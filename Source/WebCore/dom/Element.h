@@ -36,6 +36,7 @@
 
 namespace WebCore {
 
+class AccessibleNode;
 class CustomElementReactionQueue;
 class DatasetDOMStringMap;
 class DOMRect;
@@ -137,7 +138,7 @@ public:
 
     void scrollBy(const ScrollToOptions&);
     void scrollBy(double x, double y);
-    virtual void scrollTo(const ScrollToOptions&);
+    virtual void scrollTo(const ScrollToOptions&, ScrollClamping = ScrollClamping::Clamped);
     void scrollTo(double x, double y);
 
     WEBCORE_EXPORT void scrollByLines(int lines);
@@ -171,7 +172,7 @@ public:
 
     WEBCORE_EXPORT IntRect boundsInRootViewSpace();
 
-    FloatRect boundingClientRect();
+    WEBCORE_EXPORT FloatRect boundingClientRect();
 
     WEBCORE_EXPORT Ref<DOMRectList> getClientRects();
     Ref<DOMRect> getBoundingClientRect();
@@ -311,6 +312,8 @@ public:
     virtual int tabIndex() const;
     WEBCORE_EXPORT void setTabIndex(int);
     virtual RefPtr<Element> focusDelegate();
+
+    ExceptionOr<void> insertAdjacentHTML(const String& where, const String& html, std::optional<NodeVector&> addedNodes);
 
     WEBCORE_EXPORT ExceptionOr<Element*> insertAdjacentElement(const String& where, Element& newChild);
     WEBCORE_EXPORT ExceptionOr<void> insertAdjacentHTML(const String& where, const String& html);
@@ -550,6 +553,11 @@ public:
 
     Element* findAnchorElementForLink(String& outAnchorName);
 
+    AccessibleNode* existingAccessibleNode() const;
+    AccessibleNode* accessibleNode();
+
+    Vector<RefPtr<WebAnimation>> getAnimations();
+
 protected:
     Element(const QualifiedName&, Document&, ConstructionType);
 
@@ -579,8 +587,7 @@ private:
     bool isUserActionElementFocused() const;
     bool isUserActionElementHovered() const;
 
-    virtual void didAddUserAgentShadowRoot(ShadowRoot*) { }
-    virtual bool alwaysCreateUserAgentShadowRoot() const { return false; }
+    virtual void didAddUserAgentShadowRoot(ShadowRoot&) { }
 
     // FIXME: Remove the need for Attr to call willModifyAttribute/didModifyAttribute.
     friend class Attr;
@@ -800,4 +807,5 @@ inline void Element::setHasFocusWithin(bool flag)
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::Element)
     static bool isType(const WebCore::Node& node) { return node.isElementNode(); }
+    static bool isType(const WebCore::EventTarget& target) { return is<WebCore::Node>(target) && isType(downcast<WebCore::Node>(target)); }
 SPECIALIZE_TYPE_TRAITS_END()

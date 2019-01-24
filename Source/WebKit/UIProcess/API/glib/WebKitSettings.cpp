@@ -35,8 +35,10 @@
 #include "WebKitSettingsPrivate.h"
 #include "WebPageProxy.h"
 #include "WebPreferences.h"
+#include <WebCore/PlatformScreen.h>
 #include <WebCore/TextEncodingRegistry.h>
 #include <WebCore/UserAgent.h>
+#include <cmath>
 #include <glib/gi18n-lib.h>
 #include <wtf/glib/WTFGType.h>
 #include <wtf/text/CString.h>
@@ -77,6 +79,7 @@ struct _WebKitSettingsPrivate {
     CString userAgent;
     bool allowModalDialogs { false };
     bool zoomTextOnly { false };
+    double screenDpi { 96 };
 };
 
 /**
@@ -156,12 +159,36 @@ enum {
 #endif
 };
 
+static void webKitSettingsDispose(GObject* object)
+{
+    WebCore::setScreenDPIObserverHandler(nullptr, object);
+    G_OBJECT_CLASS(webkit_settings_parent_class)->dispose(object);
+}
+
 static void webKitSettingsConstructed(GObject* object)
 {
     G_OBJECT_CLASS(webkit_settings_parent_class)->constructed(object);
 
-    WebPreferences* prefs = WEBKIT_SETTINGS(object)->priv->preferences.get();
+    WebKitSettings* settings = WEBKIT_SETTINGS(object);
+    WebPreferences* prefs = settings->priv->preferences.get();
     prefs->setShouldRespectImageOrientation(true);
+
+    settings->priv->screenDpi = WebCore::screenDPI();
+    WebCore::setScreenDPIObserverHandler([settings]() {
+        auto newScreenDpi = WebCore::screenDPI();
+        if (newScreenDpi == settings->priv->screenDpi)
+            return;
+
+        auto scalingFactor = newScreenDpi / settings->priv->screenDpi;
+        auto fontSize = settings->priv->preferences->defaultFontSize();
+        auto monospaceFontSize = settings->priv->preferences->defaultFixedFontSize();
+        settings->priv->screenDpi = newScreenDpi;
+
+        g_object_freeze_notify(G_OBJECT(settings));
+        webkit_settings_set_default_font_size(settings, std::round(fontSize * scalingFactor));
+        webkit_settings_set_default_monospace_font_size(settings, std::round(monospaceFontSize * scalingFactor));
+        g_object_thaw_notify(G_OBJECT(settings));
+    }, object);
 }
 
 static void webKitSettingsSetProperty(GObject* object, guint propId, const GValue* value, GParamSpec* paramSpec)
@@ -510,6 +537,7 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
 {
     GObjectClass* gObjectClass = G_OBJECT_CLASS(klass);
     gObjectClass->constructed = webKitSettingsConstructed;
+    gObjectClass->dispose = webKitSettingsDispose;
     gObjectClass->set_property = webKitSettingsSetProperty;
     gObjectClass->get_property = webKitSettingsGetProperty;
 
@@ -819,7 +847,7 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
     /**
      * WebKitSettings:minimum-font-size:
      *
-     * The minimum font size in points used to display text. This setting
+     * The minimum font size in pixels used to display text. This setting
      * controls the absolute smallest size. Values other than 0 can
      * potentially break page layouts.
      */
@@ -2050,7 +2078,7 @@ void webkit_settings_set_pictograph_font_family(WebKitSettings* settings, const 
  *
  * Gets the #WebKitSettings:default-font-size property.
  *
- * Returns: The default font size.
+ * Returns: The default font size, in pixels.
  */
 guint32 webkit_settings_get_default_font_size(WebKitSettings* settings)
 {
@@ -2085,7 +2113,7 @@ void webkit_settings_set_default_font_size(WebKitSettings* settings, guint32 fon
  *
  * Gets the #WebKitSettings:default-monospace-font-size property.
  *
- * Returns: Default monospace font size.
+ * Returns: Default monospace font size, in pixels.
  */
 guint32 webkit_settings_get_default_monospace_font_size(WebKitSettings* settings)
 {
@@ -2120,7 +2148,7 @@ void webkit_settings_set_default_monospace_font_size(WebKitSettings* settings, g
  *
  * Gets the #WebKitSettings:minimum-font-size property.
  *
- * Returns: Minimum font size.
+ * Returns: Minimum font size, in pixels.
  */
 guint32 webkit_settings_get_minimum_font_size(WebKitSettings* settings)
 {
@@ -2132,7 +2160,7 @@ guint32 webkit_settings_get_minimum_font_size(WebKitSettings* settings)
 /**
  * webkit_settings_set_minimum_font_size:
  * @settings: a #WebKitSettings
- * @font_size: minimum font size to be set in points
+ * @font_size: minimum font size to be set in pixels
  *
  * Set the #WebKitSettings:minimum-font-size property.
  */
@@ -3269,5 +3297,41 @@ void webkit_settings_set_hardware_acceleration_policy(WebKitSettings* settings, 
 
     if (changed)
         g_object_notify(G_OBJECT(settings), "hardware-acceleration-policy");
+}
+
+/**
+ * webkit_settings_font_size_to_points:
+ * @pixels: the font size in pixels to convert to points
+ *
+ * Convert @pixels to the equivalent value in points, based on the current
+ * screen DPI. Applications can use this function to convert font size values
+ * in pixels to font size values in points when getting the font size properties
+ * of #WebKitSettings.
+ *
+ * Returns: the equivalent font size in points.
+ *
+ * Since: 2.20
+ */
+guint32 webkit_settings_font_size_to_points(guint32 pixels)
+{
+    return std::round(pixels * 72 / WebCore::screenDPI());
+}
+
+/**
+ * webkit_settings_font_size_to_pixels:
+ * @points: the font size in points to convert to pixels
+ *
+ * Convert @points to the equivalent value in pixels, based on the current
+ * screen DPI. Applications can use this function to convert font size values
+ * in points to font size values in pixels when setting the font size properties
+ * of #WebKitSettings.
+ *
+ * Returns: the equivalent font size in pixels.
+ *
+ * Since: 2.20
+ */
+guint32 webkit_settings_font_size_to_pixels(guint32 points)
+{
+    return std::round(points * WebCore::screenDPI() / 72);
 }
 #endif // PLATFORM(GTK)

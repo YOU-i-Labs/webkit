@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
@@ -356,9 +356,9 @@ void Node::clearRareData()
     clearFlag(HasRareDataFlag);
 }
 
-RefPtr<Node> Node::toNode()
+bool Node::isNode() const
 {
-    return this;
+    return true;
 }
 
 String Node::nodeValue() const
@@ -1966,8 +1966,8 @@ void Node::moveTreeToNewScope(Node& root, TreeScope& oldScope, TreeScope& newSco
             shadowRoot.moveShadowRootToNewParentScope(newScope, newDocument);
             moveShadowTreeToNewDocument(shadowRoot, oldDocument, newDocument);
         });
-        oldDocument.decrementReferencingNodeCount();
         RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&oldScope.documentScope() == &oldDocument && &newScope.documentScope() == &newDocument);
+        oldDocument.decrementReferencingNodeCount();
     } else {
         traverseSubtreeToUpdateTreeScope(root, [&](Node& node) {
             ASSERT(!node.isTreeScope());
@@ -2202,7 +2202,7 @@ HashSet<MutationObserverRegistration*>* Node::transientMutationObserverRegistry(
     return &data->transientRegistry;
 }
 
-template<typename Registry> static inline void collectMatchingObserversForMutation(HashMap<MutationObserver*, MutationRecordDeliveryOptions>& observers, Registry* registry, Node& target, MutationObserver::MutationType type, const QualifiedName* attributeName)
+template<typename Registry> static inline void collectMatchingObserversForMutation(HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions>& observers, Registry* registry, Node& target, MutationObserver::MutationType type, const QualifiedName* attributeName)
 {
     if (!registry)
         return;
@@ -2210,16 +2210,16 @@ template<typename Registry> static inline void collectMatchingObserversForMutati
     for (auto& registration : *registry) {
         if (registration->shouldReceiveMutationFrom(target, type, attributeName)) {
             auto deliveryOptions = registration->deliveryOptions();
-            auto result = observers.add(&registration->observer(), deliveryOptions);
+            auto result = observers.add(registration->observer(), deliveryOptions);
             if (!result.isNewEntry)
                 result.iterator->value |= deliveryOptions;
         }
     }
 }
 
-HashMap<MutationObserver*, MutationRecordDeliveryOptions> Node::registeredMutationObservers(MutationObserver::MutationType type, const QualifiedName* attributeName)
+HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions> Node::registeredMutationObservers(MutationObserver::MutationType type, const QualifiedName* attributeName)
 {
-    HashMap<MutationObserver*, MutationRecordDeliveryOptions> result;
+    HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions> result;
     ASSERT((type == MutationObserver::Attributes && attributeName) || !attributeName);
     collectMatchingObserversForMutation(result, mutationObserverRegistry(), *this, type, attributeName);
     collectMatchingObserversForMutation(result, transientMutationObserverRegistry(), *this, type, attributeName);
@@ -2312,13 +2312,9 @@ void Node::dispatchScopedEvent(Event& event)
     EventDispatcher::dispatchScopedEvent(*this, event);
 }
 
-bool Node::dispatchEvent(Event& event)
+void Node::dispatchEvent(Event& event)
 {
-#if ENABLE(TOUCH_EVENTS) && !PLATFORM(IOS)
-    if (is<TouchEvent>(event))
-        return dispatchTouchEvent(downcast<TouchEvent>(event));
-#endif
-    return EventDispatcher::dispatchEvent(*this, event);
+    EventDispatcher::dispatchEvent(*this, event);
 }
 
 void Node::dispatchSubtreeModifiedEvent()
@@ -2326,7 +2322,7 @@ void Node::dispatchSubtreeModifiedEvent()
     if (isInShadowTree())
         return;
 
-    RELEASE_ASSERT(NoEventDispatchAssertion::isEventDispatchAllowedInSubtree(*this));
+    ASSERT_WITH_SECURITY_IMPLICATION(NoEventDispatchAssertion::InMainThread::isEventDispatchAllowedInSubtree(*this));
 
     if (!document().hasListenerType(Document::DOMSUBTREEMODIFIED_LISTENER))
         return;
@@ -2337,21 +2333,16 @@ void Node::dispatchSubtreeModifiedEvent()
     dispatchScopedEvent(MutationEvent::create(subtreeModifiedEventName, true));
 }
 
-bool Node::dispatchDOMActivateEvent(int detail, Event& underlyingEvent)
+void Node::dispatchDOMActivateEvent(Event& underlyingClickEvent)
 {
-    RELEASE_ASSERT(NoEventDispatchAssertion::isEventAllowedInMainThread());
-    Ref<UIEvent> event = UIEvent::create(eventNames().DOMActivateEvent, true, true, document().defaultView(), detail);
-    event->setUnderlyingEvent(&underlyingEvent);
+    ASSERT_WITH_SECURITY_IMPLICATION(NoEventDispatchAssertion::InMainThread::isEventAllowed());
+    int detail = is<UIEvent>(underlyingClickEvent) ? downcast<UIEvent>(underlyingClickEvent).detail() : 0;
+    auto event = UIEvent::create(eventNames().DOMActivateEvent, true, true, document().defaultView(), detail);
+    event->setUnderlyingEvent(&underlyingClickEvent);
     dispatchScopedEvent(event);
-    return event->defaultHandled();
+    if (event->defaultHandled())
+        underlyingClickEvent.setDefaultHandled();
 }
-
-#if ENABLE(TOUCH_EVENTS) && !PLATFORM(IOS)
-bool Node::dispatchTouchEvent(TouchEvent& event)
-{
-    return EventDispatcher::dispatchEvent(*this, event);
-}
-#endif
 
 bool Node::dispatchBeforeLoadEvent(const String& sourceURL)
 {
@@ -2359,9 +2350,9 @@ bool Node::dispatchBeforeLoadEvent(const String& sourceURL)
         return true;
 
     Ref<Node> protectedThis(*this);
-    Ref<BeforeLoadEvent> beforeLoadEvent = BeforeLoadEvent::create(sourceURL);
-    dispatchEvent(beforeLoadEvent);
-    return !beforeLoadEvent->defaultPrevented();
+    auto event = BeforeLoadEvent::create(sourceURL);
+    dispatchEvent(event);
+    return !event->defaultPrevented();
 }
 
 void Node::dispatchInputEvent()
@@ -2380,9 +2371,7 @@ void Node::defaultEventHandler(Event& event)
                 frame->eventHandler().defaultKeyboardEventHandler(downcast<KeyboardEvent>(event));
         }
     } else if (eventType == eventNames().clickEvent) {
-        int detail = is<UIEvent>(event) ? downcast<UIEvent>(event).detail() : 0;
-        if (dispatchDOMActivateEvent(detail, event))
-            event.setDefaultHandled();
+        dispatchDOMActivateEvent(event);
 #if ENABLE(CONTEXT_MENUS)
     } else if (eventType == eventNames().contextmenuEvent) {
         if (Frame* frame = document().frame())

@@ -30,6 +30,7 @@
 
 #include "DataReference.h"
 #include "WebServiceWorkerProvider.h"
+#include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/ResourceError.h>
 
@@ -53,7 +54,7 @@ void ServiceWorkerClientFetch::didReceiveResponse(WebCore::ResourceResponse&& re
     if (!(response.httpStatusCode() <= 300 || response.httpStatusCode() >= 400 || response.httpStatusCode() == 304 || response.httpStatusCode() == 305 || response.httpStatusCode() == 306)) {
         // FIXME: Support redirections.
         notImplemented();
-        m_loader->didFail({ });
+        m_loader->didFail({ ResourceError::Type::General });
         if (auto callback = WTFMove(m_callback))
             callback(Result::Succeeded);
         return;
@@ -61,12 +62,18 @@ void ServiceWorkerClientFetch::didReceiveResponse(WebCore::ResourceResponse&& re
 
     if (response.type() == ResourceResponse::Type::Error) {
         // Add support for a better error.
-        m_loader->didFail({ });
+        m_loader->didFail({ ResourceError::Type::General });
         if (auto callback = WTFMove(m_callback))
             callback(Result::Succeeded);
         return;
     }
 
+    // In case of main resource and mime type is the default one, we set it to text/html to pass more service worker WPT tests.
+    // FIXME: We should refine our MIME type sniffing strategy for synthetic responses.
+    if (m_loader->originalRequest().requester() == ResourceRequest::Requester::Main) {
+        if (response.mimeType() == defaultMIMEType())
+            response.setMimeType(ASCIILiteral("text/html"));
+    }
     response.setSource(ResourceResponse::Source::ServiceWorker);
     m_loader->didReceiveResponse(response);
     if (auto callback = WTFMove(m_callback))
@@ -76,6 +83,11 @@ void ServiceWorkerClientFetch::didReceiveResponse(WebCore::ResourceResponse&& re
 void ServiceWorkerClientFetch::didReceiveData(const IPC::DataReference& data, int64_t encodedDataLength)
 {
     m_loader->didReceiveData(reinterpret_cast<const char*>(data.data()), data.size(), encodedDataLength, DataPayloadBytes);
+}
+
+void ServiceWorkerClientFetch::didReceiveFormData(const IPC::FormDataReference&)
+{
+    // FIXME: Implement form data reading.
 }
 
 void ServiceWorkerClientFetch::didFinish()

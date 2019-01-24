@@ -37,15 +37,18 @@ namespace WebCore {
 
 class AnimationEffect;
 class AnimationTimeline;
+class Document;
+class RenderStyle;
 
 class WebAnimation final : public RefCounted<WebAnimation> {
 public:
-    static Ref<WebAnimation> create(AnimationTimeline*);
+    static Ref<WebAnimation> create(Document&, AnimationEffect*, AnimationTimeline*);
     ~WebAnimation();
 
     AnimationEffect* effect() const { return m_effect.get(); }
     void setEffect(RefPtr<AnimationEffect>&&);
     AnimationTimeline* timeline() const { return m_timeline.get(); }
+    void setTimeline(RefPtr<AnimationTimeline>&&);
 
     std::optional<double> bindingsStartTime() const;
     void setBindingsStartTime(std::optional<double>);
@@ -60,10 +63,13 @@ public:
     double playbackRate() const { return m_playbackRate; }
     void setPlaybackRate(double);
 
+    Seconds timeToNextRequiredTick(Seconds) const;
+    void resolve(RenderStyle&);
+
     String description();
 
 private:
-    WebAnimation(AnimationTimeline*);
+    WebAnimation();
 
     RefPtr<AnimationEffect> m_effect;
     RefPtr<AnimationTimeline> m_timeline;

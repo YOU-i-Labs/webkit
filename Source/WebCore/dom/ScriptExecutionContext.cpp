@@ -43,8 +43,10 @@
 #include "PublicURLManager.h"
 #include "RejectedPromiseTracker.h"
 #include "ResourceRequest.h"
+#include "SWClientConnection.h"
 #include "ScriptState.h"
 #include "ServiceWorker.h"
+#include "ServiceWorkerProvider.h"
 #include "Settings.h"
 #include "WorkerGlobalScope.h"
 #include "WorkerNavigator.h"
@@ -113,6 +115,10 @@ ScriptExecutionContext::~ScriptExecutionContext()
 
 #if !ASSERT_DISABLED
     m_inScriptExecutionContextDestructor = true;
+#endif
+
+#if ENABLE(SERVICE_WORKER)
+    setActiveServiceWorker(nullptr);
 #endif
 
     while (auto* destructionObserver = m_destructionObservers.takeAny())
@@ -190,7 +196,7 @@ bool ScriptExecutionContext::canSuspendActiveDOMObjectsForDocumentSuspension(Vec
     // functions should not add new active DOM objects, nor execute arbitrary JavaScript.
     // An ASSERT_WITH_SECURITY_IMPLICATION or RELEASE_ASSERT will fire if this happens, but it's important to code
     // canSuspend functions so it will not happen!
-    NoEventDispatchAssertion assertNoEventDispatch;
+    NoEventDispatchAssertion::InMainThread assertNoEventDispatch;
     for (auto* activeDOMObject : m_activeDOMObjects) {
         if (!activeDOMObject->canSuspendForDocumentSuspension()) {
             canSuspend = false;
@@ -232,7 +238,7 @@ void ScriptExecutionContext::suspendActiveDOMObjects(ActiveDOMObject::ReasonForS
     // functions should not add new active DOM objects, nor execute arbitrary JavaScript.
     // An ASSERT_WITH_SECURITY_IMPLICATION or RELEASE_ASSERT will fire if this happens, but it's important to code
     // suspend functions so it will not happen!
-    NoEventDispatchAssertion assertNoEventDispatch;
+    NoEventDispatchAssertion::InMainThread assertNoEventDispatch;
     for (auto* activeDOMObject : m_activeDOMObjects)
         activeDOMObject->suspend(why);
 
@@ -261,7 +267,7 @@ void ScriptExecutionContext::resumeActiveDOMObjects(ActiveDOMObject::ReasonForSu
     // functions should not add new active DOM objects, nor execute arbitrary JavaScript.
     // An ASSERT_WITH_SECURITY_IMPLICATION or RELEASE_ASSERT will fire if this happens, but it's important to code
     // resume functions so it will not happen!
-    NoEventDispatchAssertion assertNoEventDispatch;
+    NoEventDispatchAssertion::InMainThread assertNoEventDispatch;
     for (auto* activeDOMObject : m_activeDOMObjects)
         activeDOMObject->resume();
 
@@ -537,7 +543,21 @@ ServiceWorker* ScriptExecutionContext::activeServiceWorker() const
 
 void ScriptExecutionContext::setActiveServiceWorker(RefPtr<ServiceWorker>&& serviceWorker)
 {
+    // Add support for workers.
+    if (!is<Document>(*this))
+        return;
+
+    if (m_activeServiceWorker == serviceWorker)
+        return;
+
+    auto& connection = ServiceWorkerProvider::singleton().serviceWorkerConnectionForSession(sessionID());
+    if (m_activeServiceWorker)
+        connection.serviceWorkerStoppedControllingClient(m_activeServiceWorker->identifier(), downcast<Document>(*this).identifier());
+
     m_activeServiceWorker = WTFMove(serviceWorker);
+
+    if (m_activeServiceWorker)
+        connection.serviceWorkerStartedControllingClient(m_activeServiceWorker->identifier(), downcast<Document>(*this).identifier());
 }
 
 ServiceWorkerContainer* ScriptExecutionContext::serviceWorkerContainer()
@@ -545,9 +565,9 @@ ServiceWorkerContainer* ScriptExecutionContext::serviceWorkerContainer()
     NavigatorBase* navigator = nullptr;
     if (is<Document>(*this)) {
         if (auto* window = downcast<Document>(*this).domWindow())
-            navigator = window->navigator();
+            navigator = window->optionalNavigator();
     } else
-        navigator = &downcast<WorkerGlobalScope>(*this).navigator();
+        navigator = downcast<WorkerGlobalScope>(*this).optionalNavigator();
 
     return navigator ? navigator->serviceWorker() : nullptr;
 }

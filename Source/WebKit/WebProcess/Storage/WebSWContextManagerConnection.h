@@ -30,6 +30,11 @@
 #include "Connection.h"
 #include "MessageReceiver.h"
 #include <WebCore/SWContextManager.h>
+#include <WebCore/ServiceWorkerTypes.h>
+
+namespace IPC {
+class FormDataReference;
+}
 
 namespace WebCore {
 struct FetchOptions;
@@ -51,12 +56,20 @@ private:
     void updatePreferences(const WebPreferencesStore&);
 
     // WebCore::SWContextManager::Connection.
-    void postMessageToServiceWorkerClient(const WebCore::ServiceWorkerClientIdentifier& destinationIdentifier, Ref<WebCore::SerializedScriptValue>&& message, uint64_t sourceServiceWorkerIdentifier, const String& sourceOrigin) final;
+    void postMessageToServiceWorkerClient(const WebCore::ServiceWorkerClientIdentifier& destinationIdentifier, Ref<WebCore::SerializedScriptValue>&& message, WebCore::ServiceWorkerIdentifier sourceIdentifier, const String& sourceOrigin) final;
+    void didFinishInstall(const WebCore::ServiceWorkerJobDataIdentifier&, WebCore::ServiceWorkerIdentifier, bool wasSuccessful) final;
+    void didFinishActivation(WebCore::ServiceWorkerIdentifier) final;
+    void setServiceWorkerHasPendingEvents(WebCore::ServiceWorkerIdentifier, bool) final;
+    void workerTerminated(WebCore::ServiceWorkerIdentifier) final;
 
     // IPC messages.
-    void startServiceWorker(uint64_t serverConnectionIdentifier, const WebCore::ServiceWorkerContextData&);
-    void startFetch(uint64_t serverConnectionIdentifier, uint64_t fetchIdentifier, uint64_t serviceWorkerIdentifier, WebCore::ResourceRequest&&, WebCore::FetchOptions&&);
-    void postMessageToServiceWorkerGlobalScope(uint64_t destinationServiceWorkerIdentifier, const IPC::DataReference& message, const WebCore::ServiceWorkerClientIdentifier& sourceIdentifier, const String& sourceOrigin);
+    void serviceWorkerStartedWithMessage(const WebCore::ServiceWorkerJobDataIdentifier&, WebCore::ServiceWorkerIdentifier, const String& exceptionMessage) final;
+    void installServiceWorker(const WebCore::ServiceWorkerContextData&);
+    void startFetch(WebCore::SWServerConnectionIdentifier, uint64_t fetchIdentifier, std::optional<WebCore::ServiceWorkerIdentifier>, WebCore::ResourceRequest&&, WebCore::FetchOptions&&, IPC::FormDataReference&&);
+    void postMessageToServiceWorkerGlobalScope(WebCore::ServiceWorkerIdentifier destinationIdentifier, const IPC::DataReference& message, WebCore::ServiceWorkerClientIdentifier sourceIdentifier, WebCore::ServiceWorkerClientData&& sourceData);
+    void fireInstallEvent(WebCore::ServiceWorkerIdentifier);
+    void fireActivateEvent(WebCore::ServiceWorkerIdentifier);
+    void terminateWorker(WebCore::ServiceWorkerIdentifier);
 
     Ref<IPC::Connection> m_connectionToStorageProcess;
     uint64_t m_pageID { 0 };

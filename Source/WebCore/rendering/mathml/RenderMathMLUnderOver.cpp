@@ -34,8 +34,11 @@
 #include "MathMLUnderOverElement.h"
 #include "RenderIterator.h"
 #include "RenderMathMLOperator.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMathMLUnderOver);
 
 RenderMathMLUnderOver::RenderMathMLUnderOver(MathMLUnderOverElement& element, RenderStyle&& style)
     : RenderMathMLScripts(element, WTFMove(style))
@@ -247,7 +250,7 @@ void RenderMathMLUnderOver::layoutBlock(bool relayoutChildren, LayoutUnit pageLo
         return;
 
     if (!isValid()) {
-        layoutInvalidMarkup();
+        layoutInvalidMarkup(relayoutChildren);
         return;
     }
 
@@ -307,6 +310,8 @@ void RenderMathMLUnderOver::layoutBlock(bool relayoutChildren, LayoutUnit pageLo
     }
 
     setLogicalHeight(verticalOffset);
+
+    layoutPositionedObjects(relayoutChildren);
 
     clearNeedsLayout();
 }

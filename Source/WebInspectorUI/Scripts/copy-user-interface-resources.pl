@@ -302,9 +302,6 @@ if ($shouldCombineMain) {
 
     ditto(File::Spec->catdir($uiRoot, 'Images'), File::Spec->catdir($targetResourcePath, 'Images'));
 
-    # Remove Images/gtk on Mac and Windows builds.
-    remove_tree(File::Spec->catdir($targetResourcePath, 'Images', 'gtk')) if defined $ENV{'MAC_OS_X_VERSION_MAJOR'} or defined $ENV{'OFFICIAL_BUILD'};
-
     # Remove ESLint until needed: <https://webkit.org/b/136515> Web Inspector: JavaScript source text editor should have a linter
     unlink $targetESLintJS;
 
@@ -335,7 +332,16 @@ if ($shouldCombineTest) {
 
     my $derivedSourcesTestHTML = File::Spec->catfile($derivedSourcesDir, 'Test.html');
     my $derivedSourcesTestJS = File::Spec->catfile($derivedSourcesDir, 'TestCombined.js');
-    # Combine the Esprima JavaScript files for testing into a single file (Esprima.js).
+    # Combine the CodeMirror JavaScript files into single file (TestCodeMirror.js).
+    system($perl, $combineResourcesCmd,
+        '--input-dir', 'External/CodeMirror',
+        '--input-html', $derivedSourcesTestHTML,
+        '--input-html-dir', $uiRoot,
+        '--derived-sources-dir', $derivedSourcesDir,
+        '--output-dir', $derivedSourcesDir,
+        '--output-script-name', 'TestCodeMirror.js');
+
+    # Combine the Esprima JavaScript files for testing into a single file (TestEsprima.js).
     system($perl, $combineResourcesCmd,
         '--input-dir', 'External/Esprima',
         '--input-html', $derivedSourcesTestHTML,
@@ -348,12 +354,20 @@ if ($shouldCombineTest) {
     my $targetTestJS = File::Spec->catfile($targetResourcePath, 'TestCombined.js');
     seedFile($targetTestJS, $inspectorLicense);
 
-    # Export the license into Esprima.js.
+    # Export the license into TestCodeMirror.js.
+    my $targetCodeMirrorJS = File::Spec->catfile($targetResourcePath, 'TestCodeMirror.js');
+    seedFile($targetCodeMirrorJS, $codeMirrorLicense);
+
+    # Export the license into TestEsprima.js.
     my $targetEsprimaJS = File::Spec->catfile($targetResourcePath, 'TestEsprima.js');
     seedFile($targetEsprimaJS, $esprimaLicense);
 
     # Append TestCombined.js to the license that was exported above.
     appendFile($targetTestJS, $derivedSourcesTestJS);
+
+    # Append CodeMirror.js to the license that was exported above.
+    my $derivedSourcesCodeMirrorJS = File::Spec->catfile($derivedSourcesDir, 'TestCodeMirror.js');
+    appendFile($targetCodeMirrorJS, $derivedSourcesCodeMirrorJS);
 
     # Append Esprima.js to the license that was exported above.
     my $derivedSourcesEsprimaJS = File::Spec->catfile($derivedSourcesDir, 'TestEsprima.js');
@@ -361,6 +375,17 @@ if ($shouldCombineTest) {
 
     # Copy over Test.html.
     copy($derivedSourcesTestHTML, File::Spec->catfile($targetResourcePath, 'Test.html'));
+
+    # Combine the JavaScript files for testing into a single file (TestStub.js).
+    system($perl, $combineResourcesCmd,
+        '--input-html', File::Spec->catfile($uiRoot, 'TestStub.html'),
+        '--derived-sources-dir', $derivedSourcesDir,
+        '--output-dir', $derivedSourcesDir,
+        '--output-script-name', 'TestStubCombined.js');
+
+    # Copy over TestStub.html and TestStubCombined.js.
+    copy(File::Spec->catfile($derivedSourcesDir, 'TestStub.html'), File::Spec->catfile($targetResourcePath, 'TestStub.html'));
+    copy(File::Spec->catfile($derivedSourcesDir, 'TestStubCombined.js'), File::Spec->catfile($targetResourcePath, 'TestStubCombined.js'));
 
     # Copy the Legacy directory.
     ditto(File::Spec->catfile($uiRoot, 'Protocol', 'Legacy'), File::Spec->catfile($protocolDir, 'Legacy'));

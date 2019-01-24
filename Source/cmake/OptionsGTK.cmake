@@ -1,11 +1,11 @@
 include(GNUInstallDirs)
 include(VersioningUtils)
 
-SET_PROJECT_VERSION(2 19 1)
+SET_PROJECT_VERSION(2 19 2)
 set(WEBKITGTK_API_VERSION 4.0)
 
-CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(WEBKIT 62 0 25)
-CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(JAVASCRIPTCORE 25 0 7)
+CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(WEBKIT 63 0 26)
+CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(JAVASCRIPTCORE 25 1 7)
 
 # These are shared variables, but we special case their definition so that we can use the
 # CMAKE_INSTALL_* variables that are populated by the GNUInstallDirs macro.
@@ -46,8 +46,8 @@ WEBKIT_OPTION_BEGIN()
 
 include(GStreamerDefinitions)
 
-set(USE_CAIRO ON)
-set(USE_XDGMIME ON)
+SET_AND_EXPOSE_TO_BUILD(USE_CAIRO TRUE)
+SET_AND_EXPOSE_TO_BUILD(USE_XDGMIME TRUE)
 SET_AND_EXPOSE_TO_BUILD(USE_GCRYPT TRUE)
 
 # For old versions of HarfBuzz that do not expose an API for the OpenType MATH
@@ -365,13 +365,9 @@ if (USE_UPOWER)
 endif ()
 
 if (USE_WOFF2)
-    find_package(BrotliDec 1.0.1)
-    if (NOT BROTLIDEC_FOUND)
-       message(FATAL_ERROR "librotlidec is needed for USE_WOFF2.")
-    endif ()
-    find_package(WOFF2Dec 1.0.1)
+    find_package(WOFF2Dec 1.0.2)
     if (NOT WOFF2DEC_FOUND)
-       message(FATAL_ERROR "liwoff2dec is needed for USE_WOFF2.")
+       message(FATAL_ERROR "libwoff2dec is needed for USE_WOFF2.")
     endif ()
 endif ()
 

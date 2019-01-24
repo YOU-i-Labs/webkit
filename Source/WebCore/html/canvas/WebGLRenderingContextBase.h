@@ -114,8 +114,10 @@ inline bool clip2D(GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height,
 
 class WebGLRenderingContextBase : public GPUBasedCanvasRenderingContext, private ActivityStateChangeObserver {
 public:
-    static std::unique_ptr<WebGLRenderingContextBase> create(HTMLCanvasElement&, WebGLContextAttributes&, const String&);
+    static std::unique_ptr<WebGLRenderingContextBase> create(CanvasBase&, WebGLContextAttributes&, const String&);
     virtual ~WebGLRenderingContextBase();
+
+    HTMLCanvasElement* canvas();
 
     int drawingBufferWidth() const;
     int drawingBufferHeight() const;
@@ -209,6 +211,8 @@ public:
     RefPtr<WebGLUniformLocation> getUniformLocation(WebGLProgram*, const String&);
     WebGLAny getVertexAttrib(GC3Duint index, GC3Denum pname);
     long long getVertexAttribOffset(GC3Duint index, GC3Denum pname);
+
+    bool extensionIsEnabled(const String&);
 
     bool isPreservingDrawingBuffer() const { return m_attributes.preserveDrawingBuffer; }
     void setPreserveDrawingBuffer(bool value) { m_attributes.preserveDrawingBuffer = value; }
@@ -374,8 +378,8 @@ public:
     WEBCORE_EXPORT void setFailNextGPUStatusCheck();
 
 protected:
-    WebGLRenderingContextBase(HTMLCanvasElement&, WebGLContextAttributes);
-    WebGLRenderingContextBase(HTMLCanvasElement&, Ref<GraphicsContext3D>&&, WebGLContextAttributes);
+    WebGLRenderingContextBase(CanvasBase&, WebGLContextAttributes);
+    WebGLRenderingContextBase(CanvasBase&, Ref<GraphicsContext3D>&&, WebGLContextAttributes);
 
     friend class WebGLDrawBuffers;
     friend class WebGLFramebuffer;
@@ -671,7 +675,7 @@ protected:
     // Helper function to check target and texture bound to the target.
     // Generate GL errors and return 0 if target is invalid or texture bound is
     // null.  Otherwise, return the texture bound to the target.
-    WebGLTexture* validateTextureBinding(const char* functionName, GC3Denum target, bool useSixEnumsForCubeMap);
+    RefPtr<WebGLTexture> validateTextureBinding(const char* functionName, GC3Denum target, bool useSixEnumsForCubeMap);
 
     // Helper function to check input format/type for functions {copy}Tex{Sub}Image.
     // Generates GL error and returns false if parameters are invalid.

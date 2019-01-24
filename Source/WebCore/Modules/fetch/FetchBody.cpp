@@ -48,7 +48,7 @@ FetchBody FetchBody::extract(ScriptExecutionContext& context, Init&& value, Stri
         return FetchBody(WTFMove(blob));
     }, [&](RefPtr<DOMFormData>& value) mutable {
         Ref<DOMFormData> domFormData = value.releaseNonNull();
-        auto formData = FormData::createMultiPart(domFormData.get(), &static_cast<Document&>(context));
+        auto formData = FormData::createMultiPart(domFormData.get(), &downcast<Document>(context));
         contentType = makeString("multipart/form-data; boundary=", formData->boundary().data());
         return FetchBody(WTFMove(formData));
     }, [&](RefPtr<URLSearchParams>& value) mutable {
@@ -67,6 +67,21 @@ FetchBody FetchBody::extract(ScriptExecutionContext& context, Init&& value, Stri
         contentType = HTTPHeaderValues::textPlainContentType();
         return FetchBody(WTFMove(value));
     });
+}
+
+std::optional<FetchBody> FetchBody::fromFormData(FormData* formData)
+{
+    if (!formData || formData->isEmpty())
+        return std::nullopt;
+
+    if (auto buffer = formData->asSharedBuffer()) {
+        FetchBody body;
+        body.m_consumer.setData(buffer.releaseNonNull());
+        return WTFMove(body);
+    }
+
+    // FIXME: Support blob and form data bodies.
+    return std::nullopt;
 }
 
 void FetchBody::arrayBuffer(FetchBodyOwner& owner, Ref<DeferredPromise>&& promise)
@@ -134,7 +149,7 @@ void FetchBody::consume(FetchBodyOwner& owner, Ref<DeferredPromise>&& promise)
     }
     if (isFormData()) {
         // FIXME: Support consuming FormData.
-        promise->reject();
+        promise->reject(NotSupportedError);
         return;
     }
 
@@ -228,9 +243,12 @@ RefPtr<FormData> FetchBody::bodyAsFormData(ScriptExecutionContext& context) cons
     if (isFormData()) {
         ASSERT(!context.isWorkerGlobalScope());
         RefPtr<FormData> body = const_cast<FormData*>(&formDataBody());
-        body->generateFiles(static_cast<Document*>(&context));
+        body->generateFiles(&downcast<Document>(context));
         return body;
     }
+    if (auto* data = m_consumer.data())
+        return FormData::create(data->data(), data->size());
+
     ASSERT_NOT_REACHED();
     return nullptr;
 }

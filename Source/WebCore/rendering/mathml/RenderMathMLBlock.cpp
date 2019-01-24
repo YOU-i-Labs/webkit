@@ -36,6 +36,7 @@
 #include "MathMLNames.h"
 #include "MathMLPresentationElement.h"
 #include "RenderView.h"
+#include <wtf/IsoMallocInlines.h>
 
 #if ENABLE(DEBUG_MATH_LAYOUT)
 #include "PaintInfo.h"
@@ -44,6 +45,9 @@
 namespace WebCore {
 
 using namespace MathMLNames;
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMathMLBlock);
+WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMathMLTable);
 
 RenderMathMLBlock::RenderMathMLBlock(MathMLPresentationElement& container, RenderStyle&& style)
     : RenderBlock(container, WTFMove(style), 0)
@@ -241,12 +245,14 @@ void RenderMathMLBlock::layoutBlock(bool relayoutChildren, LayoutUnit)
 
     updateLogicalHeight();
 
+    layoutPositionedObjects(relayoutChildren);
+
     repainter.repaintAfterLayout();
 
     clearNeedsLayout();
 }
 
-void RenderMathMLBlock::layoutInvalidMarkup()
+void RenderMathMLBlock::layoutInvalidMarkup(bool relayoutChildren)
 {
     // Invalid MathML subtrees are just renderered as empty boxes.
     // FIXME: https://webkit.org/b/135460 - Should we display some "invalid" markup message instead?
@@ -255,6 +261,7 @@ void RenderMathMLBlock::layoutInvalidMarkup()
         child->layoutIfNeeded();
     setLogicalWidth(0);
     setLogicalHeight(0);
+    layoutPositionedObjects(relayoutChildren);
     clearNeedsLayout();
 }
 

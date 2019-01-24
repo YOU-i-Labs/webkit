@@ -121,6 +121,8 @@ const char* intrinsicName(Intrinsic intrinsic)
         return "StringPrototypeReplaceIntrinsic";
     case StringPrototypeReplaceRegExpIntrinsic:
         return "StringPrototypeReplaceRegExpIntrinsic";
+    case StringPrototypeSliceIntrinsic:
+        return "StringPrototypeSliceIntrinsic";
     case StringPrototypeToLowerCaseIntrinsic:
         return "StringPrototypeToLowerCaseIntrinsic";
     case NumberPrototypeToStringIntrinsic:
@@ -207,6 +209,14 @@ const char* intrinsicName(Intrinsic intrinsic)
         return "CheckInt32Intrinsic";
     case FiatInt52Intrinsic:
         return "FiatInt52Intrinsic";
+    case CPUMfenceIntrinsic:
+        return "CPUMfenceIntrinsic";
+    case CPURdtscIntrinsic:
+        return "CPURdtscIntrinsic";
+    case CPUCpuidIntrinsic:
+        return "CPUCpuidIntrinsic";
+    case CPUPauseIntrinsic:
+        return "CPUPauseIntrinsic";
     }
     RELEASE_ASSERT_NOT_REACHED();
     return nullptr;

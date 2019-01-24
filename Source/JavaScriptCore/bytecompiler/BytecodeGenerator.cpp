@@ -48,6 +48,7 @@
 #include "Options.h"
 #include "StackAlignment.h"
 #include "StrongInlines.h"
+#include "SuperSamplerBytecodeScope.h"
 #include "UnlinkedCodeBlock.h"
 #include "UnlinkedEvalCodeBlock.h"
 #include "UnlinkedFunctionCodeBlock.h"
@@ -1313,6 +1314,14 @@ UnlinkedValueProfile BytecodeGenerator::emitProfiledOpcode(OpcodeID opcodeID)
 void BytecodeGenerator::emitEnter()
 {
     emitOpcode(op_enter);
+
+    if (LIKELY(Options::optimizeRecursiveTailCalls())) {
+        // We must add the end of op_enter as a potential jump target, because the bytecode parser may decide to split its basic block
+        // to have somewhere to jump to if there is a recursive tail-call that points to this function.
+        m_codeBlock->addJumpTarget(instructions().size());
+        // This disables peephole optimizations when an instruction is a jump target
+        m_lastOpcodeID = op_end;
+    }
 }
 
 void BytecodeGenerator::emitLoopHint()
@@ -1682,6 +1691,16 @@ RegisterID* BytecodeGenerator::emitUnaryOpProfiled(OpcodeID opcodeID, RegisterID
     UnlinkedValueProfile profile = emitProfiledOpcode(opcodeID);
     instructions().append(dst->index());
     instructions().append(src->index());
+    instructions().append(profile);
+    return dst;
+}
+
+RegisterID* BytecodeGenerator::emitToObject(RegisterID* dst, RegisterID* src, const Identifier& message)
+{
+    UnlinkedValueProfile profile = emitProfiledOpcode(op_to_object);
+    instructions().append(dst->index());
+    instructions().append(src->index());
+    instructions().append(addConstant(message));
     instructions().append(profile);
     return dst;
 }
@@ -2951,6 +2970,16 @@ RegisterID* BytecodeGenerator::emitAssert(RegisterID* condition, int line)
     return condition;
 }
 
+void BytecodeGenerator::emitSuperSamplerBegin()
+{
+    emitOpcode(op_super_sampler_begin);
+}
+
+void BytecodeGenerator::emitSuperSamplerEnd()
+{
+    emitOpcode(op_super_sampler_end);
+}
+
 RegisterID* BytecodeGenerator::emitIdWithProfile(RegisterID* src, SpeculatedType profile)
 {
     emitOpcode(op_identity_with_profile);
@@ -3347,7 +3376,11 @@ RegisterID* BytecodeGenerator::emitCall(RegisterID* dst, RegisterID* func, Expec
 
 RegisterID* BytecodeGenerator::emitCallInTailPosition(RegisterID* dst, RegisterID* func, ExpectedFunction expectedFunction, CallArguments& callArguments, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd, DebuggableCall debuggableCall)
 {
-    return emitCall(m_inTailPosition ? op_tail_call : op_call, dst, func, expectedFunction, callArguments, divot, divotStart, divotEnd, debuggableCall);
+    if (m_inTailPosition) {
+        m_codeBlock->setHasTailCalls();
+        return emitCall(op_tail_call, dst, func, expectedFunction, callArguments, divot, divotStart, divotEnd, debuggableCall);
+    }
+    return emitCall(op_call, dst, func, expectedFunction, callArguments, divot, divotStart, divotEnd, debuggableCall);
 }
 
 RegisterID* BytecodeGenerator::emitCallEval(RegisterID* dst, RegisterID* func, CallArguments& callArguments, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd, DebuggableCall debuggableCall)
@@ -4835,7 +4868,6 @@ RegisterID* BytecodeGenerator::emitGetAsyncIterator(RegisterID* argument, Throwa
     Ref<Label> asyncIteratorFound = newLabel();
     Ref<Label> iteratorReceived = newLabel();
 
-    emitJumpIfTrue(emitIsUndefined(newTemporary(), iterator.get()), asyncIteratorNotFound.get());
     emitJumpIfTrue(emitUnaryOp(op_eq_null, newTemporary(), iterator.get()), asyncIteratorNotFound.get());
 
     emitJump(asyncIteratorFound.get());
@@ -4844,15 +4876,18 @@ RegisterID* BytecodeGenerator::emitGetAsyncIterator(RegisterID* argument, Throwa
     RefPtr<RegisterID> commonIterator = emitGetIterator(argument, node);
     emitMove(iterator.get(), commonIterator.get());
 
+    RefPtr<RegisterID> nextMethod = emitGetById(newTemporary(), iterator.get(), propertyNames().next);
+
     auto varCreateAsyncFromSyncIterator = variable(propertyNames().builtinNames().createAsyncFromSyncIteratorPrivateName());
     RefPtr<RegisterID> scope = newTemporary();
     moveToDestinationIfNeeded(scope.get(), emitResolveScope(scope.get(), varCreateAsyncFromSyncIterator));
     RefPtr<RegisterID> createAsyncFromSyncIterator = emitGetFromScope(newTemporary(), scope.get(), varCreateAsyncFromSyncIterator, ThrowIfNotFound);
 
-    CallArguments args(*this, nullptr, 1);
+    CallArguments args(*this, nullptr, 2);
     emitLoad(args.thisRegister(), jsUndefined());
 
     emitMove(args.argumentRegister(0), iterator.get());
+    emitMove(args.argumentRegister(1), nextMethod.get());
 
     JSTextPosition divot(m_scopeNode->firstLine(), m_scopeNode->startOffset(), m_scopeNode->lineStartOffset());
     emitCall(iterator.get(), createAsyncFromSyncIterator.get(), NoExpectedFunction, args, divot, divot, divot, DebuggableCall::No);

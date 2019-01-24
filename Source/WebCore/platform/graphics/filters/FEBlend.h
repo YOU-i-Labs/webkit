@@ -20,8 +20,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#ifndef FEBlend_h
-#define FEBlend_h
+#pragma once
 
 #include "FilterEffect.h"
 
@@ -33,19 +32,18 @@ class FEBlend : public FilterEffect {
 public:
     static Ref<FEBlend> create(Filter&, BlendMode);
 
-    BlendMode blendMode() const;
+    BlendMode blendMode() const { return m_mode; }
     bool setBlendMode(BlendMode);
 
+private:
+    void platformApplySoftware() override;
     void platformApplyGeneric(unsigned char* srcPixelArrayA, unsigned char* srcPixelArrayB, unsigned char* dstPixelArray,
                            unsigned colorArrayLength);
     void platformApplyNEON(unsigned char* srcPixelArrayA, unsigned char* srcPixelArrayB, unsigned char* dstPixelArray,
                            unsigned colorArrayLength);
-    void platformApplySoftware() override;
-    void dump() override;
 
     WTF::TextStream& externalRepresentation(WTF::TextStream&, int indention) const override;
 
-private:
     FEBlend(Filter&, BlendMode);
 
     BlendMode m_mode;
@@ -53,4 +51,3 @@ private:
 
 } // namespace WebCore
 
-#endif // FEBlend_h

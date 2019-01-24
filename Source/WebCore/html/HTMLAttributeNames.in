@@ -381,7 +381,9 @@ version
 vlink
 vspace
 webkitallowfullscreen
+webkitattachmentid
 webkitattachmentpath
+webkitattachmentbloburl
 webkitdirectory
 width
 wrap

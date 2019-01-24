@@ -134,22 +134,24 @@ bool RangeInputType::isSteppable() const
 }
 
 #if !PLATFORM(IOS)
+
 void RangeInputType::handleMouseDownEvent(MouseEvent& event)
 {
     if (element().isDisabledFormControl())
         return;
 
-    auto targetNode = event.target()->toNode();
-    if (event.button() != LeftButton || !targetNode)
+    if (event.button() != LeftButton || !is<Node>(event.target()))
         return;
     ASSERT(element().shadowRoot());
-    if (targetNode != &element() && !targetNode->isDescendantOf(element().userAgentShadowRoot().get()))
+    auto& targetNode = downcast<Node>(*event.target());
+    if (&targetNode != &element() && !targetNode.isDescendantOf(element().userAgentShadowRoot().get()))
         return;
-    SliderThumbElement& thumb = typedSliderThumbElement();
-    if (targetNode == &thumb)
+    auto& thumb = typedSliderThumbElement();
+    if (&targetNode == &thumb)
         return;
     thumb.dragFrom(event.absoluteLocation());
 }
+
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
@@ -371,7 +373,7 @@ void RangeInputType::updateTickMarkValues()
         return;
     m_tickMarkValues.clear();
     m_tickMarkValuesDirty = false;
-    RefPtr<HTMLDataListElement> dataList = element().dataList();
+    auto dataList = element().dataList();
     if (!dataList)
         return;
     Ref<HTMLCollection> options = dataList->options();
