@@ -1,0 +1,33 @@
+Documentation/
+Tools/
+PerformanceTests/
+Source/ThirdParty/
+Source/WebCore/
+Source/WebDriver/
+Source/WebInspectorUI/
+Source/WebKit/
+Source/WTF/icu/
+webkitgtk-*
+
+# build artefacts
+bin/
+lib/
+DerivedSources/
+Source/JavaScriptCore/makeForwardingHeaders.cmake
+cmakeconfig.h
+*.pyc
+
+# cmake artefacts
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+CPackConfig.cmake
+CPackSourceConfig.cmake
