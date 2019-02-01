@@ -288,6 +288,7 @@ target_link_libraries(LLIntSettingsExtractor WTF)
 add_dependencies(LLIntSettingsExtractor JavaScriptCoreForwardingHeaders)
 target_link_libraries(LLIntOffsetsExtractor WTF)
 add_dependencies(LLIntOffsetsExtractor JavaScriptCoreForwardingHeaders)
+set_target_properties(LLIntOffsetsExtractor PROPERTIES XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO")
 
 # The build system will execute asm.rb every time LLIntOffsetsExtractor's mtime is newer than
 # LLIntAssembly.h's mtime. The problem we have here is: asm.rb has some built-in optimization
@@ -1271,7 +1272,10 @@ target_include_directories(LLIntOffsetsExtractor PRIVATE
 )
 target_include_directories(LLIntOffsetsExtractor SYSTEM PRIVATE ${JavaScriptCore_SYSTEM_INCLUDE_DIRECTORIES})
 
-add_subdirectory(shell)
+option(WEBKIT_BUILD_JSC "Build jsc executable" OFF)
+if(WEBKIT_BUILD_JSC)
+     add_subdirectory(shell)
+endif()
 
 WEBKIT_COMPUTE_SOURCES(JavaScriptCore)
 WEBKIT_WRAP_SOURCELIST(${JavaScriptCore_SOURCES})
@@ -1303,3 +1307,24 @@ if (MSVC)
         COMMAND ${PERL_EXECUTABLE} ${WEBKIT_LIBRARIES_DIR}/tools/scripts/version-stamp.pl ${DERIVED_SOURCES_DIR} $<TARGET_FILE:JavaScriptCore>
         VERBATIM)
 endif ()
+
+include(GNUInstallDirs)
+
+install(
+    TARGETS JavaScriptCore
+    EXPORT "${TARGETS_EXPORT_NAME}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+
+install(
+    DIRECTORY ${DERIVED_SOURCES_DIR}/ForwardingHeaders/
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+
+install(
+    DIRECTORY ${JAVASCRIPTCORE_DIR}/API
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/JavaScriptCore"
+)
