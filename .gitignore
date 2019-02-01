@@ -1,7 +1,10 @@
 Documentation/
 Tools/
 PerformanceTests/
-Source/ThirdParty/
+Source/ThirdParty/ANGLE/
+Source/ThirdParty/capstone/.svn/
+Source/ThirdParty/gtest/
+Source/ThirdParty/xdgmime/
 Source/WebCore/
 Source/WebDriver/
 Source/WebInspectorUI/
