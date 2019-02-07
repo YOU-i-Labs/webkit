@@ -31,6 +31,7 @@
 #include <WebCore/RefPtrCairo.h>
 #include <WebCore/WlUniquePtr.h>
 #include <gtk/gtk.h>
+#include <wayland-server.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Noncopyable.h>
@@ -54,7 +55,7 @@ class WaylandCompositor {
 public:
     static WaylandCompositor& singleton();
 
-    class Buffer {
+    class Buffer : public CanMakeWeakPtr<Buffer> {
         WTF_MAKE_NONCOPYABLE(Buffer); WTF_MAKE_FAST_ALLOCATED;
     public:
         static Buffer* getOrCreate(struct wl_resource*);
@@ -66,8 +67,6 @@ public:
         EGLImageKHR createImage() const;
         WebCore::IntSize size() const;
 
-        WeakPtr<Buffer> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(*this); }
-
     private:
         Buffer(struct wl_resource*);
         static void destroyListenerCallback(struct wl_listener*, void*);
@@ -75,10 +74,9 @@ public:
         struct wl_resource* m_resource { nullptr };
         struct wl_listener m_destroyListener;
         uint32_t m_busyCount { 0 };
-        WeakPtrFactory<Buffer> m_weakPtrFactory;
     };
 
-    class Surface {
+    class Surface : public CanMakeWeakPtr<Surface> {
         WTF_MAKE_NONCOPYABLE(Surface); WTF_MAKE_FAST_ALLOCATED;
     public:
         Surface();
@@ -113,7 +111,6 @@ public:
     void bindSurfaceToWebPage(Surface*, uint64_t pageID);
     void registerWebPage(WebPageProxy&);
     void unregisterWebPage(WebPageProxy&);
-    void willDestroySurface(Surface*);
 
     bool getTexture(WebPageProxy&, unsigned&, WebCore::IntSize&);
 
@@ -123,12 +120,17 @@ private:
     bool initializeEGL();
 
     String m_displayName;
-    WebCore::WlUniquePtr<struct wl_display> m_display;
+
+    struct DisplayDeleter {
+        void operator() (struct wl_display* display) { wl_display_destroy(display); }
+    };
+    std::unique_ptr<struct wl_display, DisplayDeleter> m_display;
+
     WebCore::WlUniquePtr<struct wl_global> m_compositorGlobal;
     WebCore::WlUniquePtr<struct wl_global> m_webkitgtkGlobal;
     GRefPtr<GSource> m_eventSource;
     std::unique_ptr<WebCore::GLContext> m_eglContext;
-    HashMap<WebPageProxy*, Surface*> m_pageMap;
+    HashMap<WebPageProxy*, WeakPtr<Surface>> m_pageMap;
 };
 
 } // namespace WebKit

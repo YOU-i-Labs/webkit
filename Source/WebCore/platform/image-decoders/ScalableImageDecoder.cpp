@@ -38,7 +38,6 @@
 
 
 namespace WebCore {
-using namespace std;
 
 namespace {
 
@@ -173,11 +172,11 @@ template <MatchType type> int getScaledValue(const Vector<int>& scaledValues, in
 bool ScalableImageDecoder::frameIsCompleteAtIndex(size_t index) const
 {
     LockHolder lockHolder(m_mutex);
-    // FIXME(176089): asking whether enough data has been appended for a decode
-    // operation to succeed should not require decoding the entire frame.
-    // This function should be implementable in a way that allows const.
-    ImageFrame* buffer = const_cast<ScalableImageDecoder*>(this)->frameBufferAtIndex(index);
-    return buffer && buffer->isComplete();
+    if (index >= m_frameBufferCache.size())
+        return false;
+
+    auto& frame = m_frameBufferCache[index];
+    return frame.isComplete();
 }
 
 bool ScalableImageDecoder::frameHasAlphaAtIndex(size_t index) const
@@ -185,9 +184,11 @@ bool ScalableImageDecoder::frameHasAlphaAtIndex(size_t index) const
     LockHolder lockHolder(m_mutex);
     if (m_frameBufferCache.size() <= index)
         return true;
-    if (m_frameBufferCache[index].isComplete())
-        return m_frameBufferCache[index].hasAlpha();
-    return true;
+
+    auto& frame = m_frameBufferCache[index];
+    if (!frame.isComplete())
+        return true;
+    return frame.hasAlpha();
 }
 
 unsigned ScalableImageDecoder::frameBytesAtIndex(size_t index, SubsamplingLevel) const
@@ -196,26 +197,27 @@ unsigned ScalableImageDecoder::frameBytesAtIndex(size_t index, SubsamplingLevel)
     if (m_frameBufferCache.size() <= index)
         return 0;
     // FIXME: Use the dimension of the requested frame.
-    return (m_size.area() * sizeof(RGBA32)).unsafeGet();
+    return (m_size.area() * sizeof(uint32_t)).unsafeGet();
 }
 
 Seconds ScalableImageDecoder::frameDurationAtIndex(size_t index) const
 {
     LockHolder lockHolder(m_mutex);
-    // FIXME(176089): asking for the duration of a sub-image should not require decoding
-    // the entire frame. This function should be implementable in a way that
-    // allows const.
-    ImageFrame* buffer = const_cast<ScalableImageDecoder*>(this)->frameBufferAtIndex(index);
-    if (!buffer || buffer->isInvalid())
+    if (index >= m_frameBufferCache.size())
         return 0_s;
-    
+
+    auto& frame = m_frameBufferCache[index];
+    if (!frame.isComplete())
+        return 0_s;
+
     // Many annoying ads specify a 0 duration to make an image flash as quickly as possible.
     // We follow Firefox's behavior and use a duration of 100 ms for any frames that specify
     // a duration of <= 10 ms. See <rdar://problem/7689300> and <http://webkit.org/b/36082>
     // for more information.
-    if (buffer->duration() < 11_ms)
+    auto duration = frame.duration();
+    if (duration < 11_ms)
         return 100_ms;
-    return buffer->duration();
+    return duration;
 }
 
 NativeImagePtr ScalableImageDecoder::createFrameImageAtIndex(size_t index, SubsamplingLevel, const DecodingOptions&)
@@ -225,7 +227,7 @@ NativeImagePtr ScalableImageDecoder::createFrameImageAtIndex(size_t index, Subsa
     if (size().isEmpty())
         return nullptr;
 
-    ImageFrame* buffer = frameBufferAtIndex(index);
+    auto* buffer = frameBufferAtIndex(index);
     if (!buffer || buffer->isInvalid() || !buffer->hasBackingStore())
         return nullptr;
 

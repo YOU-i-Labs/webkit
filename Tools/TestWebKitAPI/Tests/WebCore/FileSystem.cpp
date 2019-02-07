@@ -129,14 +129,22 @@ TEST_F(FileSystemTest, FilesHaveSameVolume)
 TEST_F(FileSystemTest, GetFileMetadataSymlink)
 {
     auto symlinkMetadata = FileSystem::fileMetadata(tempFileSymlinkPath());
-    ASSERT_TRUE(symlinkMetadata.has_value());
+    ASSERT_TRUE(symlinkMetadata.hasValue());
     EXPECT_TRUE(symlinkMetadata.value().type == FileMetadata::Type::SymbolicLink);
     EXPECT_FALSE(static_cast<size_t>(symlinkMetadata.value().length) == strlen(FileSystemTestData));
 
     auto targetMetadata = FileSystem::fileMetadataFollowingSymlinks(tempFileSymlinkPath());
-    ASSERT_TRUE(targetMetadata.has_value());
+    ASSERT_TRUE(targetMetadata.hasValue());
     EXPECT_TRUE(targetMetadata.value().type == FileMetadata::Type::File);
     EXPECT_EQ(strlen(FileSystemTestData), static_cast<size_t>(targetMetadata.value().length));
+}
+
+TEST_F(FileSystemTest, UnicodeDirectoryName)
+{
+    String path = String::fromUTF8("/test/a\u0308lo/test.txt");
+    String directoryName = FileSystem::directoryName(path);
+    String expectedDirectoryName = String::fromUTF8("/test/a\u0308lo");
+    EXPECT_TRUE(expectedDirectoryName == directoryName);
 }
 
 }

@@ -29,7 +29,8 @@
 #include "LLIntOfflineAsmConfig.h"
 #include <wtf/InlineASM.h>
 
-#if !ENABLE(JIT)
+#if ENABLE(C_LOOP)
+#include "Bytecodes.h"
 #include "CLoopStackInlines.h"
 #include "CodeBlock.h"
 #include "CommonSlowPaths.h"
@@ -105,15 +106,22 @@ using namespace JSC::LLInt;
 
 #define OFFLINE_ASM_OPCODE_LABEL(opcode) DEFINE_OPCODE(opcode) USE_LABEL(opcode); TRACE_OPCODE(opcode);
 
-#define OFFLINE_ASM_GLOBAL_LABEL(label)  OFFLINE_ASM_GLUE_LABEL(label)
+#define OFFLINE_ASM_GLOBAL_LABEL(label)  label: USE_LABEL(label);
+
+#if ENABLE(LABEL_TRACING)
+#define TRACE_LABEL(prefix, label) dataLog(#prefix, ": ", #label, "\n")
+#else
+#define TRACE_LABEL(prefix, label) do { } while (false);
+#endif
+
 
 #if ENABLE(COMPUTED_GOTO_OPCODES)
-#define OFFLINE_ASM_GLUE_LABEL(label)  label: USE_LABEL(label);
+#define OFFLINE_ASM_GLUE_LABEL(label) label: TRACE_LABEL("OFFLINE_ASM_GLUE_LABEL", label); USE_LABEL(label);
 #else
 #define OFFLINE_ASM_GLUE_LABEL(label)  case label: label: USE_LABEL(label);
 #endif
 
-#define OFFLINE_ASM_LOCAL_LABEL(label) label: USE_LABEL(label);
+#define OFFLINE_ASM_LOCAL_LABEL(label) label: TRACE_LABEL("OFFLINE_ASM_LOCAL_LABEL", #label); USE_LABEL(label);
 
 
 //============================================================================
@@ -224,9 +232,10 @@ struct CLoopRegister {
         intptr_t* ip;
         int8_t* i8p;
         void* vp;
+        const void* cvp;
         CallFrame* callFrame;
         ExecState* execState;
-        void* instruction;
+        const void* instruction;
         VM* vm;
         JSCell* cell;
         ProtoCallFrame* protoCallFrame;
@@ -241,7 +250,7 @@ struct CLoopRegister {
     };
 
     operator ExecState*() { return execState; }
-    operator Instruction*() { return reinterpret_cast<Instruction*>(instruction); }
+    operator const Instruction*() { return reinterpret_cast<const Instruction*>(instruction); }
     operator VM*() { return vm; }
     operator ProtoCallFrame*() { return protoCallFrame; }
     operator Register*() { return reinterpret_cast<Register*>(vp); }
@@ -269,26 +278,38 @@ JSValue CLoop::execute(OpcodeID entryOpcodeID, void* executableAddress, VM* vm, 
     // is only called once during the initialization of the VM before threads
     // are at play.
     if (UNLIKELY(isInitializationPass)) {
-#if ENABLE(COMPUTED_GOTO_OPCODES)
         Opcode* opcodeMap = LLInt::opcodeMap();
+        Opcode* opcodeMapWide = LLInt::opcodeMapWide();
+
+#if ENABLE(COMPUTED_GOTO_OPCODES)
         #define OPCODE_ENTRY(__opcode, length) \
-            opcodeMap[__opcode] = bitwise_cast<void*>(&&__opcode);
-        FOR_EACH_OPCODE_ID(OPCODE_ENTRY)
-        #undef OPCODE_ENTRY
+            opcodeMap[__opcode] = bitwise_cast<void*>(&&__opcode); \
+            opcodeMapWide[__opcode] = bitwise_cast<void*>(&&__opcode##_wide);
 
         #define LLINT_OPCODE_ENTRY(__opcode, length) \
             opcodeMap[__opcode] = bitwise_cast<void*>(&&__opcode);
+#else
+        // FIXME: this mapping is unnecessarily expensive in the absence of COMPUTED_GOTO
+        //   narrow opcodes don't need any mapping and wide opcodes just need to add numOpcodeIDs
+        #define OPCODE_ENTRY(__opcode, length) \
+            opcodeMap[__opcode] = __opcode; \
+            opcodeMapWide[__opcode] = static_cast<OpcodeID>(__opcode##_wide);
 
-        FOR_EACH_LLINT_NATIVE_HELPER(LLINT_OPCODE_ENTRY)
-        #undef LLINT_OPCODE_ENTRY
+        #define LLINT_OPCODE_ENTRY(__opcode, length) \
+            opcodeMap[__opcode] = __opcode;
 #endif
+        FOR_EACH_BYTECODE_ID(OPCODE_ENTRY)
+        FOR_EACH_CLOOP_BYTECODE_HELPER_ID(LLINT_OPCODE_ENTRY)
+        FOR_EACH_LLINT_NATIVE_HELPER(LLINT_OPCODE_ENTRY)
+        #undef OPCODE_ENTRY
+        #undef LLINT_OPCODE_ENTRY
+
         // Note: we can only set the exceptionInstructions after we have
         // initialized the opcodeMap above. This is because getCodePtr()
         // can depend on the opcodeMap.
-        Instruction* exceptionInstructions = LLInt::exceptionInstructions();
+        uint8_t* exceptionInstructions = reinterpret_cast<uint8_t*>(LLInt::exceptionInstructions());
         for (int i = 0; i < maxOpcodeLength + 1; ++i)
-            exceptionInstructions[i].u.pointer =
-                LLInt::getCodePtr(llint_throw_from_slow_path_trampoline);
+            exceptionInstructions[i] = llint_throw_from_slow_path_trampoline;
 
         return JSValue();
     }
@@ -331,6 +352,7 @@ JSValue CLoop::execute(OpcodeID entryOpcodeID, void* executableAddress, VM* vm, 
 #if USE(JSVALUE64)
     CLoopRegister pcBase, tagTypeNumber, tagMask;
 #endif
+    CLoopRegister metadataTable;
     CLoopDoubleRegister d0, d1;
 
     struct StackPointerScope {
@@ -373,7 +395,7 @@ JSValue CLoop::execute(OpcodeID entryOpcodeID, void* executableAddress, VM* vm, 
 #endif // USE(JSVALUE64)
 
     // Interpreter variables for value passing between opcodes and/or helpers:
-    NativeFunction nativeFunc = 0;
+    NativeFunction nativeFunc = nullptr;
     JSValue functionReturnValue;
     Opcode opcode = getOpcode(entryOpcodeID);
 
@@ -396,9 +418,9 @@ JSValue CLoop::execute(OpcodeID entryOpcodeID, void* executableAddress, VM* vm, 
 #endif
 
 #if USE(JSVALUE32_64)
-#define FETCH_OPCODE() pc.opcode
+#define FETCH_OPCODE() *pc.i8p
 #else // USE(JSVALUE64)
-#define FETCH_OPCODE() *bitwise_cast<Opcode*>(pcBase.i8p + pc.i * 8)
+#define FETCH_OPCODE() *bitwise_cast<OpcodeID*>(pcBase.i8p + pc.i)
 #endif // USE(JSVALUE64)
 
 #define NEXT_INSTRUCTION() \
@@ -434,7 +456,7 @@ JSValue CLoop::execute(OpcodeID entryOpcodeID, void* executableAddress, VM* vm, 
 
     // Dispatch to the current PC's bytecode:
     dispatchOpcode:
-    switch (opcode)
+    switch (static_cast<unsigned>(opcode))
 
 #endif // !ENABLE(COMPUTED_GOTO_OPCODES)
 
@@ -445,7 +467,9 @@ JSValue CLoop::execute(OpcodeID entryOpcodeID, void* executableAddress, VM* vm, 
         // bytecode handlers for the interpreter, as compiled from
         // LowLevelInterpreter.asm and its peers.
 
+        IGNORE_CLANG_WARNINGS_BEGIN("unreachable-code")
         #include "LLIntAssembly.h"
+        IGNORE_CLANG_WARNINGS_END
 
         OFFLINE_ASM_GLUE_LABEL(llint_return_to_host)
         {
@@ -524,6 +548,7 @@ JSValue CLoop::execute(OpcodeID entryOpcodeID, void* executableAddress, VM* vm, 
 
 #define OFFLINE_ASM_OPCODE_LABEL(__opcode) \
     EMBED_OPCODE_ID_IF_NEEDED(__opcode) \
+    OFFLINE_ASM_OPCODE_DEBUG_LABEL(llint_##__opcode) \
     OFFLINE_ASM_LOCAL_LABEL(llint_##__opcode)
 
 #define OFFLINE_ASM_GLUE_LABEL(__opcode)   OFFLINE_ASM_LOCAL_LABEL(__opcode)
@@ -554,8 +579,14 @@ JSValue CLoop::execute(OpcodeID entryOpcodeID, void* executableAddress, VM* vm, 
 
 #define OFFLINE_ASM_LOCAL_LABEL(label)   LOCAL_LABEL_STRING(label) ":\n"
 
+#if OS(LINUX)
+#define OFFLINE_ASM_OPCODE_DEBUG_LABEL(label)  #label ":\n"
+#else
+#define OFFLINE_ASM_OPCODE_DEBUG_LABEL(label)
+#endif
+
 // This is a file generated by offlineasm, which contains all of the assembly code
 // for the interpreter, as compiled from LowLevelInterpreter.asm.
 #include "LLIntAssembly.h"
 
-#endif // ENABLE(JIT)
+#endif // ENABLE(C_LOOP)

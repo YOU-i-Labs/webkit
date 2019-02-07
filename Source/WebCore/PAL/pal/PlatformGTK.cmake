@@ -1,3 +1,11 @@
+list(APPEND PAL_PUBLIC_HEADERS
+    crypto/gcrypt/Handle.h
+    crypto/gcrypt/Initialization.h
+    crypto/gcrypt/Utilities.h
+
+    system/glib/SleepDisablerGLib.h
+)
+
 list(APPEND PAL_SOURCES
     crypto/gcrypt/CryptoDigestGCrypt.cpp
 
@@ -12,7 +20,11 @@ list(APPEND PAL_SOURCES
     unix/LoggingUnix.cpp
 )
 
-if (ENABLE_SUBTLE_CRYPTO)
+if (ENABLE_WEB_CRYPTO)
+    list(APPEND PAL_PUBLIC_HEADERS
+        crypto/tasn1/Utilities.h
+    )
+
     list(APPEND PAL_SOURCES
         crypto/tasn1/Utilities.cpp
     )

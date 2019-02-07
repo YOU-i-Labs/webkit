@@ -28,20 +28,24 @@
 #if ENABLE(APPLE_PAY)
 
 #include "ApplePayLineItem.h"
+#include "ApplePayShippingMethod.h"
 #include "MockPaymentAddress.h"
+#include "MockPaymentError.h"
 #include "PaymentCoordinatorClient.h"
 #include <wtf/HashSet.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
-class MainFrame;
+class Page;
 struct ApplePayPaymentMethod;
 
 class MockPaymentCoordinator final : public PaymentCoordinatorClient {
 public:
-    explicit MockPaymentCoordinator(MainFrame&);
+    explicit MockPaymentCoordinator(Page&);
 
+    void setCanMakePayments(bool canMakePayments) { m_canMakePayments = canMakePayments; }
+    void setCanMakePaymentsWithActiveCard(bool canMakePaymentsWithActiveCard) { m_canMakePaymentsWithActiveCard = canMakePaymentsWithActiveCard; }
     void setShippingAddress(MockPaymentAddress&& shippingAddress) { m_shippingAddress = WTFMove(shippingAddress); }
     void changeShippingOption(String&& shippingOption);
     void changePaymentMethod(ApplePayPaymentMethod&&);
@@ -50,35 +54,47 @@ public:
 
     const ApplePayLineItem& total() const { return m_total; }
     const Vector<ApplePayLineItem>& lineItems() const { return m_lineItems; }
+    const Vector<MockPaymentError>& errors() const { return m_errors; }
+    const Vector<ApplePayShippingMethod>& shippingMethods() const { return m_shippingMethods; }
 
     void ref() const { }
     void deref() const { }
 
 private:
     bool supportsVersion(unsigned) final;
-    std::optional<String> validatedPaymentNetwork(const String&) final;
+    Optional<String> validatedPaymentNetwork(const String&) final;
     bool canMakePayments() final;
     void canMakePaymentsWithActiveCard(const String&, const String&, WTF::Function<void(bool)>&&);
     void openPaymentSetup(const String&, const String&, WTF::Function<void(bool)>&&);
     bool showPaymentUI(const URL&, const Vector<URL>&, const ApplePaySessionPaymentRequest&) final;
     void completeMerchantValidation(const PaymentMerchantSession&) final;
-    void completeShippingMethodSelection(std::optional<ShippingMethodUpdate>&&) final;
-    void completeShippingContactSelection(std::optional<ShippingContactUpdate>&&) final;
-    void completePaymentMethodSelection(std::optional<PaymentMethodUpdate>&&) final;
-    void completePaymentSession(std::optional<PaymentAuthorizationResult>&&) final;
+    void completeShippingMethodSelection(Optional<ShippingMethodUpdate>&&) final;
+    void completeShippingContactSelection(Optional<ShippingContactUpdate>&&) final;
+    void completePaymentMethodSelection(Optional<PaymentMethodUpdate>&&) final;
+    void completePaymentSession(Optional<PaymentAuthorizationResult>&&) final;
     void abortPaymentSession() final;
     void cancelPaymentSession() final;
     void paymentCoordinatorDestroyed() final;
 
+    bool isMockPaymentCoordinator() const final { return true; }
+
     void updateTotalAndLineItems(const ApplePaySessionPaymentRequest::TotalAndLineItems&);
 
-    MainFrame& m_mainFrame;
+    Page& m_page;
+    bool m_canMakePayments { true };
+    bool m_canMakePaymentsWithActiveCard { true };
     ApplePayPaymentContact m_shippingAddress;
     ApplePayLineItem m_total;
     Vector<ApplePayLineItem> m_lineItems;
+    Vector<MockPaymentError> m_errors;
+    Vector<ApplePayShippingMethod> m_shippingMethods;
     HashSet<String, ASCIICaseInsensitiveHash> m_availablePaymentNetworks;
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::MockPaymentCoordinator)
+    static bool isType(const WebCore::PaymentCoordinatorClient& paymentCoordinatorClient) { return paymentCoordinatorClient.isMockPaymentCoordinator(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(APPLE_PAY)

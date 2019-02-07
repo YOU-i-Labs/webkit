@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2003-2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -34,9 +34,12 @@
 #include "RenderText.h"
 #include "StyleInheritedData.h"
 #include <unicode/ubrk.h>
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(CharacterData);
 
 static bool canUseSetDataOptimization(const CharacterData& node)
 {
@@ -93,6 +96,7 @@ unsigned CharacterData::parserAppendData(const String& string, unsigned offset, 
     if (!characterLengthLimit)
         return 0;
 
+    String oldData = m_data;
     if (string.is8Bit())
         m_data.append(string.characters8() + offset, characterLengthLimit);
     else
@@ -103,6 +107,10 @@ unsigned CharacterData::parserAppendData(const String& string, unsigned offset, 
         downcast<Text>(*this).updateRendererAfterContentChange(oldLength, 0);
 
     notifyParentAfterChange(ContainerNode::ChildChangeSource::Parser);
+
+    auto mutationRecipients = MutationObserverInterestGroup::createForCharacterDataMutation(*this);
+    if (UNLIKELY(mutationRecipients))
+        mutationRecipients->enqueueMutationRecord(MutationRecord::createCharacterData(*this, oldData));
 
     return characterLengthLimit;
 }
@@ -224,7 +232,7 @@ void CharacterData::dispatchModifiedEvent(const String& oldData)
 
     if (!isInShadowTree()) {
         if (document().hasListenerType(Document::DOMCHARACTERDATAMODIFIED_LISTENER))
-            dispatchScopedEvent(MutationEvent::create(eventNames().DOMCharacterDataModifiedEvent, true, nullptr, oldData, m_data));
+            dispatchScopedEvent(MutationEvent::create(eventNames().DOMCharacterDataModifiedEvent, Event::CanBubble::Yes, nullptr, oldData, m_data));
         dispatchSubtreeModifiedEvent();
     }
 
@@ -234,11 +242,6 @@ void CharacterData::dispatchModifiedEvent(const String& oldData)
 int CharacterData::maxCharacterOffset() const
 {
     return static_cast<int>(length());
-}
-
-bool CharacterData::offsetInCharacters() const
-{
-    return true;
 }
 
 } // namespace WebCore

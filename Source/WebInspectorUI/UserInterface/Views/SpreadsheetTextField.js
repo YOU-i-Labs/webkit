@@ -40,7 +40,8 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
 
         this._element.classList.add("spreadsheet-text-field");
 
-        this._element.addEventListener("focus", this._handleFocus.bind(this));
+        this._element.addEventListener("mousedown", this._handleMouseDown.bind(this), true);
+        this._element.addEventListener("click", this._handleClick.bind(this));
         this._element.addEventListener("blur", this._handleBlur.bind(this));
         this._element.addEventListener("keydown", this._handleKeyDown.bind(this));
         this._element.addEventListener("input", this._handleInput.bind(this));
@@ -190,16 +191,21 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
     {
         if (this._valueBeforeEditing !== this.value) {
             this.value = this._valueBeforeEditing;
-            this._selectText();
 
             if (this._delegate && typeof this._delegate.spreadsheetTextFieldDidChange === "function")
                 this._delegate.spreadsheetTextFieldDidChange(this);
         }
     }
 
-    _handleFocus(event)
+    _handleClick(event)
     {
         this.startEditing();
+    }
+
+    _handleMouseDown(event)
+    {
+        if (this._editing)
+            event.stopPropagation();
     }
 
     _handleBlur(event)
@@ -207,10 +213,15 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
         if (!this._editing)
             return;
 
+        // Keep editing after tabbing out of Web Inspector window and back.
+        if (document.activeElement === this._element)
+            return;
+
         this._applyCompletionHint();
         this.discardCompletion();
 
-        this._delegate.spreadsheetTextFieldDidBlur(this, event);
+        let changed = this._valueBeforeEditing !== this.value;
+        this._delegate.spreadsheetTextFieldDidBlur(this, event, changed);
         this.stopEditing();
     }
 
@@ -275,6 +286,10 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
         if (event.key === "Escape") {
             event.stop();
             this._discardChange();
+            window.getSelection().removeAllRanges();
+
+            if (this._delegate && this._delegate.spreadsheetTextFieldDidPressEsc)
+                this._delegate.spreadsheetTextFieldDidPressEsc(this, this._valueBeforeEditing);
         }
     }
 
@@ -377,8 +392,10 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
             // No need to show the completion popover that matches the suggestion hint.
             this._suggestionsView.hide();
         } else {
-            let caretRect = this._getCaretRect(prefix, completionPrefix);
-            this._suggestionsView.show(caretRect);
+            let startOffset = prefix.length - completionPrefix.length;
+            this._suggestionsView.showUntilAnchorMoves(() => {
+                return this._getCaretRect(startOffset);
+            });
         }
 
         this._suggestionsView.selectedIndex = NaN;
@@ -389,19 +406,30 @@ WI.SpreadsheetTextField = class SpreadsheetTextField
             this.suggestionHint = "";
     }
 
-    _getCaretRect(prefix, completionPrefix)
+    _getCaretRect(startOffset)
     {
-        let startOffset = prefix.length - completionPrefix.length;
         let selection = window.getSelection();
 
-        if (startOffset > 0 && selection.rangeCount) {
+        let isHidden = (clientRect) => {
+            return clientRect.x === 0 && clientRect.y === 0;
+        };
+
+        if (selection.rangeCount) {
             let range = selection.getRangeAt(0).cloneRange();
             range.setStart(range.startContainer, startOffset);
             let clientRect = range.getBoundingClientRect();
-            return WI.Rect.rectFromClientRect(clientRect);
+
+            if (!isHidden(clientRect)) {
+                // This happens after deleting value. However, when focusing
+                // on an empty value clientRect is visible.
+                return WI.Rect.rectFromClientRect(clientRect);
+            }
         }
 
         let clientRect = this._element.getBoundingClientRect();
+        if (isHidden(clientRect))
+            return null;
+
         const leftPadding = parseInt(getComputedStyle(this._element).paddingLeft) || 0;
         return new WI.Rect(clientRect.left + leftPadding, clientRect.top, clientRect.width, clientRect.height);
     }

@@ -30,8 +30,11 @@
 #if ENABLE(MATHML)
 
 #include "RenderMathMLScripts.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(MathMLScriptsElement);
 
 using namespace MathMLNames;
 
@@ -77,9 +80,9 @@ const MathMLElement::Length& MathMLScriptsElement::superscriptShift()
 void MathMLScriptsElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == subscriptshiftAttr)
-        m_subscriptShift = std::nullopt;
+        m_subscriptShift = WTF::nullopt;
     else if (name == superscriptshiftAttr)
-        m_superscriptShift = std::nullopt;
+        m_superscriptShift = WTF::nullopt;
 
     MathMLElement::parseAttribute(name, value);
 }

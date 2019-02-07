@@ -30,9 +30,9 @@
 
 #if PLATFORM(COCOA) && HAVE(RUNLOOP_TIMER)
 
-#include "RunLoopTimer.h"
+#include <wtf/RunLoopTimer.h>
 
-#include "AutodrainedPool.h"
+#include <wtf/AutodrainedPool.h>
 
 namespace WTF {
 
@@ -52,12 +52,12 @@ static void timerFired(CFRunLoopTimerRef, void* context)
     timer->fired();
 }
 
-void RunLoopTimerBase::start(double nextFireInterval, double repeatInterval)
+void RunLoopTimerBase::start(Seconds nextFireInterval, Seconds repeatInterval)
 {
     if (m_timer)
         CFRunLoopTimerInvalidate(m_timer.get());
     CFRunLoopTimerContext context = { 0, this, 0, 0, 0 };
-    m_timer = adoptCF(CFRunLoopTimerCreate(0, CFAbsoluteTimeGetCurrent() + nextFireInterval, repeatInterval, 0, 0, timerFired, &context));
+    m_timer = adoptCF(CFRunLoopTimerCreate(0, CFAbsoluteTimeGetCurrent() + nextFireInterval.seconds(), repeatInterval.seconds(), 0, 0, timerFired, &context));
 }
 
 void RunLoopTimerBase::schedule(const SchedulePair* schedulePair)

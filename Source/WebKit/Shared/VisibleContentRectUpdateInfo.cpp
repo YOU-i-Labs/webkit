@@ -30,9 +30,8 @@
 #include <WebCore/LengthBox.h>
 #include <wtf/text/TextStream.h>
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 void VisibleContentRectUpdateInfo::encode(IPC::Encoder& encoder) const
 {
@@ -130,6 +129,7 @@ TextStream& operator<<(TextStream& ts, const VisibleContentRectUpdateInfo& info)
         ts.dumpProperty("enclosedInScrollableAncestorView", info.enclosedInScrollableAncestorView());
 
     ts.dumpProperty("timestamp", info.timestamp().secondsSinceEpoch().value());
+    ts.dumpProperty("allowShrinkToFit", info.allowShrinkToFit());
     if (info.horizontalVelocity())
         ts.dumpProperty("horizontalVelocity", info.horizontalVelocity());
     if (info.verticalVelocity())

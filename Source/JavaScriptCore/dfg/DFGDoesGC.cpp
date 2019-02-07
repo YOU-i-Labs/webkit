@@ -51,6 +51,7 @@ bool doesGC(Graph& graph, Node* node)
     case Identity:
     case IdentityWithProfile:
     case GetCallee:
+    case SetCallee:
     case GetArgumentCountIncludingThis:
     case SetArgumentCountIncludingThis:
     case GetRestLength:
@@ -66,9 +67,10 @@ bool doesGC(Graph& graph, Node* node)
     case Flush:
     case PhantomLocal:
     case SetArgument:
-    case BitAnd:
-    case BitOr:
-    case BitXor:
+    case ArithBitNot:
+    case ArithBitAnd:
+    case ArithBitOr:
+    case ArithBitXor:
     case BitLShift:
     case BitRShift:
     case BitURShift:
@@ -95,11 +97,20 @@ bool doesGC(Graph& graph, Node* node)
     case ArithTrunc:
     case ArithFRound:
     case ArithUnary:
+    case ValueBitAnd:
+    case ValueBitOr:
+    case ValueBitXor:
     case ValueAdd:
+    case ValueSub:
+    case ValueMul:
+    case ValueNegate:
+    case ValueDiv:
     case TryGetById:
     case GetById:
     case GetByIdFlush:
     case GetByIdWithThis:
+    case GetByIdDirect:
+    case GetByIdDirectFlush:
     case PutById:
     case PutByIdFlush:
     case PutByIdWithThis:
@@ -141,6 +152,7 @@ bool doesGC(Graph& graph, Node* node)
     case RegExpExecNonGlobalOrSticky:
     case RegExpTest:
     case RegExpMatchFast:
+    case RegExpMatchFastGlobal:
     case CompareLess:
     case CompareLessEq:
     case CompareGreater:
@@ -150,6 +162,7 @@ bool doesGC(Graph& graph, Node* node)
     case CompareEq:
     case CompareStrictEq:
     case CompareEqPtr:
+    case SameValue:
     case Call:
     case DirectCall:
     case TailCallInlinedCaller:
@@ -172,6 +185,7 @@ bool doesGC(Graph& graph, Node* node)
     case InstanceOfCustom:
     case IsEmpty:
     case IsUndefined:
+    case IsUndefinedOrNull:
     case IsBoolean:
     case IsNumber:
     case NumberIsInteger:
@@ -188,7 +202,8 @@ bool doesGC(Graph& graph, Node* node)
     case CallStringConstructor:
     case NumberToStringWithRadix:
     case NumberToStringWithValidRadixConstant:
-    case In:
+    case InByVal:
+    case InById:
     case HasOwnProperty:
     case Jump:
     case Branch:
@@ -217,8 +232,9 @@ bool doesGC(Graph& graph, Node* node)
     case WeakSetAdd:
     case WeakMapSet:
     case Unreachable:
-    case ExtractCatchLocal:
     case ExtractOSREntryLocal:
+    case ExtractCatchLocal:
+    case ClearCatchLocals:
     case CheckTierUpInLoop:
     case CheckTierUpAtReturn:
     case CheckTierUpAndOSREnter:
@@ -240,9 +256,7 @@ bool doesGC(Graph& graph, Node* node)
     case GetSetter:
     case GetByVal:
     case GetByValWithThis:
-    case GetIndexedPropertyStorage:
     case GetArrayLength:
-    case GetArrayMask:
     case GetVectorLength:
     case ArrayPush:
     case ArrayPop:
@@ -306,6 +320,14 @@ bool doesGC(Graph& graph, Node* node)
     case AtomicsSub:
     case AtomicsXor:
     case AtomicsIsLockFree:
+    case MatchStructure:
+    case FilterCallLinkStatus:
+    case FilterGetByIdStatus:
+    case FilterPutByIdStatus:
+    case FilterInByIdStatus:
+    case DataViewGetInt:
+    case DataViewGetFloat:
+    case DataViewSet:
         return false;
 
     case PushWithScope:
@@ -317,6 +339,8 @@ bool doesGC(Graph& graph, Node* node)
     case ToObject:
     case ToThis:
     case CreateThis:
+    case ObjectCreate:
+    case ObjectKeys:
     case AllocatePropertyStorage:
     case ReallocatePropertyStorage:
     case Arrayify:
@@ -329,6 +353,7 @@ bool doesGC(Graph& graph, Node* node)
     case NewArrayBuffer:
     case NewRegexp:
     case NewStringObject:
+    case NewSymbol:
     case MakeRope:
     case NewFunction:
     case NewGeneratorFunction:
@@ -347,6 +372,8 @@ bool doesGC(Graph& graph, Node* node)
     case StringReplace:
     case StringReplaceRegExp:
     case StringSlice:
+    case StringValueOf:
+    case ObjectToString:
     case CreateRest:
     case ToLowerCase:
     case CallDOMGetter:
@@ -357,6 +384,11 @@ bool doesGC(Graph& graph, Node* node)
     case SetAdd:
     case MapSet:
         return true;
+
+    case GetIndexedPropertyStorage:
+        if (node->arrayMode().type() == Array::String)
+            return true;
+        return false;
 
     case MapHash:
         switch (node->child1().useKind()) {

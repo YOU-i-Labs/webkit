@@ -23,16 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef NetworkProcessProxy_h
-#define NetworkProcessProxy_h
+#pragma once
 
+#include "APIWebsiteDataStore.h"
 #include "ChildProcessProxy.h"
 #if ENABLE(LEGACY_CUSTOM_PROTOCOL_MANAGER)
 #include "LegacyCustomProtocolManagerProxy.h"
 #endif
+#include "NetworkProcessProxyMessages.h"
 #include "ProcessLauncher.h"
 #include "ProcessThrottler.h"
 #include "ProcessThrottlerClient.h"
+#include "UserContentControllerIdentifier.h"
 #include "WebProcessProxyMessages.h"
 #include <memory>
 #include <wtf/Deque.h>
@@ -45,9 +47,8 @@ namespace WebCore {
 class AuthenticationChallenge;
 class ProtectionSpace;
 class ResourceRequest;
-enum class ShouldSample;
+enum class ShouldSample : bool;
 class SecurityOrigin;
-class URL;
 struct SecurityOriginData;
 }
 
@@ -59,49 +60,61 @@ class WebProcessPool;
 enum class WebsiteDataFetchOption;
 enum class WebsiteDataType;
 struct NetworkProcessCreationParameters;
+class WebUserContentControllerProxy;
 struct WebsiteData;
 
-class NetworkProcessProxy : public ChildProcessProxy, private ProcessThrottlerClient {
+class NetworkProcessProxy final : public ChildProcessProxy, private ProcessThrottlerClient {
 public:
-    static Ref<NetworkProcessProxy> create(WebProcessPool&);
+    explicit NetworkProcessProxy(WebProcessPool&);
     ~NetworkProcessProxy();
 
-    void getNetworkProcessConnection(Ref<Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply>&&);
+    void getNetworkProcessConnection(WebProcessProxy&, Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply&&);
 
     DownloadProxy* createDownloadProxy(const WebCore::ResourceRequest&);
 
-    void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, WTF::Function<void(WebsiteData)>&& completionHandler);
-    void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, WTF::Function<void()>&& completionHandler);
-    void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebKit::WebsiteDataType>, const Vector<WebCore::SecurityOriginData>& origins, const Vector<String>& cookieHostNames, WTF::Function<void()>&& completionHandler);
+    void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, CompletionHandler<void(WebsiteData)>&&);
+    void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&& completionHandler);
+    void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebKit::WebsiteDataType>, const Vector<WebCore::SecurityOriginData>& origins, const Vector<String>& cookieHostNames, const Vector<String>& HSTSCacheHostNames, CompletionHandler<void()>&&);
 
-#if PLATFORM(COCOA)
-    void setProcessSuppressionEnabled(bool);
-#endif
-
-#if HAVE(CFNETWORK_STORAGE_PARTITIONING)
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    void updatePrevalentDomainsToBlockCookiesFor(PAL::SessionID, const Vector<String>& domainsToBlock, CompletionHandler<void()>&&);
+    void setAgeCapForClientSideCookies(PAL::SessionID, Optional<Seconds>, CompletionHandler<void()>&&);
     void hasStorageAccessForFrame(PAL::SessionID, const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID, CompletionHandler<void(bool)>&& callback);
     void getAllStorageAccessEntries(PAL::SessionID, CompletionHandler<void(Vector<String>&& domains)>&&);
-    void grantStorageAccessForFrame(PAL::SessionID, const String& resourceDomain, const String& firstPartyDomain, uint64_t frameID, uint64_t pageID, CompletionHandler<void(bool)>&& callback);
+    void grantStorageAccess(PAL::SessionID, const String& resourceDomain, const String& firstPartyDomain, Optional<uint64_t> frameID, uint64_t pageID, CompletionHandler<void(bool)>&& callback);
+    void removeAllStorageAccess(PAL::SessionID, CompletionHandler<void()>&&);
+    void setCacheMaxAgeCapForPrevalentResources(PAL::SessionID, Seconds, CompletionHandler<void()>&&);
+    void resetCacheMaxAgeCapForPrevalentResources(PAL::SessionID, CompletionHandler<void()>&&);
 #endif
 
-    void writeBlobToFilePath(const WebCore::URL&, const String& path, CompletionHandler<void(bool)>&& callback);
+    void writeBlobToFilePath(const URL&, const String& path, CompletionHandler<void(bool)>&&);
 
     void processReadyToSuspend();
+    
+    void sendProcessDidTransitionToForeground();
+    void sendProcessDidTransitionToBackground();
 
     void setIsHoldingLockedFiles(bool);
+    
+    void syncAllCookies();
+    void didSyncAllCookies();
 
     ProcessThrottler& throttler() { return m_throttler; }
     WebProcessPool& processPool() { return m_processPool; }
 
-private:
-    NetworkProcessProxy(WebProcessPool&);
+#if ENABLE(CONTENT_EXTENSIONS)
+    void didDestroyWebUserContentControllerProxy(WebUserContentControllerProxy&);
+#endif
 
+    void addSession(Ref<WebsiteDataStore>&&);
+    void removeSession(PAL::SessionID);
+
+private:
     // ChildProcessProxy
     void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
     void connectionWillOpen(IPC::Connection&) override;
     void processWillShutDown(IPC::Connection&) override;
 
-    void networkProcessFailedToLaunch();
     void networkProcessCrashed();
     void clearCallbackStates();
 
@@ -121,22 +134,39 @@ private:
     // Message handlers
     void didReceiveNetworkProcessProxyMessage(IPC::Connection&, IPC::Decoder&);
     void didCreateNetworkConnectionToWebProcess(const IPC::Attachment&);
-    void didReceiveAuthenticationChallenge(uint64_t pageID, uint64_t frameID, const WebCore::AuthenticationChallenge&, uint64_t challengeID);
+    void didReceiveAuthenticationChallenge(uint64_t pageID, uint64_t frameID, WebCore::AuthenticationChallenge&&, uint64_t challengeID);
     void didFetchWebsiteData(uint64_t callbackID, const WebsiteData&);
     void didDeleteWebsiteData(uint64_t callbackID);
     void didDeleteWebsiteDataForOrigins(uint64_t callbackID);
-    void didWriteBlobToFilePath(bool success, uint64_t callbackID);
-    void grantSandboxExtensionsToStorageProcessForBlobs(uint64_t requestID, const Vector<String>& paths);
     void logDiagnosticMessage(uint64_t pageID, const String& message, const String& description, WebCore::ShouldSample);
     void logDiagnosticMessageWithResult(uint64_t pageID, const String& message, const String& description, uint32_t result, WebCore::ShouldSample);
     void logDiagnosticMessageWithValue(uint64_t pageID, const String& message, const String& description, double value, unsigned significantFigures, WebCore::ShouldSample);
-#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-    void canAuthenticateAgainstProtectionSpace(uint64_t loaderID, uint64_t pageID, uint64_t frameID, const WebCore::ProtectionSpace&);
-#endif
-#if HAVE(CFNETWORK_STORAGE_PARTITIONING)
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    void didLogUserInteraction(uint64_t contextId);
+    void didUpdateBlockCookies(uint64_t contextId);
+    void didSetAgeCapForClientSideCookies(uint64_t contextId);
     void storageAccessRequestResult(bool wasGranted, uint64_t contextId);
     void allStorageAccessEntriesResult(Vector<String>&& domains, uint64_t contextId);
+    void didRemoveAllStorageAccess(uint64_t contextId);
+    void didSetCacheMaxAgeCapForPrevalentResources(uint64_t contextId);
+    void didResetCacheMaxAgeCapForPrevalentResources(uint64_t contextId);
 #endif
+    void retrieveCacheStorageParameters(PAL::SessionID);
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    void contentExtensionRules(UserContentControllerIdentifier);
+#endif
+
+#if ENABLE(SANDBOX_EXTENSIONS)
+    void getSandboxExtensionsForBlobFiles(const Vector<String>& paths, Messages::NetworkProcessProxy::GetSandboxExtensionsForBlobFiles::AsyncReply&&);
+#endif
+
+#if ENABLE(SERVICE_WORKER)
+    void establishWorkerContextConnectionToNetworkProcess(WebCore::SecurityOriginData&&);
+    void establishWorkerContextConnectionToNetworkProcessForExplicitSession(WebCore::SecurityOriginData&&, PAL::SessionID);
+#endif
+
+    WebsiteDataStore* websiteDataStoreFromSessionID(PAL::SessionID);
 
     // ProcessLauncher::Client
     void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
@@ -144,11 +174,11 @@ private:
     WebProcessPool& m_processPool;
     
     unsigned m_numPendingConnectionRequests;
-    Deque<Ref<Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply>> m_pendingConnectionReplies;
+    Deque<std::pair<WeakPtr<WebProcessProxy>, Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply>> m_pendingConnectionReplies;
 
-    HashMap<uint64_t, WTF::Function<void (WebsiteData)>> m_pendingFetchWebsiteDataCallbacks;
-    HashMap<uint64_t, WTF::Function<void ()>> m_pendingDeleteWebsiteDataCallbacks;
-    HashMap<uint64_t, WTF::Function<void ()>> m_pendingDeleteWebsiteDataForOriginsCallbacks;
+    HashMap<uint64_t, CompletionHandler<void(WebsiteData)>> m_pendingFetchWebsiteDataCallbacks;
+    HashMap<uint64_t, CompletionHandler<void()>> m_pendingDeleteWebsiteDataCallbacks;
+    HashMap<uint64_t, CompletionHandler<void()>> m_pendingDeleteWebsiteDataForOriginsCallbacks;
 
     std::unique_ptr<DownloadProxyMap> m_downloadProxyMap;
 #if ENABLE(LEGACY_CUSTOM_PROTOCOL_MANAGER)
@@ -156,12 +186,22 @@ private:
 #endif
     ProcessThrottler m_throttler;
     ProcessThrottler::BackgroundActivityToken m_tokenForHoldingLockedFiles;
+    ProcessThrottler::BackgroundActivityToken m_syncAllCookiesToken;
+    
+    unsigned m_syncAllCookiesCounter { 0 };
 
-    HashMap<uint64_t, CompletionHandler<void(bool success)>> m_writeBlobToFilePathCallbackMap;
-    HashMap<uint64_t, WTF::CompletionHandler<void(bool wasGranted)>> m_storageAccessResponseCallbackMap;
+    HashMap<uint64_t, CompletionHandler<void()>> m_updateBlockCookiesCallbackMap;
+    HashMap<uint64_t, CompletionHandler<void(bool wasGranted)>> m_storageAccessResponseCallbackMap;
+    HashMap<uint64_t, CompletionHandler<void()>> m_removeAllStorageAccessCallbackMap;
     HashMap<uint64_t, CompletionHandler<void(Vector<String>&& domains)>> m_allStorageAccessEntriesCallbackMap;
+
+    HashMap<uint64_t, CompletionHandler<void()>> m_updateRuntimeSettingsCallbackMap;
+
+#if ENABLE(CONTENT_EXTENSIONS)
+    HashSet<WebUserContentControllerProxy*> m_webUserContentControllerProxies;
+#endif
+
+    HashMap<PAL::SessionID, RefPtr<WebsiteDataStore>> m_websiteDataStores;
 };
 
 } // namespace WebKit
-
-#endif // NetworkProcessProxy_h

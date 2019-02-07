@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014, 2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,17 +43,19 @@ public:
     Allocator(Heap&, Deallocator&);
     ~Allocator();
 
-    void* tryAllocate(size_t);
+    BEXPORT void* tryAllocate(size_t);
     void* allocate(size_t);
     void* tryAllocate(size_t alignment, size_t);
     void* allocate(size_t alignment, size_t);
+    void* tryReallocate(void*, size_t);
     void* reallocate(void*, size_t);
 
     void scavenge();
 
 private:
     void* allocateImpl(size_t alignment, size_t, bool crashOnFailure);
-    
+    void* reallocateImpl(void*, size_t, bool crashOnFailure);
+
     bool allocateFastCase(size_t, void*&);
     BEXPORT void* allocateSlowCase(size_t);
     

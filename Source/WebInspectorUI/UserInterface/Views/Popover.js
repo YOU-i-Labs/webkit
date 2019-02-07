@@ -37,7 +37,6 @@ WI.Popover = class Popover extends WI.Object
         this._anchorPoint = new WI.Point;
         this._preferredEdges = null;
         this._resizeHandler = null;
-        this._backgroundStyle = WI.Popover.BackgroundStyle.Default;
 
         this._contentNeedsUpdate = false;
         this._dismissing = false;
@@ -48,6 +47,8 @@ WI.Popover = class Popover extends WI.Object
 
         this._container = this._element.appendChild(document.createElement("div"));
         this._container.className = "container";
+
+        this._drawBackgroundAnimationIdentifier = undefined;
     }
 
     // Public
@@ -74,18 +75,6 @@ WI.Popover = class Popover extends WI.Object
         this._frame = frame;
     }
 
-    get backgroundStyle()
-    {
-        return this._backgroundStyle;
-    }
-
-    set backgroundStyle(style)
-    {
-        console.assert(Object.values(WI.Popover.BackgroundStyle).includes(style));
-
-        this._backgroundStyle = style;
-    }
-
     set content(content)
     {
         if (content === this._content)
@@ -103,6 +92,12 @@ WI.Popover = class Popover extends WI.Object
     {
         console.assert(typeof resizeHandler === "function");
         this._resizeHandler = resizeHandler;
+    }
+
+    resize()
+    {
+        if (this.visible && this._resizeHandler)
+            this._resizeHandler();
     }
 
     update(shouldAnimate = true)
@@ -180,8 +175,7 @@ WI.Popover = class Popover extends WI.Object
             }
             break;
         case "resize":
-            if (this._resizeHandler)
-                this._resizeHandler();
+            this.resize();
             break;
         case "keypress":
             if (event.keyCode === WI.KeyboardShortcut.Key.Escape.keyCode)
@@ -239,7 +233,7 @@ WI.Popover = class Popover extends WI.Object
             this._preferredSize = new WI.Size(Math.ceil(popoverBounds.width), Math.ceil(popoverBounds.height));
         }
 
-        var titleBarOffset = WI.Platform.name === "mac" && WI.Platform.version.release >= 10 ? 22 : 0;
+        var titleBarOffset = WI.Platform.name === "mac" ? 22 : 0;
         var containerFrame = new WI.Rect(0, titleBarOffset, window.innerWidth, window.innerHeight - titleBarOffset);
         // The frame of the window with a little inset to make sure we have room for shadows.
         containerFrame = containerFrame.inset(WI.Popover.ShadowEdgeInsets);
@@ -383,7 +377,7 @@ WI.Popover = class Popover extends WI.Object
             this._drawBackground();
 
             if (progress < 1)
-                requestAnimationFrame(drawBackground.bind(this));
+                this._drawBackgroundAnimationIdentifier = requestAnimationFrame(drawBackground.bind(this));
         }
 
         drawBackground.call(this);
@@ -391,26 +385,22 @@ WI.Popover = class Popover extends WI.Object
 
     _drawBackground()
     {
-        var scaleFactor = window.devicePixelRatio;
+        if (this._drawBackgroundAnimationIdentifier) {
+            cancelAnimationFrame(this._drawBackgroundAnimationIdentifier);
+            this._drawBackgroundAnimationIdentifier = undefined;
+        }
 
-        var width = this._frame.size.width;
-        var height = this._frame.size.height;
-        var scaledWidth = width * scaleFactor;
-        var scaledHeight = height * scaleFactor;
+        let scaleFactor = window.devicePixelRatio;
 
-        // Create a scratch canvas so we can draw the popover that will later be drawn into
-        // the final context with a shadow.
-        var scratchCanvas = document.createElement("canvas");
-        scratchCanvas.width = scaledWidth;
-        scratchCanvas.height = scaledHeight;
-
-        var ctx = scratchCanvas.getContext("2d");
-        ctx.scale(scaleFactor, scaleFactor);
+        let width = this._frame.size.width;
+        let height = this._frame.size.height;
+        let scaledWidth = width * scaleFactor;
+        let scaledHeight = height * scaleFactor;
 
         // Bounds of the path don't take into account the arrow, but really only the tight bounding box
         // of the content contained within the frame.
-        var bounds;
-        var arrowHeight = WI.Popover.AnchorSize.height;
+        let bounds;
+        let arrowHeight = WI.Popover.AnchorSize.height;
         switch (this._edge) {
         case WI.RectEdge.MIN_X: // Displayed on the left of the target, arrow points right.
             bounds = new WI.Rect(0, 0, width - arrowHeight, height);
@@ -427,30 +417,33 @@ WI.Popover = class Popover extends WI.Object
         }
 
         bounds = bounds.inset(WI.Popover.ShadowEdgeInsets);
+        let computedStyle = window.getComputedStyle(this._element, null);
+
+        let context = document.getCSSCanvasContext("2d", "popover", scaledWidth, scaledHeight);
+        context.save();
+        context.clearRect(0, 0, scaledWidth, scaledHeight);
+        context.shadowOffsetX = 1;
+        context.shadowOffsetY = 1;
+        context.shadowBlur = 5;
+        context.shadowColor = computedStyle.getPropertyValue("--popover-shadow-color").trim();
+        context.scale(scaleFactor, scaleFactor);
 
         // Clip the frame.
-        ctx.fillStyle = "black";
-        this._drawFrame(ctx, bounds, this._edge, this._anchorPoint);
-        ctx.clip();
+        context.fillStyle = computedStyle.getPropertyValue("--popover-text-color").trim();
+        this._drawFrame(context, bounds, this._edge, this._anchorPoint);
+        context.clip();
 
         // Panel background color fill.
-        ctx.fillStyle = this._backgroundStyle === WI.Popover.BackgroundStyle.White ? "white" : "rgb(236, 236, 236)";
-        ctx.fillRect(0, 0, width, height);
+        context.fillStyle = computedStyle.getPropertyValue("--popover-background-color").trim();
+
+        context.fillRect(0, 0, width, height);
 
         // Stroke.
-        ctx.strokeStyle = "rgba(0, 0, 0, 0.25)";
-        ctx.lineWidth = 2;
-        this._drawFrame(ctx, bounds, this._edge, this._anchorPoint);
-        ctx.stroke();
-
-        // Draw the popover into the final context with a drop shadow.
-        let finalContext = document.getCSSCanvasContext("2d", "popover", scaledWidth, scaledHeight);
-        finalContext.clearRect(0, 0, scaledWidth, scaledHeight);
-        finalContext.shadowOffsetX = 1;
-        finalContext.shadowOffsetY = 1;
-        finalContext.shadowBlur = 5;
-        finalContext.shadowColor = "rgba(0, 0, 0, 0.5)";
-        finalContext.drawImage(scratchCanvas, 0, 0, scaledWidth, scaledHeight);
+        context.strokeStyle = computedStyle.getPropertyValue("--popover-border-color").trim();
+        context.lineWidth = 2;
+        this._drawFrame(context, bounds, this._edge, this._anchorPoint);
+        context.stroke();
+        context.restore();
     }
 
     _bestMetricsForEdge(preferredSize, targetFrame, containerFrame, edge)
@@ -590,11 +583,6 @@ WI.Popover = class Popover extends WI.Object
             WI.quickConsole.keyboardShortcutDisabled = true;
         }
     }
-};
-
-WI.Popover.BackgroundStyle = {
-    Default: "popover-background-default",
-    White: "popover-background-white",
 };
 
 WI.Popover.FadeOutClassName = "fade-out";

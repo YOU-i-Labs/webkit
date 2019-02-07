@@ -43,9 +43,8 @@
 #include <WebCore/ThreadedScrollingTree.h>
 #endif
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 Ref<EventDispatcher> EventDispatcher::create()
 {
@@ -96,10 +95,10 @@ void EventDispatcher::wheelEvent(uint64_t pageID, const WebWheelEvent& wheelEven
 
 #if PLATFORM(COCOA)
     switch (wheelEvent.phase()) {
-    case PlatformWheelEventPhaseBegan:
+    case WebWheelEvent::PhaseBegan:
         m_recentWheelEventDeltaFilter->beginFilteringDeltas();
         break;
-    case PlatformWheelEventPhaseEnded:
+    case WebWheelEvent::PhaseEnded:
         m_recentWheelEventDeltaFilter->endFilteringDeltas();
         break;
     default:
@@ -120,11 +119,8 @@ void EventDispatcher::wheelEvent(uint64_t pageID, const WebWheelEvent& wheelEven
         // WebCore should always know the current state and know when it changes so the
         // scrolling tree can be notified.
         // We only need to do this at the beginning of the gesture.
-        if (platformWheelEvent.phase() == PlatformWheelEventPhaseBegan) {
-            ScrollingThread::dispatch([scrollingTree, canRubberBandAtLeft, canRubberBandAtRight, canRubberBandAtTop, canRubberBandAtBottom] {
-                scrollingTree->setCanRubberBandState(canRubberBandAtLeft, canRubberBandAtRight, canRubberBandAtTop, canRubberBandAtBottom);
-            });
-        }
+        if (platformWheelEvent.phase() == PlatformWheelEventPhaseBegan)
+            scrollingTree->setCanRubberBandState(canRubberBandAtLeft, canRubberBandAtRight, canRubberBandAtTop, canRubberBandAtBottom);
 
         ScrollingTree::EventResult result = scrollingTree->tryToHandleWheelEvent(platformWheelEvent);
 

@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitSecurityOrigin.html" title="WebKitSecurityOrigin">
 <link rel="next" href="WebKitWebsiteData.html" title="WebKitWebsiteData">
-<meta name="generator" content="GTK-Doc V1.26.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -115,34 +115,11 @@
 </td>
 </tr>
 <tr>
-<td class="function_type">const <a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
-</td>
-<td class="function_name">
-<a class="link" href="WebKitWebsiteDataManager.html#webkit-website-data-manager-get-resource-load-statistics-directory" title="webkit_website_data_manager_get_resource_load_statistics_directory ()">webkit_website_data_manager_get_resource_load_statistics_directory</a> <span class="c_punctuation">()</span>
-</td>
-</tr>
-<tr>
 <td class="function_type">
 <a class="link" href="WebKitCookieManager.html" title="WebKitCookieManager"><span class="returnvalue">WebKitCookieManager</span></a> *
 </td>
 <td class="function_name">
 <a class="link" href="WebKitWebsiteDataManager.html#webkit-website-data-manager-get-cookie-manager" title="webkit_website_data_manager_get_cookie_manager ()">webkit_website_data_manager_get_cookie_manager</a> <span class="c_punctuation">()</span>
-</td>
-</tr>
-<tr>
-<td class="function_type">
-<span class="returnvalue">void</span>
-</td>
-<td class="function_name">
-<a class="link" href="WebKitWebsiteDataManager.html#webkit-website-data-manager-set-resource-load-statistics-enabled" title="webkit_website_data_manager_set_resource_load_statistics_enabled ()">webkit_website_data_manager_set_resource_load_statistics_enabled</a> <span class="c_punctuation">()</span>
-</td>
-</tr>
-<tr>
-<td class="function_type">
-<a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
-</td>
-<td class="function_name">
-<a class="link" href="WebKitWebsiteDataManager.html#webkit-website-data-manager-get-resource-load-statistics-enabled" title="webkit_website_data_manager_get_resource_load_statistics_enabled ()">webkit_website_data_manager_get_resource_load_statistics_enabled</a> <span class="c_punctuation">()</span>
 </td>
 </tr>
 <tr>
@@ -244,12 +221,6 @@
 <td class="property_type">
 <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</td>
 <td class="property_name"><a class="link" href="WebKitWebsiteDataManager.html#WebKitWebsiteDataManager--offline-application-cache-directory" title="The “offline-application-cache-directory” property">offline-application-cache-directory</a></td>
-<td class="property_flags">Read / Write / Construct Only</td>
-</tr>
-<tr>
-<td class="property_type">
-<a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</td>
-<td class="property_name"><a class="link" href="WebKitWebsiteDataManager.html#WebKitWebsiteDataManager--resource-load-statistics-directory" title="The “resource-load-statistics-directory” property">resource-load-statistics-directory</a></td>
 <td class="property_flags">Read / Write / Construct Only</td>
 </tr>
 <tr>
@@ -605,36 +576,6 @@ is ephemeral. </p>
 </div>
 <hr>
 <div class="refsect2">
-<a name="webkit-website-data-manager-get-resource-load-statistics-directory"></a><h3>webkit_website_data_manager_get_resource_load_statistics_directory ()</h3>
-<pre class="programlisting">const <a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
-webkit_website_data_manager_get_resource_load_statistics_directory
-                               (<em class="parameter"><code><a class="link" href="WebKitWebsiteDataManager.html" title="WebKitWebsiteDataManager"><span class="type">WebKitWebsiteDataManager</span></a> *manager</code></em>);</pre>
-<p>Get the <a class="link" href="WebKitWebsiteDataManager.html#WebKitWebsiteDataManager--resource-load-statistics-directory" title="The “resource-load-statistics-directory” property"><span class="type">“resource-load-statistics-directory”</span></a> property.</p>
-<div class="refsect3">
-<a name="webkit-website-data-manager-get-resource-load-statistics-directory.parameters"></a><h4>Parameters</h4>
-<div class="informaltable"><table class="informaltable" width="100%" border="0">
-<colgroup>
-<col width="150px" class="parameters_name">
-<col class="parameters_description">
-<col width="200px" class="parameters_annotations">
-</colgroup>
-<tbody><tr>
-<td class="parameter_name"><p>manager</p></td>
-<td class="parameter_description"><p>a <a class="link" href="WebKitWebsiteDataManager.html" title="WebKitWebsiteDataManager"><span class="type">WebKitWebsiteDataManager</span></a></p></td>
-<td class="parameter_annotations"> </td>
-</tr></tbody>
-</table></div>
-</div>
-<div class="refsect3">
-<a name="webkit-website-data-manager-get-resource-load-statistics-directory.returns"></a><h4>Returns</h4>
-<p>the directory where resource load statistics are stored or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a> if <em class="parameter"><code>manager</code></em>
-is ephemeral. </p>
-<p><span class="annotation">[<acronym title="NULL is OK, both for passing and for returning."><span class="acronym">allow-none</span></acronym>]</span></p>
-</div>
-<p class="since">Since: <a class="link" href="api-index-2-20.html#api-index-2.20">2.20</a></p>
-</div>
-<hr>
-<div class="refsect2">
 <a name="webkit-website-data-manager-get-cookie-manager"></a><h3>webkit_website_data_manager_get_cookie_manager ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitCookieManager.html" title="WebKitCookieManager"><span class="returnvalue">WebKitCookieManager</span></a> *
 webkit_website_data_manager_get_cookie_manager
@@ -662,66 +603,6 @@ webkit_website_data_manager_get_cookie_manager
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 <p class="since">Since: <a class="link" href="api-index-2-16.html#api-index-2.16">2.16</a></p>
-</div>
-<hr>
-<div class="refsect2">
-<a name="webkit-website-data-manager-set-resource-load-statistics-enabled"></a><h3>webkit_website_data_manager_set_resource_load_statistics_enabled ()</h3>
-<pre class="programlisting"><span class="returnvalue">void</span>
-webkit_website_data_manager_set_resource_load_statistics_enabled
-                               (<em class="parameter"><code><a class="link" href="WebKitWebsiteDataManager.html" title="WebKitWebsiteDataManager"><span class="type">WebKitWebsiteDataManager</span></a> *manager</code></em>,
-                                <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> enabled</code></em>);</pre>
-<p>Enable collection of resource load statistics for intelligent tracking prevention.</p>
-<div class="refsect3">
-<a name="webkit-website-data-manager-set-resource-load-statistics-enabled.parameters"></a><h4>Parameters</h4>
-<div class="informaltable"><table class="informaltable" width="100%" border="0">
-<colgroup>
-<col width="150px" class="parameters_name">
-<col class="parameters_description">
-<col width="200px" class="parameters_annotations">
-</colgroup>
-<tbody>
-<tr>
-<td class="parameter_name"><p>manager</p></td>
-<td class="parameter_description"><p>a <a class="link" href="WebKitWebsiteDataManager.html" title="WebKitWebsiteDataManager"><span class="type">WebKitWebsiteDataManager</span></a></p></td>
-<td class="parameter_annotations"> </td>
-</tr>
-<tr>
-<td class="parameter_name"><p>enabled</p></td>
-<td class="parameter_description"><p>value to set</p></td>
-<td class="parameter_annotations"> </td>
-</tr>
-</tbody>
-</table></div>
-</div>
-<p class="since">Since: <a class="link" href="api-index-2-20.html#api-index-2.20">2.20</a></p>
-</div>
-<hr>
-<div class="refsect2">
-<a name="webkit-website-data-manager-get-resource-load-statistics-enabled"></a><h3>webkit_website_data_manager_get_resource_load_statistics_enabled ()</h3>
-<pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
-webkit_website_data_manager_get_resource_load_statistics_enabled
-                               (<em class="parameter"><code><a class="link" href="WebKitWebsiteDataManager.html" title="WebKitWebsiteDataManager"><span class="type">WebKitWebsiteDataManager</span></a> *manager</code></em>);</pre>
-<p>Get whether collection of resource load statistics for intelligent tracking prevention is enabled or not.</p>
-<div class="refsect3">
-<a name="webkit-website-data-manager-get-resource-load-statistics-enabled.parameters"></a><h4>Parameters</h4>
-<div class="informaltable"><table class="informaltable" width="100%" border="0">
-<colgroup>
-<col width="150px" class="parameters_name">
-<col class="parameters_description">
-<col width="200px" class="parameters_annotations">
-</colgroup>
-<tbody><tr>
-<td class="parameter_name"><p>manager</p></td>
-<td class="parameter_description"><p>a <a class="link" href="WebKitWebsiteDataManager.html" title="WebKitWebsiteDataManager"><span class="type">WebKitWebsiteDataManager</span></a></p></td>
-<td class="parameter_annotations"> </td>
-</tr></tbody>
-</table></div>
-</div>
-<div class="refsect3">
-<a name="webkit-website-data-manager-get-resource-load-statistics-enabled.returns"></a><h4>Returns</h4>
-<p> <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS"><code class="literal">TRUE</code></a> if collection of resource load statistics is enabled, or <a href="../glib/glib-Standard-Macros.html#FALSE:CAPS"><code class="literal">FALSE</code></a> otherwise.</p>
-</div>
-<p class="since">Since: <a class="link" href="api-index-2-20.html#api-index-2.20">2.20</a></p>
 </div>
 <hr>
 <div class="refsect2">
@@ -1110,15 +991,6 @@ parameters to configure data directories will be ignored.</p>
 </div>
 <hr>
 <div class="refsect2">
-<a name="WebKitWebsiteDataManager--resource-load-statistics-directory"></a><h3>The <code class="literal">“resource-load-statistics-directory”</code> property</h3>
-<pre class="programlisting">  “resource-load-statistics-directory” <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</pre>
-<p>The directory where resource load statistics will be stored.</p>
-<p>Flags: Read / Write / Construct Only</p>
-<p>Default value: NULL</p>
-<p class="since">Since: <a class="link" href="api-index-2-20.html#api-index-2.20">2.20</a></p>
-</div>
-<hr>
-<div class="refsect2">
 <a name="WebKitWebsiteDataManager--websql-directory"></a><h3>The <code class="literal">“websql-directory”</code> property</h3>
 <pre class="programlisting">  “websql-directory”         <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</pre>
 <p>The directory where WebSQL databases will be stored.</p>
@@ -1133,6 +1005,6 @@ parameters to configure data directories will be ignored.</p>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.26.1</div>
+<hr>Generated by GTK-Doc V1.29.1</div>
 </body>
 </html>

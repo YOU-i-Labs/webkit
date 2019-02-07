@@ -25,7 +25,7 @@
  */
 
 #include "config.h"
-#include "RunLoop.h"
+#include <wtf/RunLoop.h>
 
 #include <glib.h>
 #include <wtf/MainThread.h>
@@ -120,7 +120,7 @@ void RunLoop::stop()
 
 void RunLoop::wakeUp()
 {
-    g_source_set_ready_time(m_source.get(), g_get_monotonic_time());
+    g_source_set_ready_time(m_source.get(), 0);
 }
 
 class DispatchAfterContext {
@@ -142,9 +142,10 @@ private:
 
 void RunLoop::dispatchAfter(Seconds duration, Function<void()>&& function)
 {
-    GRefPtr<GSource> source = adoptGRef(g_timeout_source_new(duration.millisecondsAs<guint>()));
+    GRefPtr<GSource> source = adoptGRef(g_source_new(&runLoopSourceFunctions, sizeof(GSource)));
     g_source_set_priority(source.get(), RunLoopSourcePriority::RunLoopTimer);
     g_source_set_name(source.get(), "[WebKit] RunLoop dispatchAfter");
+    g_source_set_ready_time(source.get(), g_get_monotonic_time() + duration.microsecondsAs<gint64>());
 
     std::unique_ptr<DispatchAfterContext> context = std::make_unique<DispatchAfterContext>(WTFMove(function));
     g_source_set_callback(source.get(), [](gpointer userData) -> gboolean {
@@ -205,9 +206,9 @@ void RunLoop::TimerBase::updateReadyTime()
     g_source_set_ready_time(m_source.get(), targetTime);
 }
 
-void RunLoop::TimerBase::start(double fireInterval, bool repeat)
+void RunLoop::TimerBase::start(Seconds fireInterval, bool repeat)
 {
-    m_fireInterval = Seconds(fireInterval);
+    m_fireInterval = fireInterval;
     m_isRepeating = repeat;
     updateReadyTime();
 }

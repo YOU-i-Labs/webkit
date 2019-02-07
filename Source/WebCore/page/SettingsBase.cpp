@@ -35,12 +35,13 @@
 #include "Document.h"
 #include "FontCascade.h"
 #include "FontGenericFamilies.h"
+#include "Frame.h"
 #include "FrameTree.h"
 #include "FrameView.h"
 #include "HistoryItem.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PageCache.h"
+#include "RenderWidget.h"
 #include "RuntimeApplicationChecks.h"
 #include "Settings.h"
 #include "StorageMap.h"
@@ -79,15 +80,28 @@ SettingsBase::~SettingsBase() = default;
 
 float SettingsBase::defaultMinimumZoomFontSize()
 {
+#if PLATFORM(WATCHOS)
+    return 30;
+#else
     return 15;
+#endif
 }
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
 bool SettingsBase::defaultTextAutosizingEnabled()
 {
     return false;
 }
 #endif
+
+bool SettingsBase::defaultDownloadableBinaryFontsEnabled()
+{
+#if PLATFORM(WATCHOS)
+    return false;
+#else
+    return true;
+#endif
+}
 
 #if !PLATFORM(COCOA)
 const String& SettingsBase::defaultMediaContentTypesRequiringHardwareSupport()
@@ -229,6 +243,18 @@ void SettingsBase::setNeedsRecalcStyleInAllFrames()
         m_page->setNeedsRecalcStyleInAllFrames();
 }
 
+void SettingsBase::setNeedsRelayoutAllFrames()
+{
+    if (!m_page)
+        return;
+
+    for (Frame* frame = &m_page->mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        if (!frame->ownerRenderer())
+            continue;
+        frame->ownerRenderer()->setNeedsLayoutAndPrefWidthsRecalc();
+    }
+}
+
 void SettingsBase::mediaTypeOverrideChanged()
 {
     if (!m_page)
@@ -266,19 +292,27 @@ void SettingsBase::imageLoadingSettingsTimerFired()
     }
 }
 
-void SettingsBase::scriptEnabledChanged()
-{
-#if PLATFORM(IOS)
-    // FIXME: Why do we only do this on iOS?
-    if (m_page)
-        m_page->setNeedsRecalcStyleInAllFrames();
-#endif
-}
-
 void SettingsBase::pluginsEnabledChanged()
 {
     Page::refreshPlugins(false);
 }
+
+#if ENABLE(TEXT_AUTOSIZING)
+
+void SettingsBase::shouldEnableTextAutosizingBoostChanged()
+{
+    if (!m_page)
+        return;
+
+    bool boostAutosizing = m_page->settings().shouldEnableTextAutosizingBoost();
+    m_oneLineTextMultiplierCoefficient = boostAutosizing ? boostedOneLineTextMultiplierCoefficient : defaultOneLineTextMultiplierCoefficient;
+    m_multiLineTextMultiplierCoefficient = boostAutosizing ? boostedMultiLineTextMultiplierCoefficient : defaultMultiLineTextMultiplierCoefficient;
+    m_maxTextAutosizingScaleIncrease = boostAutosizing ? boostedMaxTextAutosizingScaleIncrease : defaultMaxTextAutosizingScaleIncrease;
+
+    setNeedsRecalcStyleInAllFrames();
+}
+
+#endif
 
 void SettingsBase::userStyleSheetLocationChanged()
 {

@@ -30,11 +30,17 @@
 #include "SandboxInitializationParameters.h"
 #include <WebCore/SchemeRegistry.h>
 #include <pal/SessionID.h>
-#include <unistd.h>
 
-using namespace WebCore;
+#if !OS(WINDOWS)
+#include <unistd.h>
+#endif
+
+#if OS(LINUX)
+#include <wtf/MemoryPressureHandler.h>
+#endif
 
 namespace WebKit {
+using namespace WebCore;
 
 ChildProcess::ChildProcess()
     : m_terminationCounter(0)
@@ -47,19 +53,9 @@ ChildProcess::~ChildProcess()
 {
 }
 
-static void didCloseOnConnectionWorkQueue(IPC::Connection*)
+void ChildProcess::didClose(IPC::Connection&)
 {
-    // If the connection has been closed and we haven't responded in the main thread for 10 seconds
-    // the process will exit forcibly.
-    auto watchdogDelay = 10_s;
-
-    WorkQueue::create("com.apple.WebKit.ChildProcess.WatchDogQueue")->dispatchAfter(watchdogDelay, [] {
-        // We use _exit here since the watchdog callback is called from another thread and we don't want
-        // global destructors or atexit handlers to be called from this thread while the main thread is busy
-        // doing its thing.
-        RELEASE_LOG_ERROR(IPC, "Exiting process early due to unacknowledged closed-connection");
-        _exit(EXIT_FAILURE);
-    });
+    _exit(EXIT_SUCCESS);
 }
 
 void ChildProcess::initialize(const ChildProcessInitializationParameters& parameters)
@@ -83,7 +79,6 @@ void ChildProcess::initialize(const ChildProcessInitializationParameters& parame
     PAL::SessionID::enableGenerationProtection();
 
     m_connection = IPC::Connection::createClientConnection(parameters.connectionIdentifier, *this);
-    m_connection->setDidCloseOnConnectionWorkQueueCallback(didCloseOnConnectionWorkQueue);
     initializeConnection(m_connection.get());
     m_connection->open();
 }
@@ -178,7 +173,7 @@ void ChildProcess::stopRunLoop()
     platformStopRunLoop();
 }
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
 void ChildProcess::platformStopRunLoop()
 {
     RunLoop::main().stop();
@@ -216,6 +211,14 @@ void ChildProcess::didReceiveInvalidMessage(IPC::Connection&, IPC::StringReferen
     WTFLogAlways("Received invalid message: '%s::%s'", messageReceiverName.toString().data(), messageName.toString().data());
     CRASH();
 }
+
+#if OS(LINUX)
+void ChildProcess::didReceiveMemoryPressureEvent(bool isCritical)
+{
+    MemoryPressureHandler::singleton().triggerMemoryPressureEvent(isCritical);
+}
 #endif
+
+#endif // !PLATFORM(COCOA)
 
 } // namespace WebKit

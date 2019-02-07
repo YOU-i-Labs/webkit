@@ -77,6 +77,9 @@ WK_EXPORT bool WKBundlePageHasComposition(WKBundlePageRef page);
 WK_EXPORT void WKBundlePageConfirmComposition(WKBundlePageRef page);
 WK_EXPORT void WKBundlePageConfirmCompositionWithText(WKBundlePageRef page, WKStringRef text);
 
+WK_EXPORT void WKBundlePageSetUseDarkAppearance(WKBundlePageRef page, bool useDarkAppearance);
+WK_EXPORT bool WKBundlePageIsUsingDarkAppearance(WKBundlePageRef page);
+
 WK_EXPORT bool WKBundlePageCanShowMIMEType(WKBundlePageRef, WKStringRef mimeType);
 
 WK_EXPORT void* WKAccessibilityRootObject(WKBundlePageRef);
@@ -119,6 +122,16 @@ typedef uint32_t WKEventThrottlingBehavior;
 
 // Passing null in the second parameter clears the override.
 WK_EXPORT void WKBundlePageSetEventThrottlingBehaviorOverride(WKBundlePageRef, WKEventThrottlingBehavior*);
+
+enum {
+    kWKCompositingPolicyNormal = 0,
+    kWKCompositingPolicyConservative
+};
+
+typedef uint32_t WKCompositingPolicy;
+
+// Passing null in the second parameter clears the override.
+WK_EXPORT void WKBundlePageSetCompositingPolicyOverride(WKBundlePageRef, WKCompositingPolicy*);
 
 #if TARGET_OS_IPHONE
 WK_EXPORT void WKBundlePageSetUseTestingViewportConfiguration(WKBundlePageRef, bool);

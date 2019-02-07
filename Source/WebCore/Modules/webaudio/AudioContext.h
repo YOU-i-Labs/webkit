@@ -85,11 +85,11 @@ public:
 
     bool isInitialized() const;
     
-    bool isOfflineContext() { return m_isOfflineContext; }
+    bool isOfflineContext() const { return m_isOfflineContext; }
 
     Document* document() const; // ASSERTs if document no longer exists.
 
-    const Document* hostingDocument() const override;
+    Document* hostingDocument() const final;
 
     AudioDestinationNode* destination() { return m_destinationNode.get(); }
     size_t currentSampleFrame() const { return m_destinationNode->currentSampleFrame(); }
@@ -117,6 +117,8 @@ public:
 
     enum class State { Suspended, Running, Interrupted, Closed };
     State state() const;
+
+    bool wouldTaintOrigin(const URL&) const;
 
     // The AudioNode create methods are called on the main thread (from JavaScript).
     Ref<AudioBufferSourceNode> createBufferSource();
@@ -276,8 +278,8 @@ private:
     bool willBeginPlayback();
     bool willPausePlayback();
 
-    bool userGestureRequiredForAudioStart() const { return m_restrictions & RequireUserGestureForAudioStartRestriction; }
-    bool pageConsentRequiredForAudioStart() const { return m_restrictions & RequirePageConsentForAudioStartRestriction; }
+    bool userGestureRequiredForAudioStart() const { return !isOfflineContext() && m_restrictions & RequireUserGestureForAudioStartRestriction; }
+    bool pageConsentRequiredForAudioStart() const { return !isOfflineContext() && m_restrictions & RequirePageConsentForAudioStartRestriction; }
 
     void setState(State);
 

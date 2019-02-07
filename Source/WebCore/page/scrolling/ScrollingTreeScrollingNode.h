@@ -33,7 +33,7 @@
 #include "ScrollingCoordinator.h"
 #include "ScrollingTreeNode.h"
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 class ScrollingTreeScrollingNodeDelegate;
 #endif
 
@@ -43,7 +43,7 @@ class ScrollingTree;
 class ScrollingStateScrollingNode;
 
 class ScrollingTreeScrollingNode : public ScrollingTreeNode {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     friend class ScrollingTreeScrollingNodeDelegate;
 #endif
 
@@ -63,6 +63,8 @@ public:
     virtual void updateLayersAfterDelegatedScroll(const FloatPoint&) { }
 
     virtual FloatPoint scrollPosition() const = 0;
+    const FloatSize& scrollableAreaSize() const { return m_scrollableAreaSize; }
+    const FloatSize& totalContentsSize() const { return m_totalContentsSize; }
 
 #if ENABLE(CSS_SCROLL_SNAP)
     const Vector<float>& horizontalSnapOffsets() const { return m_snapOffsetsInfo.horizontalSnapOffsets; }
@@ -75,6 +77,8 @@ public:
     void setCurrentVerticalSnapPointIndex(unsigned index) { m_currentVerticalSnapPointIndex = index; }
 #endif
 
+    bool useDarkAppearanceForScrollbars() const { return m_scrollableAreaParameters.useDarkAppearanceForScrollbars; }
+
 protected:
     ScrollingTreeScrollingNode(ScrollingTree&, ScrollingNodeType, ScrollingNodeID);
 
@@ -84,9 +88,8 @@ protected:
     virtual void setScrollLayerPosition(const FloatPoint&, const FloatRect& layoutViewport) = 0;
 
     FloatPoint lastCommittedScrollPosition() const { return m_lastCommittedScrollPosition; }
-    const FloatSize& scrollableAreaSize() const { return m_scrollableAreaSize; }
-    const FloatSize& totalContentsSize() const { return m_totalContentsSize; }
     const FloatSize& reachableContentsSize() const { return m_reachableContentsSize; }
+    const LayoutRect& parentRelativeScrollableRect() const { return m_parentRelativeScrollableRect; }
     const IntPoint& scrollOrigin() const { return m_scrollOrigin; }
 
     // If the totalContentsSize changes in the middle of a rubber-band, we still want to use the old totalContentsSize for the sake of
@@ -111,6 +114,7 @@ private:
     FloatSize m_totalContentsSizeForRubberBand;
     FloatSize m_reachableContentsSize;
     FloatPoint m_lastCommittedScrollPosition;
+    LayoutRect m_parentRelativeScrollableRect;
     IntPoint m_scrollOrigin;
 #if ENABLE(CSS_SCROLL_SNAP)
     ScrollSnapOffsetsInfo<float> m_snapOffsetsInfo;

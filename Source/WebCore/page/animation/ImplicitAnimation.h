@@ -51,7 +51,7 @@ public:
     void onAnimationEnd(double elapsedTime) override;
     bool startAnimation(double timeOffset) override;
     void pauseAnimation(double timeOffset) override;
-    void endAnimation() override;
+    void endAnimation(bool fillingForwards = false) override;
 
     bool animate(CompositeAnimation&, const RenderStyle& targetStyle, std::unique_ptr<RenderStyle>& animatedStyle, bool& didBlendStyle);
     void getAnimatedStyle(std::unique_ptr<RenderStyle>& animatedStyle) override;
@@ -70,7 +70,7 @@ public:
 
     void blendPropertyValueInStyle(CSSPropertyID, RenderStyle*);
 
-    std::optional<Seconds> timeToNextService() override;
+    Optional<Seconds> timeToNextService() override;
     
     bool active() const { return m_active; }
     void setActive(bool b) { m_active = b; }
@@ -86,6 +86,7 @@ protected:
 #if ENABLE(FILTERS_LEVEL_2)
     void checkForMatchingBackdropFilterFunctionLists();
 #endif
+    void checkForMatchingColorFilterFunctionLists();
 
 private:
     ImplicitAnimation(const Animation&, CSSPropertyID, Element&, CompositeAnimation&, const RenderStyle&);

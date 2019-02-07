@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitPlugin.html" title="WebKitPlugin">
 <link rel="next" href="WebKitURISchemeRequest.html" title="WebKitURISchemeRequest">
-<meta name="generator" content="GTK-Doc V1.26.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -224,15 +224,15 @@ to true, otherwise no inspector is available.</p>
 9
 10</pre></td>
         <td class="listing_code"><pre class="programlisting"><span class="comment">/* Enable the developer extras */</span>
-<span class="usertype">WebKitSettings</span><span class="normal"> </span><span class="symbol">*</span><span class="normal">setting </span><span class="symbol">=</span><span class="normal"> </span><span class="function"><a href="WebKitWebView.html#webkit-web-view-get-settings">webkit_web_view_get_settings</a></span><span class="normal"> </span><span class="symbol">(</span><span class="function">WEBKIT_WEB_VIEW</span><span class="symbol">(</span><span class="normal">my_webview</span><span class="symbol">));</span>
-<span class="function"><a href="../gobject/gobject-The-Base-Object-Type.html#g-object-set">g_object_set</a></span><span class="normal"> </span><span class="symbol">(</span><span class="function"><a href="../gobject/gobject-The-Base-Object-Type.html#G-OBJECT:CAPS">G_OBJECT</a></span><span class="symbol">(</span><span class="normal">settings</span><span class="symbol">),</span><span class="normal"> </span><span class="string">"enable-developer-extras"</span><span class="symbol">,</span><span class="normal"> <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS">TRUE</a></span><span class="symbol">,</span><span class="normal"> <a href="../glib/glib-Standard-Macros.html#NULL:CAPS">NULL</a></span><span class="symbol">);</span>
+WebKitSettings <span class="gtkdoc opt">*</span>setting <span class="gtkdoc opt">=</span> <span class="function"><a href="WebKitWebView.html#webkit-web-view-get-settings">webkit_web_view_get_settings</a></span> <span class="gtkdoc opt">(</span><span class="function">WEBKIT_WEB_VIEW</span><span class="gtkdoc opt">(</span>my_webview<span class="gtkdoc opt">));</span>
+<span class="function"><a href="../gobject/gobject-The-Base-Object-Type.html#g-object-set">g_object_set</a></span> <span class="gtkdoc opt">(</span><span class="function"><a href="../gobject/gobject-The-Base-Object-Type.html#G-OBJECT:CAPS">G_OBJECT</a></span><span class="gtkdoc opt">(</span>settings<span class="gtkdoc opt">),</span> <span class="string">&quot;enable-developer-extras&quot;</span><span class="gtkdoc opt">,</span> TRUE<span class="gtkdoc opt">,</span> NULL<span class="gtkdoc opt">);</span>
 
 <span class="comment">/* Load some data or reload to be able to inspect the page*/</span>
-<span class="function"><a href="WebKitWebView.html#webkit-web-view-load-uri">webkit_web_view_load_uri</a></span><span class="normal"> </span><span class="symbol">(</span><span class="function">WEBKIT_WEB_VIEW</span><span class="symbol">(</span><span class="normal">my_webview</span><span class="symbol">),</span><span class="normal"> </span><span class="string">"http://www.gnome.org"</span><span class="symbol">);</span>
+<span class="function"><a href="WebKitWebView.html#webkit-web-view-load-uri">webkit_web_view_load_uri</a></span> <span class="gtkdoc opt">(</span><span class="function">WEBKIT_WEB_VIEW</span><span class="gtkdoc opt">(</span>my_webview<span class="gtkdoc opt">),</span> <span class="string">&quot;http://www.gnome.org&quot;</span><span class="gtkdoc opt">);</span>
 
 <span class="comment">/* Show the inspector */</span>
-<span class="usertype">WebKitWebInspector</span><span class="normal"> </span><span class="symbol">*</span><span class="normal">inspector </span><span class="symbol">=</span><span class="normal"> </span><span class="function"><a href="WebKitWebView.html#webkit-web-view-get-inspector">webkit_web_view_get_inspector</a></span><span class="normal"> </span><span class="symbol">(</span><span class="function">WEBKIT_WEB_VIEW</span><span class="symbol">(</span><span class="normal">my_webview</span><span class="symbol">));</span>
-<span class="function"><a href="WebKitWebInspector.html#webkit-web-inspector-show">webkit_web_inspector_show</a></span><span class="normal"> </span><span class="symbol">(</span><span class="function">WEBKIT_WEB_INSPECTOR</span><span class="symbol">(</span><span class="normal">inspector</span><span class="symbol">));</span></pre></td>
+WebKitWebInspector <span class="gtkdoc opt">*</span>inspector <span class="gtkdoc opt">=</span> <span class="function"><a href="WebKitWebView.html#webkit-web-view-get-inspector">webkit_web_view_get_inspector</a></span> <span class="gtkdoc opt">(</span><span class="function">WEBKIT_WEB_VIEW</span><span class="gtkdoc opt">(</span>my_webview<span class="gtkdoc opt">));</span>
+<span class="function"><a href="WebKitWebInspector.html#webkit-web-inspector-show">webkit_web_inspector_show</a></span> <span class="gtkdoc opt">(</span><span class="function">WEBKIT_WEB_INSPECTOR</span><span class="gtkdoc opt">(</span>inspector<span class="gtkdoc opt">));</span></pre></td>
       </tr>
     </tbody>
   </table>
@@ -729,6 +729,6 @@ signal and simply return <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS"><
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.26.1</div>
+<hr>Generated by GTK-Doc V1.29.1</div>
 </body>
 </html>

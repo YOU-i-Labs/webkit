@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,12 +32,11 @@
 #include "WebProcessProxy.h"
 
 #if PLATFORM(COCOA)
-#include <WebCore/MachSendRight.h>
+#include <wtf/MachSendRight.h>
 #endif
 
-using namespace WebCore;
-
 namespace WebKit {
+using namespace WebCore;
 
 DrawingAreaProxy::DrawingAreaProxy(DrawingAreaType type, WebPageProxy& webPageProxy)
     : m_type(type)
@@ -74,7 +73,7 @@ MachSendRight DrawingAreaProxy::createFence()
 #endif
 
 #if PLATFORM(MAC)
-void DrawingAreaProxy::setViewExposedRect(std::optional<WebCore::FloatRect> viewExposedRect)
+void DrawingAreaProxy::setViewExposedRect(Optional<WebCore::FloatRect> viewExposedRect)
 {
     if (!m_webPageProxy.isValid())
         return;

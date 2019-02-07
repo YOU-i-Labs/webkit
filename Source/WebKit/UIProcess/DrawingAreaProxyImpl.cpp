@@ -35,7 +35,6 @@
 #include "WebPreferences.h"
 #include "WebProcessProxy.h"
 #include <WebCore/Region.h>
-#include <wtf/CurrentTime.h>
 
 #if PLATFORM(GTK)
 #include <gtk/gtk.h>
@@ -201,8 +200,10 @@ void DrawingAreaProxyImpl::discardBackingStore()
 }
 
 DrawingAreaProxyImpl::DrawingMonitor::DrawingMonitor(WebPageProxy& webPage)
-    : m_webPage(webPage)
-    , m_timer(RunLoop::main(), this, &DrawingMonitor::stop)
+    : m_timer(RunLoop::main(), this, &DrawingMonitor::stop)
+#if PLATFORM(GTK)
+    , m_webPage(webPage)
+#endif
 {
 #if USE(GLIB_EVENT_LOOP)
     // Give redraws more priority.
@@ -224,7 +225,7 @@ int DrawingAreaProxyImpl::DrawingMonitor::webViewDrawCallback(DrawingAreaProxyIm
 
 void DrawingAreaProxyImpl::DrawingMonitor::start(WTF::Function<void (CallbackBase::Error)>&& callback)
 {
-    m_startTime = monotonicallyIncreasingTimeMS();
+    m_startTime = MonotonicTime::now();
     m_callback = WTFMove(callback);
 #if PLATFORM(GTK)
     g_signal_connect_swapped(m_webPage.viewWidget(), "draw", reinterpret_cast<GCallback>(webViewDrawCallback), this);
@@ -240,7 +241,7 @@ void DrawingAreaProxyImpl::DrawingMonitor::stop()
 #if PLATFORM(GTK)
     g_signal_handlers_disconnect_by_func(m_webPage.viewWidget(), reinterpret_cast<gpointer>(webViewDrawCallback), this);
 #endif
-    m_startTime = 0;
+    m_startTime = MonotonicTime();
     if (m_callback) {
         m_callback(CallbackBase::Error::None);
         m_callback = nullptr;
@@ -252,7 +253,7 @@ void DrawingAreaProxyImpl::DrawingMonitor::didDraw()
     // We wait up to 1 second for draw events. If there are several draw events queued quickly,
     // we want to wait until all of them have been processed, so after receiving a draw, we wait
     // up to 100ms for the next one or stop.
-    if (monotonicallyIncreasingTimeMS() - m_startTime > 1000)
+    if (MonotonicTime::now() - m_startTime > 1_s)
         stop();
     else
         m_timer.startOneShot(100_ms);

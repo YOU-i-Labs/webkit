@@ -119,10 +119,8 @@ void JSGlobalObjectInspectorController::globalObjectDestroyed()
     m_agents.discardValues();
 }
 
-void JSGlobalObjectInspectorController::connectFrontend(FrontendChannel* frontendChannel, bool isAutomaticInspection, bool immediatelyPause)
+void JSGlobalObjectInspectorController::connectFrontend(FrontendChannel& frontendChannel, bool isAutomaticInspection, bool immediatelyPause)
 {
-    ASSERT_ARG(frontendChannel, frontendChannel);
-
     m_isAutomaticInspection = isAutomaticInspection;
     m_pauseAfterInitialization = immediatelyPause;
 
@@ -147,10 +145,8 @@ void JSGlobalObjectInspectorController::connectFrontend(FrontendChannel* fronten
 #endif
 }
 
-void JSGlobalObjectInspectorController::disconnectFrontend(FrontendChannel* frontendChannel)
+void JSGlobalObjectInspectorController::disconnectFrontend(FrontendChannel& frontendChannel)
 {
-    ASSERT_ARG(frontendChannel, frontendChannel);
-
     // FIXME: change this to notify agents which frontend has disconnected (by id).
     m_agents.willDestroyFrontendAndBackend(DisconnectReason::InspectorDestroyed);
 
@@ -180,7 +176,6 @@ void JSGlobalObjectInspectorController::dispatchMessageFromFrontend(const String
 
 void JSGlobalObjectInspectorController::appendAPIBacktrace(ScriptCallStack& callStack)
 {
-#if OS(DARWIN) || (OS(LINUX) && !PLATFORM(GTK))
     static const int framesToShow = 31;
     static const int framesToSkip = 3; // WTFGetBacktrace, appendAPIBacktrace, reportAPIException.
 
@@ -193,13 +188,10 @@ void JSGlobalObjectInspectorController::appendAPIBacktrace(ScriptCallStack& call
     for (int i = 0; i < size; ++i) {
         auto demangled = StackTrace::demangle(stack[i]);
         if (demangled)
-            callStack.append(ScriptCallFrame(demangled->demangledName() ? demangled->demangledName() : demangled->mangledName(), ASCIILiteral("[native code]"), noSourceID, 0, 0));
+            callStack.append(ScriptCallFrame(demangled->demangledName() ? demangled->demangledName() : demangled->mangledName(), "[native code]"_s, noSourceID, 0, 0));
         else
-            callStack.append(ScriptCallFrame(ASCIILiteral("?"), ASCIILiteral("[native code]"), noSourceID, 0, 0));
+            callStack.append(ScriptCallFrame("?"_s, "[native code]"_s, noSourceID, 0, 0));
     }
-#else
-    UNUSED_PARAM(callStack);
-#endif
 }
 
 void JSGlobalObjectInspectorController::reportAPIException(ExecState* exec, Exception* exception)

@@ -109,18 +109,29 @@ bool SQLiteDatabase::open(const String& filename, bool forWebSQLDatabase)
     else
         m_openErrorMessage = "sqlite_open returned null";
 
-    if (!SQLiteStatement(*this, ASCIILiteral("PRAGMA temp_store = MEMORY;")).executeCommand())
+    if (!SQLiteStatement(*this, "PRAGMA temp_store = MEMORY;"_s).executeCommand())
         LOG_ERROR("SQLite database could not set temp_store to memory");
 
-    SQLiteStatement walStatement(*this, ASCIILiteral("PRAGMA journal_mode=WAL;"));
-    if (walStatement.prepareAndStep() == SQLITE_ROW) {
+    {
+        SQLiteStatement walStatement(*this, "PRAGMA journal_mode=WAL;"_s);
+        if (walStatement.prepareAndStep() == SQLITE_ROW) {
 #ifndef NDEBUG
-        String mode = walStatement.getColumnText(0);
-        if (!equalLettersIgnoringASCIICase(mode, "wal"))
-            LOG_ERROR("journal_mode of database should be 'WAL', but is '%s'", mode.utf8().data());
+            String mode = walStatement.getColumnText(0);
+            if (!equalLettersIgnoringASCIICase(mode, "wal"))
+                LOG_ERROR("journal_mode of database should be 'WAL', but is '%s'", mode.utf8().data());
 #endif
-    } else
-        LOG_ERROR("SQLite database failed to set journal_mode to WAL, error: %s", lastErrorMsg());
+        } else
+            LOG_ERROR("SQLite database failed to set journal_mode to WAL, error: %s", lastErrorMsg());
+    }
+
+    {
+        SQLiteStatement checkpointStatement(*this, "PRAGMA wal_checkpoint(TRUNCATE)"_s);
+        if (checkpointStatement.prepareAndStep() == SQLITE_ROW) {
+            if (checkpointStatement.getColumnInt(0))
+                LOG(SQLDatabase, "SQLite database checkpoint is blocked");
+        } else
+            LOG_ERROR("SQLite database failed to checkpoint: %s", lastErrorMsg());
+    }
 
     return isOpen();
 }
@@ -162,9 +173,9 @@ void SQLiteDatabase::overrideUnauthorizedFunctions()
 void SQLiteDatabase::setFullsync(bool fsync)
 {
     if (fsync) 
-        executeCommand(ASCIILiteral("PRAGMA fullfsync = 1;"));
+        executeCommand("PRAGMA fullfsync = 1;"_s);
     else
-        executeCommand(ASCIILiteral("PRAGMA fullfsync = 0;"));
+        executeCommand("PRAGMA fullfsync = 0;"_s);
 }
 
 int64_t SQLiteDatabase::maximumSize()
@@ -174,7 +185,7 @@ int64_t SQLiteDatabase::maximumSize()
     {
         LockHolder locker(m_authorizerLock);
         enableAuthorizer(false);
-        SQLiteStatement statement(*this, ASCIILiteral("PRAGMA max_page_count"));
+        SQLiteStatement statement(*this, "PRAGMA max_page_count"_s);
         maxPageCount = statement.getColumnInt64(0);
         enableAuthorizer(true);
     }
@@ -212,7 +223,7 @@ int SQLiteDatabase::pageSize()
         LockHolder locker(m_authorizerLock);
         enableAuthorizer(false);
         
-        SQLiteStatement statement(*this, ASCIILiteral("PRAGMA page_size"));
+        SQLiteStatement statement(*this, "PRAGMA page_size"_s);
         m_pageSize = statement.getColumnInt(0);
         
         enableAuthorizer(true);
@@ -229,7 +240,7 @@ int64_t SQLiteDatabase::freeSpaceSize()
         LockHolder locker(m_authorizerLock);
         enableAuthorizer(false);
         // Note: freelist_count was added in SQLite 3.4.1.
-        SQLiteStatement statement(*this, ASCIILiteral("PRAGMA freelist_count"));
+        SQLiteStatement statement(*this, "PRAGMA freelist_count"_s);
         freelistCount = statement.getColumnInt64(0);
         enableAuthorizer(true);
     }
@@ -244,7 +255,7 @@ int64_t SQLiteDatabase::totalSize()
     {
         LockHolder locker(m_authorizerLock);
         enableAuthorizer(false);
-        SQLiteStatement statement(*this, ASCIILiteral("PRAGMA page_count"));
+        SQLiteStatement statement(*this, "PRAGMA page_count"_s);
         pageCount = statement.getColumnInt64(0);
         enableAuthorizer(true);
     }
@@ -297,7 +308,7 @@ bool SQLiteDatabase::tableExists(const String& tablename)
 
 void SQLiteDatabase::clearAllTables()
 {
-    String query = ASCIILiteral("SELECT name FROM sqlite_master WHERE type='table';");
+    String query = "SELECT name FROM sqlite_master WHERE type='table';"_s;
     Vector<String> tables;
     if (!SQLiteStatement(*this, query).returnTextResults(0, tables)) {
         LOG(SQLDatabase, "Unable to retrieve list of tables from database");
@@ -314,7 +325,7 @@ void SQLiteDatabase::clearAllTables()
 
 int SQLiteDatabase::runVacuumCommand()
 {
-    if (!executeCommand(ASCIILiteral("VACUUM;")))
+    if (!executeCommand("VACUUM;"_s))
         LOG(SQLDatabase, "Unable to vacuum database - %s", lastErrorMsg());
     return lastError();
 }
@@ -324,7 +335,7 @@ int SQLiteDatabase::runIncrementalVacuumCommand()
     LockHolder locker(m_authorizerLock);
     enableAuthorizer(false);
 
-    if (!executeCommand(ASCIILiteral("PRAGMA incremental_vacuum")))
+    if (!executeCommand("PRAGMA incremental_vacuum"_s))
         LOG(SQLDatabase, "Unable to run incremental vacuum - %s", lastErrorMsg());
 
     enableAuthorizer(true);
@@ -485,9 +496,10 @@ bool SQLiteDatabase::isAutoCommitOn() const
 
 bool SQLiteDatabase::turnOnIncrementalAutoVacuum()
 {
-    SQLiteStatement statement(*this, ASCIILiteral("PRAGMA auto_vacuum"));
+    SQLiteStatement statement(*this, "PRAGMA auto_vacuum"_s);
     int autoVacuumMode = statement.getColumnInt(0);
     int error = lastError();
+    statement.finalize();
 
     // Check if we got an error while trying to get the value of the auto_vacuum flag.
     // If we got a SQLITE_BUSY error, then there's probably another transaction in
@@ -502,10 +514,10 @@ bool SQLiteDatabase::turnOnIncrementalAutoVacuum()
     case AutoVacuumIncremental:
         return true;
     case AutoVacuumFull:
-        return executeCommand(ASCIILiteral("PRAGMA auto_vacuum = 2"));
+        return executeCommand("PRAGMA auto_vacuum = 2"_s);
     case AutoVacuumNone:
     default:
-        if (!executeCommand(ASCIILiteral("PRAGMA auto_vacuum = 2")))
+        if (!executeCommand("PRAGMA auto_vacuum = 2"_s))
             return false;
         runVacuumCommand();
         error = lastError();

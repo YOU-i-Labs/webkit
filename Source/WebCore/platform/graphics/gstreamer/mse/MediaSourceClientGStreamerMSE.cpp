@@ -23,6 +23,7 @@
 
 #include "AppendPipeline.h"
 #include "MediaPlayerPrivateGStreamerMSE.h"
+#include "PlaybackPipeline.h"
 #include "WebKitMediaSourceGStreamer.h"
 #include <gst/gst.h>
 
@@ -105,7 +106,7 @@ void MediaSourceClientGStreamerMSE::abort(RefPtr<SourceBufferPrivateGStreamer> s
 
     ASSERT(appendPipeline);
 
-    appendPipeline->abort();
+    appendPipeline->resetParserState();
 }
 
 void MediaSourceClientGStreamerMSE::resetParserState(RefPtr<SourceBufferPrivateGStreamer> sourceBufferPrivate)
@@ -121,7 +122,7 @@ void MediaSourceClientGStreamerMSE::resetParserState(RefPtr<SourceBufferPrivateG
 
     ASSERT(appendPipeline);
 
-    appendPipeline->abort();
+    appendPipeline->resetParserState();
 }
 
 bool MediaSourceClientGStreamerMSE::append(RefPtr<SourceBufferPrivateGStreamer> sourceBufferPrivate, Vector<unsigned char>&& data)
@@ -140,13 +141,13 @@ bool MediaSourceClientGStreamerMSE::append(RefPtr<SourceBufferPrivateGStreamer> 
     // Wrap the whole Vector object in case the data is stored in the inlined buffer.
     auto* bufferData = data.data();
     auto bufferLength = data.size();
-    GstBuffer* buffer = gst_buffer_new_wrapped_full(static_cast<GstMemoryFlags>(0), bufferData, bufferLength, 0, bufferLength, new Vector<unsigned char>(WTFMove(data)),
+    GRefPtr<GstBuffer> buffer = adoptGRef(gst_buffer_new_wrapped_full(static_cast<GstMemoryFlags>(0), bufferData, bufferLength, 0, bufferLength, new Vector<unsigned char>(WTFMove(data)),
         [](gpointer data)
         {
             delete static_cast<Vector<unsigned char>*>(data);
-        });
+        }));
 
-    return appendPipeline->pushNewBuffer(buffer) == GST_FLOW_OK;
+    return appendPipeline->pushNewBuffer(WTFMove(buffer)) == GST_FLOW_OK;
 }
 
 void MediaSourceClientGStreamerMSE::markEndOfStream(MediaSourcePrivate::EndOfStreamStatus status)
@@ -168,13 +169,10 @@ void MediaSourceClientGStreamerMSE::removedFromMediaSource(RefPtr<SourceBufferPr
 
     ASSERT(m_playerPrivate->m_playbackPipeline);
 
-    RefPtr<AppendPipeline> appendPipeline = m_playerPrivate->m_appendPipelinesMap.get(sourceBufferPrivate);
-
-    ASSERT(appendPipeline);
-
-    appendPipeline->clearPlayerPrivate();
+    // Remove the AppendPipeline from the map. This should cause its destruction since there should be no alive
+    // references at this point.
+    ASSERT(m_playerPrivate->m_appendPipelinesMap.get(sourceBufferPrivate)->hasOneRef());
     m_playerPrivate->m_appendPipelinesMap.remove(sourceBufferPrivate);
-    // AppendPipeline destructor will take care of cleaning up when appropriate.
 
     m_playerPrivate->m_playbackPipeline->removeSourceBuffer(sourceBufferPrivate);
 }
@@ -194,6 +192,14 @@ void MediaSourceClientGStreamerMSE::enqueueSample(Ref<MediaSample>&& sample)
 
     if (m_playerPrivate)
         m_playerPrivate->m_playbackPipeline->enqueueSample(WTFMove(sample));
+}
+
+void MediaSourceClientGStreamerMSE::allSamplesInTrackEnqueued(const AtomicString& trackId)
+{
+    ASSERT(WTF::isMainThread());
+
+    if (m_playerPrivate)
+        m_playerPrivate->m_playbackPipeline->allSamplesInTrackEnqueued(trackId);
 }
 
 GRefPtr<WebKitMediaSrc> MediaSourceClientGStreamerMSE::webKitMediaSrc()

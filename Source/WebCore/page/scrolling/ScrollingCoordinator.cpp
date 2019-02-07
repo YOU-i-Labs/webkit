@@ -29,9 +29,9 @@
 
 #include "Document.h"
 #include "EventNames.h"
+#include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsLayer.h"
-#include "MainFrame.h"
 #include "Page.h"
 #include "PlatformWheelEvent.h"
 #include "PluginViewBase.h"
@@ -44,19 +44,11 @@
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/TextStream.h>
 
-#if USE(COORDINATED_GRAPHICS)
-#include "ScrollingCoordinatorCoordinatedGraphics.h"
-#endif
-
 namespace WebCore {
 
-#if !PLATFORM(COCOA)
+#if !PLATFORM(COCOA) && !USE(COORDINATED_GRAPHICS)
 Ref<ScrollingCoordinator> ScrollingCoordinator::create(Page* page)
 {
-#if USE(COORDINATED_GRAPHICS)
-    return adoptRef(*new ScrollingCoordinatorCoordinatedGraphics(page));
-#endif
-
     return adoptRef(*new ScrollingCoordinator(page));
 }
 #endif
@@ -369,10 +361,10 @@ bool ScrollingCoordinator::shouldUpdateScrollLayerPositionSynchronously(const Fr
     return true;
 }
 
-ScrollingNodeID ScrollingCoordinator::uniqueScrollLayerID()
+ScrollingNodeID ScrollingCoordinator::uniqueScrollingNodeID()
 {
-    static ScrollingNodeID uniqueScrollLayerID = 1;
-    return uniqueScrollLayerID++;
+    static ScrollingNodeID uniqueScrollingNodeID = 1;
+    return uniqueScrollingNodeID++;
 }
 
 String ScrollingCoordinator::scrollingStateTreeAsText(ScrollingStateTreeAsTextBehavior) const
@@ -425,16 +417,19 @@ TextStream& operator<<(TextStream& ts, ScrollableAreaParameters scrollableAreaPa
 TextStream& operator<<(TextStream& ts, ScrollingNodeType nodeType)
 {
     switch (nodeType) {
-    case FrameScrollingNode:
-        ts << "frame-scrolling";
+    case ScrollingNodeType::MainFrame:
+        ts << "main-frame-scrolling";
         break;
-    case OverflowScrollingNode:
+    case ScrollingNodeType::Subframe:
+        ts << "subframe-scrolling";
+        break;
+    case ScrollingNodeType::Overflow:
         ts << "overflow-scrolling";
         break;
-    case FixedNode:
+    case ScrollingNodeType::Fixed:
         ts << "fixed";
         break;
-    case StickyNode:
+    case ScrollingNodeType::Sticky:
         ts << "sticky";
         break;
     }

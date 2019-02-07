@@ -37,6 +37,7 @@
 #include <libgen.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <wtf/EnumTraits.h>
@@ -58,10 +59,7 @@ bool fileExists(const String& path)
     if (!fsRep.data() || fsRep.data()[0] == '\0')
         return false;
 
-    struct stat fileInfo;
-
-    // stat(...) returns 0 on successful stat'ing of the file, and non-zero in any case where the file doesn't exist or cannot be accessed
-    return !stat(fsRep.data(), &fileInfo);
+    return access(fsRep.data(), F_OK) != -1;
 }
 
 bool deleteFile(const String& path)
@@ -204,42 +202,39 @@ bool getFileSize(PlatformFileHandle handle, long long& result)
     return true;
 }
 
-bool getFileCreationTime(const String& path, time_t& result)
+Optional<WallTime> getFileCreationTime(const String& path)
 {
 #if OS(DARWIN) || OS(OPENBSD) || OS(NETBSD) || OS(FREEBSD)
     CString fsRep = fileSystemRepresentation(path);
 
     if (!fsRep.data() || fsRep.data()[0] == '\0')
-        return false;
+        return WTF::nullopt;
 
     struct stat fileInfo;
 
     if (stat(fsRep.data(), &fileInfo))
-        return false;
+        return WTF::nullopt;
 
-    result = fileInfo.st_birthtime;
-    return true;
+    return WallTime::fromRawSeconds(fileInfo.st_birthtime);
 #else
     UNUSED_PARAM(path);
-    UNUSED_PARAM(result);
-    return false;
+    return WTF::nullopt;
 #endif
 }
 
-bool getFileModificationTime(const String& path, time_t& result)
+Optional<WallTime> getFileModificationTime(const String& path)
 {
     CString fsRep = fileSystemRepresentation(path);
 
     if (!fsRep.data() || fsRep.data()[0] == '\0')
-        return false;
+        return WTF::nullopt;
 
     struct stat fileInfo;
 
     if (stat(fsRep.data(), &fileInfo))
-        return false;
+        return WTF::nullopt;
 
-    result = fileInfo.st_mtime;
-    return true;
+    return WallTime::fromRawSeconds(fileInfo.st_mtime);
 }
 
 static FileMetadata::Type toFileMetataType(struct stat fileInfo)
@@ -251,33 +246,33 @@ static FileMetadata::Type toFileMetataType(struct stat fileInfo)
     return FileMetadata::Type::File;
 }
 
-static std::optional<FileMetadata> fileMetadataUsingFunction(const String& path, int (*statFunc)(const char*, struct stat*))
+static Optional<FileMetadata> fileMetadataUsingFunction(const String& path, int (*statFunc)(const char*, struct stat*))
 {
     CString fsRep = fileSystemRepresentation(path);
 
     if (!fsRep.data() || fsRep.data()[0] == '\0')
-        return std::nullopt;
+        return WTF::nullopt;
 
     struct stat fileInfo;
     if (statFunc(fsRep.data(), &fileInfo))
-        return std::nullopt;
+        return WTF::nullopt;
 
     String filename = pathGetFileName(path);
     bool isHidden = !filename.isEmpty() && filename[0] == '.';
     return FileMetadata {
-        static_cast<double>(fileInfo.st_mtime),
+        WallTime::fromRawSeconds(fileInfo.st_mtime),
         fileInfo.st_size,
         isHidden,
         toFileMetataType(fileInfo)
     };
 }
 
-std::optional<FileMetadata> fileMetadata(const String& path)
+Optional<FileMetadata> fileMetadata(const String& path)
 {
     return fileMetadataUsingFunction(path, &lstat);
 }
 
-std::optional<FileMetadata> fileMetadataFollowingSymlinks(const String& path)
+Optional<FileMetadata> fileMetadataFollowingSymlinks(const String& path)
 {
     return fileMetadataUsingFunction(path, &stat);
 }
@@ -351,7 +346,7 @@ String directoryName(const String& path)
     if (!fsRep.data() || fsRep.data()[0] == '\0')
         return String();
 
-    return dirname(fsRep.mutableData());
+    return String::fromUTF8(dirname(fsRep.mutableData()));
 }
 
 Vector<String> listDirectory(const String& path, const String& filter)
@@ -384,7 +379,45 @@ Vector<String> listDirectory(const String& path, const String& filter)
     return entries;
 }
 
-#if !OS(DARWIN) || PLATFORM(GTK)
+#if !PLATFORM(COCOA)
+String stringFromFileSystemRepresentation(const char* path)
+{
+    if (!path)
+        return String();
+
+    return String::fromUTF8(path);
+}
+
+CString fileSystemRepresentation(const String& path)
+{
+    return path.utf8();
+}
+
+bool moveFile(const String& oldPath, const String& newPath)
+{
+    auto oldFilename = fileSystemRepresentation(oldPath);
+    if (oldFilename.isNull())
+        return false;
+
+    auto newFilename = fileSystemRepresentation(newPath);
+    if (newFilename.isNull())
+        return false;
+
+    return rename(oldFilename.data(), newFilename.data()) != -1;
+}
+
+bool getVolumeFreeSpace(const String& path, uint64_t& freeSpace)
+{
+    struct statvfs fileSystemStat;
+    if (statvfs(fileSystemRepresentation(path).data(), &fileSystemStat)) {
+        freeSpace = fileSystemStat.f_bavail * fileSystemStat.f_frsize;
+        return true;
+    }
+    return false;
+}
+#endif
+
+#if !OS(DARWIN)
 String openTemporaryFile(const String& prefix, PlatformFileHandle& handle)
 {
     char buffer[PATH_MAX];
@@ -439,13 +472,21 @@ bool hardLinkOrCopyFile(const String& source, const String& destination)
     return appendResult;
 }
 
-std::optional<int32_t> getFileDeviceId(const CString& fsFile)
+Optional<int32_t> getFileDeviceId(const CString& fsFile)
 {
     struct stat fileStat;
     if (stat(fsFile.data(), &fileStat) == -1)
-        return std::nullopt;
+        return WTF::nullopt;
 
     return fileStat.st_dev;
+}
+
+String realPath(const String& filePath)
+{
+    CString fsRep = fileSystemRepresentation(filePath);
+    char resolvedName[PATH_MAX];
+    const char* result = realpath(fsRep.data(), resolvedName);
+    return result ? String::fromUTF8(result) : filePath;
 }
 
 } // namespace FileSystem

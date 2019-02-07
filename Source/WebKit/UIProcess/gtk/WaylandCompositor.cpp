@@ -37,7 +37,7 @@
 #include <wayland-server-protocol.h>
 #include <wtf/UUID.h>
 
-#if USE(OPENGL_ES_2)
+#if USE(OPENGL_ES)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <WebCore/Extensions3DOpenGLES.h>
@@ -216,7 +216,7 @@ void WaylandCompositor::Surface::attachBuffer(struct wl_resource* buffer)
 
     if (buffer) {
         auto* compositorBuffer = WaylandCompositor::Buffer::getOrCreate(buffer);
-        m_pendingBuffer = compositorBuffer->createWeakPtr();
+        m_pendingBuffer = makeWeakPtr(*compositorBuffer);
     }
 }
 
@@ -350,7 +350,6 @@ static const struct wl_compositor_interface compositorInterface = {
             wl_resource_set_implementation(surfaceResource, &surfaceInterface, new WaylandCompositor::Surface(),
                 [](struct wl_resource* resource) {
                     auto* surface = static_cast<WaylandCompositor::Surface*>(wl_resource_get_user_data(resource));
-                    WaylandCompositor::singleton().willDestroySurface(surface);
                     delete surface;
                 });
         } else
@@ -408,7 +407,7 @@ bool WaylandCompositor::initializeEGL()
     if (!m_eglContext->makeContextCurrent())
         return false;
 
-#if USE(OPENGL_ES_2)
+#if USE(OPENGL_ES)
     std::unique_ptr<Extensions3DOpenGLES> glExtensions = std::make_unique<Extensions3DOpenGLES>(nullptr,  false);
 #else
     std::unique_ptr<Extensions3DOpenGL> glExtensions = std::make_unique<Extensions3DOpenGL>(nullptr, GLContext::current()->version() >= 320);
@@ -476,7 +475,7 @@ static GRefPtr<GSource> createWaylandLoopSource(struct wl_display* display)
 
 WaylandCompositor::WaylandCompositor()
 {
-    WlUniquePtr<struct wl_display> display(wl_display_create());
+    std::unique_ptr<struct wl_display, DisplayDeleter> display(wl_display_create());
     if (!display) {
         WTFLogAlways("Nested Wayland compositor could not create display object");
         return;
@@ -531,7 +530,7 @@ WaylandCompositor::WaylandCompositor()
 
 bool WaylandCompositor::getTexture(WebPageProxy& webPage, unsigned& texture, IntSize& textureSize)
 {
-    if (auto* surface = m_pageMap.get(&webPage))
+    if (WeakPtr<Surface> surface = m_pageMap.get(&webPage))
         return surface->prepareTextureForPainting(texture, textureSize);
     return false;
 }
@@ -549,7 +548,7 @@ void WaylandCompositor::bindSurfaceToWebPage(WaylandCompositor::Surface* surface
         return;
 
     surface->setWebPage(webPage);
-    m_pageMap.set(webPage, surface);
+    m_pageMap.set(webPage, makeWeakPtr(*surface));
 }
 
 void WaylandCompositor::registerWebPage(WebPageProxy& webPage)
@@ -559,18 +558,8 @@ void WaylandCompositor::registerWebPage(WebPageProxy& webPage)
 
 void WaylandCompositor::unregisterWebPage(WebPageProxy& webPage)
 {
-    if (auto* surface = m_pageMap.take(&webPage))
+    if (WeakPtr<Surface> surface = m_pageMap.take(&webPage))
         surface->setWebPage(nullptr);
-}
-
-void WaylandCompositor::willDestroySurface(Surface* surface)
-{
-    for (auto it : m_pageMap) {
-        if (it.value == surface) {
-            it.value = nullptr;
-            return;
-        }
-    }
 }
 
 } // namespace WebKit

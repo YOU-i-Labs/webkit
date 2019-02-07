@@ -33,10 +33,13 @@
 #include "AccessibilityRenderObject.h"
 #include "AccessibilityScrollView.h"
 #include "AccessibilityTable.h"
+#include "AccessibleSetValueEvent.h"
 #include "DOMTokenList.h"
 #include "Editing.h"
 #include "Editor.h"
 #include "ElementIterator.h"
+#include "Event.h"
+#include "EventDispatcher.h"
 #include "EventHandler.h"
 #include "FloatRect.h"
 #include "FocusController.h"
@@ -51,7 +54,6 @@
 #include "HTMLParserIdioms.h"
 #include "HitTestResult.h"
 #include "LocalizedStrings.h"
-#include "MainFrame.h"
 #include "MathMLNames.h"
 #include "NodeList.h"
 #include "NodeTraversal.h"
@@ -67,6 +69,7 @@
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "RenderedPosition.h"
+#include "RuntimeEnabledFeatures.h"
 #include "Settings.h"
 #include "TextCheckerClient.h"
 #include "TextCheckingHelper.h"
@@ -198,7 +201,7 @@ bool AccessibilityObject::isAccessibilityObjectSearchMatchAtIndex(AccessibilityO
         
     case AccessibilitySearchKey::Link: {
         bool isLink = axObject->isLink();
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
         if (!isLink)
             isLink = axObject->isDescendantOfRole(AccessibilityRole::WebCoreLink);
 #endif
@@ -351,6 +354,7 @@ bool AccessibilityObject::accessibleNameDerivesFromContent() const
     // Now check for generically derived elements now that we know the element does not match a specific ARIA role.
     switch (roleValue()) {
     case AccessibilityRole::Slider:
+    case AccessibilityRole::ListBox:
         return false;
     default:
         break;
@@ -433,7 +437,7 @@ bool AccessibilityObject::hasMisspelling() const
 
     if (unifiedTextCheckerEnabled(frame)) {
         Vector<TextCheckingResult> results;
-        checkTextOfParagraph(*textChecker, stringValue(), TextCheckingTypeSpelling, results, frame->selection().selection());
+        checkTextOfParagraph(*textChecker, stringValue(), TextCheckingType::Spelling, results, frame->selection().selection());
         if (!results.isEmpty())
             isMisspelled = true;
         return isMisspelled;
@@ -727,9 +731,9 @@ static RefPtr<Range> rangeClosestToRange(Range* referenceRange, RefPtr<Range>&& 
     if (!afterRange && !beforeRange)
         return nullptr;
     if (afterRange && !beforeRange)
-        return afterRange;
+        return WTFMove(afterRange);
     if (!afterRange && beforeRange)
-        return beforeRange;
+        return WTFMove(beforeRange);
     
     unsigned positionsToAfterRange = Position::positionCountBetweenPositions(afterRange->startPosition(), referenceRange->endPosition());
     unsigned positionsToBeforeRange = Position::positionCountBetweenPositions(beforeRange->endPosition(), referenceRange->startPosition());
@@ -747,9 +751,9 @@ RefPtr<Range> AccessibilityObject::rangeOfStringClosestToRangeInDirection(Range*
         return nullptr;
     
     bool isBackwardSearch = searchDirection == AccessibilitySearchDirection::Previous;
-    FindOptions findOptions { { AtWordStarts, AtWordEnds, CaseInsensitive, StartInSelection } };
+    FindOptions findOptions { AtWordStarts, AtWordEnds, CaseInsensitive, StartInSelection };
     if (isBackwardSearch)
-        findOptions |= Backwards;
+        findOptions.add(Backwards);
     
     RefPtr<Range> closestStringRange = nullptr;
     for (const auto& searchString : searchStrings) {
@@ -834,7 +838,7 @@ String AccessibilityObject::selectText(AccessibilitySelectTextCriteria* criteria
         
         String closestString = closestStringRange->text();
         bool replaceSelection = false;
-        if (frame->selection().setSelectedRange(closestStringRange.get(), DOWNSTREAM, true)) {
+        if (frame->selection().setSelectedRange(closestStringRange.get(), DOWNSTREAM, FrameSelection::ShouldCloseTyping::Yes)) {
             switch (activity) {
             case AccessibilitySelectTextActivity::FindAndCapitalize:
                 replacementString = capitalize(closestString, ' '); // FIXME: Needs to take locale into account to work correctly.
@@ -867,7 +871,7 @@ String AccessibilityObject::selectText(AccessibilitySelectTextCriteria* criteria
             // A bit obvious, but worth noting the API contract for this method is that we should
             // return the replacement string when replacing, but the selected string if not.
             if (replaceSelection) {
-                frame->editor().replaceSelectionWithText(replacementString, true, true);
+                frame->editor().replaceSelectionWithText(replacementString, Editor::SelectReplacement::Yes, Editor::SmartReplace::Yes);
                 return replacementString;
             }
             
@@ -902,7 +906,7 @@ bool AccessibilityObject::isARIAInput(AccessibilityRole ariaRole)
     
 bool AccessibilityObject::isARIAControl(AccessibilityRole ariaRole)
 {
-    return isARIAInput(ariaRole) || ariaRole == AccessibilityRole::TextArea || ariaRole == AccessibilityRole::Button || ariaRole == AccessibilityRole::ComboBox || ariaRole == AccessibilityRole::Slider;
+    return isARIAInput(ariaRole) || ariaRole == AccessibilityRole::TextArea || ariaRole == AccessibilityRole::Button || ariaRole == AccessibilityRole::ComboBox || ariaRole == AccessibilityRole::Slider || ariaRole == AccessibilityRole::ListBox;
 }
     
 bool AccessibilityObject::isRangeControl() const
@@ -991,10 +995,18 @@ bool AccessibilityObject::press()
     if (hitTestElement && hitTestElement->isDescendantOf(*pressElement))
         pressElement = hitTestElement;
     
+    // dispatch accessibleclick event
+    if (auto* cache = axObjectCache()) {
+        if (auto* pressObject = cache->getOrCreate(pressElement)) {
+            if (pressObject->dispatchAccessibilityEventWithType(AccessibilityEventType::Click))
+                return true;
+        }
+    }
+    
     UserGestureIndicator gestureIndicator(ProcessingUserGesture, document);
     
     bool dispatchedTouchEvent = false;
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (hasTouchEventListener())
         dispatchedTouchEvent = dispatchTouchEvent();
 #endif
@@ -1022,7 +1034,7 @@ Frame* AccessibilityObject::frame() const
     return node->document().frame();
 }
 
-MainFrame* AccessibilityObject::mainFrame() const
+Frame* AccessibilityObject::mainFrame() const
 {
     Document* document = topDocument();
     if (!document)
@@ -1438,7 +1450,7 @@ VisiblePosition AccessibilityObject::visiblePositionForBounds(const IntRect& rec
     if (rect.isEmpty())
         return VisiblePosition();
     
-    MainFrame* mainFrame = this->mainFrame();
+    auto* mainFrame = this->mainFrame();
     if (!mainFrame)
         return VisiblePosition();
     
@@ -1765,6 +1777,9 @@ unsigned AccessibilityObject::doAXLineForIndex(unsigned index)
 #if HAVE(ACCESSIBILITY)
 void AccessibilityObject::updateBackingStore()
 {
+    if (!axObjectCache())
+        return;
+    
     // Updating the layout may delete this object.
     RefPtr<AccessibilityObject> protectedThis(this);
     if (auto* document = this->document()) {
@@ -1925,13 +1940,13 @@ const String AccessibilityObject::defaultLiveRegionStatusForRole(AccessibilityRo
     switch (role) {
     case AccessibilityRole::ApplicationAlertDialog:
     case AccessibilityRole::ApplicationAlert:
-        return ASCIILiteral("assertive");
+        return "assertive"_s;
     case AccessibilityRole::ApplicationLog:
     case AccessibilityRole::ApplicationStatus:
-        return ASCIILiteral("polite");
+        return "polite"_s;
     case AccessibilityRole::ApplicationTimer:
     case AccessibilityRole::ApplicationMarquee:
-        return ASCIILiteral("off");
+        return "off"_s;
     default:
         return nullAtom();
     }
@@ -1940,7 +1955,7 @@ const String AccessibilityObject::defaultLiveRegionStatusForRole(AccessibilityRo
 #if HAVE(ACCESSIBILITY)
 const String& AccessibilityObject::actionVerb() const
 {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     // FIXME: Need to add verbs for select elements.
     static NeverDestroyed<const String> buttonAction(AXButtonActionVerb());
     static NeverDestroyed<const String> textFieldAction(AXTextFieldActionVerb());
@@ -1989,11 +2004,11 @@ bool AccessibilityObject::ariaIsMultiline() const
 
 String AccessibilityObject::invalidStatus() const
 {
-    String grammarValue = ASCIILiteral("grammar");
-    String falseValue = ASCIILiteral("false");
-    String spellingValue = ASCIILiteral("spelling");
-    String trueValue = ASCIILiteral("true");
-    String undefinedValue = ASCIILiteral("undefined");
+    String grammarValue = "grammar"_s;
+    String falseValue = "false"_s;
+    String spellingValue = "spelling"_s;
+    String trueValue = "true"_s;
+    String undefinedValue = "undefined"_s;
 
     // aria-invalid can return false (default), grammar, spelling, or true.
     String ariaInvalid = stripLeadingAndTrailingHTMLSpaces(getAttribute(aria_invalidAttr));
@@ -2074,19 +2089,16 @@ String AccessibilityObject::currentValue() const
 
 bool AccessibilityObject::isModalDescendant(Node* modalNode) const
 {
-    if (!modalNode || !this->element())
+    Node* node = this->node();
+    if (!modalNode || !node)
         return false;
     
-    if (this->element() == modalNode)
+    if (node == modalNode)
         return true;
     
     // ARIA 1.1 aria-modal, indicates whether an element is modal when displayed.
     // For the decendants of the modal object, they should also be considered as aria-modal=true.
-    for (auto& ancestor : elementAncestors(this->element())) {
-        if (&ancestor == modalNode)
-            return true;
-    }
-    return false;
+    return node->isDescendantOf(*modalNode);
 }
 
 bool AccessibilityObject::isModalNode() const
@@ -2139,6 +2151,81 @@ const AtomicString& AccessibilityObject::getAttribute(const QualifiedName& attri
     if (auto* element = this->element())
         return element->attributeWithoutSynchronization(attribute);
     return nullAtom();
+}
+
+bool AccessibilityObject::shouldDispatchAccessibilityEvent() const
+{
+    bool shouldDispatch = RuntimeEnabledFeatures::sharedFeatures().accessibilityObjectModelEnabled();
+#if ENABLE(ACCESSIBILITY_EVENTS)
+    return shouldDispatch &= this->page()->settings().accessibilityEventsEnabled();
+#endif
+    return shouldDispatch;
+}
+
+bool AccessibilityObject::dispatchAccessibilityEvent(Event& event) const
+{
+    if (!shouldDispatchAccessibilityEvent())
+        return false;
+    
+    Vector<Element*> eventPath;
+    for (auto* parentObject = this; parentObject; parentObject = parentObject->parentObject()) {
+        if (parentObject->isWebArea())
+            break;
+        if (auto* parentElement = parentObject->element())
+            eventPath.append(parentElement);
+    }
+    
+    if (!eventPath.size())
+        return false;
+    
+    EventDispatcher::dispatchEvent(eventPath, event);
+    
+    // return true if preventDefault() was called, so that we don't execute the fallback behavior.
+    return event.defaultPrevented();
+}
+
+bool AccessibilityObject::dispatchAccessibilityEventWithType(AccessibilityEventType type) const
+{
+    AtomicString eventName;
+    switch (type) {
+    case AccessibilityEventType::ContextMenu:
+        eventName = eventNames().accessiblecontextmenuEvent;
+        break;
+    case AccessibilityEventType::Click:
+        eventName = eventNames().accessibleclickEvent;
+        break;
+    case AccessibilityEventType::Decrement:
+        eventName = eventNames().accessibledecrementEvent;
+        break;
+    case AccessibilityEventType::Dismiss:
+        eventName = eventNames().accessibledismissEvent;
+        break;
+    case AccessibilityEventType::Focus:
+        eventName = eventNames().accessiblefocusEvent;
+        break;
+    case AccessibilityEventType::Increment:
+        eventName = eventNames().accessibleincrementEvent;
+        break;
+    case AccessibilityEventType::ScrollIntoView:
+        eventName = eventNames().accessiblescrollintoviewEvent;
+        break;
+    case AccessibilityEventType::Select:
+        eventName = eventNames().accessibleselectEvent;
+        break;
+    default:
+        return false;
+    }
+    
+    auto event = Event::create(eventName, Event::CanBubble::Yes, Event::IsCancelable::Yes);
+    return dispatchAccessibilityEvent(event);
+}
+
+bool AccessibilityObject::dispatchAccessibleSetValueEvent(const String& value) const
+{
+    if (!canSetValueAttribute())
+        return false;
+    auto event = AccessibleSetValueEvent::create(eventNames().accessiblesetvalueEvent, value);
+    return dispatchAccessibilityEvent(event);
 }
 
 // Lacking concrete evidence of orientation, horizontal means width > height. vertical is height > width;
@@ -2203,7 +2290,9 @@ static void initializeRoleMap()
         { "application", AccessibilityRole::WebApplication },
         { "article", AccessibilityRole::DocumentArticle },
         { "banner", AccessibilityRole::LandmarkBanner },
+        { "blockquote", AccessibilityRole::Blockquote },
         { "button", AccessibilityRole::Button },
+        { "caption", AccessibilityRole::Caption },
         { "checkbox", AccessibilityRole::CheckBox },
         { "complementary", AccessibilityRole::LandmarkComplementary },
         { "contentinfo", AccessibilityRole::LandmarkContentInfo },
@@ -2286,6 +2375,7 @@ static void initializeRoleMap()
         { "note", AccessibilityRole::DocumentNote },
         { "navigation", AccessibilityRole::LandmarkNavigation },
         { "option", AccessibilityRole::ListBoxOption },
+        { "paragraph", AccessibilityRole::Paragraph },
         { "presentation", AccessibilityRole::Presentational },
         { "progressbar", AccessibilityRole::ProgressIndicator },
         { "radio", AccessibilityRole::RadioButton },
@@ -2438,6 +2528,11 @@ bool AccessibilityObject::supportsDatetimeAttribute() const
 const AtomicString& AccessibilityObject::datetimeAttributeValue() const
 {
     return getAttribute(datetimeAttr);
+}
+    
+const AtomicString& AccessibilityObject::linkRelValue() const
+{
+    return getAttribute(relAttr);
 }
     
 const String AccessibilityObject::keyShortcutsValue() const
@@ -2710,7 +2805,7 @@ bool AccessibilityObject::isExpanded() const
     // Summary element should use its details parent's expanded status.
     if (isSummary()) {
         if (const AccessibilityObject* parent = AccessibilityObject::matchedParent(*this, false, [] (const AccessibilityObject& object) {
-            return object.roleValue() == AccessibilityRole::Details;
+            return is<HTMLDetailsElement>(object.node());
         }))
             return parent->isExpanded();
     }
@@ -2890,9 +2985,14 @@ bool AccessibilityObject::isOnscreen() const
 
 void AccessibilityObject::scrollToMakeVisible() const
 {
-    IntRect objectRect = snappedIntRect(boundingBoxRect());
-    objectRect.setLocation(IntPoint());
-    scrollToMakeVisibleWithSubFocus(objectRect);
+    if (dispatchAccessibilityEventWithType(AccessibilityEventType::ScrollIntoView))
+        return;
+    
+    if (isScrollView() && parentObject())
+        parentObject()->scrollToMakeVisible();
+
+    if (auto* renderer = this->renderer())
+        renderer->scrollRectToVisible(boundingBoxRect(), false, { SelectionRevealMode::Reveal, ScrollAlignment::alignCenterIfNeeded, ScrollAlignment::alignCenterIfNeeded, ShouldAllowCrossOriginScrolling::Yes });
 }
 
 void AccessibilityObject::scrollToMakeVisibleWithSubFocus(const IntRect& subfocus) const
@@ -3183,7 +3283,7 @@ bool AccessibilityObject::isDOMHidden() const
         return true;
     
     const RenderStyle& style = renderer->style();
-    return style.display() == NONE || style.visibility() != VISIBLE;
+    return style.display() == DisplayType::None || style.visibility() != Visibility::Visible;
 }
 
 bool AccessibilityObject::isShowingValidationMessage() const

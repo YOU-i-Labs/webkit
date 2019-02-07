@@ -8,7 +8,7 @@
 <link rel="up" href="ch02.html" title="Web Extensions">
 <link rel="prev" href="ch02.html" title="Web Extensions">
 <link rel="next" href="WebKitWebPage.html" title="WebKitWebPage">
-<meta name="generator" content="GTK-Doc V1.26.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -133,23 +133,23 @@ web process is initialized.</p>
 15
 16
 17</pre></td>
-        <td class="listing_code"><pre class="programlisting"><span class="keyword">static</span><span class="normal"> </span><span class="type">void</span>
-<span class="function">web_page_created_callback</span><span class="normal"> </span><span class="symbol">(</span><span class="usertype">WebKitWebExtension</span><span class="normal"> </span><span class="symbol">*</span><span class="normal">extension</span><span class="symbol">,</span>
-<span class="normal">                           </span><span class="usertype">WebKitWebPage</span><span class="normal">      </span><span class="symbol">*</span><span class="normal">web_page</span><span class="symbol">,</span>
-<span class="normal">                           </span><span class="usertype">gpointer</span><span class="normal">            user_data</span><span class="symbol">)</span>
-<span class="cbracket">{</span>
-<span class="normal">    </span><span class="function"><a href="../glib/glib-Warnings-and-Assertions.html#g-print">g_print</a></span><span class="normal"> </span><span class="symbol">(</span><span class="string">"Page %d created for %s</span><span class="specialchar">\n</span><span class="string">"</span><span class="symbol">,</span>
-<span class="normal">             </span><span class="function"><a href="WebKitWebPage.html#webkit-web-page-get-id">webkit_web_page_get_id</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">web_page</span><span class="symbol">),</span>
-<span class="normal">             </span><span class="function"><a href="WebKitWebPage.html#webkit-web-page-get-uri">webkit_web_page_get_uri</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">web_page</span><span class="symbol">));</span>
-<span class="cbracket">}</span>
+        <td class="listing_code"><pre class="programlisting"><span class="gtkdoc kwb">static void</span>
+<span class="function">web_page_created_callback</span> <span class="gtkdoc opt">(</span>WebKitWebExtension <span class="gtkdoc opt">*</span>extension<span class="gtkdoc opt">,</span>
+                           WebKitWebPage      <span class="gtkdoc opt">*</span>web_page<span class="gtkdoc opt">,</span>
+                           gpointer            user_data<span class="gtkdoc opt">)</span>
+<span class="gtkdoc opt">{</span>
+    <span class="function"><a href="../glib/glib-Warnings-and-Assertions.html#g-print">g_print</a></span> <span class="gtkdoc opt">(</span><span class="string">&quot;Page %d created for %s</span><span class="gtkdoc esc">\n</span><span class="string">&quot;</span><span class="gtkdoc opt">,</span>
+             <span class="function"><a href="WebKitWebPage.html#webkit-web-page-get-id">webkit_web_page_get_id</a></span> <span class="gtkdoc opt">(</span>web_page<span class="gtkdoc opt">),</span>
+             <span class="function"><a href="WebKitWebPage.html#webkit-web-page-get-uri">webkit_web_page_get_uri</a></span> <span class="gtkdoc opt">(</span>web_page<span class="gtkdoc opt">));</span>
+<span class="gtkdoc opt">}</span>
 
-<span class="normal"><a href="../glib/glib-Dynamic-Loading-of-Modules.html#G-MODULE-EXPORT:CAPS">G_MODULE_EXPORT</a> </span><span class="type">void</span>
-<span class="function">webkit_web_extension_initialize</span><span class="normal"> </span><span class="symbol">(</span><span class="usertype">WebKitWebExtension</span><span class="normal"> </span><span class="symbol">*</span><span class="normal">extension</span><span class="symbol">)</span>
-<span class="cbracket">{</span>
-<span class="normal">    </span><span class="function"><a href="../gobject/gobject-Signals.html#g-signal-connect">g_signal_connect</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">extension</span><span class="symbol">,</span><span class="normal"> </span><span class="string">"page-created"</span><span class="symbol">,</span>
-<span class="normal">                      </span><span class="function"><a href="../gobject/gobject-Closures.html#G-CALLBACK:CAPS">G_CALLBACK</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">web_page_created_callback</span><span class="symbol">),</span>
-<span class="normal">                      <a href="../glib/glib-Standard-Macros.html#NULL:CAPS">NULL</a></span><span class="symbol">);</span>
-<span class="cbracket">}</span></pre></td>
+G_MODULE_EXPORT <span class="gtkdoc kwb">void</span>
+<span class="function">webkit_web_extension_initialize</span> <span class="gtkdoc opt">(</span>WebKitWebExtension <span class="gtkdoc opt">*</span>extension<span class="gtkdoc opt">)</span>
+<span class="gtkdoc opt">{</span>
+    <span class="function"><a href="../gobject/gobject-Signals.html#g-signal-connect">g_signal_connect</a></span> <span class="gtkdoc opt">(</span>extension<span class="gtkdoc opt">,</span> <span class="string">&quot;page-created&quot;</span><span class="gtkdoc opt">,</span>
+                      <span class="function"><a href="../gobject/gobject-Closures.html#G-CALLBACK:CAPS">G_CALLBACK</a></span> <span class="gtkdoc opt">(</span>web_page_created_callback<span class="gtkdoc opt">),</span>
+                      NULL<span class="gtkdoc opt">);</span>
+<span class="gtkdoc opt">}</span></pre></td>
       </tr>
     </tbody>
   </table>
@@ -193,32 +193,32 @@ the desired data as parameter. You can see an example of this in the following p
 24
 25
 26</pre></td>
-        <td class="listing_code"><pre class="programlisting"><span class="preproc">#define</span><span class="normal"> WEB_EXTENSIONS_DIRECTORY </span><span class="comment">/* ... */</span>
+        <td class="listing_code"><pre class="programlisting"><span class="gtkdoc ppc">#define WEB_EXTENSIONS_DIRECTORY</span> <span class="comment">/* ... */</span><span class="gtkdoc ppc"></span>
 
-<span class="keyword">static</span><span class="normal"> </span><span class="type">void</span>
-<span class="function">initialize_web_extensions</span><span class="normal"> </span><span class="symbol">(</span><span class="usertype">WebKitWebContext</span><span class="normal"> </span><span class="symbol">*</span><span class="normal">context</span><span class="symbol">,</span>
-<span class="normal">                           </span><span class="usertype">gpointer</span><span class="normal">          user_data</span><span class="symbol">)</span>
-<span class="cbracket">{</span>
-<span class="normal">  </span><span class="comment">/* Web Extensions get a different ID for each Web Process */</span>
-<span class="normal">  </span><span class="keyword">static</span><span class="normal"> </span><span class="usertype">guint32</span><span class="normal"> unique_id </span><span class="symbol">=</span><span class="normal"> </span><span class="number">0</span><span class="symbol">;</span>
+<span class="gtkdoc kwb">static void</span>
+<span class="function">initialize_web_extensions</span> <span class="gtkdoc opt">(</span>WebKitWebContext <span class="gtkdoc opt">*</span>context<span class="gtkdoc opt">,</span>
+                           gpointer          user_data<span class="gtkdoc opt">)</span>
+<span class="gtkdoc opt">{</span>
+  <span class="comment">/* Web Extensions get a different ID for each Web Process */</span>
+  <span class="gtkdoc kwb">static</span> guint32 unique_id <span class="gtkdoc opt">=</span> <span class="number">0</span><span class="gtkdoc opt">;</span>
 
-<span class="normal">  </span><span class="function"><a href="WebKitWebContext.html#webkit-web-context-set-web-extensions-directory">webkit_web_context_set_web_extensions_directory</a></span><span class="normal"> </span><span class="symbol">(</span>
-<span class="normal">     context</span><span class="symbol">,</span><span class="normal"> WEB_EXTENSIONS_DIRECTORY</span><span class="symbol">);</span>
-<span class="normal">  </span><span class="function"><a href="WebKitWebContext.html#webkit-web-context-set-web-extensions-initialization-user-data">webkit_web_context_set_web_extensions_initialization_user_data</a></span><span class="normal"> </span><span class="symbol">(</span>
-<span class="normal">     context</span><span class="symbol">,</span><span class="normal"> </span><span class="function"><a href="../glib/glib-GVariant.html#g-variant-new-uint32">g_variant_new_uint32</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">unique_id</span><span class="symbol">++));</span>
-<span class="cbracket">}</span>
+  <span class="function"><a href="WebKitWebContext.html#webkit-web-context-set-web-extensions-directory">webkit_web_context_set_web_extensions_directory</a></span> <span class="gtkdoc opt">(</span>
+     context<span class="gtkdoc opt">,</span> WEB_EXTENSIONS_DIRECTORY<span class="gtkdoc opt">);</span>
+  <span class="function"><a href="WebKitWebContext.html#webkit-web-context-set-web-extensions-initialization-user-data">webkit_web_context_set_web_extensions_initialization_user_data</a></span> <span class="gtkdoc opt">(</span>
+     context<span class="gtkdoc opt">,</span> <span class="function"><a href="../glib/glib-GVariant.html#g-variant-new-uint32">g_variant_new_uint32</a></span> <span class="gtkdoc opt">(</span>unique_id<span class="gtkdoc opt">++));</span>
+<span class="gtkdoc opt">}</span>
 
-<span class="type">int</span><span class="normal"> </span><span class="function">main</span><span class="normal"> </span><span class="symbol">(</span><span class="type">int</span><span class="normal"> argc</span><span class="symbol">,</span><span class="normal"> </span><span class="type">char</span><span class="normal"> </span><span class="symbol">**</span><span class="normal">argv</span><span class="symbol">)</span>
-<span class="cbracket">{</span>
-<span class="normal">  </span><span class="function"><a href="../gobject/gobject-Signals.html#g-signal-connect">g_signal_connect</a></span><span class="normal"> </span><span class="symbol">(</span><span class="function"><a href="WebKitWebContext.html#webkit-web-context-get-default">webkit_web_context_get_default</a></span><span class="normal"> </span><span class="symbol">(),</span>
-<span class="normal">                   </span><span class="string">"initialize-web-extensions"</span><span class="symbol">,</span>
-<span class="normal">                    </span><span class="function"><a href="../gobject/gobject-Closures.html#G-CALLBACK:CAPS">G_CALLBACK</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">initialize_web_extensions</span><span class="symbol">),</span>
-<span class="normal">                    <a href="../glib/glib-Standard-Macros.html#NULL:CAPS">NULL</a></span><span class="symbol">);</span>
+<span class="gtkdoc kwb">int</span> <span class="function">main</span> <span class="gtkdoc opt">(</span><span class="gtkdoc kwb">int</span> argc<span class="gtkdoc opt">,</span> <span class="gtkdoc kwb">char</span> <span class="gtkdoc opt">**</span>argv<span class="gtkdoc opt">)</span>
+<span class="gtkdoc opt">{</span>
+  <span class="function"><a href="../gobject/gobject-Signals.html#g-signal-connect">g_signal_connect</a></span> <span class="gtkdoc opt">(</span><span class="function"><a href="WebKitWebContext.html#webkit-web-context-get-default">webkit_web_context_get_default</a></span> <span class="gtkdoc opt">(),</span>
+                   <span class="string">&quot;initialize-web-extensions&quot;</span><span class="gtkdoc opt">,</span>
+                    <span class="function"><a href="../gobject/gobject-Closures.html#G-CALLBACK:CAPS">G_CALLBACK</a></span> <span class="gtkdoc opt">(</span>initialize_web_extensions<span class="gtkdoc opt">),</span>
+                    NULL<span class="gtkdoc opt">);</span>
 
-<span class="normal">  </span><span class="usertype">GtkWidget</span><span class="normal"> </span><span class="symbol">*</span><span class="normal">view </span><span class="symbol">=</span><span class="normal"> </span><span class="function"><a href="WebKitWebView.html#webkit-web-view-new">webkit_web_view_new</a></span><span class="normal"> </span><span class="symbol">();</span>
+  GtkWidget <span class="gtkdoc opt">*</span>view <span class="gtkdoc opt">=</span> <span class="function"><a href="WebKitWebView.html#webkit-web-view-new">webkit_web_view_new</a></span> <span class="gtkdoc opt">();</span>
 
-<span class="normal">  </span><span class="comment">/* ... */</span>
-<span class="cbracket">}</span></pre></td>
+  <span class="comment">/* ... */</span>
+<span class="gtkdoc opt">}</span></pre></td>
       </tr>
     </tbody>
   </table>
@@ -373,6 +373,6 @@ the Web Process.</p>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.26.1</div>
+<hr>Generated by GTK-Doc V1.29.1</div>
 </body>
 </html>

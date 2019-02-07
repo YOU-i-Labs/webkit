@@ -41,7 +41,7 @@
 #include "Logging.h"
 #include "MediaControlElements.h"
 #include "TextTrackList.h"
-#include "URL.h"
+#include <wtf/URL.h>
 #include "UserStyleSheetTypes.h"
 #include "VTTCue.h"
 #include <algorithm>
@@ -52,7 +52,7 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #import "WebCoreThreadRun.h"
 #endif
 
@@ -85,7 +85,7 @@ SOFT_LINK_AVF_FRAMEWORK_IMPORT_OPTIONAL(CoreMedia, MTEnableCaption2015Behavior, 
 
 #else
 
-SOFT_LINK_FRAMEWORK(MediaToolbox)
+SOFT_LINK_FRAMEWORK_OPTIONAL(MediaToolbox)
 SOFT_LINK_OPTIONAL(MediaToolbox, MTEnableCaption2015Behavior, Boolean, (), ())
 
 #endif // PLATFORM(WIN)
@@ -97,7 +97,7 @@ namespace WebCore {
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
 static void userCaptionPreferencesChangedNotificationCallback(CFNotificationCenterRef, void* observer, CFStringRef, const void *, CFDictionaryRef)
 {
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     static_cast<CaptionUserPreferencesMediaAF*>(observer)->captionPreferencesChanged();
 #else
     WebThreadRun(^{
@@ -117,6 +117,11 @@ CaptionUserPreferencesMediaAF::CaptionUserPreferencesMediaAF(PageGroup& group)
     static bool initialized;
     if (!initialized) {
         initialized = true;
+
+#if !PLATFORM(WIN)
+        if (!MediaToolboxLibrary())
+            return;
+#endif
 
         MTEnableCaption2015BehaviorPtrType function = MTEnableCaption2015BehaviorPtr();
         if (!function || !function())

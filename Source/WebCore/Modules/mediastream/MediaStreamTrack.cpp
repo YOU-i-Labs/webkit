@@ -92,6 +92,59 @@ const String& MediaStreamTrack::label() const
     return m_private->label();
 }
 
+const AtomicString& MediaStreamTrack::contentHint() const
+{
+    static NeverDestroyed<const AtomicString> speechHint("speech", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomicString> musicHint("music", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomicString> detailHint("detail", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomicString> textHint("text", AtomicString::ConstructFromLiteral);
+    static NeverDestroyed<const AtomicString> motionHint("motion", AtomicString::ConstructFromLiteral);
+
+    switch (m_private->contentHint()) {
+    case MediaStreamTrackPrivate::HintValue::Empty:
+        return emptyAtom();
+    case MediaStreamTrackPrivate::HintValue::Speech:
+        return speechHint;
+    case MediaStreamTrackPrivate::HintValue::Music:
+        return musicHint;
+    case MediaStreamTrackPrivate::HintValue::Motion:
+        return motionHint;
+    case MediaStreamTrackPrivate::HintValue::Detail:
+        return detailHint;
+    case MediaStreamTrackPrivate::HintValue::Text:
+        return textHint;
+    default:
+        return emptyAtom();
+    }
+}
+
+void MediaStreamTrack::setContentHint(const String& hintValue)
+{
+    MediaStreamTrackPrivate::HintValue value;
+    if (m_private->type() == RealtimeMediaSource::Type::Audio) {
+        if (hintValue == "")
+            value = MediaStreamTrackPrivate::HintValue::Empty;
+        else if (hintValue == "speech")
+            value = MediaStreamTrackPrivate::HintValue::Speech;
+        else if (hintValue == "music")
+            value = MediaStreamTrackPrivate::HintValue::Music;
+        else
+            return;
+    } else {
+        if (hintValue == "")
+            value = MediaStreamTrackPrivate::HintValue::Empty;
+        else if (hintValue == "detail")
+            value = MediaStreamTrackPrivate::HintValue::Detail;
+        else if (hintValue == "motion")
+            value = MediaStreamTrackPrivate::HintValue::Motion;
+        else if (hintValue == "text")
+            value = MediaStreamTrackPrivate::HintValue::Text;
+        else
+            return;
+    }
+    m_private->setContentHint(value);
+}
+
 bool MediaStreamTrack::enabled() const
 {
     return m_private->enabled();
@@ -144,7 +197,7 @@ void MediaStreamTrack::stopTrack(StopMode mode)
     configureTrackRendering();
 }
 
-MediaStreamTrack::TrackSettings MediaStreamTrack::getSettings(Document& document) const
+MediaStreamTrack::TrackSettings MediaStreamTrack::getSettings() const
 {
     auto& settings = m_private->settings();
     TrackSettings result;
@@ -167,9 +220,9 @@ MediaStreamTrack::TrackSettings MediaStreamTrack::getSettings(Document& document
     if (settings.supportsEchoCancellation())
         result.echoCancellation = settings.echoCancellation();
     if (settings.supportsDeviceId())
-        result.deviceId = RealtimeMediaSourceCenter::singleton().hashStringWithSalt(settings.deviceId(), document.deviceIDHashSalt());
+        result.deviceId = settings.deviceId();
     if (settings.supportsGroupId())
-        result.groupId = RealtimeMediaSourceCenter::singleton().hashStringWithSalt(settings.groupId(), document.deviceIDHashSalt());
+        result.groupId = settings.groupId();
 
     // FIXME: shouldn't this include displaySurface and logicalSurface?
 
@@ -263,7 +316,7 @@ MediaStreamTrack::TrackCapabilities MediaStreamTrack::getCapabilities() const
     return result;
 }
 
-static MediaConstraints createMediaConstraints(const std::optional<MediaTrackConstraints>& constraints)
+static MediaConstraints createMediaConstraints(const Optional<MediaTrackConstraints>& constraints)
 {
     if (!constraints) {
         MediaConstraints validConstraints;
@@ -273,11 +326,11 @@ static MediaConstraints createMediaConstraints(const std::optional<MediaTrackCon
     return createMediaConstraints(constraints.value());
 }
 
-void MediaStreamTrack::applyConstraints(const std::optional<MediaTrackConstraints>& constraints, DOMPromiseDeferred<void>&& promise)
+void MediaStreamTrack::applyConstraints(const Optional<MediaTrackConstraints>& constraints, DOMPromiseDeferred<void>&& promise)
 {
     m_promise = WTFMove(promise);
 
-    auto weakThis = createWeakPtr();
+    auto weakThis = makeWeakPtr(*this);
     auto failureHandler = [weakThis] (const String& failedConstraint, const String& message) {
         if (!weakThis || !weakThis->m_promise)
             return;
@@ -287,7 +340,7 @@ void MediaStreamTrack::applyConstraints(const std::optional<MediaTrackConstraint
         if (!weakThis || !weakThis->m_promise)
             return;
         weakThis->m_promise->resolve();
-        weakThis->m_constraints = constraints.value_or(MediaTrackConstraints { });
+        weakThis->m_constraints = constraints.valueOr(MediaTrackConstraints { });
     };
     m_private->applyConstraints(createMediaConstraints(constraints), WTFMove(successHandler), WTFMove(failureHandler));
 }
@@ -333,12 +386,14 @@ MediaProducer::MediaStateFlags MediaStreamTrack::mediaState() const
         if (m_private->isProducingData())
             return HasActiveAudioCaptureDevice;
     } else {
+        auto deviceType = source().deviceType();
+        ASSERT(deviceType == CaptureDevice::DeviceType::Camera || deviceType == CaptureDevice::DeviceType::Screen || deviceType == CaptureDevice::DeviceType::Window);
         if (source().interrupted() && !pageCaptureMuted)
-            return HasInterruptedVideoCaptureDevice;
+            return deviceType == CaptureDevice::DeviceType::Camera ? HasInterruptedVideoCaptureDevice : HasInterruptedDisplayCaptureDevice;
         if (muted())
-            return HasMutedVideoCaptureDevice;
+            return deviceType == CaptureDevice::DeviceType::Camera ? HasMutedVideoCaptureDevice : HasMutedDisplayCaptureDevice;
         if (m_private->isProducingData())
-            return HasActiveVideoCaptureDevice;
+            return deviceType == CaptureDevice::DeviceType::Camera ? HasActiveVideoCaptureDevice : HasActiveDisplayCaptureDevice;
     }
 
     return IsNotPlaying;
@@ -365,7 +420,7 @@ void MediaStreamTrack::trackEnded(MediaStreamTrackPrivate&)
 
     // 3. Notify track's source that track is ended so that the source may be stopped, unless other MediaStreamTrack objects depend on it.
     // 4. Fire a simple event named ended at the object.
-    dispatchEvent(Event::create(eventNames().endedEvent, false, false));
+    dispatchEvent(Event::create(eventNames().endedEvent, Event::CanBubble::No, Event::IsCancelable::No));
 
     for (auto& observer : m_observers)
         observer->trackDidEnd();
@@ -379,7 +434,7 @@ void MediaStreamTrack::trackMutedChanged(MediaStreamTrackPrivate&)
         return;
 
     AtomicString eventType = muted() ? eventNames().muteEvent : eventNames().unmuteEvent;
-    dispatchEvent(Event::create(eventType, false, false));
+    dispatchEvent(Event::create(eventType, Event::CanBubble::No, Event::IsCancelable::No));
 
     configureTrackRendering();
 }

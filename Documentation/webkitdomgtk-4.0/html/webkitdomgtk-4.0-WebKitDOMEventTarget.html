@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="ch01.html" title="Class Overview">
 <link rel="next" href="webkitdomgtk-4.0-WebKitDOMNodeFilter.html" title="WebKitDOMNodeFilter">
-<meta name="generator" content="GTK-Doc V1.26.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -94,6 +94,10 @@ webkit_dom_event_target_dispatch_event
                                (<em class="parameter"><code><span class="type">WebKitDOMEventTarget</span> *target</code></em>,
                                 <em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *event</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_event_target_dispatch_event</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-event-target-dispatch-event.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -136,6 +140,10 @@ webkit_dom_event_target_add_event_listener
                                 <em class="parameter"><code><a href="../gobject/gobject-Closures.html#GCallback"><span class="type">GCallback</span></a> handler</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> use_capture</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gpointer"><span class="type">gpointer</span></a> user_data</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_event_target_add_event_listener</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-event-target-add-event-listener.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -187,6 +195,10 @@ webkit_dom_event_target_remove_event_listener
                                 <em class="parameter"><code>const <span class="type">char</span> *event_name</code></em>,
                                 <em class="parameter"><code><a href="../gobject/gobject-Closures.html#GCallback"><span class="type">GCallback</span></a> handler</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> use_capture</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_event_target_remove_event_listener</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-event-target-remove-event-listener.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -231,8 +243,12 @@ webkit_dom_event_target_remove_event_listener
 webkit_dom_event_target_add_event_listener_with_closure
                                (<em class="parameter"><code><span class="type">WebKitDOMEventTarget</span> *target</code></em>,
                                 <em class="parameter"><code>const <span class="type">char</span> *event_name</code></em>,
-                                <em class="parameter"><code><a href="../gobject/gobject-Closures.html#GClosure"><span class="type">GClosure</span></a> *handler</code></em>,
+                                <em class="parameter"><code><a href="../gobject/gobject-Closures.html#GClosure-struct"><span class="type">GClosure</span></a> *handler</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> use_capture</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_event_target_add_event_listener_with_closure</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <p>Version of <a class="link" href="webkitdomgtk-4.0-WebKitDOMEventTarget.html#webkit-dom-event-target-add-event-listener" title="webkit_dom_event_target_add_event_listener ()"><code class="function">webkit_dom_event_target_add_event_listener()</code></a> using a closure
 instead of a callbacks for easier binding in other languages.</p>
 <p><span class="annotation">[<acronym title="Rename the original symbol's name to SYMBOL."><span class="acronym">rename-to</span></acronym> webkit_dom_event_target_add_event_listener]</span></p>
@@ -257,7 +273,7 @@ instead of a callbacks for easier binding in other languages.</p>
 </tr>
 <tr>
 <td class="parameter_name"><p>handler</p></td>
-<td class="parameter_description"><p>A <a href="../gobject/gobject-Closures.html#GClosure"><span class="type">GClosure</span></a></p></td>
+<td class="parameter_description"><p>A <a href="../gobject/gobject-Closures.html#GClosure-struct"><span class="type">GClosure</span></a></p></td>
 <td class="parameter_annotations"> </td>
 </tr>
 <tr>
@@ -280,8 +296,12 @@ instead of a callbacks for easier binding in other languages.</p>
 webkit_dom_event_target_remove_event_listener_with_closure
                                (<em class="parameter"><code><span class="type">WebKitDOMEventTarget</span> *target</code></em>,
                                 <em class="parameter"><code>const <span class="type">char</span> *event_name</code></em>,
-                                <em class="parameter"><code><a href="../gobject/gobject-Closures.html#GClosure"><span class="type">GClosure</span></a> *handler</code></em>,
+                                <em class="parameter"><code><a href="../gobject/gobject-Closures.html#GClosure-struct"><span class="type">GClosure</span></a> *handler</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> use_capture</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_event_target_remove_event_listener_with_closure</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <p>Version of <a class="link" href="webkitdomgtk-4.0-WebKitDOMEventTarget.html#webkit-dom-event-target-remove-event-listener" title="webkit_dom_event_target_remove_event_listener ()"><code class="function">webkit_dom_event_target_remove_event_listener()</code></a> using a closure
 instead of a callbacks for easier binding in other languages.</p>
 <p><span class="annotation">[<acronym title="Rename the original symbol's name to SYMBOL."><span class="acronym">rename-to</span></acronym> webkit_dom_event_target_remove_event_listener]</span></p>
@@ -306,7 +326,7 @@ instead of a callbacks for easier binding in other languages.</p>
 </tr>
 <tr>
 <td class="parameter_name"><p>handler</p></td>
-<td class="parameter_description"><p>A <a href="../gobject/gobject-Closures.html#GClosure"><span class="type">GClosure</span></a></p></td>
+<td class="parameter_description"><p>A <a href="../gobject/gobject-Closures.html#GClosure-struct"><span class="type">GClosure</span></a></p></td>
 <td class="parameter_annotations"> </td>
 </tr>
 <tr>
@@ -328,6 +348,6 @@ instead of a callbacks for easier binding in other languages.</p>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.26.1</div>
+<hr>Generated by GTK-Doc V1.29.1</div>
 </body>
 </html>

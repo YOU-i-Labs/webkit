@@ -118,25 +118,57 @@ Object.defineProperty(Map.prototype, "take",
     }
 });
 
+Object.defineProperty(Set.prototype, "intersects",
+{
+    value(other)
+    {
+        if (!this.size || !other.size)
+            return false;
+
+        for (let item of this) {
+            if (other.has(item))
+                return true;
+        }
+
+        return false;
+    }
+});
+
+Object.defineProperty(Set.prototype, "isSubsetOf",
+{
+    value(other)
+    {
+        for (let item of this) {
+            if (!other.has(item))
+                return false;
+        }
+
+        return true;
+    }
+});
+
 Object.defineProperty(Node.prototype, "enclosingNodeOrSelfWithClass",
 {
     value(className)
     {
-        for (var node = this; node && node !== this.ownerDocument; node = node.parentNode)
+        for (let node = this; node; node = node.parentElement) {
             if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains(className))
                 return node;
+        }
+
         return null;
     }
 });
 
 Object.defineProperty(Node.prototype, "enclosingNodeOrSelfWithNodeNameInArray",
 {
-    value(nameArray)
+    value(nodeNames)
     {
-        var lowerCaseNameArray = nameArray.map(function(name) { return name.toLowerCase(); });
-        for (var node = this; node && node !== this.ownerDocument; node = node.parentNode) {
-            for (var i = 0; i < nameArray.length; ++i) {
-                if (node.nodeName.toLowerCase() === lowerCaseNameArray[i])
+        let upperCaseNodeNames = nodeNames.map((name) => name.toUpperCase());
+
+        for (let node = this; node; node = node.parentElement) {
+            for (let nodeName of upperCaseNodeNames) {
+                if (node.nodeName === nodeName)
                     return node;
             }
         }
@@ -150,50 +182,6 @@ Object.defineProperty(Node.prototype, "enclosingNodeOrSelfWithNodeName",
     value(nodeName)
     {
         return this.enclosingNodeOrSelfWithNodeNameInArray([nodeName]);
-    }
-});
-
-Object.defineProperty(Node.prototype, "isAncestor",
-{
-    value(node)
-    {
-        if (!node)
-            return false;
-
-        var currentNode = node.parentNode;
-        while (currentNode) {
-            if (this === currentNode)
-                return true;
-            currentNode = currentNode.parentNode;
-        }
-
-        return false;
-    }
-});
-
-Object.defineProperty(Node.prototype, "isDescendant",
-{
-    value(descendant)
-    {
-        return !!descendant && descendant.isAncestor(this);
-    }
-});
-
-
-Object.defineProperty(Node.prototype, "isSelfOrAncestor",
-{
-    value(node)
-    {
-        return !!node && (node === this || this.isAncestor(node));
-    }
-});
-
-
-Object.defineProperty(Node.prototype, "isSelfOrDescendant",
-{
-    value(node)
-    {
-        return !!node && (node === this || this.isDescendant(node));
     }
 });
 
@@ -387,17 +375,7 @@ Object.defineProperty(Element.prototype, "isInsertionCaretInside",
         if (!selection.rangeCount || !selection.isCollapsed)
             return false;
         var selectionRange = selection.getRangeAt(0);
-        return selectionRange.startContainer === this || selectionRange.startContainer.isDescendant(this);
-    }
-});
-
-Object.defineProperty(Element.prototype, "removeMatchingStyleClasses",
-{
-    value(classNameRegex)
-    {
-        var regex = new RegExp("(^|\\s+)" + classNameRegex + "($|\\s+)");
-        if (regex.test(this.className))
-            this.className = this.className.replace(regex, " ");
+        return selectionRange.startContainer === this || this.contains(selectionRange.startContainer);
     }
 });
 
@@ -444,11 +422,51 @@ Object.defineProperty(Event.prototype, "stop",
     }
 });
 
+Object.defineProperty(KeyboardEvent.prototype, "commandOrControlKey",
+{
+    get()
+    {
+        return WI.Platform.name === "mac" ? this.metaKey : this.ctrlKey;
+    }
+});
+
+Object.defineProperty(MouseEvent.prototype, "commandOrControlKey",
+{
+    get()
+    {
+        return WI.Platform.name === "mac" ? this.metaKey : this.ctrlKey;
+    }
+});
+
+Object.defineProperty(Array, "isTypedArray",
+{
+    value(array)
+    {
+        if (!array)
+            return false;
+
+        let constructor = array.constructor;
+        return constructor === Int8Array
+            || constructor === Int16Array
+            || constructor === Int32Array
+            || constructor === Uint8Array
+            || constructor === Uint8ClampedArray
+            || constructor === Uint16Array
+            || constructor === Uint32Array
+            || constructor === Float32Array
+            || constructor === Float64Array;
+    }
+});
+
 Object.defineProperty(Array, "shallowEqual",
 {
     value(a, b)
     {
-        if (!Array.isArray(a) || !Array.isArray(b))
+        function isArrayLike(x) {
+            return Array.isArray(x) || Array.isTypedArray(x);
+        }
+
+        if (!isArrayLike(a) || !isArrayLike(b))
             return false;
 
         if (a === b)
@@ -478,6 +496,14 @@ Object.defineProperty(Array.prototype, "lastValue",
         if (!this.length)
             return undefined;
         return this[this.length - 1];
+    }
+});
+
+Object.defineProperty(Array.prototype, "adjacencies",
+{
+    value: function*() {
+        for (let i = 1; i < this.length; ++i)
+            yield [this[i - 1], this[i]];
     }
 });
 
@@ -572,6 +598,18 @@ Object.defineProperty(String.prototype, "isUpperCase",
     }
 });
 
+Object.defineProperty(String.prototype, "truncateStart",
+{
+    value(maxLength)
+    {
+        "use strict";
+
+        if (this.length <= maxLength)
+            return this;
+        return ellipsis + this.substr(this.length - maxLength + 1);
+    }
+});
+
 Object.defineProperty(String.prototype, "truncateMiddle",
 {
     value(maxLength)
@@ -634,27 +672,32 @@ Object.defineProperty(String.prototype, "removeWhitespace",
 
 Object.defineProperty(String.prototype, "escapeCharacters",
 {
-    value(chars)
+    value(charactersToEscape)
     {
-        var foundChar = false;
-        for (var i = 0; i < chars.length; ++i) {
-            if (this.indexOf(chars.charAt(i)) !== -1) {
-                foundChar = true;
-                break;
-            }
+        if (!charactersToEscape)
+            return this.valueOf();
+
+        let charactersToEscapeSet = new Set(charactersToEscape);
+
+        let foundCharacter = false;
+        for (let c of this) {
+            if (!charactersToEscapeSet.has(c))
+                continue;
+            foundCharacter = true;
+            break;
         }
 
-        if (!foundChar)
-            return this;
+        if (!foundCharacter)
+            return this.valueOf();
 
-        var result = "";
-        for (var i = 0; i < this.length; ++i) {
-            if (chars.indexOf(this.charAt(i)) !== -1)
+        let result = "";
+        for (let c of this) {
+            if (charactersToEscapeSet.has(c))
                 result += "\\";
-            result += this.charAt(i);
+            result += c;
         }
 
-        return result;
+        return result.valueOf();
     }
 });
 
@@ -953,22 +996,6 @@ Object.defineProperty(String.prototype, "removeWordBreakCharacters",
     {
         // Undoes what insertWordBreakCharacters did.
         return this.replace(/\u200b/g, "");
-    }
-});
-
-Object.defineProperty(String.prototype, "getMatchingIndexes",
-{
-    value(needle)
-    {
-        var indexesOfNeedle = [];
-        var index = this.indexOf(needle);
-
-        while (index >= 0) {
-            indexesOfNeedle.push(index);
-            index = this.indexOf(needle, index + 1);
-        }
-
-        return indexesOfNeedle;
     }
 });
 
@@ -1373,6 +1400,25 @@ Object.defineProperty(Array.prototype, "binaryIndexOf",
     }
 });
 
+Object.defineProperty(Promise, "chain",
+{
+    async value(callbacks, initialValue)
+    {
+        let results = [];
+        for (let i = 0; i < callbacks.length; ++i)
+            results.push(await callbacks[i](results.lastValue || initialValue || null, i));
+        return results;
+    }
+});
+
+Object.defineProperty(Promise, "delay",
+{
+    value(delay)
+    {
+        return new Promise((resolve) => setTimeout(resolve, delay || 0));
+    }
+});
+
 (function() {
     // The `debounce` function lets you call any function on an object with a delay
     // and if the function keeps getting called, the delay gets reset. Since `debounce`
@@ -1567,17 +1613,13 @@ function isFunctionStringNativeCode(str)
     return str.endsWith("{\n    [native code]\n}");
 }
 
-function isTextLikelyMinified(content)
+function whitespaceRatio(content, start, end)
 {
-    const autoFormatMaxCharactersToCheck = 5000;
-    const autoFormatWhitespaceRatio = 0.2;
-
     let whitespaceScore = 0;
-    let size = Math.min(autoFormatMaxCharactersToCheck, content.length);
+    let size = end - start;
 
-    for (let i = 0; i < size; i++) {
+    for (let i = start; i < end; i++) {
         let char = content[i];
-
         if (char === " ")
             whitespaceScore++;
         else if (char === "\t")
@@ -1587,7 +1629,28 @@ function isTextLikelyMinified(content)
     }
 
     let ratio = whitespaceScore / size;
-    return ratio < autoFormatWhitespaceRatio;
+    return ratio;
+}
+
+function isTextLikelyMinified(content)
+{
+    const autoFormatMaxCharactersToCheck = 2500;
+    const autoFormatWhitespaceRatio = 0.2;
+
+    if (content.length <= autoFormatMaxCharactersToCheck) {
+        let ratio = whitespaceRatio(content, 0, content.length);
+        return ratio < autoFormatWhitespaceRatio;
+    }
+
+    let startRatio = whitespaceRatio(content, 0, autoFormatMaxCharactersToCheck);
+    if (startRatio < autoFormatWhitespaceRatio)
+        return true;
+
+    let endRatio = whitespaceRatio(content, content.length - autoFormatMaxCharactersToCheck, content.length)
+    if (endRatio < autoFormatWhitespaceRatio)
+        return true;
+
+    return false;
 }
 
 function doubleQuotedString(str)

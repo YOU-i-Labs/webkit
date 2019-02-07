@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,10 +26,8 @@
 #include "config.h"
 #include "NetworkSession.h"
 
-#include "NetworkDataTask.h"
+#include "WebResourceLoadStatisticsStore.h"
 #include <WebCore/NetworkStorageSession.h>
-#include <wtf/MainThread.h>
-#include <wtf/RunLoop.h>
 
 #if PLATFORM(COCOA)
 #include "NetworkSessionCocoa.h"
@@ -37,19 +35,23 @@
 #if USE(SOUP)
 #include "NetworkSessionSoup.h"
 #endif
-
-
-using namespace WebCore;
+#if USE(CURL)
+#include "NetworkSessionCurl.h"
+#endif
 
 namespace WebKit {
+using namespace WebCore;
 
-Ref<NetworkSession> NetworkSession::create(NetworkSessionCreationParameters&& parameters)
+Ref<NetworkSession> NetworkSession::create(NetworkProcess& networkProcess, NetworkSessionCreationParameters&& parameters)
 {
 #if PLATFORM(COCOA)
-    return NetworkSessionCocoa::create(WTFMove(parameters));
+    return NetworkSessionCocoa::create(networkProcess, WTFMove(parameters));
 #endif
 #if USE(SOUP)
-    return NetworkSessionSoup::create(WTFMove(parameters));
+    return NetworkSessionSoup::create(networkProcess, WTFMove(parameters));
+#endif
+#if USE(CURL)
+    return NetworkSessionCurl::create(networkProcess, WTFMove(parameters));
 #endif
 }
 
@@ -60,8 +62,9 @@ NetworkStorageSession& NetworkSession::networkStorageSession() const
     return *storageSession;
 }
 
-NetworkSession::NetworkSession(PAL::SessionID sessionID)
+NetworkSession::NetworkSession(NetworkProcess& networkProcess, PAL::SessionID sessionID)
     : m_sessionID(sessionID)
+    , m_networkProcess(networkProcess)
 {
 }
 
@@ -75,13 +78,12 @@ void NetworkSession::invalidateAndCancel()
         task->invalidateAndCancel();
 }
 
-bool NetworkSession::allowsSpecificHTTPSCertificateForHost(const WebCore::AuthenticationChallenge& challenge)
+void NetworkSession::enableResourceLoadStatistics()
 {
-#if PLATFORM(COCOA)
-    return NetworkSessionCocoa::allowsSpecificHTTPSCertificateForHost(challenge);
-#else
-    return false;
-#endif
+    if (m_resourceLoadStatistics)
+        return;
+
+    m_resourceLoadStatistics = WebResourceLoadStatisticsStore::create(*this, m_resourceLoadStatisticsDirectory);
 }
 
 } // namespace WebKit

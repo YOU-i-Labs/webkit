@@ -219,7 +219,7 @@ void MediaTrackConstraintSetMap::filter(const WTF::Function<bool(const MediaCons
         return;
 }
 
-void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::optional<IntConstraint>&& constraint)
+void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, Optional<IntConstraint>&& constraint)
 {
     switch (constraintType) {
     case MediaConstraintType::Width:
@@ -250,7 +250,7 @@ void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::op
     }
 }
 
-void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::optional<DoubleConstraint>&& constraint)
+void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, Optional<DoubleConstraint>&& constraint)
 {
     switch (constraintType) {
     case MediaConstraintType::AspectRatio:
@@ -279,7 +279,7 @@ void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::op
     }
 }
 
-void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::optional<BooleanConstraint>&& constraint)
+void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, Optional<BooleanConstraint>&& constraint)
 {
     switch (constraintType) {
     case MediaConstraintType::EchoCancellation:
@@ -308,7 +308,7 @@ void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::op
     }
 }
 
-void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::optional<StringConstraint>&& constraint)
+void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, Optional<StringConstraint>&& constraint)
 {
     switch (constraintType) {
     case MediaConstraintType::FacingMode:
@@ -370,7 +370,7 @@ static inline void addDefaultVideoConstraints(MediaTrackConstraintSetMap& videoC
     }
     if (addFacingModeConstraint) {
         StringConstraint facingModeConstraint({ }, MediaConstraintType::FacingMode);
-        facingModeConstraint.setIdeal(ASCIILiteral("user"));
+        facingModeConstraint.setIdeal("user"_s);
         videoConstraints.set(MediaConstraintType::FacingMode, WTFMove(facingModeConstraint));
     }
 }

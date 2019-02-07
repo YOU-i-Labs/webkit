@@ -42,20 +42,10 @@
 #endif
 
 #if OS(WINDOWS)
-
-#if !USE(CURL)
-#ifndef _WINSOCKAPI_
-#define _WINSOCKAPI_ // Prevent inclusion of winsock.h in windows.h
-#endif
-#endif
-
 #undef WEBCORE_EXPORT
 #define WEBCORE_EXPORT WTF_EXPORT_DECLARATION
-
 #else
-
 #include <pthread.h>
-
 #endif // OS(WINDOWS)
 
 #include <sys/types.h>
@@ -94,6 +84,10 @@
 
 #if USE(CF)
 #include <CoreFoundation/CoreFoundation.h>
+#endif
+
+#if USE(CG)
+#include <CoreGraphics/CoreGraphics.h>
 #endif
 
 #if OS(WINDOWS)
@@ -146,23 +140,27 @@
 #endif
 
 #include <windows.h>
-#else
-#if !PLATFORM(IOS)
-#include <CoreServices/CoreServices.h>
-#endif // !PLATFORM(IOS)
 #endif // OS(WINDOWS)
+
+#if PLATFORM(IOS_FAMILY)
+#include <MobileCoreServices/MobileCoreServices.h>
+#endif
+
+#if PLATFORM(MAC)
+#include <CoreServices/CoreServices.h>
+#endif
 
 #endif
 
 #ifdef __OBJC__
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #import <Foundation/Foundation.h>
 #else
 #if USE(APPKIT)
 #import <Cocoa/Cocoa.h>
 #import <wtf/mac/AppKitCompatibilityDeclarations.h>
 #endif
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)
 #endif
 
 #ifdef __cplusplus

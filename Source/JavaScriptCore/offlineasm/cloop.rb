@@ -88,6 +88,8 @@ class RegisterID
             "tagTypeNumber"
         when "csr2"
             "tagMask"
+        when "csr3"
+            "metadataTable"
         when "cfr"
             "cfr"
         when "lr"
@@ -416,7 +418,7 @@ end
 def cloopEmitCompareAndSet(operands, type, comparator)
     # The result is a boolean.  Hence, it doesn't need to be based on the type
     # of the arguments being compared.
-    $asm.putc "#{operands[2].clValue} = (#{operands[0].clValue(type)} #{comparator} #{op2 = operands[1].clValue(type)});"
+    $asm.putc "#{operands[2].clValue} = (#{operands[0].clValue(type)} #{comparator} #{operands[1].clValue(type)});"
 end
 
 
@@ -480,71 +482,26 @@ def cloopEmitOpAndBranch(operands, operator, type, conditionTest)
     $asm.putc "}"
 end
 
-def cloopAddOverflowTest(operands, type)
-    case type
-    when :int32
-        tempType = "int32_t"
-        signBit = "SIGN_BIT32"
-    else
-        raise "Unimplemented type"
-    end
-
-    $asm.putc "    #{tempType} a = #{operands[0].clValue(type)};"
-    $asm.putc "    #{tempType} b = #{operands[1].clValue(type)};"
-    $asm.putc "    // sign(b) sign(a) | Overflows if:"
-    $asm.putc "    // 0       0       | sign(b+a) = 1 (pos + pos != neg)"
-    $asm.putc "    // 0       1       | never"
-    $asm.putc "    // 1       0       | never"
-    $asm.putc "    // 1       1       | sign(b+a) = 0 (neg + neg != pos)"
-    "((#{signBit}(b) == #{signBit}(a)) && (#{signBit}(b+a) != #{signBit}(a)))"
-end
-
-def cloopSubOverflowTest(operands, type)
-    case type
-    when :int32
-        tempType = "int32_t"
-        signBit = "SIGN_BIT32"
-    else
-        raise "Unimplemented type"
-    end
-
-    $asm.putc "    #{tempType} a = #{operands[0].clValue(type)};"
-    $asm.putc "    #{tempType} b = #{operands[1].clValue(type)};"
-    $asm.putc "    // sign(b) sign(a) | Overflows if:"
-    $asm.putc "    // 0       0       | never"
-    $asm.putc "    // 0       1       | sign(b-a) = 1 (pos - neg != pos)"
-    $asm.putc "    // 1       0       | sign(b-a) = 0 (neg - pos != pos)"
-    $asm.putc "    // 1       1       | never"
-    "((#{signBit}(b) != #{signBit}(a)) && (#{signBit}(b-a) == #{signBit}(a)))"
-end
-
-def cloopMulOverflowTest(operands, type)
-    case type
-    when :int32
-        tempType = "uint32_t"
-    else
-        raise "Unimplemented type"
-    end
-    $asm.putc "    #{tempType} a = #{operands[0].clValue(type)};"
-    $asm.putc "    #{tempType} b = #{operands[1].clValue(type)};"
-    "((b | a) >> 15)"
-end
-
 def cloopEmitOpAndBranchIfOverflow(operands, operator, type)
+    case type
+    when :int32
+        tempType = "int32_t"
+    else
+        raise "Unimplemented type"
+    end
+
     $asm.putc "{"
 
     # Emit the overflow test based on the operands and the type:
     case operator
-    when "+"; overflowTest = cloopAddOverflowTest(operands, type)
-    when "-"; overflowTest = cloopSubOverflowTest(operands, type)
-    when "*"; overflowTest = cloopMulOverflowTest(operands, type)
+    when "+"; operation = "add"
+    when "-"; operation = "sub"
+    when "*"; operation = "multiply"
     else
         raise "Unimplemented opeartor"
     end
 
-    $asm.putc "    bool didOverflow = #{overflowTest};"
-    $asm.putc "    #{operands[1].clValue(type)} = #{operands[1].clValue(type)} #{operator} #{operands[0].clValue(type)};"
-    $asm.putc "    if (didOverflow)"
+    $asm.putc "    if (!WTF::ArithmeticOperations<#{tempType}, #{tempType}, #{tempType}>::#{operation}(#{operands[1].clValue(type)}, #{operands[0].clValue(type)}, #{operands[1].clValue(type)}))"
     $asm.putc "        goto #{operands[2].cLabel};"
     $asm.putc "}"
 end
@@ -554,7 +511,7 @@ def cloopEmitCallSlowPath(operands)
     $asm.putc "{"
     $asm.putc "    cloopStack.setCurrentStackPointer(sp.vp);"
     $asm.putc "    SlowPathReturnType result = #{operands[0].cLabel}(#{operands[1].clDump}, #{operands[2].clDump});"
-    $asm.putc "    decodeResult(result, t0.vp, t1.vp);"
+    $asm.putc "    decodeResult(result, t0.cvp, t1.cvp);"
     $asm.putc "}"
 end
 
@@ -564,8 +521,6 @@ def cloopEmitCallSlowPathVoid(operands)
 end
 
 class Instruction
-    @@didReturnFromJSLabelCounter = 0
-
     def lowerC_LOOP
         case opcode
         when "addi"
@@ -639,7 +594,7 @@ class Instruction
             cloopEmitUnaryOperation(operands, :int, "-")
 
         when "noti"
-            cloopEmitUnaryOperation(operands, :int32, "!")
+            cloopEmitUnaryOperation(operands, :int32, "~")
 
         when "loadi"
             $asm.putc "#{operands[1].clValue(:uint)} = #{operands[0].uint32MemRef};"
@@ -659,7 +614,7 @@ class Instruction
             $asm.putc "#{operands[1].intMemRef} = #{operands[0].clValue(:int)};"
         when "loadb"
             $asm.putc "#{operands[1].clValue(:int)} = #{operands[0].uint8MemRef};"
-        when "loadbs"
+        when "loadbs", "loadbsp"
             $asm.putc "#{operands[1].clValue(:int)} = #{operands[0].int8MemRef};"
         when "storeb"
             $asm.putc "#{operands[1].uint8MemRef} = #{operands[0].clValue(:int8)};"
@@ -1123,11 +1078,11 @@ class Instruction
         # use of the call instruction. Instead, we just implement JS calls
         # as an opcode dispatch.
         when "cloopCallJSFunction"
-            @@didReturnFromJSLabelCounter += 1
-            $asm.putc "lr.opcode = getOpcode(llint_cloop_did_return_from_js_#{@@didReturnFromJSLabelCounter});"
+            uid = $asm.newUID
+            $asm.putc "lr.opcode = getOpcode(llint_cloop_did_return_from_js_#{uid});"
             $asm.putc "opcode = #{operands[0].clValue(:opcode)};"
             $asm.putc "DISPATCH_OPCODE();"
-            $asm.putsLabel("llint_cloop_did_return_from_js_#{@@didReturnFromJSLabelCounter}", false)
+            $asm.putsLabel("llint_cloop_did_return_from_js_#{uid}", false)
 
         # We can't do generic function calls with an arbitrary set of args, but
         # fortunately we don't have to here. All native function calls always

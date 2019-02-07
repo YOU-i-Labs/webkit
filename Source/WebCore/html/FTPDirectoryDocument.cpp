@@ -39,10 +39,13 @@
 #include "SharedBuffer.h"
 #include "Text.h"
 #include <wtf/GregorianDateTime.h>
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(FTPDirectoryDocument);
 
 using namespace HTMLNames;
     
@@ -156,7 +159,7 @@ Ref<Element> FTPDirectoryDocumentParser::createTDForFilename(const String& filen
 static String processFilesizeString(const String& size, bool isDirectory)
 {
     if (isDirectory)
-        return ASCIILiteral("--");
+        return "--"_s;
 
     bool valid;
     int64_t bytes = size.toUInt64(&valid);
@@ -278,7 +281,7 @@ void FTPDirectoryDocumentParser::parseAndAppendOneLine(const String& inputLine)
 
 static inline RefPtr<SharedBuffer> createTemplateDocumentData(const Settings& settings)
 {
-    RefPtr<SharedBuffer> buffer = SharedBuffer::createWithContentsOfFile(settings.ftpDirectoryTemplatePath());
+    auto buffer = SharedBuffer::createWithContentsOfFile(settings.ftpDirectoryTemplatePath());
     if (buffer)
         LOG(FTP, "Loaded FTPDirectoryTemplate of length %zu\n", buffer->size());
     return buffer;
@@ -299,7 +302,7 @@ bool FTPDirectoryDocumentParser::loadDocumentTemplate()
 
     auto& document = *this->document();
 
-    auto foundElement = makeRefPtr(document.getElementById(String(ASCIILiteral("ftpDirectoryTable"))));
+    auto foundElement = makeRefPtr(document.getElementById(String("ftpDirectoryTable"_s)));
     if (!foundElement)
         LOG_ERROR("Unable to find element by id \"ftpDirectoryTable\" in the template document.");
     else if (!is<HTMLTableElement>(foundElement))

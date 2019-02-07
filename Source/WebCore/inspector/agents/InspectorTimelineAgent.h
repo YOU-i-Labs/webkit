@@ -83,6 +83,8 @@ enum class TimelineRecordType {
     RequestAnimationFrame,
     CancelAnimationFrame,
     FireAnimationFrame,
+    
+    ObserverCallback,
 };
 
 class InspectorTimelineAgent final
@@ -98,7 +100,7 @@ public:
     void didCreateFrontendAndBackend(Inspector::FrontendRouter*, Inspector::BackendDispatcher*) final;
     void willDestroyFrontendAndBackend(Inspector::DisconnectReason) final;
 
-    void start(ErrorString&, const int* const maxCallStackDepth = nullptr) final;
+    void start(ErrorString&, const int* maxCallStackDepth = nullptr) final;
     void stop(ErrorString&) final;
     void setAutoCaptureEnabled(ErrorString&, bool) final;
     void setInstruments(ErrorString&, const JSON::Array&) final;
@@ -137,6 +139,8 @@ public:
     void didCancelAnimationFrame(int callbackId, Frame*);
     void willFireAnimationFrame(int callbackId, Frame*);
     void didFireAnimationFrame();
+    void willFireObserverCallback(const String& callbackType, Frame*);
+    void didFireObserverCallback();
     void time(Frame&, const String&);
     void timeEnd(Frame&, const String&);
     void mainFrameStartedLoading();

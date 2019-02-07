@@ -199,15 +199,6 @@ void Scope::setPreferredStylesheetSetName(const String& name)
     didChangeActiveStyleSheetCandidates();
 }
 
-void Scope::setSelectedStylesheetSetName(const String& name)
-{
-    if (m_selectedStylesheetSetName == name)
-        return;
-    m_selectedStylesheetSetName = name;
-    didChangeActiveStyleSheetCandidates();
-}
-
-
 void Scope::addPendingSheet(const Element& element)
 {
     ASSERT(!hasPendingSheet(element));
@@ -338,7 +329,7 @@ void Scope::collectActiveStyleSheets(Vector<RefPtr<StyleSheet>>& sheets)
             sheet = downcast<ProcessingInstruction>(*node).sheet();
         } else if (is<HTMLLinkElement>(*node) || is<HTMLStyleElement>(*node) || is<SVGStyleElement>(*node)) {
             Element& element = downcast<Element>(*node);
-            AtomicString title = element.attributeWithoutSynchronization(titleAttr);
+            AtomicString title = element.isInShadowTree() ? nullAtom() : element.attributeWithoutSynchronization(titleAttr);
             bool enabledViaScript = false;
             if (is<HTMLLinkElement>(element)) {
                 // <LINK> element
@@ -349,10 +340,8 @@ void Scope::collectActiveStyleSheets(Vector<RefPtr<StyleSheet>>& sheets)
                 if (linkElement.styleSheetIsLoading()) {
                     // it is loading but we should still decide which style sheet set to use
                     if (!enabledViaScript && !title.isEmpty() && m_preferredStylesheetSetName.isEmpty()) {
-                        if (!linkElement.attributeWithoutSynchronization(relAttr).contains("alternate")) {
+                        if (!linkElement.attributeWithoutSynchronization(relAttr).contains("alternate"))
                             m_preferredStylesheetSetName = title;
-                            m_selectedStylesheetSetName = title;
-                        }
                     }
                     continue;
                 }
@@ -379,7 +368,7 @@ void Scope::collectActiveStyleSheets(Vector<RefPtr<StyleSheet>>& sheets)
                     // us as the preferred set. Otherwise, just ignore
                     // this sheet.
                     if (is<HTMLStyleElement>(element) || !rel.contains("alternate"))
-                        m_preferredStylesheetSetName = m_selectedStylesheetSetName = title;
+                        m_preferredStylesheetSetName = title;
                 }
                 if (title != m_preferredStylesheetSetName)
                     sheet = nullptr;
@@ -489,7 +478,7 @@ void Scope::updateActiveStyleSheets(UpdateType updateType)
         // Crash stacks indicate we can get here when a resource load fails synchronously (for example due to content blocking).
         // FIXME: These kind of cases should be eliminated and this path replaced by an assert.
         m_pendingUpdate = UpdateType::ContentsOrInterpretation;
-        m_document.scheduleForcedStyleRecalc();
+        m_document.scheduleFullStyleRebuild();
         return;
     }
 
@@ -526,7 +515,7 @@ void Scope::updateActiveStyleSheets(UpdateType updateType)
                 shadowChild.invalidateStyleForSubtree();
             invalidateHostAndSlottedStyleIfNeeded(*m_shadowRoot, resolver());
         } else
-            m_document.scheduleForcedStyleRecalc();
+            m_document.scheduleFullStyleRebuild();
     }
 }
 
@@ -640,6 +629,13 @@ void Scope::evaluateMediaQueriesForAccessibilitySettingsChange()
 {
     evaluateMediaQueries([] (StyleResolver& resolver) {
         return resolver.hasMediaQueriesAffectedByAccessibilitySettingsChange();
+    });
+}
+
+void Scope::evaluateMediaQueriesForAppearanceChange()
+{
+    evaluateMediaQueries([] (StyleResolver& resolver) {
+        return resolver.hasMediaQueriesAffectedByAppearanceChange();
     });
 }
 

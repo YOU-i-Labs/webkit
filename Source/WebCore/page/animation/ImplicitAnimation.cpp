@@ -147,7 +147,7 @@ void ImplicitAnimation::pauseAnimation(double timeOffset)
         setNeedsStyleRecalc(element());
 }
 
-void ImplicitAnimation::endAnimation()
+void ImplicitAnimation::endAnimation(bool)
 {
     if (auto* renderer = compositedRenderer())
         renderer->transitionFinished(m_animatingProperty);
@@ -215,6 +215,7 @@ void ImplicitAnimation::reset(const RenderStyle& to, CompositeAnimation& composi
 #if ENABLE(FILTERS_LEVEL_2)
     checkForMatchingBackdropFilterFunctionLists();
 #endif
+    checkForMatchingColorFilterFunctionLists();
 }
 
 void ImplicitAnimation::setOverridden(bool b)
@@ -311,9 +312,19 @@ void ImplicitAnimation::checkForMatchingBackdropFilterFunctionLists()
 }
 #endif
 
-std::optional<Seconds> ImplicitAnimation::timeToNextService()
+void ImplicitAnimation::checkForMatchingColorFilterFunctionLists()
 {
-    std::optional<Seconds> t = AnimationBase::timeToNextService();
+    m_filterFunctionListsMatch = false;
+
+    if (!m_fromStyle || !m_toStyle)
+        return;
+
+    m_colorFilterFunctionListsMatch = filterOperationsMatch(&m_fromStyle->appleColorFilter(), m_toStyle->appleColorFilter());
+}
+
+Optional<Seconds> ImplicitAnimation::timeToNextService()
+{
+    Optional<Seconds> t = AnimationBase::timeToNextService();
     if (!t || t.value() != 0_s || preActive())
         return t;
 

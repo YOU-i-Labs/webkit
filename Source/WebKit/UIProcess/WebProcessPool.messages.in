@@ -22,7 +22,7 @@
 
 messages -> WebProcessPool {
     HandleMessage(String messageName, WebKit::UserData messageBody) WantsConnection
-    HandleSynchronousMessage(String messageName, WebKit::UserData messageBody) -> (WebKit::UserData returnData) WantsConnection
+    HandleSynchronousMessage(String messageName, WebKit::UserData messageBody) -> (WebKit::UserData returnData) LegacySync WantsConnection
 
     DidGetStatistics(struct WebKit::StatisticsData statisticsData, uint64_t callbackID)
 
@@ -36,4 +36,9 @@ messages -> WebProcessPool {
     void PlugInDidReceiveUserInteraction(uint32_t hash, PAL::SessionID sessionID)
 
     ReportWebContentCPUTime(Seconds cpuTime, uint64_t activityState)
+
+#if ENABLE(SERVICE_WORKER)
+    PostMessageToServiceWorkerClient(struct WebCore::ServiceWorkerClientIdentifier destinationIdentifier, struct WebCore::MessageWithMessagePorts message, WebCore::ServiceWorkerIdentifier sourceIdentifier, String sourceOrigin)
+    PostMessageToServiceWorker(WebCore::ServiceWorkerIdentifier destination, struct WebCore::MessageWithMessagePorts message, WebCore::ServiceWorkerOrClientIdentifier source, WebCore::SWServerConnectionIdentifier connectionIdentifier)
+#endif
 }

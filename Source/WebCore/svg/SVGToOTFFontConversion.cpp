@@ -196,7 +196,7 @@ private:
 
     uint32_t calculateChecksum(size_t startingOffset, size_t endingOffset) const;
 
-    void processGlyphElement(const SVGElement& glyphOrMissingGlyphElement, const SVGGlyphElement*, float defaultHorizontalAdvance, float defaultVerticalAdvance, const String& codepoints, std::optional<FloatRect>& boundingBox);
+    void processGlyphElement(const SVGElement& glyphOrMissingGlyphElement, const SVGGlyphElement*, float defaultHorizontalAdvance, float defaultVerticalAdvance, const String& codepoints, Optional<FloatRect>& boundingBox);
 
     typedef void (SVGToOTFFontConverter::*FontAppendingFunction)();
     void appendTable(const char identifier[4], FontAppendingFunction);
@@ -222,7 +222,7 @@ private:
 
     void appendValidCFFString(const String&);
 
-    Vector<char> transcodeGlyphPaths(float width, const SVGElement& glyphOrMissingGlyphElement, std::optional<FloatRect>& boundingBox) const;
+    Vector<char> transcodeGlyphPaths(float width, const SVGElement& glyphOrMissingGlyphElement, Optional<FloatRect>& boundingBox) const;
 
     void addCodepointRanges(const UnicodeRanges&, HashSet<Glyph>& glyphSet) const;
     void addCodepoints(const HashSet<String>& codepoints, HashSet<Glyph>& glyphSet) const;
@@ -264,7 +264,7 @@ private:
     int m_descent;
     unsigned m_featureCountGSUB;
     unsigned m_tablesAppendedCount;
-    char m_weight;
+    uint8_t m_weight;
     bool m_italic;
     bool m_error { false };
 };
@@ -421,14 +421,6 @@ void SVGToOTFFontConverter::appendHEADTable()
     append16(0); // Glyph data format
 }
 
-// Assumption: T2 can hold every value that a T1 can hold.
-template<typename T1, typename T2> static inline T1 clampTo(T2 x)
-{
-    x = std::min(x, static_cast<T2>(std::numeric_limits<T1>::max()));
-    x = std::max(x, static_cast<T2>(std::numeric_limits<T1>::min()));
-    return static_cast<T1>(x);
-}
-
 void SVGToOTFFontConverter::appendHHEATable()
 {
     append32(0x00010000); // Version
@@ -507,7 +499,7 @@ void SVGToOTFFontConverter::appendOS2Table()
 
     append16(2); // Version
     append16(clampTo<int16_t>(averageAdvance));
-    append16(clampTo<uint16_t>(m_weight)); // Weight class
+    append16(m_weight); // Weight class
     append16(5); // Width class
     append16(0); // Protected font
     // WebKit handles these superscripts and subscripts
@@ -527,13 +519,12 @@ void SVGToOTFFontConverter::appendOS2Table()
     const unsigned panoseSize = 10;
     char panoseBytes[panoseSize];
     if (m_fontFaceElement) {
-        Vector<String> segments;
-        m_fontFaceElement->attributeWithoutSynchronization(SVGNames::panose_1Attr).string().split(' ', segments);
+        Vector<String> segments = m_fontFaceElement->attributeWithoutSynchronization(SVGNames::panose_1Attr).string().split(' ');
         if (segments.size() == panoseSize) {
             for (auto& segment : segments) {
                 bool ok;
                 int value = segment.toInt(&ok);
-                if (ok && value >= 0 && value <= 0xFF)
+                if (ok && value >= std::numeric_limits<uint8_t>::min() && value <= std::numeric_limits<uint8_t>::max())
                     panoseBytes[numPanoseBytes++] = value;
             }
         }
@@ -683,7 +674,7 @@ void SVGToOTFFontConverter::appendCFFTable()
     ASSERT(m_result.size() == topDictStart + sizeOfTopIndex);
 
     // String INDEX
-    String unknownCharacter = ASCIILiteral("UnknownChar");
+    String unknownCharacter = "UnknownChar"_s;
     append16(2 + (hasWeight ? 1 : 0)); // Number of elements in INDEX
     m_result.append(4); // Offsets in this INDEX are 4 bytes long
     uint32_t offset = 1;
@@ -1150,7 +1141,7 @@ public:
         m_cffData.append(rMoveTo);
     }
 
-    std::optional<FloatRect> boundingBox() const
+    Optional<FloatRect> boundingBox() const
     {
         return m_boundingBox;
     }
@@ -1241,11 +1232,11 @@ private:
     Vector<char>& m_cffData;
     FloatPoint m_startingPoint;
     FloatPoint m_current;
-    std::optional<FloatRect> m_boundingBox;
+    Optional<FloatRect> m_boundingBox;
     float m_unitsPerEmScalar;
 };
 
-Vector<char> SVGToOTFFontConverter::transcodeGlyphPaths(float width, const SVGElement& glyphOrMissingGlyphElement, std::optional<FloatRect>& boundingBox) const
+Vector<char> SVGToOTFFontConverter::transcodeGlyphPaths(float width, const SVGElement& glyphOrMissingGlyphElement, Optional<FloatRect>& boundingBox) const
 {
     Vector<char> result;
 
@@ -1281,7 +1272,7 @@ Vector<char> SVGToOTFFontConverter::transcodeGlyphPaths(float width, const SVGEl
     return result;
 }
 
-void SVGToOTFFontConverter::processGlyphElement(const SVGElement& glyphOrMissingGlyphElement, const SVGGlyphElement* glyphElement, float defaultHorizontalAdvance, float defaultVerticalAdvance, const String& codepoints, std::optional<FloatRect>& boundingBox)
+void SVGToOTFFontConverter::processGlyphElement(const SVGElement& glyphOrMissingGlyphElement, const SVGGlyphElement* glyphElement, float defaultHorizontalAdvance, float defaultVerticalAdvance, const String& codepoints, Optional<FloatRect>& boundingBox)
 {
     bool ok;
     float horizontalAdvance = scaleUnitsPerEm(glyphOrMissingGlyphElement.attributeWithoutSynchronization(SVGNames::horiz_adv_xAttr).toFloat(&ok));
@@ -1293,7 +1284,7 @@ void SVGToOTFFontConverter::processGlyphElement(const SVGElement& glyphOrMissing
         verticalAdvance = defaultVerticalAdvance;
     m_advanceHeightMax = std::max(m_advanceHeightMax, verticalAdvance);
 
-    std::optional<FloatRect> glyphBoundingBox;
+    Optional<FloatRect> glyphBoundingBox;
     auto path = transcodeGlyphPaths(horizontalAdvance, glyphOrMissingGlyphElement, glyphBoundingBox);
     if (!path.size()) {
         // It's better to use a fallback font rather than use a font without all its glyphs.
@@ -1306,7 +1297,7 @@ void SVGToOTFFontConverter::processGlyphElement(const SVGElement& glyphOrMissing
     if (glyphBoundingBox)
         m_minRightSideBearing = std::min(m_minRightSideBearing, horizontalAdvance - glyphBoundingBox.value().maxX());
 
-    m_glyphs.append(GlyphData(WTFMove(path), glyphElement, horizontalAdvance, verticalAdvance, glyphBoundingBox.value_or(FloatRect()), codepoints));
+    m_glyphs.append(GlyphData(WTFMove(path), glyphElement, horizontalAdvance, verticalAdvance, glyphBoundingBox.valueOr(FloatRect()), codepoints));
 }
 
 void SVGToOTFFontConverter::appendLigatureGlyphs()
@@ -1416,7 +1407,7 @@ SVGToOTFFontConverter::SVGToOTFFontConverter(const SVGFontElement& fontElement)
 
     populateEmptyGlyphCharString(m_emptyGlyphCharString, s_outputUnitsPerEm);
 
-    std::optional<FloatRect> boundingBox;
+    Optional<FloatRect> boundingBox;
     if (m_missingGlyphElement)
         processGlyphElement(*m_missingGlyphElement, nullptr, defaultHorizontalAdvance, defaultVerticalAdvance, String(), boundingBox);
     else {
@@ -1430,7 +1421,7 @@ SVGToOTFFontConverter::SVGToOTFFontConverter(const SVGFontElement& fontElement)
             processGlyphElement(glyphElement, &glyphElement, defaultHorizontalAdvance, defaultVerticalAdvance, unicodeAttribute, boundingBox);
     }
 
-    m_boundingBox = boundingBox.value_or(FloatRect());
+    m_boundingBox = boundingBox.valueOr(FloatRect());
 
     appendLigatureGlyphs();
 
@@ -1469,7 +1460,7 @@ SVGToOTFFontConverter::SVGToOTFFontConverter(const SVGFontElement& fontElement)
             bool ok;
             int value = segment.toInt(ok);
             if (ok && value >= 0 && value < 1000) {
-                m_weight = (value + 50) / 100;
+                m_weight = std::max(std::min((value + 50) / 100, static_cast<int>(std::numeric_limits<uint8_t>::max())), static_cast<int>(std::numeric_limits<uint8_t>::min()));
                 break;
             }
         }
@@ -1572,13 +1563,13 @@ bool SVGToOTFFontConverter::convertSVGToOTFFont()
     return true;
 }
 
-std::optional<Vector<char>> convertSVGToOTFFont(const SVGFontElement& element)
+Optional<Vector<char>> convertSVGToOTFFont(const SVGFontElement& element)
 {
     SVGToOTFFontConverter converter(element);
     if (converter.error())
-        return std::nullopt;
+        return WTF::nullopt;
     if (!converter.convertSVGToOTFFont())
-        return std::nullopt;
+        return WTF::nullopt;
     return converter.releaseResult();
 }
 

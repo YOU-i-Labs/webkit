@@ -56,6 +56,7 @@
 #include "DOMWindow.h"
 #include "DateComponents.h"
 #include "DebugPageOverlays.h"
+#include "DocumentAnimationScheduler.h"
 #include "DocumentLoader.h"
 #include "DocumentMarkerController.h"
 #include "DocumentSharedObjectPool.h"
@@ -70,6 +71,7 @@
 #include "FocusEvent.h"
 #include "FontFaceSet.h"
 #include "FormController.h"
+#include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "FrameView.h"
@@ -107,19 +109,22 @@
 #include "ImageBitmapRenderingContext.h"
 #include "ImageLoader.h"
 #include "InspectorInstrumentation.h"
+#include "IntersectionObserver.h"
 #include "JSCustomElementInterface.h"
 #include "JSDOMPromiseDeferred.h"
 #include "JSLazyEventListener.h"
 #include "KeyboardEvent.h"
+#include "KeyframeEffect.h"
 #include "LayoutDisallowedScope.h"
+#include "LibWebRTCProvider.h"
 #include "LoaderStrategy.h"
 #include "Logging.h"
-#include "MainFrame.h"
 #include "MediaCanStartListener.h"
 #include "MediaProducer.h"
 #include "MediaQueryList.h"
 #include "MediaQueryMatcher.h"
 #include "MessageEvent.h"
+#include "Microtasks.h"
 #include "MouseEventWithHitTestResults.h"
 #include "MutationEvent.h"
 #include "NameNodeList.h"
@@ -130,11 +135,11 @@
 #include "NodeRareData.h"
 #include "NodeWithIndex.h"
 #include "OriginAccessEntry.h"
-#include "OriginThreadLocalCache.h"
 #include "OverflowEvent.h"
 #include "PageConsoleClient.h"
 #include "PageGroup.h"
 #include "PageTransitionEvent.h"
+#include "PaintWorkletGlobalScope.h"
 #include "PlatformLocale.h"
 #include "PlatformMediaSessionManager.h"
 #include "PlatformScreen.h"
@@ -146,9 +151,12 @@
 #include "PopStateEvent.h"
 #include "ProcessingInstruction.h"
 #include "PublicSuffix.h"
+#include "Quirks.h"
 #include "RealtimeMediaSourceCenter.h"
 #include "RenderChildIterator.h"
+#include "RenderInline.h"
 #include "RenderLayerCompositor.h"
+#include "RenderLineBreak.h"
 #include "RenderTreeUpdater.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
@@ -188,6 +196,7 @@
 #include "SocketProvider.h"
 #include "StorageEvent.h"
 #include "StringCallback.h"
+#include "StyleColor.h"
 #include "StyleProperties.h"
 #include "StyleResolveForDocument.h"
 #include "StyleResolver.h"
@@ -201,6 +210,7 @@
 #include "TextNodeTraversal.h"
 #include "TransformSource.h"
 #include "TreeWalker.h"
+#include "UndoManager.h"
 #include "UserGestureIndicator.h"
 #include "ValidationMessageClient.h"
 #include "VisibilityChangeClient.h"
@@ -208,6 +218,7 @@
 #include "WebAnimation.h"
 #include "WheelEvent.h"
 #include "WindowFeatures.h"
+#include "Worklet.h"
 #include "XMLDocument.h"
 #include "XMLDocumentParser.h"
 #include "XMLNSNames.h"
@@ -221,7 +232,7 @@
 #include <JavaScriptCore/ScriptCallStack.h>
 #include <JavaScriptCore/VM.h>
 #include <ctime>
-#include <wtf/CurrentTime.h>
+#include <wtf/IsoMallocInlines.h>
 #include <wtf/Language.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/SetForScope.h>
@@ -244,7 +255,7 @@
 #include "IDBOpenDBRequest.h"
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include "CSSFontSelector.h"
 #include "DeviceMotionClientIOS.h"
 #include "DeviceMotionController.h"
@@ -254,6 +265,7 @@
 #include "Navigator.h"
 #include "NavigatorGeolocation.h"
 #include "WKContentObservation.h"
+#include "WKContentObservationInternal.h"
 #endif
 
 #if ENABLE(IOS_GESTURE_EVENTS)
@@ -304,9 +316,15 @@
 #if ENABLE(WEBGPU)
 #include "WebGPURenderingContext.h"
 #endif
+#if ENABLE(WEBMETAL)
+#include "WebMetalRenderingContext.h"
+#endif
 
 
 namespace WebCore {
+
+WTF_MAKE_ISO_ALLOCATED_IMPL(Document);
+
 using namespace PAL;
 using namespace WTF;
 using namespace Unicode;
@@ -439,12 +457,12 @@ static bool canAccessAncestor(const SecurityOrigin& activeSecurityOrigin, Frame*
     return false;
 }
 
-static void printNavigationErrorMessage(Frame* frame, const URL& activeURL, const char* reason)
+static void printNavigationErrorMessage(Frame& frame, const URL& activeURL, const char* reason)
 {
-    String message = "Unsafe JavaScript attempt to initiate navigation for frame with URL '" + frame->document()->url().string() + "' from frame with URL '" + activeURL.string() + "'. " + reason + "\n";
+    String message = "Unsafe JavaScript attempt to initiate navigation for frame with URL '" + frame.document()->url().string() + "' from frame with URL '" + activeURL.string() + "'. " + reason + "\n";
 
     // FIXME: should we print to the console of the document performing the navigation instead?
-    frame->document()->domWindow()->printErrorMessage(message);
+    frame.document()->domWindow()->printErrorMessage(message);
 }
 
 uint64_t Document::s_globalTreeVersion = 0;
@@ -479,6 +497,7 @@ Document::Document(Frame* frame, const URL& url, unsigned documentClasses, unsig
     , m_touchEventsChangedTimer(*this, &Document::touchEventsChangedTimerFired)
 #endif
     , m_settings(frame ? Ref<Settings>(frame->settings()) : Settings::create(nullptr))
+    , m_quirks(makeUniqueRef<Quirks>(*this))
     , m_cachedResourceLoader(m_frame ? Ref<CachedResourceLoader>(m_frame->loader().activeDocumentLoader()->cachedResourceLoader()) : CachedResourceLoader::create(nullptr))
     , m_domTreeVersion(++s_globalTreeVersion)
     , m_styleScope(std::make_unique<Style::Scope>(*this))
@@ -492,15 +511,15 @@ Document::Document(Frame* frame, const URL& url, unsigned documentClasses, unsig
 #if ENABLE(XSLT)
     , m_applyPendingXSLTransformsTimer(*this, &Document::applyPendingXSLTransformsTimerFired)
 #endif
-    , m_xmlVersion(ASCIILiteral("1.0"))
+    , m_xmlVersion("1.0"_s)
     , m_constantPropertyMap(std::make_unique<ConstantPropertyMap>(*this))
     , m_documentClasses(documentClasses)
     , m_eventQueue(*this)
-#if ENABLE(FULLSCREEN_API)
-    , m_fullScreenChangeDelayTimer(*this, &Document::fullScreenChangeDelayTimerFired)
+#if ENABLE(INTERSECTION_OBSERVER)
+    , m_intersectionObserversNotifyTimer(*this, &Document::notifyIntersectionObserversTimerFired)
 #endif
     , m_loadEventDelayTimer(*this, &Document::loadEventDelayTimerFired)
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #if ENABLE(DEVICE_ORIENTATION)
     , m_deviceMotionClient(std::make_unique<DeviceMotionClientIOS>())
     , m_deviceMotionController(std::make_unique<DeviceMotionController>(m_deviceMotionClient.get()))
@@ -519,6 +538,7 @@ Document::Document(Frame* frame, const URL& url, unsigned documentClasses, unsig
     , m_isNonRenderedPlaceholder(constructionFlags & NonRenderedPlaceholder)
     , m_orientationNotifier(currentOrientation(frame))
     , m_identifier(generateObjectIdentifier<DocumentIdentifierType>())
+    , m_undoManager(UndoManager::create(*this))
 {
     auto addResult = allDocumentsMap().add(m_identifier, this);
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
@@ -544,6 +564,8 @@ Document::Document(Frame* frame, const URL& url, unsigned documentClasses, unsig
 
     for (auto& nodeListAndCollectionCount : m_nodeListAndCollectionCounts)
         nodeListAndCollectionCount = 0;
+
+    InspectorInstrumentation::addEventListenersToNode(*this);
 }
 
 #if ENABLE(FULLSCREEN_API)
@@ -571,8 +593,13 @@ Ref<Document> Document::create(Document& contextDocument)
 
 Document::~Document()
 {
-    bool wasRemoved = allDocumentsMap().remove(m_identifier);
-    ASSERT_UNUSED(wasRemoved, wasRemoved);
+    if (m_logger)
+        m_logger->removeObserver(*this);
+
+    ASSERT(allDocumentsMap().contains(m_identifier));
+    allDocumentsMap().remove(m_identifier);
+    // We need to remove from the contexts map very early in the destructor so that calling postTask() on this Document from another thread is safe.
+    removeFromContextsMap();
 
     ASSERT(!renderView());
     ASSERT(m_pageCacheState != InPageCache);
@@ -581,7 +608,7 @@ Document::~Document()
     ASSERT(!m_disabledFieldsetElementsCount);
     ASSERT(m_inDocumentShadowRoots.isEmpty());
 
-#if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS)
+#if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS_FAMILY)
     m_deviceMotionClient->deviceMotionControllerDestroyed();
     m_deviceOrientationClient->deviceOrientationControllerDestroyed();
 #endif
@@ -613,7 +640,7 @@ Document::~Document()
     m_decoder = nullptr;
 
     if (m_styleSheetList)
-        m_styleSheetList->detachFromDocument();
+        m_styleSheetList->detach();
 
     extensionStyleSheets().detachFromDocument();
 
@@ -627,10 +654,9 @@ Document::~Document()
         m_cachedResourceLoader->setDocument(nullptr);
 
 #if ENABLE(VIDEO)
-    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::sharedManagerIfExists())
-        platformMediaSessionManager->stopAllMediaPlaybackForDocument(this);
+    stopAllMediaPlayback();
 #endif
-    
+
     // We must call clearRareData() here since a Document class inherits TreeScope
     // as well as Node. See a comment on TreeScope.h for the reason.
     if (hasRareData())
@@ -642,9 +668,6 @@ Document::~Document()
 
     for (unsigned count : m_nodeListAndCollectionCounts)
         ASSERT_UNUSED(count, !count);
-
-    if (m_logger)
-        m_logger->removeObserver(*this);
 }
 
 void Document::removedLastRef()
@@ -670,6 +693,9 @@ void Document::removedLastRef()
         m_fullScreenElementStack.clear();
 #endif
         m_associatedFormControls.clear();
+
+        m_fontSelector->clearDocument();
+        m_fontSelector->unregisterForInvalidationCallbacks(*this);
 
         detachParser();
 
@@ -739,21 +765,6 @@ void Document::invalidateAccessKeyMap()
     m_elementsByAccessKey.clear();
 }
 
-void Document::addImageElementByUsemap(const AtomicStringImpl& name, HTMLImageElement& element)
-{
-    return m_imagesByUsemap.add(name, element, *this);
-}
-
-void Document::removeImageElementByUsemap(const AtomicStringImpl& name, HTMLImageElement& element)
-{
-    return m_imagesByUsemap.remove(name, element);
-}
-
-HTMLImageElement* Document::imageElementByUsemap(const AtomicStringImpl& name) const
-{
-    return m_imagesByUsemap.getElementByUsemap(name, *this);
-}
-
 ExceptionOr<SelectorQuery&> Document::selectorQueryForString(const String& selectorString)
 {
     if (selectorString.isEmpty())
@@ -766,6 +777,16 @@ ExceptionOr<SelectorQuery&> Document::selectorQueryForString(const String& selec
 void Document::clearSelectorQueryCache()
 {
     m_selectorQueryCache = nullptr;
+}
+
+void Document::setReferrerPolicy(ReferrerPolicy referrerPolicy)
+{
+    // Do not override existing referrer policy with the "empty string" one as the "empty string" means we should use
+    // the policy defined elsewhere.
+    if (m_referrerPolicy && referrerPolicy == ReferrerPolicy::EmptyString)
+        return;
+
+    m_referrerPolicy = referrerPolicy;
 }
 
 MediaQueryMatcher& Document::mediaQueryMatcher()
@@ -798,17 +819,17 @@ String Document::compatMode() const
 
 void Document::resetLinkColor()
 {
-    m_linkColor = Color(0, 0, 238);
+    m_linkColor = StyleColor::colorFromKeyword(CSSValueWebkitLink, styleColorOptions(nullptr));
 }
 
 void Document::resetVisitedLinkColor()
 {
-    m_visitedLinkColor = Color(85, 26, 139);    
+    m_visitedLinkColor = StyleColor::colorFromKeyword(CSSValueWebkitLink, styleColorOptions(nullptr) | StyleColor::Options::ForVisitedLink);
 }
 
 void Document::resetActiveLinkColor()
 {
-    m_activeLinkColor = Color(255, 0, 0);
+    m_activeLinkColor = StyleColor::colorFromKeyword(CSSValueWebkitActivelink, styleColorOptions(nullptr));
 }
 
 DOMImplementation& Document::implementation()
@@ -1179,11 +1200,6 @@ CustomElementNameValidationStatus Document::validateCustomElementName(const Atom
     return CustomElementNameValidationStatus::Valid;
 }
 
-bool Document::isCSSGridLayoutEnabled() const
-{
-    return RuntimeEnabledFeatures::sharedFeatures().isCSSGridLayoutEnabled();
-}
-
 ExceptionOr<Ref<Element>> Document::createElementNS(const AtomicString& namespaceURI, const String& qualifiedName)
 {
     auto parseResult = parseQualifiedName(namespaceURI, qualifiedName);
@@ -1220,7 +1236,7 @@ void Document::setReadyState(ReadyState readyState)
     }
 
     m_readyState = readyState;
-    dispatchEvent(Event::create(eventNames().readystatechangeEvent, false, false));
+    dispatchEvent(Event::create(eventNames().readystatechangeEvent, Event::CanBubble::No, Event::IsCancelable::No));
 
     if (settings().suppressesIncrementalRendering())
         setVisualUpdatesAllowed(readyState);
@@ -1354,7 +1370,7 @@ ExceptionOr<void> Document::setXMLVersion(const String& version)
 
 void Document::setXMLStandalone(bool standalone)
 {
-    m_xmlStandalone = standalone ? Standalone : NotStandalone;
+    m_xmlStandalone = standalone ? StandaloneStatus::Standalone : StandaloneStatus::NotStandalone;
 }
 
 void Document::setDocumentURI(const String& uri)
@@ -1378,13 +1394,13 @@ void Document::setContent(const String& content)
 String Document::suggestedMIMEType() const
 {
     if (isXHTMLDocument())
-        return ASCIILiteral("application/xhtml+xml");
+        return "application/xhtml+xml"_s;
     if (isSVGDocument())
-        return ASCIILiteral("image/svg+xml");
+        return "image/svg+xml"_s;
     if (xmlStandalone())
-        return ASCIILiteral("text/xml");
+        return "text/xml"_s;
     if (isHTMLDocument())
-        return ASCIILiteral("text/html");
+        return "text/html"_s;
     if (DocumentLoader* loader = this->loader())
         return loader->responseMIMEType();
     return String();
@@ -1407,7 +1423,7 @@ String Document::contentType() const
     if (!mimeType.isNull())
         return mimeType;
 
-    return ASCIILiteral("application/xml");
+    return "application/xml"_s;
 }
 
 RefPtr<Range> Document::caretRangeFromPoint(int x, int y)
@@ -1440,10 +1456,52 @@ RefPtr<Range> Document::caretRangeFromPoint(const LayoutPoint& clientPoint)
     return Range::create(*this, node, offset, node, offset);
 }
 
+bool Document::isBodyPotentiallyScrollable(HTMLBodyElement& body)
+{
+    // See https://www.w3.org/TR/cssom-view-1/#potentially-scrollable.
+    // An element is potentially scrollable if all of the following conditions are true:
+    // - The element has an associated CSS layout box.
+    // - The element is not the HTML body element, or it is and the root element's used value of the
+    //   overflow-x or overflow-y properties is not visible.
+    // - The element's used value of the overflow-x or overflow-y properties is not visible.
+    //
+    // FIXME: We should use RenderObject::hasOverflowClip() instead of Element::computedStyle() but
+    // the used values are currently not correctly updated. See https://webkit.org/b/182292.
+    return body.renderer()
+        && documentElement()->computedStyle()
+        && !documentElement()->computedStyle()->isOverflowVisible()
+        && body.computedStyle()
+        && !body.computedStyle()->isOverflowVisible();
+}
+
+Element* Document::scrollingElementForAPI()
+{
+    if (inQuirksMode() && settings().CSSOMViewScrollingAPIEnabled())
+        updateLayoutIgnorePendingStylesheets();
+    return scrollingElement();
+}
+
 Element* Document::scrollingElement()
 {
-    // FIXME: When we fix https://bugs.webkit.org/show_bug.cgi?id=106133, this should be replaced with the full implementation
-    // of Document.scrollingElement() as specified at http://dev.w3.org/csswg/cssom-view/#dom-document-scrollingelement.
+    if (settings().CSSOMViewScrollingAPIEnabled()) {
+        // See https://drafts.csswg.org/cssom-view/#dom-document-scrollingelement.
+        // The scrollingElement attribute, on getting, must run these steps:
+        // 1. If the Document is in quirks mode, follow these substeps:
+        if (inQuirksMode()) {
+            auto* firstBody = body();
+            // 1. If the HTML body element exists, and it is not potentially scrollable, return the
+            // HTML body element and abort these steps.
+            if (firstBody && !isBodyPotentiallyScrollable(*firstBody))
+                return firstBody;
+
+            // 2. Return null and abort these steps.
+            return nullptr;
+        }
+
+        // 2. If there is a root element, return the root element and abort these steps.
+        // 3. Return null.
+        return documentElement();
+    }
 
     return body();
 }
@@ -1518,39 +1576,29 @@ void Document::updateTitleFromTitleElement()
         updateTitle(downcast<HTMLTitleElement>(*m_titleElement).textWithDirection());
     else if (is<SVGTitleElement>(*m_titleElement)) {
         // FIXME: Does the SVG title element have a text direction?
-        updateTitle({ downcast<SVGTitleElement>(*m_titleElement).textContent(), LTR });
+        updateTitle({ downcast<SVGTitleElement>(*m_titleElement).textContent(), TextDirection::LTR });
     }
 }
 
 void Document::setTitle(const String& title)
 {
-    if (!m_titleElement) {
-        if (isHTMLDocument() || isXHTMLDocument()) {
+    auto* element = documentElement();
+    if (is<SVGSVGElement>(element)) {
+        if (!m_titleElement) {
+            m_titleElement = SVGTitleElement::create(SVGNames::titleTag, *this);
+            element->insertBefore(*m_titleElement, element->firstChild());
+        }
+        m_titleElement->setTextContent(title);
+    } else if (is<HTMLElement>(element)) {
+        if (!m_titleElement) {
             auto* headElement = head();
             if (!headElement)
                 return;
             m_titleElement = HTMLTitleElement::create(HTMLNames::titleTag, *this);
             headElement->appendChild(*m_titleElement);
-        } else if (isSVGDocument()) {
-            auto* element = documentElement();
-            if (!is<SVGSVGElement>(element))
-                return;
-            m_titleElement = SVGTitleElement::create(SVGNames::titleTag, *this);
-            element->insertBefore(*m_titleElement, element->firstChild());
         }
-    } else if (!isHTMLDocument() && !isXHTMLDocument() && !isSVGDocument()) {
-        // FIXME: What exactly is the point of this? This seems like a strange moment
-        // in time to demote something from being m_titleElement, when setting the
-        // value of the title attribute. Do we have test coverage for this?
-        m_titleElement = nullptr;
+        m_titleElement->setTextContent(title);
     }
-
-    if (is<HTMLTitleElement>(m_titleElement.get()))
-        downcast<HTMLTitleElement>(*m_titleElement).setTextContent(title);
-    else if (is<SVGTitleElement>(m_titleElement.get()))
-        downcast<SVGTitleElement>(*m_titleElement).setTextContent(title);
-    else
-        updateTitle({ title, LTR });
 }
 
 template<typename> struct TitleTraits;
@@ -1634,7 +1682,7 @@ void Document::unregisterForVisibilityStateChangedCallbacks(VisibilityChangeClie
 
 void Document::visibilityStateChanged()
 {
-    enqueueDocumentEvent(Event::create(eventNames().visibilitychangeEvent, false, false));
+    enqueueDocumentEvent(Event::create(eventNames().visibilitychangeEvent, Event::CanBubble::No, Event::IsCancelable::No));
     for (auto* client : m_visibilityStateCallbackClients)
         client->visibilityStateChanged();
 
@@ -1675,11 +1723,28 @@ void Document::allowsMediaDocumentInlinePlaybackChanged()
         element->allowsMediaDocumentInlinePlaybackChanged();
 }
 
+void Document::stopAllMediaPlayback()
+{
+    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::sharedManagerIfExists())
+        platformMediaSessionManager->stopAllMediaPlaybackForDocument(this);
+}
+
+void Document::suspendAllMediaPlayback()
+{
+    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::sharedManagerIfExists())
+        platformMediaSessionManager->suspendAllMediaPlaybackForDocument(*this);
+}
+
+void Document::resumeAllMediaPlayback()
+{
+    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::sharedManagerIfExists())
+        platformMediaSessionManager->resumeAllMediaPlaybackForDocument(*this);
+}
 #endif
 
 String Document::nodeName() const
 {
-    return ASCIILiteral("#document");
+    return "#document"_s;
 }
 
 Node::NodeType Document::nodeType() const
@@ -1733,9 +1798,9 @@ Ref<TreeWalker> Document::createTreeWalker(Node& root, unsigned long whatToShow,
     return TreeWalker::create(root, whatToShow, WTFMove(filter));
 }
 
-void Document::scheduleForcedStyleRecalc()
+void Document::scheduleFullStyleRebuild()
 {
-    m_pendingStyleRecalcShouldForce = true;
+    m_needsFullStyleRebuild = true;
     scheduleStyleRecalc();
 }
 
@@ -1746,11 +1811,29 @@ void Document::scheduleStyleRecalc()
     if (m_styleRecalcTimer.isActive() || pageCacheState() != NotInPageCache)
         return;
 
-    ASSERT(childNeedsStyleRecalc() || m_pendingStyleRecalcShouldForce);
+    ASSERT(childNeedsStyleRecalc() || m_needsFullStyleRebuild);
+
+#if PLATFORM(IOS_FAMILY)
+    if (WKIsObservingStyleRecalcScheduling()) {
+        LOG_WITH_STREAM(ContentObservation, stream << "Document(" << this << ")::scheduleStyleRecalc: register this style recalc schedule and observe when it fires.");
+        WKSetObservedContentChange(WKContentIndeterminateChange);
+    }
+#endif
 
     // FIXME: Why on earth is this here? This is clearly misplaced.
     invalidateAccessKeyMap();
-    
+
+    auto shouldThrottleStyleRecalc = [&] {
+        if (!view() || !view()->isVisuallyNonEmpty())
+            return false;
+        if (!page() || !page()->chrome().client().layerFlushThrottlingIsActive())
+            return false;
+        return true;
+    };
+
+    if (shouldThrottleStyleRecalc())
+        return;
+
     m_styleRecalcTimer.startOneShot(0_s);
 
     InspectorInstrumentation::didScheduleStyleRecalculation(*this);
@@ -1761,17 +1844,17 @@ void Document::unscheduleStyleRecalc()
     ASSERT(!childNeedsStyleRecalc());
 
     m_styleRecalcTimer.stop();
-    m_pendingStyleRecalcShouldForce = false;
+    m_needsFullStyleRebuild = false;
 }
 
 bool Document::hasPendingStyleRecalc() const
 {
-    return m_styleRecalcTimer.isActive() && !m_inStyleRecalc;
+    return needsStyleRecalc() && !m_inStyleRecalc;
 }
 
-bool Document::hasPendingForcedStyleRecalc() const
+bool Document::hasPendingFullStyleRebuild() const
 {
-    return m_styleRecalcTimer.isActive() && m_pendingStyleRecalcShouldForce;
+    return hasPendingStyleRecalc() && m_needsFullStyleRebuild;
 }
 
 void Document::resolveStyle(ResolveStyleType type)
@@ -1827,7 +1910,7 @@ void Document::resolveStyle(ResolveStyleType type)
 
         m_inStyleRecalc = true;
 
-        if (m_pendingStyleRecalcShouldForce)
+        if (m_needsFullStyleRebuild)
             type = ResolveStyleType::Rebuild;
 
         if (type == ResolveStyleType::Rebuild) {
@@ -1876,8 +1959,11 @@ void Document::resolveStyle(ResolveStyleType type)
             frameView.layoutContext().scheduleLayout();
 
         // Usually this is handled by post-layout.
-        if (!frameView.needsLayout())
+        if (!frameView.needsLayout()) {
             frameView.frame().selection().scheduleAppearanceUpdateAfterStyleChange();
+            if (m_needsForcedIntersectionObservationUpdate)
+                page()->scheduleForcedIntersectionObservationUpdate(*this);
+        }
 
         // As a result of the style recalculation, the currently hovered element might have been
         // detached (for example, by setting display:none in the :hover style), schedule another mouseMove event
@@ -1913,7 +1999,7 @@ void Document::updateTextRenderer(Text& text, unsigned offsetOfReplacedText, uns
     SetForScope<bool> inRenderTreeUpdate(m_inRenderTreeUpdate, true);
 
     auto textUpdate = std::make_unique<Style::Update>(*this);
-    textUpdate->addText(text, { offsetOfReplacedText, lengthOfReplacedText, std::nullopt });
+    textUpdate->addText(text, { offsetOfReplacedText, lengthOfReplacedText, WTF::nullopt });
 
     RenderTreeUpdater renderTreeUpdater(*this);
     renderTreeUpdater.commit(WTFMove(textUpdate));
@@ -1924,7 +2010,7 @@ bool Document::needsStyleRecalc() const
     if (pageCacheState() != NotInPageCache)
         return false;
 
-    if (m_pendingStyleRecalcShouldForce)
+    if (m_needsFullStyleRebuild)
         return true;
 
     if (childNeedsStyleRecalc())
@@ -1966,10 +2052,34 @@ bool Document::updateStyleIfNeeded()
             return false;
     }
 
+#if PLATFORM(IOS_FAMILY)
+    auto observingContentChange = WKShouldObserveNextStyleRecalc();
+    if (observingContentChange) {
+        LOG_WITH_STREAM(ContentObservation, stream << "Document(" << this << ")::scheduleStyleRecalc: start observing content change.");
+        WKSetShouldObserveNextStyleRecalc(false);
+        WKStartObservingContentChanges();
+    }
+#endif
     // The early exit above for !needsStyleRecalc() is needed when updateWidgetPositions() is called in runOrScheduleAsynchronousTasks().
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(isSafeToUpdateStyleOrLayout(*this));
 
     resolveStyle();
+
+#if PLATFORM(IOS_FAMILY)
+    if (observingContentChange) {
+        LOG_WITH_STREAM(ContentObservation, stream << "Document(" << this << ")::scheduleStyleRecalc: stop observing content change.");
+        WKStopObservingContentChanges();
+
+        auto inDeterminedState = WKObservedContentChange() == WKContentVisibilityChange || !WebThreadCountOfObservedDOMTimers();  
+        if (inDeterminedState) {
+            LOG_WITH_STREAM(ContentObservation, stream << "Document(" << this << ")::scheduleStyleRecalc: notify the pending synthetic click handler.");
+            if (auto* page = this->page())
+                page->chrome().client().observedContentChange(*frame());
+        } else {
+            LOG_WITH_STREAM(ContentObservation, stream << "Document(" << this << ")::scheduleStyleRecalc: can't decided it yet.");
+        }
+    }
+#endif
     return true;
 }
 
@@ -2007,7 +2117,7 @@ void Document::updateLayoutIgnorePendingStylesheets(Document::RunPostLayoutTasks
         m_ignorePendingStylesheets = true;
         // FIXME: This should just invalidate elements with missing styles.
         if (m_hasNodesWithMissingStyle)
-            scheduleForcedStyleRecalc();
+            scheduleFullStyleRebuild();
     }
 
     updateLayout();
@@ -2021,16 +2131,16 @@ void Document::updateLayoutIgnorePendingStylesheets(Document::RunPostLayoutTasks
 std::unique_ptr<RenderStyle> Document::styleForElementIgnoringPendingStylesheets(Element& element, const RenderStyle* parentStyle, PseudoId pseudoElementSpecifier)
 {
     ASSERT(&element.document() == this);
-    ASSERT(!element.isPseudoElement() || !pseudoElementSpecifier);
-    ASSERT(!pseudoElementSpecifier || parentStyle);
+    ASSERT(!element.isPseudoElement() || pseudoElementSpecifier == PseudoId::None);
+    ASSERT(pseudoElementSpecifier == PseudoId::None || parentStyle);
 
     // On iOS request delegates called during styleForElement may result in re-entering WebKit and killing the style resolver.
-    Style::PostResolutionCallbackDisabler disabler(*this);
+    Style::PostResolutionCallbackDisabler disabler(*this, Style::PostResolutionCallbackDisabler::DrainCallbacks::No);
 
     SetForScope<bool> change(m_ignorePendingStylesheets, true);
     auto& resolver = element.styleResolver();
 
-    if (pseudoElementSpecifier)
+    if (pseudoElementSpecifier != PseudoId::None)
         return resolver.pseudoStyleForElement(element, PseudoStyleRequest(pseudoElementSpecifier), *parentStyle);
 
     auto elementStyle = resolver.styleForElement(element, parentStyle);
@@ -2077,6 +2187,10 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, DimensionsChe
         // If we don't have a renderer or if the renderer needs layout for any reason, give up.
         requireFullLayout = true;
     }
+
+    // Turn off this optimization for input elements with shadow content.
+    if (is<HTMLInputElement>(element))
+        requireFullLayout = true;
 
     bool isVertical = renderer && !renderer->isHorizontalWritingMode();
     bool checkingLogicalWidth = ((dimensionsCheck & WidthDimensionsCheck) && !isVertical) || ((dimensionsCheck & HeightDimensionsCheck) && isVertical);
@@ -2144,7 +2258,7 @@ bool Document::isPageBoxVisible(int pageIndex)
 {
     updateStyleIfNeeded();
     std::unique_ptr<RenderStyle> pageStyle(styleScope().resolver().styleForPage(pageIndex));
-    return pageStyle->visibility() != HIDDEN; // display property doesn't apply to @page.
+    return pageStyle->visibility() != Visibility::Hidden; // display property doesn't apply to @page.
 }
 
 void Document::pageSizeAndMarginsInPixels(int pageIndex, IntSize& pageSize, int& marginTop, int& marginRight, int& marginBottom, int& marginLeft)
@@ -2204,7 +2318,7 @@ void Document::invalidateMatchedPropertiesCacheAndForceStyleRecalc()
         resolver->invalidateMatchedPropertiesCache();
     if (pageCacheState() != NotInPageCache || !renderView())
         return;
-    scheduleForcedStyleRecalc();
+    scheduleFullStyleRebuild();
 }
 
 void Document::didClearStyleResolver()
@@ -2240,6 +2354,7 @@ void Document::didBecomeCurrentDocumentInFrame()
     if (!hasLivingRenderTree())
         createRenderTree();
 
+    dispatchDisabledAdaptationsDidChangeForMainFrame();
     updateViewportArguments();
 
     // FIXME: Doing this only for the main frame is insufficient.
@@ -2256,11 +2371,19 @@ void Document::didBecomeCurrentDocumentInFrame()
     // be out of sync if the DOM suspension state changed while the document was not in the frame (possibly in the
     // page cache, or simply newly created).
     if (m_frame->activeDOMObjectsAndAnimationsSuspended()) {
-        m_frame->animation().suspendAnimationsForDocument(this);
-        suspendScheduledTasks(ActiveDOMObject::PageWillBeSuspended);
+        if (RuntimeEnabledFeatures::sharedFeatures().webAnimationsCSSIntegrationEnabled()) {
+            if (auto* timeline = existingTimeline())
+                timeline->suspendAnimations();
+        } else
+            m_frame->animation().suspendAnimationsForDocument(this);
+        suspendScheduledTasks(ReasonForSuspension::PageWillBeSuspended);
     } else {
-        resumeScheduledTasks(ActiveDOMObject::PageWillBeSuspended);
-        m_frame->animation().resumeAnimationsForDocument(this);
+        resumeScheduledTasks(ReasonForSuspension::PageWillBeSuspended);
+        if (RuntimeEnabledFeatures::sharedFeatures().webAnimationsCSSIntegrationEnabled()) {
+            if (auto* timeline = existingTimeline())
+                timeline->resumeAnimations();
+        } else
+            m_frame->animation().resumeAnimationsForDocument(this);
     }
 }
 
@@ -2268,7 +2391,19 @@ void Document::frameDestroyed()
 {
     // detachFromFrame() must be called before destroying the Frame.
     RELEASE_ASSERT(!m_frame);
+
+    if (auto* window = domWindow())
+        window->frameDestroyed();
+
     FrameDestructionObserver::frameDestroyed();
+}
+
+void Document::willDetachPage()
+{
+    FrameDestructionObserver::willDetachPage();
+
+    if (domWindow() && frame())
+        InspectorInstrumentation::frameWindowDiscarded(*frame(), domWindow());
 }
 
 void Document::attachToCachedFrame(CachedFrameBase& cachedFrame)
@@ -2340,13 +2475,16 @@ void Document::prepareForDestruction()
     if (m_hasPreparedForDestruction)
         return;
 
-    if (m_timeline) {
-        m_timeline->detachFromDocument();
-        m_timeline = nullptr;
-    }
-
     if (m_frame)
         m_frame->animation().detachFromDocument(this);
+
+#if USE(LIBWEBRTC)
+    // FIXME: This should be moved to Modules/mediastream.
+    if (LibWebRTCProvider::webRTCAvailable()) {
+        if (auto* page = this->page())
+            page->libWebRTCProvider().unregisterMDNSNames(identifier().toUInt64());
+    }
+#endif
 
 #if ENABLE(SERVICE_WORKER)
     setActiveServiceWorker(nullptr);
@@ -2429,6 +2567,24 @@ void Document::prepareForDestruction()
 
     detachFromFrame();
 
+    if (m_timeline) {
+        m_timeline->detachFromDocument();
+        m_timeline = nullptr;
+    }
+
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+    if (m_animationScheduler) {
+        m_animationScheduler->detachFromDocument();
+        m_animationScheduler = nullptr;
+    }
+#endif
+
+#if ENABLE(CSS_PAINTING_API)
+    for (auto& scope : m_paintWorkletGlobalScopes.values())
+        scope->prepareForDestruction();
+    m_paintWorkletGlobalScopes.clear();
+#endif
+
     m_hasPreparedForDestruction = true;
 
     // Note that m_pageCacheState can be Document::AboutToEnterPageCache if our frame
@@ -2461,7 +2617,7 @@ void Document::suspendDeviceMotionAndOrientationUpdates()
     if (m_areDeviceMotionAndOrientationUpdatesSuspended)
         return;
     m_areDeviceMotionAndOrientationUpdatesSuspended = true;
-#if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS)
+#if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS_FAMILY)
     if (m_deviceMotionController)
         m_deviceMotionController->suspendUpdates();
     if (m_deviceOrientationController)
@@ -2474,7 +2630,7 @@ void Document::resumeDeviceMotionAndOrientationUpdates()
     if (!m_areDeviceMotionAndOrientationUpdatesSuspended)
         return;
     m_areDeviceMotionAndOrientationUpdatesSuspended = false;
-#if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS)
+#if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS_FAMILY)
     if (m_deviceMotionController)
         m_deviceMotionController->resumeUpdates();
     if (m_deviceOrientationController)
@@ -2484,19 +2640,16 @@ void Document::resumeDeviceMotionAndOrientationUpdates()
 
 bool Document::shouldBypassMainWorldContentSecurityPolicy() const
 {
-    JSC::CallFrame* callFrame = commonVM().topCallFrame;
-    if (callFrame == JSC::CallFrame::noCaller())
-        return false;
-    DOMWrapperWorld& domWrapperWorld = currentWorld(callFrame);
-    if (domWrapperWorld.isNormal())
-        return false;
-    return true;
+    // Bypass this policy when the world is known, and it not the normal world.
+    auto& callFrame = *commonVM().topCallFrame;
+    return &callFrame != JSC::CallFrame::noCaller() && !currentWorld(callFrame).isNormal();
 }
 
 void Document::platformSuspendOrStopActiveDOMObjects()
 {
-#if PLATFORM(IOS)
-    if (WebThreadCountOfObservedContentModifiers() > 0) {
+#if PLATFORM(IOS_FAMILY)
+    if (WebThreadCountOfObservedDOMTimers() > 0) {
+        LOG_WITH_STREAM(ContentObservation, stream << "Document::platformSuspendOrStopActiveDOMObjects: remove registered timers.");
         if (auto* frame = this->frame()) {
             if (auto* page = frame->page())
                 page->chrome().client().clearContentChangeObservers(*frame);
@@ -2505,14 +2658,14 @@ void Document::platformSuspendOrStopActiveDOMObjects()
 #endif
 }
 
-void Document::suspendActiveDOMObjects(ActiveDOMObject::ReasonForSuspension why)
+void Document::suspendActiveDOMObjects(ReasonForSuspension why)
 {
     ScriptExecutionContext::suspendActiveDOMObjects(why);
     suspendDeviceMotionAndOrientationUpdates();
     platformSuspendOrStopActiveDOMObjects();
 }
 
-void Document::resumeActiveDOMObjects(ActiveDOMObject::ReasonForSuspension why)
+void Document::resumeActiveDOMObjects(ReasonForSuspension why)
 {
     ScriptExecutionContext::resumeActiveDOMObjects(why);
     resumeDeviceMotionAndOrientationUpdates();
@@ -2566,7 +2719,7 @@ void Document::setVisuallyOrdered()
 {
     m_visuallyOrdered = true;
     if (renderView())
-        renderView()->mutableStyle().setRTLOrdering(VisualOrder);
+        renderView()->mutableStyle().setRTLOrdering(Order::Visual);
 }
 
 Ref<DocumentParser> Document::createParser()
@@ -2580,7 +2733,7 @@ ScriptableDocumentParser* Document::scriptableDocumentParser() const
     return parser() ? parser()->asScriptableDocumentParser() : nullptr;
 }
 
-ExceptionOr<RefPtr<DOMWindow>> Document::openForBindings(DOMWindow& activeWindow, DOMWindow& firstWindow, const String& url, const AtomicString& name, const String& features)
+ExceptionOr<RefPtr<WindowProxy>> Document::openForBindings(DOMWindow& activeWindow, DOMWindow& firstWindow, const String& url, const AtomicString& name, const String& features)
 {
     if (!m_domWindow)
         return Exception { InvalidAccessError };
@@ -2588,38 +2741,35 @@ ExceptionOr<RefPtr<DOMWindow>> Document::openForBindings(DOMWindow& activeWindow
     return m_domWindow->open(activeWindow, firstWindow, url, name, features);
 }
 
-// FIXME: Add support for the 'type' and 'replace' parameters.
 ExceptionOr<Document&> Document::openForBindings(Document* responsibleDocument, const String&, const String&)
 {
-    if (!isHTMLDocument())
+    if (!isHTMLDocument() || m_throwOnDynamicMarkupInsertionCount)
         return Exception { InvalidStateError };
 
-    // FIXME: This should also throw if "document's throw-on-dynamic-markup-insertion counter is greater than 0".
+    auto result = open(responsibleDocument);
+    if (UNLIKELY(result.hasException()))
+        return result.releaseException();
 
-    open(responsibleDocument);
     return *this;
 }
 
-void Document::open(Document* responsibleDocument)
+ExceptionOr<void> Document::open(Document* responsibleDocument)
 {
-    if (m_ignoreOpensDuringUnloadCount)
-        return;
+    if (responsibleDocument && !responsibleDocument->securityOrigin().isSameOriginAs(securityOrigin()))
+        return Exception { SecurityError };
 
-    if (responsibleDocument) {
-        setURL(responsibleDocument->url());
-        setCookieURL(responsibleDocument->cookieURL());
-        setSecurityOriginPolicy(responsibleDocument->securityOriginPolicy());
-    }
+    if (m_ignoreOpensDuringUnloadCount)
+        return { };
 
     if (m_frame) {
         if (ScriptableDocumentParser* parser = scriptableDocumentParser()) {
             if (parser->isParsing()) {
                 // FIXME: HTML5 doesn't tell us to check this, it might not be correct.
                 if (parser->isExecutingScript())
-                    return;
+                    return { };
 
                 if (!parser->wasCreatedByScript() && parser->hasInsertionPoint())
-                    return;
+                    return { };
             }
         }
 
@@ -2630,12 +2780,41 @@ void Document::open(Document* responsibleDocument)
     }
 
     removeAllEventListeners();
+
+    if (responsibleDocument && isFullyActive()) {
+        auto newURL = responsibleDocument->url();
+        if (responsibleDocument != this)
+            newURL.removeFragmentIdentifier();
+        setURL(newURL);
+        auto newCookieURL = responsibleDocument->cookieURL();
+        if (responsibleDocument != this)
+            newCookieURL.removeFragmentIdentifier();
+        setCookieURL(newCookieURL);
+        setSecurityOriginPolicy(responsibleDocument->securityOriginPolicy());
+    }
+
     implicitOpen();
     if (ScriptableDocumentParser* parser = scriptableDocumentParser())
         parser->setWasCreatedByScript(true);
 
     if (m_frame)
         m_frame->loader().didExplicitOpen();
+
+    return { };
+}
+
+// https://html.spec.whatwg.org/#fully-active
+bool Document::isFullyActive() const
+{
+    auto* frame = this->frame();
+    if (!frame || frame->document() != this)
+        return false;
+
+    if (frame->isMainFrame())
+        return true;
+
+    auto* parentFrame = frame->tree().parent();
+    return parentFrame && parentFrame->document() && parentFrame->document()->isFullyActive();
 }
 
 void Document::detachParser()
@@ -2667,6 +2846,10 @@ void Document::implicitOpen()
 
     cancelParsing();
     m_parser = createParser();
+
+    if (hasActiveParserYieldToken())
+        m_parser->didBeginYieldingParser();
+
     setParsing(true);
     setReadyState(Loading);
 }
@@ -2674,7 +2857,7 @@ void Document::implicitOpen()
 HTMLBodyElement* Document::body() const
 {
     auto* element = documentElement();
-    if (!element)
+    if (!is<HTMLHtmlElement>(element))
         return nullptr;
     return childrenOfType<HTMLBodyElement>(*element).first();
 }
@@ -2712,10 +2895,7 @@ ExceptionOr<void> Document::setBodyOrFrameset(RefPtr<HTMLElement>&& newBody)
 Location* Document::location() const
 {
     auto* window = domWindow();
-    if (!window)
-        return nullptr;
-
-    return window->location();
+    return window ? &window->location() : nullptr;
 }
 
 HTMLHeadElement* Document::head()
@@ -2730,10 +2910,8 @@ ExceptionOr<void> Document::closeForBindings()
     // FIXME: We should follow the specification more closely:
     //        http://www.whatwg.org/specs/web-apps/current-work/#dom-document-close
 
-    if (!isHTMLDocument())
+    if (!isHTMLDocument() || m_throwOnDynamicMarkupInsertionCount)
         return Exception { InvalidStateError };
-
-    // FIXME: This should also throw if "document's throw-on-dynamic-markup-insertion counter is greater than 0".
 
     close();
     return { };
@@ -2911,6 +3089,8 @@ bool Document::shouldScheduleLayout()
         return false;
     if (styleScope().hasPendingSheetsBeforeBody())
         return false;
+    if (page() && page()->chrome().client().layerFlushThrottlingIsActive() && view() && view()->isVisuallyNonEmpty())
+        return false;
 
     return true;
 }
@@ -2937,7 +3117,7 @@ Seconds Document::timeSinceDocumentCreation() const
     return MonotonicTime::now() - m_documentCreationTime;
 }
 
-void Document::write(Document* responsibleDocument, SegmentedString&& text)
+ExceptionOr<void> Document::write(Document* responsibleDocument, SegmentedString&& text)
 {
     NestingLevelIncrementer nestingLevelIncrementer(m_writeRecursionDepth);
 
@@ -2945,50 +3125,46 @@ void Document::write(Document* responsibleDocument, SegmentedString&& text)
     m_writeRecursionIsTooDeep = (m_writeRecursionDepth > cMaxWriteRecursionDepth) || m_writeRecursionIsTooDeep;
 
     if (m_writeRecursionIsTooDeep)
-        return;
+        return { };
 
     bool hasInsertionPoint = m_parser && m_parser->hasInsertionPoint();
     if (!hasInsertionPoint && (m_ignoreOpensDuringUnloadCount || m_ignoreDestructiveWriteCount))
-        return;
+        return { };
 
-    if (!hasInsertionPoint)
-        open(responsibleDocument);
+    if (!hasInsertionPoint) {
+        auto result = open(responsibleDocument);
+        if (UNLIKELY(result.hasException()))
+            return result.releaseException();
+    }
 
     ASSERT(m_parser);
     m_parser->insert(WTFMove(text));
+    return { };
 }
 
 ExceptionOr<void> Document::write(Document* responsibleDocument, Vector<String>&& strings)
 {
-    if (!isHTMLDocument())
+    if (!isHTMLDocument() || m_throwOnDynamicMarkupInsertionCount)
         return Exception { InvalidStateError };
-
-    // FIXME: This should also throw if "document's throw-on-dynamic-markup-insertion counter is greater than 0".
 
     SegmentedString text;
     for (auto& string : strings)
         text.append(WTFMove(string));
 
-    write(responsibleDocument, WTFMove(text));
-
-    return { };
+    return write(responsibleDocument, WTFMove(text));
 }
 
 ExceptionOr<void> Document::writeln(Document* responsibleDocument, Vector<String>&& strings)
 {
-    if (!isHTMLDocument())
+    if (!isHTMLDocument() || m_throwOnDynamicMarkupInsertionCount)
         return Exception { InvalidStateError };
-
-    // FIXME: This should also throw if "document's throw-on-dynamic-markup-insertion counter is greater than 0".
 
     SegmentedString text;
     for (auto& string : strings)
         text.append(WTFMove(string));
 
-    text.append(ASCIILiteral { "\n" });
-    write(responsibleDocument, WTFMove(text));
-
-    return { };
+    text.append("\n"_s);
+    return write(responsibleDocument, WTFMove(text));
 }
 
 Seconds Document::minimumDOMTimerInterval() const
@@ -3039,7 +3215,7 @@ void Document::logExceptionToConsole(const String& errorMessage, const String& s
 
 void Document::setURL(const URL& url)
 {
-    const URL& newURL = url.isEmpty() ? blankURL() : url;
+    const URL& newURL = url.isEmpty() ? WTF::blankURL() : url;
     if (newURL == m_url)
         return;
 
@@ -3062,7 +3238,7 @@ void Document::updateBaseURL()
         // The documentURI attribute is read-only from JavaScript, but writable from Objective C, so we need to retain
         // this fallback behavior. We use a null base URL, since the documentURI attribute is an arbitrary string
         // and DOM 3 Core does not specify how it should be resolved.
-        m_baseURL = URL(ParsedURLString, documentURI());
+        m_baseURL = URL({ }, documentURI());
     }
 
     clearSelectorQueryCache();
@@ -3163,7 +3339,7 @@ SocketProvider* Document::socketProvider()
     return m_socketProvider.get();
 }
     
-bool Document::canNavigate(Frame* targetFrame)
+bool Document::canNavigate(Frame* targetFrame, const URL& destinationURL)
 {
     if (!m_frame)
         return false;
@@ -3174,47 +3350,62 @@ bool Document::canNavigate(Frame* targetFrame)
     if (!targetFrame)
         return true;
 
+    if (!canNavigateInternal(*targetFrame))
+        return false;
+
+    if (isNavigationBlockedByThirdPartyIFrameRedirectBlocking(*targetFrame, destinationURL)) {
+        printNavigationErrorMessage(*targetFrame, url(), "The frame attempting navigation of the top-level window is cross-origin and the user has never interacted with the frame."_s);
+        return false;
+    }
+
+    return true;
+}
+
+bool Document::canNavigateInternal(Frame& targetFrame)
+{
+    ASSERT(m_frame);
+
     // Cases (i), (ii) and (iii) pass the tests from the specifications but might not pass the "security origin" tests.
 
     // i. A frame can navigate its top ancestor when its 'allow-top-navigation' flag is set (sometimes known as 'frame-busting').
-    if (!isSandboxed(SandboxTopNavigation) && targetFrame == &m_frame->tree().top())
+    if (!isSandboxed(SandboxTopNavigation) && &targetFrame == &m_frame->tree().top())
         return true;
 
     // ii. A frame can navigate its top ancestor when its 'allow-top-navigation-by-user-activation' flag is set and navigation is triggered by user activation.
-    if (!isSandboxed(SandboxTopNavigationByUserActivation) && UserGestureIndicator::processingUserGesture() && targetFrame == &m_frame->tree().top())
+    if (!isSandboxed(SandboxTopNavigationByUserActivation) && UserGestureIndicator::processingUserGesture() && &targetFrame == &m_frame->tree().top())
         return true;
 
     // iii. A sandboxed frame can always navigate its descendants.
-    if (isSandboxed(SandboxNavigation) && targetFrame->tree().isDescendantOf(m_frame))
+    if (isSandboxed(SandboxNavigation) && targetFrame.tree().isDescendantOf(m_frame))
         return true;
 
     // From https://html.spec.whatwg.org/multipage/browsers.html#allowed-to-navigate.
     // 1. If A is not the same browsing context as B, and A is not one of the ancestor browsing contexts of B, and B is not a top-level browsing context, and A's active document's active sandboxing
     // flag set has its sandboxed navigation browsing context flag set, then abort these steps negatively.
-    if (m_frame != targetFrame && isSandboxed(SandboxNavigation) && targetFrame->tree().parent() && !targetFrame->tree().isDescendantOf(m_frame)) {
-        printNavigationErrorMessage(targetFrame, url(), ASCIILiteral("The frame attempting navigation is sandboxed, and is therefore disallowed from navigating its ancestors."));
+    if (m_frame != &targetFrame && isSandboxed(SandboxNavigation) && targetFrame.tree().parent() && !targetFrame.tree().isDescendantOf(m_frame)) {
+        printNavigationErrorMessage(targetFrame, url(), "The frame attempting navigation is sandboxed, and is therefore disallowed from navigating its ancestors."_s);
         return false;
     }
 
     // 2. Otherwise, if B is a top-level browsing context, and is one of the ancestor browsing contexts of A, then:
-    if (m_frame != targetFrame && targetFrame == &m_frame->tree().top()) {
+    if (m_frame != &targetFrame && &targetFrame == &m_frame->tree().top()) {
         bool triggeredByUserActivation = UserGestureIndicator::processingUserGesture();
         // 1. If this algorithm is triggered by user activation and A's active document's active sandboxing flag set has its sandboxed top-level navigation with user activation browsing context flag set, then abort these steps negatively.
         if (triggeredByUserActivation && isSandboxed(SandboxTopNavigationByUserActivation)) {
-            printNavigationErrorMessage(targetFrame, url(), ASCIILiteral("The frame attempting navigation of the top-level window is sandboxed, but the 'allow-top-navigation-by-user-activation' flag is not set and navigation is not triggered by user activation."));
+            printNavigationErrorMessage(targetFrame, url(), "The frame attempting navigation of the top-level window is sandboxed, but the 'allow-top-navigation-by-user-activation' flag is not set and navigation is not triggered by user activation."_s);
             return false;
         }
         // 2. Otherwise, If this algorithm is not triggered by user activation and A's active document's active sandboxing flag set has its sandboxed top-level navigation without user activation browsing context flag set, then abort these steps negatively.
         if (!triggeredByUserActivation && isSandboxed(SandboxTopNavigation)) {
-            printNavigationErrorMessage(targetFrame, url(), ASCIILiteral("The frame attempting navigation of the top-level window is sandboxed, but the 'allow-top-navigation' flag is not set."));
+            printNavigationErrorMessage(targetFrame, url(), "The frame attempting navigation of the top-level window is sandboxed, but the 'allow-top-navigation' flag is not set."_s);
             return false;
         }
     }
 
     // 3. Otherwise, if B is a top-level browsing context, and is neither A nor one of the ancestor browsing contexts of A, and A's Document's active sandboxing flag set has its
     // sandboxed navigation browsing context flag set, and A is not the one permitted sandboxed navigator of B, then abort these steps negatively.
-    if (!targetFrame->tree().parent() && m_frame != targetFrame && targetFrame != &m_frame->tree().top() && isSandboxed(SandboxNavigation) && targetFrame->loader().opener() != m_frame) {
-        printNavigationErrorMessage(targetFrame, url(), ASCIILiteral("The frame attempting navigation is sandboxed, and is not allowed to navigate this popup."));
+    if (!targetFrame.tree().parent() && m_frame != &targetFrame && &targetFrame != &m_frame->tree().top() && isSandboxed(SandboxNavigation) && targetFrame.loader().opener() != m_frame) {
+        printNavigationErrorMessage(targetFrame, url(), "The frame attempting navigation is sandboxed, and is not allowed to navigate this popup."_s);
         return false;
     }
 
@@ -3227,7 +3418,7 @@ bool Document::canNavigate(Frame* targetFrame)
     //
     // See http://www.adambarth.com/papers/2008/barth-jackson-mitchell.pdf for
     // historical information about this security check.
-    if (canAccessAncestor(securityOrigin(), targetFrame))
+    if (canAccessAncestor(securityOrigin(), &targetFrame))
         return true;
 
     // Top-level frames are easier to navigate than other frames because they
@@ -3241,11 +3432,11 @@ bool Document::canNavigate(Frame* targetFrame)
     // some way related to the frame being navigate (e.g., by the "opener"
     // and/or "parent" relation). Requiring some sort of relation prevents a
     // document from navigating arbitrary, unrelated top-level frames.
-    if (!targetFrame->tree().parent()) {
-        if (targetFrame == m_frame->loader().opener())
+    if (!targetFrame.tree().parent()) {
+        if (&targetFrame == m_frame->loader().opener())
             return true;
 
-        if (canAccessAncestor(securityOrigin(), targetFrame->loader().opener()))
+        if (canAccessAncestor(securityOrigin(), targetFrame.loader().opener()))
             return true;
     }
 
@@ -3253,21 +3444,35 @@ bool Document::canNavigate(Frame* targetFrame)
     return false;
 }
 
-Frame* Document::findUnsafeParentScrollPropagationBoundary()
+// Prevent cross-site top-level redirects from third-party iframes unless the user has ever interacted with the frame.
+bool Document::isNavigationBlockedByThirdPartyIFrameRedirectBlocking(Frame& targetFrame, const URL& destinationURL)
 {
-    Frame* currentFrame = m_frame;
-    if (!currentFrame)
-        return nullptr;
+    if (!settings().thirdPartyIframeRedirectBlockingEnabled())
+        return false;
 
-    Frame* ancestorFrame = currentFrame->tree().parent();
+    // Only prevent top frame navigations by subframes.
+    if (m_frame == &targetFrame || &targetFrame != &m_frame->tree().top())
+        return false;
 
-    while (ancestorFrame) {
-        if (!ancestorFrame->document()->securityOrigin().canAccess(securityOrigin()))
-            return currentFrame;
-        currentFrame = ancestorFrame;
-        ancestorFrame = ancestorFrame->tree().parent();
-    }
-    return nullptr;
+    // Only prevent navigations by subframes that the user has not interacted with.
+    if (m_frame->hasHadUserInteraction())
+        return false;
+
+    // Only prevent navigations by unsandboxed iframes. Such navigations by unsandboxed iframes would have already been blocked unless
+    // "allow-top-navigation" / "allow-top-navigation-by-user-activation" was explicitly specified.
+    if (sandboxFlags() != SandboxNone)
+        return false;
+
+    // Only prevent navigations by third-party iframes.
+    if (canAccessAncestor(securityOrigin(), &targetFrame))
+        return false;
+
+    // Only prevent cross-site navigations.
+    auto* targetDocument = targetFrame.document();
+    if (targetDocument && (targetDocument->securityOrigin().canAccess(SecurityOrigin::create(destinationURL)) || registrableDomainsAreEqual(targetDocument->url(), destinationURL)))
+        return false;
+
+    return true;
 }
 
 void Document::didRemoveAllPendingStylesheet()
@@ -3319,6 +3524,8 @@ void Document::processHttpEquiv(const String& equiv, const String& content, bool
     }
 
     Frame* frame = this->frame();
+    auto* documentLoader = frame ? frame->loader().documentLoader() : nullptr;
+    auto httpStatusCode = documentLoader ? documentLoader->response().httpStatusCode() : 0;
 
     HTTPHeaderName headerName;
     if (!findHTTPHeaderName(equiv, headerName))
@@ -3332,7 +3539,6 @@ void Document::processHttpEquiv(const String& equiv, const String& content, bool
         // For more info, see the test at:
         // http://www.hixie.ch/tests/evil/css/import/main/preferred.html
         // -dwh
-        styleScope().setSelectedStylesheetSetName(content);
         styleScope().setPreferredStylesheetSetName(content);
         break;
 
@@ -3345,7 +3551,7 @@ void Document::processHttpEquiv(const String& equiv, const String& content, bool
                 completedURL = m_url;
             else
                 completedURL = completeURL(urlString);
-            if (!protocolIsJavaScript(completedURL))
+            if (!WTF::protocolIsJavaScript(completedURL))
                 frame->navigationScheduler().scheduleRedirect(*this, delay, completedURL);
             else {
                 String message = "Refused to refresh " + m_url.stringCenterEllipsizedToLength() + " to a javascript: URL";
@@ -3357,11 +3563,8 @@ void Document::processHttpEquiv(const String& equiv, const String& content, bool
     }
 
     case HTTPHeaderName::SetCookie:
-        // FIXME: make setCookie work on XML documents too; e.g. in case of <html:meta .....>
-        if (is<HTMLDocument>(*this)) {
-            // Exception (for sandboxed documents) ignored.
-            downcast<HTMLDocument>(*this).setCookie(content);
-        }
+        if (is<HTMLDocument>(*this))
+            addConsoleMessage(MessageSource::Security, MessageLevel::Error, "The Set-Cookie meta tag is obsolete and was ignored. Use the HTTP header Set-Cookie or document.cookie instead."_s);
         break;
 
     case HTTPHeaderName::ContentLanguage:
@@ -3386,17 +3589,47 @@ void Document::processHttpEquiv(const String& equiv, const String& content, bool
 
     case HTTPHeaderName::ContentSecurityPolicy:
         if (isInDocumentHead)
-            contentSecurityPolicy()->didReceiveHeader(content, ContentSecurityPolicyHeaderType::Enforce, ContentSecurityPolicy::PolicyFrom::HTTPEquivMeta);
+            contentSecurityPolicy()->didReceiveHeader(content, ContentSecurityPolicyHeaderType::Enforce, ContentSecurityPolicy::PolicyFrom::HTTPEquivMeta, referrer(), httpStatusCode);
         break;
 
     case HTTPHeaderName::XWebKitCSP:
         if (isInDocumentHead)
-            contentSecurityPolicy()->didReceiveHeader(content, ContentSecurityPolicyHeaderType::PrefixedEnforce, ContentSecurityPolicy::PolicyFrom::HTTPEquivMeta);
+            contentSecurityPolicy()->didReceiveHeader(content, ContentSecurityPolicyHeaderType::PrefixedEnforce, ContentSecurityPolicy::PolicyFrom::HTTPEquivMeta, referrer(), httpStatusCode);
         break;
 
     default:
         break;
     }
+}
+
+void Document::processDisabledAdaptations(const String& disabledAdaptationsString)
+{
+    auto disabledAdaptations = parseDisabledAdaptations(disabledAdaptationsString);
+    if (m_disabledAdaptations == disabledAdaptations)
+        return;
+
+    m_disabledAdaptations = disabledAdaptations;
+    dispatchDisabledAdaptationsDidChangeForMainFrame();
+}
+
+void Document::dispatchDisabledAdaptationsDidChangeForMainFrame()
+{
+    if (!frame()->isMainFrame())
+        return;
+
+    if (!page())
+        return;
+
+    page()->chrome().dispatchDisabledAdaptationsDidChange(m_disabledAdaptations);
+}
+
+void Document::setOverrideViewportArguments(const Optional<ViewportArguments>& viewportArguments)
+{
+    if (viewportArguments == m_overrideViewportArguments)
+        return;
+
+    m_overrideViewportArguments = viewportArguments;
+    updateViewportArguments();
 }
 
 void Document::processViewport(const String& features, ViewportArguments::Type origin)
@@ -3425,12 +3658,79 @@ void Document::updateViewportArguments()
 #ifndef NDEBUG
         m_didDispatchViewportPropertiesChanged = true;
 #endif
-        page()->chrome().dispatchViewportPropertiesDidChange(m_viewportArguments);
+        page()->chrome().dispatchViewportPropertiesDidChange(m_overrideViewportArguments ? m_overrideViewportArguments.value() : m_viewportArguments);
         page()->chrome().didReceiveDocType(*frame());
     }
 }
 
-#if PLATFORM(IOS)
+#if ENABLE(DARK_MODE_CSS)
+static bool isColorSchemeSeparator(UChar character)
+{
+    return isASCIISpace(character) || character == ',';
+}
+
+static void processColorSchemes(StringView colorSchemes, const WTF::Function<void(StringView key)>& callback)
+{
+    unsigned length = colorSchemes.length();
+    for (unsigned i = 0; i < length; ) {
+        // Skip to first non-separator.
+        while (i < length && isColorSchemeSeparator(colorSchemes[i]))
+            ++i;
+        unsigned keyBegin = i;
+
+        // Skip to first separator.
+        while (i < length && !isColorSchemeSeparator(colorSchemes[i]))
+            ++i;
+        unsigned keyEnd = i;
+
+        if (keyBegin == keyEnd)
+            continue;
+
+        callback(colorSchemes.substring(keyBegin, keyEnd - keyBegin));
+    }
+}
+
+void Document::processSupportedColorSchemes(const String& colorSchemes)
+{
+    OptionSet<ColorSchemes> supportedColorSchemes;
+    bool allowsTransformations = true;
+    bool autoEncountered = false;
+
+    processColorSchemes(colorSchemes, [&](StringView key) {
+        if (equalLettersIgnoringASCIICase(key, "auto")) {
+            supportedColorSchemes = { };
+            allowsTransformations = true;
+            autoEncountered = true;
+            return;
+        }
+
+        if (autoEncountered)
+            return;
+
+        if (equalLettersIgnoringASCIICase(key, "light"))
+            supportedColorSchemes.add(ColorSchemes::Light);
+        else if (equalLettersIgnoringASCIICase(key, "dark"))
+            supportedColorSchemes.add(ColorSchemes::Dark);
+        else if (equalLettersIgnoringASCIICase(key, "only"))
+            allowsTransformations = false;
+    });
+
+    // If the value was just "only", that is synonymous for "only light".
+    if (supportedColorSchemes.isEmpty() && !allowsTransformations)
+        supportedColorSchemes.add(ColorSchemes::Light);
+
+    m_supportedColorSchemes = supportedColorSchemes;
+    m_allowsColorSchemeTransformations = allowsTransformations;
+
+    if (auto* frameView = view())
+        frameView->recalculateBaseBackgroundColor();
+
+    if (auto* page = this->page())
+        page->updateStyleAfterChangeInEnvironment();
+}
+#endif
+
+#if PLATFORM(IOS_FAMILY)
 
 void Document::processFormatDetection(const String& features)
 {
@@ -3449,7 +3749,7 @@ void Document::processWebAppOrientations()
 
 #endif
 
-void Document::processReferrerPolicy(const String& policy)
+void Document::processReferrerPolicy(const String& policy, ReferrerPolicySource source)
 {
     ASSERT(!policy.isNull());
 
@@ -3462,29 +3762,14 @@ void Document::processReferrerPolicy(const String& policy)
     if (shouldEnforceQuickLookSandbox())
         return;
 #endif
-
-    // "never" / "default" / "always" are legacy keywords that we will support. They were defined in:
-    // https://www.w3.org/TR/2014/WD-referrer-policy-20140807/#referrer-policy-delivery-meta
-    if (equalLettersIgnoringASCIICase(policy, "no-referrer") || equalLettersIgnoringASCIICase(policy, "never"))
-        setReferrerPolicy(ReferrerPolicy::NoReferrer);
-    else if (equalLettersIgnoringASCIICase(policy, "unsafe-url") || equalLettersIgnoringASCIICase(policy, "always"))
-        setReferrerPolicy(ReferrerPolicy::UnsafeUrl);
-    else if (equalLettersIgnoringASCIICase(policy, "origin"))
-        setReferrerPolicy(ReferrerPolicy::Origin);
-    else if (equalLettersIgnoringASCIICase(policy, "origin-when-cross-origin"))
-        setReferrerPolicy(ReferrerPolicy::OriginWhenCrossOrigin);
-    else if (equalLettersIgnoringASCIICase(policy, "same-origin"))
-        setReferrerPolicy(ReferrerPolicy::SameOrigin);
-    else if (equalLettersIgnoringASCIICase(policy, "strict-origin"))
-        setReferrerPolicy(ReferrerPolicy::StrictOrigin);
-    else if (equalLettersIgnoringASCIICase(policy, "strict-origin-when-cross-origin"))
-        setReferrerPolicy(ReferrerPolicy::StrictOriginWhenCrossOrigin);
-    else if (equalLettersIgnoringASCIICase(policy, "no-referrer-when-downgrade") || equalLettersIgnoringASCIICase(policy, "default"))
-        setReferrerPolicy(ReferrerPolicy::NoReferrerWhenDowngrade);
-    else {
-        addConsoleMessage(MessageSource::Rendering, MessageLevel::Error, "Failed to set referrer policy: The value '" + policy + "' is not one of 'no-referrer', 'no-referrer-when-downgrade', 'same-origin', 'origin', 'strict-origin', 'origin-when-cross-origin', 'strict-origin-when-cross-origin' or 'unsafe-url'. Defaulting to 'no-referrer'.");
-        setReferrerPolicy(ReferrerPolicy::NoReferrer);
+    
+    auto referrerPolicy = parseReferrerPolicy(policy, source);
+    if (!referrerPolicy) {
+        // Unknown policy values are ignored (https://w3c.github.io/webappsec-referrer-policy/#unknown-policy-values).
+        addConsoleMessage(MessageSource::Rendering, MessageLevel::Error, "Failed to set referrer policy: The value '" + policy + "' is not one of 'no-referrer', 'no-referrer-when-downgrade', 'same-origin', 'origin', 'strict-origin', 'origin-when-cross-origin', 'strict-origin-when-cross-origin' or 'unsafe-url'.");
+        return;
     }
+    setReferrerPolicy(referrerPolicy.value());
 }
 
 MouseEventWithHitTestResults Document::prepareMouseEvent(const HitTestRequest& request, const LayoutPoint& documentPoint, const PlatformMouseEvent& event)
@@ -3636,23 +3921,8 @@ void Document::cloneDataFromDocument(const Document& other)
 StyleSheetList& Document::styleSheets()
 {
     if (!m_styleSheetList)
-        m_styleSheetList = StyleSheetList::create(this);
+        m_styleSheetList = StyleSheetList::create(*this);
     return *m_styleSheetList;
-}
-
-String Document::preferredStylesheetSet() const
-{
-    return styleScope().preferredStylesheetSetName();
-}
-
-String Document::selectedStylesheetSet() const
-{
-    return styleScope().selectedStylesheetSetName();
-}
-
-void Document::setSelectedStylesheetSet(const String& aString)
-{
-    styleScope().setSelectedStylesheetSetName(aString);
 }
 
 void Document::evaluateMediaQueryList()
@@ -3661,6 +3931,7 @@ void Document::evaluateMediaQueryList()
         m_mediaQueryMatcher->styleResolverChanged();
     
     checkViewportDependentPictures();
+    checkAppearanceDependentPictures();
 }
 
 void Document::checkViewportDependentPictures()
@@ -3671,6 +3942,18 @@ void Document::checkViewportDependentPictures()
         if ((*it)->viewportChangeAffectedPicture())
             changedPictures.append(*it);
     }
+    for (auto* picture : changedPictures)
+        picture->sourcesChanged();
+}
+
+void Document::checkAppearanceDependentPictures()
+{
+    Vector<HTMLPictureElement*, 16> changedPictures;
+    for (auto* picture : m_appearanceDependentPictures) {
+        if (picture->appearanceChangeAffectedPicture())
+            changedPictures.append(picture);
+    }
+
     for (auto* picture : changedPictures)
         picture->sourcesChanged();
 }
@@ -3763,15 +4046,15 @@ void Document::pageMutedStateDidChange()
         audioProducer->pageMutedStateDidChange();
 }
 
-static bool isNodeInSubtree(Node& node, Node& container, bool amongChildrenOnly)
+static bool isNodeInSubtree(Node& node, Node& container, Document::NodeRemoval nodeRemoval)
 {
-    if (amongChildrenOnly)
+    if (nodeRemoval == Document::NodeRemoval::ChildrenOfNode)
         return node.isDescendantOf(container);
-    else
-        return &node == &container || node.isDescendantOf(container);
+
+    return &node == &container || node.isDescendantOf(container);
 }
 
-void Document::removeFocusedNodeOfSubtree(Node& node, bool amongChildrenOnly)
+void Document::adjustFocusedNodeOnNodeRemoval(Node& node, NodeRemoval nodeRemoval)
 {
     if (!m_focusedElement || pageCacheState() != NotInPageCache) // If the document is in the page cache, then we don't need to clear out the focused node.
         return;
@@ -3779,8 +4062,8 @@ void Document::removeFocusedNodeOfSubtree(Node& node, bool amongChildrenOnly)
     Element* focusedElement = node.treeScope().focusedElementInScope();
     if (!focusedElement)
         return;
-    
-    if (isNodeInSubtree(*focusedElement, node, amongChildrenOnly)) {
+
+    if (isNodeInSubtree(*focusedElement, node, nodeRemoval)) {
         // FIXME: We should avoid synchronously updating the style inside setFocusedElement.
         // FIXME: Object elements should avoid loading a frame synchronously in a post style recalc callback.
         SubframeLoadingDisabler disabler(is<ContainerNode>(node) ? &downcast<ContainerNode>(node) : nullptr);
@@ -4010,6 +4293,7 @@ void Document::setFocusNavigationStartingNode(Node* node)
         return;
     }
 
+    ASSERT(!node || node != this);
     m_focusNavigationStartingNode = node;
 }
 
@@ -4138,13 +4422,13 @@ void Document::updateRangesAfterChildrenChanged(ContainerNode& container)
 
 void Document::nodeChildrenWillBeRemoved(ContainerNode& container)
 {
-    ASSERT(!ScriptDisallowedScope::InMainThread::isScriptAllowed());
+    ASSERT(ScriptDisallowedScope::InMainThread::hasDisallowedScope());
 
-    removeFocusedNodeOfSubtree(container, true /* amongChildrenOnly */);
-    removeFocusNavigationNodeOfSubtree(container, true /* amongChildrenOnly */);
+    adjustFocusedNodeOnNodeRemoval(container, NodeRemoval::ChildrenOfNode);
+    adjustFocusNavigationNodeOnNodeRemoval(container, NodeRemoval::ChildrenOfNode);
 
 #if ENABLE(FULLSCREEN_API)
-    removeFullScreenElementOfSubtree(container, true /* amongChildrenOnly */);
+    adjustFullScreenElementOnNodeRemoval(container, NodeRemoval::ChildrenOfNode);
 #endif
 
     for (auto* range : m_ranges)
@@ -4171,13 +4455,13 @@ void Document::nodeChildrenWillBeRemoved(ContainerNode& container)
 
 void Document::nodeWillBeRemoved(Node& node)
 {
-    ASSERT(!ScriptDisallowedScope::InMainThread::isScriptAllowed());
+    ASSERT(ScriptDisallowedScope::InMainThread::hasDisallowedScope());
 
-    removeFocusedNodeOfSubtree(node);
-    removeFocusNavigationNodeOfSubtree(node);
+    adjustFocusedNodeOnNodeRemoval(node);
+    adjustFocusNavigationNodeOnNodeRemoval(node);
 
 #if ENABLE(FULLSCREEN_API)
-    removeFullScreenElementOfSubtree(node);
+    adjustFullScreenElementOnNodeRemoval(node);
 #endif
 
     for (auto* it : m_nodeIterators)
@@ -4201,13 +4485,14 @@ static Node* fallbackFocusNavigationStartingNodeAfterRemoval(Node& node)
     return node.previousSibling() ? node.previousSibling() : node.parentNode();
 }
 
-void Document::removeFocusNavigationNodeOfSubtree(Node& node, bool amongChildrenOnly)
+void Document::adjustFocusNavigationNodeOnNodeRemoval(Node& node, NodeRemoval nodeRemoval)
 {
     if (!m_focusNavigationStartingNode)
         return;
 
-    if (isNodeInSubtree(*m_focusNavigationStartingNode, node, amongChildrenOnly)) {
-        m_focusNavigationStartingNode = amongChildrenOnly ? &node : fallbackFocusNavigationStartingNodeAfterRemoval(node);
+    if (isNodeInSubtree(*m_focusNavigationStartingNode, node, nodeRemoval)) {
+        auto* newNode = (nodeRemoval == NodeRemoval::ChildrenOfNode) ? &node : fallbackFocusNavigationStartingNodeAfterRemoval(node);
+        m_focusNavigationStartingNode = (newNode != this) ? newNode : nullptr;
         m_focusNavigationStartingNodeIsRemoved = true;
     }
 }
@@ -4263,6 +4548,8 @@ void Document::createDOMWindow()
 
     ASSERT(m_domWindow->document() == this);
     ASSERT(m_domWindow->frame() == m_frame);
+
+    m_frame->loader().client().didCreateWindow(*m_domWindow);
 }
 
 void Document::takeDOMWindowFrom(Document* document)
@@ -4278,6 +4565,13 @@ void Document::takeDOMWindowFrom(Document* document)
 
     ASSERT(m_domWindow->document() == this);
     ASSERT(m_domWindow->frame() == m_frame);
+}
+
+WindowProxy* Document::windowProxy() const
+{
+    if (!m_frame)
+        return nullptr;
+    return &m_frame->windowProxy();
 }
 
 Document& Document::contextDocument() const
@@ -4640,11 +4934,18 @@ ExceptionOr<void> Document::setDomain(const String& newDomain)
     return { };
 }
 
-// http://www.whatwg.org/specs/web-apps/current-work/#dom-document-lastmodified
-String Document::lastModified()
+void Document::overrideLastModified(const Optional<WallTime>& lastModified)
 {
-    std::optional<WallTime> dateTime;
-    if (m_frame && loader())
+    m_overrideLastModified = lastModified;
+}
+
+// http://www.whatwg.org/specs/web-apps/current-work/#dom-document-lastmodified
+String Document::lastModified() const
+{
+    Optional<WallTime> dateTime;
+    if (m_overrideLastModified)
+        dateTime = m_overrideLastModified;
+    else if (loader())
         dateTime = loader()->response().lastModified();
 
     // FIXME: If this document came from the file system, the HTML5
@@ -4796,10 +5097,10 @@ URL Document::completeURL(const String& url, const URL& baseURLOverride) const
     // See also [CSS]StyleSheet::completeURL(const String&)
     if (url.isNull())
         return URL();
-    const URL& baseURL = ((baseURLOverride.isEmpty() || baseURLOverride == blankURL()) && parentDocument()) ? parentDocument()->baseURL() : baseURLOverride;
+    const URL& baseURL = ((baseURLOverride.isEmpty() || baseURLOverride == WTF::blankURL()) && parentDocument()) ? parentDocument()->baseURL() : baseURLOverride;
     if (!m_decoder)
         return URL(baseURL, url);
-    return URL(baseURL, url, m_decoder->encoding());
+    return URL(baseURL, url, m_decoder->encodingForURLParsing());
 }
 
 URL Document::completeURL(const String& url) const
@@ -4871,7 +5172,7 @@ void Document::documentWillBecomeInactive()
         renderView()->setIsInWindow(false);
 }
 
-void Document::suspend(ActiveDOMObject::ReasonForSuspension reason)
+void Document::suspend(ReasonForSuspension reason)
 {
     if (m_isSuspended)
         return;
@@ -4895,8 +5196,16 @@ void Document::suspend(ActiveDOMObject::ReasonForSuspension reason)
             view->compositor().cancelCompositingLayerUpdate();
     }
 
+#if USE(LIBWEBRTC)
+    // FIXME: This should be moved to Modules/mediastream.
+    if (LibWebRTCProvider::webRTCAvailable()) {
+        if (auto* page = this->page())
+            page->libWebRTCProvider().unregisterMDNSNames(identifier().toUInt64());
+    }
+#endif
+
 #if ENABLE(SERVICE_WORKER)
-    if (RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled() && reason == ActiveDOMObject::ReasonForSuspension::PageCache) {
+    if (RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled() && reason == ReasonForSuspension::PageCache) {
         ASSERT_WITH_MESSAGE(!activeServiceWorker(), "Documents with an active service worker should not go into PageCache in the first place");
         setServiceWorkerConnection(nullptr);
     }
@@ -4913,7 +5222,7 @@ void Document::suspend(ActiveDOMObject::ReasonForSuspension reason)
     m_isSuspended = true;
 }
 
-void Document::resume(ActiveDOMObject::ReasonForSuspension reason)
+void Document::resume(ReasonForSuspension reason)
 {
     if (!m_isSuspended)
         return;
@@ -4929,7 +5238,12 @@ void Document::resume(ActiveDOMObject::ReasonForSuspension reason)
 
     ASSERT(m_frame);
     m_frame->loader().client().dispatchDidBecomeFrameset(isFrameSet());
-    m_frame->animation().resumeAnimationsForDocument(this);
+
+    if (RuntimeEnabledFeatures::sharedFeatures().webAnimationsCSSIntegrationEnabled()) {
+        if (auto* timeline = existingTimeline())
+            timeline->resumeAnimations();  
+    } else
+        m_frame->animation().resumeAnimationsForDocument(this);
 
     resumeScheduledTasks(reason);
 
@@ -4938,7 +5252,7 @@ void Document::resume(ActiveDOMObject::ReasonForSuspension reason)
     m_isSuspended = false;
 
 #if ENABLE(SERVICE_WORKER)
-    if (RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled() && reason == ActiveDOMObject::ReasonForSuspension::PageCache) {
+    if (RuntimeEnabledFeatures::sharedFeatures().serviceWorkerEnabled() && reason == ReasonForSuspension::PageCache) {
         ASSERT_WITH_MESSAGE(!activeServiceWorker(), "Documents with an active service worker should not go into PageCache in the first place");
         setServiceWorkerConnection(ServiceWorkerProvider::singleton().existingServiceWorkerConnectionForSession(sessionID()));
     }
@@ -5151,6 +5465,11 @@ void Document::popCurrentScript()
     m_currentScriptStack.removeLast();
 }
 
+bool Document::shouldDeferAsynchronousScriptsUntilParsingFinishes() const
+{
+    return parsing() && settings().shouldDeferAsynchronousScriptsUntilAfterDocumentLoad();
+}
+
 #if ENABLE(XSLT)
 
 void Document::scheduleToApplyXSLTransforms()
@@ -5205,12 +5524,12 @@ void Document::setDesignMode(InheritedBool value)
 {
     m_designMode = value;
     for (Frame* frame = m_frame; frame && frame->document(); frame = frame->tree().traverseNext(m_frame))
-        frame->document()->scheduleForcedStyleRecalc();
+        frame->document()->scheduleFullStyleRebuild();
 }
 
 String Document::designMode() const
 {
-    return inDesignMode() ? ASCIILiteral("on") : ASCIILiteral("off");
+    return inDesignMode() ? "on"_s : "off"_s;
 }
 
 void Document::setDesignMode(const String& value)
@@ -5303,8 +5622,8 @@ void Document::addSVGUseElement(SVGUseElement& element)
 
 void Document::removeSVGUseElement(SVGUseElement& element)
 {
-    bool didRemove = m_svgUseElements.remove(&element);
-    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(didRemove);
+    m_svgUseElements.remove(&element);
+    // FIXME: Assert that element was in m_svgUseElements once re-entrancy to update style and layout have been removed.
 }
 
 bool Document::hasSVGRootNode() const
@@ -5387,10 +5706,15 @@ void Document::finishedParsing()
 
     Ref<Document> protectedThis(*this);
 
+    scriptRunner()->documentFinishedParsing();
+
     if (!m_documentTiming.domContentLoadedEventStart)
         m_documentTiming.domContentLoadedEventStart = MonotonicTime::now();
 
-    dispatchEvent(Event::create(eventNames().DOMContentLoadedEvent, true, false));
+    // FIXME: Schdule a task to fire DOMContentLoaded event instead. See webkit.org/b/82931
+    MicrotaskQueue::mainThreadQueue().performMicrotaskCheckpoint();
+
+    dispatchEvent(Event::create(eventNames().DOMContentLoadedEvent, Event::CanBubble::Yes, Event::IsCancelable::No));
 
     if (!m_documentTiming.domContentLoadedEventEnd)
         m_documentTiming.domContentLoadedEventEnd = MonotonicTime::now();
@@ -5482,20 +5806,6 @@ ExceptionOr<Ref<XPathResult>> Document::evaluate(const String& expression, Node*
     return m_xpathEvaluator->evaluate(expression, contextNode, WTFMove(resolver), type, result);
 }
 
-static bool shouldInheritSecurityOriginFromOwner(const URL& url)
-{
-    // Paraphrased from <https://html.spec.whatwg.org/multipage/browsers.html#origin> (8 July 2016)
-    //
-    // If a Document has the address "about:blank"
-    //      The origin of the document is the origin it was assigned when its browsing context was created.
-    // If a Document has the address "about:srcdoc"
-    //      The origin of the document is the origin of its parent document.
-    //
-    // Note: We generalize this to invalid URLs because we treat such URLs as about:blank.
-    //
-    return url.isEmpty() || equalIgnoringASCIICase(url.string(), blankURL()) || equalLettersIgnoringASCIICase(url.string(), "about:srcdoc");
-}
-
 void Document::initSecurityContext()
 {
     if (haveInitializedSecurityOrigin()) {
@@ -5506,9 +5816,9 @@ void Document::initSecurityContext()
     if (!m_frame) {
         // No source for a security context.
         // This can occur via document.implementation.createDocument().
-        setCookieURL(URL(ParsedURLString, emptyString()));
+        setCookieURL(URL({ }, emptyString()));
         setSecurityOriginPolicy(SecurityOriginPolicy::create(SecurityOrigin::createUnique()));
-        setContentSecurityPolicy(std::make_unique<ContentSecurityPolicy>(*this));
+        setContentSecurityPolicy(std::make_unique<ContentSecurityPolicy>(URL { { }, emptyString() }, *this));
         return;
     }
 
@@ -5521,18 +5831,17 @@ void Document::initSecurityContext()
     if (shouldEnforceContentDispositionAttachmentSandbox())
         applyContentDispositionAttachmentSandbox();
 
+    auto* documentLoader = m_frame->loader().documentLoader();
     bool isSecurityOriginUnique = isSandboxed(SandboxOrigin);
-    if (!isSecurityOriginUnique) {
-        auto* loader = m_frame->loader().documentLoader();
-        isSecurityOriginUnique = loader && loader->response().tainting() == ResourceResponse::Tainting::Opaque;
-    }
+    if (!isSecurityOriginUnique)
+        isSecurityOriginUnique = documentLoader && documentLoader->response().tainting() == ResourceResponse::Tainting::Opaque;
 
     setSecurityOriginPolicy(SecurityOriginPolicy::create(isSecurityOriginUnique ? SecurityOrigin::createUnique() : SecurityOrigin::create(m_url)));
-    setContentSecurityPolicy(std::make_unique<ContentSecurityPolicy>(*this));
+    setContentSecurityPolicy(std::make_unique<ContentSecurityPolicy>(URL { m_url }, *this));
 
     String overrideContentSecurityPolicy = m_frame->loader().client().overrideContentSecurityPolicy();
     if (!overrideContentSecurityPolicy.isNull())
-        contentSecurityPolicy()->didReceiveHeader(overrideContentSecurityPolicy, ContentSecurityPolicyHeaderType::Enforce, ContentSecurityPolicy::PolicyFrom::API);
+        contentSecurityPolicy()->didReceiveHeader(overrideContentSecurityPolicy, ContentSecurityPolicyHeaderType::Enforce, ContentSecurityPolicy::PolicyFrom::API, referrer(), documentLoader ? documentLoader->response().httpStatusCode() : 0);
 
 #if USE(QUICK_LOOK)
     if (shouldEnforceQuickLookSandbox())
@@ -5572,7 +5881,7 @@ void Document::initSecurityContext()
     if (parentDocument)
         setStrictMixedContentMode(parentDocument->isStrictMixedContentMode());
 
-    if (!shouldInheritSecurityOriginFromOwner(m_url))
+    if (!SecurityPolicy::shouldInheritSecurityOriginFromOwner(m_url))
         return;
 
     // If we do not obtain a meaningful origin from the URL, then we try to
@@ -5616,7 +5925,7 @@ void Document::initSecurityContext()
 bool Document::shouldInheritContentSecurityPolicyFromOwner() const
 {
     ASSERT(m_frame);
-    if (shouldInheritSecurityOriginFromOwner(m_url))
+    if (SecurityPolicy::shouldInheritSecurityOriginFromOwner(m_url))
         return true;
     if (!isPluginDocument())
         return false;
@@ -5635,7 +5944,7 @@ void Document::initContentSecurityPolicy()
     if (parentFrame)
         contentSecurityPolicy()->copyUpgradeInsecureRequestStateFrom(*parentFrame->document()->contentSecurityPolicy());
 
-    // 2. Inherit Content Security Policy
+    // 2. Inherit Content Security Policy (without copying Upgrade Insecure Requests state).
     if (!shouldInheritContentSecurityPolicyFromOwner())
         return;
     Frame* ownerFrame = parentFrame;
@@ -5643,7 +5952,12 @@ void Document::initContentSecurityPolicy()
         ownerFrame = m_frame->loader().opener();
     if (!ownerFrame)
         return;
-    contentSecurityPolicy()->copyStateFrom(ownerFrame->document()->contentSecurityPolicy()); // Does not copy Upgrade Insecure Requests state.
+    // FIXME: The CSP 3 spec. implies that only plugin documents delivered with a local scheme (e.g. blob, file, data)
+    // should inherit a policy.
+    if (isPluginDocument() && m_frame->loader().opener())
+        contentSecurityPolicy()->createPolicyForPluginDocumentFrom(*ownerFrame->document()->contentSecurityPolicy());
+    else
+        contentSecurityPolicy()->copyStateFrom(ownerFrame->document()->contentSecurityPolicy());
 }
 
 bool Document::isContextThread() const
@@ -5703,15 +6017,15 @@ void Document::detachRange(Range* range)
     m_ranges.remove(range);
 }
 
-std::optional<RenderingContext> Document::getCSSCanvasContext(const String& type, const String& name, int width, int height)
+Optional<RenderingContext> Document::getCSSCanvasContext(const String& type, const String& name, int width, int height)
 {
     HTMLCanvasElement* element = getCSSCanvasElement(name);
     if (!element)
-        return std::nullopt;
+        return WTF::nullopt;
     element->setSize({ width, height });
     auto context = element->getContext(type);
     if (!context)
-        return std::nullopt;
+        return WTF::nullopt;
 
 #if ENABLE(WEBGL)
     if (is<WebGLRenderingContext>(*context))
@@ -5724,6 +6038,10 @@ std::optional<RenderingContext> Document::getCSSCanvasContext(const String& type
 #if ENABLE(WEBGPU)
     if (is<WebGPURenderingContext>(*context))
         return RenderingContext { RefPtr<WebGPURenderingContext> { &downcast<WebGPURenderingContext>(*context) } };
+#endif
+#if ENABLE(WEBMETAL)
+    if (is<WebMetalRenderingContext>(*context))
+        return RenderingContext { RefPtr<WebMetalRenderingContext> { &downcast<WebMetalRenderingContext>(*context) } };
 #endif
 
     return RenderingContext { RefPtr<CanvasRenderingContext2D> { &downcast<CanvasRenderingContext2D>(*context) } };
@@ -5819,7 +6137,7 @@ void Document::addMessage(MessageSource source, MessageLevel level, const String
 
 void Document::postTask(Task&& task)
 {
-    callOnMainThread([documentReference = m_weakFactory.createWeakPtr(*this), task = WTFMove(task)]() mutable {
+    callOnMainThread([documentReference = makeWeakPtr(*this), task = WTFMove(task)]() mutable {
         ASSERT(isMainThread());
 
         Document* document = documentReference.get();
@@ -5841,13 +6159,13 @@ void Document::pendingTasksTimerFired()
         task.performTask(*this);
 }
 
-void Document::suspendScheduledTasks(ActiveDOMObject::ReasonForSuspension reason)
+void Document::suspendScheduledTasks(ReasonForSuspension reason)
 {
     if (m_scheduledTasksAreSuspended) {
         // A page may subsequently suspend DOM objects, say as part of handling a scroll or zoom gesture, after the
         // embedding client requested the page be suspended. We ignore such requests so long as the embedding client
         // requested the suspension first. See <rdar://problem/13754896> for more details.
-        ASSERT(reasonForSuspendingActiveDOMObjects() == ActiveDOMObject::PageWillBeSuspended);
+        ASSERT(reasonForSuspendingActiveDOMObjects() == ReasonForSuspension::PageWillBeSuspended);
         return;
     }
 
@@ -5864,20 +6182,20 @@ void Document::suspendScheduledTasks(ActiveDOMObject::ReasonForSuspension reason
     // (e.g. while displaying an alert).
     // It is not currently possible to suspend parser unless loading is deferred, because new data arriving from network
     // will trigger parsing, and leave the scheduler in an inconsistent state where it doesn't know whether it's suspended or not.
-    if (reason == ActiveDOMObject::WillDeferLoading && m_parser)
+    if (reason == ReasonForSuspension::WillDeferLoading && m_parser)
         m_parser->suspendScheduledTasks();
 
     m_scheduledTasksAreSuspended = true;
 }
 
-void Document::resumeScheduledTasks(ActiveDOMObject::ReasonForSuspension reason)
+void Document::resumeScheduledTasks(ReasonForSuspension reason)
 {
     if (reasonForSuspendingActiveDOMObjects() != reason)
         return;
 
     ASSERT(m_scheduledTasksAreSuspended);
 
-    if (reason == ActiveDOMObject::WillDeferLoading && m_parser)
+    if (reason == ReasonForSuspension::WillDeferLoading && m_parser)
         m_parser->resumeScheduledTasks();
 
 #if ENABLE(XSLT)
@@ -5908,11 +6226,10 @@ void Document::resumeScriptedAnimationControllerCallbacks()
 
 void Document::windowScreenDidChange(PlatformDisplayID displayID)
 {
-    if (m_scriptedAnimationController)
-        m_scriptedAnimationController->windowScreenDidChange(displayID);
-
-    if (m_timeline)
-        m_timeline->windowScreenDidChange(displayID);
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+    if (m_animationScheduler)
+        m_animationScheduler->windowScreenDidChange(displayID);
+#endif
 
     if (RenderView* view = renderView()) {
         if (view->usesCompositing())
@@ -5933,6 +6250,11 @@ void Document::dispatchPageshowEvent(PageshowEventPersistence persisted)
     dispatchWindowEvent(PageTransitionEvent::create(eventNames().pageshowEvent, persisted), this);
 }
 
+void Document::enqueueSecurityPolicyViolationEvent(SecurityPolicyViolationEvent::Init&& eventInit)
+{
+    enqueueDocumentEvent(SecurityPolicyViolationEvent::create(eventNames().securitypolicyviolationEvent, WTFMove(eventInit), Event::IsTrusted::Yes));
+}
+
 void Document::enqueueHashchangeEvent(const String& oldURL, const String& newURL)
 {
     enqueueWindowEvent(HashChangeEvent::create(oldURL, newURL));
@@ -5940,7 +6262,7 @@ void Document::enqueueHashchangeEvent(const String& oldURL, const String& newURL
 
 void Document::dispatchPopstateEvent(RefPtr<SerializedScriptValue>&& stateObject)
 {
-    dispatchWindowEvent(PopStateEvent::create(WTFMove(stateObject), m_domWindow ? m_domWindow->history() : nullptr));
+    dispatchWindowEvent(PopStateEvent::create(WTFMove(stateObject), m_domWindow ? &m_domWindow->history() : nullptr));
 }
 
 void Document::addMediaCanStartListener(MediaCanStartListener* listener)
@@ -5960,7 +6282,7 @@ MediaCanStartListener* Document::takeAnyMediaCanStartListener()
     return m_mediaCanStartListeners.takeAny();
 }
 
-#if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS)
+#if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS_FAMILY)
 
 DeviceMotionController* Document::deviceMotionController() const
 {
@@ -5970,6 +6292,12 @@ DeviceMotionController* Document::deviceMotionController() const
 DeviceOrientationController* Document::deviceOrientationController() const
 {
     return m_deviceOrientationController.get();
+}
+
+void Document::simulateDeviceOrientationChange(double alpha, double beta, double gamma)
+{
+    auto orientation = DeviceOrientationData::create(alpha, beta, gamma, WTF::nullopt, WTF::nullopt);
+    deviceOrientationController()->didChangeDeviceOrientation(orientation.ptr());
 }
 
 #endif
@@ -5984,27 +6312,81 @@ bool Document::fullScreenIsAllowedForElement(Element* element) const
 
 void Document::requestFullScreenForElement(Element* element, FullScreenCheckType checkType)
 {
-    do {
-        if (!element)
-            element = documentElement();
- 
-        // 1. If any of the following conditions are true, terminate these steps and queue a task to fire
-        // an event named fullscreenerror with its bubbles attribute set to true on the context object's 
-        // node document:
+    if (!element)
+        element = documentElement();
+
+    auto failedPreflights = [this](auto element) mutable {
+        m_fullScreenErrorEventTargetQueue.append(WTFMove(element));
+        m_fullScreenTaskQueue.enqueueTask([this] {
+            dispatchFullScreenChangeEvents();
+        });
+    };
+
+    // 1. If any of the following conditions are true, terminate these steps and queue a task to fire
+    // an event named fullscreenerror with its bubbles attribute set to true on the context object's
+    // node document:
+
+    // This algorithm is not allowed to show a pop-up:
+    //   An algorithm is allowed to show a pop-up if, in the task in which the algorithm is running, either:
+    //   - an activation behavior is currently being processed whose click event was trusted, or
+    //   - the event listener for a trusted click event is being handled.
+    if (!UserGestureIndicator::processingUserGesture()) {
+        failedPreflights(WTFMove(element));
+        return;
+    }
+
+    // We do not allow pressing the Escape key as a user gesture to enter fullscreen since this is the key
+    // to exit fullscreen.
+    if (UserGestureIndicator::currentUserGesture()->gestureType() == UserGestureType::EscapeKey) {
+        addConsoleMessage(MessageSource::Security, MessageLevel::Error, "The Escape key may not be used as a user gesture to enter fullscreen"_s);
+        failedPreflights(WTFMove(element));
+        return;
+    }
+
+    // There is a previously-established user preference, security risk, or platform limitation.
+    if (!page() || !page()->settings().fullScreenEnabled()) {
+        failedPreflights(WTFMove(element));
+        return;
+    }
+
+    bool hasKeyboardAccess = true;
+    if (!page()->chrome().client().supportsFullScreenForElement(*element, hasKeyboardAccess)) {
+        // The new full screen API does not accept a "flags" parameter, so fall back to disallowing
+        // keyboard input if the chrome client refuses to allow keyboard input.
+        hasKeyboardAccess = false;
+
+        if (!page()->chrome().client().supportsFullScreenForElement(*element, hasKeyboardAccess)) {
+            failedPreflights(WTFMove(element));
+            return;
+        }
+    }
+
+    m_fullScreenTaskQueue.enqueueTask([this, element = makeRefPtr(element), checkType, hasKeyboardAccess, failedPreflights] () mutable {
+        // Don't allow fullscreen if document is hidden.
+        if (hidden()) {
+            failedPreflights(WTFMove(element));
+            return;
+        }
 
         // The context object is not in a document.
-        if (!element->isConnected())
-            break;
+        if (!element->isConnected()) {
+            failedPreflights(WTFMove(element));
+            return;
+        }
 
         // The context object's node document, or an ancestor browsing context's document does not have
         // the fullscreen enabled flag set.
-        if (checkType == EnforceIFrameAllowFullScreenRequirement && !fullScreenIsAllowedForElement(element))
-            break;
+        if (checkType == EnforceIFrameAllowFullScreenRequirement && !fullScreenIsAllowedForElement(element.get())) {
+            failedPreflights(WTFMove(element));
+            return;
+        }
 
         // The context object's node document fullscreen element stack is not empty and its top element
         // is not an ancestor of the context object.
-        if (!m_fullScreenElementStack.isEmpty() && !m_fullScreenElementStack.last()->contains(element))
-            break;
+        if (!m_fullScreenElementStack.isEmpty() && !m_fullScreenElementStack.last()->contains(element.get())) {
+            failedPreflights(WTFMove(element));
+            return;
+        }
 
         // A descendant browsing context's document has a non-empty fullscreen element stack.
         bool descendentHasNonEmptyStack = false;
@@ -6014,35 +6396,9 @@ void Document::requestFullScreenForElement(Element* element, FullScreenCheckType
                 break;
             }
         }
-        if (descendentHasNonEmptyStack)
-            break;
-
-        // This algorithm is not allowed to show a pop-up:
-        //   An algorithm is allowed to show a pop-up if, in the task in which the algorithm is running, either:
-        //   - an activation behavior is currently being processed whose click event was trusted, or
-        //   - the event listener for a trusted click event is being handled.
-        if (!UserGestureIndicator::processingUserGesture())
-            break;
-
-        // We do not allow pressing the Escape key as a user gesture to enter fullscreen since this is the key
-        // to exit fullscreen.
-        if (UserGestureIndicator::currentUserGesture()->gestureType() == UserGestureType::EscapeKey) {
-            addConsoleMessage(MessageSource::Security, MessageLevel::Error, ASCIILiteral("The Escape key may not be used as a user gesture to enter fullscreen"));
-            break;
-        }
-
-        // There is a previously-established user preference, security risk, or platform limitation.
-        if (!page() || !page()->settings().fullScreenEnabled())
-            break;
-
-        bool hasKeyboardAccess = true;
-        if (!page()->chrome().client().supportsFullScreenForElement(*element, hasKeyboardAccess)) {
-            // The new full screen API does not accept a "flags" parameter, so fall back to disallowing
-            // keyboard input if the chrome client refuses to allow keyboard input.
-            hasKeyboardAccess = false;
-
-            if (!page()->chrome().client().supportsFullScreenForElement(*element, hasKeyboardAccess))
-                break;
+        if (descendentHasNonEmptyStack) {
+            failedPreflights(WTFMove(element));
+            return;
         }
 
         // 2. Let doc be element's node document. (i.e. "this")
@@ -6071,7 +6427,7 @@ void Document::requestFullScreenForElement(Element* element, FullScreenCheckType
             // stack, and queue a task to fire an event named fullscreenchange with its bubbles attribute
             // set to true on the document.
             if (!followingDoc) {
-                currentDoc->pushFullscreenElementStack(element);
+                currentDoc->pushFullscreenElementStack(element.get());
                 addDocumentToFullScreenChangeEventQueue(currentDoc);
                 continue;
             }
@@ -6094,14 +6450,13 @@ void Document::requestFullScreenForElement(Element* element, FullScreenCheckType
         // 5. Return, and run the remaining steps asynchronously.
         // 6. Optionally, perform some animation.
         m_areKeysEnabledInFullScreen = hasKeyboardAccess;
-        page()->chrome().client().enterFullScreenForElement(*element);
+        m_fullScreenTaskQueue.enqueueTask([this, element = WTFMove(element)] {
+            if (auto page = this->page())
+                page->chrome().client().enterFullScreenForElement(*element.get());
+        });
 
         // 7. Optionally, display a message indicating how the user can exit displaying the context object fullscreen.
-        return;
-    } while (0);
-
-    m_fullScreenErrorEventTargetQueue.append(element ? element : documentElement());
-    m_fullScreenChangeDelayTimer.startOneShot(0_s);
+    });
 }
 
 void Document::webkitCancelFullScreen()
@@ -6179,19 +6534,21 @@ void Document::webkitExitFullscreen()
 
     // 6. Return, and run the remaining steps asynchronously.
     // 7. Optionally, perform some animation.
+    m_fullScreenTaskQueue.enqueueTask([this, newTop = makeRefPtr(newTop), fullScreenElement = m_fullScreenElement] {
+        auto* page = this->page();
+        if (!page)
+            return;
 
-    if (!page())
-        return;
+        // Only exit out of full screen window mode if there are no remaining elements in the 
+        // full screen stack.
+        if (!newTop) {
+            page->chrome().client().exitFullScreenForElement(fullScreenElement.get());
+            return;
+        }
 
-    // Only exit out of full screen window mode if there are no remaining elements in the 
-    // full screen stack.
-    if (!newTop) {
-        page()->chrome().client().exitFullScreenForElement(m_fullScreenElement.get());
-        return;
-    }
-
-    // Otherwise, notify the chrome of the new full screen element.
-    page()->chrome().client().enterFullScreenForElement(*newTop);
+        // Otherwise, notify the chrome of the new full screen element.
+        page->chrome().client().enterFullScreenForElement(*newTop);
+    });
 }
 
 bool Document::webkitFullscreenEnabled() const
@@ -6256,9 +6613,7 @@ void Document::webkitWillEnterFullScreenForElement(Element* element)
     m_fullScreenElement->setContainsFullScreenElementOnAncestorsCrossingFrameBoundaries(true);
 
     resolveStyle(ResolveStyleType::Rebuild);
-#if PLATFORM(IOS) && ENABLE(FULLSCREEN_API)
-    m_fullScreenChangeDelayTimer.startOneShot(0_s);
-#endif
+    dispatchFullScreenChangeEvents();
 }
 
 void Document::webkitDidEnterFullScreenForElement(Element*)
@@ -6270,10 +6625,6 @@ void Document::webkitDidEnterFullScreenForElement(Element*)
         return;
 
     m_fullScreenElement->didBecomeFullscreenElement();
-
-#if !PLATFORM(IOS) || !ENABLE(FULLSCREEN_API)
-    m_fullScreenChangeDelayTimer.startOneShot(0_s);
-#endif
 }
 
 void Document::webkitWillExitFullScreenForElement(Element*)
@@ -6302,7 +6653,7 @@ void Document::webkitDidExitFullScreenForElement(Element*)
     unwrapFullScreenRenderer(m_fullScreenRenderer.get(), m_fullScreenElement.get());
 
     m_fullScreenElement = nullptr;
-    scheduleForcedStyleRecalc();
+    scheduleFullStyleRebuild();
 
     // When webkitCancelFullScreen is called, we call webkitExitFullScreen on the topDocument(). That
     // means that the events will be queued there. So if we have no events here, start the timer on
@@ -6310,7 +6661,7 @@ void Document::webkitDidExitFullScreenForElement(Element*)
     bool eventTargetQueuesEmpty = m_fullScreenChangeEventTargetQueue.isEmpty() && m_fullScreenErrorEventTargetQueue.isEmpty();
     Document& exitingDocument = eventTargetQueuesEmpty ? topDocument() : *this;
 
-    exitingDocument.m_fullScreenChangeDelayTimer.startOneShot(0_s);
+    exitingDocument.dispatchFullScreenChangeEvents();
 }
 
 void Document::setFullScreenRenderer(RenderTreeBuilder& builder, RenderFullScreen& renderer)
@@ -6332,7 +6683,7 @@ void Document::setFullScreenRenderer(RenderTreeBuilder& builder, RenderFullScree
     m_fullScreenRenderer = makeWeakPtr(renderer);
 }
 
-void Document::fullScreenChangeDelayTimerFired()
+void Document::dispatchFullScreenChangeEvents()
 {
     // Since we dispatch events in this function, it's possible that the
     // document will be detached and GC'd. We protect it here to make sure we
@@ -6364,8 +6715,10 @@ void Document::dispatchFullScreenChangeOrErrorEvent(Deque<RefPtr<Node>>& queue, 
 #if ENABLE(VIDEO)
         if (shouldNotifyMediaElement && is<HTMLMediaElement>(*node))
             downcast<HTMLMediaElement>(*node).enteredOrExitedFullscreen();
+#else
+        UNUSED_PARAM(shouldNotifyMediaElement);
 #endif
-        node->dispatchEvent(Event::create(eventName, true, false));
+        node->dispatchEvent(Event::create(eventName, Event::CanBubble::Yes, Event::IsCancelable::No));
     }
 }
 
@@ -6375,13 +6728,13 @@ void Document::fullScreenElementRemoved()
     webkitCancelFullScreen();
 }
 
-void Document::removeFullScreenElementOfSubtree(Node& node, bool amongChildrenOnly)
+void Document::adjustFullScreenElementOnNodeRemoval(Node& node, NodeRemoval nodeRemoval)
 {
     if (!m_fullScreenElement)
         return;
     
     bool elementInSubtree = false;
-    if (amongChildrenOnly)
+    if (nodeRemoval == NodeRemoval::ChildrenOfNode)
         elementInSubtree = m_fullScreenElement->isDescendantOf(node);
     else
         elementInSubtree = (m_fullScreenElement == &node) || m_fullScreenElement->isDescendantOf(node);
@@ -6403,7 +6756,24 @@ void Document::setAnimatingFullScreen(bool flag)
 
     if (m_fullScreenElement && m_fullScreenElement->isDescendantOf(*this)) {
         m_fullScreenElement->invalidateStyleForSubtree();
-        scheduleForcedStyleRecalc();
+        scheduleFullStyleRebuild();
+    }
+}
+
+bool Document::areFullscreenControlsHidden() const
+{
+    return m_areFullscreenControlsHidden;
+}
+
+void Document::setFullscreenControlsHidden(bool flag)
+{
+    if (m_areFullscreenControlsHidden == flag)
+        return;
+    m_areFullscreenControlsHidden = flag;
+
+    if (m_fullScreenElement && m_fullScreenElement->isDescendantOf(*this)) {
+        m_fullScreenElement->invalidateStyleForSubtree();
+        scheduleFullStyleRebuild();
     }
 }
 
@@ -6492,11 +6862,8 @@ double Document::monotonicTimestamp() const
 int Document::requestAnimationFrame(Ref<RequestAnimationFrameCallback>&& callback)
 {
     if (!m_scriptedAnimationController) {
-#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
-        m_scriptedAnimationController = ScriptedAnimationController::create(*this, page() ? page()->chrome().displayID() : 0);
-#else
-        m_scriptedAnimationController = ScriptedAnimationController::create(*this, 0);
-#endif
+        m_scriptedAnimationController = ScriptedAnimationController::create(*this);
+
         // It's possible that the Page may have suspended scripted animations before
         // we were created. We need to make sure that we don't start up the animation
         // controller on a background tab, for example.
@@ -6855,18 +7222,47 @@ void Document::decrementActiveParserCount()
     frame()->loader().checkLoadComplete();
 }
 
-static RenderElement* nearestCommonHoverAncestor(RenderElement* obj1, RenderElement* obj2)
+DocumentParserYieldToken::DocumentParserYieldToken(Document& document)
+    : m_document(makeWeakPtr(document))
 {
-    if (!obj1 || !obj2)
+    if (++document.m_parserYieldTokenCount != 1)
+        return;
+
+    document.scriptRunner()->didBeginYieldingParser();
+    if (auto* parser = document.parser())
+        parser->didBeginYieldingParser();
+}
+
+DocumentParserYieldToken::~DocumentParserYieldToken()
+{
+    if (!m_document)
+        return;
+
+    ASSERT(m_document->m_parserYieldTokenCount);
+    if (--m_document->m_parserYieldTokenCount)
+        return;
+
+    m_document->scriptRunner()->didEndYieldingParser();
+    if (auto* parser = m_document->parser())
+        parser->didEndYieldingParser();
+}
+
+static Element* findNearestCommonComposedAncestor(Element* elementA, Element* elementB)
+{
+    if (!elementA || !elementB)
         return nullptr;
 
-    for (RenderElement* currObj1 = obj1; currObj1; currObj1 = currObj1->hoverAncestor()) {
-        for (RenderElement* currObj2 = obj2; currObj2; currObj2 = currObj2->hoverAncestor()) {
-            if (currObj1 == currObj2)
-                return currObj1;
-        }
-    }
+    if (elementA == elementB)
+        return elementA;
 
+    HashSet<Element*> ancestorChain;
+    for (auto* element = elementA; element; element = element->parentElementInComposedTree())
+        ancestorChain.add(element);
+
+    for (auto* element = elementB; element; element = element->parentElementInComposedTree()) {
+        if (ancestorChain.contains(element))
+            return element;
+    }
     return nullptr;
 }
 
@@ -6927,47 +7323,26 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
 
     m_hoveredElement = newHoveredElement;
 
-    // We have two different objects. Fetch their renderers.
-    RenderElement* oldHoverObj = oldHoveredElement ? oldHoveredElement->renderer() : nullptr;
-    RenderElement* newHoverObj = newHoveredElement ? newHoveredElement->renderer() : nullptr;
-
-    // Locate the common ancestor render object for the two renderers.
-    RenderElement* ancestor = nearestCommonHoverAncestor(oldHoverObj, newHoverObj);
+    auto* commonAncestor = findNearestCommonComposedAncestor(oldHoveredElement.get(), newHoveredElement);
 
     Vector<RefPtr<Element>, 32> elementsToRemoveFromChain;
     Vector<RefPtr<Element>, 32> elementsToAddToChain;
 
-    if (oldHoverObj != newHoverObj) {
-        // If the old hovered element is not nil but it's renderer is, it was probably detached as part of the :hover style
-        // (for instance by setting display:none in the :hover pseudo-class). In this case, the old hovered element (and its ancestors)
-        // must be updated, to ensure it's normal style is re-applied.
-        if (oldHoveredElement && !oldHoverObj) {
-            for (Element* element = oldHoveredElement.get(); element; element = element->parentElementInComposedTree()) {
-                if (!mustBeInActiveChain || element->inActiveChain())
-                    elementsToRemoveFromChain.append(element);
-            }
-        }
-
-        // The old hover path only needs to be cleared up to (and not including) the common ancestor;
-        for (RenderElement* curr = oldHoverObj; curr && curr != ancestor; curr = curr->hoverAncestor()) {
-            Element* element = curr->element();
-            if (!element)
-                continue;
+    if (oldHoveredElement != newHoveredElement) {
+        for (auto* element = oldHoveredElement.get(); element; element = element->parentElementInComposedTree()) {
+            if (element == commonAncestor)
+                break;
             if (!mustBeInActiveChain || element->inActiveChain())
                 elementsToRemoveFromChain.append(element);
         }
         // Unset hovered nodes in sub frame documents if the old hovered node was a frame owner.
         if (is<HTMLFrameOwnerElement>(oldHoveredElement)) {
-            if (Document* contentDocument = downcast<HTMLFrameOwnerElement>(*oldHoveredElement).contentDocument())
+            if (auto* contentDocument = downcast<HTMLFrameOwnerElement>(*oldHoveredElement).contentDocument())
                 contentDocument->updateHoverActiveState(request, nullptr);
         }
     }
 
-    // Now set the hover state for our new object up to the root.
-    for (RenderElement* curr = newHoverObj; curr; curr = curr->hoverAncestor()) {
-        Element* element = curr->element();
-        if (!element)
-            continue;
+    for (auto* element = newHoveredElement; element; element = element->parentElementInComposedTree()) {
         if (!mustBeInActiveChain || element->inActiveChain())
             elementsToAddToChain.append(element);
     }
@@ -6979,7 +7354,7 @@ void Document::updateHoverActiveState(const HitTestRequest& request, Element* in
     for (auto& element : elementsToAddToChain) {
         if (allowActiveChanges)
             element->setActive(true);
-        if (ancestor && element == ancestor->element())
+        if (element == commonAncestor)
             sawCommonAncestor = true;
         if (!sawCommonAncestor) {
             // Elements after the common hover ancestor does not change hover state, but are iterated over because they may change active state.
@@ -7010,9 +7385,9 @@ Document& Document::ensureTemplateDocument()
         return const_cast<Document&>(*document);
 
     if (isHTMLDocument())
-        m_templateDocument = HTMLDocument::create(nullptr, blankURL());
+        m_templateDocument = HTMLDocument::create(nullptr, WTF::blankURL());
     else
-        m_templateDocument = Document::create(nullptr, blankURL());
+        m_templateDocument = Document::create(nullptr, WTF::blankURL());
 
     m_templateDocument->setContextDocument(contextDocument());
     m_templateDocument->setTemplateDocumentHost(this); // balanced in dtor.
@@ -7033,6 +7408,63 @@ float Document::deviceScaleFactor() const
         deviceScaleFactor = documentPage->deviceScaleFactor();
     return deviceScaleFactor;
 }
+
+bool Document::useSystemAppearance() const
+{
+    bool useSystemAppearance = false;
+    if (Page* documentPage = page())
+        useSystemAppearance = documentPage->useSystemAppearance();
+    return useSystemAppearance;
+}
+
+bool Document::useDarkAppearance(const RenderStyle* style) const
+{
+#if HAVE(OS_DARK_MODE_SUPPORT)
+#if ENABLE(DARK_MODE_CSS)
+    OptionSet<ColorSchemes> supportedColorSchemes;
+
+    // Use the style's supported color schemes, if supplied.
+    if (style)
+        supportedColorSchemes = style->supportedColorSchemes().colorSchemes();
+
+    // Fallback to the document's supported color schemes if style was empty (auto).
+    if (supportedColorSchemes.isEmpty())
+        supportedColorSchemes = m_supportedColorSchemes;
+
+    if (supportedColorSchemes.contains(ColorSchemes::Dark) && !supportedColorSchemes.contains(ColorSchemes::Light))
+        return true;
+#else
+    UNUSED_PARAM(style);
+#endif
+
+    bool pageUsesDarkAppearance = false;
+    if (Page* documentPage = page())
+        pageUsesDarkAppearance = documentPage->useDarkAppearance();
+
+    if (useSystemAppearance())
+        return pageUsesDarkAppearance;
+
+#if ENABLE(DARK_MODE_CSS)
+    if (supportedColorSchemes.contains(ColorSchemes::Dark))
+        return pageUsesDarkAppearance;
+#endif
+#else
+    UNUSED_PARAM(style);
+#endif
+
+    return false;
+}
+
+OptionSet<StyleColor::Options> Document::styleColorOptions(const RenderStyle* style) const
+{
+    OptionSet<StyleColor::Options> options;
+    if (useSystemAppearance())
+        options.add(StyleColor::Options::UseSystemAppearance);
+    if (useDarkAppearance(style))
+        options.add(StyleColor::Options::UseDarkAppearance);
+    return options;
+}
+
 void Document::didAssociateFormControl(Element* element)
 {
     if (!frame() || !frame()->page() || !frame()->page()->chrome().client().shouldNotifyOnFormChanges())
@@ -7087,7 +7519,7 @@ void Document::ensurePlugInsInjectedScript(DOMWrapperWorld& world)
     m_hasInjectedPlugInsScript = true;
 }
 
-#if ENABLE(SUBTLE_CRYPTO)
+#if ENABLE(WEB_CRYPTO)
 
 bool Document::wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t>& wrappedKey)
 {
@@ -7105,7 +7537,7 @@ bool Document::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<uint8_t
     return page->chrome().client().unwrapCryptoKey(wrappedKey, key);
 }
 
-#endif // ENABLE(SUBTLE_CRYPTO)
+#endif // ENABLE(WEB_CRYPTO)
 
 Element* Document::activeElement()
 {
@@ -7166,7 +7598,7 @@ void Document::removePlaybackTargetPickerClient(MediaPlaybackTargetClient& clien
     page->removePlaybackTargetPickerClient(clientId);
 }
 
-void Document::showPlaybackTargetPicker(MediaPlaybackTargetClient& client, bool isVideo)
+void Document::showPlaybackTargetPicker(MediaPlaybackTargetClient& client, bool isVideo, RouteSharingPolicy routeSharingPolicy, const String& routingContextUID)
 {
     Page* page = this->page();
     if (!page)
@@ -7176,7 +7608,7 @@ void Document::showPlaybackTargetPicker(MediaPlaybackTargetClient& client, bool 
     if (it == m_clientToIDMap.end())
         return;
 
-    page->showPlaybackTargetPicker(it->value, view()->lastKnownMousePosition(), isVideo);
+    page->showPlaybackTargetPicker(it->value, view()->lastKnownMousePosition(), isVideo, routeSharingPolicy, routingContextUID);
 }
 
 void Document::playbackTargetPickerClientStateDidChange(MediaPlaybackTargetClient& client, MediaProducer::MediaStateFlags state)
@@ -7260,16 +7692,16 @@ bool Document::shouldEnforceQuickLookSandbox() const
 void Document::applyQuickLookSandbox()
 {
     const URL& responseURL = m_frame->loader().activeDocumentLoader()->responseURL();
-    ASSERT(responseURL.protocolIs(QLPreviewProtocol()));
+    ASSERT(responseURL.protocolIs(QLPreviewProtocol));
 
     auto securityOrigin = SecurityOrigin::create(responseURL);
     securityOrigin->setStorageBlockingPolicy(SecurityOrigin::BlockAllStorage);
     setSecurityOriginPolicy(SecurityOriginPolicy::create(WTFMove(securityOrigin)));
 
-    static NeverDestroyed<String> quickLookCSP = makeString("default-src ", QLPreviewProtocol(), ": 'unsafe-inline'; base-uri 'none'; sandbox allow-same-origin allow-scripts");
+    static NeverDestroyed<String> quickLookCSP = makeString("default-src ", QLPreviewProtocol, ": 'unsafe-inline'; base-uri 'none'; sandbox allow-same-origin allow-scripts");
     RELEASE_ASSERT(contentSecurityPolicy());
     // The sandbox directive is only allowed if the policy is from an HTTP header.
-    contentSecurityPolicy()->didReceiveHeader(quickLookCSP, ContentSecurityPolicyHeaderType::Enforce, ContentSecurityPolicy::PolicyFrom::HTTPHeader);
+    contentSecurityPolicy()->didReceiveHeader(quickLookCSP, ContentSecurityPolicyHeaderType::Enforce, ContentSecurityPolicy::PolicyFrom::HTTPHeader, referrer());
 
     disableSandboxFlags(SandboxNavigation);
 
@@ -7279,15 +7711,15 @@ void Document::applyQuickLookSandbox()
 
 bool Document::shouldEnforceContentDispositionAttachmentSandbox() const
 {
+    if (!settings().contentDispositionAttachmentSandboxEnabled())
+        return false;
+
     if (m_isSynthesized)
         return false;
 
-    bool contentDispositionAttachmentSandboxEnabled = settings().contentDispositionAttachmentSandboxEnabled();
-    bool responseIsAttachment = false;
-    if (DocumentLoader* documentLoader = m_frame ? m_frame->loader().activeDocumentLoader() : nullptr)
-        responseIsAttachment = documentLoader->response().isAttachment();
-
-    return contentDispositionAttachmentSandboxEnabled && responseIsAttachment;
+    if (auto* documentLoader = m_frame ? m_frame->loader().activeDocumentLoader() : nullptr)
+        return documentLoader->response().isAttachment();
+    return false;
 }
 
 void Document::applyContentDispositionAttachmentSandbox()
@@ -7310,6 +7742,246 @@ void Document::removeViewportDependentPicture(HTMLPictureElement& picture)
 {
     m_viewportDependentPictures.remove(&picture);
 }
+
+void Document::addAppearanceDependentPicture(HTMLPictureElement& picture)
+{
+    m_appearanceDependentPictures.add(&picture);
+}
+
+void Document::removeAppearanceDependentPicture(HTMLPictureElement& picture)
+{
+    m_appearanceDependentPictures.remove(&picture);
+}
+
+#if ENABLE(INTERSECTION_OBSERVER)
+void Document::addIntersectionObserver(IntersectionObserver& observer)
+{
+    ASSERT(m_intersectionObservers.find(&observer) == notFound);
+    m_intersectionObservers.append(makeWeakPtr(&observer));
+}
+
+void Document::removeIntersectionObserver(IntersectionObserver& observer)
+{
+    m_intersectionObservers.removeFirst(&observer);
+}
+
+static void expandRootBoundsWithRootMargin(FloatRect& localRootBounds, const LengthBox& rootMargin)
+{
+    FloatBoxExtent rootMarginFloatBox(
+        floatValueForLength(rootMargin.top(), localRootBounds.height()),
+        floatValueForLength(rootMargin.right(), localRootBounds.width()),
+        floatValueForLength(rootMargin.bottom(), localRootBounds.height()),
+        floatValueForLength(rootMargin.left(), localRootBounds.width())
+    );
+
+    localRootBounds.expand(rootMarginFloatBox);
+}
+
+static Optional<LayoutRect> computeClippedRectInRootContentsSpace(const LayoutRect& rect, const RenderElement* renderer)
+{
+    OptionSet<RenderObject::VisibleRectContextOption> visibleRectOptions = { RenderObject::VisibleRectContextOption::UseEdgeInclusiveIntersection, RenderObject::VisibleRectContextOption::ApplyCompositedClips, RenderObject::VisibleRectContextOption::ApplyCompositedContainerScrolls };
+    Optional<LayoutRect> rectInFrameAbsoluteSpace = renderer->computeVisibleRectInContainer(rect, &renderer->view(),  {false /* hasPositionFixedDescendant */, false /* dirtyRectIsFlipped */, visibleRectOptions });
+    if (!rectInFrameAbsoluteSpace || renderer->frame().isMainFrame())
+        return rectInFrameAbsoluteSpace;
+
+    bool intersects = rectInFrameAbsoluteSpace->edgeInclusiveIntersect(renderer->view().frameView().layoutViewportRect());
+    if (!intersects)
+        return WTF::nullopt;
+
+    LayoutRect rectInFrameViewSpace(renderer->view().frameView().contentsToView(snappedIntRect(*rectInFrameAbsoluteSpace)));
+    auto* ownerRenderer = renderer->frame().ownerRenderer();
+    if (!ownerRenderer)
+        return WTF::nullopt;
+
+    rectInFrameViewSpace.moveBy(ownerRenderer->contentBoxLocation());
+    return computeClippedRectInRootContentsSpace(rectInFrameViewSpace, ownerRenderer);
+}
+
+struct IntersectionObservationState {
+    FloatRect absoluteTargetRect;
+    FloatRect absoluteRootBounds;
+    FloatRect absoluteIntersectionRect;
+    bool isIntersecting { false };
+};
+
+static Optional<IntersectionObservationState> computeIntersectionState(FrameView& frameView, const IntersectionObserver& observer, Element& target, bool applyRootMargin)
+{
+    auto* targetRenderer = target.renderer();
+    if (!targetRenderer)
+        return WTF::nullopt;
+
+    FloatRect localRootBounds;
+    RenderBlock* rootRenderer;
+    if (observer.root()) {
+        if (observer.trackingDocument() != &target.document())
+            return WTF::nullopt;
+
+        if (!observer.root()->renderer() || !is<RenderBlock>(observer.root()->renderer()))
+            return WTF::nullopt;
+
+        rootRenderer = downcast<RenderBlock>(observer.root()->renderer());
+        if (!rootRenderer->isContainingBlockAncestorFor(*targetRenderer))
+            return WTF::nullopt;
+
+        if (rootRenderer->hasOverflowClip())
+            localRootBounds = rootRenderer->contentBoxRect();
+        else
+            localRootBounds = { FloatPoint(), rootRenderer->size() };
+    } else {
+        ASSERT(frameView.frame().isMainFrame());
+        // FIXME: Handle the case of an implicit-root observer that has a target in a different frame tree.
+        if (&targetRenderer->frame().mainFrame() != &frameView.frame())
+            return WTF::nullopt;
+        rootRenderer = frameView.renderView();
+        localRootBounds = frameView.layoutViewportRect();
+    }
+
+    if (applyRootMargin)
+        expandRootBoundsWithRootMargin(localRootBounds, observer.rootMarginBox());
+
+    LayoutRect localTargetBounds;
+    if (is<RenderBox>(*targetRenderer))
+        localTargetBounds = downcast<RenderBox>(targetRenderer)->borderBoundingBox();
+    else if (is<RenderInline>(targetRenderer))
+        localTargetBounds = downcast<RenderInline>(targetRenderer)->linesBoundingBox();
+    else if (is<RenderLineBreak>(targetRenderer))
+        localTargetBounds = downcast<RenderLineBreak>(targetRenderer)->linesBoundingBox();
+
+    Optional<LayoutRect> rootLocalTargetRect;
+    if (observer.root()) {
+        OptionSet<RenderObject::VisibleRectContextOption> visibleRectOptions = { RenderObject::VisibleRectContextOption::UseEdgeInclusiveIntersection, RenderObject::VisibleRectContextOption::ApplyCompositedClips, RenderObject::VisibleRectContextOption::ApplyCompositedContainerScrolls };
+        rootLocalTargetRect = targetRenderer->computeVisibleRectInContainer(localTargetBounds, rootRenderer, { false /* hasPositionFixedDescendant */, false /* dirtyRectIsFlipped */, visibleRectOptions });
+    } else
+        rootLocalTargetRect = computeClippedRectInRootContentsSpace(localTargetBounds, targetRenderer);
+
+    FloatRect rootLocalIntersectionRect = localRootBounds;
+
+    IntersectionObservationState intersectionState;
+    intersectionState.isIntersecting = rootLocalTargetRect && rootLocalIntersectionRect.edgeInclusiveIntersect(*rootLocalTargetRect);
+
+    if (intersectionState.isIntersecting) {
+        FloatRect rootAbsoluteIntersectionRect = rootRenderer->localToAbsoluteQuad(rootLocalIntersectionRect).boundingBox();
+        if (&targetRenderer->frame() == &rootRenderer->frame())
+            intersectionState.absoluteIntersectionRect = rootAbsoluteIntersectionRect;
+        else {
+            FloatRect rootViewIntersectionRect = frameView.delegatesScrolling() ? rootAbsoluteIntersectionRect : frameView.contentsToView(rootAbsoluteIntersectionRect);
+            intersectionState.absoluteIntersectionRect = targetRenderer->view().frameView().rootViewToContents(rootViewIntersectionRect);
+        }
+    }
+
+    intersectionState.absoluteTargetRect = targetRenderer->localToAbsoluteQuad(FloatRect(localTargetBounds)).boundingBox();
+    intersectionState.absoluteRootBounds = rootRenderer->localToAbsoluteQuad(localRootBounds).boundingBox();
+    return intersectionState;
+}
+
+void Document::updateIntersectionObservations()
+{
+    auto* frameView = view();
+    if (!frameView)
+        return;
+
+    bool needsLayout = frameView->layoutContext().isLayoutPending() || (renderView() && renderView()->needsLayout());
+    if (needsLayout || hasPendingStyleRecalc())
+        return;
+
+    m_needsForcedIntersectionObservationUpdate = false;
+
+    for (const auto& observer : m_intersectionObservers) {
+        bool needNotify = false;
+        DOMHighResTimeStamp timestamp;
+        if (!observer->createTimestamp(timestamp))
+            continue;
+        for (Element* target : observer->observationTargets()) {
+            auto& targetRegistrations = target->intersectionObserverData()->registrations;
+            auto index = targetRegistrations.findMatching([observer](auto& registration) {
+                return registration.observer.get() == observer;
+            });
+            ASSERT(index != notFound);
+            auto& registration = targetRegistrations[index];
+
+            bool isSameOriginObservation = &target->document() == this || target->document().securityOrigin().canAccess(securityOrigin());
+            auto intersectionState = computeIntersectionState(*frameView, *observer, *target, isSameOriginObservation);
+
+            float intersectionRatio = 0;
+            size_t thresholdIndex = 0;
+            if (intersectionState) {
+                if (intersectionState->isIntersecting) {
+                    float absTargetArea = intersectionState->absoluteTargetRect.area();
+                    if (absTargetArea)
+                        intersectionRatio = intersectionState->absoluteIntersectionRect.area() / absTargetArea;
+                    else
+                        intersectionRatio = 1;
+
+                    auto& thresholds = observer->thresholds();
+                    while (thresholdIndex < thresholds.size() && thresholds[thresholdIndex] <= intersectionRatio)
+                        ++thresholdIndex;
+                }
+            }
+
+            if (!registration.previousThresholdIndex || thresholdIndex != registration.previousThresholdIndex) {
+                FloatRect targetBoundingClientRect;
+                FloatRect clientIntersectionRect;
+                FloatRect clientRootBounds;
+                if (intersectionState) {
+                    auto* targetFrameView = target->document().view();
+                    targetBoundingClientRect = targetFrameView->absoluteToClientRect(intersectionState->absoluteTargetRect, target->renderer()->style().effectiveZoom());
+                    auto* rootRenderer = observer->root() ? observer->root()->renderer() : frameView->renderView();
+                    clientRootBounds = frameView->absoluteToClientRect(intersectionState->absoluteRootBounds, rootRenderer->style().effectiveZoom());
+                    if (intersectionState->isIntersecting)
+                        clientIntersectionRect = targetFrameView->absoluteToClientRect(intersectionState->absoluteIntersectionRect, target->renderer()->style().effectiveZoom());
+                }
+
+                Optional<DOMRectInit> reportedRootBounds;
+                if (isSameOriginObservation) {
+                    reportedRootBounds = DOMRectInit({
+                        clientRootBounds.x(),
+                        clientRootBounds.y(),
+                        clientRootBounds.width(),
+                        clientRootBounds.height()
+                    });
+                }
+
+                observer->appendQueuedEntry(IntersectionObserverEntry::create({
+                    timestamp,
+                    reportedRootBounds,
+                    { targetBoundingClientRect.x(), targetBoundingClientRect.y(), targetBoundingClientRect.width(), targetBoundingClientRect.height() },
+                    { clientIntersectionRect.x(), clientIntersectionRect.y(), clientIntersectionRect.width(), clientIntersectionRect.height() },
+                    intersectionRatio,
+                    target,
+                    thresholdIndex > 0,
+                }));
+                needNotify = true;
+                registration.previousThresholdIndex = thresholdIndex;
+            }
+        }
+        if (needNotify)
+            m_intersectionObserversWithPendingNotifications.append(makeWeakPtr(observer.get()));
+    }
+
+    if (m_intersectionObserversWithPendingNotifications.size())
+        m_intersectionObserversNotifyTimer.startOneShot(0_s);
+}
+
+void Document::scheduleForcedIntersectionObservationUpdate()
+{
+    ASSERT(!m_intersectionObservers.isEmpty());
+    if (m_needsForcedIntersectionObservationUpdate)
+        return;
+
+    m_needsForcedIntersectionObservationUpdate = true;
+    if (auto* page = this->page())
+        page->scheduleForcedIntersectionObservationUpdate(*this);
+}
+
+void Document::notifyIntersectionObserversTimerFired()
+{
+    for (const auto& observer : m_intersectionObserversWithPendingNotifications) {
+        if (observer)
+            observer->notify();
+    }
+    m_intersectionObserversWithPendingNotifications.clear();
+}
+#endif
 
 const AtomicString& Document::dir() const
 {
@@ -7347,7 +8019,7 @@ void Document::didRemoveInDocumentShadowRoot(ShadowRoot& shadowRoot)
 void Document::orientationChanged(int orientation)
 {
     LOG(Events, "Document %p orientationChanged - orientation %d", this, orientation);
-    dispatchWindowEvent(Event::create(eventNames().orientationchangeEvent, false, false));
+    dispatchWindowEvent(Event::create(eventNames().orientationchangeEvent, Event::CanBubble::No, Event::IsCancelable::No));
     m_orientationNotifier.orientationChanged(orientation);
 }
 
@@ -7388,6 +8060,13 @@ void Document::mediaStreamCaptureStateChanged()
     for (auto* mediaElement : m_mediaStreamStateChangeElements)
         mediaElement->mediaStreamCaptureStarted();
 }
+
+void Document::setDeviceIDHashSalt(const String& salt)
+{
+    ASSERT(m_idHashSalt.isEmpty() || m_idHashSalt == salt);
+    m_idHashSalt = salt;
+}
+
 #endif
 
 void Document::addApplicationStateChangeListener(ApplicationStateChangeListener& listener)
@@ -7491,8 +8170,8 @@ void Document::hasStorageAccess(Ref<DeferredPromise>&& promise)
 {
     ASSERT(settings().storageAccessAPIEnabled());
 
-#if HAVE(CFNETWORK_STORAGE_PARTITIONING)
-    if (hasFrameSpecificStorageAccess()) {
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    if (m_frame && hasFrameSpecificStorageAccess()) {
         promise->resolve<IDLBoolean>(true);
         return;
     }
@@ -7524,7 +8203,7 @@ void Document::hasStorageAccess(Ref<DeferredPromise>&& promise)
     if (Page* page = this->page()) {
         auto iframeHost = securityOrigin.host();
         auto topHost = topSecurityOrigin.host();
-        page->chrome().client().hasStorageAccess(WTFMove(iframeHost), WTFMove(topHost), frameID.value(), pageID.value(), [documentReference = m_weakFactory.createWeakPtr(*this), promise = WTFMove(promise)] (bool hasAccess) {
+        page->chrome().client().hasStorageAccess(WTFMove(iframeHost), WTFMove(topHost), frameID.value(), pageID.value(), [documentReference = makeWeakPtr(*this), promise = WTFMove(promise)] (bool hasAccess) {
             Document* document = documentReference.get();
             if (!document)
                 return;
@@ -7542,8 +8221,8 @@ void Document::requestStorageAccess(Ref<DeferredPromise>&& promise)
 {
     ASSERT(settings().storageAccessAPIEnabled());
     
-#if HAVE(CFNETWORK_STORAGE_PARTITIONING)
-    if (hasFrameSpecificStorageAccess()) {
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    if (m_frame && hasFrameSpecificStorageAccess()) {
         promise->resolve();
         return;
     }
@@ -7594,14 +8273,22 @@ void Document::requestStorageAccess(Ref<DeferredPromise>&& promise)
         return;
     }
 
-    page->chrome().client().requestStorageAccess(WTFMove(iframeHost), WTFMove(topHost), frameID.value(), pageID.value(), [documentReference = m_weakFactory.createWeakPtr(*this), promise = WTFMove(promise)] (bool wasGranted) {
+    page->chrome().client().requestStorageAccess(WTFMove(iframeHost), WTFMove(topHost), frameID.value(), pageID.value(), [documentReference = makeWeakPtr(*this), promise = WTFMove(promise)] (bool wasGranted) mutable {
         Document* document = documentReference.get();
         if (!document)
             return;
         
         if (wasGranted) {
             document->setHasFrameSpecificStorageAccess(true);
+            MicrotaskQueue::mainThreadQueue().append(std::make_unique<VoidMicrotask>([documentReference = makeWeakPtr(*document)] () {
+                if (auto* document = documentReference.get())
+                    document->enableTemporaryTimeUserGesture();
+            }));
             promise->resolve();
+            MicrotaskQueue::mainThreadQueue().append(std::make_unique<VoidMicrotask>([documentReference = WTFMove(documentReference)] () {
+                if (auto* document = documentReference.get())
+                    document->consumeTemporaryTimeUserGesture();
+            }));
         } else
             promise->reject();
     });
@@ -7610,7 +8297,81 @@ void Document::requestStorageAccess(Ref<DeferredPromise>&& promise)
 #endif
 }
 
-#if HAVE(CFNETWORK_STORAGE_PARTITIONING)
+void Document::enableTemporaryTimeUserGesture()
+{
+    m_temporaryUserGesture = std::make_unique<UserGestureIndicator>(ProcessingUserGesture, this);
+}
+
+void Document::consumeTemporaryTimeUserGesture()
+{
+    m_temporaryUserGesture = nullptr;
+}
+
+void Document::registerArticleElement(Element& article)
+{
+    m_articleElements.add(&article);
+}
+
+void Document::unregisterArticleElement(Element& article)
+{
+    m_articleElements.remove(&article);
+    if (m_mainArticleElement == &article)
+        m_mainArticleElement = nullptr;
+}
+
+void Document::updateMainArticleElementAfterLayout()
+{
+    // If there are too many article elements on the page, don't consider any one of them to be "main content".
+    const unsigned maxNumberOfArticlesBeforeIgnoringMainContentArticle = 10;
+
+    // We consider an article to be main content if it is either:
+    // 1. The only article element in the document.
+    // 2. Much taller than the next tallest article, and also much larger than the viewport.
+    const float minimumSecondTallestArticleHeightFactor = 4;
+    const float minimumViewportAreaFactor = 5;
+
+    m_mainArticleElement = nullptr;
+
+    auto numberOfArticles = m_articleElements.size();
+    if (!numberOfArticles || numberOfArticles > maxNumberOfArticlesBeforeIgnoringMainContentArticle)
+        return;
+
+    Element* tallestArticle = nullptr;
+    float tallestArticleHeight = 0;
+    float tallestArticleWidth = 0;
+    float secondTallestArticleHeight = 0;
+
+    for (auto* article : m_articleElements) {
+        auto* box = article->renderBox();
+        float height = box ? box->height().toFloat() : 0;
+        if (height >= tallestArticleHeight) {
+            secondTallestArticleHeight = tallestArticleHeight;
+            tallestArticleHeight = height;
+            tallestArticleWidth = box ? box->width().toFloat() : 0;
+            tallestArticle = article;
+        } else if (height >= secondTallestArticleHeight)
+            secondTallestArticleHeight = height;
+    }
+
+    if (numberOfArticles == 1) {
+        m_mainArticleElement = tallestArticle;
+        return;
+    }
+
+    if (tallestArticleHeight < minimumSecondTallestArticleHeightFactor * secondTallestArticleHeight)
+        return;
+
+    if (!view())
+        return;
+
+    auto viewportSize = view()->layoutViewportRect().size();
+    if (tallestArticleWidth * tallestArticleHeight < minimumViewportAreaFactor * (viewportSize.width() * viewportSize.height()).toFloat())
+        return;
+
+    m_mainArticleElement = tallestArticle;
+}
+
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
 bool Document::hasFrameSpecificStorageAccess() const
 {
     return m_frame->loader().client().hasFrameSpecificStorageAccess();
@@ -7620,6 +8381,16 @@ void Document::setHasFrameSpecificStorageAccess(bool value)
 {
     m_frame->loader().client().setHasFrameSpecificStorageAccess(value);
 }
+
+bool Document::hasRequestedPageSpecificStorageAccessWithUserInteraction(const String& primaryDomain)
+{
+    return m_primaryDomainRequestedPageSpecificStorageAccessWithUserInteraction == primaryDomain;
+}
+
+void Document::setHasRequestedPageSpecificStorageAccessWithUserInteraction(const String& primaryDomain)
+{
+    m_primaryDomainRequestedPageSpecificStorageAccessWithUserInteraction = primaryDomain;
+}
 #endif
 
 void Document::setConsoleMessageListener(RefPtr<StringCallback>&& listener)
@@ -7627,39 +8398,61 @@ void Document::setConsoleMessageListener(RefPtr<StringCallback>&& listener)
     m_consoleMessageListener = listener;
 }
 
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+DocumentAnimationScheduler& Document::animationScheduler()
+{
+    if (!m_animationScheduler)
+        m_animationScheduler = DocumentAnimationScheduler::create(*this, page() ? page()->chrome().displayID() : 0);
+
+    return *m_animationScheduler;
+}
+#endif
+
 DocumentTimeline& Document::timeline()
 {
     if (!m_timeline)
-        m_timeline = DocumentTimeline::create(*this, page() ? page()->chrome().displayID() : 0);
+        m_timeline = DocumentTimeline::create(*this);
 
     return *m_timeline;
 }
 
 Vector<RefPtr<WebAnimation>> Document::getAnimations()
 {
-    Vector<RefPtr<WebAnimation>> animations;
-    if (m_timeline) {
-        // FIXME: Filter and order the list as specified (webkit.org/b/179535).
-        for (auto& animation : m_timeline->animations())
-            animations.append(animation);
-    }
-    return animations;
+    // For the list of animations to be current, we need to account for any pending CSS changes,
+    // such as updates to CSS Animations and CSS Transitions.
+    updateStyleIfNeeded();
+
+    if (m_timeline)
+        return m_timeline->getAnimations();
+    return { };
 }
 
 #if ENABLE(ATTACHMENT_ELEMENT)
 
+void Document::registerAttachmentIdentifier(const String& identifier)
+{
+    if (auto* frame = this->frame())
+        frame->editor().registerAttachmentIdentifier(identifier);
+}
+
 void Document::didInsertAttachmentElement(HTMLAttachmentElement& attachment)
 {
     auto identifier = attachment.uniqueIdentifier();
-    if (identifier.isEmpty() || m_attachmentIdentifierToElementMap.contains(identifier)) {
+    auto previousIdentifier = identifier;
+    bool previousIdentifierIsNotUnique = !previousIdentifier.isEmpty() && m_attachmentIdentifierToElementMap.contains(previousIdentifier);
+    if (identifier.isEmpty() || previousIdentifierIsNotUnique) {
+        previousIdentifier = identifier;
         identifier = createCanonicalUUIDString();
         attachment.setUniqueIdentifier(identifier);
     }
 
     m_attachmentIdentifierToElementMap.set(identifier, attachment);
 
-    if (frame())
-        frame()->editor().didInsertAttachmentElement(attachment);
+    if (auto* frame = this->frame()) {
+        if (previousIdentifierIsNotUnique)
+            frame->editor().cloneAttachmentData(previousIdentifier, identifier);
+        frame->editor().didInsertAttachmentElement(attachment);
+    }
 }
 
 void Document::didRemoveAttachmentElement(HTMLAttachmentElement& attachment)
@@ -7726,11 +8519,16 @@ void Document::didLogMessage(const WTFLogChannel& channel, WTFLogLevel level, Ve
 
     ASSERT(sessionID().isAlwaysOnLoggingAllowed());
 
-    auto messageSource = messageSourceForWTFLogChannel(channel);
-    auto messageLevel = messageLevelFromWTFLogLevel(level);
-    auto message = std::make_unique<Inspector::ConsoleMessage>(messageSource, MessageType::Log, messageLevel, WTFMove(logMessages), mainWorldExecState(frame()));
+    m_logMessageTaskQueue.enqueueTask([this, channel, level, logMessages = WTFMove(logMessages)]() mutable {
+        if (!page())
+            return;
 
-    addConsoleMessage(WTFMove(message));
+        auto messageSource = messageSourceForWTFLogChannel(channel);
+        auto messageLevel = messageLevelFromWTFLogLevel(level);
+        auto message = std::make_unique<Inspector::ConsoleMessage>(messageSource, MessageType::Log, messageLevel, WTFMove(logMessages), mainWorldExecState(frame()));
+
+        addConsoleMessage(WTFMove(message));
+    });
 }
 
 #if ENABLE(SERVICE_WORKER)
@@ -7747,21 +8545,58 @@ void Document::setServiceWorkerConnection(SWClientConnection* serviceWorkerConne
     if (!m_serviceWorkerConnection)
         return;
 
-    auto controllingServiceWorkerIdentifier = activeServiceWorker() ? std::make_optional<ServiceWorkerIdentifier>(activeServiceWorker()->identifier()) : std::nullopt;
-    m_serviceWorkerConnection->registerServiceWorkerClient(topOrigin(), ServiceWorkerClientData::from(*this, *serviceWorkerConnection), controllingServiceWorkerIdentifier);
+    auto controllingServiceWorkerRegistrationIdentifier = activeServiceWorker() ? makeOptional<ServiceWorkerRegistrationIdentifier>(activeServiceWorker()->registrationIdentifier()) : WTF::nullopt;
+    m_serviceWorkerConnection->registerServiceWorkerClient(topOrigin(), ServiceWorkerClientData::from(*this, *serviceWorkerConnection), controllingServiceWorkerRegistrationIdentifier, userAgent(url()));
 }
 #endif
 
-JSC::ThreadLocalCache& Document::threadLocalCache()
+String Document::signedPublicKeyAndChallengeString(unsigned keySizeIndex, const String& challengeString, const URL& url)
 {
-    if (!m_threadLocalCache) {
-        SecurityOrigin& origin = securityOrigin();
-        if (origin.isUnique() || (origin.isLocal() && origin.enforcesFilePathSeparation()))
-            m_threadLocalCache = JSC::ThreadLocalCache::create(commonVM().heap);
-        else
-            m_threadLocalCache = OriginThreadLocalCache::create(origin);
-    }
-    return *m_threadLocalCache;
+    Page* page = this->page();
+    if (!page)
+        return emptyString();
+    return page->chrome().client().signedPublicKeyAndChallengeString(keySizeIndex, challengeString, url);
 }
+
+bool Document::registerCSSProperty(CSSRegisteredCustomProperty&& prop)
+{
+    return m_CSSRegisteredPropertySet.add(prop.name, std::make_unique<CSSRegisteredCustomProperty>(WTFMove(prop))).isNewEntry;
+}
+
+void Document::detachFromFrame()
+{
+    observeFrame(nullptr);
+}
+
+void Document::frameWasDisconnectedFromOwner()
+{
+    if (!frame())
+        return;
+
+    if (auto* window = domWindow())
+        window->willDetachDocumentFromFrame();
+
+    detachFromFrame();
+}
+
+#if ENABLE(CSS_PAINTING_API)
+Worklet& Document::ensurePaintWorklet()
+{
+    if (!m_paintWorklet)
+        m_paintWorklet = Worklet::create();
+    return *m_paintWorklet;
+}
+
+PaintWorkletGlobalScope* Document::paintWorkletGlobalScopeForName(const String& name)
+{
+    return m_paintWorkletGlobalScopes.get(name);
+}
+
+void Document::setPaintWorkletGlobalScopeForName(const String& name, Ref<PaintWorkletGlobalScope>&& scope)
+{
+    auto addResult = m_paintWorkletGlobalScopes.add(name, WTFMove(scope));
+    ASSERT_UNUSED(addResult, addResult);
+}
+#endif
 
 } // namespace WebCore

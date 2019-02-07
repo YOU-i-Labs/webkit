@@ -211,7 +211,7 @@ CSSBasicShapePath::CSSBasicShapePath(std::unique_ptr<SVGPathByteStream>&& pathDa
 static String buildPathString(const WindRule& windRule, const String& path, const String& box)
 {
     StringBuilder result;
-    if (windRule == RULE_EVENODD)
+    if (windRule == WindRule::EvenOdd)
         result.appendLiteral("path(evenodd, ");
     else
         result.appendLiteral("path(");
@@ -265,7 +265,7 @@ static String buildPolygonString(const WindRule& windRule, const Vector<String>&
 
     result.reserveCapacity(length);
 
-    if (windRule == RULE_EVENODD)
+    if (windRule == WindRule::EvenOdd)
         result.appendLiteral(evenOddOpening);
     else
         result.appendLiteral(nonZeroOpening);
@@ -386,7 +386,7 @@ static inline void updateCornerRadiusWidthAndHeight(CSSPrimitiveValue* corner, S
         return;
 
     Pair* radius = corner->pairValue();
-    width = radius->first() ? radius->first()->cssText() : String("0");
+    width = radius->first() ? radius->first()->cssText() : "0"_str;
     if (radius->second())
         height = radius->second()->cssText();
 }

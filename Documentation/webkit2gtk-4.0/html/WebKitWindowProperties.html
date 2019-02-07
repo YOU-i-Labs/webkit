@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitURIResponse.html" title="WebKitURIResponse">
 <link rel="next" href="WebKitDownload.html" title="WebKitDownload">
-<meta name="generator" content="GTK-Doc V1.26.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -236,48 +236,48 @@ to apply the initial window properties. Then you can monitor the
 40
 41
 42</pre></td>
-        <td class="listing_code"><pre class="programlisting"><span class="keyword">static</span><span class="normal"> </span><span class="type">void</span><span class="normal"> </span><span class="function">ready_to_show_cb</span><span class="normal"> </span><span class="symbol">(</span><span class="usertype">WebKitWebView</span><span class="normal"> </span><span class="symbol">*</span><span class="normal">web_view</span><span class="symbol">,</span><span class="normal"> </span><span class="usertype">gpointer</span><span class="normal"> user_data</span><span class="symbol">)</span>
-<span class="cbracket">{</span>
-<span class="normal">    </span><span class="usertype">GtkWidget</span><span class="normal"> </span><span class="symbol">*</span><span class="normal">window</span><span class="symbol">;</span>
-<span class="normal">    </span><span class="usertype">WebKitWindowProperties</span><span class="normal"> </span><span class="symbol">*</span><span class="normal">window_properties</span><span class="symbol">;</span>
-<span class="normal">    </span><span class="usertype">gboolean</span><span class="normal"> visible</span><span class="symbol">;</span>
+        <td class="listing_code"><pre class="programlisting"><span class="gtkdoc kwb">static void</span> <span class="function">ready_to_show_cb</span> <span class="gtkdoc opt">(</span>WebKitWebView <span class="gtkdoc opt">*</span>web_view<span class="gtkdoc opt">,</span> gpointer user_data<span class="gtkdoc opt">)</span>
+<span class="gtkdoc opt">{</span>
+    GtkWidget <span class="gtkdoc opt">*</span>window<span class="gtkdoc opt">;</span>
+    WebKitWindowProperties <span class="gtkdoc opt">*</span>window_properties<span class="gtkdoc opt">;</span>
+    gboolean visible<span class="gtkdoc opt">;</span>
 
-<span class="normal">    </span><span class="comment">/* Create the window to contain the WebKitWebView */</span>
-<span class="normal">    window </span><span class="symbol">=</span><span class="normal"> </span><span class="function">browser_window_new</span><span class="normal"> </span><span class="symbol">();</span>
-<span class="normal">    </span><span class="function"><a href="../gtk3/GtkContainer.html#gtk-container-add">gtk_container_add</a></span><span class="normal"> </span><span class="symbol">(</span><span class="function">GTK_CONTAINER</span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window</span><span class="symbol">),</span><span class="normal"> </span><span class="function">GTK_WIDGET</span><span class="normal"> </span><span class="symbol">(</span><span class="normal">web_view</span><span class="symbol">));</span>
-<span class="normal">    </span><span class="function"><a href="../gtk3/GtkWidget.html#gtk-widget-show">gtk_widget_show</a></span><span class="normal"> </span><span class="symbol">(</span><span class="function">GTK_WIDGET</span><span class="normal"> </span><span class="symbol">(</span><span class="normal">web_view</span><span class="symbol">));</span>
+    <span class="comment">/* Create the window to contain the WebKitWebView */</span>
+    window <span class="gtkdoc opt">=</span> <span class="function">browser_window_new</span> <span class="gtkdoc opt">();</span>
+    <span class="function"><a href="../gtk3/GtkContainer.html#gtk-container-add">gtk_container_add</a></span> <span class="gtkdoc opt">(</span><span class="function">GTK_CONTAINER</span> <span class="gtkdoc opt">(</span>window<span class="gtkdoc opt">),</span> <span class="function">GTK_WIDGET</span> <span class="gtkdoc opt">(</span>web_view<span class="gtkdoc opt">));</span>
+    <span class="function"><a href="../gtk3/GtkWidget.html#gtk-widget-show">gtk_widget_show</a></span> <span class="gtkdoc opt">(</span><span class="function">GTK_WIDGET</span> <span class="gtkdoc opt">(</span>web_view<span class="gtkdoc opt">));</span>
 
-<span class="normal">    </span><span class="comment">/* Get the WebKitWindowProperties of the web view and monitor it */</span>
-<span class="normal">    window_properties </span><span class="symbol">=</span><span class="normal"> </span><span class="function"><a href="WebKitWebView.html#webkit-web-view-get-window-properties">webkit_web_view_get_window_properties</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">web_view</span><span class="symbol">);</span>
-<span class="normal">    </span><span class="function"><a href="../gobject/gobject-Signals.html#g-signal-connect">g_signal_connect</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window_properties</span><span class="symbol">,</span><span class="normal"> </span><span class="string">"notify::geometry"</span><span class="symbol">,</span>
-<span class="normal">                      </span><span class="function"><a href="../gobject/gobject-Closures.html#G-CALLBACK:CAPS">G_CALLBACK</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window_geometry_changed</span><span class="symbol">),</span><span class="normal"> window</span><span class="symbol">);</span>
-<span class="normal">    </span><span class="function"><a href="../gobject/gobject-Signals.html#g-signal-connect">g_signal_connect</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window_properties</span><span class="symbol">,</span><span class="normal"> </span><span class="string">"notify::toolbar-visible"</span><span class="symbol">,</span>
-<span class="normal">                      </span><span class="function"><a href="../gobject/gobject-Closures.html#G-CALLBACK:CAPS">G_CALLBACK</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window_toolbar_visibility_changed</span><span class="symbol">),</span><span class="normal"> window</span><span class="symbol">);</span>
-<span class="normal">    </span><span class="function"><a href="../gobject/gobject-Signals.html#g-signal-connect">g_signal_connect</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window_properties</span><span class="symbol">,</span><span class="normal"> </span><span class="string">"notify::menubar-visible"</span><span class="symbol">,</span>
-<span class="normal">                      </span><span class="function"><a href="../gobject/gobject-Closures.html#G-CALLBACK:CAPS">G_CALLBACK</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window_menubar_visibility_changed</span><span class="symbol">),</span><span class="normal"> window</span><span class="symbol">);</span>
-<span class="normal">    </span><span class="symbol">....</span>
+    <span class="comment">/* Get the WebKitWindowProperties of the web view and monitor it */</span>
+    window_properties <span class="gtkdoc opt">=</span> <span class="function"><a href="WebKitWebView.html#webkit-web-view-get-window-properties">webkit_web_view_get_window_properties</a></span> <span class="gtkdoc opt">(</span>web_view<span class="gtkdoc opt">);</span>
+    <span class="function"><a href="../gobject/gobject-Signals.html#g-signal-connect">g_signal_connect</a></span> <span class="gtkdoc opt">(</span>window_properties<span class="gtkdoc opt">,</span> <span class="string">&quot;notify::geometry&quot;</span><span class="gtkdoc opt">,</span>
+                      <span class="function"><a href="../gobject/gobject-Closures.html#G-CALLBACK:CAPS">G_CALLBACK</a></span> <span class="gtkdoc opt">(</span>window_geometry_changed<span class="gtkdoc opt">),</span> window<span class="gtkdoc opt">);</span>
+    <span class="function"><a href="../gobject/gobject-Signals.html#g-signal-connect">g_signal_connect</a></span> <span class="gtkdoc opt">(</span>window_properties<span class="gtkdoc opt">,</span> <span class="string">&quot;notify::toolbar-visible&quot;</span><span class="gtkdoc opt">,</span>
+                      <span class="function"><a href="../gobject/gobject-Closures.html#G-CALLBACK:CAPS">G_CALLBACK</a></span> <span class="gtkdoc opt">(</span>window_toolbar_visibility_changed<span class="gtkdoc opt">),</span> window<span class="gtkdoc opt">);</span>
+    <span class="function"><a href="../gobject/gobject-Signals.html#g-signal-connect">g_signal_connect</a></span> <span class="gtkdoc opt">(</span>window_properties<span class="gtkdoc opt">,</span> <span class="string">&quot;notify::menubar-visible&quot;</span><span class="gtkdoc opt">,</span>
+                      <span class="function"><a href="../gobject/gobject-Closures.html#G-CALLBACK:CAPS">G_CALLBACK</a></span> <span class="gtkdoc opt">(</span>window_menubar_visibility_changed<span class="gtkdoc opt">),</span> window<span class="gtkdoc opt">);</span>
+    <span class="gtkdoc opt">....</span>
 
-<span class="normal">    </span><span class="comment">/* Apply the window properties before showing the window */</span>
-<span class="normal">    visible </span><span class="symbol">=</span><span class="normal"> </span><span class="function"><a href="WebKitWindowProperties.html#webkit-window-properties-get-toolbar-visible">webkit_window_properties_get_toolbar_visible</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window_properties</span><span class="symbol">);</span>
-<span class="normal">    </span><span class="function">browser_window_set_toolbar_visible</span><span class="normal"> </span><span class="symbol">(</span><span class="function">BROWSER_WINDOW</span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window</span><span class="symbol">),</span><span class="normal"> visible</span><span class="symbol">);</span>
-<span class="normal">    visible </span><span class="symbol">=</span><span class="normal"> </span><span class="function"><a href="WebKitWindowProperties.html#webkit-window-properties-get-menubar-visible">webkit_window_properties_get_menubar_visible</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window_properties</span><span class="symbol">);</span>
-<span class="normal">    </span><span class="function">browser_window_set_menubar_visible</span><span class="normal"> </span><span class="symbol">(</span><span class="function">BROWSER_WINDOW</span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window</span><span class="symbol">),</span><span class="normal"> visible</span><span class="symbol">);</span>
-<span class="normal">    </span><span class="symbol">....</span>
+    <span class="comment">/* Apply the window properties before showing the window */</span>
+    visible <span class="gtkdoc opt">=</span> <span class="function"><a href="WebKitWindowProperties.html#webkit-window-properties-get-toolbar-visible">webkit_window_properties_get_toolbar_visible</a></span> <span class="gtkdoc opt">(</span>window_properties<span class="gtkdoc opt">);</span>
+    <span class="function">browser_window_set_toolbar_visible</span> <span class="gtkdoc opt">(</span><span class="function">BROWSER_WINDOW</span> <span class="gtkdoc opt">(</span>window<span class="gtkdoc opt">),</span> visible<span class="gtkdoc opt">);</span>
+    visible <span class="gtkdoc opt">=</span> <span class="function"><a href="WebKitWindowProperties.html#webkit-window-properties-get-menubar-visible">webkit_window_properties_get_menubar_visible</a></span> <span class="gtkdoc opt">(</span>window_properties<span class="gtkdoc opt">);</span>
+    <span class="function">browser_window_set_menubar_visible</span> <span class="gtkdoc opt">(</span><span class="function">BROWSER_WINDOW</span> <span class="gtkdoc opt">(</span>window<span class="gtkdoc opt">),</span> visible<span class="gtkdoc opt">);</span>
+    <span class="gtkdoc opt">....</span>
 
-<span class="normal">    </span><span class="keyword">if</span><span class="normal"> </span><span class="symbol">(</span><span class="function"><a href="WebKitWindowProperties.html#webkit-window-properties-get-fullscreen">webkit_window_properties_get_fullscreen</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window_properties</span><span class="symbol">))</span><span class="normal"> </span><span class="cbracket">{</span>
-<span class="normal">        </span><span class="function"><a href="../gtk3/GtkWindow.html#gtk-window-fullscreen">gtk_window_fullscreen</a></span><span class="normal"> </span><span class="symbol">(</span><span class="function">GTK_WINDOW</span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window</span><span class="symbol">));</span>
-<span class="normal">    </span><span class="cbracket">}</span><span class="normal"> </span><span class="keyword">else</span><span class="normal"> </span><span class="cbracket">{</span>
-<span class="normal">        </span><span class="usertype">GdkRectangle</span><span class="normal"> geometry</span><span class="symbol">;</span>
+    <span class="keyword">if</span> <span class="gtkdoc opt">(</span><span class="function"><a href="WebKitWindowProperties.html#webkit-window-properties-get-fullscreen">webkit_window_properties_get_fullscreen</a></span> <span class="gtkdoc opt">(</span>window_properties<span class="gtkdoc opt">)) {</span>
+        <span class="function"><a href="../gtk3/GtkWindow.html#gtk-window-fullscreen">gtk_window_fullscreen</a></span> <span class="gtkdoc opt">(</span><span class="function">GTK_WINDOW</span> <span class="gtkdoc opt">(</span>window<span class="gtkdoc opt">));</span>
+    <span class="gtkdoc opt">}</span> <span class="keyword">else</span> <span class="gtkdoc opt">{</span>
+        GdkRectangle geometry<span class="gtkdoc opt">;</span>
 
-<span class="normal">        </span><span class="function"><a href="../gtk3/GtkWindow.html#gtk-window-set-resizable">gtk_window_set_resizable</a></span><span class="normal"> </span><span class="symbol">(</span><span class="function">GTK_WINDOW</span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window</span><span class="symbol">),</span>
-<span class="normal">                                  </span><span class="function"><a href="WebKitWindowProperties.html#webkit-window-properties-get-resizable">webkit_window_properties_get_resizable</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window_properties</span><span class="symbol">));</span>
-<span class="normal">        </span><span class="function"><a href="WebKitWindowProperties.html#webkit-window-properties-get-geometry">webkit_window_properties_get_geometry</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window_properties</span><span class="symbol">,</span><span class="normal"> </span><span class="symbol">&amp;</span><span class="normal">geometry</span><span class="symbol">);</span>
-<span class="normal">        </span><span class="function"><a href="../gtk3/GtkWindow.html#gtk-window-move">gtk_window_move</a></span><span class="normal"> </span><span class="symbol">(</span><span class="function">GTK_WINDOW</span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window</span><span class="symbol">),</span><span class="normal"> geometry</span><span class="symbol">.</span><span class="normal">x</span><span class="symbol">,</span><span class="normal"> geometry</span><span class="symbol">.</span><span class="normal">y</span><span class="symbol">);</span>
-<span class="normal">        </span><span class="function"><a href="../gtk3/GtkWindow.html#gtk-window-resize">gtk_window_resize</a></span><span class="normal"> </span><span class="symbol">(</span><span class="function">GTK_WINDOW</span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window</span><span class="symbol">),</span><span class="normal"> geometry</span><span class="symbol">.</span><span class="normal">width</span><span class="symbol">,</span><span class="normal"> geometry</span><span class="symbol">.</span><span class="normal">height</span><span class="symbol">);</span>
-<span class="normal">    </span><span class="cbracket">}</span>
+        <span class="function"><a href="../gtk3/GtkWindow.html#gtk-window-set-resizable">gtk_window_set_resizable</a></span> <span class="gtkdoc opt">(</span><span class="function">GTK_WINDOW</span> <span class="gtkdoc opt">(</span>window<span class="gtkdoc opt">),</span>
+                                  <span class="function"><a href="WebKitWindowProperties.html#webkit-window-properties-get-resizable">webkit_window_properties_get_resizable</a></span> <span class="gtkdoc opt">(</span>window_properties<span class="gtkdoc opt">));</span>
+        <span class="function"><a href="WebKitWindowProperties.html#webkit-window-properties-get-geometry">webkit_window_properties_get_geometry</a></span> <span class="gtkdoc opt">(</span>window_properties<span class="gtkdoc opt">, &amp;</span>geometry<span class="gtkdoc opt">);</span>
+        <span class="function"><a href="../gtk3/GtkWindow.html#gtk-window-move">gtk_window_move</a></span> <span class="gtkdoc opt">(</span><span class="function">GTK_WINDOW</span> <span class="gtkdoc opt">(</span>window<span class="gtkdoc opt">),</span> geometry<span class="gtkdoc opt">.</span>x<span class="gtkdoc opt">,</span> geometry<span class="gtkdoc opt">.</span>y<span class="gtkdoc opt">);</span>
+        <span class="function"><a href="../gtk3/GtkWindow.html#gtk-window-resize">gtk_window_resize</a></span> <span class="gtkdoc opt">(</span><span class="function">GTK_WINDOW</span> <span class="gtkdoc opt">(</span>window<span class="gtkdoc opt">),</span> geometry<span class="gtkdoc opt">.</span>width<span class="gtkdoc opt">,</span> geometry<span class="gtkdoc opt">.</span>height<span class="gtkdoc opt">);</span>
+    <span class="gtkdoc opt">}</span>
 
-<span class="normal">    </span><span class="function"><a href="../gtk3/GtkWidget.html#gtk-widget-show">gtk_widget_show</a></span><span class="normal"> </span><span class="symbol">(</span><span class="normal">window</span><span class="symbol">);</span>
-<span class="cbracket">}</span></pre></td>
+    <span class="function"><a href="../gtk3/GtkWidget.html#gtk-widget-show">gtk_widget_show</a></span> <span class="gtkdoc opt">(</span>window<span class="gtkdoc opt">);</span>
+<span class="gtkdoc opt">}</span></pre></td>
       </tr>
     </tbody>
   </table>
@@ -583,6 +583,6 @@ webkit_window_properties_get_fullscreen
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.26.1</div>
+<hr>Generated by GTK-Doc V1.29.1</div>
 </body>
 </html>

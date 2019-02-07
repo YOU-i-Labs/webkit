@@ -89,7 +89,7 @@ void WebConsoleAgent::getLoggingChannels(ErrorString&, RefPtr<JSON::ArrayOf<Insp
     }
 }
 
-static std::optional<std::pair<WTFLogChannelState, WTFLogLevel>> channelConfigurationForString(const String& levelString)
+static Optional<std::pair<WTFLogChannelState, WTFLogLevel>> channelConfigurationForString(const String& levelString)
 {
     WTFLogChannelState state;
     WTFLogLevel level;
@@ -104,7 +104,7 @@ static std::optional<std::pair<WTFLogChannelState, WTFLogLevel>> channelConfigur
         else if (equalIgnoringASCIICase(levelString, "verbose"))
             level = WTFLogLevelDebug;
         else
-            return std::nullopt;
+            return WTF::nullopt;
     }
 
     return { { state, level } };
@@ -114,13 +114,13 @@ void WebConsoleAgent::setLoggingChannelLevel(ErrorString& errorString, const Str
 {
     auto* channel = getLogChannel(channelName.utf8().data());
     if (!channel) {
-        errorString = ASCIILiteral("Logging channel not found");
+        errorString = "Logging channel not found"_s;
         return;
     }
 
     auto configuration = channelConfigurationForString(channelLevel);
     if (!configuration) {
-        errorString = ASCIILiteral("Invalid logging level");
+        errorString = "Invalid logging level"_s;
         return;
     }
 

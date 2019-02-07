@@ -26,8 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WTF_MediaTime_h
-#define WTF_MediaTime_h
+#pragma once
 
 #include <wtf/FastMalloc.h>
 #include <wtf/text/WTFString.h>
@@ -98,6 +97,7 @@ public:
     bool isNegativeInfinite() const { return m_timeFlags & NegativeInfinite; }
     bool isIndefinite() const { return m_timeFlags & Indefinite; }
     bool hasDoubleValue() const { return m_timeFlags & DoubleValue; }
+    uint8_t timeFlags() const { return m_timeFlags; }
 
     static const MediaTime& zeroTime();
     static const MediaTime& invalidTime();
@@ -151,6 +151,13 @@ inline MediaTime operator*(int32_t lhs, const MediaTime& rhs) { return rhs.opera
 
 WTF_EXPORT_PRIVATE extern MediaTime abs(const MediaTime& rhs);
 
+struct WTF_EXPORT_PRIVATE MediaTimeRange {
+    String toJSONString() const;
+
+    const MediaTime start;
+    const MediaTime end;
+};
+
 template<class Encoder>
 void MediaTime::encode(Encoder& encoder) const
 {
@@ -168,6 +175,5 @@ bool MediaTime::decode(Decoder& decoder, MediaTime& time)
 }
 
 using WTF::MediaTime;
+using WTF::MediaTimeRange;
 using WTF::abs;
-
-#endif

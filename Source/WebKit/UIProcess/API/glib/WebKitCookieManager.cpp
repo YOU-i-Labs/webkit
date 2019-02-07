@@ -321,7 +321,7 @@ void webkit_cookie_manager_get_cookies(WebKitCookieManager* manager, const gchar
 
     // Cookies are read/written from/to the same SQLite database on disk regardless
     // of the process we access them from, so just use the first process pool.
-    processPools[0]->supplement<WebCookieManagerProxy>()->getCookies(sessionID, WebCore::URL(WebCore::URL(), String::fromUTF8(uri)), [task = WTFMove(task)](const Vector<WebCore::Cookie>& cookies, CallbackBase::Error error) {
+    processPools[0]->supplement<WebCookieManagerProxy>()->getCookies(sessionID, URL(URL(), String::fromUTF8(uri)), [task = WTFMove(task)](const Vector<WebCore::Cookie>& cookies, CallbackBase::Error error) {
         if (error != CallbackBase::Error::None) {
             // This can only happen in cases where the web process is not available,
             // consider the operation "cancelled" from the point of view of the client.
@@ -420,6 +420,7 @@ gboolean webkit_cookie_manager_delete_cookie_finish(WebKitCookieManager* manager
     return g_task_propagate_boolean(G_TASK(result), error);
 }
 
+#if PLATFORM(GTK)
 /**
  * webkit_cookie_manager_get_domains_with_cookies:
  * @cookie_manager: a #WebKitCookieManager
@@ -518,3 +519,4 @@ void webkit_cookie_manager_delete_all_cookies(WebKitCookieManager* manager)
 
     webkit_website_data_manager_clear(manager->priv->dataManager, WEBKIT_WEBSITE_DATA_COOKIES, 0, nullptr, nullptr, nullptr);
 }
+#endif

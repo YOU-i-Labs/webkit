@@ -74,7 +74,7 @@ void WorkerThreadableLoader::loadResourceSynchronously(WorkerGlobalScope& worker
     String mode = loadResourceSynchronouslyMode;
     mode.append(String::number(runLoop.createUniqueId()));
 
-    RefPtr<WorkerThreadableLoader> loader = WorkerThreadableLoader::create(workerGlobalScope, client, mode, WTFMove(request), options, String());
+    auto loader = WorkerThreadableLoader::create(workerGlobalScope, client, mode, WTFMove(request), options, String());
     MessageQueueWaitResult result = MessageQueueMessageReceived;
     while (!loader->done() && result != MessageQueueTerminated)
         result = runLoop.runInMode(&workerGlobalScope, mode);
@@ -116,7 +116,7 @@ WorkerThreadableLoader::MainThreadBridge::MainThreadBridge(ThreadableLoaderClien
     ASSERT(contentSecurityPolicy);
 
     auto securityOriginCopy = securityOrigin->isolatedCopy();
-    auto contentSecurityPolicyCopy = std::make_unique<ContentSecurityPolicy>(securityOriginCopy);
+    auto contentSecurityPolicyCopy = std::make_unique<ContentSecurityPolicy>(globalScope.url().isolatedCopy());
     contentSecurityPolicyCopy->copyStateFrom(contentSecurityPolicy);
     contentSecurityPolicyCopy->copyUpgradeInsecureRequestStateFrom(*contentSecurityPolicy);
 

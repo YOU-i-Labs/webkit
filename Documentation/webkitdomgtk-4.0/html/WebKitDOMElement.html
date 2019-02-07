@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitDOMDocumentType.html" title="WebKitDOMDocumentType">
 <link rel="next" href="WebKitDOMEvent.html" title="WebKitDOMEvent">
-<meta name="generator" content="GTK-Doc V1.26.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -42,6 +42,38 @@
 <col class="functions_name">
 </colgroup>
 <tbody>
+<tr>
+<td class="function_type">
+<a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitDOMElement.html#webkit-dom-element-html-input-element-is-user-edited" title="webkit_dom_element_html_input_element_is_user_edited ()">webkit_dom_element_html_input_element_is_user_edited</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitDOMElement.html#webkit-dom-element-html-input-element-get-auto-filled" title="webkit_dom_element_html_input_element_get_auto_filled ()">webkit_dom_element_html_input_element_get_auto_filled</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">void</span>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitDOMElement.html#webkit-dom-element-html-input-element-set-auto-filled" title="webkit_dom_element_html_input_element_set_auto_filled ()">webkit_dom_element_html_input_element_set_auto_filled</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">void</span>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitDOMElement.html#webkit-dom-element-html-input-element-set-editing-value" title="webkit_dom_element_html_input_element_set_editing_value ()">webkit_dom_element_html_input_element_set_editing_value</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
 <tr>
 <td class="function_type">
 <a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
@@ -878,10 +910,118 @@ WebKitDOMElement implements
 <div class="refsect1">
 <a name="WebKitDOMElement.functions_details"></a><h2>Functions</h2>
 <div class="refsect2">
+<a name="webkit-dom-element-html-input-element-is-user-edited"></a><h3>webkit_dom_element_html_input_element_is_user_edited ()</h3>
+<pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
+webkit_dom_element_html_input_element_is_user_edited
+                               (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *element</code></em>);</pre>
+<p>Get whether <em class="parameter"><code>element</code></em>
+ is an HTML text input element that has been edited by a user action.</p>
+<div class="refsect3">
+<a name="webkit-dom-element-html-input-element-is-user-edited.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>element</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="webkit-dom-element-html-input-element-is-user-edited.returns"></a><h4>Returns</h4>
+<p> whether <em class="parameter"><code>element</code></em>
+has been edited by a user action.</p>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-22.html#api-index-2.22">2.22</a></p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-dom-element-html-input-element-get-auto-filled"></a><h3>webkit_dom_element_html_input_element_get_auto_filled ()</h3>
+<pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
+webkit_dom_element_html_input_element_get_auto_filled
+                               (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *element</code></em>);</pre>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-dom-element-html-input-element-set-auto-filled"></a><h3>webkit_dom_element_html_input_element_set_auto_filled ()</h3>
+<pre class="programlisting"><span class="returnvalue">void</span>
+webkit_dom_element_html_input_element_set_auto_filled
+                               (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *element</code></em>,
+                                <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> auto_filled</code></em>);</pre>
+<p>Set whether the element is an HTML input element that has been filled automatically.
+If <em class="parameter"><code>element</code></em>
+ is not an HTML input element this function does nothing.</p>
+<div class="refsect3">
+<a name="webkit-dom-element-html-input-element-set-auto-filled.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="parameter_name"><p>element</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>auto_filled</p></td>
+<td class="parameter_description"><p>value to set</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-22.html#api-index-2.22">2.22</a></p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-dom-element-html-input-element-set-editing-value"></a><h3>webkit_dom_element_html_input_element_set_editing_value ()</h3>
+<pre class="programlisting"><span class="returnvalue">void</span>
+webkit_dom_element_html_input_element_set_editing_value
+                               (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *element</code></em>,
+                                <em class="parameter"><code>const <span class="type">char</span> *value</code></em>);</pre>
+<p>Set editing value of an HTML input element. If <em class="parameter"><code>element</code></em>
+ is not an HTML input element this function does nothing.</p>
+<div class="refsect3">
+<a name="webkit-dom-element-html-input-element-set-editing-value.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="parameter_name"><p>element</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>value</p></td>
+<td class="parameter_description"><p>the text to set</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-22.html#api-index-2.22">2.22</a></p>
+</div>
+<hr>
+<div class="refsect2">
 <a name="webkit-dom-element-get-attribute"></a><h3>webkit_dom_element_get_attribute ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_element_get_attribute (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                   <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *name</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_attribute</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-attribute.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -917,6 +1057,10 @@ webkit_dom_element_set_attribute (<em class="parameter"><code><a class="link" hr
                                   <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *name</code></em>,
                                   <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *value</code></em>,
                                   <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_set_attribute</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-set-attribute.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -956,6 +1100,10 @@ webkit_dom_element_set_attribute (<em class="parameter"><code><a class="link" hr
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_element_remove_attribute (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                      <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *name</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_remove_attribute</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-remove-attribute.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -985,6 +1133,10 @@ webkit_dom_element_remove_attribute (<em class="parameter"><code><a class="link"
 <pre class="programlisting"><a class="link" href="WebKitDOMAttr.html" title="WebKitDOMAttr"><span class="returnvalue">WebKitDOMAttr</span></a> *
 webkit_dom_element_get_attribute_node (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                        <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *name</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_attribute_node</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-attribute-node.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1020,6 +1172,10 @@ webkit_dom_element_get_attribute_node (<em class="parameter"><code><a class="lin
 webkit_dom_element_set_attribute_node (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                        <em class="parameter"><code><a class="link" href="WebKitDOMAttr.html" title="WebKitDOMAttr"><span class="type">WebKitDOMAttr</span></a> *newAttr</code></em>,
                                        <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_set_attribute_node</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-set-attribute-node.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1061,6 +1217,10 @@ webkit_dom_element_remove_attribute_node
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                 <em class="parameter"><code><a class="link" href="WebKitDOMAttr.html" title="WebKitDOMAttr"><span class="type">WebKitDOMAttr</span></a> *oldAttr</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_remove_attribute_node</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-remove-attribute-node.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1101,6 +1261,10 @@ webkit_dom_element_remove_attribute_node
 webkit_dom_element_get_elements_by_tag_name_as_html_collection
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *name</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_elements_by_tag_name_as_html_collection</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-elements-by-tag-name-as-html-collection.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1135,6 +1299,10 @@ webkit_dom_element_get_elements_by_tag_name_as_html_collection
 <a name="webkit-dom-element-has-attributes"></a><h3>webkit_dom_element_has_attributes ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
 webkit_dom_element_has_attributes (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_has_attributes</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-has-attributes.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1162,6 +1330,10 @@ webkit_dom_element_has_attributes (<em class="parameter"><code><a class="link" h
 webkit_dom_element_get_attribute_ns (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                      <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *namespaceURI</code></em>,
                                      <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *localName</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_attribute_ns</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-attribute-ns.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1203,6 +1375,10 @@ webkit_dom_element_set_attribute_ns (<em class="parameter"><code><a class="link"
                                      <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *qualifiedName</code></em>,
                                      <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *value</code></em>,
                                      <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_set_attribute_ns</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-set-attribute-ns.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1249,6 +1425,10 @@ webkit_dom_element_remove_attribute_ns
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *namespaceURI</code></em>,
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *localName</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_remove_attribute_ns</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-remove-attribute-ns.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1285,6 +1465,10 @@ webkit_dom_element_get_elements_by_tag_name_ns_as_html_collection
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *namespaceURI</code></em>,
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *localName</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_elements_by_tag_name_ns_as_html_collection</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-elements-by-tag-name-ns-as-html-collection.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1327,6 +1511,10 @@ webkit_dom_element_get_attribute_node_ns
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *namespaceURI</code></em>,
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *localName</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_attribute_node_ns</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-attribute-node-ns.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1368,6 +1556,10 @@ webkit_dom_element_set_attribute_node_ns
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                 <em class="parameter"><code><a class="link" href="WebKitDOMAttr.html" title="WebKitDOMAttr"><span class="type">WebKitDOMAttr</span></a> *newAttr</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_set_attribute_node_ns</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-set-attribute-node-ns.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1407,6 +1599,10 @@ webkit_dom_element_set_attribute_node_ns
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
 webkit_dom_element_has_attribute (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                   <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *name</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_has_attribute</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-has-attribute.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1441,6 +1637,10 @@ webkit_dom_element_has_attribute (<em class="parameter"><code><a class="link" hr
 webkit_dom_element_has_attribute_ns (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                      <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *namespaceURI</code></em>,
                                      <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *localName</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_has_attribute_ns</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-has-attribute-ns.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1478,6 +1678,10 @@ webkit_dom_element_has_attribute_ns (<em class="parameter"><code><a class="link"
 <a name="webkit-dom-element-focus"></a><h3>webkit_dom_element_focus ()</h3>
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_element_focus (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_focus</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-focus.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1499,6 +1703,10 @@ webkit_dom_element_focus (<em class="parameter"><code><a class="link" href="WebK
 <a name="webkit-dom-element-blur"></a><h3>webkit_dom_element_blur ()</h3>
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_element_blur (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_blur</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-blur.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1521,6 +1729,10 @@ webkit_dom_element_blur (<em class="parameter"><code><a class="link" href="WebKi
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_element_scroll_into_view (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                      <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> alignWithTop</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_scroll_into_view</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-scroll-into-view.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1551,6 +1763,10 @@ webkit_dom_element_scroll_into_view (<em class="parameter"><code><a class="link"
 webkit_dom_element_scroll_into_view_if_needed
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> centerIfNeeded</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_scroll_into_view_if_needed</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-scroll-into-view-if-needed.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1580,6 +1796,10 @@ webkit_dom_element_scroll_into_view_if_needed
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_element_scroll_by_lines (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                     <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#glong"><span class="type">glong</span></a> lines</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_scroll_by_lines</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-scroll-by-lines.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1609,6 +1829,10 @@ webkit_dom_element_scroll_by_lines (<em class="parameter"><code><a class="link" 
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_element_scroll_by_pages (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                     <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#glong"><span class="type">glong</span></a> pages</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_scroll_by_pages</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-scroll-by-pages.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1639,6 +1863,10 @@ webkit_dom_element_scroll_by_pages (<em class="parameter"><code><a class="link" 
 webkit_dom_element_get_elements_by_class_name_as_html_collection
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *name</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_elements_by_class_name_as_html_collection</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-elements-by-class-name-as-html-collection.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1675,6 +1903,10 @@ webkit_dom_element_get_elements_by_class_name_as_html_collection
 webkit_dom_element_query_selector (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                    <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *selectors</code></em>,
                                    <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_query_selector</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-query-selector.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1715,6 +1947,10 @@ webkit_dom_element_query_selector (<em class="parameter"><code><a class="link" h
 webkit_dom_element_query_selector_all (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                        <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *selectors</code></em>,
                                        <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_query_selector_all</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-query-selector-all.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1753,6 +1989,10 @@ webkit_dom_element_query_selector_all (<em class="parameter"><code><a class="lin
 <a name="webkit-dom-element-get-tag-name"></a><h3>webkit_dom_element_get_tag_name ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_element_get_tag_name (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_tag_name</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-tag-name.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1778,6 +2018,10 @@ webkit_dom_element_get_tag_name (<em class="parameter"><code><a class="link" hre
 <a name="webkit-dom-element-get-attributes"></a><h3>webkit_dom_element_get_attributes ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitDOMNamedNodeMap.html" title="WebKitDOMNamedNodeMap"><span class="returnvalue">WebKitDOMNamedNodeMap</span></a> *
 webkit_dom_element_get_attributes (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_attributes</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-attributes.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1804,6 +2048,10 @@ webkit_dom_element_get_attributes (<em class="parameter"><code><a class="link" h
 <a name="webkit-dom-element-get-style"></a><h3>webkit_dom_element_get_style ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitDOMCSSStyleDeclaration.html" title="WebKitDOMCSSStyleDeclaration"><span class="returnvalue">WebKitDOMCSSStyleDeclaration</span></a> *
 webkit_dom_element_get_style (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_style</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-style.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1830,6 +2078,10 @@ webkit_dom_element_get_style (<em class="parameter"><code><a class="link" href="
 <a name="webkit-dom-element-get-id"></a><h3>webkit_dom_element_get_id ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_element_get_id (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_id</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-id.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1856,6 +2108,10 @@ webkit_dom_element_get_id (<em class="parameter"><code><a class="link" href="Web
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_element_set_id (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                            <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *value</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_set_id</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-set-id.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1884,6 +2140,10 @@ webkit_dom_element_set_id (<em class="parameter"><code><a class="link" href="Web
 <a name="webkit-dom-element-get-namespace-uri"></a><h3>webkit_dom_element_get_namespace_uri ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_element_get_namespace_uri (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_namespace_uri</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-namespace-uri.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1910,6 +2170,10 @@ webkit_dom_element_get_namespace_uri (<em class="parameter"><code><a class="link
 <a name="webkit-dom-element-get-prefix"></a><h3>webkit_dom_element_get_prefix ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_element_get_prefix (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_prefix</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-prefix.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1936,6 +2200,10 @@ webkit_dom_element_get_prefix (<em class="parameter"><code><a class="link" href=
 <a name="webkit-dom-element-get-local-name"></a><h3>webkit_dom_element_get_local_name ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_element_get_local_name (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_local_name</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-local-name.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1962,6 +2230,10 @@ webkit_dom_element_get_local_name (<em class="parameter"><code><a class="link" h
 <a name="webkit-dom-element-get-offset-left"></a><h3>webkit_dom_element_get_offset_left ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gdouble"><span class="returnvalue">gdouble</span></a>
 webkit_dom_element_get_offset_left (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_offset_left</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-offset-left.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1987,6 +2259,10 @@ webkit_dom_element_get_offset_left (<em class="parameter"><code><a class="link" 
 <a name="webkit-dom-element-get-offset-top"></a><h3>webkit_dom_element_get_offset_top ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gdouble"><span class="returnvalue">gdouble</span></a>
 webkit_dom_element_get_offset_top (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_offset_top</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-offset-top.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2012,6 +2288,10 @@ webkit_dom_element_get_offset_top (<em class="parameter"><code><a class="link" h
 <a name="webkit-dom-element-get-offset-width"></a><h3>webkit_dom_element_get_offset_width ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gdouble"><span class="returnvalue">gdouble</span></a>
 webkit_dom_element_get_offset_width (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_offset_width</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-offset-width.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2037,6 +2317,10 @@ webkit_dom_element_get_offset_width (<em class="parameter"><code><a class="link"
 <a name="webkit-dom-element-get-offset-height"></a><h3>webkit_dom_element_get_offset_height ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gdouble"><span class="returnvalue">gdouble</span></a>
 webkit_dom_element_get_offset_height (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_offset_height</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-offset-height.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2062,6 +2346,10 @@ webkit_dom_element_get_offset_height (<em class="parameter"><code><a class="link
 <a name="webkit-dom-element-get-client-left"></a><h3>webkit_dom_element_get_client_left ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gdouble"><span class="returnvalue">gdouble</span></a>
 webkit_dom_element_get_client_left (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_client_left</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-client-left.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2087,6 +2375,10 @@ webkit_dom_element_get_client_left (<em class="parameter"><code><a class="link" 
 <a name="webkit-dom-element-get-client-top"></a><h3>webkit_dom_element_get_client_top ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gdouble"><span class="returnvalue">gdouble</span></a>
 webkit_dom_element_get_client_top (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_client_top</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-client-top.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2112,6 +2404,10 @@ webkit_dom_element_get_client_top (<em class="parameter"><code><a class="link" h
 <a name="webkit-dom-element-get-client-width"></a><h3>webkit_dom_element_get_client_width ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gdouble"><span class="returnvalue">gdouble</span></a>
 webkit_dom_element_get_client_width (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_client_width</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-client-width.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2137,6 +2433,10 @@ webkit_dom_element_get_client_width (<em class="parameter"><code><a class="link"
 <a name="webkit-dom-element-get-client-height"></a><h3>webkit_dom_element_get_client_height ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gdouble"><span class="returnvalue">gdouble</span></a>
 webkit_dom_element_get_client_height (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_client_height</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-client-height.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2162,6 +2462,10 @@ webkit_dom_element_get_client_height (<em class="parameter"><code><a class="link
 <a name="webkit-dom-element-get-scroll-left"></a><h3>webkit_dom_element_get_scroll_left ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#glong"><span class="returnvalue">glong</span></a>
 webkit_dom_element_get_scroll_left (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_scroll_left</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-scroll-left.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2188,6 +2492,10 @@ webkit_dom_element_get_scroll_left (<em class="parameter"><code><a class="link" 
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_element_set_scroll_left (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                     <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#glong"><span class="type">glong</span></a> value</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_set_scroll_left</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-set-scroll-left.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2216,6 +2524,10 @@ webkit_dom_element_set_scroll_left (<em class="parameter"><code><a class="link" 
 <a name="webkit-dom-element-get-scroll-top"></a><h3>webkit_dom_element_get_scroll_top ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#glong"><span class="returnvalue">glong</span></a>
 webkit_dom_element_get_scroll_top (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_scroll_top</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-scroll-top.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2242,6 +2554,10 @@ webkit_dom_element_get_scroll_top (<em class="parameter"><code><a class="link" h
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_element_set_scroll_top (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                    <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#glong"><span class="type">glong</span></a> value</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_set_scroll_top</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-set-scroll-top.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2270,6 +2586,10 @@ webkit_dom_element_set_scroll_top (<em class="parameter"><code><a class="link" h
 <a name="webkit-dom-element-get-scroll-width"></a><h3>webkit_dom_element_get_scroll_width ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#glong"><span class="returnvalue">glong</span></a>
 webkit_dom_element_get_scroll_width (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_scroll_width</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-scroll-width.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2295,6 +2615,10 @@ webkit_dom_element_get_scroll_width (<em class="parameter"><code><a class="link"
 <a name="webkit-dom-element-get-scroll-height"></a><h3>webkit_dom_element_get_scroll_height ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#glong"><span class="returnvalue">glong</span></a>
 webkit_dom_element_get_scroll_height (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_scroll_height</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-scroll-height.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2321,6 +2645,10 @@ webkit_dom_element_get_scroll_height (<em class="parameter"><code><a class="link
 <pre class="programlisting"><span class="returnvalue">WebKitDOMClientRect</span> *
 webkit_dom_element_get_bounding_client_rect
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_bounding_client_rect</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <p>Returns a <span class="type">WebKitDOMClientRect</span> representing the size and position of <em class="parameter"><code>self</code></em>
 
 relative to the viewport.</p>
@@ -2351,6 +2679,10 @@ relative to the viewport.</p>
 <a name="webkit-dom-element-get-client-rects"></a><h3>webkit_dom_element_get_client_rects ()</h3>
 <pre class="programlisting"><span class="returnvalue">WebKitDOMClientRectList</span> *
 webkit_dom_element_get_client_rects (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_client_rects</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <p>Returns a collection of <span class="type">WebKitDOMClientRect</span> objects, each of which describe
 the size and position of a CSS border box relative to the viewport.</p>
 <div class="refsect3">
@@ -2380,6 +2712,10 @@ the size and position of a CSS border box relative to the viewport.</p>
 <a name="webkit-dom-element-get-offset-parent"></a><h3>webkit_dom_element_get_offset_parent ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="returnvalue">WebKitDOMElement</span></a> *
 webkit_dom_element_get_offset_parent (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_offset_parent</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-offset-parent.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2406,6 +2742,10 @@ webkit_dom_element_get_offset_parent (<em class="parameter"><code><a class="link
 <a name="webkit-dom-element-get-inner-html"></a><h3>webkit_dom_element_get_inner_html ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_element_get_inner_html (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_inner_html</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-inner-html.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2434,6 +2774,10 @@ webkit_dom_element_get_inner_html (<em class="parameter"><code><a class="link" h
 webkit_dom_element_set_inner_html (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                    <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *value</code></em>,
                                    <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_set_inner_html</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-set-inner-html.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2468,6 +2812,10 @@ webkit_dom_element_set_inner_html (<em class="parameter"><code><a class="link" h
 <a name="webkit-dom-element-get-outer-html"></a><h3>webkit_dom_element_get_outer_html ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_element_get_outer_html (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_outer_html</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-outer-html.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2496,6 +2844,10 @@ webkit_dom_element_get_outer_html (<em class="parameter"><code><a class="link" h
 webkit_dom_element_set_outer_html (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                    <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *value</code></em>,
                                    <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_set_outer_html</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-set-outer-html.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2530,6 +2882,10 @@ webkit_dom_element_set_outer_html (<em class="parameter"><code><a class="link" h
 <a name="webkit-dom-element-get-class-name"></a><h3>webkit_dom_element_get_class_name ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_element_get_class_name (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_class_name</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-class-name.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2556,6 +2912,10 @@ webkit_dom_element_get_class_name (<em class="parameter"><code><a class="link" h
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_element_set_class_name (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                    <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *value</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_set_class_name</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-set-class-name.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2585,6 +2945,10 @@ webkit_dom_element_set_class_name (<em class="parameter"><code><a class="link" h
 <pre class="programlisting"><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="returnvalue">WebKitDOMElement</span></a> *
 webkit_dom_element_get_previous_element_sibling
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_previous_element_sibling</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-previous-element-sibling.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2612,6 +2976,10 @@ webkit_dom_element_get_previous_element_sibling
 <pre class="programlisting"><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="returnvalue">WebKitDOMElement</span></a> *
 webkit_dom_element_get_next_element_sibling
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_next_element_sibling</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-next-element-sibling.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2638,6 +3006,10 @@ webkit_dom_element_get_next_element_sibling
 <a name="webkit-dom-element-get-children"></a><h3>webkit_dom_element_get_children ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitDOMHTMLCollection.html" title="WebKitDOMHTMLCollection"><span class="returnvalue">WebKitDOMHTMLCollection</span></a> *
 webkit_dom_element_get_children (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_children</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-children.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2666,6 +3038,10 @@ webkit_dom_element_get_children (<em class="parameter"><code><a class="link" hre
 <pre class="programlisting"><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="returnvalue">WebKitDOMElement</span></a> *
 webkit_dom_element_get_first_element_child
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_first_element_child</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-first-element-child.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2693,6 +3069,10 @@ webkit_dom_element_get_first_element_child
 <pre class="programlisting"><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="returnvalue">WebKitDOMElement</span></a> *
 webkit_dom_element_get_last_element_child
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_last_element_child</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-last-element-child.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2720,6 +3100,10 @@ webkit_dom_element_get_last_element_child
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gulong"><span class="returnvalue">gulong</span></a>
 webkit_dom_element_get_child_element_count
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_child_element_count</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-child-element-count.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2870,6 +3254,10 @@ webkit_dom_element_get_elements_by_class_name
 webkit_dom_element_matches (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                             <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *selectors</code></em>,
                             <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_matches</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-matches.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2910,6 +3298,10 @@ webkit_dom_element_matches (<em class="parameter"><code><a class="link" href="We
 webkit_dom_element_closest (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                             <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *selectors</code></em>,
                             <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_closest</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-closest.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2952,6 +3344,10 @@ webkit_dom_element_webkit_matches_selector
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *selectors</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_webkit_matches_selector</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-webkit-matches-selector.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -2991,6 +3387,10 @@ webkit_dom_element_webkit_matches_selector
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_element_webkit_request_fullscreen
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_webkit_request_fullscreen</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-webkit-request-fullscreen.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -3017,6 +3417,10 @@ webkit_dom_element_insert_adjacent_element
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *where</code></em>,
                                 <em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *element</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_insert_adjacent_element</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-insert-adjacent-element.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -3065,6 +3469,10 @@ webkit_dom_element_insert_adjacent_html
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *where</code></em>,
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *html</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_insert_adjacent_html</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-insert-adjacent-html.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -3108,6 +3516,10 @@ webkit_dom_element_insert_adjacent_text
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *where</code></em>,
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *text</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_insert_adjacent_text</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-insert-adjacent-text.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -3148,6 +3560,10 @@ webkit_dom_element_insert_adjacent_text
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_element_request_pointer_lock
                                (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_request_pointer_lock</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-request-pointer-lock.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -3171,6 +3587,10 @@ webkit_dom_element_request_pointer_lock
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_element_remove (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>,
                            <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_remove</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-remove.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -3200,6 +3620,10 @@ webkit_dom_element_remove (<em class="parameter"><code><a class="link" href="Web
 <a name="webkit-dom-element-get-class-list"></a><h3>webkit_dom_element_get_class_list ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitDOMDOMTokenList.html" title="WebKitDOMDOMTokenList"><span class="returnvalue">WebKitDOMDOMTokenList</span></a> *
 webkit_dom_element_get_class_list (<em class="parameter"><code><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a> *self</code></em>);</pre>
+<div class="warning">
+<p><code class="literal">webkit_dom_element_get_class_list</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 <div class="refsect3">
 <a name="webkit-dom-element-get-class-list.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -3262,6 +3686,10 @@ webkit_dom_element_get_webkit_region_overset
 <a name="WEBKIT-DOM-ELEMENT-ALLOW-KEYBOARD-INPUT:CAPS"></a><h3>WEBKIT_DOM_ELEMENT_ALLOW_KEYBOARD_INPUT</h3>
 <pre class="programlisting">#define WEBKIT_DOM_ELEMENT_ALLOW_KEYBOARD_INPUT 1
 </pre>
+<div class="warning">
+<p><code class="literal">WEBKIT_DOM_ELEMENT_ALLOW_KEYBOARD_INPUT</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
+<p>Use JavaScriptCore API instead</p>
+</div>
 </div>
 </div>
 <div class="refsect1">
@@ -3507,6 +3935,6 @@ webkit_dom_element_get_webkit_region_overset
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.26.1</div>
+<hr>Generated by GTK-Doc V1.29.1</div>
 </body>
 </html>

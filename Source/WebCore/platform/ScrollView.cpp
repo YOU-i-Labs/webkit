@@ -199,7 +199,7 @@ void ScrollView::setDelegatesScrolling(bool delegatesScrolling)
 
 IntPoint ScrollView::contentsScrollPosition() const
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (platformWidget())
         return actualScrollPosition();
 #endif
@@ -208,14 +208,14 @@ IntPoint ScrollView::contentsScrollPosition() const
 
 void ScrollView::setContentsScrollPosition(const IntPoint& position)
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (platformWidget())
         setActualScrollPosition(position);
 #endif
     setScrollPosition(position);
 }
 
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
 IntRect ScrollView::unobscuredContentRect(VisibleContentRectIncludesScrollbars scrollbarInclusion) const
 {
     return unobscuredContentRectInternal(scrollbarInclusion);
@@ -264,7 +264,7 @@ IntSize ScrollView::sizeForUnobscuredContent(VisibleContentRectIncludesScrollbar
 
 IntRect ScrollView::visibleContentRectInternal(VisibleContentRectIncludesScrollbars scrollbarInclusion, VisibleContentRectBehavior visibleContentRectBehavior) const
 {
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     if (visibleContentRectBehavior == LegacyIOSDocumentViewRect) {
         if (platformWidget())
             return platformVisibleContentRect(scrollbarInclusion == IncludeScrollbars);
@@ -433,8 +433,8 @@ void ScrollView::handleDeferredScrollUpdateAfterContentSizeChange()
     else if (m_deferredScrollOffsets)
         scrollOffsetChangedViaPlatformWidgetImpl(m_deferredScrollOffsets.value().first, m_deferredScrollOffsets.value().second);
     
-    m_deferredScrollDelta = std::nullopt;
-    m_deferredScrollOffsets = std::nullopt;
+    m_deferredScrollDelta = WTF::nullopt;
+    m_deferredScrollOffsets = WTF::nullopt;
 }
 
 void ScrollView::scrollTo(const ScrollPosition& newPosition)
@@ -829,7 +829,19 @@ IntRect ScrollView::viewToContents(IntRect rect) const
     return rect;
 }
 
+FloatRect ScrollView::viewToContents(FloatRect rect) const
+{
+    rect.moveBy(documentScrollPositionRelativeToViewOrigin());
+    return rect;
+}
+
 IntRect ScrollView::contentsToView(IntRect rect) const
+{
+    rect.moveBy(-documentScrollPositionRelativeToViewOrigin());
+    return rect;
+}
+
+FloatRect ScrollView::contentsToView(FloatRect rect) const
 {
     rect.moveBy(-documentScrollPositionRelativeToViewOrigin());
     return rect;
@@ -847,6 +859,9 @@ IntPoint ScrollView::contentsToContainingViewContents(const IntPoint& point) con
 
 IntRect ScrollView::contentsToContainingViewContents(IntRect rect) const
 {
+    if (delegatesScrolling())
+        return convertToContainingView(contentsToView(rect));
+    
     if (const ScrollView* parentScrollView = parent()) {
         IntRect rectInContainingView = convertToContainingView(contentsToView(rect));
         return parentScrollView->viewToContents(rectInContainingView);
@@ -872,6 +887,14 @@ IntPoint ScrollView::contentsToRootView(const IntPoint& contentsPoint) const
 }
 
 IntRect ScrollView::rootViewToContents(const IntRect& rootViewRect) const
+{
+    if (delegatesScrolling())
+        return convertFromRootView(rootViewRect);
+
+    return viewToContents(convertFromRootView(rootViewRect));
+}
+
+FloatRect ScrollView::rootViewToContents(const FloatRect& rootViewRect) const
 {
     if (delegatesScrolling())
         return convertFromRootView(rootViewRect);
@@ -1122,7 +1145,7 @@ void ScrollView::scrollbarStyleChanged(ScrollbarStyle newStyle, bool forceUpdate
 
 void ScrollView::paintScrollCorner(GraphicsContext& context, const IntRect& cornerRect)
 {
-    ScrollbarTheme::theme().paintScrollCorner(this, context, cornerRect);
+    ScrollbarTheme::theme().paintScrollCorner(context, cornerRect);
 }
 
 void ScrollView::paintScrollbar(GraphicsContext& context, Scrollbar& bar, const IntRect& rect)
@@ -1164,7 +1187,7 @@ void ScrollView::paint(GraphicsContext& context, const IntRect& rect, SecurityOr
         return;
     }
 
-    if (context.paintingDisabled() && !context.updatingControlTints())
+    if (context.paintingDisabled() && !context.performingPaintInvalidation())
         return;
 
     notifyPageThatContentAreaWillPaint();

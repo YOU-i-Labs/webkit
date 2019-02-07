@@ -459,7 +459,7 @@ Value* Value::invertedCompare(Procedure& proc) const
 {
     if (!numChildren())
         return nullptr;
-    if (std::optional<Opcode> invertedOpcode = B3::invertedCompare(opcode(), child(0)->type())) {
+    if (Optional<Opcode> invertedOpcode = B3::invertedCompare(opcode(), child(0)->type())) {
         ASSERT(!kind().hasExtraBits());
         return proc.add<Value>(*invertedOpcode, type(), origin(), children());
     }
@@ -778,13 +778,21 @@ ValueKey Value::key() const
     }
 }
 
+Value* Value::foldIdentity() const
+{
+    Value* current = const_cast<Value*>(this);
+    while (current->opcode() == Identity)
+        current = current->child(0);
+    return current;
+}
+
 bool Value::performSubstitution()
 {
     bool result = false;
     for (Value*& child : children()) {
-        while (child->opcode() == Identity) {
+        if (child->opcode() == Identity) {
             result = true;
-            child = child->child(0);
+            child = child->foldIdentity();
         }
     }
     return result;

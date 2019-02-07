@@ -34,7 +34,7 @@
 #include "EventTarget.h"
 #include "ExceptionOr.h"
 #include "Timer.h"
-#include "URL.h"
+#include <wtf/URL.h>
 #include "WebSocketChannelClient.h"
 #include <wtf/Deque.h>
 #include <wtf/HashSet.h>
@@ -60,7 +60,7 @@ public:
     virtual ~WebSocket();
 
     static HashSet<WebSocket*>& allActiveWebSockets(const LockHolder&);
-    static StaticLock& allActiveWebSocketsMutex();
+    static Lock& allActiveWebSocketsMutex();
 
     enum State {
         CONNECTING = 0,
@@ -78,7 +78,7 @@ public:
     ExceptionOr<void> send(JSC::ArrayBufferView&);
     ExceptionOr<void> send(Blob&);
 
-    ExceptionOr<void> close(std::optional<unsigned short> code, const String& reason);
+    ExceptionOr<void> close(Optional<unsigned short> code, const String& reason);
 
     RefPtr<ThreadableWebSocketChannel> channel() const;
 

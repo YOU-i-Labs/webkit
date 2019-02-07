@@ -27,13 +27,15 @@
 #include "AdjustViewSizeOrNot.h"
 #include "Color.h"
 #include "ContainerNode.h"
-#include "LayoutContext.h"
-#include "LayoutMilestones.h"
+#include "FrameViewLayoutContext.h"
+#include "GraphicsContext.h"
+#include "LayoutMilestone.h"
 #include "LayoutRect.h"
 #include "Pagination.h"
 #include "PaintPhase.h"
 #include "RenderPtr.h"
 #include "ScrollView.h"
+#include "StyleColor.h"
 #include "TiledBacking.h"
 #include <memory>
 #include <wtf/Forward.h>
@@ -41,6 +43,7 @@
 #include <wtf/HashSet.h>
 #include <wtf/IsoMalloc.h>
 #include <wtf/ListHashSet.h>
+#include <wtf/OptionSet.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -50,13 +53,12 @@ class Element;
 class FloatSize;
 class Frame;
 class HTMLFrameOwnerElement;
-class URL;
-class Node;
 class Page;
 class RenderBox;
 class RenderElement;
 class RenderEmbeddedObject;
 class RenderLayer;
+class RenderLayerModelObject;
 class RenderObject;
 class RenderScrollbarPart;
 class RenderStyle;
@@ -73,7 +75,7 @@ class FrameView final : public ScrollView {
 public:
     friend class RenderView;
     friend class Internals;
-    friend class LayoutContext;
+    friend class FrameViewLayoutContext;
 
     WEBCORE_EXPORT static Ref<FrameView> create(Frame&);
     static Ref<FrameView> create(Frame&, const IntSize& initialSize);
@@ -109,8 +111,8 @@ public:
     void setContentsSize(const IntSize&) final;
     void updateContentsSize() final;
 
-    const LayoutContext& layoutContext() const { return m_layoutContext; }
-    LayoutContext& layoutContext() { return m_layoutContext; }
+    const FrameViewLayoutContext& layoutContext() const { return m_layoutContext; }
+    FrameViewLayoutContext& layoutContext() { return m_layoutContext; }
 
     WEBCORE_EXPORT bool didFirstLayout() const;
     void queuePostLayoutCallback(WTF::Function<void ()>&&);
@@ -123,7 +125,7 @@ public:
 
     void scheduleSelectionUpdate();
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     bool useCustomFixedPositionLayoutRect() const;
     IntRect customFixedPositionLayoutRect() const { return m_customFixedPositionLayoutRect; }
     WEBCORE_EXPORT void setCustomFixedPositionLayoutRect(const IntRect&);
@@ -141,8 +143,6 @@ public:
     bool updateCompositingLayersAfterStyleChange();
     void updateCompositingLayersAfterLayout();
 
-    void clearBackingStores();
-
     // Called when changes to the GraphicsLayer hierarchy have to be synchronized with
     // content rendered via the normal painting path.
     void setNeedsOneShotDrawingSynchronization();
@@ -154,10 +154,9 @@ public:
 
     // In the future when any ScrollableArea can have a node in th ScrollingTree, this should
     // become a virtual function on ScrollableArea.
-    uint64_t scrollLayerID() const;
+    uint64_t scrollLayerID() const override;
     ScrollableArea* scrollableAreaForScrollLayerID(uint64_t) const;
 
-    bool hasCompositedContent() const;
     WEBCORE_EXPORT void enterCompositingMode();
     WEBCORE_EXPORT bool isEnclosedInCompositingLayer() const;
 
@@ -165,7 +164,7 @@ public:
     // Returns true if the flush was completed.
     WEBCORE_EXPORT bool flushCompositingStateIncludingSubframes();
 
-    // Returns true when a paint with the PaintBehaviorFlattenCompositingLayers flag set gives
+    // Returns true when a paint with the PaintBehavior::FlattenCompositingLayers flag set gives
     // a faithful representation of the content.
     WEBCORE_EXPORT bool isSoftwareRenderable() const;
 
@@ -176,8 +175,12 @@ public:
     void prepareForDetach();
     void detachCustomScrollbars();
     WEBCORE_EXPORT void recalculateScrollbarOverlayStyle();
+#if ENABLE(DARK_MODE_CSS)
+    void recalculateBaseBackgroundColor();
+#endif
 
     void clear();
+    void resetLayoutMilestones();
 
     WEBCORE_EXPORT bool isTransparent() const;
     WEBCORE_EXPORT void setTransparent(bool isTransparent);
@@ -187,7 +190,7 @@ public:
 
     WEBCORE_EXPORT Color baseBackgroundColor() const;
     WEBCORE_EXPORT void setBaseBackgroundColor(const Color&);
-    void updateBackgroundRecursively(const Color&, bool);
+    WEBCORE_EXPORT void updateBackgroundRecursively(bool);
 
     enum ExtendedBackgroundModeFlags {
         ExtendedBackgroundModeNone          = 0,
@@ -209,11 +212,11 @@ public:
     bool shouldUpdate() const;
 
     WEBCORE_EXPORT void adjustViewSize();
-    IntSize layoutSizeForMediaQuery() const;
 
     WEBCORE_EXPORT void setViewportSizeForCSSViewportUnits(IntSize);
+    void clearViewportSizeOverrideForCSSViewportUnits();
     IntSize viewportSizeForCSSViewportUnits() const;
-    
+
     IntRect windowClipRect() const final;
     WEBCORE_EXPORT IntRect windowClipRectForFrameOwner(const HTMLFrameOwnerElement*, bool clipToLayerContents) const;
 
@@ -254,9 +257,9 @@ public:
     
     // If set, overrides the default "m_layoutViewportOrigin, size of initial containing block" rect.
     // Used with delegated scrolling (i.e. iOS).
-    WEBCORE_EXPORT void setLayoutViewportOverrideRect(std::optional<LayoutRect>, TriggerLayoutOrNot = TriggerLayoutOrNot::Yes);
+    WEBCORE_EXPORT void setLayoutViewportOverrideRect(Optional<LayoutRect>, TriggerLayoutOrNot = TriggerLayoutOrNot::Yes);
 
-    WEBCORE_EXPORT void setVisualViewportOverrideRect(std::optional<LayoutRect>);
+    WEBCORE_EXPORT void setVisualViewportOverrideRect(Optional<LayoutRect>);
 
     // These are in document coordinates, unaffected by page scale (but affected by zooming).
     WEBCORE_EXPORT LayoutRect layoutViewportRect() const;
@@ -287,9 +290,9 @@ public:
     bool hasSlowRepaintObjects() const { return m_slowRepaintObjects && m_slowRepaintObjects->size(); }
 
     // Includes fixed- and sticky-position objects.
-    typedef HashSet<RenderElement*> ViewportConstrainedObjectSet;
-    void addViewportConstrainedObject(RenderElement*);
-    void removeViewportConstrainedObject(RenderElement*);
+    typedef HashSet<RenderLayerModelObject*> ViewportConstrainedObjectSet;
+    void addViewportConstrainedObject(RenderLayerModelObject*);
+    void removeViewportConstrainedObject(RenderLayerModelObject*);
     const ViewportConstrainedObjectSet* viewportConstrainedObjects() const { return m_viewportConstrainedObjects.get(); }
     bool hasViewportConstrainedObjects() const { return m_viewportConstrainedObjects && m_viewportConstrainedObjects->size() > 0; }
     
@@ -301,6 +304,8 @@ public:
     
     // Static function can be called from another thread.
     static LayoutPoint scrollPositionForFixedPosition(const LayoutRect& visibleContentRect, const LayoutSize& totalContentsSize, const LayoutPoint& scrollPosition, const LayoutPoint& scrollOrigin, float frameScaleFactor, bool fixedElementsLayoutRelativeToFrame, ScrollBehaviorForFixedElements, int headerHeight, int footerHeight);
+
+    WEBCORE_EXPORT static LayoutSize expandedLayoutViewportSize(const LayoutSize& baseLayoutViewportSize, const LayoutSize& documentSize, double heightExpansionFactor);
 
     enum class LayoutViewportConstraint { ConstrainedToDocumentRect, Unconstrained };
     WEBCORE_EXPORT static LayoutRect computeUpdatedLayoutViewportRect(const LayoutRect& layoutViewport, const LayoutRect& documentRect, const LayoutSize& unobscuredContentSize, const LayoutRect& unobscuredContentRect, const LayoutSize& baseLayoutViewportSize, const LayoutPoint& stableLayoutViewportOriginMin, const LayoutPoint& stableLayoutViewportOriginMax, LayoutViewportConstraint);
@@ -316,7 +321,7 @@ public:
     static float yPositionForHeaderLayer(const FloatPoint& scrollPosition, float topContentInset);
     static float yPositionForFooterLayer(const FloatPoint& scrollPosition, float topContentInset, float totalContentsHeight, float footerHeight);
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     WEBCORE_EXPORT LayoutRect viewportConstrainedObjectsRect() const;
     // Static function can be called from another thread.
     WEBCORE_EXPORT static LayoutRect rectForViewportConstrainedObjects(const LayoutRect& visibleContentRect, const LayoutSize& totalContentsSize, float frameScaleFactor, bool fixedElementsLayoutRelativeToFrame, ScrollBehaviorForFixedElements);
@@ -336,8 +341,7 @@ public:
     WEBCORE_EXPORT bool wasScrolledByUser() const;
     WEBCORE_EXPORT void setWasScrolledByUser(bool);
 
-    bool safeToPropagateScrollToParent() const { return m_safeToPropagateScrollToParent; }
-    void setSafeToPropagateScrollToParent(bool isSafe) { m_safeToPropagateScrollToParent = isSafe; }
+    bool safeToPropagateScrollToParent() const;
 
     void addEmbeddedObjectToUpdate(RenderEmbeddedObject&);
     void removeEmbeddedObjectToUpdate(RenderEmbeddedObject&);
@@ -345,7 +349,7 @@ public:
     WEBCORE_EXPORT void paintContents(GraphicsContext&, const IntRect& dirtyRect, SecurityOriginPaintPolicy = SecurityOriginPaintPolicy::AnyOrigin) final;
 
     struct PaintingState {
-        PaintBehavior paintBehavior;
+        OptionSet<PaintBehavior> paintBehavior;
         bool isTopLevelPainter;
         bool isFlatteningPaintOfRootFrame;
         PaintingState()
@@ -359,15 +363,15 @@ public:
     void willPaintContents(GraphicsContext&, const IntRect& dirtyRect, PaintingState&);
     void didPaintContents(GraphicsContext&, const IntRect& dirtyRect, PaintingState&);
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     WEBCORE_EXPORT void didReplaceMultipartContent();
 #endif
 
-    WEBCORE_EXPORT void setPaintBehavior(PaintBehavior);
-    WEBCORE_EXPORT PaintBehavior paintBehavior() const;
+    WEBCORE_EXPORT void setPaintBehavior(OptionSet<PaintBehavior>);
+    WEBCORE_EXPORT OptionSet<PaintBehavior> paintBehavior() const;
     bool isPainting() const;
-    bool hasEverPainted() const { return m_lastPaintTime; }
-    void setLastPaintTime(double lastPaintTime) { m_lastPaintTime = lastPaintTime; }
+    bool hasEverPainted() const { return !!m_lastPaintTime; }
+    void setLastPaintTime(MonotonicTime lastPaintTime) { m_lastPaintTime = lastPaintTime; }
     WEBCORE_EXPORT void setNodeToDraw(Node*);
 
     enum SelectionInSnapshot { IncludeSelection, ExcludeSelection };
@@ -385,13 +389,14 @@ public:
     void startDisallowingLayout() { layoutContext().startDisallowingLayout(); }
     void endDisallowingLayout() { layoutContext().endDisallowingLayout(); }
 
-    static double currentPaintTimeStamp() { return sCurrentPaintTimeStamp; } // returns 0 if not painting
+    static MonotonicTime currentPaintTimeStamp() { return sCurrentPaintTimeStamp; } // returns 0 if not painting
     
     WEBCORE_EXPORT void updateLayoutAndStyleIfNeededRecursive();
 
-    void incrementVisuallyNonEmptyCharacterCount(unsigned);
+    void incrementVisuallyNonEmptyCharacterCount(const String&);
     void incrementVisuallyNonEmptyPixelCount(const IntSize&);
     void updateIsVisuallyNonEmpty();
+    void updateSignificantRenderedTextMilestoneIfNeeded();
     bool isVisuallyNonEmpty() const { return m_isVisuallyNonEmpty; }
     WEBCORE_EXPORT void enableAutoSizeMode(bool enable, const IntSize& minSize, const IntSize& maxSize);
     WEBCORE_EXPORT void setAutoSizeFixedMinimumHeight(int);
@@ -454,20 +459,24 @@ public:
     // Methods to convert points and rects between the coordinate space of the renderer, and this view.
     WEBCORE_EXPORT IntRect convertFromRendererToContainingView(const RenderElement*, const IntRect&) const;
     WEBCORE_EXPORT IntRect convertFromContainingViewToRenderer(const RenderElement*, const IntRect&) const;
+    WEBCORE_EXPORT FloatRect convertFromContainingViewToRenderer(const RenderElement*, const FloatRect&) const;
     WEBCORE_EXPORT IntPoint convertFromRendererToContainingView(const RenderElement*, const IntPoint&) const;
     WEBCORE_EXPORT IntPoint convertFromContainingViewToRenderer(const RenderElement*, const IntPoint&) const;
 
     // Override ScrollView methods to do point conversion via renderers, in order to take transforms into account.
     IntRect convertToContainingView(const IntRect&) const final;
     IntRect convertFromContainingView(const IntRect&) const final;
+    FloatRect convertFromContainingView(const FloatRect&) const final;
     IntPoint convertToContainingView(const IntPoint&) const final;
     IntPoint convertFromContainingView(const IntPoint&) const final;
 
-    float documentToAbsoluteScaleFactor(std::optional<float> effectiveZoom = std::nullopt) const;
-    float absoluteToDocumentScaleFactor(std::optional<float> effectiveZoom = std::nullopt) const;
+    float documentToAbsoluteScaleFactor(Optional<float> effectiveZoom = WTF::nullopt) const;
+    float absoluteToDocumentScaleFactor(Optional<float> effectiveZoom = WTF::nullopt) const;
 
-    FloatRect absoluteToDocumentRect(FloatRect, std::optional<float> effectiveZoom = std::nullopt) const;
-    FloatPoint absoluteToDocumentPoint(FloatPoint, std::optional<float> effectiveZoom = std::nullopt) const;
+    FloatRect absoluteToDocumentRect(FloatRect, Optional<float> effectiveZoom = WTF::nullopt) const;
+    FloatPoint absoluteToDocumentPoint(FloatPoint, Optional<float> effectiveZoom = WTF::nullopt) const;
+
+    FloatRect absoluteToClientRect(FloatRect, Optional<float> effectiveZoom = WTF::nullopt) const;
 
     FloatSize documentToClientOffset() const;
     FloatRect documentToClientRect(FloatRect) const;
@@ -499,6 +508,9 @@ public:
     IntPoint lastKnownMousePosition() const final;
     bool isHandlingWheelEvent() const final;
     bool shouldSetCursor() const;
+
+    WEBCORE_EXPORT bool useDarkAppearance() const final;
+    OptionSet<StyleColor::Options> styleColorOptions() const;
 
     // FIXME: Remove this method once plugin loading is decoupled from layout.
     void flushAnyPendingPostLayoutTasks();
@@ -581,10 +593,10 @@ public:
     void updateTiledBackingAdaptiveSizing();
     TiledBacking::Scrollability computeScrollability() const;
 
-    void addPaintPendingMilestones(LayoutMilestones);
+    void addPaintPendingMilestones(OptionSet<LayoutMilestone>);
     void firePaintRelatedMilestonesIfNeeded();
     void fireLayoutRelatedMilestonesIfNeeded();
-    LayoutMilestones milestonesPendingPaint() const { return m_milestonesPendingPaint; }
+    OptionSet<LayoutMilestone> milestonesPendingPaint() const { return m_milestonesPendingPaint; }
 
     bool visualUpdatesAllowedByClient() const { return m_visualUpdatesAllowedByClient; }
     WEBCORE_EXPORT void setVisualUpdatesAllowedByClient(bool);
@@ -610,8 +622,8 @@ public:
     // of the view is actually exposed on screen (taking into account
     // clipping by other UI elements), whereas visibleContentRect is
     // internal to WebCore and doesn't respect those things.
-    WEBCORE_EXPORT void setViewExposedRect(std::optional<FloatRect>);
-    std::optional<FloatRect> viewExposedRect() const { return m_viewExposedRect; }
+    WEBCORE_EXPORT void setViewExposedRect(Optional<FloatRect>);
+    Optional<FloatRect> viewExposedRect() const { return m_viewExposedRect; }
 
 #if ENABLE(CSS_SCROLL_SNAP)
     void updateSnapOffsets() final;
@@ -636,6 +648,13 @@ public:
     void setSpeculativeTilingDelayDisabledForTesting(bool disabled) { m_speculativeTilingDelayDisabledForTesting = disabled; }
 
     WEBCORE_EXPORT FrameFlattening effectiveFrameFlattening() const;
+
+    WEBCORE_EXPORT void traverseForPaintInvalidation(GraphicsContext::PaintInvalidationReasons);
+    void invalidateControlTints() { traverseForPaintInvalidation(GraphicsContext::PaintInvalidationReasons::InvalidatingControlTints); }
+    void invalidateImagesWithAsyncDecodes() { traverseForPaintInvalidation(GraphicsContext::PaintInvalidationReasons::InvalidatingImagesWithAsyncDecodes); }
+
+    GraphicsLayer* layerForHorizontalScrollbar() const final;
+    GraphicsLayer* layerForVerticalScrollbar() const final;
 
 protected:
     bool scrollContentsFastPath(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect) final;
@@ -680,8 +699,6 @@ private:
 
     void updateOverflowStatus(bool horizontalOverflow, bool verticalOverflow);
 
-    WEBCORE_EXPORT void paintControlTints();
-
     void forceLayoutParentViewIfNeeded();
     void flushPostLayoutTasksQueue();
     void performPostLayoutTasks();
@@ -710,16 +727,18 @@ private:
     IntRect scrollableAreaBoundingBox(bool* = nullptr) const final;
     bool scrollAnimatorEnabled() const final;
     GraphicsLayer* layerForScrolling() const final;
-    GraphicsLayer* layerForHorizontalScrollbar() const final;
-    GraphicsLayer* layerForVerticalScrollbar() const final;
     GraphicsLayer* layerForScrollCorner() const final;
 #if ENABLE(RUBBER_BANDING)
     GraphicsLayer* layerForOverhangAreas() const final;
 #endif
     void contentsResized() final;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     void unobscuredContentSizeChanged() final;
+#endif
+
+#if ENABLE(DARK_MODE_CSS)
+    RenderObject* rendererForSupportedColorSchemes() const;
 #endif
 
     bool usesCompositedScrolling() const final;
@@ -777,16 +796,22 @@ private:
     void removeFromAXObjectCache();
     void notifyWidgets(WidgetNotification);
 
-    void setFrameFlatteningViewSizeForMediaQuery() { m_frameFlatteningViewSizeForMediaQuery = layoutSize(); }
-    bool frameFlatteningViewSizeForMediaQueryIsSet() const { return m_frameFlatteningViewSizeForMediaQuery.has_value(); }
     RenderElement* viewportRenderer() const;
     
     void willDoLayout(WeakPtr<RenderElement> layoutRoot);
     void didLayout(WeakPtr<RenderElement> layoutRoot);
 
+    struct OverrideViewportSize {
+        Optional<int> width;
+        Optional<int> height;
+
+        bool operator==(const OverrideViewportSize& rhs) const { return rhs.width == width && rhs.height == height; }
+    };
+    void overrideViewportSizeForCSSViewportUnits(OverrideViewportSize);
+
     HashSet<Widget*> m_widgetsInRenderTree;
 
-    static double sCurrentPaintTimeStamp; // used for detecting decoded resource thrash in the cache
+    static MonotonicTime sCurrentPaintTimeStamp; // used for detecting decoded resource thrash in the cache
 
     LayoutSize m_size;
     LayoutSize m_margins;
@@ -807,6 +832,9 @@ private:
     bool m_firstLayoutCallbackPending;
 
     bool m_isTransparent;
+#if ENABLE(DARK_MODE_CSS)
+    bool m_usesDarkAppearance { false };
+#endif
     Color m_baseBackgroundColor;
     IntSize m_lastViewportSize;
     float m_lastZoomFactor;
@@ -824,33 +852,36 @@ private:
 
     bool m_wasScrolledByUser;
     bool m_inProgrammaticScroll;
-    bool m_safeToPropagateScrollToParent;
     Timer m_delayedScrollEventTimer;
     bool m_shouldScrollToFocusedElement { false };
     SelectionRevealMode m_selectionRevealModeForFocusedElement;
     Timer m_delayedScrollToFocusedElementTimer;
 
-    double m_lastPaintTime;
+    MonotonicTime m_lastPaintTime;
 
     bool m_isTrackingRepaints; // Used for testing.
     Vector<FloatRect> m_trackedRepaintRects;
 
     bool m_shouldUpdateWhileOffscreen;
 
-    std::optional<FloatRect> m_viewExposedRect;
+    Optional<FloatRect> m_viewExposedRect;
     
     LayoutPoint m_layoutViewportOrigin;
-    std::optional<LayoutRect> m_layoutViewportOverrideRect;
-    std::optional<LayoutRect> m_visualViewportOverrideRect; // Used when the iOS keyboard is showing.
+    Optional<LayoutRect> m_layoutViewportOverrideRect;
+    Optional<LayoutRect> m_visualViewportOverrideRect; // Used when the iOS keyboard is showing.
 
     RefPtr<Node> m_nodeToDraw;
-    PaintBehavior m_paintBehavior;
+    OptionSet<PaintBehavior> m_paintBehavior;
     bool m_isPainting;
 
     unsigned m_visuallyNonEmptyCharacterCount;
     unsigned m_visuallyNonEmptyPixelCount;
     bool m_isVisuallyNonEmpty;
     bool m_firstVisuallyNonEmptyLayoutCallbackPending;
+
+    unsigned m_textRendererCountForVisuallyNonEmptyCharacters { 0 };
+    bool m_renderedSignificantAmountOfText;
+    bool m_significantRenderedTextMilestonePending;
 
     bool m_needsDeferredScrollbarsUpdate { false };
 
@@ -862,7 +893,7 @@ private:
     bool m_speculativeTilingEnabled;
     Timer m_speculativeTilingEnableTimer;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     bool m_useCustomFixedPositionLayoutRect;
     IntRect m_customFixedPositionLayoutRect;
 
@@ -870,8 +901,7 @@ private:
     IntSize m_customSizeForResizeEvent;
 #endif
 
-    IntSize m_overrideViewportSize;
-    bool m_hasOverrideViewportSize;
+    Optional<OverrideViewportSize> m_overrideViewportSize;
 
     // If true, automatically resize the frame view around its content.
     bool m_shouldAutoSize;
@@ -886,8 +916,6 @@ private:
     int m_autoSizeFixedMinimumHeight;
     // The intrinsic content size decided by autosizing.
     IntSize m_autoSizeContentSize;
-    // Report the first computed frame view size to media queries.
-    std::optional<IntSize> m_frameFlatteningViewSizeForMediaQuery;
 
     std::unique_ptr<ScrollableAreaSet> m_scrollableAreas;
     std::unique_ptr<ViewportConstrainedObjectSet> m_viewportConstrainedObjects;
@@ -895,7 +923,7 @@ private:
     int m_headerHeight;
     int m_footerHeight;
 
-    LayoutMilestones m_milestonesPendingPaint;
+    OptionSet<LayoutMilestone> m_milestonesPendingPaint;
 
     static const unsigned visualCharacterThreshold = 200;
     static const unsigned visualPixelThreshold = 32 * 32;
@@ -915,18 +943,8 @@ private:
     IntRect* m_cachedWindowClipRect { nullptr };
     Vector<WTF::Function<void ()>> m_postLayoutCallbackQueue;
 
-    LayoutContext m_layoutContext;
+    FrameViewLayoutContext m_layoutContext;
 };
-
-inline void FrameView::incrementVisuallyNonEmptyCharacterCount(unsigned count)
-{
-    if (m_isVisuallyNonEmpty)
-        return;
-    m_visuallyNonEmptyCharacterCount += count;
-    if (m_visuallyNonEmptyCharacterCount <= visualCharacterThreshold)
-        return;
-    updateIsVisuallyNonEmpty();
-}
 
 inline void FrameView::incrementVisuallyNonEmptyPixelCount(const IntSize& size)
 {

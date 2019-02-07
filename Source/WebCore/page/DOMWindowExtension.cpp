@@ -35,15 +35,15 @@
 
 namespace WebCore {
 
-DOMWindowExtension::DOMWindowExtension(Frame* frame, DOMWrapperWorld& world)
-    : DOMWindowProperty(frame)
+DOMWindowExtension::DOMWindowExtension(DOMWindow* window, DOMWrapperWorld& world)
+    : DOMWindowProperty(window)
     , m_world(world)
     , m_wasDetached(false)
 {
     ASSERT(this->frame());
 }
 
-void DOMWindowExtension::disconnectFrameForDocumentSuspension()
+void DOMWindowExtension::suspendForPageCache()
 {
     // Calling out to the client might result in this DOMWindowExtension being destroyed
     // while there is still work to do.
@@ -54,17 +54,17 @@ void DOMWindowExtension::disconnectFrameForDocumentSuspension()
 
     m_disconnectedFrame = frame;
 
-    DOMWindowProperty::disconnectFrameForDocumentSuspension();
+    DOMWindowProperty::suspendForPageCache();
 }
 
-void DOMWindowExtension::reconnectFrameFromDocumentSuspension(Frame* frame)
+void DOMWindowExtension::resumeFromPageCache()
 {
-    ASSERT(m_disconnectedFrame == frame);
+    ASSERT(m_disconnectedFrame == frame());
     
-    DOMWindowProperty::reconnectFrameFromDocumentSuspension(frame);
+    DOMWindowProperty::resumeFromPageCache();
     m_disconnectedFrame = nullptr;
 
-    this->frame()->loader().client().dispatchDidReconnectDOMWindowExtensionToGlobalObject(this);
+    frame()->loader().client().dispatchDidReconnectDOMWindowExtensionToGlobalObject(this);
 }
 
 void DOMWindowExtension::willDestroyGlobalObjectInCachedFrame()

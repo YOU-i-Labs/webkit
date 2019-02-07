@@ -27,6 +27,7 @@
 #include "WKWebsitePolicies.h"
 
 #include "APIDictionary.h"
+#include "APIWebsiteDataStore.h"
 #include "APIWebsitePolicies.h"
 #include "WKAPICast.h"
 #include "WKArray.h"
@@ -82,13 +83,16 @@ void WKWebsitePoliciesSetAllowedAutoplayQuirks(WKWebsitePoliciesRef websitePolic
 {
     OptionSet<WebsiteAutoplayQuirk> quirks;
     if (allowedQuirks & kWKWebsiteAutoplayQuirkInheritedUserGestures)
-        quirks |= WebsiteAutoplayQuirk::InheritedUserGestures;
+        quirks.add(WebsiteAutoplayQuirk::InheritedUserGestures);
 
     if (allowedQuirks & kWKWebsiteAutoplayQuirkSynthesizedPauseEvents)
-        quirks |= WebsiteAutoplayQuirk::SynthesizedPauseEvents;
+        quirks.add(WebsiteAutoplayQuirk::SynthesizedPauseEvents);
 
     if (allowedQuirks & kWKWebsiteAutoplayQuirkArbitraryUserGestures)
-        quirks |= WebsiteAutoplayQuirk::ArbitraryUserGestures;
+        quirks.add(WebsiteAutoplayQuirk::ArbitraryUserGestures);
+
+    if (allowedQuirks & kWKWebsiteAutoplayQuirkPerDocumentAutoplayBehavior)
+        quirks.add(WebsiteAutoplayQuirk::PerDocumentAutoplayBehavior);
 
     toImpl(websitePolicies)->setAllowedAutoplayQuirks(quirks);
 }
@@ -106,6 +110,9 @@ WKWebsiteAutoplayQuirk WKWebsitePoliciesGetAllowedAutoplayQuirks(WKWebsitePolici
 
     if (allowedQuirks.contains(WebsiteAutoplayQuirk::ArbitraryUserGestures))
         quirks |= kWKWebsiteAutoplayQuirkArbitraryUserGestures;
+
+    if (allowedQuirks.contains(WebsiteAutoplayQuirk::PerDocumentAutoplayBehavior))
+        quirks |= kWKWebsiteAutoplayQuirkPerDocumentAutoplayBehavior;
 
     return quirks;
 }
@@ -174,3 +181,14 @@ void WKWebsitePoliciesSetPopUpPolicy(WKWebsitePoliciesRef websitePolicies, WKWeb
     }
     ASSERT_NOT_REACHED();
 }
+
+WKWebsiteDataStoreRef WKWebsitePoliciesGetDataStore(WKWebsitePoliciesRef websitePolicies)
+{
+    return toAPI(toImpl(websitePolicies)->websiteDataStore());
+}
+
+void WKWebsitePoliciesSetDataStore(WKWebsitePoliciesRef websitePolicies, WKWebsiteDataStoreRef websiteDataStore)
+{
+    toImpl(websitePolicies)->setWebsiteDataStore(toImpl(websiteDataStore));
+}
+

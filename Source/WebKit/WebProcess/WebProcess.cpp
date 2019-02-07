@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,14 +41,11 @@
 #include "NetworkSession.h"
 #include "NetworkSessionCreationParameters.h"
 #include "PluginProcessConnectionManager.h"
-#include "SessionTracker.h"
 #include "StatisticsData.h"
-#include "StorageProcessMessages.h"
 #include "UserData.h"
 #include "WebAutomationSessionProxy.h"
 #include "WebCacheStorageProvider.h"
 #include "WebConnectionToUIProcess.h"
-#include "WebCookieManager.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
 #include "WebFrameNetworkingContext.h"
@@ -71,7 +68,6 @@
 #include "WebSWContextManagerConnectionMessages.h"
 #include "WebServiceWorkerProvider.h"
 #include "WebSocketStream.h"
-#include "WebToStorageProcessConnection.h"
 #include "WebsiteData.h"
 #include "WebsiteDataStoreParameters.h"
 #include "WebsiteDataType.h"
@@ -99,29 +95,36 @@
 #include <WebCore/GlyphPage.h>
 #include <WebCore/HTMLMediaElement.h>
 #include <WebCore/JSDOMWindow.h>
-#include <WebCore/MainFrame.h>
 #include <WebCore/MemoryCache.h>
 #include <WebCore/MemoryRelease.h>
 #include <WebCore/MessagePort.h>
+#include <WebCore/MockRealtimeMediaSourceCenter.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageCache.h>
 #include <WebCore/PageGroup.h>
+#include <WebCore/PlatformKeyboardEvent.h>
 #include <WebCore/PlatformMediaSessionManager.h>
+#include <WebCore/ProcessWarming.h>
 #include <WebCore/ResourceLoadObserver.h>
 #include <WebCore/ResourceLoadStatistics.h>
 #include <WebCore/RuntimeApplicationChecks.h>
+#include <WebCore/RuntimeEnabledFeatures.h>
 #include <WebCore/SchemeRegistry.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/ServiceWorkerContextData.h>
 #include <WebCore/Settings.h>
-#include <WebCore/URLParser.h>
 #include <WebCore/UserGestureIndicator.h>
-#include <unistd.h>
-#include <wtf/CurrentTime.h>
 #include <wtf/Language.h>
+#include <wtf/ProcessPrivilege.h>
 #include <wtf/RunLoop.h>
+#include <wtf/SystemTracing.h>
+#include <wtf/URLParser.h>
 #include <wtf/text/StringHash.h>
+
+#if !OS(WINDOWS)
+#include <unistd.h>
+#endif
 
 #if PLATFORM(WAYLAND)
 #include "WaylandCompositorDisplay.h"
@@ -144,9 +147,6 @@
 #include <JavaScriptCore/RemoteInspector.h>
 #endif
 
-using namespace JSC;
-using namespace WebCore;
-
 // This should be less than plugInAutoStartExpirationTimeThreshold in PlugInAutoStartProvider.
 static const Seconds plugInAutoStartExpirationTimeUpdateThreshold { 29 * 24 * 60 * 60 };
 
@@ -154,6 +154,13 @@ static const Seconds plugInAutoStartExpirationTimeUpdateThreshold { 29 * 24 * 60
 static const Seconds nonVisibleProcessCleanupDelay { 10_s };
 
 namespace WebKit {
+using namespace JSC;
+using namespace WebCore;
+
+NO_RETURN static void callExit(IPC::Connection*)
+{
+    _exit(EXIT_SUCCESS);
+}
 
 WebProcess& WebProcess::singleton()
 {
@@ -163,7 +170,7 @@ WebProcess& WebProcess::singleton()
 
 WebProcess::WebProcess()
     : m_eventDispatcher(EventDispatcher::create())
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     , m_viewUpdateDispatcher(ViewUpdateDispatcher::create())
 #endif
     , m_webInspectorInterruptDispatcher(WebInspectorInterruptDispatcher::create())
@@ -174,9 +181,6 @@ WebProcess::WebProcess()
     , m_pluginProcessConnectionManager(PluginProcessConnectionManager::create())
 #endif
     , m_nonVisibleProcessCleanupTimer(*this, &WebProcess::nonVisibleProcessCleanupTimerFired)
-#if PLATFORM(IOS)
-    , m_webSQLiteDatabaseTracker(*this)
-#endif
 {
     // Initialize our platform strategies.
     WebPlatformStrategies::initialize();
@@ -185,7 +189,6 @@ WebProcess::WebProcess()
     // so that ports have a chance to customize, and ifdefs in this file are
     // limited.
     addSupplement<WebGeolocationManager>();
-    addSupplement<WebCookieManager>();
 
 #if ENABLE(NOTIFICATIONS)
     addSupplement<WebNotificationManager>();
@@ -202,10 +205,13 @@ WebProcess::WebProcess()
     m_plugInAutoStartOriginHashes.add(PAL::SessionID::defaultSessionID(), HashMap<unsigned, WallTime>());
 
     ResourceLoadObserver::shared().setNotificationCallback([this] (Vector<ResourceLoadStatistics>&& statistics) {
-        ASSERT(!statistics.isEmpty());
         parentProcessConnection()->send(Messages::WebResourceLoadStatisticsStore::ResourceLoadStatisticsUpdated(WTFMove(statistics)), 0);
     });
 
+    ResourceLoadObserver::shared().setRequestStorageAccessUnderOpenerCallback([this] (const String& domainInNeedOfStorageAccess, uint64_t openerPageID, const String& openerDomain) {
+        parentProcessConnection()->send(Messages::WebResourceLoadStatisticsStore::RequestStorageAccessUnderOpener(domainInNeedOfStorageAccess, openerPageID, openerDomain), 0);
+    });
+    
     Gigacage::disableDisablingPrimitiveGigacageIfShouldBeEnabled();
 }
 
@@ -215,19 +221,20 @@ WebProcess::~WebProcess()
 
 void WebProcess::initializeProcess(const ChildProcessInitializationParameters& parameters)
 {
+    WTF::setProcessPrivileges({ });
+
     MessagePortChannelProvider::setSharedProvider(WebMessagePortChannelProvider::singleton());
     
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
-    // This call is needed when the WebProcess is not running the NSApplication event loop.
-    // Otherwise, calling enableSandboxStyleFileQuarantine() will fail.
-    launchServicesCheckIn();
-#endif
     platformInitializeProcess(parameters);
 }
 
 void WebProcess::initializeConnection(IPC::Connection* connection)
 {
     ChildProcess::initializeConnection(connection);
+
+    // We call _exit() directly from the background queue in case the main thread is unresponsive
+    // and ChildProcess::didClose() does not get called.
+    connection->setDidCloseOnConnectionWorkQueueCallback(callExit);
 
 #if !PLATFORM(GTK) && !PLATFORM(WPE)
     connection->setShouldExitOnSyncMessageSendFailure(true);
@@ -238,9 +245,9 @@ void WebProcess::initializeConnection(IPC::Connection* connection)
 #endif
 
     m_eventDispatcher->initializeConnection(connection);
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     m_viewUpdateDispatcher->initializeConnection(connection);
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)
     m_webInspectorInterruptDispatcher->initializeConnection(connection);
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -251,23 +258,17 @@ void WebProcess::initializeConnection(IPC::Connection* connection)
         supplement->initializeConnection(connection);
 
     m_webConnection = WebConnectionToUIProcess::create(this);
-
-    // In order to ensure that the asynchronous messages that are used for notifying the UI process
-    // about when WebFrame objects come and go are always delivered before the synchronous policy messages,
-    // use this flag to force synchronous messages to be treated as asynchronous messages in the UI process
-    // unless when doing so would lead to a deadlock.
-    connection->setOnlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage(true);
 }
 
 void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 {    
+    TraceScope traceScope(InitializeWebProcessStart, InitializeWebProcessEnd);
+
     ASSERT(m_pageMap.isEmpty());
 
     WebCore::setPresentingApplicationPID(parameters.presentingApplicationPID);
 
 #if OS(LINUX)
-    if (parameters.memoryPressureMonitorHandle.fileDescriptor() != -1)
-        MemoryPressureHandler::singleton().setMemoryPressureMonitorHandle(parameters.memoryPressureMonitorHandle.releaseFileDescriptor());
     MemoryPressureHandler::ReliefLogger::setLoggingEnabled(parameters.shouldEnableMemoryPressureReliefLogging);
 #endif
 
@@ -279,8 +280,9 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
     m_suppressMemoryPressureHandler = parameters.shouldSuppressMemoryPressureHandler;
     if (!m_suppressMemoryPressureHandler) {
         auto& memoryPressureHandler = MemoryPressureHandler::singleton();
-        memoryPressureHandler.setLowMemoryHandler([] (Critical critical, Synchronous synchronous) {
-            WebCore::releaseMemory(critical, synchronous);
+        memoryPressureHandler.setLowMemoryHandler([this] (Critical critical, Synchronous synchronous) {
+            auto maintainPageCache = m_isSuspending && hasPageRequiringPageCacheWhileSuspended() ? WebCore::MaintainPageCache::Yes : WebCore::MaintainPageCache::No;
+            WebCore::releaseMemory(critical, synchronous, maintainPageCache);
         });
 #if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 101200) || PLATFORM(GTK) || PLATFORM(WPE)
         memoryPressureHandler.setShouldUsePeriodicMemoryMonitor(true);
@@ -316,7 +318,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 
     // FIXME: This should be constructed per data store, not per process.
     m_applicationCacheStorage = ApplicationCacheStorage::create(parameters.applicationCacheDirectory, parameters.applicationCacheFlatFileSubdirectoryName);
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     m_applicationCacheStorage->setDefaultOriginQuota(25ULL * 1024 * 1024);
 #endif
 
@@ -325,7 +327,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
         WebCore::HTMLMediaElement::setMediaCacheDirectory(parameters.mediaCacheDirectory);
 #endif
 
-    setCacheModel(static_cast<uint32_t>(parameters.cacheModel));
+    setCacheModel(parameters.cacheModel);
 
     if (!parameters.languages.isEmpty())
         overrideUserPreferredLanguages(parameters.languages);
@@ -367,18 +369,16 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
     for (auto& scheme : parameters.urlSchemesServiceWorkersCanHandle)
         registerURLSchemeServiceWorkersCanHandle(scheme);
 
+    for (auto& scheme : parameters.urlSchemesRegisteredAsCanDisplayOnlyIfCanRequest)
+        registerURLSchemeAsCanDisplayOnlyIfCanRequest(scheme);
+
     setDefaultRequestTimeoutInterval(parameters.defaultRequestTimeoutInterval);
 
     setResourceLoadStatisticsEnabled(parameters.resourceLoadStatisticsEnabled);
 
-    if (parameters.shouldAlwaysUseComplexTextCodePath)
-        setAlwaysUsesComplexTextCodePath(true);
+    setAlwaysUsesComplexTextCodePath(parameters.shouldAlwaysUseComplexTextCodePath);
 
-    if (parameters.shouldUseFontSmoothing)
-        setShouldUseFontSmoothing(true);
-
-    if (parameters.shouldUseTestingNetworkSession)
-        NetworkStorageSession::switchToNewTestingSession();
+    setShouldUseFontSmoothing(parameters.shouldUseFontSmoothing);
 
     ensureNetworkProcessConnection();
 
@@ -390,14 +390,15 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 
     setMemoryCacheDisabled(parameters.memoryCacheDisabled);
 
+    WebCore::RuntimeEnabledFeatures::sharedFeatures().setAttrStyleEnabled(parameters.attrStyleEnabled);
+
 #if ENABLE(SERVICE_CONTROLS)
     setEnabledServices(parameters.hasImageServices, parameters.hasSelectionServices, parameters.hasRichContentServices);
 #endif
 
 #if ENABLE(REMOTE_INSPECTOR) && PLATFORM(COCOA)
-    audit_token_t auditToken;
-    if (parentProcessConnection()->getAuditToken(auditToken)) {
-        RetainPtr<CFDataRef> auditData = adoptCF(CFDataCreate(nullptr, (const UInt8*)&auditToken, sizeof(auditToken)));
+    if (Optional<audit_token_t> auditToken = parentProcessConnection()->getAuditToken()) {
+        RetainPtr<CFDataRef> auditData = adoptCF(CFDataCreate(nullptr, (const UInt8*)&*auditToken, sizeof(*auditToken)));
         Inspector::RemoteInspector::singleton().setParentProcessInformation(WebCore::presentingApplicationPID(), auditData);
     }
 #endif
@@ -411,20 +412,47 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 #endif
 
 #if ENABLE(SERVICE_WORKER)
-    auto& serviceWorkerProvider = WebServiceWorkerProvider::singleton();
-    serviceWorkerProvider.setHasRegisteredServiceWorkers(parameters.hasRegisteredServiceWorkers);
-    ServiceWorkerProvider::setSharedProvider(serviceWorkerProvider);
+    ServiceWorkerProvider::setSharedProvider(WebServiceWorkerProvider::singleton());
 #endif
 
 #if ENABLE(WEBASSEMBLY)
     JSC::Wasm::enableFastMemory();
 #endif
 
-#if HAVE(CFNETWORK_STORAGE_PARTITIONING) && !RELEASE_LOG_DISABLED
+#if ENABLE(RESOURCE_LOAD_STATISTICS) && !RELEASE_LOG_DISABLED
     ResourceLoadObserver::shared().setShouldLogUserInteraction(parameters.shouldLogUserInteraction);
 #endif
 
     RELEASE_LOG(Process, "%p - WebProcess::initializeWebProcess: Presenting process = %d", this, WebCore::presentingApplicationPID());
+}
+
+bool WebProcess::hasPageRequiringPageCacheWhileSuspended() const
+{
+    for (auto& page : m_pageMap.values()) {
+        if (page->isSuspended())
+            return true;
+    }
+    return false;
+}
+
+void WebProcess::markIsNoLongerPrewarmed()
+{
+#if PLATFORM(MAC)
+    ASSERT(m_processType == ProcessType::PrewarmedWebContent);
+    m_processType = ProcessType::WebContent;
+
+    updateProcessName();
+#endif
+}
+
+void WebProcess::prewarmGlobally()
+{
+    WebCore::ProcessWarming::prewarmGlobally();
+}
+
+void WebProcess::prewarmWithDomainInformation(const WebCore::PrewarmInformation& prewarmInformation)
+{
+    WebCore::ProcessWarming::prewarmWithInformation(prewarmInformation);
 }
 
 void WebProcess::registerURLSchemeAsEmptyDocument(const String& urlScheme)
@@ -477,6 +505,11 @@ void WebProcess::registerURLSchemeAsCachePartitioned(const String& urlScheme) co
     SchemeRegistry::registerURLSchemeAsCachePartitioned(urlScheme);
 }
 
+void WebProcess::registerURLSchemeAsCanDisplayOnlyIfCanRequest(const String& urlScheme) const
+{
+    SchemeRegistry::registerAsCanDisplayOnlyIfCanRequest(urlScheme);
+}
+
 void WebProcess::setDefaultRequestTimeoutInterval(double timeoutInterval)
 {
     ResourceRequest::setDefaultTimeoutInterval(timeoutInterval);
@@ -502,16 +535,6 @@ void WebProcess::fullKeyboardAccessModeChanged(bool fullKeyboardAccessEnabled)
     m_fullKeyboardAccessEnabled = fullKeyboardAccessEnabled;
 }
 
-void WebProcess::addWebsiteDataStore(WebsiteDataStoreParameters&& parameters)
-{
-    WebFrameNetworkingContext::ensureWebsiteDataStoreSession(WTFMove(parameters));
-}
-
-void WebProcess::destroySession(PAL::SessionID sessionID)
-{
-    SessionTracker::destroySession(sessionID);
-}
-
 void WebProcess::ensureLegacyPrivateBrowsingSessionInNetworkProcess()
 {
     ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::EnsureLegacyPrivateBrowsingSession(), 0);
@@ -524,10 +547,8 @@ PluginProcessConnectionManager& WebProcess::pluginProcessConnectionManager()
 }
 #endif
 
-void WebProcess::setCacheModel(uint32_t cm)
+void WebProcess::setCacheModel(CacheModel cacheModel)
 {
-    CacheModel cacheModel = static_cast<CacheModel>(cm);
-
     if (m_hasSetCacheModel && (cacheModel == m_cacheModel))
         return;
 
@@ -662,27 +683,6 @@ void WebProcess::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& de
     LOG_ERROR("Unhandled web process message '%s:%s'", decoder.messageReceiverName().toString().data(), decoder.messageName().toString().data());
 }
 
-void WebProcess::didClose(IPC::Connection&)
-{
-#ifndef NDEBUG
-    for (auto& page : copyToVector(m_pageMap.values()))
-        page->close();
-
-    GCController::singleton().garbageCollectSoon();
-    FontCache::singleton().invalidate();
-    MemoryCache::singleton().setDisabled(true);
-#endif
-
-#if ENABLE(VIDEO)
-    // FIXME(146657): This explicit media stop command should not be necessary
-    if (auto* platformMediaSessionManager = PlatformMediaSessionManager::sharedManagerIfExists())
-        platformMediaSessionManager->stopAllMediaPlaybackForProcess();
-#endif
-
-    // The UI process closed this connection, shut down.
-    stopRunLoop();
-}
-
 WebFrame* WebProcess::webFrame(uint64_t frameID) const
 {
     return m_frameMap.get(frameID);
@@ -764,13 +764,13 @@ void WebProcess::clearResourceCaches(ResourceCachesToClear resourceCachesToClear
     // Toggling the cache model like this forces the cache to evict all its in-memory resources.
     // FIXME: We need a better way to do this.
     CacheModel cacheModel = m_cacheModel;
-    setCacheModel(CacheModelDocumentViewer);
+    setCacheModel(CacheModel::DocumentViewer);
     setCacheModel(cacheModel);
 
     MemoryCache::singleton().evictResources();
 
     // Empty the cross-origin preflight cache.
-    CrossOriginPreflightResultCache::singleton().empty();
+    CrossOriginPreflightResultCache::singleton().clear();
 }
 
 static inline void addCaseFoldedCharacters(StringHasher& hasher, const String& string)
@@ -924,6 +924,11 @@ void WebProcess::resetPluginLoadClientPolicies(const HashMap<WTF::String, HashMa
 #endif
 }
 
+void WebProcess::isJITEnabled(CompletionHandler<void(bool)>&& completionHandler)
+{
+    completionHandler(JSC::VM::canUseJIT());
+}
+
 void WebProcess::clearPluginClientPolicies()
 {
 #if ENABLE(NETSCAPE_PLUGIN_API) && PLATFORM(MAC)
@@ -947,10 +952,10 @@ static void fromCountedSetToHashMap(TypeCountSet* countedSet, HashMap<String, ui
 
 static void getWebCoreMemoryCacheStatistics(Vector<HashMap<String, uint64_t>>& result)
 {
-    String imagesString(ASCIILiteral("Images"));
-    String cssString(ASCIILiteral("CSS"));
-    String xslString(ASCIILiteral("XSL"));
-    String javaScriptString(ASCIILiteral("JavaScript"));
+    String imagesString("Images"_s);
+    String cssString("CSS"_s);
+    String xslString("XSL"_s);
+    String javaScriptString("JavaScript"_s);
     
     MemoryCache::Statistics memoryCacheStatistics = MemoryCache::singleton().getStatistics();
     
@@ -990,10 +995,10 @@ void WebProcess::getWebCoreStatistics(uint64_t callbackID)
     // Gather JavaScript statistics.
     {
         JSLockHolder lock(commonVM());
-        data.statisticsNumbers.set(ASCIILiteral("JavaScriptObjectsCount"), commonVM().heap.objectCount());
-        data.statisticsNumbers.set(ASCIILiteral("JavaScriptGlobalObjectsCount"), commonVM().heap.globalObjectCount());
-        data.statisticsNumbers.set(ASCIILiteral("JavaScriptProtectedObjectsCount"), commonVM().heap.protectedObjectCount());
-        data.statisticsNumbers.set(ASCIILiteral("JavaScriptProtectedGlobalObjectsCount"), commonVM().heap.protectedGlobalObjectCount());
+        data.statisticsNumbers.set("JavaScriptObjectsCount"_s, commonVM().heap.objectCount());
+        data.statisticsNumbers.set("JavaScriptGlobalObjectsCount"_s, commonVM().heap.globalObjectCount());
+        data.statisticsNumbers.set("JavaScriptProtectedObjectsCount"_s, commonVM().heap.protectedObjectCount());
+        data.statisticsNumbers.set("JavaScriptProtectedGlobalObjectsCount"_s, commonVM().heap.protectedGlobalObjectCount());
         
         std::unique_ptr<TypeCountSet> protectedObjectTypeCounts(commonVM().heap.protectedObjectTypeCounts());
         fromCountedSetToHashMap(protectedObjectTypeCounts.get(), data.javaScriptProtectedObjectTypeCounts);
@@ -1002,22 +1007,22 @@ void WebProcess::getWebCoreStatistics(uint64_t callbackID)
         fromCountedSetToHashMap(objectTypeCounts.get(), data.javaScriptObjectTypeCounts);
         
         uint64_t javaScriptHeapSize = commonVM().heap.size();
-        data.statisticsNumbers.set(ASCIILiteral("JavaScriptHeapSize"), javaScriptHeapSize);
-        data.statisticsNumbers.set(ASCIILiteral("JavaScriptFreeSize"), commonVM().heap.capacity() - javaScriptHeapSize);
+        data.statisticsNumbers.set("JavaScriptHeapSize"_s, javaScriptHeapSize);
+        data.statisticsNumbers.set("JavaScriptFreeSize"_s, commonVM().heap.capacity() - javaScriptHeapSize);
     }
 
     WTF::FastMallocStatistics fastMallocStatistics = WTF::fastMallocStatistics();
-    data.statisticsNumbers.set(ASCIILiteral("FastMallocReservedVMBytes"), fastMallocStatistics.reservedVMBytes);
-    data.statisticsNumbers.set(ASCIILiteral("FastMallocCommittedVMBytes"), fastMallocStatistics.committedVMBytes);
-    data.statisticsNumbers.set(ASCIILiteral("FastMallocFreeListBytes"), fastMallocStatistics.freeListBytes);
+    data.statisticsNumbers.set("FastMallocReservedVMBytes"_s, fastMallocStatistics.reservedVMBytes);
+    data.statisticsNumbers.set("FastMallocCommittedVMBytes"_s, fastMallocStatistics.committedVMBytes);
+    data.statisticsNumbers.set("FastMallocFreeListBytes"_s, fastMallocStatistics.freeListBytes);
     
     // Gather font statistics.
     auto& fontCache = FontCache::singleton();
-    data.statisticsNumbers.set(ASCIILiteral("CachedFontDataCount"), fontCache.fontCount());
-    data.statisticsNumbers.set(ASCIILiteral("CachedFontDataInactiveCount"), fontCache.inactiveFontCount());
+    data.statisticsNumbers.set("CachedFontDataCount"_s, fontCache.fontCount());
+    data.statisticsNumbers.set("CachedFontDataInactiveCount"_s, fontCache.inactiveFontCount());
     
     // Gather glyph page statistics.
-    data.statisticsNumbers.set(ASCIILiteral("GlyphPageCount"), GlyphPage::count());
+    data.statisticsNumbers.set("GlyphPageCount"_s, GlyphPage::count());
     
     // Get WebCore memory cache statistics
     getWebCoreMemoryCacheStatistics(data.webCoreCacheStatistics);
@@ -1038,10 +1043,6 @@ void WebProcess::mainThreadPing()
 void WebProcess::backgroundResponsivenessPing()
 {
     parentProcessConnection()->send(Messages::WebProcessProxy::DidReceiveBackgroundResponsivenessPing(), 0);
-}
-
-void WebProcess::syncIPCMessageWhileWaitingForSyncReplyForTesting()
-{
 }
 
 void WebProcess::didTakeAllMessagesForPort(Vector<MessageWithMessagePorts>&& messages, uint64_t messageCallbackIdentifier, uint64_t messageBatchIdentifier)
@@ -1115,24 +1116,50 @@ void WebProcess::setInjectedBundleParameters(const IPC::DataReference& value)
     injectedBundle->setBundleParameters(value);
 }
 
-NetworkProcessConnection& WebProcess::ensureNetworkProcessConnection()
+static IPC::Connection::Identifier getNetworkProcessConnection(IPC::Connection& connection)
 {
-    // If we've lost our connection to the network process (e.g. it crashed) try to re-establish it.
-    if (!m_networkProcessConnection) {
-        IPC::Attachment encodedConnectionIdentifier;
-
-        if (!parentProcessConnection()->sendSync(Messages::WebProcessProxy::GetNetworkProcessConnection(), Messages::WebProcessProxy::GetNetworkProcessConnection::Reply(encodedConnectionIdentifier), 0, Seconds::infinity(), IPC::SendSyncOption::DoNotProcessIncomingMessagesWhenWaitingForSyncReply))
-            CRASH();
+    IPC::Attachment encodedConnectionIdentifier;
+    if (!connection.sendSync(Messages::WebProcessProxy::GetNetworkProcessConnection(), Messages::WebProcessProxy::GetNetworkProcessConnection::Reply(encodedConnectionIdentifier), 0)) {
+#if PLATFORM(GTK) || PLATFORM(WPE)
+        // GTK+ and WPE ports don't exit on send sync message failure.
+        // In this particular case, the network process can be terminated by the UI process while the
+        // Web process is still initializing, so we always want to exit instead of crashing. This can
+        // happen when the WebView is created and then destroyed quickly.
+        // See https://bugs.webkit.org/show_bug.cgi?id=183348.
+        exit(0);
+#else
+        CRASH();
+#endif
+    }
 
 #if USE(UNIX_DOMAIN_SOCKETS)
-        IPC::Connection::Identifier connectionIdentifier = encodedConnectionIdentifier.releaseFileDescriptor();
+    return encodedConnectionIdentifier.releaseFileDescriptor();
 #elif OS(DARWIN)
-        IPC::Connection::Identifier connectionIdentifier(encodedConnectionIdentifier.port());
+    return encodedConnectionIdentifier.port();
+#elif OS(WINDOWS)
+    return encodedConnectionIdentifier.handle();
 #else
-        ASSERT_NOT_REACHED();
+    ASSERT_NOT_REACHED();
+    return IPC::Connection::Identifier();
 #endif
-        if (IPC::Connection::identifierIsNull(connectionIdentifier))
+}
+
+NetworkProcessConnection& WebProcess::ensureNetworkProcessConnection()
+{
+    RELEASE_ASSERT(RunLoop::isMain());
+
+    // If we've lost our connection to the network process (e.g. it crashed) try to re-establish it.
+    if (!m_networkProcessConnection) {
+        IPC::Connection::Identifier connectionIdentifier = getNetworkProcessConnection(*parentProcessConnection());
+
+        // Retry once if the IPC to get the connectionIdentifier succeeded but the connectionIdentifier we received
+        // is invalid. This may indicate that the network process has crashed.
+        if (!IPC::Connection::identifierIsValid(connectionIdentifier))
+            connectionIdentifier = getNetworkProcessConnection(*parentProcessConnection());
+
+        if (!IPC::Connection::identifierIsValid(connectionIdentifier))
             CRASH();
+
         m_networkProcessConnection = NetworkProcessConnection::create(connectionIdentifier);
     }
     
@@ -1164,6 +1191,26 @@ void WebProcess::networkProcessConnectionClosed(NetworkProcessConnection* connec
     ASSERT(m_networkProcessConnection);
     ASSERT_UNUSED(connection, m_networkProcessConnection == connection);
 
+#if ENABLE(INDEXED_DATABASE)
+    for (auto& page : m_pageMap.values()) {
+        auto idbConnection = page->corePage()->optionalIDBConnection();
+        if (!idbConnection)
+            continue;
+        
+        if (connection->existingIDBConnectionToServerForIdentifier(idbConnection->identifier())) {
+            ASSERT(idbConnection == &connection->existingIDBConnectionToServerForIdentifier(idbConnection->identifier())->coreConnectionToServer());
+            page->corePage()->clearIDBConnection();
+        }
+    }
+#endif
+
+#if ENABLE(SERVICE_WORKER)
+    if (SWContextManager::singleton().connection()) {
+        RELEASE_LOG(ServiceWorker, "Service worker process is exiting because network process is gone");
+        _exit(EXIT_SUCCESS);
+    }
+#endif
+
     m_networkProcessConnection = nullptr;
 
     logDiagnosticMessageForNetworkProcessCrash();
@@ -1178,39 +1225,6 @@ void WebProcess::networkProcessConnectionClosed(NetworkProcessConnection* connec
 WebLoaderStrategy& WebProcess::webLoaderStrategy()
 {
     return m_webLoaderStrategy;
-}
-
-void WebProcess::webToStorageProcessConnectionClosed(WebToStorageProcessConnection* connection)
-{
-    ASSERT(m_webToStorageProcessConnection);
-    ASSERT(m_webToStorageProcessConnection == connection);
-
-    m_webToStorageProcessConnection = nullptr;
-}
-
-WebToStorageProcessConnection& WebProcess::ensureWebToStorageProcessConnection(PAL::SessionID initialSessionID)
-{
-    if (!m_webToStorageProcessConnection) {
-        IPC::Attachment encodedConnectionIdentifier;
-
-        if (!parentProcessConnection()->sendSync(Messages::WebProcessProxy::GetStorageProcessConnection(initialSessionID), Messages::WebProcessProxy::GetStorageProcessConnection::Reply(encodedConnectionIdentifier), 0))
-            CRASH();
-
-#if USE(UNIX_DOMAIN_SOCKETS)
-        IPC::Connection::Identifier connectionIdentifier = encodedConnectionIdentifier.releaseFileDescriptor();
-#elif OS(DARWIN)
-        IPC::Connection::Identifier connectionIdentifier(encodedConnectionIdentifier.port());
-#elif OS(WINDOWS)
-        IPC::Connection::Identifier connectionIdentifier(encodedConnectionIdentifier.handle());
-#else
-        ASSERT_NOT_REACHED();
-#endif
-        if (IPC::Connection::identifierIsNull(connectionIdentifier))
-            CRASH();
-        m_webToStorageProcessConnection = WebToStorageProcessConnection::create(connectionIdentifier);
-
-    }
-    return *m_webToStorageProcessConnection;
 }
 
 void WebProcess::setEnhancedAccessibility(bool flag)
@@ -1263,12 +1277,7 @@ void WebProcess::fetchWebsiteData(PAL::SessionID sessionID, OptionSet<WebsiteDat
 {
     if (websiteDataTypes.contains(WebsiteDataType::MemoryCache)) {
         for (auto& origin : MemoryCache::singleton().originsWithCache(sessionID))
-            websiteData.entries.append(WebsiteData::Entry { SecurityOriginData::fromSecurityOrigin(*origin), WebsiteDataType::MemoryCache, 0 });
-    }
-
-    if (websiteDataTypes.contains(WebsiteDataType::Credentials)) {
-        if (NetworkStorageSession::storageSession(sessionID))
-            websiteData.originsWithCredentials = NetworkStorageSession::storageSession(sessionID)->credentialStorage().originsWithCredentials();
+            websiteData.entries.append(WebsiteData::Entry { origin->data(), WebsiteDataType::MemoryCache, 0 });
     }
 }
 
@@ -1280,7 +1289,7 @@ void WebProcess::deleteWebsiteData(PAL::SessionID sessionID, OptionSet<WebsiteDa
         PageCache::singleton().pruneToSizeNow(0, PruningReason::None);
         MemoryCache::singleton().evictResources(sessionID);
 
-        CrossOriginPreflightResultCache::singleton().empty();
+        CrossOriginPreflightResultCache::singleton().clear();
     }
 
     if (websiteDataTypes.contains(WebsiteDataType::Credentials)) {
@@ -1323,6 +1332,11 @@ void WebProcess::updateActivePages()
 {
 }
 
+void WebProcess::getActivePagesOriginsForTesting(CompletionHandler<void(Vector<String>&&)>&& completionHandler)
+{
+    completionHandler({ });
+}
+
 void WebProcess::updateCPULimit()
 {
 }
@@ -1333,13 +1347,13 @@ void WebProcess::updateCPUMonitorState(CPUMonitorUpdateReason)
 
 #endif
 
-void WebProcess::pageActivityStateDidChange(uint64_t, WebCore::ActivityState::Flags changed)
+void WebProcess::pageActivityStateDidChange(uint64_t, OptionSet<WebCore::ActivityState::Flag> changed)
 {
     if (changed & WebCore::ActivityState::IsVisible)
         updateCPUMonitorState(CPUMonitorUpdateReason::VisibilityHasChanged);
 }
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 void WebProcess::resetAllGeolocationPermissions()
 {
     for (auto& page : m_pageMap.values()) {
@@ -1351,21 +1365,26 @@ void WebProcess::resetAllGeolocationPermissions()
 
 void WebProcess::actualPrepareToSuspend(ShouldAcknowledgeWhenReadyToSuspend shouldAcknowledgeWhenReadyToSuspend)
 {
+    SetForScope<bool> suspensionScope(m_isSuspending, true);
+
     if (!m_suppressMemoryPressureHandler)
         MemoryPressureHandler::singleton().releaseMemory(Critical::Yes, Synchronous::Yes);
 
-    setAllLayerTreeStatesFrozen(true);
+    freezeAllLayerTrees();
     
 #if PLATFORM(COCOA)
     destroyRenderingResources();
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     accessibilityProcessSuspendedNotification(true);
 #endif
 
-    markAllLayersVolatile([this, shouldAcknowledgeWhenReadyToSuspend] {
-        RELEASE_LOG(ProcessSuspension, "%p - WebProcess::markAllLayersVolatile() Successfuly marked all layers as volatile", this);
+    markAllLayersVolatile([this, shouldAcknowledgeWhenReadyToSuspend](bool success) {
+        if (success)
+            RELEASE_LOG(ProcessSuspension, "%p - WebProcess::markAllLayersVolatile() Successfuly marked all layers as volatile", this);
+        else
+            RELEASE_LOG(ProcessSuspension, "%p - WebProcess::markAllLayersVolatile() Failed to mark all layers as volatile", this);
 
         if (shouldAcknowledgeWhenReadyToSuspend == ShouldAcknowledgeWhenReadyToSuspend::Yes) {
             RELEASE_LOG(ProcessSuspension, "%p - WebProcess::actualPrepareToSuspend() Sending ProcessReadyToSuspend IPC message", this);
@@ -1399,8 +1418,12 @@ void WebProcess::prepareToSuspend()
 void WebProcess::cancelPrepareToSuspend()
 {
     RELEASE_LOG(ProcessSuspension, "%p - WebProcess::cancelPrepareToSuspend()", this);
-    setAllLayerTreeStatesFrozen(false);
+    unfreezeAllLayerTrees();
 
+#if PLATFORM(IOS_FAMILY)
+    accessibilityProcessSuspendedNotification(false);
+#endif
+    
     // If we've already finished cleaning up and sent ProcessReadyToSuspend, we
     // shouldn't send DidCancelProcessSuspension; the UI process strictly expects one or the other.
     if (!m_pageMarkingLayersAsVolatileCounter)
@@ -1412,20 +1435,25 @@ void WebProcess::cancelPrepareToSuspend()
     parentProcessConnection()->send(Messages::WebProcessProxy::DidCancelProcessSuspension(), 0);
 }
 
-void WebProcess::markAllLayersVolatile(WTF::Function<void()>&& completionHandler)
+void WebProcess::markAllLayersVolatile(WTF::Function<void(bool)>&& completionHandler)
 {
     RELEASE_LOG(ProcessSuspension, "%p - WebProcess::markAllLayersVolatile()", this);
     ASSERT(!m_pageMarkingLayersAsVolatileCounter);
+    m_countOfPagesFailingToMarkVolatile = 0;
+
     m_pageMarkingLayersAsVolatileCounter = std::make_unique<PageMarkingLayersAsVolatileCounter>([this, completionHandler = WTFMove(completionHandler)] (RefCounterEvent) {
         if (m_pageMarkingLayersAsVolatileCounter->value())
             return;
 
-        completionHandler();
+        completionHandler(m_countOfPagesFailingToMarkVolatile == 0);
         m_pageMarkingLayersAsVolatileCounter = nullptr;
     });
     auto token = m_pageMarkingLayersAsVolatileCounter->count();
     for (auto& page : m_pageMap.values())
-        page->markLayersVolatile([token] { });
+        page->markLayersVolatile([token, this] (bool succeeded) {
+            if (!succeeded)
+                ++m_countOfPagesFailingToMarkVolatile;
+        });
 }
 
 void WebProcess::cancelMarkAllLayersVolatile()
@@ -1438,22 +1466,36 @@ void WebProcess::cancelMarkAllLayersVolatile()
         page->cancelMarkLayersVolatile();
 }
 
-void WebProcess::setAllLayerTreeStatesFrozen(bool frozen)
+void WebProcess::freezeAllLayerTrees()
 {
     for (auto& page : m_pageMap.values())
-        page->setLayerTreeStateIsFrozen(frozen);
+        page->freezeLayerTree(WebPage::LayerTreeFreezeReason::ProcessSuspended);
 }
-    
+
+void WebProcess::unfreezeAllLayerTrees()
+{
+    for (auto& page : m_pageMap.values())
+        page->unfreezeLayerTree(WebPage::LayerTreeFreezeReason::ProcessSuspended);
+}
+
 void WebProcess::processDidResume()
 {
     RELEASE_LOG(ProcessSuspension, "%p - WebProcess::processDidResume()", this);
 
     cancelMarkAllLayersVolatile();
-    setAllLayerTreeStatesFrozen(false);
+    unfreezeAllLayerTrees();
     
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     accessibilityProcessSuspendedNotification(false);
 #endif
+}
+
+void WebProcess::sendPrewarmInformation(const URL& url)
+{
+    auto registrableDomain = toRegistrableDomain(url);
+    if (registrableDomain.isEmpty())
+        return;
+    parentProcessConnection()->send(Messages::WebProcessProxy::DidCollectPrewarmInformation(registrableDomain, WebCore::ProcessWarming::collectPrewarmInformation()), 0);
 }
 
 void WebProcess::pageDidEnterWindow(uint64_t pageID)
@@ -1643,30 +1685,64 @@ bool WebProcess::hasVisibleWebPage() const
     return false;
 }
 
-#if USE(LIBWEBRTC)
 LibWebRTCNetwork& WebProcess::libWebRTCNetwork()
 {
     if (!m_libWebRTCNetwork)
         m_libWebRTCNetwork = std::make_unique<LibWebRTCNetwork>();
     return *m_libWebRTCNetwork;
 }
-#endif
 
 #if ENABLE(SERVICE_WORKER)
-void WebProcess::establishWorkerContextConnectionToStorageProcess(uint64_t pageGroupID, uint64_t pageID, const WebPreferencesStore& store, PAL::SessionID initialSessionID)
+void WebProcess::establishWorkerContextConnectionToNetworkProcess(uint64_t pageGroupID, uint64_t pageID, const WebPreferencesStore& store, PAL::SessionID initialSessionID)
 {
-    // We are in the Service Worker context process and the call below establishes our connection to the Storage Process
-    // by calling webToStorageProcessConnection. SWContextManager needs to use the same underlying IPC::Connection as the
-    // WebToStorageProcessConnection for synchronization purposes.
-    auto& ipcConnection = ensureWebToStorageProcessConnection(initialSessionID).connection();
+    // We are in the Service Worker context process and the call below establishes our connection to the Network Process
+    // by calling ensureNetworkProcessConnection. SWContextManager needs to use the same underlying IPC::Connection as the
+    // NetworkProcessConnection for synchronization purposes.
+    auto& ipcConnection = ensureNetworkProcessConnection().connection();
     SWContextManager::singleton().setConnection(std::make_unique<WebSWContextManagerConnection>(ipcConnection, pageGroupID, pageID, store));
 }
 
-void WebProcess::registerServiceWorkerClients(PAL::SessionID sessionID)
+void WebProcess::registerServiceWorkerClients()
 {
-    ServiceWorkerProvider::singleton().registerServiceWorkerClients(sessionID);
+    // We do not want to register service worker dummy documents.
+    ASSERT(!SWContextManager::singleton().connection());
+    ServiceWorkerProvider::singleton().registerServiceWorkerClients();
 }
 
 #endif
+
+#if PLATFORM(MAC)
+void WebProcess::setScreenProperties(const WebCore::ScreenProperties& properties)
+{
+    WebCore::setScreenProperties(properties);
+}
+#endif
+
+#if ENABLE(MEDIA_STREAM)
+void WebProcess::addMockMediaDevice(const WebCore::MockMediaDevice& device)
+{
+    MockRealtimeMediaSourceCenter::addDevice(device);
+}
+
+void WebProcess::clearMockMediaDevices()
+{
+    MockRealtimeMediaSourceCenter::setDevices({ });
+}
+
+void WebProcess::removeMockMediaDevice(const String& persistentId)
+{
+    MockRealtimeMediaSourceCenter::removeDevice(persistentId);
+}
+
+void WebProcess::resetMockMediaDevices()
+{
+    MockRealtimeMediaSourceCenter::resetDevices();
+}
+#endif
+
+void WebProcess::clearCurrentModifierStateForTesting()
+{
+    PlatformKeyboardEvent::setCurrentModifierState({ });
+}
 
 } // namespace WebKit

@@ -694,6 +694,8 @@ sub WK_ucfirst
     $ret =~ s/Xml/XML/ if $ret =~ /^Xml[^a-z]/;
     $ret =~ s/Svg/SVG/ if $ret =~ /^Svg/;
     $ret =~ s/Srgb/SRGB/ if $ret =~ /^Srgb/;
+    $ret =~ s/Cenc/cenc/ if $ret =~ /^Cenc/;
+    $ret =~ s/Cbcs/cbcs/ if $ret =~ /^Cbcs/;
 
     return $ret;
 }
@@ -1000,6 +1002,7 @@ sub ComputeIsCallbackInterface
     assert("Not a type") if ref($type) ne "IDLType";
 
     return 0 unless $object->IsInterfaceType($type);
+    return 0 if $type->name eq "WindowProxy";
 
     my $typeName = $type->name;
     my $idlFile = $object->IDLFileForInterface($typeName) or assert("Could NOT find IDL file for interface \"$typeName\"!\n");
@@ -1037,6 +1040,7 @@ sub ComputeIsCallbackFunction
     assert("Not a type") if ref($type) ne "IDLType";
 
     return 0 unless $object->IsInterfaceType($type);
+    return 0 if $type->name eq "WindowProxy";
 
     my $typeName = $type->name;
     my $idlFile = $object->IDLFileForInterface($typeName) or assert("Could NOT find IDL file for interface \"$typeName\"!\n");

@@ -38,7 +38,6 @@
 #include "PutPropertySlot.h"
 #include "StructureIDBlob.h"
 #include "StructureRareData.h"
-#include "StructureRareDataInlines.h"
 #include "StructureTransitionTable.h"
 #include "JSTypeInfo.h"
 #include "Watchpoint.h"
@@ -110,14 +109,16 @@ private:
     const Structure* m_structure;
 };
 
-class DeferredStructureTransitionWatchpointFire {
+class DeferredStructureTransitionWatchpointFire : public DeferredWatchpointFire {
     WTF_MAKE_NONCOPYABLE(DeferredStructureTransitionWatchpointFire);
 public:
-    JS_EXPORT_PRIVATE DeferredStructureTransitionWatchpointFire();
+    JS_EXPORT_PRIVATE DeferredStructureTransitionWatchpointFire(VM&, Structure*);
     JS_EXPORT_PRIVATE ~DeferredStructureTransitionWatchpointFire();
     
-    void add(const Structure*);
-    
+    void dump(PrintStream& out) const override;
+
+    const Structure* structure() const { return m_structure; }
+
 private:
     const Structure* m_structure;
 };
@@ -176,7 +177,7 @@ public:
     bool isProxy() const
     {
         JSType type = m_blob.type();
-        return type == ImpureProxyType || type == PureForwardingProxyType;
+        return type == ImpureProxyType || type == PureForwardingProxyType || type == ProxyObjectType;
     }
 
     static void dumpStatistics();
@@ -193,7 +194,8 @@ public:
     JS_EXPORT_PRIVATE static Structure* sealTransition(VM&, Structure*);
     JS_EXPORT_PRIVATE static Structure* freezeTransition(VM&, Structure*);
     static Structure* preventExtensionsTransition(VM&, Structure*);
-    JS_EXPORT_PRIVATE static Structure* nonPropertyTransition(VM&, Structure*, NonPropertyTransition);
+    static Structure* nonPropertyTransition(VM&, Structure*, NonPropertyTransition);
+    JS_EXPORT_PRIVATE static Structure* nonPropertyTransitionSlow(VM&, Structure*, NonPropertyTransition);
 
     JS_EXPORT_PRIVATE bool isSealed(VM&);
     JS_EXPORT_PRIVATE bool isFrozen(VM&);
@@ -216,10 +218,15 @@ public:
     bool isDictionary() const { return dictionaryKind() != NoneDictionaryKind; }
     bool isUncacheableDictionary() const { return dictionaryKind() == UncachedDictionaryKind; }
   
+    bool prototypeQueriesAreCacheable()
+    {
+        return !typeInfo().prohibitsPropertyCaching();
+    }
+    
     bool propertyAccessesAreCacheable()
     {
         return dictionaryKind() != UncachedDictionaryKind
-            && !typeInfo().prohibitsPropertyCaching()
+            && prototypeQueriesAreCacheable()
             && !(typeInfo().getOwnPropertySlotIsImpure() && !typeInfo().newImpurePropertyFiresWatchpoints());
     }
 
@@ -248,17 +255,15 @@ public:
     }
     
     // Type accessors.
-    TypeInfo typeInfo() const { ASSERT(structure()->classInfo() == info()); return m_blob.typeInfo(m_outOfLineTypeFlags); }
+    TypeInfo typeInfo() const { return m_blob.typeInfo(m_outOfLineTypeFlags); }
     bool isObject() const { return typeInfo().isObject(); }
 
-    IndexingType indexingType() const { return m_blob.indexingTypeIncludingHistory() & AllArrayTypes; }
-    IndexingType indexingTypeIncludingHistory() const { return m_blob.indexingTypeIncludingHistory(); }
+    IndexingType indexingType() const { return m_blob.indexingModeIncludingHistory() & AllWritableArrayTypes; }
+    IndexingType indexingMode() const  { return m_blob.indexingModeIncludingHistory() & AllArrayTypes; }
+    IndexingType indexingModeIncludingHistory() const { return m_blob.indexingModeIncludingHistory(); }
         
-    bool mayInterceptIndexedAccesses() const
-    {
-        return !!(indexingTypeIncludingHistory() & MayHaveIndexedAccessors);
-    }
-        
+    inline bool mayInterceptIndexedAccesses() const;
+    
     bool holesMustForwardToPrototype(VM&, JSObject*) const;
         
     JSGlobalObject* globalObject() const { return m_globalObject.get(); }
@@ -318,6 +323,14 @@ public:
     {
         ASSERT(hasRareData());
         return static_cast<const StructureRareData*>(m_previousOrRareData.get());
+    }
+
+    const StructureRareData* rareDataConcurrently() const
+    {
+        JSCell* cell = m_previousOrRareData.get();
+        if (isRareData(cell))
+            return static_cast<StructureRareData*>(cell);
+        return nullptr;
     }
 
     StructureRareData* ensureRareData(VM& vm)
@@ -430,6 +443,9 @@ public:
     // to continue or false if it's done.
     template<typename Functor>
     void forEachPropertyConcurrently(const Functor&);
+
+    template<typename Functor>
+    void forEachProperty(VM&, const Functor&);
     
     PropertyOffset getConcurrently(UniquedStringImpl* uid);
     PropertyOffset getConcurrently(UniquedStringImpl* uid, unsigned& attributes);
@@ -462,6 +478,11 @@ public:
     JSPropertyNameEnumerator* cachedPropertyNameEnumerator() const;
     bool canCachePropertyNameEnumerator() const;
     bool canAccessPropertiesQuicklyForEnumeration() const;
+
+    void setCachedOwnKeys(VM&, JSImmutableButterfly*);
+    JSImmutableButterfly* cachedOwnKeys() const;
+    JSImmutableButterfly* cachedOwnKeysIgnoringSentinel() const;
+    bool canCacheOwnKeys() const;
 
     void getPropertyNamesFromStructure(VM&, PropertyNameArray&, EnumerationMode);
 
@@ -496,9 +517,9 @@ public:
         return OBJECT_OFFSETOF(Structure, m_classInfo);
     }
         
-    static ptrdiff_t indexingTypeIncludingHistoryOffset()
+    static ptrdiff_t indexingModeIncludingHistoryOffset()
     {
-        return OBJECT_OFFSETOF(Structure, m_blob) + StructureIDBlob::indexingTypeIncludingHistoryOffset();
+        return OBJECT_OFFSETOF(Structure, m_blob) + StructureIDBlob::indexingModeIncludingHistoryOffset();
     }
     
     static ptrdiff_t propertyTableUnsafeOffset()
@@ -509,6 +530,11 @@ public:
     static ptrdiff_t inlineCapacityOffset()
     {
         return OBJECT_OFFSETOF(Structure, m_inlineCapacity);
+    }
+
+    static ptrdiff_t previousOrRareDataOffset()
+    {
+        return OBJECT_OFFSETOF(Structure, m_previousOrRareData);
     }
 
     static Structure* createStructure(VM&);
@@ -603,9 +629,9 @@ public:
     ALWAYS_INLINE void willStoreValueForNewTransition(
         VM& vm, PropertyName propertyName, JSValue value, bool shouldOptimize)
     {
-        if (hasBeenDictionary() || (!shouldOptimize && !m_inferredTypeTable))
+        if (hasBeenDictionary() || (!shouldOptimize && !m_inferredTypeTable) || !VM::canUseJIT())
             return;
-        willStoreValueSlow(vm, propertyName, value, shouldOptimize, InferredTypeTable::NewProperty);
+        willStoreValueSlow(vm, propertyName, value, shouldOptimize, InferredTypeTable::StoredPropertyAge::NewProperty);
     }
 
     // Call this when we know that this is a new property for the object, but not new for the
@@ -614,18 +640,18 @@ public:
     ALWAYS_INLINE void willStoreValueForExistingTransition(
         VM& vm, PropertyName propertyName, JSValue value, bool shouldOptimize)
     {
-        if (hasBeenDictionary() || !m_inferredTypeTable)
+        if (hasBeenDictionary() || !m_inferredTypeTable || !VM::canUseJIT())
             return;
-        willStoreValueSlow(vm, propertyName, value, shouldOptimize, InferredTypeTable::NewProperty);
+        willStoreValueSlow(vm, propertyName, value, shouldOptimize, InferredTypeTable::StoredPropertyAge::NewProperty);
     }
 
     // Call this when we know that the inferred type table exists and has an entry for this property.
     ALWAYS_INLINE void willStoreValueForReplace(
         VM& vm, PropertyName propertyName, JSValue value, bool shouldOptimize)
     {
-        if (hasBeenDictionary())
+        if (hasBeenDictionary() || !VM::canUseJIT())
             return;
-        willStoreValueSlow(vm, propertyName, value, shouldOptimize, InferredTypeTable::OldProperty);
+        willStoreValueSlow(vm, propertyName, value, shouldOptimize, InferredTypeTable::StoredPropertyAge::OldProperty);
     }
 
     Ref<StructureShape> toStructureShape(JSValue, bool& sawPolyProtoStructure);
@@ -677,6 +703,7 @@ public:
     DEFINE_BITFIELD(bool, transitionWatchpointIsLikelyToBeFired, TransitionWatchpointIsLikelyToBeFired, 1, 26);
     DEFINE_BITFIELD(bool, hasBeenDictionary, HasBeenDictionary, 1, 27);
     DEFINE_BITFIELD(bool, isAddingPropertyForTransition, IsAddingPropertyForTransition, 1, 28);
+    DEFINE_BITFIELD(bool, hasUnderscoreProtoPropertyExcludingOriginalProto, HasUnderscoreProtoPropertyExcludingOriginalProto, 1, 29);
 
 private:
     friend class LLIntOffsetsExtractor;
@@ -817,5 +844,17 @@ private:
 
     uint32_t m_propertyHash;
 };
+
+// We deliberately put Structure::create here in Structure.h instead of StructureInlines.h, because
+// it is used everywhere. This is so we don't have to hunt down all the places where we would need
+// to #include StructureInlines.h otherwise.
+inline Structure* Structure::create(VM& vm, JSGlobalObject* globalObject, JSValue prototype, const TypeInfo& typeInfo, const ClassInfo* classInfo, IndexingType indexingType, unsigned inlineCapacity)
+{
+    ASSERT(vm.structureStructure);
+    ASSERT(classInfo);
+    Structure* structure = new (NotNull, allocateCell<Structure>(vm.heap)) Structure(vm, globalObject, prototype, typeInfo, classInfo, indexingType, inlineCapacity);
+    structure->finishCreation(vm);
+    return structure;
+}
 
 } // namespace JSC

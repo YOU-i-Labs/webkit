@@ -34,6 +34,7 @@
 
 namespace WebCore {
 
+class FilterOperations;
 class RenderStyle;
 
 // A KeyframeAnimation tracks the state of an explicit animation for a single RenderElement.
@@ -61,7 +62,7 @@ public:
     void setUnanimatedStyle(std::unique_ptr<RenderStyle> style) { m_unanimatedStyle = WTFMove(style); }
     const RenderStyle& unanimatedStyle() const override { return *m_unanimatedStyle; }
 
-    std::optional<Seconds> timeToNextService() override;
+    Optional<Seconds> timeToNextService() override;
 
 protected:
     void onAnimationStart(double elapsedTime) override;
@@ -69,7 +70,7 @@ protected:
     void onAnimationEnd(double elapsedTime) override;
     bool startAnimation(double timeOffset) override;
     void pauseAnimation(double timeOffset) override;
-    void endAnimation() override;
+    void endAnimation(bool fillingForwards = false) override;
 
     void overrideAnimations() override;
     void resumeOverriddenAnimations() override;
@@ -91,6 +92,8 @@ protected:
 #if ENABLE(FILTERS_LEVEL_2)
     void checkForMatchingBackdropFilterFunctionLists();
 #endif
+    void checkForMatchingColorFilterFunctionLists();
+    bool checkForMatchingFilterFunctionLists(CSSPropertyID, const std::function<const FilterOperations& (const RenderStyle&)>&) const;
 
 private:
     KeyframeAnimation(const Animation&, Element&, CompositeAnimation&, const RenderStyle& unanimatedStyle);

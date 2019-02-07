@@ -47,6 +47,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         this._boundHighlightAnimationEnd = this._highlightAnimationEnd.bind(this);
         this._subtreeBreakpointCount = 0;
 
+        this._highlightedAttributes = new Set;
         this._recentlyModifiedAttributes = [];
         this._boundNodeChangedAnimationEnd = this._nodeChangedAnimationEnd.bind(this);
 
@@ -268,6 +269,11 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         this._recentlyModifiedAttributes.push({name});
     }
 
+    highlightAttribute(name)
+    {
+        this._highlightedAttributes.add(name);
+    }
+
     showChildNode(node)
     {
         console.assert(!this._elementCloseTag);
@@ -361,7 +367,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
             return;
 
         // If there's no reason to have a selection area, remove the DOM element.
-        let indicatesTreeOutlineState = this.treeOutline && (this.treeOutline.dragOverTreeElement === this || this.treeOutline.selectedTreeElement === this || this._animatingHighlight);
+        let indicatesTreeOutlineState = this.treeOutline && (this.treeOutline.dragOverTreeElement === this || this.selected || this._animatingHighlight);
         if (!this.hovered && !this.pseudoClassesEnabled && !indicatesTreeOutlineState) {
             if (this._selectionElement) {
                 this._selectionElement.remove();
@@ -417,7 +423,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
     insertChildElement(child, index, closingTag)
     {
         var newElement = new WI.DOMTreeElement(child, closingTag);
-        newElement.selectable = this.treeOutline._selectEnabled;
+        newElement.selectable = this.treeOutline.selectable;
         this.insertChild(newElement, index);
         return newElement;
     }
@@ -619,34 +625,6 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         listItemElement.classList.add(WI.DOMTreeElement.HighlightStyleClassName);
     }
 
-    onselect(treeElement, selectedByUser)
-    {
-        this.treeOutline.suppressRevealAndSelect = true;
-        this.treeOutline.selectDOMNode(this.representedObject, selectedByUser);
-        if (selectedByUser)
-            WI.domTreeManager.highlightDOMNode(this.representedObject.id);
-        this.treeOutline.updateSelection();
-        this.treeOutline.suppressRevealAndSelect = false;
-    }
-
-    ondeselect(treeElement)
-    {
-        this.treeOutline.selectDOMNode(null);
-    }
-
-    ondelete()
-    {
-        if (!this.editable)
-            return false;
-
-        var startTagTreeElement = this.treeOutline.findTreeElement(this.representedObject);
-        if (startTagTreeElement)
-            startTagTreeElement.remove();
-        else
-            this.remove();
-        return true;
-    }
-
     onenter()
     {
         if (!this.editable)
@@ -663,16 +641,16 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         return true;
     }
 
-    selectOnMouseDown(event)
+    canSelectOnMouseDown(event)
     {
-        super.selectOnMouseDown(event);
-
         if (this._editing)
-            return;
+            return false;
 
         // Prevent selecting the nearest word on double click.
         if (event.detail >= 2)
-            event.preventDefault();
+            return false;
+
+        return true;
     }
 
     ondblclick(event)
@@ -739,7 +717,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
         if (event.target && event.target.tagName === "A") {
             let url = event.target.href;
-            let frame = WI.frameResourceManager.frameForIdentifier(node.frameIdentifier);
+            let frame = WI.networkManager.frameForIdentifier(node.frameIdentifier);
             WI.appendContextMenuItemsForURL(contextMenu, url, {frame});
         }
 
@@ -779,11 +757,11 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
         contextMenu.appendSeparator();
 
-        if (WI.cssStyleManager.canForcePseudoClasses()) {
+        if (WI.cssManager.canForcePseudoClasses()) {
             let pseudoSubMenu = contextMenu.appendSubMenuItem(WI.UIString("Forced Pseudo-Classes"));
 
             let enabledPseudoClasses = this.representedObject.enabledPseudoClasses;
-            WI.CSSStyleManager.ForceablePseudoClasses.forEach((pseudoClass) => {
+            WI.CSSManager.ForceablePseudoClasses.forEach((pseudoClass) => {
                 let enabled = enabledPseudoClasses.includes(pseudoClass);
                 pseudoSubMenu.appendCheckboxItem(pseudoClass.capitalize(), () => {
                     this.representedObject.setPseudoClassEnabled(pseudoClass, !enabled);
@@ -817,7 +795,9 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
         subMenus.edit.appendItem(WI.UIString("HTML"), this._editAsHTML.bind(this), !this.editable);
         subMenus.copy.appendItem(WI.UIString("HTML"), this._copyHTML.bind(this), node.isPseudoElement());
-        subMenus.delete.appendItem(WI.UIString("Node"), this.remove.bind(this), !this.editable);
+
+        if (!this.selected || this.treeOutline.selectedTreeElements.length === 1)
+            subMenus.delete.appendItem(WI.UIString("Node"), this.remove.bind(this), !this.editable);
 
         for (let subMenu of Object.values(subMenus))
             contextMenu.pushItem(subMenu);
@@ -1065,6 +1045,10 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         if (!moveDirection && newText === oldText)
             return;
 
+        // FIXME: Workaround for <https://webkit.org/b/123163> &nbsp; is forced on SPACE between text nodes.
+        const nbspRegex = /\xA0/g;
+        newText = newText.replace(nbspRegex, " ");
+
         var treeOutline = this.treeOutline;
         function moveToNextAttributeIfNeeded(error)
         {
@@ -1171,7 +1155,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
                 return;
             }
 
-            var node = WI.domTreeManager.nodeForId(nodeId);
+            var node = WI.domManager.nodeForId(nodeId);
 
             // Select it and expand if necessary. We force tree update so that it processes dom events and is up to date.
             treeOutline._updateModifiedNodes();
@@ -1323,6 +1307,9 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
             if (attribute.name === name)
                 attribute.element = hasText ? attrValueElement : attrNameElement;
         }
+
+        if (this._highlightedAttributes.has(name))
+            attrSpanElement.classList.add("highlight");
     }
 
     _buildTagDOM(parentElement, tagName, isClosingTag, isDistinctTreeElement)
@@ -1836,8 +1823,9 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
         let contextMenu = WI.ContextMenu.createFromEvent(event);
         if (hasBreakpoint) {
-            const allowEditing = true;
-            WI.DOMBreakpointTreeController.appendBreakpointContextMenuItems(contextMenu, this.representedObject, allowEditing);
+            WI.appendContextMenuItemsForDOMNodeBreakpoints(contextMenu, this.representedObject, {
+                allowEditing: true,
+            });
             return;
         }
 

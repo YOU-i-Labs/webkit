@@ -26,17 +26,17 @@
 
 #pragma once
 
-#include <WebCore/NetworkingContext.h>
 #include <pal/SessionID.h>
 
 namespace WebKit {
 
+class NetworkProcess;
 struct WebsiteDataStoreParameters;
 
 class RemoteNetworkingContext {
 public:
-    // FIXME: Remove platform-specific code and use SessionTracker.
-    static void ensureWebsiteDataStoreSession(WebsiteDataStoreParameters&&);
+    // FIXME: Remove platform-specific code.
+    static void ensureWebsiteDataStoreSession(NetworkProcess&, WebsiteDataStoreParameters&&);
 };
 
 }

@@ -54,7 +54,13 @@ namespace WebCore {
 typedef unsigned SynchronousScrollingReasons;
 typedef uint64_t ScrollingNodeID;
 
-enum ScrollingNodeType { FrameScrollingNode, OverflowScrollingNode, FixedNode, StickyNode };
+enum class ScrollingNodeType : uint8_t {
+    MainFrame,
+    Subframe,
+    Overflow,
+    Fixed,
+    Sticky
+};
 
 enum ScrollingStateTreeAsTextBehaviorFlags {
     ScrollingStateTreeAsTextBehaviorNormal                  = 0,
@@ -85,24 +91,16 @@ enum class ScrollingLayerPositionAction {
 };
 
 struct ScrollableAreaParameters {
-    ScrollElasticity horizontalScrollElasticity;
-    ScrollElasticity verticalScrollElasticity;
+    ScrollElasticity horizontalScrollElasticity { ScrollElasticityNone };
+    ScrollElasticity verticalScrollElasticity { ScrollElasticityNone };
 
-    ScrollbarMode horizontalScrollbarMode;
-    ScrollbarMode verticalScrollbarMode;
+    ScrollbarMode horizontalScrollbarMode { ScrollbarAuto };
+    ScrollbarMode verticalScrollbarMode { ScrollbarAuto };
 
-    bool hasEnabledHorizontalScrollbar;
-    bool hasEnabledVerticalScrollbar;
-    
-    ScrollableAreaParameters()
-        : horizontalScrollElasticity(ScrollElasticityNone)
-        , verticalScrollElasticity(ScrollElasticityNone)
-        , horizontalScrollbarMode(ScrollbarAuto)
-        , verticalScrollbarMode(ScrollbarAuto)
-        , hasEnabledHorizontalScrollbar(false)
-        , hasEnabledVerticalScrollbar(false)
-    {
-    }
+    bool hasEnabledHorizontalScrollbar { false };
+    bool hasEnabledVerticalScrollbar { false };
+
+    bool useDarkAppearanceForScrollbars { false };
 
     bool operator==(const ScrollableAreaParameters& other) const
     {
@@ -111,7 +109,8 @@ struct ScrollableAreaParameters {
             && horizontalScrollbarMode == other.horizontalScrollbarMode
             && verticalScrollbarMode == other.verticalScrollbarMode
             && hasEnabledHorizontalScrollbar == other.hasEnabledHorizontalScrollbar
-            && hasEnabledVerticalScrollbar == other.hasEnabledVerticalScrollbar;
+            && hasEnabledVerticalScrollbar == other.hasEnabledVerticalScrollbar
+            && useDarkAppearanceForScrollbars == other.useDarkAppearanceForScrollbars;
     }
 };
 
@@ -137,7 +136,7 @@ public:
     // Should be called whenever the given frame view has been laid out.
     virtual void frameViewLayoutUpdated(FrameView&) { }
 
-    using LayoutViewportOriginOrOverrideRect = WTF::Variant<std::optional<FloatPoint>, std::optional<FloatRect>>;
+    using LayoutViewportOriginOrOverrideRect = WTF::Variant<Optional<FloatPoint>, Optional<FloatRect>>;
     virtual void reconcileScrollingState(FrameView&, const FloatPoint&, const LayoutViewportOriginOrOverrideRect&, bool /* programmaticScroll */, ViewportRectStability, ScrollingLayerPositionAction) { }
 
     // Should be called whenever the slow repaint objects counter changes between zero and one.
@@ -161,11 +160,11 @@ public:
     WEBCORE_EXPORT void setForceSynchronousScrollLayerPositionUpdates(bool);
 
     // These virtual functions are currently unique to the threaded scrolling architecture. 
-    // Their meaningful implementations are in ScrollingCoordinatorMac.
     virtual void commitTreeStateIfNeeded() { }
     virtual bool requestScrollPositionUpdate(FrameView&, const IntPoint&) { return false; }
     virtual bool handleWheelEvent(FrameView&, const PlatformWheelEvent&) { return true; }
-    virtual ScrollingNodeID attachToStateTree(ScrollingNodeType, ScrollingNodeID newNodeID, ScrollingNodeID /*parentID*/) { return newNodeID; }
+    virtual ScrollingNodeID attachToStateTree(ScrollingNodeType, ScrollingNodeID newNodeID, ScrollingNodeID /*parentID*/, size_t /*childIndex*/ = notFound) { return newNodeID; }
+
     virtual void detachFromStateTree(ScrollingNodeID) { }
     virtual void clearStateTree() { }
 
@@ -173,6 +172,7 @@ public:
     virtual void updateNodeViewportConstraints(ScrollingNodeID, const ViewportConstraints&) { }
 
     struct ScrollingGeometry {
+        LayoutRect parentRelativeScrollableRect;
         FloatSize scrollableAreaSize;
         FloatSize contentSize;
         FloatSize reachableContentSize; // Smaller than contentSize when overflow is hidden on one axis.
@@ -188,17 +188,17 @@ public:
 #endif
     };
 
-    virtual void updateFrameScrollingNode(ScrollingNodeID, GraphicsLayer* /*scrollLayer*/, GraphicsLayer* /*scrolledContentsLayer*/, GraphicsLayer* /*counterScrollingLayer*/, GraphicsLayer* /*insetClipLayer*/, const ScrollingGeometry* = nullptr) { }
-    virtual void updateOverflowScrollingNode(ScrollingNodeID, GraphicsLayer* /*scrollLayer*/, GraphicsLayer* /*scrolledContentsLayer*/, const ScrollingGeometry* = nullptr) { }
-    virtual void reconcileViewportConstrainedLayerPositions(const LayoutRect&, ScrollingLayerPositionAction) { }
+    virtual void updateFrameScrollingNode(ScrollingNodeID, GraphicsLayer* /*scrollLayer*/, GraphicsLayer* /*scrolledContentsLayer*/, GraphicsLayer* /*counterScrollingLayer*/, GraphicsLayer* /*insetClipLayer*/, const ScrollingGeometry&) { }
+    virtual void updateOverflowScrollingNode(ScrollingNodeID, GraphicsLayer* /*scrollLayer*/, GraphicsLayer* /*scrolledContentsLayer*/, const ScrollingGeometry&) { }
+    virtual void reconcileViewportConstrainedLayerPositions(ScrollingNodeID, const LayoutRect&, ScrollingLayerPositionAction) { }
     virtual String scrollingStateTreeAsText(ScrollingStateTreeAsTextBehavior = ScrollingStateTreeAsTextBehaviorNormal) const;
     virtual bool isRubberBandInProgress() const { return false; }
     virtual bool isScrollSnapInProgress() const { return false; }
     virtual void updateScrollSnapPropertiesWithFrameView(const FrameView&) { }
     virtual void setScrollPinningBehavior(ScrollPinningBehavior) { }
 
-    // Generated a unique id for scroll layers.
-    ScrollingNodeID uniqueScrollLayerID();
+    // Generated a unique id for scrolling nodes.
+    ScrollingNodeID uniqueScrollingNodeID();
 
     enum MainThreadScrollingReasonFlags {
         ForcedOnMainThread                                          = 1 << 0,

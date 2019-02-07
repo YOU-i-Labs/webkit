@@ -62,7 +62,7 @@ public:
     void layerPropertyChangedWhileBuildingTransaction(PlatformCALayerRemote&);
 
     // From the UI process
-    void animationDidStart(WebCore::GraphicsLayer::PlatformLayerID, const String& key, double startTime);
+    void animationDidStart(WebCore::GraphicsLayer::PlatformLayerID, const String& key, MonotonicTime startTime);
     void animationDidEnd(WebCore::GraphicsLayer::PlatformLayerID, const String& key);
 
     void willStartAnimationOnLayer(PlatformCALayerRemote&);
@@ -74,7 +74,7 @@ public:
 
 private:
     // WebCore::GraphicsLayerFactory
-    std::unique_ptr<WebCore::GraphicsLayer> createGraphicsLayer(WebCore::GraphicsLayer::Type, WebCore::GraphicsLayerClient&) override;
+    Ref<WebCore::GraphicsLayer> createGraphicsLayer(WebCore::GraphicsLayer::Type, WebCore::GraphicsLayerClient&) override;
 
     WebPage& m_webPage;
 

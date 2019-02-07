@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include "CanvasActivityRecord.h"
+#include "ResourceLoadStatistics.h"
 #include "Timer.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
@@ -44,7 +46,7 @@ class Frame;
 class Page;
 class ResourceRequest;
 class ResourceResponse;
-class URL;
+class ScriptExecutionContext;
 
 struct ResourceLoadStatistics;
 
@@ -53,19 +55,25 @@ class ResourceLoadObserver {
 public:
     WEBCORE_EXPORT static ResourceLoadObserver& shared();
 
-    void logFrameNavigation(const Frame&, const Frame& topFrame, const ResourceRequest& newRequest, const URL& redirectUrl);
     void logSubresourceLoading(const Frame*, const ResourceRequest& newRequest, const ResourceResponse& redirectResponse);
-    void logWebSocketLoading(const Frame*, const URL&);
+    void logWebSocketLoading(const URL& targetURL, const URL& mainFrameURL, bool usesEphemeralSession);
     void logUserInteractionWithReducedTimeResolution(const Document&);
+    
+    void logFontLoad(const Document&, const String& familyName, bool loadStatus);
+    void logCanvasRead(const Document&);
+    void logCanvasWriteOrMeasure(const Document&, const String& textWritten);
+    void logNavigatorAPIAccessed(const Document&, const ResourceLoadStatistics::NavigatorAPI);
+    void logScreenAPIAccessed(const Document&, const ResourceLoadStatistics::ScreenAPI);
 
     WEBCORE_EXPORT String statisticsForOrigin(const String&);
 
     WEBCORE_EXPORT void setNotificationCallback(WTF::Function<void (Vector<ResourceLoadStatistics>&&)>&&);
+    WEBCORE_EXPORT void setRequestStorageAccessUnderOpenerCallback(WTF::Function<void(const String&, uint64_t, const String&)>&&);
 
     WEBCORE_EXPORT void notifyObserver();
     WEBCORE_EXPORT void clearState();
 
-#if HAVE(CFNETWORK_STORAGE_PARTITIONING) && !RELEASE_LOG_DISABLED
+#if ENABLE(RESOURCE_LOAD_STATISTICS) && !RELEASE_LOG_DISABLED
     bool shouldLogUserInteraction() const { return m_shouldLogUserInteraction; }
     void setShouldLogUserInteraction(bool shouldLogUserInteraction) { m_shouldLogUserInteraction = shouldLogUserInteraction; }
 #endif
@@ -73,17 +81,22 @@ public:
 private:
     ResourceLoadObserver();
 
-    bool shouldLog(Page*) const;
+    bool shouldLog(bool usesEphemeralSession) const;
     ResourceLoadStatistics& ensureResourceStatisticsForPrimaryDomain(const String&);
 
     void scheduleNotificationIfNeeded();
     Vector<ResourceLoadStatistics> takeStatistics();
 
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    void requestStorageAccessUnderOpener(const String& domainInNeedOfStorageAccess, uint64_t openerPageID, Document& openerDocument);
+#endif
+
     HashMap<String, ResourceLoadStatistics> m_resourceStatisticsMap;
     HashMap<String, WTF::WallTime> m_lastReportedUserInteractionMap;
     WTF::Function<void (Vector<ResourceLoadStatistics>&&)> m_notificationCallback;
+    WTF::Function<void(const String&, uint64_t, const String&)> m_requestStorageAccessUnderOpenerCallback;
     Timer m_notificationTimer;
-#if HAVE(CFNETWORK_STORAGE_PARTITIONING) && !RELEASE_LOG_DISABLED
+#if ENABLE(RESOURCE_LOAD_STATISTICS) && !RELEASE_LOG_DISABLED
     uint64_t m_loggingCounter { 0 };
     bool m_shouldLogUserInteraction { false };
 #endif

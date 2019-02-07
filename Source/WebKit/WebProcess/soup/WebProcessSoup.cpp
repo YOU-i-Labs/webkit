@@ -28,6 +28,7 @@
 #include "WebProcess.h"
 
 #include "WebProcessCreationParameters.h"
+#include <WebCore/GStreamerCommon.h>
 #include <WebCore/MemoryCache.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/SoupNetworkSession.h>
@@ -40,7 +41,7 @@ namespace WebKit {
 
 void WebProcess::platformSetCacheModel(CacheModel cacheModel)
 {
-    WebCore::MemoryCache::singleton().setDisabled(cacheModel == CacheModelDocumentViewer);
+    WebCore::MemoryCache::singleton().setDisabled(cacheModel == CacheModel::DocumentViewer);
 }
 
 void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters&& parameters)
@@ -50,6 +51,9 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters&& par
 
 #if PLATFORM(WAYLAND)
     m_waylandCompositorDisplay = WaylandCompositorDisplay::create(parameters.waylandCompositorDisplayName);
+#endif
+#if USE(GSTREAMER)
+    WebCore::initializeGStreamer(WTFMove(parameters.gstreamerOptions));
 #endif
 }
 

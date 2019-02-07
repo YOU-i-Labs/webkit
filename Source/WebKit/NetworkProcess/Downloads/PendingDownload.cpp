@@ -27,17 +27,18 @@
 #include "PendingDownload.h"
 
 #include "DataReference.h"
+#include "Download.h"
 #include "DownloadProxyMessages.h"
 #include "NetworkLoad.h"
 #include "NetworkProcess.h"
 #include "WebCoreArgumentCoders.h"
 
+namespace WebKit {
 using namespace WebCore;
 
-namespace WebKit {
-
-PendingDownload::PendingDownload(NetworkLoadParameters&& parameters, DownloadID downloadID, NetworkSession& networkSession, const String& suggestedName)
+PendingDownload::PendingDownload(IPC::Connection* parentProcessConnection, NetworkLoadParameters&& parameters, DownloadID downloadID, NetworkSession& networkSession, const String& suggestedName)
     : m_networkLoad(std::make_unique<NetworkLoad>(*this, WTFMove(parameters), networkSession))
+    , m_parentProcessConnection(parentProcessConnection)
 {
     m_isAllowedToAskUserForCredentials = parameters.clientCredentialPolicy == ClientCredentialPolicy::MayAskClientForCredentials;
 
@@ -48,15 +49,16 @@ PendingDownload::PendingDownload(NetworkLoadParameters&& parameters, DownloadID 
     send(Messages::DownloadProxy::DidStart(m_networkLoad->currentRequest(), suggestedName));
 }
 
-PendingDownload::PendingDownload(std::unique_ptr<NetworkLoad>&& networkLoad, DownloadID downloadID, const ResourceRequest& request, const ResourceResponse& response)
+PendingDownload::PendingDownload(IPC::Connection* parentProcessConnection, std::unique_ptr<NetworkLoad>&& networkLoad, ResponseCompletionHandler&& completionHandler, DownloadID downloadID, const ResourceRequest& request, const ResourceResponse& response)
     : m_networkLoad(WTFMove(networkLoad))
+    , m_parentProcessConnection(parentProcessConnection)
 {
     m_isAllowedToAskUserForCredentials = m_networkLoad->isAllowedToAskUserForCredentials();
 
     m_networkLoad->setPendingDownloadID(downloadID);
     send(Messages::DownloadProxy::DidStart(request, String()));
 
-    m_networkLoad->convertTaskToDownload(*this, request, response);
+    m_networkLoad->convertTaskToDownload(*this, request, response, WTFMove(completionHandler));
 }
 
 void PendingDownload::willSendRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&& redirectResponse)
@@ -76,12 +78,20 @@ void PendingDownload::cancel()
     send(Messages::DownloadProxy::DidCancel({ }));
 }
 
-#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
-void PendingDownload::canAuthenticateAgainstProtectionSpaceAsync(const WebCore::ProtectionSpace& protectionSpace)
+#if PLATFORM(COCOA)
+void PendingDownload::publishProgress(const URL& url, SandboxExtension::Handle&& sandboxExtension)
 {
-    m_networkLoad->continueCanAuthenticateAgainstProtectionSpace(true);
+    ASSERT(!m_progressURL.isValid());
+    m_progressURL = url;
+    m_progressSandboxExtension = WTFMove(sandboxExtension);
 }
-#endif
+
+void PendingDownload::didBecomeDownload(const std::unique_ptr<Download>& download)
+{
+    if (m_progressURL.isValid())
+        download->publishProgress(m_progressURL, WTFMove(m_progressSandboxExtension));
+}
+#endif // PLATFORM(COCOA)
 
 void PendingDownload::didFailLoading(const WebCore::ResourceError& error)
 {
@@ -90,7 +100,12 @@ void PendingDownload::didFailLoading(const WebCore::ResourceError& error)
     
 IPC::Connection* PendingDownload::messageSenderConnection()
 {
-    return NetworkProcess::singleton().parentProcessConnection();
+    return m_parentProcessConnection.get();
+}
+
+void PendingDownload::didReceiveResponse(WebCore::ResourceResponse&& response, ResponseCompletionHandler&& completionHandler)
+{
+    completionHandler(WebCore::PolicyAction::Download);
 }
 
 uint64_t PendingDownload::messageSenderDestinationID()

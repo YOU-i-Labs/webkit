@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2018 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Holger Hans Peter Freyther
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,8 +33,9 @@
 #include "ScrollTypes.h"
 #include "Widget.h"
 #include <wtf/HashSet.h>
+#include <wtf/WeakPtr.h>
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 
 OBJC_CLASS WAKScrollView;
 OBJC_CLASS WAKView;
@@ -47,7 +48,7 @@ OBJC_CLASS WAKView;
 #define NSView WAKView
 #endif
 
-#endif // PLATFORM(IOS)
+#endif // PLATFORM(IOS_FAMILY)
 
 #if PLATFORM(COCOA) && defined __OBJC__
 @class NSScrollView;
@@ -73,9 +74,11 @@ public:
 
     virtual void notifyPageThatContentAreaWillPaint() const;
 
+    using Widget::weakPtrFactory;
+
     IntPoint locationOfContents() const;
 
-    // NOTE: This should only be called by the overriden setScrollOffset from ScrollableArea.
+    // NOTE: This should only be called by the overridden setScrollOffset from ScrollableArea.
     virtual void scrollTo(const ScrollPosition&);
 
     // The window thats hosts the ScrollView. The ScrollView will communicate scrolls and repaints to the
@@ -174,13 +177,13 @@ public:
     // contribute to painting but not to the scrollable area.
     // The unobscuredContentRect is the area that is not covered by UI elements.
     WEBCORE_EXPORT IntRect unobscuredContentRect(VisibleContentRectIncludesScrollbars = ExcludeScrollbars) const;
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     IntRect unobscuredContentRectIncludingScrollbars() const { return unobscuredContentRect(IncludeScrollbars); }
 #else
     IntRect unobscuredContentRectIncludingScrollbars() const { return visibleContentRectIncludingScrollbars(); }
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     // This is the area that is partially or fully exposed, and may extend under overlapping UI elements.
     WEBCORE_EXPORT FloatRect exposedContentRect() const;
 
@@ -232,7 +235,7 @@ public:
     IntPoint contentsScrollPosition() const;
     void setContentsScrollPosition(const IntPoint&);
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     int actualScrollX() const { return unobscuredContentRect().x(); }
     int actualScrollY() const { return unobscuredContentRect().y(); }
     // FIXME: maybe fix scrollPosition() on iOS to return the actual scroll position.
@@ -280,12 +283,16 @@ public:
     WEBCORE_EXPORT IntPoint contentsToRootView(const IntPoint&) const;
     WEBCORE_EXPORT IntRect rootViewToContents(const IntRect&) const;
     WEBCORE_EXPORT IntRect contentsToRootView(const IntRect&) const;
+    WEBCORE_EXPORT FloatRect rootViewToContents(const FloatRect&) const;
 
     IntPoint viewToContents(const IntPoint&) const;
     IntPoint contentsToView(const IntPoint&) const;
 
     IntRect viewToContents(IntRect) const;
     IntRect contentsToView(IntRect) const;
+
+    FloatRect viewToContents(FloatRect) const;
+    FloatRect contentsToView(FloatRect) const;
 
     IntPoint contentsToContainingViewContents(const IntPoint&) const;
     IntRect contentsToContainingViewContents(IntRect) const;
@@ -414,7 +421,7 @@ protected:
 
     virtual void scrollOffsetChangedViaPlatformWidgetImpl(const ScrollOffset&, const ScrollOffset&) = 0;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     virtual void unobscuredContentSizeChanged() = 0;
 #endif
 
@@ -438,7 +445,7 @@ private:
     ScrollbarMode m_horizontalScrollbarMode { ScrollbarAuto };
     ScrollbarMode m_verticalScrollbarMode { ScrollbarAuto };
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     // FIXME: exposedContentRect is a very similar concept to fixedVisibleContentRect except it does not differentiate
     // between exposed and unobscured areas. The two attributes should eventually be merged.
     FloatRect m_exposedContentRect;
@@ -452,8 +459,8 @@ private:
     IntSize m_fixedLayoutSize;
     IntSize m_contentsSize;
 
-    std::optional<IntSize> m_deferredScrollDelta; // Needed for WebKit scrolling
-    std::optional<std::pair<ScrollOffset, ScrollOffset>> m_deferredScrollOffsets; // Needed for platform widget scrolling
+    Optional<IntSize> m_deferredScrollDelta; // Needed for WebKit scrolling
+    Optional<std::pair<ScrollOffset, ScrollOffset>> m_deferredScrollOffsets; // Needed for platform widget scrolling
 
     IntPoint m_panScrollIconPoint;
 

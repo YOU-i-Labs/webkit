@@ -28,7 +28,6 @@
 #include "ScrollTypes.h"
 #include "Timer.h"
 #include "Widget.h"
-#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -97,7 +96,7 @@ public:
     // These methods are used for platform scrollbars to give :hover feedback.  They will not get called
     // when the mouse went down in a scrollbar, since it is assumed the scrollbar will start
     // grabbing all events in that case anyway.
-#if !PLATFORM(IOS)
+#if !PLATFORM(IOS_FAMILY)
     WEBCORE_EXPORT bool mouseMoved(const PlatformMouseEvent&);
 #endif
     WEBCORE_EXPORT void mouseEntered();
@@ -132,8 +131,6 @@ public:
     void setOpacity(float opacity) { m_opacity = opacity; }
 
     bool supportsUpdateOnSecondaryThread() const;
-
-    WeakPtr<Scrollbar> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(*this); }
 
 protected:
     Scrollbar(ScrollableArea&, ScrollbarOrientation, ScrollbarControlSize, ScrollbarTheme* = 0, bool isCustomScrollbar = false);
@@ -183,8 +180,6 @@ protected:
 
 private:
     bool isScrollbar() const override { return true; }
-
-    WeakPtrFactory<Scrollbar> m_weakPtrFactory;
 };
 
 } // namespace WebCore

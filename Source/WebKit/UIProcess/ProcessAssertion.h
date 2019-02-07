@@ -26,11 +26,14 @@
 #ifndef ProcessAssertion_h
 #define ProcessAssertion_h
 
-#include <unistd.h>
 #include <wtf/Function.h>
 #include <wtf/ProcessID.h>
 
-#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
+#if !OS(WINDOWS)
+#include <unistd.h>
+#endif
+
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR)
 #include <wtf/RetainPtr.h>
 #include <wtf/WeakPtr.h>
 OBJC_CLASS BKSProcessAssertion;
@@ -50,7 +53,11 @@ public:
     virtual void assertionWillExpireImminently() = 0;
 };
 
-class ProcessAssertion {
+class ProcessAssertion
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR)
+    : public CanMakeWeakPtr<ProcessAssertion>
+#endif
+{
 public:
     ProcessAssertion(ProcessID, AssertionState, Function<void()>&& invalidationCallback = { });
     virtual ~ProcessAssertion();
@@ -61,20 +68,18 @@ public:
     AssertionState state() const { return m_assertionState; }
     virtual void setState(AssertionState);
 
-#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR)
 protected:
     enum class Validity { No, Yes, Unset };
     Validity validity() const { return m_validity; }
 #endif
 
 private:
-#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
-    WeakPtr<ProcessAssertion> createWeakPtr() { return m_weakFactory.createWeakPtr(*this); }
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR)
     void markAsInvalidated();
 
     RetainPtr<BKSProcessAssertion> m_assertion;
     Validity m_validity { Validity::Unset };
-    WeakPtrFactory<ProcessAssertion> m_weakFactory;
     Function<void()> m_invalidationCallback;
 #endif
     AssertionState m_assertionState;
@@ -90,7 +95,7 @@ public:
 
     void setState(AssertionState) final;
 
-#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR)
 private:
     void updateRunInBackgroundCount();
 

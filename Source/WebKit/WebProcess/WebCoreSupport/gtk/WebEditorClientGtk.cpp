@@ -54,7 +54,7 @@ bool WebEditorClient::executePendingEditorCommands(Frame* frame, const Vector<WT
 
 void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
 {
-    const PlatformKeyboardEvent* platformEvent = event->keyEvent();
+    auto* platformEvent = event->underlyingPlatformEvent();
     if (!platformEvent)
         return;
 
@@ -110,7 +110,7 @@ void WebEditorClient::handleKeyboardEvent(KeyboardEvent* event)
 
 void WebEditorClient::handleInputMethodKeydown(KeyboardEvent* event)
 {
-    const PlatformKeyboardEvent* platformEvent = event->keyEvent();
+    auto* platformEvent = event->underlyingPlatformEvent();
     if (platformEvent && platformEvent->handledByInputMethod())
         event->setDefaultHandled();
 }
@@ -126,7 +126,7 @@ void WebEditorClient::updateGlobalSelection(Frame* frame)
     PasteboardWebContent pasteboardContent;
     pasteboardContent.canSmartCopyOrDelete = false;
     pasteboardContent.text = range->text();
-    pasteboardContent.markup = createMarkup(*range, nullptr, AnnotateForInterchange, false, ResolveNonLocalURLs);
+    pasteboardContent.markup = serializePreservingVisualAppearance(frame->selection().selection(), ResolveURLs::YesExcludingLocalFileURLsForPrivacy);
     Pasteboard::createForGlobalSelection()->write(pasteboardContent);
 }
 

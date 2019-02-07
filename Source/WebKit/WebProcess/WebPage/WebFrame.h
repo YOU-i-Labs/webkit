@@ -30,6 +30,7 @@
 #include "ShareableBitmap.h"
 #include "WKBase.h"
 #include "WebFrameLoaderClient.h"
+#include <JavaScriptCore/ConsoleTypes.h>
 #include <JavaScriptCore/JSBase.h>
 #include <WebCore/FrameLoaderClient.h>
 #include <WebCore/FrameLoaderTypes.h>
@@ -52,12 +53,10 @@ class Frame;
 class HTMLFrameOwnerElement;
 class IntPoint;
 class IntRect;
-class URL;
 }
 
 namespace WebKit {
 
-class InjectedBundleFileHandle;
 class InjectedBundleHitTestResult;
 class InjectedBundleNodeHandle;
 class InjectedBundleRangeHandle;
@@ -65,6 +64,8 @@ class InjectedBundleScriptWorld;
 class WebPage;
 struct FrameInfoData;
 struct WebsitePoliciesData;
+
+enum class WebPolicyAction : uint8_t;
 
 class WebFrame : public API::ObjectImpl<API::Object::Type::BundleFrame> {
 public:
@@ -86,13 +87,15 @@ public:
     enum class ForNavigationAction { No, Yes };
     uint64_t setUpPolicyListener(WebCore::FramePolicyFunction&&, ForNavigationAction);
     void invalidatePolicyListener();
-    void didReceivePolicyDecision(uint64_t listenerID, WebCore::PolicyAction, uint64_t navigationID, DownloadID, std::optional<WebsitePoliciesData>&&);
+    void didReceivePolicyDecision(uint64_t listenerID, WebPolicyAction, uint64_t navigationID, DownloadID, Optional<WebsitePoliciesData>&&);
 
-    uint64_t setUpWillSubmitFormListener(WTF::Function<void(void)>&&);
+    uint64_t setUpWillSubmitFormListener(CompletionHandler<void()>&&);
     void continueWillSubmitForm(uint64_t);
 
     void startDownload(const WebCore::ResourceRequest&, const String& suggestedName = { });
     void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, PAL::SessionID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
+
+    void addConsoleMessage(MessageSource, MessageLevel, const String&, uint64_t requestID = 0);
 
     String source() const;
     String contentsAsString() const;
@@ -103,7 +106,7 @@ public:
     // WKBundleFrame API and SPI functions
     bool isMainFrame() const;
     String name() const;
-    WebCore::URL url() const;
+    URL url() const;
     WebCore::CertificateInfo certificateInfo() const;
     String innerText() const;
     bool isFrameSet() const;
@@ -130,7 +133,6 @@ public:
 
     JSValueRef jsWrapperForWorld(InjectedBundleNodeHandle*, InjectedBundleScriptWorld*);
     JSValueRef jsWrapperForWorld(InjectedBundleRangeHandle*, InjectedBundleScriptWorld*);
-    JSValueRef jsWrapperForWorld(InjectedBundleFileHandle*, InjectedBundleScriptWorld*);
 
     static String counterValue(JSObjectRef element);
 
@@ -138,11 +140,11 @@ public:
     
     unsigned pendingUnloadCount() const;
     
-    bool allowsFollowingLink(const WebCore::URL&) const;
+    bool allowsFollowingLink(const URL&) const;
 
     String provisionalURL() const;
-    String suggestedFilenameForResourceWithURL(const WebCore::URL&) const;
-    String mimeTypeForResourceWithURL(const WebCore::URL&) const;
+    String suggestedFilenameForResourceWithURL(const URL&) const;
+    String mimeTypeForResourceWithURL(const URL&) const;
 
     void setTextDirection(const String&);
 
@@ -166,7 +168,7 @@ public:
 
     RefPtr<ShareableBitmap> createSelectionSnapshot() const;
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     uint64_t firstLayerTreeTransactionIDAfterDidCommitLoad() const { return m_firstLayerTreeTransactionIDAfterDidCommitLoad; }
     void setFirstLayerTreeTransactionIDAfterDidCommitLoad(uint64_t transactionID) { m_firstLayerTreeTransactionIDAfterDidCommitLoad = transactionID; }
 #endif
@@ -180,7 +182,7 @@ private:
     uint64_t m_policyListenerID { 0 };
     WebCore::FramePolicyFunction m_policyFunction;
     ForNavigationAction m_policyFunctionForNavigationAction { ForNavigationAction::No };
-    HashMap<uint64_t, WTF::Function<void(void)>> m_willSubmitFormCompletionHandlers;
+    HashMap<uint64_t, CompletionHandler<void()>> m_willSubmitFormCompletionHandlers;
     DownloadID m_policyDownloadID { 0 };
 
     std::unique_ptr<WebFrameLoaderClient> m_frameLoaderClient;
@@ -188,7 +190,7 @@ private:
     
     uint64_t m_frameID { 0 };
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
     uint64_t m_firstLayerTreeTransactionIDAfterDidCommitLoad { 0 };
 #endif
 };

@@ -27,6 +27,7 @@
 #include "JSFunction.h"
 #include "JSString.h"
 #include "JSCInlines.h"
+#include "ObjectPrototypeInlines.h"
 #include "PropertySlot.h"
 #include "StructureInlines.h"
 #include "StructureRareDataInlines.h"
@@ -42,6 +43,7 @@ static EncodedJSValue JSC_HOST_CALL objectProtoFuncLookupGetter(ExecState*);
 static EncodedJSValue JSC_HOST_CALL objectProtoFuncLookupSetter(ExecState*);
 static EncodedJSValue JSC_HOST_CALL objectProtoFuncPropertyIsEnumerable(ExecState*);
 static EncodedJSValue JSC_HOST_CALL objectProtoFuncToLocaleString(ExecState*);
+static EncodedJSValue JSC_HOST_CALL objectProtoFuncToString(ExecState*);
 
 STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(ObjectPrototype);
 
@@ -58,7 +60,7 @@ void ObjectPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
     ASSERT(inherits(vm, info()));
     didBecomePrototype();
     
-    JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->toString, objectProtoFuncToString, static_cast<unsigned>(PropertyAttribute::DontEnum), 0);
+    JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->toString, objectProtoFuncToString, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, ObjectPrototypeToStringIntrinsic);
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->toLocaleString, objectProtoFuncToLocaleString, static_cast<unsigned>(PropertyAttribute::DontEnum), 0);
     JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->valueOf, objectProtoFuncValueOf, static_cast<unsigned>(PropertyAttribute::DontEnum), 0);
     JSC_NATIVE_INTRINSIC_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->hasOwnProperty, objectProtoFuncHasOwnProperty, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, HasOwnPropertyIntrinsic);
@@ -103,7 +105,7 @@ EncodedJSValue JSC_HOST_CALL objectProtoFuncHasOwnProperty(ExecState* exec)
 
     Structure* structure = thisObject->structure(vm);
     HasOwnPropertyCache* hasOwnPropertyCache = vm.ensureHasOwnPropertyCache();
-    if (std::optional<bool> result = hasOwnPropertyCache->get(structure, propertyName)) {
+    if (Optional<bool> result = hasOwnPropertyCache->get(structure, propertyName)) {
         ASSERT(*result == thisObject->hasOwnProperty(exec, propertyName));
         scope.assertNoException();
         return JSValue::encode(jsBoolean(*result));
@@ -154,8 +156,8 @@ EncodedJSValue JSC_HOST_CALL objectProtoFuncDefineGetter(ExecState* exec)
 
     JSValue get = exec->argument(1);
     CallData callData;
-    if (getCallData(get, callData) == CallType::None)
-        return throwVMTypeError(exec, scope, ASCIILiteral("invalid getter usage"));
+    if (getCallData(vm, get, callData) == CallType::None)
+        return throwVMTypeError(exec, scope, "invalid getter usage"_s);
 
     auto propertyName = exec->argument(0).toPropertyKey(exec);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
@@ -182,8 +184,8 @@ EncodedJSValue JSC_HOST_CALL objectProtoFuncDefineSetter(ExecState* exec)
 
     JSValue set = exec->argument(1);
     CallData callData;
-    if (getCallData(set, callData) == CallType::None)
-        return throwVMTypeError(exec, scope, ASCIILiteral("invalid setter usage"));
+    if (getCallData(vm, set, callData) == CallType::None)
+        return throwVMTypeError(exec, scope, "invalid setter usage"_s);
 
     auto propertyName = exec->argument(0).toPropertyKey(exec);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
@@ -301,62 +303,18 @@ EncodedJSValue JSC_HOST_CALL objectProtoFuncToLocaleString(ExecState* exec)
 
     // If IsCallable(toString) is false, throw a TypeError exception.
     CallData callData;
-    CallType callType = getCallData(toString, callData);
+    CallType callType = getCallData(vm, toString, callData);
     if (callType == CallType::None)
         return throwVMTypeError(exec, scope);
 
     // Return the result of calling the [[Call]] internal method of toString passing the this value and no arguments.
-    scope.release();
-    return JSValue::encode(call(exec, toString, callType, callData, thisValue, *vm.emptyList));
+    RELEASE_AND_RETURN(scope, JSValue::encode(call(exec, toString, callType, callData, thisValue, *vm.emptyList)));
 }
 
 EncodedJSValue JSC_HOST_CALL objectProtoFuncToString(ExecState* exec)
 {
-    VM& vm = exec->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
     JSValue thisValue = exec->thisValue().toThis(exec, StrictMode);
-    if (thisValue.isUndefinedOrNull())
-        return JSValue::encode(thisValue.isUndefined() ? vm.smallStrings.undefinedObjectString() : vm.smallStrings.nullObjectString());
-    JSObject* thisObject = thisValue.toObject(exec);
-    EXCEPTION_ASSERT(!!scope.exception() == !thisObject);
-    if (!thisObject)
-        return JSValue::encode(jsUndefined());
-
-    auto result = thisObject->structure(vm)->objectToStringValue();
-    if (result)
-        return JSValue::encode(result);
-
-    PropertyName toStringTagSymbol = vm.propertyNames->toStringTagSymbol;
-    scope.release();
-    return JSValue::encode(thisObject->getPropertySlot(exec, toStringTagSymbol, [&] (bool found, PropertySlot& toStringTagSlot) -> JSValue {
-        if (found) {
-            JSValue stringTag = toStringTagSlot.getValue(exec, toStringTagSymbol);
-            RETURN_IF_EXCEPTION(scope, { });
-            if (stringTag.isString()) {
-                JSRopeString::RopeBuilder<RecordOverflow> ropeBuilder(vm);
-                ropeBuilder.append(vm.smallStrings.objectStringStart());
-                ropeBuilder.append(asString(stringTag));
-                ropeBuilder.append(vm.smallStrings.singleCharacterString(']'));
-                if (ropeBuilder.hasOverflowed())
-                    return throwOutOfMemoryError(exec, scope);
-
-                JSString* result = ropeBuilder.release();
-                thisObject->structure(vm)->setObjectToStringValue(exec, vm, result, toStringTagSlot);
-                return result;
-            }
-        }
-
-        String tag = thisObject->methodTable(vm)->toStringName(thisObject, exec);
-        RETURN_IF_EXCEPTION(scope, { });
-        String newString = tryMakeString("[object ", WTFMove(tag), "]");
-        if (!newString)
-            return throwOutOfMemoryError(exec, scope);
-
-        auto result = jsNontrivialString(&vm, newString);
-        thisObject->structure(vm)->setObjectToStringValue(exec, vm, result, toStringTagSlot);
-        return result;
-    }));
+    return JSValue::encode(objectToString(exec, thisValue));
 }
 
 } // namespace JSC

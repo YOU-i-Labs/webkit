@@ -32,9 +32,9 @@ namespace JSC {
 class JSGlobalObject;
 class NativeStdFunctionCell;
 
-typedef std::function<EncodedJSValue (ExecState*)> NativeStdFunction;
+using NativeStdFunction = WTF::Function<EncodedJSValue(ExecState*)>;
 
-class JSNativeStdFunction : public JSFunction {
+class JSNativeStdFunction final : public JSFunction {
 public:
     typedef JSFunction Base;
 

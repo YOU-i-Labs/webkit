@@ -33,14 +33,15 @@
 
 namespace WebCore {
 
-Ref<ScrollingStateFrameScrollingNode> ScrollingStateFrameScrollingNode::create(ScrollingStateTree& stateTree, ScrollingNodeID nodeID)
+Ref<ScrollingStateFrameScrollingNode> ScrollingStateFrameScrollingNode::create(ScrollingStateTree& stateTree, ScrollingNodeType nodeType, ScrollingNodeID nodeID)
 {
-    return adoptRef(*new ScrollingStateFrameScrollingNode(stateTree, nodeID));
+    return adoptRef(*new ScrollingStateFrameScrollingNode(stateTree, nodeType, nodeID));
 }
 
-ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(ScrollingStateTree& stateTree, ScrollingNodeID nodeID)
-    : ScrollingStateScrollingNode(stateTree, FrameScrollingNode, nodeID)
+ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(ScrollingStateTree& stateTree, ScrollingNodeType nodeType, ScrollingNodeID nodeID)
+    : ScrollingStateScrollingNode(stateTree, nodeType, nodeID)
 {
+    ASSERT(isFrameScrollingNode());
 }
 
 ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(const ScrollingStateFrameScrollingNode& stateNode, ScrollingStateTree& adoptiveTree)
@@ -78,6 +79,12 @@ ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(const Scrolli
 
     if (hasChangedProperty(FooterLayer))
         setFooterLayer(stateNode.footerLayer().toRepresentation(adoptiveTree.preferredLayerRepresentation()));
+
+    if (hasChangedProperty(VerticalScrollbarLayer))
+        setVerticalScrollbarLayer(stateNode.verticalScrollbarLayer().toRepresentation(adoptiveTree.preferredLayerRepresentation()));
+
+    if (hasChangedProperty(HorizontalScrollbarLayer))
+        setHorizontalScrollbarLayer(stateNode.horizontalScrollbarLayer().toRepresentation(adoptiveTree.preferredLayerRepresentation()));
 }
 
 ScrollingStateFrameScrollingNode::~ScrollingStateFrameScrollingNode() = default;
@@ -221,6 +228,24 @@ void ScrollingStateFrameScrollingNode::setFooterLayer(const LayerRepresentation&
     
     m_footerLayer = layerRepresentation;
     setPropertyChanged(FooterLayer);
+}
+
+void ScrollingStateFrameScrollingNode::setVerticalScrollbarLayer(const LayerRepresentation& layer)
+{
+    if (layer == m_verticalScrollbarLayer)
+        return;
+
+    m_verticalScrollbarLayer = layer;
+    setPropertyChanged(VerticalScrollbarLayer);
+}
+
+void ScrollingStateFrameScrollingNode::setHorizontalScrollbarLayer(const LayerRepresentation& layer)
+{
+    if (layer == m_horizontalScrollbarLayer)
+        return;
+
+    m_horizontalScrollbarLayer = layer;
+    setPropertyChanged(HorizontalScrollbarLayer);
 }
 
 void ScrollingStateFrameScrollingNode::setFixedElementsLayoutRelativeToFrame(bool fixedElementsLayoutRelativeToFrame)

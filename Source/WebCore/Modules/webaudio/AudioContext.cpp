@@ -85,10 +85,10 @@
 #endif
 
 #if USE(GSTREAMER)
-#include "GStreamerUtilities.h"
+#include "GStreamerCommon.h"
 #endif
 
-#if PLATFORM(IOS)
+#if PLATFORM(IOS_FAMILY)
 #include "ScriptController.h"
 #include "Settings.h"
 #endif
@@ -162,20 +162,14 @@ void AudioContext::constructCommon()
     // Lets mark it as ActiveDOMObject with pending activity and unmark it in clear method.
     setPendingActivity(this);
 
-#if USE(GSTREAMER)
-    initializeGStreamer();
-#endif
-
     FFTFrame::initialize();
     
     m_listener = AudioListener::create();
 
-#if PLATFORM(IOS)
-    if (document()->settings().audioPlaybackRequiresUserGesture())
+    if (document()->audioPlaybackRequiresUserGesture())
         addBehaviorRestriction(RequireUserGestureForAudioStartRestriction);
     else
         m_restrictions = NoRestrictions;
-#endif
 
 #if PLATFORM(COCOA)
     addBehaviorRestriction(RequirePageConsentForAudioStartRestriction);
@@ -294,7 +288,7 @@ void AudioContext::setState(State state)
         return;
 
     m_state = state;
-    m_eventQueue->enqueueEvent(Event::create(eventNames().statechangeEvent, true, false));
+    m_eventQueue->enqueueEvent(Event::create(eventNames().statechangeEvent, Event::CanBubble::Yes, Event::IsCancelable::No));
 
     size_t stateIndex = static_cast<size_t>(state);
     if (stateIndex >= m_stateReactions.size())
@@ -349,7 +343,7 @@ Document* AudioContext::document() const
     return downcast<Document>(m_scriptExecutionContext);
 }
 
-const Document* AudioContext::hostingDocument() const
+Document* AudioContext::hostingDocument() const
 {
     return downcast<Document>(m_scriptExecutionContext);
 }
@@ -391,6 +385,17 @@ void AudioContext::visibilityStateChanged()
             m_mediaSession->endInterruption(PlatformMediaSession::MayResumePlaying);
         }
     }
+}
+
+bool AudioContext::wouldTaintOrigin(const URL& url) const
+{
+    if (url.protocolIsData())
+        return false;
+
+    if (auto* document = this->document())
+        return !document->securityOrigin().canRequest(url);
+
+    return false;
 }
 
 ExceptionOr<Ref<AudioBuffer>> AudioContext::createBuffer(unsigned numberOfChannels, size_t numberOfFrames, float sampleRate)

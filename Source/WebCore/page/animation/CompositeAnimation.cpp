@@ -109,12 +109,18 @@ void CompositeAnimation::updateTransitions(Element& element, const RenderStyle* 
             for (int propertyIndex = 0; propertyIndex < CSSPropertyAnimation::getNumProperties(); ++propertyIndex) {
                 if (all) {
                     // Get the next property which is not a shorthand.
-                    bool isShorthand;
+                    Optional<bool> isShorthand;
                     prop = CSSPropertyAnimation::getPropertyAtIndex(propertyIndex, isShorthand);
-                    if (isShorthand)
+                    if (isShorthand && *isShorthand)
                         continue;
                 }
 
+                if (prop == CSSPropertyInvalid) {
+                    if (!all)
+                        break;
+                    continue;
+                }
+                
                 // ImplicitAnimations are always hashed by actual properties, never animateAll.
                 ASSERT(prop >= firstCSSProperty && prop < (firstCSSProperty + numCSSProperties));
 
@@ -159,7 +165,7 @@ void CompositeAnimation::updateTransitions(Element& element, const RenderStyle* 
                     }
                 } else {
                     // We need to start a transition if it is active and the properties don't match
-                    equal = !isActiveTransition || CSSPropertyAnimation::propertiesEqual(prop, fromStyle, &targetStyle);
+                    equal = !isActiveTransition || CSSPropertyAnimation::propertiesEqual(prop, fromStyle, &targetStyle) || !CSSPropertyAnimation::canPropertyBeInterpolated(prop, fromStyle, &targetStyle);
                 }
 
                 // We can be in this loop with an inactive transition (!isActiveTransition). We need
@@ -170,7 +176,7 @@ void CompositeAnimation::updateTransitions(Element& element, const RenderStyle* 
                     // Add the new transition
                     auto implicitAnimation = ImplicitAnimation::create(animation, prop, element, *this, modifiedCurrentStyle ? *modifiedCurrentStyle : *fromStyle);
                     if (m_suspended && implicitAnimation->hasStyle())
-                        implicitAnimation->updatePlayState(AnimPlayStatePaused);
+                        implicitAnimation->updatePlayState(AnimationPlayState::Paused);
 
                     LOG(Animations, "Created ImplicitAnimation %p on element %p for property %s duration %.2f delay %.2f", implicitAnimation.ptr(), &element, getPropertyName(prop), animation.duration(), animation.delay());
                     m_transitions.set(prop, WTFMove(implicitAnimation));
@@ -209,10 +215,6 @@ void CompositeAnimation::updateKeyframeAnimations(Element& element, const Render
     if (currentStyle && currentStyle->hasAnimations() && targetStyle.hasAnimations() && *(currentStyle->animations()) == *(targetStyle.animations()))
         return;
 
-#if ENABLE(CSS_ANIMATIONS_LEVEL_2)
-    m_hasScrollTriggeredAnimation = false;
-#endif
-
     AnimationNameMap newAnimations;
 
     // Toss the animation order map.
@@ -238,11 +240,6 @@ void CompositeAnimation::updateKeyframeAnimations(Element& element, const Render
                 if (keyframeAnim->postActive())
                     continue;
 
-#if ENABLE(CSS_ANIMATIONS_LEVEL_2)
-                if (animation.trigger()->isScrollAnimationTrigger())
-                    m_hasScrollTriggeredAnimation = true;
-#endif
-
                 // Animations match, but play states may differ. Update if needed.
                 keyframeAnim->updatePlayState(animation.playState());
 
@@ -253,17 +250,12 @@ void CompositeAnimation::updateKeyframeAnimations(Element& element, const Render
                 LOG(Animations, "Creating KeyframeAnimation %p on element %p with keyframes %s, duration %.2f, delay %.2f, iterations %.2f", keyframeAnim.get(), &element, animation.name().utf8().data(), animation.duration(), animation.delay(), animation.iterationCount());
 
                 if (m_suspended) {
-                    keyframeAnim->updatePlayState(AnimPlayStatePaused);
+                    keyframeAnim->updatePlayState(AnimationPlayState::Paused);
                     LOG(Animations, "  (created in suspended/paused state)");
                 }
 #if !LOG_DISABLED
                 for (auto propertyID : keyframeAnim->keyframes().properties())
                     LOG(Animations, "  property %s", getPropertyName(propertyID));
-#endif
-
-#if ENABLE(CSS_ANIMATIONS_LEVEL_2)
-                if (animation.trigger()->isScrollAnimationTrigger())
-                    m_hasScrollTriggeredAnimation = true;
 #endif
 
                 newAnimations.set(keyframeAnim->name().impl(), keyframeAnim);
@@ -372,15 +364,15 @@ std::unique_ptr<RenderStyle> CompositeAnimation::getAnimatedStyle() const
     return resultStyle;
 }
 
-std::optional<Seconds> CompositeAnimation::timeToNextService() const
+Optional<Seconds> CompositeAnimation::timeToNextService() const
 {
-    // Returns the time at which next service is required. std::nullopt means no service is required. 0 means
+    // Returns the time at which next service is required. WTF::nullopt means no service is required. 0 means
     // service is required now, and > 0 means service is required that many seconds in the future.
-    std::optional<Seconds> minT;
+    Optional<Seconds> minT;
     
     if (!m_transitions.isEmpty()) {
         for (auto& transition : m_transitions.values()) {
-            std::optional<Seconds> t = transition->timeToNextService();
+            Optional<Seconds> t = transition->timeToNextService();
             if (!t)
                 continue;
             if (!minT || t.value() < minT.value())
@@ -392,7 +384,7 @@ std::optional<Seconds> CompositeAnimation::timeToNextService() const
     if (!m_keyframeAnimations.isEmpty()) {
         m_keyframeAnimations.checkConsistency();
         for (auto& animation : m_keyframeAnimations.values()) {
-            std::optional<Seconds> t = animation->timeToNextService();
+            Optional<Seconds> t = animation->timeToNextService();
             if (!t)
                 continue;
             if (!minT || t.value() < minT.value())
@@ -464,13 +456,13 @@ void CompositeAnimation::suspendAnimations()
     if (!m_keyframeAnimations.isEmpty()) {
         m_keyframeAnimations.checkConsistency();
         for (auto& animation : m_keyframeAnimations.values())
-            animation->updatePlayState(AnimPlayStatePaused);
+            animation->updatePlayState(AnimationPlayState::Paused);
     }
 
     if (!m_transitions.isEmpty()) {
         for (auto& transition : m_transitions.values()) {
             if (transition->hasStyle())
-                transition->updatePlayState(AnimPlayStatePaused);
+                transition->updatePlayState(AnimationPlayState::Paused);
         }
     }
 }
@@ -486,14 +478,14 @@ void CompositeAnimation::resumeAnimations()
         m_keyframeAnimations.checkConsistency();
         for (auto& animation : m_keyframeAnimations.values()) {
             if (animation->playStatePlaying())
-                animation->updatePlayState(AnimPlayStatePlaying);
+                animation->updatePlayState(AnimationPlayState::Playing);
         }
     }
 
     if (!m_transitions.isEmpty()) {
         for (auto& transition : m_transitions.values()) {
             if (transition->hasStyle())
-                transition->updatePlayState(AnimPlayStatePlaying);
+                transition->updatePlayState(AnimationPlayState::Playing);
         }
     }
 }

@@ -28,14 +28,17 @@
 
 #include "Logging.h"
 #include <WebCore/FileSystem.h>
-#include <dirent.h>
-#include <sys/stat.h>
-#include <sys/time.h>
 #include <wtf/Assertions.h>
 #include <wtf/Function.h>
 #include <wtf/text/CString.h>
 
-#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
+#if !OS(WINDOWS)
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#endif
+
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR)
 #include <sys/attr.h>
 #include <unistd.h>
 #endif
@@ -48,6 +51,7 @@
 namespace WebKit {
 namespace NetworkCache {
 
+#if !OS(WINDOWS)
 static DirectoryEntryType directoryEntryType(uint8_t dtype)
 {
     switch (dtype) {
@@ -59,10 +63,13 @@ static DirectoryEntryType directoryEntryType(uint8_t dtype)
         ASSERT_NOT_REACHED();
         return DirectoryEntryType::File;
     }
+    return DirectoryEntryType::File;
 }
+#endif
 
 void traverseDirectory(const String& path, const Function<void (const String&, DirectoryEntryType)>& function)
 {
+#if !OS(WINDOWS)
     DIR* dir = opendir(WebCore::FileSystem::fileSystemRepresentation(path).data());
     if (!dir)
         return;
@@ -79,6 +86,9 @@ void traverseDirectory(const String& path, const Function<void (const String&, D
         function(nameString, directoryEntryType(dp->d_type));
     }
     closedir(dir);
+#else
+    function(String(), DirectoryEntryType::File);
+#endif
 }
 
 void deleteDirectoryRecursively(const String& path)
@@ -116,6 +126,8 @@ FileTimes fileTimes(const String& path)
         return { };
     return { WallTime::fromRawSeconds(g_ascii_strtoull(birthtimeString, nullptr, 10)),
         WallTime::fromRawSeconds(g_file_info_get_attribute_uint64(fileInfo.get(), "time::modified")) };
+#elif OS(WINDOWS)
+    return FileTimes();
 #endif
 }
 
@@ -127,13 +139,15 @@ void updateFileModificationTimeIfNeeded(const String& path)
         if (WallTime::now() - times.modification < 1_h)
             return;
     }
+#if !OS(WINDOWS)
     // This really updates both the access time and the modification time.
     utimes(WebCore::FileSystem::fileSystemRepresentation(path).data(), nullptr);
+#endif
 }
 
-bool canUseSharedMemoryForPath(const String& path)
+bool isSafeToUseMemoryMapForPath(const String& path)
 {
-#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR)
     struct {
         uint32_t length;
         uint32_t protectionClass;
