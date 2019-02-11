@@ -109,6 +109,16 @@ add_library(capstone STATIC ${capstone_SOURCES} ${capstone_HEADERS})
 set_property(TARGET capstone PROPERTY OUTPUT_NAME capstone)
 target_include_directories(capstone PRIVATE ${capstone_INCLUDE_DIRECTORIES})
 
+include(GNUInstallDirs)
+install(
+    TARGETS capstone
+    EXPORT "${TARGETS_EXPORT_NAME}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+
 if (COMPILER_IS_GCC_OR_CLANG)
     WEBKIT_ADD_TARGET_C_FLAGS(capstone
         -Wno-sign-compare
