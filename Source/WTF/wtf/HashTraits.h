@@ -21,6 +21,7 @@
 #pragma once
 
 #include <limits>
+#include <tuple>
 #include <utility>
 #include <wtf/Forward.h>
 #include <wtf/HashFunctions.h>

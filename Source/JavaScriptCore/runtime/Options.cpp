@@ -170,6 +170,12 @@ bool Options::isAvailable(Options::ID id, Options::Availability availability)
     return false;
 }
 
+#if defined(__ORBIS__)
+char* getenv(const char*) {
+    return NULL;
+}
+#endif
+
 template<typename T>
 bool overrideOptionWithHeuristic(T& variable, Options::ID id, const char* name, Options::Availability availability)
 {

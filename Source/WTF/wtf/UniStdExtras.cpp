@@ -32,6 +32,10 @@ namespace WTF {
 
 bool setCloseOnExec(int fileDescriptor)
 {
+#if defined(__ORBIS__)
+    LOG_ERROR("setCloseOnExec is unsupported");
+    return true;
+#else
     int returnValue = -1;
     do {
         int flags = fcntl(fileDescriptor, F_GETFD);
@@ -40,10 +44,16 @@ bool setCloseOnExec(int fileDescriptor)
     } while (returnValue == -1 && errno == EINTR);
 
     return returnValue != -1;
+#endif
 }
 
 int dupCloseOnExec(int fileDescriptor)
 {
+#if defined(__ORBIS__)
+    LOG_ERROR("dupCloseOnExec is unsupported");
+    return -1;
+#else
+
     int duplicatedFileDescriptor = -1;
 #ifdef F_DUPFD_CLOEXEC
     while ((duplicatedFileDescriptor = fcntl(fileDescriptor, F_DUPFD_CLOEXEC, 0)) == -1 && errno == EINTR) { }
@@ -62,6 +72,7 @@ int dupCloseOnExec(int fileDescriptor)
     }
 
     return duplicatedFileDescriptor;
+#endif
 }
 
 } // namespace WTF

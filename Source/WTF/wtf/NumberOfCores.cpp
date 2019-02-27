@@ -49,7 +49,8 @@ int numberOfProcessorCores()
 
     if (s_numberOfCores > 0)
         return s_numberOfCores;
-    
+
+#if !defined __ORBIS__    
     if (const char* coresEnv = getenv("WTF_numberOfProcessorCores")) {
         unsigned numberOfCores;
         if (sscanf(coresEnv, "%u", &numberOfCores) == 1) {
@@ -58,6 +59,7 @@ int numberOfProcessorCores()
         } else
             fprintf(stderr, "WARNING: failed to parse WTF_numberOfProcessorCores=%s\n", coresEnv);
     }
+#endif
 
 #if OS(DARWIN)
     unsigned result;
@@ -69,6 +71,8 @@ int numberOfProcessorCores()
     int sysctlResult = sysctl(name, sizeof(name) / sizeof(int), &result, &length, 0, 0);
 
     s_numberOfCores = sysctlResult < 0 ? defaultIfUnavailable : result;
+#elif defined(__ORBIS__)
+    s_numberOfCores = 1;
 #elif OS(LINUX) || OS(AIX) || OS(OPENBSD) || OS(NETBSD) || OS(FREEBSD)
     long sysconfResult = sysconf(_SC_NPROCESSORS_ONLN);
 

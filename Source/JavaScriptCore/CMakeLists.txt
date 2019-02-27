@@ -1273,7 +1273,7 @@ target_include_directories(LLIntOffsetsExtractor PRIVATE
 )
 target_include_directories(LLIntOffsetsExtractor SYSTEM PRIVATE ${JavaScriptCore_SYSTEM_INCLUDE_DIRECTORIES})
 
-if(WEBKIT_BUILD_JSC)
+if(WEBKIT_BUILD_JSC AND NOT ORBIS)
      add_subdirectory(shell)
 endif()
 
@@ -1299,6 +1299,14 @@ install(
     RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
     INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
+
+if(ORBIS AND ${JavaScriptCore_LIBRARY_TYPE} STREQUAL "SHARED")
+    install(FILES 
+        ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/Release/libJavaScriptCore_stub.a
+        ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/Release/libJavaScriptCore_stub_weak.a
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    )
+endif()
 
 install(
     DIRECTORY ${DERIVED_SOURCES_DIR}/ForwardingHeaders/

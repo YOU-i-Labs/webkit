@@ -35,6 +35,10 @@
 #include <cstdio>
 #include <mutex>
 
+#if defined(YI_PORT_FILE_REQUIRED)
+#include <YiPort.h>
+#endif
+
 // This is exactly 32GB because inside JSC, indexed accesses for arrays, typed arrays, etc,
 // use unsigned 32-bit ints as indices. The items those indices access are 8 bytes or less
 // in size. 2^32 * 8 = 32GB. This means if an access on a caged type happens to go out of

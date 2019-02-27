@@ -144,6 +144,7 @@ bool MachineThreads::tryCopyOtherThreadStacks(const AbstractLocker& locker, void
 
     *size = 0;
 
+#if !defined(__ORBIS__)
     Thread& currentThread = Thread::current();
     const ListHashSet<Ref<Thread>>& threads = m_threadGroup->threads(locker);
     BitVector isSuspended(threads.size());
@@ -187,6 +188,7 @@ bool MachineThreads::tryCopyOtherThreadStacks(const AbstractLocker& locker, void
             ++index;
         }
     }
+#endif
 
     return *size <= capacity;
 }
