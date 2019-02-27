@@ -375,6 +375,8 @@ FastMallocStatistics fastMallocStatistics()
     PROCESS_MEMORY_COUNTERS resourceUsage;
     GetProcessMemoryInfo(GetCurrentProcess(), &resourceUsage, sizeof(resourceUsage));
     statistics.committedVMBytes = resourceUsage.PeakWorkingSetSize;
+#elif defined(__ORBIS__)
+    // do nothing for now
 #elif HAVE(RESOURCE_H)
     struct rusage resourceUsage;
     getrusage(RUSAGE_SELF, &resourceUsage);

@@ -35,9 +35,14 @@
 #include <cstdio>
 #include <mutex>
 
+#if defined(YI_PORT_FILE_REQUIRED)
+#include <YiPort.h>
+#endif
+
 #if GIGACAGE_ENABLED
 
 namespace Gigacage {
+
 
 // This is exactly 32GB because inside JSC, indexed accesses for arrays, typed arrays, etc,
 // use unsigned 32-bit ints as indices. The items those indices access are 8 bytes or less

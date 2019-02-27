@@ -74,7 +74,7 @@ Thread::~Thread()
 {
 }
 
-#if !OS(DARWIN)
+#if !OS(DARWIN) && !defined(__ORBIS__)
 class Semaphore {
     WTF_MAKE_NONCOPYABLE(Semaphore);
     WTF_MAKE_FAST_ALLOCATED;
@@ -164,12 +164,11 @@ void Thread::signalHandlerSuspendResume(int, siginfo_t*, void* ucontext)
     // Allow resume caller to see that this thread is resumed.
     globalSemaphoreForSuspendResume->post();
 }
-
 #endif // !OS(DARWIN)
 
 void Thread::initializePlatformThreading()
 {
-#if !OS(DARWIN)
+#if !OS(DARWIN) && !defined(__ORBIS__)
     globalSemaphoreForSuspendResume.construct(0);
 
     // Signal handlers are process global configuration.
@@ -187,7 +186,7 @@ void Thread::initializePlatformThreading()
 
 void Thread::initializeCurrentThreadEvenIfNonWTFCreated()
 {
-#if !OS(DARWIN)
+#if !OS(DARWIN) && !defined(__ORBIS__)
     sigset_t mask;
     sigemptyset(&mask);
     sigaddset(&mask, SigThreadSuspendResume);
@@ -301,7 +300,12 @@ bool Thread::signal(int signalNumber)
     auto locker = holdLock(m_mutex);
     if (hasExited())
         return false;
+#if defined(__ORBIS__)
+    LOG_ERROR("Thread %p is about to be killed from Thread::signal()\n", this);
+    int errNo = pthread_cancel(m_handle);
+#else
     int errNo = pthread_kill(m_handle, signalNumber);
+#endif
     return !errNo; // A 0 errNo means success.
 }
 
@@ -324,6 +328,9 @@ auto Thread::suspend() -> Expected<void, PlatformSuspendError>
     kern_return_t result = thread_suspend(m_platformThread);
     if (result != KERN_SUCCESS)
         return makeUnexpected(result);
+    return { };
+#elif defined(__ORBIS__)
+    LOG_ERROR("Tried to suspend thread on ORBIS. Not supported!");
     return { };
 #else
     if (!m_suspendCount) {
@@ -355,6 +362,8 @@ void Thread::resume()
     LockHolder locker(globalSuspendLock);
 #if OS(DARWIN)
     thread_resume(m_platformThread);
+#elif defined(__ORBIS__)
+    LOG_ERROR("Resuming thread on ORBIS does nothing. Not supported!");
 #else
     if (m_suspendCount == 1) {
         // When allowing SigThreadSuspendResume interrupt in the signal handler by sigsuspend and SigThreadSuspendResume is actually issued,

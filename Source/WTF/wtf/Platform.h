@@ -682,7 +682,7 @@
 #define USE_PTHREADS 1
 #endif /* OS(UNIX) */
 
-#if OS(UNIX) && !OS(FUCHSIA)
+#if OS(UNIX) && !OS(FUCHSIA) && !defined(__ORBIS__)
 #define HAVE_RESOURCE_H 1
 #define HAVE_PTHREAD_SETSCHEDPARAM 1
 #endif
@@ -712,6 +712,11 @@
 
 #if OS(DARWIN) || OS(FUCHSIA) || ((OS(FREEBSD) || defined(__GLIBC__) || defined(__BIONIC__)) && (CPU(X86) || CPU(X86_64) || CPU(ARM) || CPU(ARM64) || CPU(MIPS)))
 #define HAVE_MACHINE_CONTEXT 1
+#endif
+
+#if defined(__ORBIS__)
+// Don't try and mess with the above #if, so just unset for ORBIS
+#undef HAVE_MACHINE_CONTEXT
 #endif
 
 #if OS(DARWIN) || (OS(LINUX) && defined(__GLIBC__) && !defined(__UCLIBC__))
