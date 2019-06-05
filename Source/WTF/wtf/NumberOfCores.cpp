@@ -72,7 +72,7 @@ int numberOfProcessorCores()
 
     s_numberOfCores = sysctlResult < 0 ? defaultIfUnavailable : result;
 #elif defined(__ORBIS__)
-    s_numberOfCores = 1;
+    s_numberOfCores = 6;
 #elif OS(LINUX) || OS(AIX) || OS(OPENBSD) || OS(NETBSD) || OS(FREEBSD)
     long sysconfResult = sysconf(_SC_NPROCESSORS_ONLN);
 
