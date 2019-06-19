@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,7 @@
 #include "CallFrameShuffler.h"
 #include "DFGAbstractInterpreterInlines.h"
 #include "DFGCallArrayAllocatorSlowPathGenerator.h"
+#include "DFGDoesGC.h"
 #include "DFGOperations.h"
 #include "DFGSlowPathGenerator.h"
 #include "DirectArguments.h"
@@ -1899,7 +1900,12 @@ void SpeculativeJIT::emitBranch(Node* node)
 void SpeculativeJIT::compile(Node* node)
 {
     NodeType op = node->op();
-    
+
+    if (validateDFGDoesGC) {
+        bool expectDoesGC = doesGC(m_jit.graph(), node);
+        m_jit.store8(TrustedImm32(expectDoesGC), m_jit.vm()->heap.addressOfExpectDoesGC());
+    }
+
 #if ENABLE(DFG_REGISTER_ALLOCATION_VALIDATION)
     m_jit.clearRegisterAllocationOffsets();
 #endif
@@ -2344,8 +2350,11 @@ void SpeculativeJIT::compile(Node* node)
 
     case GetByVal: {
         switch (node->arrayMode().type()) {
-        case Array::SelectUsingPredictions:
+        case Array::AnyTypedArray:
         case Array::ForceExit:
+        case Array::SelectUsingArguments:
+        case Array::SelectUsingPredictions:
+        case Array::Unprofiled:
             DFG_CRASH(m_jit.graph(), node, "Bad array mode type");
             break;
         case Array::Undecided: {
@@ -2566,7 +2575,15 @@ void SpeculativeJIT::compile(Node* node)
         case Array::ScopedArguments:
             compileGetByValOnScopedArguments(node);
             break;
-        default: {
+        case Array::Int8Array:
+        case Array::Int16Array:
+        case Array::Int32Array:
+        case Array::Uint8Array:
+        case Array::Uint8ClampedArray:
+        case Array::Uint16Array:
+        case Array::Uint32Array:
+        case Array::Float32Array:
+        case Array::Float64Array: {
             TypedArrayType type = node->arrayMode().typedArrayType();
             if (isInt(type))
                 compileGetByValOnIntTypedArray(node, type);
@@ -2800,14 +2817,35 @@ void SpeculativeJIT::compile(Node* node)
             break;
         }
             
-        default: {
+        case Array::Int8Array:
+        case Array::Int16Array:
+        case Array::Int32Array:
+        case Array::Uint8Array:
+        case Array::Uint8ClampedArray:
+        case Array::Uint16Array:
+        case Array::Uint32Array:
+        case Array::Float32Array:
+        case Array::Float64Array: {
             TypedArrayType type = arrayMode.typedArrayType();
             if (isInt(type))
                 compilePutByValForIntTypedArray(base.gpr(), property.gpr(), node, type);
             else
                 compilePutByValForFloatTypedArray(base.gpr(), property.gpr(), node, type);
-        } }
+            break;
+        }
 
+        case Array::AnyTypedArray:
+        case Array::String:
+        case Array::DirectArguments:
+        case Array::ForceExit:
+        case Array::Generic:
+        case Array::ScopedArguments:
+        case Array::SelectUsingArguments:
+        case Array::SelectUsingPredictions:
+        case Array::Undecided:
+        case Array::Unprofiled:
+            RELEASE_ASSERT_NOT_REACHED();
+        }
         break;
     }
         
@@ -3345,11 +3383,6 @@ void SpeculativeJIT::compile(Node* node)
     case CallStringConstructor:
     case StringValueOf: {
         compileToStringOrCallStringConstructorOrStringValueOf(node);
-        break;
-    }
-
-    case ObjectToString: {
-        compileObjectToString(node);
         break;
     }
         
@@ -4005,7 +4038,7 @@ void SpeculativeJIT::compile(Node* node)
             }
 
             m_jit.loadPtr(MacroAssembler::Address(inputGPR, JSString::offsetOfValue()), resultGPR);
-            slowPath.append(m_jit.branchTestPtr(MacroAssembler::Zero, resultGPR));
+            slowPath.append(m_jit.branchIfRopeStringImpl(resultGPR));
             m_jit.load32(MacroAssembler::Address(resultGPR, StringImpl::flagsOffset()), resultGPR);
             m_jit.urshift32(MacroAssembler::TrustedImm32(StringImpl::s_flagCount), resultGPR);
             slowPath.append(m_jit.branchTest32(MacroAssembler::Zero, resultGPR));
@@ -4043,7 +4076,7 @@ void SpeculativeJIT::compile(Node* node)
         MacroAssembler::JumpList slowPath;
         straightHash.append(m_jit.branchIfNotString(inputGPR));
         m_jit.loadPtr(MacroAssembler::Address(inputGPR, JSString::offsetOfValue()), resultGPR);
-        slowPath.append(m_jit.branchTestPtr(MacroAssembler::Zero, resultGPR));
+        slowPath.append(m_jit.branchIfRopeStringImpl(resultGPR));
         m_jit.load32(MacroAssembler::Address(resultGPR, StringImpl::flagsOffset()), resultGPR);
         m_jit.urshift32(MacroAssembler::TrustedImm32(StringImpl::s_flagCount), resultGPR);
         slowPath.append(m_jit.branchTest32(MacroAssembler::Zero, resultGPR));
@@ -4184,9 +4217,9 @@ void SpeculativeJIT::compile(Node* node)
 
         notPresentInTable.link(&m_jit);
         if (node->child1().useKind() == MapObjectUse)
-            m_jit.move(TrustedImmPtr::weakPointer(m_jit.graph(), m_jit.vm()->sentinelMapBucket.get()), resultGPR);
+            m_jit.move(TrustedImmPtr::weakPointer(m_jit.graph(), m_jit.vm()->sentinelMapBucket()), resultGPR);
         else
-            m_jit.move(TrustedImmPtr::weakPointer(m_jit.graph(), m_jit.vm()->sentinelSetBucket.get()), resultGPR);
+            m_jit.move(TrustedImmPtr::weakPointer(m_jit.graph(), m_jit.vm()->sentinelSetBucket()), resultGPR);
         done.link(&m_jit);
         cellResult(resultGPR, node);
         break;
@@ -4417,7 +4450,7 @@ void SpeculativeJIT::compile(Node* node)
         case StringUse: {
             speculateString(node->child2(), keyGPR);
             m_jit.loadPtr(MacroAssembler::Address(keyGPR, JSString::offsetOfValue()), implGPR);
-            slowPath.append(m_jit.branchTestPtr(MacroAssembler::Zero, implGPR));
+            slowPath.append(m_jit.branchIfRopeStringImpl(implGPR));
             slowPath.append(m_jit.branchTest32(
                 MacroAssembler::Zero, MacroAssembler::Address(implGPR, StringImpl::flagsOffset()),
                 MacroAssembler::TrustedImm32(StringImpl::flagIsAtomic())));
@@ -4427,7 +4460,7 @@ void SpeculativeJIT::compile(Node* node)
             slowPath.append(m_jit.branchIfNotCell(JSValueRegs(keyGPR)));
             auto isNotString = m_jit.branchIfNotString(keyGPR);
             m_jit.loadPtr(MacroAssembler::Address(keyGPR, JSString::offsetOfValue()), implGPR);
-            slowPath.append(m_jit.branchTestPtr(MacroAssembler::Zero, implGPR));
+            slowPath.append(m_jit.branchIfRopeStringImpl(implGPR));
             slowPath.append(m_jit.branchTest32(
                 MacroAssembler::Zero, MacroAssembler::Address(implGPR, StringImpl::flagsOffset()),
                 MacroAssembler::TrustedImm32(StringImpl::flagIsAtomic())));

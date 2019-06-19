@@ -48,6 +48,7 @@ NetworkProcess/Cookies/WebCookieManager.cpp
 
 NetworkProcess/Downloads/Download.cpp
 NetworkProcess/Downloads/DownloadManager.cpp
+NetworkProcess/Downloads/DownloadMap.cpp
 NetworkProcess/Downloads/PendingDownload.cpp
 
 NetworkProcess/FileAPI/NetworkBlobRegistry.cpp
@@ -100,9 +101,9 @@ PluginProcess/WebProcessConnection.cpp @no-unify
 // TODO: The files here marked @no-unify should be unified once GTK's PluginProcess2 is removed.
 Shared/ActivityAssertion.cpp @no-unify
 Shared/AsyncRequest.cpp
+Shared/AuxiliaryProcess.cpp @no-unify
 Shared/BlobDataFileReferenceWithSandboxExtension.cpp @no-unify
 Shared/CacheModel.cpp
-Shared/ChildProcess.cpp @no-unify
 Shared/ContextMenuContextData.cpp
 Shared/EditorState.cpp
 Shared/FontInfo.cpp
@@ -219,8 +220,8 @@ Shared/Plugins/Netscape/PluginInformation.cpp @no-unify
 
 Shared/WebsiteData/WebsiteData.cpp
 
+UIProcess/AuxiliaryProcessProxy.cpp
 UIProcess/BackgroundProcessResponsivenessTimer.cpp
-UIProcess/ChildProcessProxy.cpp
 UIProcess/DeviceIdHashSaltStorage.cpp
 UIProcess/DrawingAreaProxy.cpp
 UIProcess/FrameLoadState.cpp
@@ -230,6 +231,7 @@ UIProcess/InspectorTargetProxy.cpp
 UIProcess/PageLoadState.cpp
 UIProcess/ProcessAssertion.cpp
 UIProcess/ProcessThrottler.cpp
+UIProcess/ProvisionalPageProxy.cpp
 UIProcess/RemoteWebInspectorProxy.cpp
 UIProcess/ResponsivenessTimer.cpp
 UIProcess/ServiceWorkerProcessProxy.cpp
@@ -346,6 +348,7 @@ UIProcess/API/C/WKResourceCacheManager.cpp
 UIProcess/API/C/WKSessionStateRef.cpp
 UIProcess/API/C/WKTextChecker.cpp
 UIProcess/API/C/WKUserContentControllerRef.cpp
+UIProcess/API/C/WKUserContentExtensionStoreRef.cpp
 UIProcess/API/C/WKUserMediaPermissionCheck.cpp
 UIProcess/API/C/WKUserMediaPermissionRequest.cpp
 UIProcess/API/C/WKWebsiteDataStoreRef.cpp
@@ -538,6 +541,7 @@ WebProcess/WebPage/RemoteWebInspectorUI.cpp
 WebProcess/WebPage/VisitedLinkTableController.cpp
 WebProcess/WebPage/WebBackForwardListProxy.cpp
 WebProcess/WebPage/WebContextMenu.cpp
+WebProcess/WebPage/WebCookieJar.cpp
 WebProcess/WebPage/WebDocumentLoader.cpp
 WebProcess/WebPage/WebFrame.cpp
 WebProcess/WebPage/WebInspector.cpp

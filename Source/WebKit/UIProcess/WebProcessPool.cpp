@@ -36,14 +36,11 @@
 #include "APINavigation.h"
 #include "APIPageConfiguration.h"
 #include "APIProcessPoolConfiguration.h"
-#include "ChildProcessMessages.h"
+#include "AuxiliaryProcessMessages.h"
 #include "DownloadProxy.h"
 #include "DownloadProxyMessages.h"
 #include "GamepadData.h"
 #include "HighPerformanceGraphicsUsageSampler.h"
-#if ENABLE(LEGACY_CUSTOM_PROTOCOL_MANAGER)
-#include "LegacyCustomProtocolManagerMessages.h"
-#endif
 #include "LogInitialization.h"
 #include "Logging.h"
 #include "NetworkProcessCreationParameters.h"
@@ -84,7 +81,7 @@
 #include <WebCore/MockRealtimeMediaSourceCenter.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/PlatformScreen.h>
-#include <WebCore/Process.h>
+#include <WebCore/ProcessIdentifier.h>
 #include <WebCore/ProcessWarming.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/RuntimeApplicationChecks.h>
@@ -98,6 +95,11 @@
 #include <wtf/URLParser.h>
 #include <wtf/WallTime.h>
 #include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringConcatenateNumbers.h>
+
+#if ENABLE(LEGACY_CUSTOM_PROTOCOL_MANAGER)
+#include "LegacyCustomProtocolManagerMessages.h"
+#endif
 
 #if ENABLE(SERVICE_CONTROLS)
 #include "ServicesController.h"
@@ -258,7 +260,7 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     std::call_once(onceFlag, [] {
         WTF::setProcessPrivileges(allPrivileges());
         WebCore::NetworkStorageSession::permitProcessToUseCookieAPI(true);
-        Process::setIdentifier(generateObjectIdentifier<WebCore::ProcessIdentifierType>());
+        Process::setIdentifier(WebCore::ProcessIdentifier::generate());
     });
 
     if (m_configuration->shouldHaveLegacyDataStore())
@@ -445,8 +447,8 @@ void WebProcessPool::fullKeyboardAccessModeChanged(bool fullKeyboardAccessEnable
 #if OS(LINUX)
 void WebProcessPool::sendMemoryPressureEvent(bool isCritical)
 {
-    sendToAllProcesses(Messages::ChildProcess::DidReceiveMemoryPressureEvent(isCritical));
-    sendToNetworkingProcess(Messages::ChildProcess::DidReceiveMemoryPressureEvent(isCritical));
+    sendToAllProcesses(Messages::AuxiliaryProcess::DidReceiveMemoryPressureEvent(isCritical));
+    sendToNetworkingProcess(Messages::AuxiliaryProcess::DidReceiveMemoryPressureEvent(isCritical));
 #if ENABLE(NETSCAPE_PLUGIN_API)
     PluginProcessManager::singleton().sendMemoryPressureEvent(isCritical);
 #endif
@@ -560,7 +562,13 @@ NetworkProcessProxy& WebProcessPool::ensureNetworkProcess(WebsiteDataStore* with
 
     SandboxExtension::createHandleForReadWriteDirectory(parameters.defaultDataStoreParameters.networkSessionParameters.resourceLoadStatisticsDirectory, parameters.defaultDataStoreParameters.networkSessionParameters.resourceLoadStatisticsDirectoryExtensionHandle);
 
-    parameters.defaultDataStoreParameters.networkSessionParameters.enableResourceLoadStatistics = false; // FIXME(193297): Turn on when the feature is on.
+    bool enableResourceLoadStatistics = false;
+    if (withWebsiteDataStore)
+        enableResourceLoadStatistics = withWebsiteDataStore->resourceLoadStatisticsEnabled();
+    else if (m_websiteDataStore)
+        enableResourceLoadStatistics = m_websiteDataStore->resourceLoadStatisticsEnabled();
+
+    parameters.defaultDataStoreParameters.networkSessionParameters.enableResourceLoadStatistics = enableResourceLoadStatistics;
 
     // Add any platform specific parameters
     platformInitializeNetworkProcess(parameters);
@@ -590,9 +598,6 @@ NetworkProcessProxy& WebProcessPool::ensureNetworkProcess(WebsiteDataStore* with
         if (auto* websiteDataStore = WebsiteDataStore::existingNonDefaultDataStoreForSessionID(sessionID))
             m_networkProcess->addSession(*websiteDataStore);
     }
-
-    if (m_websiteDataStore)
-        m_websiteDataStore->websiteDataStore().didCreateNetworkProcess();
 
     return *m_networkProcess;
 }
@@ -1021,7 +1026,7 @@ void WebProcessPool::processDidFinishLaunching(WebProcessProxy* process)
     if (m_memorySamplerEnabled) {
         SandboxExtension::Handle sampleLogSandboxHandle;        
         WallTime now = WallTime::now();
-        String sampleLogFilePath = String::format("WebProcess%llupid%d", static_cast<unsigned long long>(now.secondsSinceEpoch().seconds()), process->processIdentifier());
+        String sampleLogFilePath = makeString("WebProcess", static_cast<unsigned long long>(now.secondsSinceEpoch().seconds()), "pid", process->processIdentifier());
         sampleLogFilePath = SandboxExtension::createHandleForTemporaryFile(sampleLogFilePath, SandboxExtension::Type::ReadWrite, sampleLogSandboxHandle);
         
         process->send(Messages::WebProcess::StartMemorySampler(sampleLogSandboxHandle, sampleLogFilePath, m_memorySamplerInterval), 0);
@@ -1034,6 +1039,9 @@ void WebProcessPool::processDidFinishLaunching(WebProcessProxy* process)
         process->connection()->ignoreTimeoutsForTesting();
 
     m_connectionClient.didCreateConnection(this, process->webConnection());
+
+    if (m_websiteDataStore)
+        m_websiteDataStore->websiteDataStore().didCreateNetworkProcess();
 }
 
 void WebProcessPool::disconnectProcess(WebProcessProxy* process)
@@ -1485,9 +1493,9 @@ void WebProcessPool::registerURLSchemeAsCachePartitioned(const String& urlScheme
 void WebProcessPool::registerURLSchemeServiceWorkersCanHandle(const String& urlScheme)
 {
     m_schemesServiceWorkersCanHandle.add(urlScheme);
-    sendToAllProcesses(Messages::ChildProcess::RegisterURLSchemeServiceWorkersCanHandle(urlScheme));
+    sendToAllProcesses(Messages::AuxiliaryProcess::RegisterURLSchemeServiceWorkersCanHandle(urlScheme));
     if (m_networkProcess)
-        m_networkProcess->send(Messages::ChildProcess::RegisterURLSchemeServiceWorkersCanHandle(urlScheme), 0);
+        m_networkProcess->send(Messages::AuxiliaryProcess::RegisterURLSchemeServiceWorkersCanHandle(urlScheme), 0);
 }
 
 void WebProcessPool::registerURLSchemeAsCanDisplayOnlyIfCanRequest(const String& urlScheme)
@@ -1510,6 +1518,15 @@ void WebProcessPool::updateMaxSuspendedPageCount()
         m_suspendedPages.removeFirst();
 }
 
+bool WebProcessPool::usesNetworkingDaemon() const
+{
+#if PLATFORM(COCOA)
+    return m_configuration->usesNetworkingDaemon();
+#else
+    return false;
+#endif
+}
+    
 void WebProcessPool::setCacheModel(CacheModel cacheModel)
 {
     m_configuration->setCacheModel(cacheModel);
@@ -1582,7 +1599,7 @@ void WebProcessPool::startMemorySampler(const double interval)
     // For WebProcess
     SandboxExtension::Handle sampleLogSandboxHandle;    
     WallTime now = WallTime::now();
-    String sampleLogFilePath = String::format("WebProcess%llu", static_cast<unsigned long long>(now.secondsSinceEpoch().seconds()));
+    String sampleLogFilePath = makeString("WebProcess", static_cast<unsigned long long>(now.secondsSinceEpoch().seconds()));
     sampleLogFilePath = SandboxExtension::createHandleForTemporaryFile(sampleLogFilePath, SandboxExtension::Type::ReadWrite, sampleLogSandboxHandle);
     
     sendToAllProcesses(Messages::WebProcess::StartMemorySampler(sampleLogSandboxHandle, sampleLogFilePath, interval));
@@ -1629,7 +1646,6 @@ void WebProcessPool::setAllowsAnySSLCertificateForWebSocket(bool allows)
 
 void WebProcessPool::clearCachedCredentials()
 {
-    sendToAllProcesses(Messages::WebProcess::ClearCachedCredentials());
     if (m_networkProcess)
         m_networkProcess->send(Messages::NetworkProcess::ClearCachedCredentials(), 0);
 }
@@ -2191,8 +2207,14 @@ void WebProcessPool::processForNavigationInternal(WebPageProxy& page, const API:
             });
         }
 
-        if (auto* process = WebProcessProxy::processForIdentifier(targetItem->itemID().processIdentifier))
-            return completionHandler(*process, nullptr, "Using target back/forward item's process"_s);
+        if (RefPtr<WebProcessProxy> process = WebProcessProxy::processForIdentifier(targetItem->itemID().processIdentifier)) {
+            // FIXME: Architecturally we do not currently support multiple WebPage's with the same ID in a given WebProcess.
+            // In the case where this WebProcess has a SuspendedPageProxy for this WebPage, we can throw it away to support
+            // WebProcess re-use.
+            removeAllSuspendedPagesForPage(page, process.get());
+
+            return completionHandler(process.releaseNonNull(), nullptr, "Using target back/forward item's process"_s);
+        }
     }
 
     if (navigation.treatAsSameOriginNavigation())
@@ -2226,9 +2248,7 @@ void WebProcessPool::processForNavigationInternal(WebPageProxy& page, const API:
                 // In the case where this WebProcess has a SuspendedPageProxy for this WebPage, we can throw it away to support
                 // WebProcess re-use.
                 // In the future it would be great to refactor-out this limitation (https://bugs.webkit.org/show_bug.cgi?id=191166).
-                m_suspendedPages.removeAllMatching([&](auto& suspendedPage) {
-                    return &suspendedPage->page() == &page && &suspendedPage->process() == process;
-                });
+                removeAllSuspendedPagesForPage(page, process);
 
                 return completionHandler(makeRef(*process), nullptr, reason);
             }
@@ -2264,11 +2284,19 @@ void WebProcessPool::addSuspendedPage(std::unique_ptr<SuspendedPageProxy>&& susp
     m_suspendedPages.append(WTFMove(suspendedPage));
 }
 
-void WebProcessPool::removeAllSuspendedPagesForPage(WebPageProxy& page)
+void WebProcessPool::removeAllSuspendedPagesForPage(WebPageProxy& page, WebProcessProxy* process)
 {
-    m_suspendedPages.removeAllMatching([&page](auto& suspendedPage) {
-        return &suspendedPage->page() == &page;
+    m_suspendedPages.removeAllMatching([&page, process](auto& suspendedPage) {
+        return &suspendedPage->page() == &page && (!process || &suspendedPage->process() == process);
     });
+}
+
+void WebProcessPool::closeFailedSuspendedPagesForPage(WebPageProxy& page)
+{
+    for (auto& suspendedPage : m_suspendedPages) {
+        if (&suspendedPage->page() == &page && suspendedPage->failedToSuspend())
+            suspendedPage->close();
+    }
 }
 
 std::unique_ptr<SuspendedPageProxy> WebProcessPool::takeSuspendedPage(SuspendedPageProxy& suspendedPage)
@@ -2287,10 +2315,10 @@ void WebProcessPool::removeSuspendedPage(SuspendedPageProxy& suspendedPage)
         m_suspendedPages.remove(it);
 }
 
-bool WebProcessPool::hasSuspendedPageFor(WebProcessProxy& process) const
+bool WebProcessPool::hasSuspendedPageFor(WebProcessProxy& process, WebPageProxy* page) const
 {
-    return m_suspendedPages.findIf([&process](auto& suspendedPage) {
-        return &suspendedPage->process() == &process;
+    return m_suspendedPages.findIf([&process, page](auto& suspendedPage) {
+        return &suspendedPage->process() == &process && (!page || &suspendedPage->page() == page);
     }) != m_suspendedPages.end();
 }
 

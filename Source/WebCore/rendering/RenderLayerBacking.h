@@ -64,6 +64,9 @@ public:
     void layerWillBeDestroyed();
 #endif
 
+    // Do cleanup while layer->backing() is still valid.
+    void willBeDestroyed();
+
     RenderLayer& owningLayer() const { return m_owningLayer; }
 
     void updateConfigurationAfterStyleChange();
@@ -100,29 +103,36 @@ public:
 
     bool requiresBackgroundLayer() const { return m_requiresBackgroundLayer; }
     void setRequiresBackgroundLayer(bool);
-    
-    bool hasScrollingLayer() const { return m_scrollingLayer != nullptr; }
-    GraphicsLayer* scrollingLayer() const { return m_scrollingLayer.get(); }
-    GraphicsLayer* scrollingContentsLayer() const { return m_scrollingContentsLayer.get(); }
+
+    bool hasScrollingLayer() const { return m_scrollContainerLayer != nullptr; }
+    GraphicsLayer* scrollContainerLayer() const { return m_scrollContainerLayer.get(); }
+    GraphicsLayer* scrolledContentsLayer() const { return m_scrolledContentsLayer.get(); }
+
+    OptionSet<ScrollCoordinationRole> coordinatedScrollingRoles() const;
 
     void detachFromScrollingCoordinator(OptionSet<ScrollCoordinationRole>);
-    
+
     ScrollingNodeID scrollingNodeIDForRole(ScrollCoordinationRole role) const
     {
         switch (role) {
         case ScrollCoordinationRole::Scrolling:
             return m_scrollingNodeID;
+        case ScrollCoordinationRole::FrameHosting:
+            return m_frameHostingNodeID;
         case ScrollCoordinationRole::ViewportConstrained:
             return m_viewportConstrainedNodeID;
         }
         return 0;
     }
-    
+
     void setScrollingNodeIDForRole(ScrollingNodeID nodeID, ScrollCoordinationRole role)
     {
         switch (role) {
         case ScrollCoordinationRole::Scrolling:
             m_scrollingNodeID = nodeID;
+            break;
+        case ScrollCoordinationRole::FrameHosting:
+            m_frameHostingNodeID = nodeID;
             break;
         case ScrollCoordinationRole::ViewportConstrained:
             m_viewportConstrainedNodeID = nodeID;
@@ -130,8 +140,11 @@ public:
             break;
         }
     }
-    
-    ScrollingNodeID scrollingNodeIDForChildren() const { return m_scrollingNodeID ? m_scrollingNodeID : m_viewportConstrainedNodeID; }
+
+    ScrollingNodeID scrollingNodeIDForChildren() const
+    {
+        return m_frameHostingNodeID ? m_frameHostingNodeID : (m_scrollingNodeID ? m_scrollingNodeID : m_viewportConstrainedNodeID);
+    }
 
     void setIsScrollCoordinatedWithViewportConstrainedRole(bool);
 
@@ -208,12 +221,13 @@ public:
 
     float pageScaleFactor() const override;
     float zoomedOutPageScaleFactor() const override;
-    void didCommitChangesForLayer(const GraphicsLayer*) const override;
+
+    void didChangePlatformLayerForLayer(const GraphicsLayer*) override;
     bool getCurrentTransform(const GraphicsLayer*, TransformationMatrix&) const override;
 
     bool isTrackingRepaints() const override;
     bool shouldSkipLayerInDump(const GraphicsLayer*, LayerTreeAsTextBehavior) const override;
-    bool shouldDumpPropertyForLayer(const GraphicsLayer*, const char* propertyName) const override;
+    bool shouldDumpPropertyForLayer(const GraphicsLayer*, const char* propertyName, LayerTreeAsTextBehavior) const override;
 
     bool shouldAggressivelyRetainTiles(const GraphicsLayer*) const override;
     bool shouldTemporarilyRetainTileCohorts(const GraphicsLayer*) const override;
@@ -284,6 +298,9 @@ private:
     bool requiresVerticalScrollbarLayer() const;
     bool requiresScrollCornerLayer() const;
     bool updateScrollingLayers(bool scrollingLayers);
+    
+    void updateScrollOffset(ScrollOffset);
+    void setLocationOfScrolledContents(ScrollOffset, ScrollingLayerPositionAction);
 
     void updateChildClippingStrategy(bool needsDescendantsClippingLayer);
 
@@ -368,8 +385,8 @@ private:
     RefPtr<GraphicsLayer> m_layerForVerticalScrollbar;
     RefPtr<GraphicsLayer> m_layerForScrollCorner;
 
-    RefPtr<GraphicsLayer> m_scrollingLayer; // Only used if the layer is using composited scrolling.
-    RefPtr<GraphicsLayer> m_scrollingContentsLayer; // Only used if the layer is using composited scrolling.
+    RefPtr<GraphicsLayer> m_scrollContainerLayer; // Only used if the layer is using composited scrolling.
+    RefPtr<GraphicsLayer> m_scrolledContentsLayer; // Only used if the layer is using composited scrolling.
 
     LayoutRect m_compositedBounds;
     LayoutSize m_subpixelOffsetFromRenderer; // This is the subpixel distance between the primary graphics layer and the associated renderer's bounds.
@@ -377,6 +394,7 @@ private:
 
     ScrollingNodeID m_viewportConstrainedNodeID { 0 };
     ScrollingNodeID m_scrollingNodeID { 0 };
+    ScrollingNodeID m_frameHostingNodeID { 0 };
 
     bool m_artificiallyInflatedBounds { false }; // bounds had to be made non-zero to make transform-origin work
     bool m_isMainFrameRenderViewLayer { false };

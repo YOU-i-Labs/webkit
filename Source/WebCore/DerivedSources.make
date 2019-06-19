@@ -372,9 +372,16 @@ JS_BINDING_IDLS = \
     $(WebCore)/Modules/webdatabase/SQLTransactionErrorCallback.idl \
     $(WebCore)/Modules/webdriver/NavigatorWebDriver.idl \
     $(WebCore)/Modules/webgpu/DOMWindowWebGPU.idl \
+    $(WebCore)/Modules/webgpu/GPUCompareFunction.idl \
+    $(WebCore)/Modules/webgpu/GPUDepthStencilStateDescriptor.idl \
+    $(WebCore)/Modules/webgpu/GPUExtent3D.idl \
+    $(WebCore)/Modules/webgpu/GPURequestAdapterOptions.idl \
+    $(WebCore)/Modules/webgpu/GPUTextureDescriptor.idl \
+    $(WebCore)/Modules/webgpu/GPUTextureDimension.idl \
+    $(WebCore)/Modules/webgpu/GPUTextureFormat.idl \
+    $(WebCore)/Modules/webgpu/GPUTextureUsage.idl \
     $(WebCore)/Modules/webgpu/WebGPU.idl \
     $(WebCore)/Modules/webgpu/WebGPUAdapter.idl \
-    $(WebCore)/Modules/webgpu/WebGPUAdapterDescriptor.idl \
     $(WebCore)/Modules/webgpu/WebGPUBindGroup.idl \
     $(WebCore)/Modules/webgpu/WebGPUBindGroupBinding.idl \
     $(WebCore)/Modules/webgpu/WebGPUBindGroupDescriptor.idl \
@@ -408,7 +415,6 @@ JS_BINDING_IDLS = \
     $(WebCore)/Modules/webgpu/WebGPUShaderStageBit.idl \
     $(WebCore)/Modules/webgpu/WebGPUSwapChain.idl \
     $(WebCore)/Modules/webgpu/WebGPUTexture.idl \
-    $(WebCore)/Modules/webgpu/WebGPUTextureFormatEnum.idl \
     $(WebCore)/Modules/webgpu/WebGPUTextureView.idl \
 	$(WebCore)/Modules/webgpu/WebGPUVertexAttributeDescriptor.idl \
     $(WebCore)/Modules/webgpu/WebGPUVertexFormat.idl \
@@ -839,6 +845,8 @@ JS_BINDING_IDLS = \
     $(WebCore)/html/track/VideoTrack.idl \
     $(WebCore)/html/track/VideoTrackList.idl \
     $(WebCore)/inspector/CommandLineAPIHost.idl \
+    $(WebCore)/inspector/InspectorAuditAccessibilityObject.idl \
+    $(WebCore)/inspector/InspectorAuditDOMObject.idl \
     $(WebCore)/inspector/InspectorFrontendHost.idl \
     $(WebCore)/loader/appcache/DOMApplicationCache.idl \
     $(WebCore)/page/BarProp.idl \
@@ -1046,6 +1054,7 @@ JS_BINDING_IDLS = \
     $(WebCore)/testing/MockContentFilterSettings.idl \
     $(WebCore)/testing/MockPageOverlay.idl \
     $(WebCore)/testing/MockPaymentAddress.idl \
+    $(WebCore)/testing/MockPaymentContactFields.idl \
     $(WebCore)/testing/MockPaymentCoordinator.idl \
     $(WebCore)/testing/MockPaymentError.idl \
     $(WebCore)/testing/ServiceWorkerInternals.idl \
@@ -1131,6 +1140,10 @@ endif
 
 ifeq ($(shell $(CC) -std=gnu++14 -x c++ -E -P -dM $(SDK_FLAGS) $(TARGET_TRIPLE_FLAGS) $(FRAMEWORK_FLAGS) $(HEADER_FLAGS) -include "wtf/Platform.h" /dev/null | grep ENABLE_ORIENTATION_EVENTS | cut -d' ' -f3), 1)
     ENABLE_ORIENTATION_EVENTS = 1
+endif
+
+ifeq ($(shell $(CC) -std=gnu++14 -x c++ -E -P -dM $(SDK_FLAGS) $(TARGET_TRIPLE_FLAGS) $(FRAMEWORK_FLAGS) $(HEADER_FLAGS) -include "wtf/Platform.h" /dev/null | grep ENABLE_MEDIA_SOURCE | cut -d' ' -f3), 1)
+	ENABLE_MEDIA_SOURCE = 1
 endif
 
 ifeq ($(WTF_PLATFORM_IOS_FAMILY), 1)
@@ -1260,12 +1273,20 @@ ifndef ENABLE_ORIENTATION_EVENTS
     ENABLE_ORIENTATION_EVENTS = 0
 endif
 
+ifndef ENABLE_MEDIA_SOURCE
+	ENABLE_MEDIA_SOURCE = 0
+endif
+
 ifeq ($(ENABLE_ORIENTATION_EVENTS), 1)
     ADDITIONAL_IDL_DEFINES := $(ADDITIONAL_IDL_DEFINES) ENABLE_ORIENTATION_EVENTS
 endif
 
 ifeq ($(USE_APPLE_INTERNAL_SDK), 1)
     ADDITIONAL_IDL_DEFINES := $(ADDITIONAL_IDL_DEFINES) USE_APPLE_INTERNAL_SDK
+endif
+
+ifeq ($(ENABLE_MEDIA_SOURCE), 1)
+    ADDITIONAL_IDL_DEFINES := $(ADDITIONAL_IDL_DEFINES) ENABLE_MEDIA_SOURCE
 endif
 
 # CSS property names and value keywords

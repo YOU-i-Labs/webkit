@@ -55,9 +55,10 @@ private:
 
 #if PLATFORM(MAC)
     void collectGeometryForMagnificationGesture();
-    void setRenderTreeSizeNotificationThreshold(uint64_t size) { m_renderTreeSizeNotificationThreshold = size; }
-
-    void renderTreeSizeNotificationTimerFired();
+#endif
+#if !PLATFORM(IOS_FAMILY)
+    void setRenderTreeSizeNotificationThreshold(uint64_t);
+    void sendDidHitRenderTreeSizeThresholdIfNeeded();
 #endif
 
     void dispatchDidCollectGeometryForSmartMagnificationGesture(WebCore::FloatPoint origin, WebCore::FloatRect targetRect, WebCore::FloatRect visibleContentRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale);
@@ -70,10 +71,9 @@ private:
 
     WebPage& m_webPage;
 
-#if PLATFORM(MAC)
+#if !PLATFORM(IOS_FAMILY)
     uint64_t m_renderTreeSizeNotificationThreshold;
-#endif
-#if PLATFORM(IOS_FAMILY)
+#else
     Optional<std::pair<double, double>> m_cachedTextLegibilityScales;
 #endif
 };

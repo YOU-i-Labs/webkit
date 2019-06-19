@@ -55,6 +55,7 @@
 #include "Settings.h"
 #include "SpatialNavigation.h"
 #include <wtf/IsoMallocInlines.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 
 namespace WebCore {
 
@@ -306,10 +307,7 @@ void HTMLSelectElement::parseAttribute(const QualifiedName& name, const AtomicSt
         }
     } else if (name == multipleAttr)
         parseMultipleAttribute(value);
-    else if (name == accesskeyAttr) {
-        // FIXME: ignore for the moment.
-        //
-    } else
+    else
         HTMLFormControlElementWithState::parseAttribute(name, value);
 }
 
@@ -458,7 +456,7 @@ ExceptionOr<void> HTMLSelectElement::setItem(unsigned index, HTMLOptionElement* 
 ExceptionOr<void> HTMLSelectElement::setLength(unsigned newLength)
 {
     if (newLength > length() && newLength > maxSelectItems) {
-        document().addConsoleMessage(MessageSource::Other, MessageLevel::Warning, String::format("Blocked attempt to expand the option list to %u items. The maximum number of items allowed is %u.", newLength, maxSelectItems));
+        document().addConsoleMessage(MessageSource::Other, MessageLevel::Warning, makeString("Blocked attempt to expand the option list to ", newLength, " items. The maximum number of items allowed is ", maxSelectItems, '.'));
         return { };
     }
 

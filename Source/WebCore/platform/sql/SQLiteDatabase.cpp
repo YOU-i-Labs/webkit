@@ -37,7 +37,7 @@
 #include <thread>
 #include <wtf/Threading.h>
 #include <wtf/text/CString.h>
-#include <wtf/text/WTFString.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 
 namespace WebCore {
 
@@ -46,8 +46,7 @@ static const char notOpenErrorMessage[] = "database is not open";
 static void unauthorizedSQLFunction(sqlite3_context *context, int, sqlite3_value **)
 {
     const char* functionName = (const char*)sqlite3_user_data(context);
-    String errorMessage = String::format("Function %s is unauthorized", functionName);
-    sqlite3_result_error(context, errorMessage.utf8().data(), -1);
+    sqlite3_result_error(context, makeString("Function ", functionName, " is unauthorized").utf8().data(), -1);
 }
 
 static void initializeSQLiteIfNecessary()
@@ -206,7 +205,7 @@ void SQLiteDatabase::setMaximumSize(int64_t size)
     LockHolder locker(m_authorizerLock);
     enableAuthorizer(false);
 
-    SQLiteStatement statement(*this, "PRAGMA max_page_count = " + String::number(newMaxPageCount));
+    SQLiteStatement statement(*this, makeString("PRAGMA max_page_count = ", newMaxPageCount));
     statement.prepare();
     if (statement.step() != SQLITE_ROW)
         LOG_ERROR("Failed to set maximum size of database to %lli bytes", static_cast<long long>(size));
@@ -265,7 +264,7 @@ int64_t SQLiteDatabase::totalSize()
 
 void SQLiteDatabase::setSynchronous(SynchronousPragma sync)
 {
-    executeCommand("PRAGMA synchronous = " + String::number(sync));
+    executeCommand(makeString("PRAGMA synchronous = ", static_cast<unsigned>(sync)));
 }
 
 void SQLiteDatabase::setBusyTimeout(int ms)

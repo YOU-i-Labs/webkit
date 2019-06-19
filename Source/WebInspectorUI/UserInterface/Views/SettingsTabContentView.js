@@ -253,19 +253,10 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
 
         let initialValues = new Map;
 
-        if (window.CSSAgent) {
-            let group = experimentalSettingsView.addGroup(WI.UIString("Styles Sidebar:"));
-            group.addSetting(WI.settings.experimentalEnableComputedStyleCascades, WI.UIString("Enable Computed Style Cascades"));
-            experimentalSettingsView.addSeparator();
-        }
-
         if (window.LayerTreeAgent) {
             experimentalSettingsView.addSetting(WI.UIString("Layers:"), WI.settings.experimentalEnableLayersTab, WI.UIString("Enable Layers Tab"));
             experimentalSettingsView.addSeparator();
         }
-
-        experimentalSettingsView.addSetting(WI.UIString("Audit:"), WI.settings.experimentalEnableAuditTab, WI.UIString("Enable Audit Tab"));
-        experimentalSettingsView.addSeparator();
 
         experimentalSettingsView.addSetting(WI.UIString("User Interface:"), WI.settings.experimentalEnableNewTabBar, WI.UIString("Enable New Tab Bar"));
         experimentalSettingsView.addSeparator();
@@ -277,8 +268,6 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
             let newTabs = WI._openTabsSetting.value.slice();
             if (!initialValues.get(WI.settings.experimentalEnableLayersTab) && window.LayerTreeAgent && WI.settings.experimentalEnableLayersTab.value)
                 newTabs.push(WI.LayersTabContentView.Type);
-            if (!initialValues.get(WI.settings.experimentalEnableAuditTab) && WI.settings.experimentalEnableAuditTab.value)
-                newTabs.push(WI.AuditTabContentView.Type);
             WI._openTabsSetting.value = newTabs;
 
             InspectorFrontendHost.reopen();
@@ -294,9 +283,7 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
             });
         }
 
-        listenForChange(WI.settings.experimentalEnableComputedStyleCascades);
         listenForChange(WI.settings.experimentalEnableLayersTab);
-        listenForChange(WI.settings.experimentalEnableAuditTab);
         listenForChange(WI.settings.experimentalEnableNewTabBar);
 
         this.addSettingsView(experimentalSettingsView);
@@ -327,6 +314,10 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         this._debugSettingsView.addSeparator();
 
         this._debugSettingsView.addSetting(WI.unlocalizedString("Styles:"), WI.settings.enableStyleEditingDebugMode, WI.unlocalizedString("Enable style editing debug mode"));
+
+        this._debugSettingsView.addSeparator();
+
+        this._debugSettingsView.addSetting(WI.unlocalizedString("Heap Snapshot:"), WI.settings.debugShowInternalObjectsInHeapSnapshot, WI.unlocalizedString("Show Internal Objects"));
 
         this._debugSettingsView.addSeparator();
 

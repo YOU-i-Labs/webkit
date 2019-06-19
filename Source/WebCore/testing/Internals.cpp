@@ -93,6 +93,8 @@
 #include "HistoryController.h"
 #include "HistoryItem.h"
 #include "HitTestResult.h"
+#include "IDBRequest.h"
+#include "IDBTransaction.h"
 #include "InspectorClient.h"
 #include "InspectorController.h"
 #include "InspectorFrontendClientLocal.h"
@@ -115,9 +117,6 @@
 #include "MockPageOverlay.h"
 #include "MockPageOverlayClient.h"
 #include "NetworkLoadInformation.h"
-#if USE(CG)
-#include "PDFDocumentImage.h"
-#endif
 #include "Page.h"
 #include "PageCache.h"
 #include "PageOverlay.h"
@@ -181,14 +180,18 @@
 #include <JavaScriptCore/InspectorFrontendChannel.h>
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSCJSValue.h>
+#include <wtf/HexNumber.h>
 #include <wtf/JSONValues.h>
 #include <wtf/Language.h>
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/MonotonicTime.h>
-#include <wtf/text/StringBuffer.h>
+#include <wtf/URLHelpers.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringConcatenateNumbers.h>
-#include <wtf/text/StringView.h>
+
+#if USE(CG)
+#include "PDFDocumentImage.h"
+#endif
 
 #if ENABLE(INPUT_TYPE_COLOR)
 #include "ColorChooser.h"
@@ -449,8 +452,8 @@ void Internals::resetToConsistentState(Page& page)
 
     FrameView* mainFrameView = page.mainFrame().view();
     if (mainFrameView) {
-        mainFrameView->setHeaderHeight(0);
-        mainFrameView->setFooterHeight(0);
+        page.setHeaderHeight(0);
+        page.setFooterHeight(0);
         page.setTopContentInset(0);
         mainFrameView->setUseFixedLayout(false);
         mainFrameView->setFixedLayoutSize(IntSize());
@@ -534,7 +537,7 @@ Internals::Internals(Document& document)
 
 #if ENABLE(MEDIA_STREAM)
     setMockMediaCaptureDevicesEnabled(true);
-    WebCore::DeprecatedGlobalSettings::setMediaCaptureRequiresSecureConnection(false);
+    setMediaCaptureRequiresSecureConnection(false);
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -618,7 +621,7 @@ ExceptionOr<double> Internals::svgAnimationsInterval(SVGSVGElement& element) con
 
 String Internals::address(Node& node)
 {
-    return String::format("%p", &node);
+    return makeString("0x", hex(reinterpret_cast<uintptr_t>(&node)));
 }
 
 bool Internals::nodeNeedsStyleRecalc(Node& node)
@@ -1462,6 +1465,14 @@ void Internals::stopPeerConnection(RTCPeerConnection& connection)
     object.stop();
 }
 
+void Internals::clearPeerConnectionFactory()
+{
+#if USE(LIBWEBRTC)
+    if (auto* page = contextDocument()->page())
+        page->libWebRTCProvider().clearFactory();
+#endif
+}
+
 void Internals::applyRotationForOutgoingVideoSources(RTCPeerConnection& connection)
 {
     connection.applyRotationForOutgoingVideoSources();
@@ -1472,7 +1483,16 @@ void Internals::applyRotationForOutgoingVideoSources(RTCPeerConnection& connecti
 
 void Internals::setMockMediaCaptureDevicesEnabled(bool enabled)
 {
-    WebCore::DeprecatedGlobalSettings::setMockCaptureDevicesEnabled(enabled);
+    Document* document = contextDocument();
+    if (auto* page = document->page())
+        page->settings().setMockCaptureDevicesEnabled(enabled);
+}
+
+void Internals::setMediaCaptureRequiresSecureConnection(bool enabled)
+{
+    Document* document = contextDocument();
+    if (auto* page = document->page())
+        page->settings().setMediaCaptureRequiresSecureConnection(enabled);
 }
 
 static std::unique_ptr<MediaRecorderPrivate> createRecorderMockSource()
@@ -1610,7 +1630,7 @@ ExceptionOr<String> Internals::dumpMarkerRects(const String& markerTypeString)
 void Internals::addTextMatchMarker(const Range& range, bool isActive)
 {
     range.ownerDocument().updateLayoutIgnorePendingStylesheets();
-    range.ownerDocument().markers().addTextMatchMarker(&range, isActive);
+    range.ownerDocument().markers().addTextMatchMarker(range, isActive);
 }
 
 ExceptionOr<void> Internals::setMarkedTextMatchesAreHighlighted(bool flag)
@@ -1703,7 +1723,10 @@ ExceptionOr<void> Internals::setViewIsTransparent(bool transparent)
     Document* document = contextDocument();
     if (!document || !document->view())
         return Exception { InvalidAccessError };
-    document->view()->updateBackgroundRecursively(transparent);
+    Optional<Color> backgroundColor;
+    if (transparent)
+        backgroundColor = Color(Color::transparent);
+    document->view()->updateBackgroundRecursively(backgroundColor);
     return { };
 }
 
@@ -1781,7 +1804,7 @@ ExceptionOr<String> Internals::configurationForViewport(float devicePixelRatio, 
     restrictMinimumScaleFactorToViewportSize(attributes, IntSize(availableWidth, availableHeight), devicePixelRatio);
     restrictScaleFactorToInitialScaleIfNotUserScalable(attributes);
 
-    return String { "viewport size " + String::number(attributes.layoutSize.width()) + "x" + String::number(attributes.layoutSize.height()) + " scale " + String::number(attributes.initialScale) + " with limits [" + String::number(attributes.minimumScale) + ", " + String::number(attributes.maximumScale) + "] and userScalable " + (attributes.userScalable ? "true" : "false") };
+    return makeString("viewport size ", FormattedNumber::fixedPrecision(attributes.layoutSize.width()), 'x', FormattedNumber::fixedPrecision(attributes.layoutSize.height()), " scale ", FormattedNumber::fixedPrecision(attributes.initialScale), " with limits [", FormattedNumber::fixedPrecision(attributes.minimumScale), ", ", FormattedNumber::fixedPrecision(attributes.maximumScale), "] and userScalable ", (attributes.userScalable ? "true" : "false"));
 }
 
 ExceptionOr<bool> Internals::wasLastChangeUserEdit(Element& textField)
@@ -1798,11 +1821,6 @@ ExceptionOr<bool> Internals::wasLastChangeUserEdit(Element& textField)
 bool Internals::elementShouldAutoComplete(HTMLInputElement& element)
 {
     return element.shouldAutocomplete();
-}
-
-void Internals::setEditingValue(HTMLInputElement& element, const String& value)
-{
-    element.setEditingValue(value);
 }
 
 void Internals::setAutofilled(HTMLInputElement& element, bool enabled)
@@ -2110,7 +2128,7 @@ String Internals::parserMetaData(JSC::JSValue code)
         GetCallerCodeBlockFunctor iter;
         exec->iterate(iter);
         CodeBlock* codeBlock = iter.codeBlock();
-        executable = codeBlock->ownerScriptExecutable();
+        executable = codeBlock->ownerExecutable();
     } else if (code.isFunction(vm)) {
         JSFunction* funcObj = JSC::jsCast<JSFunction*>(code.toObject(exec));
         executable = funcObj->jsExecutable();
@@ -2365,6 +2383,11 @@ ExceptionOr<unsigned> Internals::countFindMatches(const String& text, const Vect
     return document->page()->countFindMatches(text, parsedOptions.releaseReturnValue(), 1000);
 }
 
+unsigned Internals::numberOfIDBTransactions() const
+{
+    return IDBTransaction::numberOfIDBTransactions;
+}
+
 unsigned Internals::numberOfLiveNodes() const
 {
     unsigned nodeCount = 0;
@@ -2497,6 +2520,8 @@ static LayerTreeFlags toLayerTreeFlags(unsigned short flags)
         layerTreeFlags |= LayerTreeFlagsIncludeAcceleratesDrawing;
     if (flags & Internals::LAYER_TREE_INCLUDES_BACKING_STORE_ATTACHED)
         layerTreeFlags |= LayerTreeFlagsIncludeBackingStoreAttached;
+    if (flags & Internals::LAYER_TREE_INCLUDES_ROOT_LAYER_PROPERTIES)
+        layerTreeFlags |= LayerTreeFlagsIncludeRootLayerProperties;
 
     return layerTreeFlags;
 }
@@ -2542,14 +2567,36 @@ ExceptionOr<String> Internals::repaintRectsAsText() const
     return document->frame()->trackedRepaintRectsAsText();
 }
 
-ExceptionOr<String> Internals::scrollbarOverlayStyle() const
+ExceptionOr<String> Internals::scrollbarOverlayStyle(Node* node) const
 {
-    Document* document = contextDocument();
-    if (!document || !document->view())
+    if (!node)
+        node = contextDocument();
+
+    if (!node)
         return Exception { InvalidAccessError };
 
-    auto& frameView = *document->view();
-    switch (frameView.scrollbarOverlayStyle()) {
+    node->document().updateLayoutIgnorePendingStylesheets();
+
+    ScrollableArea* scrollableArea = nullptr;
+    if (is<Document>(*node)) {
+        auto* frameView = downcast<Document>(node)->view();
+        if (!frameView)
+            return Exception { InvalidAccessError };
+
+        scrollableArea = frameView;
+    } else if (is<Element>(*node)) {
+        auto& element = *downcast<Element>(node);
+        if (!element.renderBox())
+            return Exception { InvalidAccessError };
+
+        scrollableArea = element.renderBox()->layer();
+    } else
+        return Exception { InvalidNodeTypeError };
+
+    if (!scrollableArea)
+        return Exception { InvalidNodeTypeError };
+
+    switch (scrollableArea->scrollbarOverlayStyle()) {
     case ScrollbarOverlayStyleDefault:
         return "default"_str;
     case ScrollbarOverlayStyleDark:
@@ -2562,11 +2609,45 @@ ExceptionOr<String> Internals::scrollbarOverlayStyle() const
     return "unknown"_str;
 }
 
+ExceptionOr<bool> Internals::scrollbarUsingDarkAppearance(Node* node) const
+{
+    if (!node)
+        node = contextDocument();
+
+    if (!node)
+        return Exception { InvalidAccessError };
+
+    node->document().updateLayoutIgnorePendingStylesheets();
+
+    ScrollableArea* scrollableArea = nullptr;
+    if (is<Document>(*node)) {
+        auto* frameView = downcast<Document>(node)->view();
+        if (!frameView)
+            return Exception { InvalidAccessError };
+
+        scrollableArea = frameView;
+    } else if (is<Element>(*node)) {
+        auto& element = *downcast<Element>(node);
+        if (!element.renderBox())
+            return Exception { InvalidAccessError };
+
+        scrollableArea = element.renderBox()->layer();
+    } else
+        return Exception { InvalidNodeTypeError };
+
+    if (!scrollableArea)
+        return Exception { InvalidNodeTypeError };
+
+    return scrollableArea->useDarkAppearance();
+}
+
 ExceptionOr<String> Internals::scrollingStateTreeAsText() const
 {
     Document* document = contextDocument();
     if (!document || !document->frame())
         return Exception { InvalidAccessError };
+
+    document->updateLayoutIgnorePendingStylesheets();
 
     Page* page = document->page();
     if (!page)
@@ -2892,7 +2973,7 @@ void Internals::setHeaderHeight(float height)
     if (!document || !document->view())
         return;
 
-    document->view()->setHeaderHeight(height);
+    document->page()->setHeaderHeight(height);
 }
 
 void Internals::setFooterHeight(float height)
@@ -2901,7 +2982,7 @@ void Internals::setFooterHeight(float height)
     if (!document || !document->view())
         return;
 
-    document->view()->setFooterHeight(height);
+    document->page()->setFooterHeight(height);
 }
 
 void Internals::setTopContentInset(float contentInset)
@@ -2920,31 +3001,31 @@ void Internals::webkitWillEnterFullScreenForElement(Element& element)
     Document* document = contextDocument();
     if (!document)
         return;
-    document->webkitWillEnterFullScreenForElement(&element);
+    document->webkitWillEnterFullScreen(element);
 }
 
-void Internals::webkitDidEnterFullScreenForElement(Element& element)
+void Internals::webkitDidEnterFullScreenForElement(Element&)
 {
     Document* document = contextDocument();
     if (!document)
         return;
-    document->webkitDidEnterFullScreenForElement(&element);
+    document->webkitDidEnterFullScreen();
 }
 
-void Internals::webkitWillExitFullScreenForElement(Element& element)
+void Internals::webkitWillExitFullScreenForElement(Element&)
 {
     Document* document = contextDocument();
     if (!document)
         return;
-    document->webkitWillExitFullScreenForElement(&element);
+    document->webkitWillExitFullScreen();
 }
 
-void Internals::webkitDidExitFullScreenForElement(Element& element)
+void Internals::webkitDidExitFullScreenForElement(Element&)
 {
     Document* document = contextDocument();
     if (!document)
         return;
-    document->webkitDidExitFullScreenForElement(&element);
+    document->webkitDidExitFullScreen();
 }
 
 bool Internals::isAnimatingFullScreen() const
@@ -3258,8 +3339,7 @@ ExceptionOr<String> Internals::getCurrentCursorInfo()
 #if ENABLE(MOUSE_CURSOR_SCALE)
     if (cursor.imageScaleFactor() != 1) {
         result.appendLiteral(" scale=");
-        NumberToStringBuffer buffer;
-        result.append(numberToFixedPrecisionString(cursor.imageScaleFactor(), 8, buffer, true));
+        result.appendNumber(cursor.imageScaleFactor(), 8);
     }
 #endif
     return result.toString();
@@ -4075,7 +4155,7 @@ void Internals::queueMicroTask(int testNumber)
         return;
 
     auto microtask = std::make_unique<ActiveDOMCallbackMicrotask>(MicrotaskQueue::mainThreadQueue(), *document, [document, testNumber]() {
-        document->addConsoleMessage(MessageSource::JS, MessageLevel::Debug, makeString("MicroTask #", String::number(testNumber), " has run."));
+        document->addConsoleMessage(MessageSource::JS, MessageLevel::Debug, makeString("MicroTask #", testNumber, " has run."));
     });
 
     MicrotaskQueue::mainThreadQueue().append(WTFMove(microtask));
@@ -4103,7 +4183,7 @@ static void appendOffsets(StringBuilder& builder, const Vector<LayoutUnit>& snap
         else
             justStarting = false;
 
-        builder.append(String::number(coordinate.toUnsigned()));
+        builder.appendNumber(coordinate.toUnsigned());
     }
     builder.appendLiteral(" }");
 }
@@ -4213,10 +4293,9 @@ String Internals::getCurrentMediaControlsStatusForElement(HTMLMediaElement& medi
 
 #if !PLATFORM(COCOA)
 
-String Internals::userVisibleString(const DOMURL&)
+String Internals::userVisibleString(const DOMURL& url)
 {
-    // Cocoa-specific function. Could ASSERT_NOT_REACHED, but that's probably overkill.
-    return String();
+    return WTF::URLHelpers::userVisibleURL(url.href().string().utf8());
 }
 
 #endif
@@ -4427,7 +4506,7 @@ Vector<String> Internals::accessKeyModifiers() const
         case PlatformEvent::Modifier::AltKey:
             accessKeyModifierStrings.append("altKey"_s);
             break;
-        case PlatformEvent::Modifier::CtrlKey:
+        case PlatformEvent::Modifier::ControlKey:
             accessKeyModifierStrings.append("ctrlKey"_s);
             break;
         case PlatformEvent::Modifier::MetaKey:
@@ -4852,19 +4931,23 @@ auto Internals::getCookies() const -> Vector<CookieData>
     if (!document)
         return { };
 
+    auto* page = document->page();
+    if (!page)
+        return { };
+
     Vector<Cookie> cookies;
-    getRawCookies(*document, document->cookieURL(), cookies);
+    page->cookieJar().getRawCookies(*document, document->cookieURL(), cookies);
     return WTF::map(cookies, [](auto& cookie) {
         return CookieData { cookie };
     });
 }
 
-void Internals::setAlwaysAllowLocalWebarchive() const
+void Internals::setAlwaysAllowLocalWebarchive(bool alwaysAllowLocalWebarchive)
 {
-    auto* document = contextDocument();
-    if (!document)
+    auto* localFrame = frame();
+    if (!localFrame)
         return;
-    document->setAlwaysAllowLocalWebarchive();
+    localFrame->loader().setAlwaysAllowLocalWebarchive(alwaysAllowLocalWebarchive);
 }
 
 } // namespace WebCore

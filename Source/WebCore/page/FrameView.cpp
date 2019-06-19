@@ -50,7 +50,6 @@
 #include "FrameTree.h"
 #include "GraphicsContext.h"
 #include "HTMLBodyElement.h"
-#include "HTMLDocument.h"
 #include "HTMLEmbedElement.h"
 #include "HTMLFrameElement.h"
 #include "HTMLFrameSetElement.h"
@@ -184,36 +183,12 @@ Pagination::Mode paginationModeForRenderStyle(const RenderStyle& style)
 
 FrameView::FrameView(Frame& frame)
     : m_frame(frame)
-    , m_canHaveScrollbars(true)
+    , m_layoutContext(*this)
     , m_updateEmbeddedObjectsTimer(*this, &FrameView::updateEmbeddedObjectsTimerFired)
     , m_updateWidgetPositionsTimer(*this, &FrameView::updateWidgetPositionsTimerFired)
-    , m_isTransparent(false)
-    , m_baseBackgroundColor(Color::white)
-    , m_mediaType("screen")
-    , m_overflowStatusDirty(true)
-    , m_wasScrolledByUser(false)
-    , m_inProgrammaticScroll(false)
     , m_delayedScrollEventTimer(*this, &FrameView::sendScrollEvent)
-    , m_selectionRevealModeForFocusedElement(SelectionRevealMode::DoNotReveal)
     , m_delayedScrollToFocusedElementTimer(*this, &FrameView::scrollToFocusedElementTimerFired)
-    , m_isTrackingRepaints(false)
-    , m_shouldUpdateWhileOffscreen(true)
-    , m_speculativeTilingEnabled(false)
     , m_speculativeTilingEnableTimer(*this, &FrameView::speculativeTilingEnableTimerFired)
-#if PLATFORM(IOS_FAMILY)
-    , m_useCustomFixedPositionLayoutRect(false)
-    , m_useCustomSizeForResizeEvent(false)
-#endif
-    , m_shouldAutoSize(false)
-    , m_inAutoSize(false)
-    , m_didRunAutosize(false)
-    , m_autoSizeFixedMinimumHeight(0)
-    , m_headerHeight(0)
-    , m_footerHeight(0)
-    , m_visualUpdatesAllowedByClient(true)
-    , m_hasFlippedBlockRenderers(false)
-    , m_scrollPinningBehavior(DoNotPin)
-    , m_layoutContext(*this)
 {
     init();
 
@@ -294,8 +269,7 @@ void FrameView::resetLayoutMilestones()
 {
     m_firstLayoutCallbackPending = false;
     m_isVisuallyNonEmpty = false;
-    m_firstVisuallyNonEmptyLayoutCallbackPending = true;
-    m_significantRenderedTextMilestonePending = true;
+    m_hasReachedSignificantRenderedTextThreshold = false;
     m_renderedSignificantAmountOfText = false;
     m_visuallyNonEmptyCharacterCount = 0;
     m_visuallyNonEmptyPixelCount = 0;
@@ -390,7 +364,7 @@ void FrameView::detachCustomScrollbars()
 void FrameView::recalculateScrollbarOverlayStyle()
 {
     ScrollbarOverlayStyle oldOverlayStyle = scrollbarOverlayStyle();
-    Optional<ScrollbarOverlayStyle> clientOverlayStyle = frame().page() ? frame().page()->chrome().client().preferredScrollbarOverlayStyle() : ScrollbarOverlayStyleDefault;
+    Optional<ScrollbarOverlayStyle> clientOverlayStyle = frame().page() ? frame().page()->chrome().client().preferredScrollbarOverlayStyle() : WTF::nullopt;
     if (clientOverlayStyle) {
         if (clientOverlayStyle.value() != oldOverlayStyle)
             setScrollbarOverlayStyle(clientOverlayStyle.value());
@@ -424,7 +398,10 @@ void FrameView::recalculateBaseBackgroundColor()
         return;
 
     m_usesDarkAppearance = usingDarkAppearance;
-    updateBackgroundRecursively(m_isTransparent);
+    Optional<Color> backgroundColor;
+    if (m_isTransparent)
+        backgroundColor = Color(Color::transparent);
+    updateBackgroundRecursively(backgroundColor);
 }
 #endif
 
@@ -850,14 +827,6 @@ void FrameView::updateCompositingLayersAfterLayout()
     renderView->compositor().updateCompositingLayers(CompositingUpdateType::AfterLayout);
 }
 
-GraphicsLayer* FrameView::layerForScrolling() const
-{
-    RenderView* renderView = this->renderView();
-    if (!renderView)
-        return nullptr;
-    return renderView->compositor().scrollLayer();
-}
-
 GraphicsLayer* FrameView::layerForHorizontalScrollbar() const
 {
     RenderView* renderView = this->renderView();
@@ -895,7 +864,7 @@ TiledBacking* FrameView::tiledBacking() const
     return backing->tiledBacking();
 }
 
-uint64_t FrameView::scrollLayerID() const
+ScrollingNodeID FrameView::scrollingNodeID() const
 {
     RenderView* renderView = this->renderView();
     if (!renderView)
@@ -1081,24 +1050,20 @@ LayoutPoint FrameView::scrollPositionRespectingCustomFixedPosition() const
     return scrollPositionForFixedPosition();
 }
 
-void FrameView::setHeaderHeight(int headerHeight)
+int FrameView::headerHeight() const
 {
-    if (frame().page())
-        ASSERT(frame().isMainFrame());
-    m_headerHeight = headerHeight;
-
-    if (RenderView* renderView = this->renderView())
-        renderView->setNeedsLayout();
+    if (!frame().isMainFrame())
+        return 0;
+    Page* page = frame().page();
+    return page ? page->headerHeight() : 0;
 }
 
-void FrameView::setFooterHeight(int footerHeight)
+int FrameView::footerHeight() const
 {
-    if (frame().page())
-        ASSERT(frame().isMainFrame());
-    m_footerHeight = footerHeight;
-
-    if (RenderView* renderView = this->renderView())
-        renderView->setNeedsLayout();
+    if (!frame().isMainFrame())
+        return 0;
+    Page* page = frame().page();
+    return page ? page->footerHeight() : 0;
 }
 
 float FrameView::topContentInset(TopContentInsetType contentInsetTypeToReturn) const
@@ -1304,13 +1269,7 @@ void FrameView::didLayout(WeakPtr<RenderElement> layoutRoot)
         cache->postNotification(layoutRoot.get(), AXObjectCache::AXLayoutComplete);
 #endif
 
-#if ENABLE(DASHBOARD_SUPPORT)
-    updateAnnotatedRegions();
-#endif
-
-#if ENABLE(IOS_TOUCH_EVENTS)
-    frame().document()->setTouchEventRegionsNeedUpdate();
-#endif
+    frame().document()->invalidateRenderingDependentRegions(Document::AnnotationsAction::Update);
 
     updateCanBlitOnScrollRecursively();
 
@@ -1574,8 +1533,8 @@ LayoutRect FrameView::computeUpdatedLayoutViewportRect(const LayoutRect& layoutV
         // The max stable layout viewport origin really depends on the size of the layout viewport itself, so we need to adjust the location of the layout viewport one final time to make sure it does not end up out of bounds of the document.
         // Without this adjustment (and with using the non-constrained unobscuredContentRect's size as the size of the layout viewport) the layout viewport can be pushed past the bounds of the document during rubber-banding, and cannot be pushed
         // back in until the user scrolls back in the other direction.
-        layoutViewportOrigin.setX(clampTo<float>(layoutViewportOrigin.x(), 0, documentRect.width() - layoutViewportRect.width()));
-        layoutViewportOrigin.setY(clampTo<float>(layoutViewportOrigin.y(), 0, documentRect.height() - layoutViewportRect.height()));
+        layoutViewportOrigin.setX(clampTo<float>(layoutViewportOrigin.x().toFloat(), 0, documentRect.width() - layoutViewportRect.width()));
+        layoutViewportOrigin.setY(clampTo<float>(layoutViewportOrigin.y().toFloat(), 0, documentRect.height() - layoutViewportRect.height()));
     }
     layoutViewportRect.setLocation(layoutViewportOrigin);
     
@@ -2018,6 +1977,14 @@ void FrameView::viewportContentsChanged()
         }
     }
 #endif
+}
+
+IntRect FrameView::unobscuredContentRectExpandedByContentInsets() const
+{
+    FloatRect unobscuredContentRect = this->unobscuredContentRect();
+    if (auto* page = frame().page())
+        unobscuredContentRect.expand(page->contentInsets());
+    return IntRect(unobscuredContentRect);
 }
 
 bool FrameView::fixedElementsLayoutRelativeToFrame() const
@@ -2705,7 +2672,7 @@ void FrameView::availableContentSizeChanged(AvailableSizeChangeReason reason)
     }
 
     updateLayoutViewport();
-    setNeedsLayout();
+    setNeedsLayoutAfterViewConfigurationChange();
     ScrollView::availableContentSizeChanged(reason);
 }
 
@@ -2803,6 +2770,15 @@ void FrameView::updateTiledBackingAdaptiveSizing()
 
 #if PLATFORM(IOS_FAMILY)
 
+void FrameView::didUpdateViewportOverrideRects()
+{
+    if (!frame().settings().visualViewportAPIEnabled())
+        return;
+
+    if (auto* window = frame().window())
+        window->visualViewport().update();
+}
+
 void FrameView::unobscuredContentSizeChanged()
 {
     updateTiledBackingAdaptiveSizing();
@@ -2841,6 +2817,8 @@ void FrameView::disableLayerFlushThrottlingTemporarilyForInteraction()
 
 void FrameView::loadProgressingStatusChanged()
 {
+    if (!m_isVisuallyNonEmpty && frame().loader().isComplete())
+        fireLayoutRelatedMilestonesIfNeeded();
     updateLayerFlushThrottling();
     adjustTiledBackingCoverage();
 }
@@ -2939,9 +2917,29 @@ bool FrameView::needsLayout() const
     return layoutContext().needsLayout();
 }
 
-void FrameView::setNeedsLayout()
+void FrameView::setNeedsLayoutAfterViewConfigurationChange()
 {
-    layoutContext().setNeedsLayout();
+    layoutContext().setNeedsLayoutAfterViewConfigurationChange();
+}
+
+void FrameView::setNeedsCompositingConfigurationUpdate()
+{
+    RenderView* renderView = this->renderView();
+    if (renderView->usesCompositing()) {
+        if (auto* rootLayer = renderView->layer())
+            rootLayer->setNeedsCompositingConfigurationUpdate();
+        renderView->compositor().scheduleCompositingLayerUpdate();
+    }
+}
+
+void FrameView::setNeedsCompositingGeometryUpdate()
+{
+    RenderView* renderView = this->renderView();
+    if (renderView->usesCompositing()) {
+        if (auto* rootLayer = renderView->layer())
+            rootLayer->setNeedsCompositingGeometryUpdate();
+        renderView->compositor().scheduleCompositingLayerUpdate();
+    }
 }
 
 void FrameView::scheduleSelectionUpdate()
@@ -2950,8 +2948,7 @@ void FrameView::scheduleSelectionUpdate()
         return;
     // FIXME: We should not need to go through the layout process since selection update does not change dimension/geometry.
     // However we can't tell at this point if the tree is stable yet, so let's just schedule a root only layout for now.
-    setNeedsLayout();
-    layoutContext().scheduleLayout();
+    setNeedsLayoutAfterViewConfigurationChange();
 }
 
 bool FrameView::isTransparent() const
@@ -2973,8 +2970,8 @@ void FrameView::setTransparent(bool isTransparent)
     if (!isViewForDocumentInFrame())
         return;
 
-    renderView()->compositor().rootBackgroundColorOrTransparencyChanged();
-    setNeedsLayout();
+    setNeedsLayoutAfterViewConfigurationChange();
+    setNeedsCompositingConfigurationUpdate();
 }
 
 bool FrameView::hasOpaqueBackground() const
@@ -2995,23 +2992,22 @@ void FrameView::setBaseBackgroundColor(const Color& backgroundColor)
         return;
 
     recalculateScrollbarOverlayStyle();
-    setNeedsLayout();
-
-    renderView()->compositor().rootBackgroundColorOrTransparencyChanged();
+    setNeedsLayoutAfterViewConfigurationChange();
+    setNeedsCompositingConfigurationUpdate();
 }
 
-void FrameView::updateBackgroundRecursively(bool transparent)
+void FrameView::updateBackgroundRecursively(const Optional<Color>& backgroundColor)
 {
-#if ENABLE(DARK_MODE_CSS)
-    Color backgroundColor = transparent ? Color::transparent : RenderTheme::singleton().systemColor(CSSValueAppleSystemControlBackground, styleColorOptions());
+#if ENABLE(DARK_MODE_CSS) && PLATFORM(MAC)
+    Color baseBackgroundColor = backgroundColor.valueOr(RenderTheme::singleton().systemColor(CSSValueAppleSystemControlBackground, styleColorOptions()));
 #else
-    Color backgroundColor = transparent ? Color::transparent : Color::white;
+    Color baseBackgroundColor = backgroundColor.valueOr(Color::white);
 #endif
 
     for (auto* frame = m_frame.ptr(); frame; frame = frame->tree().traverseNext(m_frame.ptr())) {
         if (FrameView* view = frame->view()) {
-            view->setTransparent(transparent);
-            view->setBaseBackgroundColor(backgroundColor);
+            view->setTransparent(!baseBackgroundColor.isVisible());
+            view->setBaseBackgroundColor(baseBackgroundColor);
             if (view->needsLayout())
                 view->layoutContext().scheduleLayout();
         }
@@ -3296,8 +3292,7 @@ void FrameView::performPostLayoutTasks()
 {
     // FIXME: We should not run any JavaScript code in this function.
     LOG(Layout, "FrameView %p performPostLayoutTasks", this);
-
-    frame().document()->updateMainArticleElementAfterLayout();
+    updateHasReachedSignificantRenderedTextThreshold();
     frame().selection().updateAppearanceAfterLayout();
 
     flushPostLayoutTasksQueue();
@@ -3538,7 +3533,7 @@ void FrameView::setAutoSizeFixedMinimumHeight(int fixedMinimumHeight)
 
     m_autoSizeFixedMinimumHeight = fixedMinimumHeight;
 
-    setNeedsLayout();
+    setNeedsLayoutAfterViewConfigurationChange();
 }
 
 RenderElement* FrameView::viewportRenderer() const
@@ -3882,24 +3877,6 @@ bool FrameView::scrollAnimatorEnabled() const
     return false;
 }
 
-#if ENABLE(DASHBOARD_SUPPORT)
-void FrameView::updateAnnotatedRegions()
-{
-    Document* document = frame().document();
-    if (!document->hasAnnotatedRegions())
-        return;
-    Vector<AnnotatedRegionValue> newRegions;
-    document->renderBox()->collectAnnotatedRegions(newRegions);
-    if (newRegions == document->annotatedRegions())
-        return;
-    document->setAnnotatedRegions(newRegions);
-    Page* page = frame().page();
-    if (!page)
-        return;
-    page->chrome().client().annotatedRegionsChanged();
-}
-#endif
-
 void FrameView::updateScrollCorner()
 {
     RenderElement* renderer = nullptr;
@@ -4177,10 +4154,7 @@ void FrameView::didPaintContents(GraphicsContext& context, const IntRect& dirtyR
     m_lastPaintTime = MonotonicTime::now();
 
     // Regions may have changed as a result of the visibility/z-index of element changing.
-#if ENABLE(DASHBOARD_SUPPORT)
-    if (frame().document()->annotatedRegionsDirty())
-        updateAnnotatedRegions();
-#endif
+    frame().document()->updateZOrderDependentRegions();
 
     if (paintingState.isTopLevelPainter)
         sCurrentPaintTimeStamp = MonotonicTime();
@@ -4397,10 +4371,8 @@ void FrameView::updateLayoutAndStyleIfNeededRecursive()
 
 void FrameView::incrementVisuallyNonEmptyCharacterCount(const String& inlineText)
 {
-    if (m_isVisuallyNonEmpty && m_renderedSignificantAmountOfText)
+    if (m_visuallyNonEmptyCharacterCount > visualCharacterThreshold && m_hasReachedSignificantRenderedTextThreshold)
         return;
-
-    ++m_textRendererCountForVisuallyNonEmptyCharacters;
 
     auto nonWhitespaceLength = [](auto& inlineText) {
         auto length = inlineText.length();
@@ -4412,12 +4384,7 @@ void FrameView::incrementVisuallyNonEmptyCharacterCount(const String& inlineText
         return length;
     };
     m_visuallyNonEmptyCharacterCount += nonWhitespaceLength(inlineText);
-
-    if (!m_isVisuallyNonEmpty && m_visuallyNonEmptyCharacterCount > visualCharacterThreshold)
-        updateIsVisuallyNonEmpty();
-
-    if (!m_renderedSignificantAmountOfText)
-        updateSignificantRenderedTextMilestoneIfNeeded();
+    ++m_textRendererCountForVisuallyNonEmptyCharacters;
 }
 
 static bool elementOverflowRectIsLargerThanThreshold(const Element& element)
@@ -4431,6 +4398,46 @@ static bool elementOverflowRectIsLargerThanThreshold(const Element& element)
     return false;
 }
 
+void FrameView::updateHasReachedSignificantRenderedTextThreshold()
+{
+    if (m_hasReachedSignificantRenderedTextThreshold)
+        return;
+
+    auto* page = frame().page();
+    if (!page || !page->requestedLayoutMilestones().contains(DidRenderSignificantAmountOfText))
+        return;
+
+    auto* document = frame().document();
+    if (!document)
+        return;
+
+    document->updateMainArticleElementAfterLayout();
+    auto hasMainArticleElement = document->hasMainArticleElement();
+    auto characterThreshold = hasMainArticleElement ? mainArticleSignificantRenderedTextCharacterThreshold : defaultSignificantRenderedTextCharacterThreshold;
+    if (m_visuallyNonEmptyCharacterCount < characterThreshold)
+        return;
+
+    auto meanLength = hasMainArticleElement ? mainArticleSignificantRenderedTextMeanLength : defaultSignificantRenderedTextMeanLength;
+    if (!m_textRendererCountForVisuallyNonEmptyCharacters || m_visuallyNonEmptyCharacterCount / static_cast<float>(m_textRendererCountForVisuallyNonEmptyCharacters) < meanLength)
+        return;
+
+    m_hasReachedSignificantRenderedTextThreshold = true;
+}
+
+bool FrameView::qualifiesAsSignificantRenderedText() const
+{
+    ASSERT(!m_renderedSignificantAmountOfText);
+    auto* document = frame().document();
+    if (!document || document->styleScope().hasPendingSheetsBeforeBody())
+        return false;
+
+    auto* documentElement = document->documentElement();
+    if (!documentElement || !elementOverflowRectIsLargerThanThreshold(*documentElement))
+        return false;
+
+    return m_hasReachedSignificantRenderedTextThreshold;
+}
+
 bool FrameView::qualifiesAsVisuallyNonEmpty() const
 {
     // No content yet.
@@ -4442,7 +4449,7 @@ bool FrameView::qualifiesAsVisuallyNonEmpty() const
     if (frame().document()->styleScope().hasPendingSheetsBeforeBody())
         return false;
 
-    auto finishedParsingMainDocument = frame().loader().stateMachine().committedFirstRealDocumentLoad() && !frame().document()->parsing();
+    auto finishedParsingMainDocument = frame().loader().stateMachine().committedFirstRealDocumentLoad() && (frame().document()->readyState() == Document::Interactive || frame().document()->readyState() == Document::Complete);
     // Ensure that we always fire visually non-empty milestone eventually.
     if (finishedParsingMainDocument && frame().loader().isComplete())
         return true;
@@ -4473,11 +4480,8 @@ bool FrameView::qualifiesAsVisuallyNonEmpty() const
         return true;
 
     auto isMoreContentExpected = [&]() {
-        // Pending css/javascript/font loading/processing means we should wait a little longer.
-        auto hasPendingScriptExecution = frame().document()->scriptRunner() && frame().document()->scriptRunner()->hasPendingScripts();
-        if (hasPendingScriptExecution)
-            return true;
-
+        ASSERT(finishedParsingMainDocument);
+        // Pending css/font loading means we should wait a little longer. Classic non-async, non-defer scripts are all processed by now.
         auto* documentLoader = frame().loader().documentLoader();
         if (!documentLoader)
             return false;
@@ -4490,7 +4494,7 @@ bool FrameView::qualifiesAsVisuallyNonEmpty() const
         for (auto& resource : resources) {
             if (resource.value->isLoaded())
                 continue;
-            if (resource.value->type() == CachedResource::Type::CSSStyleSheet || resource.value->type() == CachedResource::Type::Script || resource.value->type() == CachedResource::Type::FontResource)
+            if (resource.value->type() == CachedResource::Type::CSSStyleSheet || resource.value->type() == CachedResource::Type::FontResource)
                 return true;
         }
         return false;
@@ -4501,41 +4505,6 @@ bool FrameView::qualifiesAsVisuallyNonEmpty() const
         return !isMoreContentExpected();
 
     return false;
-}
-
-void FrameView::updateSignificantRenderedTextMilestoneIfNeeded()
-{
-    if (m_renderedSignificantAmountOfText)
-        return;
-
-    auto* document = frame().document();
-    if (!document || document->styleScope().hasPendingSheetsBeforeBody())
-        return;
-
-    auto* documentElement = document->documentElement();
-    if (!documentElement || !elementOverflowRectIsLargerThanThreshold(*documentElement))
-        return;
-
-    auto characterThreshold = document->hasMainArticleElement() ? mainArticleSignificantRenderedTextCharacterThreshold : defaultSignificantRenderedTextCharacterThreshold;
-    auto meanLength = document->hasMainArticleElement() ? mainArticleSignificantRenderedTextMeanLength : defaultSignificantRenderedTextMeanLength;
-
-    if (m_visuallyNonEmptyCharacterCount < characterThreshold)
-        return;
-
-    if (!m_textRendererCountForVisuallyNonEmptyCharacters || m_visuallyNonEmptyCharacterCount / static_cast<float>(m_textRendererCountForVisuallyNonEmptyCharacters) < meanLength)
-        return;
-
-    m_renderedSignificantAmountOfText = true;
-}
-
-void FrameView::updateIsVisuallyNonEmpty()
-{
-    if (m_isVisuallyNonEmpty)
-        return;
-    if (!qualifiesAsVisuallyNonEmpty())
-        return;
-    m_isVisuallyNonEmpty = true;
-    adjustTiledBackingCoverage();
 }
 
 bool FrameView::isViewForDocumentInFrame() const
@@ -4561,7 +4530,7 @@ void FrameView::enableAutoSizeMode(bool enable, const IntSize& minSize, const In
     m_maxAutoSize = maxSize;
     m_didRunAutosize = false;
 
-    setNeedsLayout();
+    setNeedsLayoutAfterViewConfigurationChange();
     layoutContext().scheduleLayout();
     if (m_shouldAutoSize) {
         overrideViewportSizeForCSSViewportUnits({ minSize.width(), m_overrideViewportSize ? m_overrideViewportSize->height : WTF::nullopt });
@@ -4664,19 +4633,12 @@ IntRect FrameView::convertFromRendererToContainingView(const RenderElement* rend
 {
     IntRect rect = snappedIntRect(enclosingLayoutRect(renderer->localToAbsoluteQuad(FloatRect(rendererRect)).boundingBox()));
 
-    if (!delegatesScrolling())
-        rect = contentsToView(rect);
-
-    return rect;
+    return contentsToView(rect);
 }
 
 IntRect FrameView::convertFromContainingViewToRenderer(const RenderElement* renderer, const IntRect& viewRect) const
 {
-    IntRect rect = viewRect;
-    
-    // Convert from FrameView coords into page ("absolute") coordinates.
-    if (!delegatesScrolling())
-        rect = viewToContents(rect);
+    IntRect rect = viewToContents(viewRect);
 
     // FIXME: we don't have a way to map an absolute rect down to a local quad, so just
     // move the rect for now.
@@ -4686,11 +4648,7 @@ IntRect FrameView::convertFromContainingViewToRenderer(const RenderElement* rend
 
 FloatRect FrameView::convertFromContainingViewToRenderer(const RenderElement* renderer, const FloatRect& viewRect) const
 {
-    FloatRect rect = viewRect;
-
-    // Convert from FrameView coords into page ("absolute") coordinates.
-    if (!delegatesScrolling())
-        rect = viewToContents(rect);
+    FloatRect rect = viewToContents(viewRect);
 
     return (renderer->absoluteToLocalQuad(rect)).boundingBox();
 }
@@ -4699,11 +4657,7 @@ IntPoint FrameView::convertFromRendererToContainingView(const RenderElement* ren
 {
     IntPoint point = roundedIntPoint(renderer->localToAbsolute(rendererPoint, UseTransforms));
 
-    // Convert from page ("absolute") to FrameView coordinates.
-    if (!delegatesScrolling())
-        point = contentsToView(point);
-
-    return point;
+    return contentsToView(point);
 }
 
 IntPoint FrameView::convertFromContainingViewToRenderer(const RenderElement* renderer, const IntPoint& viewPoint) const
@@ -4893,6 +4847,13 @@ FloatPoint FrameView::layoutViewportToAbsolutePoint(FloatPoint p) const
     return p.scaled(frame().frameScaleFactor());
 }
 
+FloatRect FrameView::clientToLayoutViewportRect(FloatRect rect) const
+{
+    ASSERT(frame().settings().visualViewportEnabled());
+    rect.scale(frame().pageZoomFactor());
+    return rect;
+}
+
 FloatPoint FrameView::clientToLayoutViewportPoint(FloatPoint p) const
 {
     ASSERT(frame().settings().visualViewportEnabled());
@@ -5032,7 +4993,7 @@ bool FrameView::wheelEvent(const PlatformWheelEvent& wheelEvent)
     if (Page* page = frame().page()) {
         if (ScrollingCoordinator* scrollingCoordinator = page->scrollingCoordinator()) {
             if (scrollingCoordinator->coordinatesScrollingForFrameView(*this))
-                return scrollingCoordinator->handleWheelEvent(*this, wheelEvent);
+                return scrollingCoordinator->handleWheelEvent(*this, wheelEvent) != ScrollingEventResult::DidNotHandleEvent;
         }
     }
 #endif
@@ -5167,26 +5128,25 @@ void FrameView::fireLayoutRelatedMilestonesIfNeeded()
         if (frame().isMainFrame())
             page->startCountingRelevantRepaintedObjects();
     }
-    updateIsVisuallyNonEmpty();
-    updateSignificantRenderedTextMilestoneIfNeeded();
 
-    // If the layout was done with pending sheets, we are not in fact visually non-empty yet.
-    if (m_isVisuallyNonEmpty && m_firstVisuallyNonEmptyLayoutCallbackPending) {
-        m_firstVisuallyNonEmptyLayoutCallbackPending = false;
+    if (!m_isVisuallyNonEmpty && qualifiesAsVisuallyNonEmpty()) {
+        m_isVisuallyNonEmpty = true;
         addPaintPendingMilestones(DidFirstMeaningfulPaint);
-
         if (requestedMilestones & DidFirstVisuallyNonEmptyLayout)
             milestonesAchieved.add(DidFirstVisuallyNonEmptyLayout);
     }
 
-    if (m_renderedSignificantAmountOfText && m_significantRenderedTextMilestonePending) {
-        m_significantRenderedTextMilestonePending = false;
+    if (!m_renderedSignificantAmountOfText && qualifiesAsSignificantRenderedText()) {
+        m_renderedSignificantAmountOfText = true;
         if (requestedMilestones & DidRenderSignificantAmountOfText)
             milestonesAchieved.add(DidRenderSignificantAmountOfText);
     }
 
-    if (milestonesAchieved && frame().isMainFrame())
+    if (milestonesAchieved && frame().isMainFrame()) {
+        if (milestonesAchieved.contains(DidFirstVisuallyNonEmptyLayout))
+            RELEASE_LOG_IF_ALLOWED("fireLayoutRelatedMilestonesIfNeeded() - firing first visually non-empty layout milestone on the main frame");
         frame().loader().didReachLayoutMilestone(milestonesAchieved);
+    }
 }
 
 void FrameView::firePaintRelatedMilestonesIfNeeded()

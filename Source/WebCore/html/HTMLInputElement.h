@@ -185,8 +185,6 @@ public:
     // The value which is drawn by a renderer.
     String visibleValue() const;
 
-    WEBCORE_EXPORT void setEditingValue(const String&);
-
     WEBCORE_EXPORT double valueAsDate() const;
     WEBCORE_EXPORT ExceptionOr<void> setValueAsDate(double);
 
@@ -453,6 +451,8 @@ private:
 
     void addToRadioButtonGroup();
     void removeFromRadioButtonGroup();
+
+    void setDefaultSelectionAfterFocus(SelectionRevealMode);
 
     AtomicString m_name;
     String m_valueIfDirty;

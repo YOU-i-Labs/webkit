@@ -28,6 +28,8 @@
 
 #if ENABLE(ASYNC_SCROLLING)
 
+#include "Logging.h"
+#include "ScrollingStateScrollingNode.h"
 #include "ScrollingStateTree.h"
 #include "ScrollingTree.h"
 #include <wtf/text/TextStream.h>
@@ -91,6 +93,17 @@ void ScrollingTreeScrollingNode::commitStateBeforeChildren(const ScrollingStateN
 
     if (state.hasChangedProperty(ScrollingStateScrollingNode::ScrollableAreaParams))
         m_scrollableAreaParameters = state.scrollableAreaParameters();
+
+    if (state.hasChangedProperty(ScrollingStateScrollingNode::ExpectsWheelEventTestTrigger))
+        m_expectsWheelEventTestTrigger = state.expectsWheelEventTestTrigger();
+
+#if PLATFORM(COCOA)
+    if (state.hasChangedProperty(ScrollingStateScrollingNode::ScrollContainerLayer))
+        m_scrollContainerLayer = state.scrollContainerLayer();
+
+    if (state.hasChangedProperty(ScrollingStateScrollingNode::ScrolledContentsLayer))
+        m_scrolledContentsLayer = state.scrolledContentsLayer();
+#endif
 }
 
 void ScrollingTreeScrollingNode::commitStateAfterChildren(const ScrollingStateNode& stateNode)
@@ -130,6 +143,45 @@ FloatPoint ScrollingTreeScrollingNode::maximumScrollPosition() const
 {
     FloatPoint contentSizePoint(totalContentsSize());
     return FloatPoint(contentSizePoint - scrollableAreaSize()).expandedTo(FloatPoint());
+}
+
+bool ScrollingTreeScrollingNode::scrollLimitReached(const PlatformWheelEvent& wheelEvent) const
+{
+    FloatPoint oldScrollPosition = scrollPosition();
+    FloatPoint newScrollPosition = oldScrollPosition + FloatSize(wheelEvent.deltaX(), -wheelEvent.deltaY());
+    newScrollPosition = newScrollPosition.constrainedBetween(minimumScrollPosition(), maximumScrollPosition());
+    return newScrollPosition == oldScrollPosition;
+}
+
+void ScrollingTreeScrollingNode::scrollBy(const FloatSize& delta)
+{
+    setScrollPosition(scrollPosition() + delta);
+}
+
+void ScrollingTreeScrollingNode::scrollByWithoutContentEdgeConstraints(const FloatSize& offset)
+{
+    setScrollPositionWithoutContentEdgeConstraints(scrollPosition() + offset);
+}
+
+LayoutPoint ScrollingTreeScrollingNode::parentToLocalPoint(LayoutPoint point) const
+{
+    return point - toLayoutSize(parentRelativeScrollableRect().location());
+}
+
+LayoutPoint ScrollingTreeScrollingNode::localToContentsPoint(LayoutPoint point) const
+{
+    return point + LayoutPoint(scrollPosition());
+}
+
+ScrollingTreeScrollingNode* ScrollingTreeScrollingNode::scrollingNodeForPoint(LayoutPoint parentPoint) const
+{
+    if (auto* node = ScrollingTreeNode::scrollingNodeForPoint(parentPoint))
+        return node;
+
+    if (parentRelativeScrollableRect().contains(parentPoint))
+        return const_cast<ScrollingTreeScrollingNode*>(this);
+
+    return nullptr;
 }
 
 void ScrollingTreeScrollingNode::dumpProperties(TextStream& ts, ScrollingStateTreeAsTextBehavior behavior) const

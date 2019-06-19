@@ -45,12 +45,12 @@ struct Cookie;
 
 namespace WebKit {
 
-class ChildProcess;
+class NetworkProcess;
 
 class WebCookieManager : public NetworkProcessSupplement, public IPC::MessageReceiver {
     WTF_MAKE_NONCOPYABLE(WebCookieManager);
 public:
-    WebCookieManager(ChildProcess&);
+    WebCookieManager(NetworkProcess&);
     ~WebCookieManager();
 
     static const char* supplementName();
@@ -58,7 +58,7 @@ public:
     void setHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy, OptionalCallbackID);
 
 #if USE(SOUP)
-    void setCookiePersistentStorage(const String& storagePath, uint32_t storageType);
+    void setCookiePersistentStorage(PAL::SessionID, const String& storagePath, SoupCookiePersistentStorageType);
 #endif
 
     void notifyCookiesDidChange(PAL::SessionID);
@@ -86,7 +86,7 @@ private:
     void startObservingCookieChanges(PAL::SessionID);
     void stopObservingCookieChanges(PAL::SessionID);
 
-    ChildProcess& m_process;
+    NetworkProcess& m_process;
 };
 
 } // namespace WebKit

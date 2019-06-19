@@ -75,6 +75,7 @@ static void removeHeadContents(ReplacementFragment&);
 // --- ReplacementFragment helper class
 
 class ReplacementFragment {
+    WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(ReplacementFragment);
 public:
     ReplacementFragment(Document&, DocumentFragment*, const VisibleSelection&);
@@ -166,10 +167,9 @@ ReplacementFragment::ReplacementFragment(Document& document, DocumentFragment* f
     if (!editableRoot)
         return;
     
-    Node* shadowAncestorNode = editableRoot->deprecatedShadowAncestorNode();
-    
+    auto* shadowHost = editableRoot->shadowHost();
     if (!editableRoot->attributeEventListener(eventNames().webkitBeforeTextInsertedEvent, mainThreadNormalWorld())
-        && !(shadowAncestorNode && shadowAncestorNode->renderer() && shadowAncestorNode->renderer()->isTextControl())
+        && !(shadowHost && shadowHost->renderer() && shadowHost->renderer()->isTextControl())
         && editableRoot->hasRichlyEditableStyle()) {
         removeInterchangeNodes(m_fragment.get());
         return;
@@ -1344,7 +1344,7 @@ void ReplaceSelectionCommand::addSpacesForSmartReplace()
         endOffset = endUpstream.offsetInContainerNode();
     }
 
-    bool needsTrailingSpace = !isEndOfParagraph(endOfInsertedContent) && !isCharacterSmartReplaceExemptConsideringNonBreakingSpace(endOfInsertedContent.characterAfter(), false);
+    bool needsTrailingSpace = !isEndOfParagraph(endOfInsertedContent) && !isStartOfParagraph(endOfInsertedContent) && !isCharacterSmartReplaceExemptConsideringNonBreakingSpace(endOfInsertedContent.characterAfter(), false);
     if (needsTrailingSpace && endNode) {
         bool collapseWhiteSpace = !endNode->renderer() || endNode->renderer()->style().collapseWhiteSpace();
         if (is<Text>(*endNode)) {
@@ -1368,7 +1368,7 @@ void ReplaceSelectionCommand::addSpacesForSmartReplace()
         startOffset = startDownstream.offsetInContainerNode();
     }
 
-    bool needsLeadingSpace = !isStartOfParagraph(startOfInsertedContent) && !isCharacterSmartReplaceExemptConsideringNonBreakingSpace(startOfInsertedContent.previous().characterAfter(), true);
+    bool needsLeadingSpace = !isStartOfParagraph(startOfInsertedContent) && !isEndOfParagraph(startOfInsertedContent) && !isCharacterSmartReplaceExemptConsideringNonBreakingSpace(startOfInsertedContent.previous().characterAfter(), true);
     if (needsLeadingSpace && startNode) {
         bool collapseWhiteSpace = !startNode->renderer() || startNode->renderer()->style().collapseWhiteSpace();
         if (is<Text>(*startNode)) {

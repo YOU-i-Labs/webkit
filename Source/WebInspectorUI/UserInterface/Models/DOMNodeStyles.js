@@ -449,21 +449,25 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
         return result.promise;
     }
 
-    changeStyleText(style, text)
+    changeStyleText(style, text, callback)
     {
-        if (!style.ownerStyleSheet || !style.styleSheetTextRange)
+        if (!style.ownerStyleSheet || !style.styleSheetTextRange) {
+            callback();
             return;
+        }
 
         text = text || "";
 
-        function styleChanged(error, stylePayload)
-        {
-            if (error)
+        let didSetStyleText = (error, stylePayload) => {
+            if (error) {
+                callback(error);
                 return;
-            this.refresh();
-        }
+            }
 
-        CSSAgent.setStyleText(style.id, text, styleChanged.bind(this));
+            this.refresh().then(callback);
+        };
+
+        CSSAgent.setStyleText(style.id, text, didSetStyleText);
     }
 
     // Private
@@ -508,6 +512,7 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
         var name = payload.name;
         var value = payload.value || "";
         var priority = payload.priority || "";
+        let range = payload.range || null;
 
         var enabled = true;
         var overridden = false;
@@ -532,11 +537,24 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
             break;
         }
 
+        if (range) {
+            // Last property of inline style has mismatching range.
+            // The actual text has one line, but the range spans two lines.
+            let rangeLineCount = 1 + range.endLine - range.startLine;
+            if (rangeLineCount > 1) {
+                let textLineCount = text.lineCount;
+                if (textLineCount === rangeLineCount - 1) {
+                    range.endLine = range.startLine + (textLineCount - 1);
+                    range.endColumn = range.startColumn + text.lastLine.length;
+                }
+            }
+        }
+
         var styleSheetTextRange = this._parseSourceRangePayload(payload.range);
 
         if (styleDeclaration) {
             // Use propertyForName when the index is NaN since propertyForName is fast in that case.
-            var property = isNaN(index) ? styleDeclaration.propertyForName(name, true) : styleDeclaration.properties[index];
+            var property = isNaN(index) ? styleDeclaration.propertyForName(name, true) : styleDeclaration.enabledProperties[index];
 
             // Reuse a property if the index and name matches. Otherwise it is a different property
             // and should be created from scratch. This works in the simple cases where only existing
@@ -880,7 +898,7 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
 
         for (var i = 0; i < styles.length; ++i) {
             var style = styles[i];
-            var properties = style.properties;
+            var properties = style.enabledProperties;
 
             for (var j = 0; j < properties.length; ++j) {
                 var property = properties[j];
@@ -922,7 +940,7 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
     _associateRelatedProperties(styles, propertyNameToEffectiveProperty)
     {
         for (var i = 0; i < styles.length; ++i) {
-            var properties = styles[i].properties;
+            var properties = styles[i].enabledProperties;
 
             var knownShorthands = {};
 
@@ -979,7 +997,7 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
     _isPropertyFoundInMatchingRules(propertyName)
     {
         return this._orderedStyles.some((style) => {
-            return style.properties.some((property) => property.name === propertyName);
+            return style.enabledProperties.some((property) => property.name === propertyName);
         });
     }
 };

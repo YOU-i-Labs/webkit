@@ -83,6 +83,17 @@ namespace WebCore {
 
 using namespace Inspector;
 
+// Keep this in sync with Page.Setting
+#define FOR_EACH_INSPECTOR_OVERRIDE_SETTING(macro) \
+    macro(AuthorAndUserStylesEnabled) \
+    macro(ICECandidateFilteringEnabled) \
+    macro(ImagesEnabled) \
+    macro(MediaCaptureRequiresSecureConnection) \
+    macro(MockCaptureDevicesEnabled) \
+    macro(NeedsSiteSpecificQuirks) \
+    macro(ScriptEnabled) \
+    macro(WebSecurityEnabled)
+
 static bool decodeBuffer(const char* buffer, unsigned size, const String& textEncodingName, String* result)
 {
     if (buffer) {
@@ -313,8 +324,16 @@ void InspectorPageAgent::disable(ErrorString&)
 
     ErrorString unused;
     setShowPaintRects(unused, false);
+    overrideUserAgent(unused, nullptr);
     setEmulatedMedia(unused, emptyString());
     setForcedAppearance(unused, emptyString());
+
+#define DISABLE_INSPECTOR_OVERRIDE_SETTING(name) \
+    m_page.settings().set##name##InspectorOverride(WTF::nullopt);
+
+    FOR_EACH_INSPECTOR_OVERRIDE_SETTING(DISABLE_INSPECTOR_OVERRIDE_SETTING)
+
+#undef DISABLE_INSPECTOR_OVERRIDE_SETTING
 }
 
 void InspectorPageAgent::reload(ErrorString&, const bool* optionalReloadFromOrigin, const bool* optionalRevalidateAllResources)
@@ -339,6 +358,42 @@ void InspectorPageAgent::navigate(ErrorString&, const String& url)
     ResourceRequest resourceRequest { frame.document()->completeURL(url) };
     FrameLoadRequest frameLoadRequest { *frame.document(), frame.document()->securityOrigin(), resourceRequest, "_self"_s, LockHistory::No, LockBackForwardList::No, MaybeSendReferrer, AllowNavigationToInvalidURL::No, NewFrameOpenerPolicy::Allow, ShouldOpenExternalURLsPolicy::ShouldNotAllow, InitiatedByMainFrame::Unknown };
     frame.loader().changeLocation(WTFMove(frameLoadRequest));
+}
+
+void InspectorPageAgent::overrideUserAgent(ErrorString&, const String* value)
+{
+    m_userAgentOverride = value ? *value : String();
+}
+
+void InspectorPageAgent::overrideSetting(ErrorString& errorString, const String& settingString, const bool* value)
+{
+    if (settingString.isEmpty()) {
+        errorString = "Preference is empty"_s;
+        return;
+    }
+
+    auto setting = Inspector::Protocol::InspectorHelpers::parseEnumValueFromString<Inspector::Protocol::Page::Setting>(settingString);
+    if (!setting) {
+        errorString = makeString("Unknown setting: "_s, settingString);
+        return;
+    }
+
+    switch (setting.value()) {
+#define CASE_INSPECTOR_OVERRIDE_SETTING(name) \
+    case Inspector::Protocol::Page::Setting::name: { \
+        if (value) \
+            m_page.settings().set##name##InspectorOverride(*value); \
+        else \
+            m_page.settings().set##name##InspectorOverride(WTF::nullopt); \
+        return; \
+    } \
+
+    FOR_EACH_INSPECTOR_OVERRIDE_SETTING(CASE_INSPECTOR_OVERRIDE_SETTING)
+
+#undef CASE_INSPECTOR_OVERRIDE_SETTING
+    }
+
+    ASSERT_NOT_REACHED();
 }
 
 static Inspector::Protocol::Page::CookieSameSitePolicy cookieSameSitePolicyJSON(Cookie::SameSitePolicy policy)
@@ -439,12 +494,12 @@ void InspectorPageAgent::getCookies(ErrorString&, RefPtr<JSON::ArrayOf<Inspector
 
     for (Frame* frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
         Document* document = frame->document();
-        if (!document)
+        if (!document || !document->page())
             continue;
 
         for (auto& url : allResourcesURLsForFrame(frame)) {
             Vector<Cookie> docCookiesList;
-            rawCookiesImplemented = getRawCookies(*document, URL({ }, url), docCookiesList);
+            rawCookiesImplemented = document->page()->cookieJar().getRawCookies(*document, URL({ }, url), docCookiesList);
 
             if (!rawCookiesImplemented) {
                 // FIXME: We need duplication checking for the String representation of cookies.
@@ -469,8 +524,10 @@ void InspectorPageAgent::deleteCookie(ErrorString&, const String& cookieName, co
 {
     URL parsedURL({ }, url);
     for (Frame* frame = &m_page.mainFrame(); frame; frame = frame->tree().traverseNext()) {
-        if (auto* document = frame->document())
-            WebCore::deleteCookie(*document, parsedURL, cookieName);
+        if (auto* document = frame->document()) {
+            if (auto* page = document->page())
+                page->cookieJar().deleteCookie(*document, parsedURL, cookieName);
+        }
     }
 }
 
@@ -831,6 +888,12 @@ void InspectorPageAgent::setForcedAppearance(ErrorString&, const String& appeara
         m_page.setUseDarkAppearanceOverride(true);
     else
         m_page.setUseDarkAppearanceOverride(WTF::nullopt);
+}
+
+void InspectorPageAgent::applyUserAgentOverride(String& userAgent)
+{
+    if (!m_userAgentOverride.isEmpty())
+        userAgent = m_userAgentOverride;
 }
 
 void InspectorPageAgent::applyEmulatedMedia(String& media)

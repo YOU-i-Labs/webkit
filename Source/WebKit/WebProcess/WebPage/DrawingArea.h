@@ -66,6 +66,7 @@ struct WebPageCreationParameters;
 struct WebPreferencesStore;
 
 class DrawingArea : public IPC::MessageReceiver {
+    WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(DrawingArea);
 
 public:
@@ -79,13 +80,11 @@ public:
     virtual void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta) = 0;
 
     // FIXME: These should be pure virtual.
-    virtual void pageBackgroundTransparencyChanged() { }
     virtual void forceRepaint() { }
     virtual bool forceRepaintAsync(CallbackID) { return false; }
     virtual void setLayerTreeStateIsFrozen(bool) { }
     virtual bool layerTreeStateIsFrozen() const { return false; }
     virtual bool layerFlushThrottlingIsActive() const { return false; }
-    virtual LayerTreeHost* layerTreeHost() const { return 0; }
 
     virtual void setPaintingEnabled(bool) { }
     virtual void updatePreferences(const WebPreferencesStore&) { }
@@ -128,7 +127,7 @@ public:
 
     virtual bool adjustLayerFlushThrottling(WebCore::LayerFlushThrottleState::Flags) { return false; }
 
-    virtual void attachViewOverlayGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer*) { }
+    virtual void attachViewOverlayGraphicsLayer(WebCore::GraphicsLayer*) { }
 
     virtual void setShouldScaleViewToFitDocument(bool) { }
 
@@ -141,15 +140,10 @@ public:
 
     virtual void layerHostDidFlushLayers() { };
 
-#if USE(COORDINATED_GRAPHICS)
-    virtual void didChangeViewportAttributes(WebCore::ViewportAttributes&&) = 0;
-#endif
-
 #if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
+    virtual void didChangeViewportAttributes(WebCore::ViewportAttributes&&) = 0;
     virtual void deviceOrPageScaleFactorChanged() = 0;
 #endif
-
-    virtual void attach() { };
 
 protected:
     DrawingArea(DrawingAreaType, WebPage&);

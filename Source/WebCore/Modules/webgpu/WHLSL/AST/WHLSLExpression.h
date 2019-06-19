@@ -27,8 +27,12 @@
 
 #if ENABLE(WEBGPU)
 
+#include "WHLSLAddressSpace.h"
 #include "WHLSLLexer.h"
+#include "WHLSLUnnamedType.h"
 #include "WHLSLValue.h"
+#include <wtf/Optional.h>
+#include <wtf/UniqueRef.h>
 
 namespace WebCore {
 
@@ -45,13 +49,29 @@ public:
 
     virtual ~Expression() = default;
 
-    explicit Expression(const Expression&) = default;
+    Expression(const Expression&) = delete;
     Expression(Expression&&) = default;
 
-    Expression& operator=(const Expression&) = default;
+    Expression& operator=(const Expression&) = delete;
     Expression& operator=(Expression&&) = default;
 
     const Lexer::Token& origin() const { return m_origin; }
+
+    UnnamedType* resolvedType() { return m_type ? &*m_type : nullptr; }
+
+    void setType(UniqueRef<UnnamedType>&& type)
+    {
+        ASSERT(!m_type);
+        m_type = WTFMove(type);
+    }
+
+    const Optional<AddressSpace>& addressSpace() const { return m_addressSpace; }
+
+    void setAddressSpace(Optional<AddressSpace>& addressSpace)
+    {
+        ASSERT(!m_addressSpace);
+        m_addressSpace = addressSpace;
+    }
 
     virtual bool isAssignmentExpression() const { return false; }
     virtual bool isBooleanLiteral() const { return false; }
@@ -76,6 +96,8 @@ public:
 
 private:
     Lexer::Token m_origin;
+    Optional<UniqueRef<UnnamedType>> m_type;
+    Optional<AddressSpace> m_addressSpace;
 };
 
 } // namespace AST

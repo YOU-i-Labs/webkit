@@ -228,11 +228,11 @@ String convertEnumerationToString(HTMLMediaElement::ReadyState enumerationValue)
         MAKE_STATIC_STRING_IMPL("HAVE_FUTURE_DATA"),
         MAKE_STATIC_STRING_IMPL("HAVE_ENOUGH_DATA"),
     };
-    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_NOTHING) == 0, "HTMLMediaElement::HAVE_NOTHING is not 0 as expected");
-    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_METADATA) == 1, "HTMLMediaElement::HAVE_METADATA is not 1 as expected");
-    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_CURRENT_DATA) == 2, "HTMLMediaElement::HAVE_CURRENT_DATA is not 2 as expected");
-    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_FUTURE_DATA) == 3, "HTMLMediaElement::HAVE_FUTURE_DATA is not 3 as expected");
-    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_ENOUGH_DATA) == 4, "HTMLMediaElement::HAVE_ENOUGH_DATA is not 4 as expected");
+    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_NOTHING) == 0, "HTMLMediaElementEnums::HAVE_NOTHING is not 0 as expected");
+    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_METADATA) == 1, "HTMLMediaElementEnums::HAVE_METADATA is not 1 as expected");
+    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_CURRENT_DATA) == 2, "HTMLMediaElementEnums::HAVE_CURRENT_DATA is not 2 as expected");
+    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_FUTURE_DATA) == 3, "HTMLMediaElementEnums::HAVE_FUTURE_DATA is not 3 as expected");
+    static_assert(static_cast<size_t>(HTMLMediaElementEnums::HAVE_ENOUGH_DATA) == 4, "HTMLMediaElementEnums::HAVE_ENOUGH_DATA is not 4 as expected");
     ASSERT(static_cast<size_t>(enumerationValue) < WTF_ARRAY_LENGTH(values));
     return values[static_cast<size_t>(enumerationValue)];
 }
@@ -426,7 +426,7 @@ static uint64_t nextLogIdentifier()
 
 HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& document, bool createdByParser)
     : HTMLElement(tagName, document)
-    , ActiveDOMObject(&document)
+    , ActiveDOMObject(document)
     , m_progressEventTimer(*this, &HTMLMediaElement::progressEventTimerFired)
     , m_playbackProgressTimer(*this, &HTMLMediaElement::playbackProgressTimerFired)
     , m_scanTimer(*this, &HTMLMediaElement::scanTimerFired)
@@ -704,33 +704,33 @@ void HTMLMediaElement::registerWithDocument(Document& document)
     m_mediaSession->registerWithDocument(document);
 
     if (m_isWaitingUntilMediaCanStart)
-        document.addMediaCanStartListener(this);
+        document.addMediaCanStartListener(*this);
 
 #if !PLATFORM(IOS_FAMILY)
-    document.registerForMediaVolumeCallbacks(this);
-    document.registerForPrivateBrowsingStateChangedCallbacks(this);
+    document.registerForMediaVolumeCallbacks(*this);
+    document.registerForPrivateBrowsingStateChangedCallbacks(*this);
 #endif
 
-    document.registerForVisibilityStateChangedCallbacks(this);
+    document.registerForVisibilityStateChangedCallbacks(*this);
 
 #if ENABLE(VIDEO_TRACK)
     if (m_requireCaptionPreferencesChangedCallbacks)
-        document.registerForCaptionPreferencesChangedCallbacks(this);
+        document.registerForCaptionPreferencesChangedCallbacks(*this);
 #endif
 
 #if ENABLE(MEDIA_CONTROLS_SCRIPT)
     if (m_mediaControlsDependOnPageScaleFactor)
-        document.registerForPageScaleFactorChangedCallbacks(this);
+        document.registerForPageScaleFactorChangedCallbacks(*this);
     document.registerForUserInterfaceLayoutDirectionChangedCallbacks(*this);
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
-    document.registerForDocumentSuspensionCallbacks(this);
+    document.registerForDocumentSuspensionCallbacks(*this);
 #endif
 
     document.registerForAllowsMediaDocumentInlinePlaybackChangedCallbacks(*this);
 
-    document.addAudioProducer(this);
+    document.addAudioProducer(*this);
     addElementToDocumentMap(*this, document);
 
 #if ENABLE(MEDIA_STREAM)
@@ -745,33 +745,33 @@ void HTMLMediaElement::unregisterWithDocument(Document& document)
     m_mediaSession->unregisterWithDocument(document);
 
     if (m_isWaitingUntilMediaCanStart)
-        document.removeMediaCanStartListener(this);
+        document.removeMediaCanStartListener(*this);
 
 #if !PLATFORM(IOS_FAMILY)
-    document.unregisterForMediaVolumeCallbacks(this);
-    document.unregisterForPrivateBrowsingStateChangedCallbacks(this);
+    document.unregisterForMediaVolumeCallbacks(*this);
+    document.unregisterForPrivateBrowsingStateChangedCallbacks(*this);
 #endif
 
-    document.unregisterForVisibilityStateChangedCallbacks(this);
+    document.unregisterForVisibilityStateChangedCallbacks(*this);
 
 #if ENABLE(VIDEO_TRACK)
     if (m_requireCaptionPreferencesChangedCallbacks)
-        document.unregisterForCaptionPreferencesChangedCallbacks(this);
+        document.unregisterForCaptionPreferencesChangedCallbacks(*this);
 #endif
 
 #if ENABLE(MEDIA_CONTROLS_SCRIPT)
     if (m_mediaControlsDependOnPageScaleFactor)
-        document.unregisterForPageScaleFactorChangedCallbacks(this);
+        document.unregisterForPageScaleFactorChangedCallbacks(*this);
     document.unregisterForUserInterfaceLayoutDirectionChangedCallbacks(*this);
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
-    document.unregisterForDocumentSuspensionCallbacks(this);
+    document.unregisterForDocumentSuspensionCallbacks(*this);
 #endif
 
     document.unregisterForAllowsMediaDocumentInlinePlaybackChangedCallbacks(*this);
 
-    document.removeAudioProducer(this);
+    document.removeAudioProducer(*this);
     removeElementFromDocumentMap(*this, document);
 
 #if ENABLE(MEDIA_STREAM)
@@ -1097,7 +1097,7 @@ void HTMLMediaElement::scheduleCheckPlaybackTargetCompatability()
     ALWAYS_LOG(logSiteIdentifier, "task scheduled");
     m_checkPlaybackTargetCompatablityTask.scheduleTask([this, logSiteIdentifier] {
         UNUSED_PARAM(logSiteIdentifier);
-        ALWAYS_LOG(logSiteIdentifier, "- lambda(), task fired");
+        ALWAYS_LOG(logSiteIdentifier, "lambda(), task fired");
         checkPlaybackTargetCompatablity();
     });
 }
@@ -1341,7 +1341,7 @@ void HTMLMediaElement::selectMediaResource()
         if (m_isWaitingUntilMediaCanStart)
             return;
         m_isWaitingUntilMediaCanStart = true;
-        document().addMediaCanStartListener(this);
+        document().addMediaCanStartListener(*this);
         return;
     }
 
@@ -1350,7 +1350,13 @@ void HTMLMediaElement::selectMediaResource()
     // put into the background.
     m_mediaSession->removeBehaviorRestriction(MediaElementSession::RequirePageConsentToLoadMedia);
 
-    m_resourceSelectionTaskQueue.enqueueTask([this]  {
+    auto logSiteIdentifier = LOGIDENTIFIER;
+    UNUSED_PARAM(logSiteIdentifier);
+
+    m_resourceSelectionTaskQueue.enqueueTask([this, logSiteIdentifier]  {
+
+        ALWAYS_LOG(logSiteIdentifier, "lambda(), task fired");
+
         // 5. If the media element’s blocked-on-parser flag is false, then populate the list of pending text tracks.
 #if ENABLE(VIDEO_TRACK)
         if (hasMediaControls())
@@ -1380,7 +1386,7 @@ void HTMLMediaElement::selectMediaResource()
             mode = Attribute;
             ASSERT(m_player);
             if (!m_player) {
-                ERROR_LOG(LOGIDENTIFIER, " - has srcAttr but m_player is not created");
+                ERROR_LOG(logSiteIdentifier, " has srcAttr but m_player is not created");
                 return;
             }
         } else if (auto firstSource = childrenOfType<HTMLSourceElement>(*this).first()) {
@@ -1397,7 +1403,7 @@ void HTMLMediaElement::selectMediaResource()
             setShouldDelayLoadEvent(false);
             m_networkState = NETWORK_EMPTY;
 
-            ALWAYS_LOG(LOGIDENTIFIER, "nothing to load");
+            ALWAYS_LOG(logSiteIdentifier, "nothing to load");
             return;
         }
 
@@ -1427,7 +1433,7 @@ void HTMLMediaElement::selectMediaResource()
 
             ContentType contentType;
             loadResource(URL(), contentType, String());
-            ALWAYS_LOG(LOGIDENTIFIER, "using 'srcObject' property");
+            ALWAYS_LOG(logSiteIdentifier, "using 'srcObject' property");
 
             //    If that algorithm returns without aborting this one, then the load failed.
             // 4. Failed with media provider: Reaching this step indicates that the media resource
@@ -1450,7 +1456,7 @@ void HTMLMediaElement::selectMediaResource()
             URL absoluteURL = getNonEmptyURLAttribute(srcAttr);
             if (absoluteURL.isEmpty()) {
                 mediaLoadingFailed(MediaPlayer::FormatError);
-                ALWAYS_LOG(LOGIDENTIFIER, "empty 'src'");
+                ALWAYS_LOG(logSiteIdentifier, "empty 'src'");
                 return;
             }
 
@@ -1471,7 +1477,7 @@ void HTMLMediaElement::selectMediaResource()
             // will have to pick a media engine based on the file extension.
             ContentType contentType;
             loadResource(absoluteURL, contentType, String());
-            ALWAYS_LOG(LOGIDENTIFIER, "using 'src' attribute url");
+            ALWAYS_LOG(logSiteIdentifier, "using 'src' attribute url");
 
             // 6. Failed with attribute: Reaching this step indicates that the media resource failed to load
             //    or that the given URL could not be resolved. Queue a task to run the dedicated media source failure steps.
@@ -1593,6 +1599,8 @@ void HTMLMediaElement::loadResource(const URL& initialURL, ContentType& contentT
 
     if (m_mediaSource) {
         loadAttempted = true;
+        
+        ALWAYS_LOG(LOGIDENTIFIER, "loading MSE blob");
         if (!m_mediaSource->attachToElement(*this) || !m_player->load(url, contentType, m_mediaSource.get())) {
             // Forget our reference to the MediaSource, so we leave it alone
             // while processing remainder of load failure.
@@ -1609,6 +1617,7 @@ void HTMLMediaElement::loadResource(const URL& initialURL, ContentType& contentT
 
         if (m_mediaStreamSrcObject) {
             loadAttempted = true;
+            ALWAYS_LOG(LOGIDENTIFIER, "loading media stream blob");
             if (!m_player->load(m_mediaStreamSrcObject->privateStream()))
                 mediaLoadingFailed(MediaPlayer::FormatError);
         }
@@ -1617,6 +1626,7 @@ void HTMLMediaElement::loadResource(const URL& initialURL, ContentType& contentT
 
     if (!loadAttempted && m_blob) {
         loadAttempted = true;
+        ALWAYS_LOG(LOGIDENTIFIER, "loading generic blob");
         if (!m_player->load(m_blob->url(), contentType, keySystem))
             mediaLoadingFailed(MediaPlayer::FormatError);
     }
@@ -1773,7 +1783,7 @@ void HTMLMediaElement::updateActiveTextTrackCues(const MediaTime& movieTime)
                 return;
 
             auto currentMediaTime = weakThis->currentMediaTime();
-            INFO_LOG(LOGIDENTIFIER, " - lambda, currentMediaTime:", currentMediaTime);
+            INFO_LOG(LOGIDENTIFIER, " lambda, currentMediaTime:", currentMediaTime);
             weakThis->updateActiveTextTrackCues(currentMediaTime);
         }, nextInterestingTime);
     }
@@ -4068,7 +4078,7 @@ void HTMLMediaElement::addTextTrack(Ref<TextTrack>&& track)
     if (!m_requireCaptionPreferencesChangedCallbacks) {
         m_requireCaptionPreferencesChangedCallbacks = true;
         Document& document = this->document();
-        document.registerForCaptionPreferencesChangedCallbacks(this);
+        document.registerForCaptionPreferencesChangedCallbacks(*this);
         if (Page* page = document.page())
             m_captionDisplayMode = page->group().captionPreferences().captionDisplayMode();
     }
@@ -4522,7 +4532,7 @@ void HTMLMediaElement::scheduleConfigureTextTracks()
     ALWAYS_LOG(logSiteIdentifier, "task scheduled");
     m_configureTextTracksTask.scheduleTask([this, logSiteIdentifier] {
         UNUSED_PARAM(logSiteIdentifier);
-        ALWAYS_LOG(logSiteIdentifier, "- lambda(), task fired");
+        ALWAYS_LOG(logSiteIdentifier, "lambda(), task fired");
         Ref<HTMLMediaElement> protectedThis(*this); // configureTextTracks calls methods that can trigger arbitrary DOM mutations.
         configureTextTracks();
     });
@@ -5076,7 +5086,7 @@ void HTMLMediaElement::scheduleMediaEngineWasUpdated()
     ALWAYS_LOG(logSiteIdentifier, "task scheduled");
     m_mediaEngineUpdatedTask.scheduleTask([this, logSiteIdentifier] {
         UNUSED_PARAM(logSiteIdentifier);
-        ALWAYS_LOG(logSiteIdentifier, "- lambda(), task fired");
+        ALWAYS_LOG(logSiteIdentifier, "lambda(), task fired");
         Ref<HTMLMediaElement> protectedThis(*this); // mediaEngineWasUpdated calls methods that can trigger arbitrary DOM mutations.
         mediaEngineWasUpdated();
     });
@@ -5382,7 +5392,7 @@ void HTMLMediaElement::scheduleUpdatePlayState()
     ALWAYS_LOG(logSiteIdentifier, "task scheduled");
     m_updatePlayStateTask.scheduleTask([this, logSiteIdentifier] {
         UNUSED_PARAM(logSiteIdentifier);
-        ALWAYS_LOG(logSiteIdentifier, "- lambda(), task fired");
+        ALWAYS_LOG(logSiteIdentifier, "lambda(), task fired");
         Ref<HTMLMediaElement> protectedThis(*this); // updatePlayState calls methods that can trigger arbitrary DOM mutations.
         updatePlayState();
     });
@@ -5604,15 +5614,13 @@ void HTMLMediaElement::clearMediaPlayer()
         enqueuePlaybackTargetAvailabilityChangedEvent();
     }
 
-    if (m_isPlayingToWirelessTarget) {
-        m_isPlayingToWirelessTarget = false;
-        scheduleEvent(eventNames().webkitcurrentplaybacktargetiswirelesschangedEvent);
-    }
+    if (m_isPlayingToWirelessTarget)
+        setIsPlayingToWirelessTarget(false);
 #endif
 
     if (m_isWaitingUntilMediaCanStart) {
         m_isWaitingUntilMediaCanStart = false;
-        document().removeMediaCanStartListener(this);
+        document().removeMediaCanStartListener(*this);
     }
 
     if (m_player) {
@@ -5757,7 +5765,7 @@ void HTMLMediaElement::resume()
     setShouldBufferData(true);
 
     if (!m_mediaSession->pageAllowsPlaybackAfterResuming())
-        document().addMediaCanStartListener(this);
+        document().addMediaCanStartListener(*this);
     else
         setPausedInternal(false);
 
@@ -5847,25 +5855,32 @@ void HTMLMediaElement::wirelessRoutesAvailableDidChange()
 
 void HTMLMediaElement::mediaPlayerCurrentPlaybackTargetIsWirelessChanged(MediaPlayer*)
 {
-    m_isPlayingToWirelessTarget = m_player && m_player->isCurrentPlaybackTargetWireless();
+    setIsPlayingToWirelessTarget(m_player && m_player->isCurrentPlaybackTargetWireless());
+}
 
-    ALWAYS_LOG(LOGIDENTIFIER, m_isPlayingToWirelessTarget);
-    ASSERT(m_player);
-    configureMediaControls();
-    scheduleEvent(eventNames().webkitcurrentplaybacktargetiswirelesschangedEvent);
-    m_mediaSession->isPlayingToWirelessPlaybackTargetChanged(m_isPlayingToWirelessTarget);
-    m_mediaSession->canProduceAudioChanged();
-    scheduleUpdateMediaState();
-    updateSleepDisabling();
+void HTMLMediaElement::setIsPlayingToWirelessTarget(bool isPlayingToWirelessTarget)
+{
+    m_playbackTargetIsWirelessQueue.enqueueTask([this, isPlayingToWirelessTarget] {
+        if (isPlayingToWirelessTarget == m_isPlayingToWirelessTarget)
+            return;
+        m_isPlayingToWirelessTarget = m_player && m_player->isCurrentPlaybackTargetWireless();
+
+        ALWAYS_LOG(LOGIDENTIFIER, m_isPlayingToWirelessTarget);
+        configureMediaControls();
+        m_mediaSession->isPlayingToWirelessPlaybackTargetChanged(m_isPlayingToWirelessTarget);
+        m_mediaSession->canProduceAudioChanged();
+        scheduleUpdateMediaState();
+        updateSleepDisabling();
+
+        m_failedToPlayToWirelessTarget = false;
+        scheduleCheckPlaybackTargetCompatability();
+
+        dispatchEvent(Event::create(eventNames().webkitcurrentplaybacktargetiswirelesschangedEvent, Event::CanBubble::No, Event::IsCancelable::Yes));
+    });
 }
 
 void HTMLMediaElement::dispatchEvent(Event& event)
 {
-    if (event.type() == eventNames().webkitcurrentplaybacktargetiswirelesschangedEvent) {
-        m_failedToPlayToWirelessTarget = false;
-        scheduleCheckPlaybackTargetCompatability();
-    }
-
     DEBUG_LOG(LOGIDENTIFIER, "dispatching '", event.type(), "'");
 
     HTMLElement::dispatchEvent(event);
@@ -6647,6 +6662,12 @@ void HTMLMediaElement::createMediaPlayer()
 #if ENABLE(VIDEO_TRACK)
     forgetResourceSpecificTracks();
 #endif
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
+    if (m_isPlayingToWirelessTarget)
+        setIsPlayingToWirelessTarget(false);
+#endif
+
     m_player = MediaPlayer::create(*this);
     m_player->setShouldBufferData(m_shouldBufferData);
     schedulePlaybackControlsManagerUpdate();
@@ -7098,7 +7119,9 @@ String HTMLMediaElement::mediaPlayerNetworkInterfaceName() const
 
 bool HTMLMediaElement::mediaPlayerGetRawCookies(const URL& url, Vector<Cookie>& cookies) const
 {
-    return getRawCookies(document(), url, cookies);
+    if (auto* page = document().page())
+        return page->cookieJar().getRawCookies(document(), url, cookies);
+    return false;
 }
 #endif
 
@@ -7380,9 +7403,9 @@ void HTMLMediaElement::setMediaControlsDependOnPageScaleFactor(bool dependsOnPag
     m_mediaControlsDependOnPageScaleFactor = dependsOnPageScale;
 
     if (m_mediaControlsDependOnPageScaleFactor)
-        document().registerForPageScaleFactorChangedCallbacks(this);
+        document().registerForPageScaleFactorChangedCallbacks(*this);
     else
-        document().unregisterForPageScaleFactorChangedCallbacks(this);
+        document().unregisterForPageScaleFactorChangedCallbacks(*this);
 }
 
 void HTMLMediaElement::updateMediaControlsAfterPresentationModeChange()
@@ -7695,7 +7718,7 @@ void HTMLMediaElement::scheduleUpdateMediaState()
     ALWAYS_LOG(logSiteIdentifier, "task scheduled");
     m_updateMediaStateTask.scheduleTask([this, logSiteIdentifier] {
         UNUSED_PARAM(logSiteIdentifier);
-        ALWAYS_LOG(logSiteIdentifier, "- lambda(), task fired");
+        ALWAYS_LOG(logSiteIdentifier, "lambda(), task fired");
         Ref<HTMLMediaElement> protectedThis(*this); // updateMediaState calls methods that can trigger arbitrary DOM mutations.
         updateMediaState();
     });

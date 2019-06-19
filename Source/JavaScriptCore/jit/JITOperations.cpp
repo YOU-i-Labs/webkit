@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,7 @@
 #include "ErrorHandlingScope.h"
 #include "EvalCodeBlock.h"
 #include "ExceptionFuzz.h"
+#include "ExecutableBaseInlines.h"
 #include "FTLOSREntry.h"
 #include "FrameTracers.h"
 #include "FunctionCodeBlock.h"
@@ -737,8 +738,7 @@ static OptimizationResult tryPutByValOptimize(ExecState* exec, JSValue baseValue
                 CodeBlock* codeBlock = exec->codeBlock();
                 ConcurrentJSLocker locker(codeBlock->m_lock);
                 byValInfo->arrayProfile->computeUpdatedPrediction(locker, codeBlock, structure);
-
-                JIT::compilePutByVal(&vm, codeBlock, byValInfo, returnAddress, arrayMode);
+                JIT::compilePutByVal(locker, &vm, codeBlock, byValInfo, returnAddress, arrayMode);
                 optimizationResult = OptimizationResult::Optimized;
             }
         }
@@ -822,7 +822,7 @@ static OptimizationResult tryDirectPutByValOptimize(ExecState* exec, JSObject* o
                 ConcurrentJSLocker locker(codeBlock->m_lock);
                 byValInfo->arrayProfile->computeUpdatedPrediction(locker, codeBlock, structure);
 
-                JIT::compileDirectPutByVal(&vm, codeBlock, byValInfo, returnAddress, arrayMode);
+                JIT::compileDirectPutByVal(locker, &vm, codeBlock, byValInfo, returnAddress, arrayMode);
                 optimizationResult = OptimizationResult::Optimized;
             }
         }
@@ -1542,7 +1542,7 @@ SlowPathReturnType JIT_OPERATION operationOptimize(ExecState* exec, uint32_t byt
             numVarsWithValues = codeBlock->numCalleeLocals();
         else
             numVarsWithValues = 0;
-        Operands<JSValue> mustHandleValues(codeBlock->numParameters(), numVarsWithValues);
+        Operands<Optional<JSValue>> mustHandleValues(codeBlock->numParameters(), numVarsWithValues);
         int localsUsedForCalleeSaves = static_cast<int>(CodeBlock::llintBaselineCalleeSaveSpaceAsVirtualRegisters());
         for (size_t i = 0; i < mustHandleValues.size(); ++i) {
             int operand = mustHandleValues.operandForIndex(i);
@@ -1661,7 +1661,7 @@ char* JIT_OPERATION operationTryOSREnterAtCatchAndValueProfile(ExecState* exec, 
     codeBlock->ensureCatchLivenessIsComputedForBytecodeOffset(bytecodeIndex);
     auto bytecode = codeBlock->instructions().at(bytecodeIndex)->as<OpCatch>();
     auto& metadata = bytecode.metadata(codeBlock);
-    metadata.buffer->forEach([&] (ValueProfileAndOperand& profile) {
+    metadata.m_buffer->forEach([&] (ValueProfileAndOperand& profile) {
         profile.m_profile.m_buckets[0] = JSValue::encode(exec->uncheckedR(profile.m_operand).jsValue());
     });
 
@@ -1889,7 +1889,7 @@ static OptimizationResult tryGetByValOptimize(ExecState* exec, JSValue baseValue
                 ConcurrentJSLocker locker(codeBlock->m_lock);
                 byValInfo->arrayProfile->computeUpdatedPrediction(locker, codeBlock, structure);
 
-                JIT::compileGetByVal(&vm, codeBlock, byValInfo, returnAddress, arrayMode);
+                JIT::compileGetByVal(locker, &vm, codeBlock, byValInfo, returnAddress, arrayMode);
                 optimizationResult = OptimizationResult::Optimized;
             }
         }
@@ -2292,9 +2292,9 @@ EncodedJSValue JIT_OPERATION operationGetFromScope(ExecState* exec, const Instru
     CodeBlock* codeBlock = exec->codeBlock();
 
     auto bytecode = pc->as<OpGetFromScope>();
-    const Identifier& ident = codeBlock->identifier(bytecode.var);
-    JSObject* scope = jsCast<JSObject*>(exec->uncheckedR(bytecode.scope.offset()).jsValue());
-    GetPutInfo& getPutInfo = bytecode.metadata(codeBlock).getPutInfo;
+    const Identifier& ident = codeBlock->identifier(bytecode.m_var);
+    JSObject* scope = jsCast<JSObject*>(exec->uncheckedR(bytecode.m_scope.offset()).jsValue());
+    GetPutInfo& getPutInfo = bytecode.metadata(codeBlock).m_getPutInfo;
 
     // ModuleVar is always converted to ClosureVar for get_from_scope.
     ASSERT(getPutInfo.resolveType() != ModuleVar);
@@ -2334,18 +2334,18 @@ void JIT_OPERATION operationPutToScope(ExecState* exec, const Instruction* pc)
     auto bytecode = pc->as<OpPutToScope>();
     auto& metadata = bytecode.metadata(codeBlock);
 
-    const Identifier& ident = codeBlock->identifier(bytecode.var);
-    JSObject* scope = jsCast<JSObject*>(exec->uncheckedR(bytecode.scope.offset()).jsValue());
-    JSValue value = exec->r(bytecode.value.offset()).jsValue();
-    GetPutInfo& getPutInfo = metadata.getPutInfo;
+    const Identifier& ident = codeBlock->identifier(bytecode.m_var);
+    JSObject* scope = jsCast<JSObject*>(exec->uncheckedR(bytecode.m_scope.offset()).jsValue());
+    JSValue value = exec->r(bytecode.m_value.offset()).jsValue();
+    GetPutInfo& getPutInfo = metadata.m_getPutInfo;
 
     // ModuleVar does not keep the scope register value alive in DFG.
     ASSERT(getPutInfo.resolveType() != ModuleVar);
 
     if (getPutInfo.resolveType() == LocalClosureVar) {
         JSLexicalEnvironment* environment = jsCast<JSLexicalEnvironment*>(scope);
-        environment->variableAt(ScopeOffset(metadata.operand)).set(vm, environment, value);
-        if (WatchpointSet* set = metadata.watchpointSet)
+        environment->variableAt(ScopeOffset(metadata.m_operand)).set(vm, environment, value);
+        if (WatchpointSet* set = metadata.m_watchpointSet)
             set->touch(vm, "Executed op_put_scope<LocalClosureVar>");
         return;
     }
@@ -2882,7 +2882,8 @@ void JIT_OPERATION operationProcessShadowChickenLog(ExecState* exec)
 {
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
-    vm.shadowChicken().update(vm, exec);
+    RELEASE_ASSERT(vm.shadowChicken());
+    vm.shadowChicken()->update(vm, exec);
 }
 
 int32_t JIT_OPERATION operationCheckIfExceptionIsUncatchableAndNotifyProfiler(ExecState* exec)

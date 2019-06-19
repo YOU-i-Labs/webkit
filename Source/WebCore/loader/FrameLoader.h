@@ -31,6 +31,7 @@
 
 #pragma once
 
+#include "AdClickAttribution.h"
 #include "CachePolicy.h"
 #include "FrameLoaderStateMachine.h"
 #include "FrameLoaderTypes.h"
@@ -84,6 +85,7 @@ class SubstituteData;
 
 enum class NewLoadInProgress : bool;
 enum class ShouldContinue;
+enum class NavigationPolicyDecision : uint8_t;
 enum class ShouldTreatAsContinuingLoad : bool;
 
 struct WindowFeatures;
@@ -91,7 +93,7 @@ struct WindowFeatures;
 WEBCORE_EXPORT bool isBackForwardLoadType(FrameLoadType);
 WEBCORE_EXPORT bool isReload(FrameLoadType);
 
-using ContentPolicyDecisionFunction = WTF::Function<void(PolicyAction)>;
+using ContentPolicyDecisionFunction = WTF::Function<void(PolicyAction, PolicyCheckIdentifier)>;
 
 class FrameLoader {
     WTF_MAKE_NONCOPYABLE(FrameLoader);
@@ -114,7 +116,7 @@ public:
 
     // FIXME: These are all functions which start loads. We have too many.
     WEBCORE_EXPORT void loadURLIntoChildFrame(const URL&, const String& referer, Frame*);
-    WEBCORE_EXPORT void loadFrameRequest(FrameLoadRequest&&, Event*, RefPtr<FormState>&&); // Called by submitForm, calls loadPostRequest and loadURL.
+    WEBCORE_EXPORT void loadFrameRequest(FrameLoadRequest&&, Event*, RefPtr<FormState>&&, Optional<AdClickAttribution>&& = WTF::nullopt); // Called by submitForm, calls loadPostRequest and loadURL.
 
     WEBCORE_EXPORT void load(FrameLoadRequest&&);
 
@@ -124,7 +126,7 @@ public:
     unsigned long loadResourceSynchronously(const ResourceRequest&, ClientCredentialPolicy, const FetchOptions&, const HTTPHeaderMap&, ResourceError&, ResourceResponse&, RefPtr<SharedBuffer>& data);
 
     void changeLocation(FrameLoadRequest&&);
-    WEBCORE_EXPORT void urlSelected(const URL&, const String& target, Event*, LockHistory, LockBackForwardList, ShouldSendReferrer, ShouldOpenExternalURLsPolicy, Optional<NewFrameOpenerPolicy> = WTF::nullopt, const AtomicString& downloadAttribute = nullAtom(), const SystemPreviewInfo& = { });
+    WEBCORE_EXPORT void urlSelected(const URL&, const String& target, Event*, LockHistory, LockBackForwardList, ShouldSendReferrer, ShouldOpenExternalURLsPolicy, Optional<NewFrameOpenerPolicy> = WTF::nullopt, const AtomicString& downloadAttribute = nullAtom(), const SystemPreviewInfo& = { }, Optional<AdClickAttribution>&& = WTF::nullopt);
     void submitForm(Ref<FormSubmission>&&);
 
     WEBCORE_EXPORT void reload(OptionSet<ReloadOption> = { });
@@ -223,7 +225,7 @@ public:
 
     void setDefersLoading(bool);
 
-    void checkContentPolicy(const ResourceResponse&, ContentPolicyDecisionFunction&&);
+    void checkContentPolicy(const ResourceResponse&, PolicyCheckIdentifier, ContentPolicyDecisionFunction&&);
 
     void didExplicitOpen();
 
@@ -234,6 +236,7 @@ public:
 
     void dispatchOnloadEvents();
     String userAgent(const URL&) const;
+    String userAgentForJavaScript(const URL&) const;
     String navigatorPlatform() const;
 
     void dispatchDidClearWindowObjectInWorld(DOMWrapperWorld&);
@@ -316,6 +319,10 @@ public:
     bool shouldSuppressTextInputFromEditing() const;
     bool isReloadingFromOrigin() const { return m_loadType == FrameLoadType::ReloadFromOrigin; }
 
+    // Used in webarchive loading tests.
+    void setAlwaysAllowLocalWebarchive(bool alwaysAllowLocalWebarchive) { m_alwaysAllowLocalWebarchive = alwaysAllowLocalWebarchive; }
+    bool alwaysAllowLocalWebarchive() const { return m_alwaysAllowLocalWebarchive; }
+
 private:
     enum FormSubmissionCacheLoadPolicy {
         MayAttemptCacheOnlyLoadForFormSubmissionItem,
@@ -347,7 +354,7 @@ private:
     bool dispatchBeforeUnloadEvent(Chrome&, FrameLoader* frameLoaderBeingNavigated);
     void dispatchUnloadEvents(UnloadEventPolicy);
 
-    void continueLoadAfterNavigationPolicy(const ResourceRequest&, FormState*, ShouldContinue, AllowNavigationToInvalidURL);
+    void continueLoadAfterNavigationPolicy(const ResourceRequest&, FormState*, NavigationPolicyDecision, AllowNavigationToInvalidURL);
     void continueLoadAfterNewWindowPolicy(const ResourceRequest&, FormState*, const String& frameName, const NavigationAction&, ShouldContinue, AllowNavigationToInvalidURL, NewFrameOpenerPolicy);
     void continueFragmentScrollAfterNavigationPolicy(const ResourceRequest&, bool shouldContinue);
 
@@ -369,7 +376,7 @@ private:
 
     void dispatchDidCommitLoad(Optional<HasInsecureContent> initialHasInsecureContent);
 
-    void urlSelected(FrameLoadRequest&&, Event*);
+    void urlSelected(FrameLoadRequest&&, Event*, Optional<AdClickAttribution>&& = WTF::nullopt);
 
     void loadWithDocumentLoader(DocumentLoader*, FrameLoadType, RefPtr<FormState>&&, AllowNavigationToInvalidURL, ShouldTreatAsContinuingLoad, CompletionHandler<void()>&& = [] { }); // Calls continueLoadAfterNavigationPolicy
     void load(DocumentLoader&); // Calls loadWithDocumentLoader
@@ -377,7 +384,7 @@ private:
     void loadWithNavigationAction(const ResourceRequest&, NavigationAction&&, LockHistory, FrameLoadType, RefPtr<FormState>&&, AllowNavigationToInvalidURL, CompletionHandler<void()>&& = [] { }); // Calls loadWithDocumentLoader
 
     void loadPostRequest(FrameLoadRequest&&, const String& referrer, FrameLoadType, Event*, RefPtr<FormState>&&, CompletionHandler<void()>&&);
-    void loadURL(FrameLoadRequest&&, const String& referrer, FrameLoadType, Event*, RefPtr<FormState>&&, CompletionHandler<void()>&&);
+    void loadURL(FrameLoadRequest&&, const String& referrer, FrameLoadType, Event*, RefPtr<FormState>&&, Optional<AdClickAttribution>&&, CompletionHandler<void()>&&);
 
     bool shouldReload(const URL& currentURL, const URL& destinationURL);
 
@@ -388,7 +395,7 @@ private:
 
     void loadInSameDocument(const URL&, SerializedScriptValue* stateObject, bool isNewNavigation);
 
-    void prepareForLoadStart(CompletionHandler<void()>&&);
+    void prepareForLoadStart();
     void provisionalLoadStarted();
 
     void willTransitionToCommitted();
@@ -404,6 +411,9 @@ private:
 
     bool isNavigationAllowed() const;
     bool isStopLoadingAllowed() const;
+
+    enum class LoadContinuingState : uint8_t { NotContinuing, ContinuingWithRequest, ContinuingWithHistoryItem };
+    bool shouldTreatCurrentLoadAsContinuingLoad() const { return m_currentLoadContinuingState != LoadContinuingState::NotContinuing; }
 
     Frame& m_frame;
     FrameLoaderClient& m_client;
@@ -473,12 +483,15 @@ private:
     Optional<ResourceRequestCachePolicy> m_overrideCachePolicyForTesting;
     Optional<ResourceLoadPriority> m_overrideResourceLoadPriorityForTesting;
     bool m_isStrictRawResourceValidationPolicyDisabledForTesting { false };
-    bool m_currentLoadShouldBeTreatedAsContinuingLoad { false };
+
+    LoadContinuingState m_currentLoadContinuingState { LoadContinuingState::NotContinuing };
 
     bool m_checkingLoadCompleteForDetachment { false };
 
     URL m_previousURL;
     RefPtr<HistoryItem> m_requestedHistoryItem;
+
+    bool m_alwaysAllowLocalWebarchive { false };
 };
 
 // This function is called by createWindow() in JSDOMWindowBase.cpp, for example, for

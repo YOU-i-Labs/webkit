@@ -79,7 +79,7 @@ void UserMediaPermissionRequestManager::startUserMediaRequest(UserMediaRequest& 
 
     auto& pendingRequests = m_blockedUserMediaRequests.add(document, Vector<RefPtr<UserMediaRequest>>()).iterator->value;
     if (pendingRequests.isEmpty())
-        document->addMediaCanStartListener(this);
+        document->addMediaCanStartListener(*this);
     pendingRequests.append(&request);
 }
 
@@ -119,7 +119,7 @@ void UserMediaPermissionRequestManager::mediaCanStart(Document& document)
     while (!pendingRequests.isEmpty()) {
         if (!document.page()->canStartMedia()) {
             m_blockedUserMediaRequests.add(&document, pendingRequests);
-            document.addMediaCanStartListener(this);
+            document.addMediaCanStartListener(*this);
             break;
         }
 
@@ -139,7 +139,7 @@ void UserMediaPermissionRequestManager::removeMediaRequestFromMaps(UserMediaRequ
             continue;
 
         if (pendingRequests.isEmpty())
-            request.document()->removeMediaCanStartListener(this);
+            request.document()->removeMediaCanStartListener(*this);
         else
             m_blockedUserMediaRequests.add(document, pendingRequests);
         break;
@@ -232,7 +232,7 @@ void UserMediaPermissionRequestManager::revokeUserMediaDeviceSandboxExtensions(c
 
 UserMediaClient::DeviceChangeObserverToken UserMediaPermissionRequestManager::addDeviceChangeObserver(WTF::Function<void()>&& observer)
 {
-    auto identifier = generateObjectIdentifier<WebCore::UserMediaClient::DeviceChangeObserverTokenType>();
+    auto identifier = WebCore::UserMediaClient::DeviceChangeObserverToken::generate();
     m_deviceChangeObserverMap.add(identifier, WTFMove(observer));
 
     if (!m_monitoringDeviceChange) {

@@ -38,7 +38,6 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << store;
     encoder.encodeEnum(drawingAreaType);
     encoder << pageGroupData;
-    encoder << drawsBackground;
     encoder << isEditable;
     encoder << underlayColor;
     encoder << useFixedLayout;
@@ -60,6 +59,8 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << canRunModal;
     encoder << deviceScaleFactor;
     encoder << viewScaleFactor;
+    encoder << textZoomFactor;
+    encoder << pageZoomFactor;
     encoder << topContentInset;
     encoder << mediaVolume;
     encoder << muted;
@@ -73,12 +74,12 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder.encodeEnum(layerHostingMode);
     encoder << mimeTypesWithCustomContentProviders;
     encoder << controlledByAutomation;
-    encoder << isSwapFromSuspended;
+    encoder << isProcessSwap;
+    encoder << useDarkAppearance;
 
 #if PLATFORM(MAC)
     encoder << colorSpace;
     encoder << useSystemAppearance;
-    encoder << useDarkAppearance;
 #endif
 #if PLATFORM(IOS_FAMILY)
     encoder << screenSize;
@@ -95,6 +96,9 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
 #if PLATFORM(COCOA)
     encoder << smartInsertDeleteEnabled;
     encoder << additionalSupportedImageTypes;
+#endif
+#if PLATFORM(WPE)
+    encoder << hostFileDescriptor;
 #endif
     encoder << appleMailPaginationQuirkEnabled;
     encoder << appleMailLinesClampEnabled;
@@ -120,6 +124,7 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
 #if ENABLE(CONTENT_EXTENSIONS)
     encoder << contentRuleLists;
 #endif
+    encoder << backgroundColor;
 }
 
 Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decoder& decoder)
@@ -138,8 +143,6 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
     if (!pageGroupData)
         return WTF::nullopt;
     parameters.pageGroupData = WTFMove(*pageGroupData);
-    if (!decoder.decode(parameters.drawsBackground))
-        return WTF::nullopt;
     if (!decoder.decode(parameters.isEditable))
         return WTF::nullopt;
     if (!decoder.decode(parameters.underlayColor))
@@ -196,6 +199,10 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
     if (!decoder.decode(parameters.viewScaleFactor))
         return WTF::nullopt;
+    if (!decoder.decode(parameters.textZoomFactor))
+        return WTF::nullopt;
+    if (!decoder.decode(parameters.pageZoomFactor))
+        return WTF::nullopt;
     if (!decoder.decode(parameters.topContentInset))
         return WTF::nullopt;
     if (!decoder.decode(parameters.mediaVolume))
@@ -227,15 +234,15 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
     if (!decoder.decode(parameters.controlledByAutomation))
         return WTF::nullopt;
-    if (!decoder.decode(parameters.isSwapFromSuspended))
+    if (!decoder.decode(parameters.isProcessSwap))
+        return WTF::nullopt;
+    if (!decoder.decode(parameters.useDarkAppearance))
         return WTF::nullopt;
 
 #if PLATFORM(MAC)
     if (!decoder.decode(parameters.colorSpace))
         return WTF::nullopt;
     if (!decoder.decode(parameters.useSystemAppearance))
-        return WTF::nullopt;
-    if (!decoder.decode(parameters.useDarkAppearance))
         return WTF::nullopt;
 #endif
 
@@ -266,6 +273,11 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
     if (!decoder.decode(parameters.smartInsertDeleteEnabled))
         return WTF::nullopt;
     if (!decoder.decode(parameters.additionalSupportedImageTypes))
+        return WTF::nullopt;
+#endif
+
+#if PLATFORM(WPE)
+    if (!decoder.decode(parameters.hostFileDescriptor))
         return WTF::nullopt;
 #endif
 
@@ -347,6 +359,12 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
     parameters.contentRuleLists = WTFMove(*contentRuleLists);
 #endif
+
+    Optional<Optional<WebCore::Color>> backgroundColor;
+    decoder >> backgroundColor;
+    if (!backgroundColor)
+        return WTF::nullopt;
+    parameters.backgroundColor = WTFMove(*backgroundColor);
 
     return WTFMove(parameters);
 }

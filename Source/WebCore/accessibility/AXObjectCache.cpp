@@ -32,6 +32,8 @@
 
 #include "AXObjectCache.h"
 
+#include "AXIsolatedTree.h"
+#include "AXIsolatedTreeNode.h"
 #include "AccessibilityARIAGrid.h"
 #include "AccessibilityARIAGridCell.h"
 #include "AccessibilityARIAGridRow.h"
@@ -114,6 +116,8 @@
 namespace WebCore {
 
 using namespace HTMLNames;
+
+const AXID InvalidAXID = 0;
 
 // Post value change notifications for password fields or elements contained in password fields at a 40hz interval to thwart analysis of typing cadence
 static const Seconds accessibilityPasswordValueChangeNotificationInterval { 25_ms };
@@ -723,6 +727,10 @@ void AXObjectCache::remove(AXID axID)
     object->setAXObjectID(0);
 
     m_idsInUse.remove(axID);
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    if (auto pageID = m_document.pageID())
+        AXIsolatedTree::treeForPageID(*pageID)->removeNode(axID);
+#endif
 
     ASSERT(m_objects.size() >= m_idsInUse.size());
 }
@@ -742,6 +750,7 @@ void AXObjectCache::remove(Node& node)
         m_deferredTextFormControlValue.remove(downcast<Element>(&node));
         m_deferredAttributeChange.remove(downcast<Element>(&node));
     }
+    m_deferredChildrenChangedNodeList.remove(&node);
     m_deferredTextChangedList.remove(&node);
     // Remove the entry if the new focused node is being removed.
     m_deferredFocusedNodeChange.removeAllMatching([&node](auto& entry) -> bool {
@@ -851,10 +860,8 @@ void AXObjectCache::handleLiveRegionCreated(Node* node)
     
 void AXObjectCache::childrenChanged(Node* node, Node* newChild)
 {
-    if (newChild) {
-        handleMenuOpened(newChild);
-        handleLiveRegionCreated(newChild);
-    }
+    if (newChild)
+        m_deferredChildrenChangedNodeList.add(newChild);
 
     childrenChanged(get(node));
 }
@@ -864,14 +871,9 @@ void AXObjectCache::childrenChanged(RenderObject* renderer, RenderObject* newChi
     if (!renderer)
         return;
 
-    // FIXME: Refactor the code to avoid calling updateLayout in this call stack.
-    ScriptDisallowedScope::LayoutAssertionDisableScope disableScope;
-    
-    if (newChild) {
-        handleMenuOpened(newChild->node());
-        handleLiveRegionCreated(newChild->node());
-    }
-    
+    if (newChild && newChild->node())
+        m_deferredChildrenChangedNodeList.add(newChild->node());
+
     childrenChanged(get(renderer));
 }
 
@@ -880,7 +882,7 @@ void AXObjectCache::childrenChanged(AccessibilityObject* obj)
     if (!obj)
         return;
 
-    obj->childrenChanged();
+    m_deferredChildredChangedList.add(obj);
 }
     
 void AXObjectCache::notificationPostTimerFired()
@@ -2846,6 +2848,7 @@ void AXObjectCache::prepareForDocumentDestruction(const Document& document)
     filterListForRemoval(m_deferredRecomputeIsIgnoredList, document, nodesToRemove);
     filterListForRemoval(m_deferredTextChangedList, document, nodesToRemove);
     filterListForRemoval(m_deferredSelectedChildredChangedList, document, nodesToRemove);
+    filterListForRemoval(m_deferredChildrenChangedNodeList, document, nodesToRemove);
     filterMapForRemoval(m_deferredTextFormControlValue, document, nodesToRemove);
     filterMapForRemoval(m_deferredAttributeChange, document, nodesToRemove);
     filterVectorPairForRemoval(m_deferredFocusedNodeChange, document, nodesToRemove);
@@ -2878,6 +2881,17 @@ void AXObjectCache::performDeferredCacheUpdate()
         return;
 
     SetForScope<bool> performingDeferredCacheUpdate(m_performingDeferredCacheUpdate, true);
+
+    for (auto* nodeChild : m_deferredChildrenChangedNodeList) {
+        handleMenuOpened(nodeChild);
+        handleLiveRegionCreated(nodeChild);
+    }
+    m_deferredChildrenChangedNodeList.clear();
+
+    for (auto& child : m_deferredChildredChangedList)
+        child->childrenChanged();
+    m_deferredChildredChangedList.clear();
+
     for (auto* node : m_deferredTextChangedList)
         textChanged(node);
     m_deferredTextChangedList.clear();
@@ -2905,7 +2919,43 @@ void AXObjectCache::performDeferredCacheUpdate()
     for (auto& deferredFocusedChangeContext : m_deferredFocusedNodeChange)
         handleFocusedUIElementChanged(deferredFocusedChangeContext.first, deferredFocusedChangeContext.second);
     m_deferredFocusedNodeChange.clear();
+
+    platformPerformDeferredCacheUpdate();
 }
+    
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+Ref<AXIsolatedTreeNode> AXObjectCache::createIsolatedAccessibilityTreeHierarchy(AccessibilityObject& object, AXID parentID, AXIsolatedTree& tree, Vector<Ref<AXIsolatedTreeNode>>& nodeChanges)
+{
+    auto isolatedTreeNode = AXIsolatedTreeNode::create(object);
+    nodeChanges.append(isolatedTreeNode.copyRef());
+
+    isolatedTreeNode->setParent(parentID);
+    associateIsolatedTreeNode(object, isolatedTreeNode, tree.treeIdentifier());
+
+    for (auto child : object.children()) {
+        auto staticChild = createIsolatedAccessibilityTreeHierarchy(*child, isolatedTreeNode->identifier(), tree, nodeChanges);
+        isolatedTreeNode->appendChild(staticChild->identifier());
+    }
+
+    return isolatedTreeNode;
+}
+    
+Ref<AXIsolatedTree> AXObjectCache::generateIsolatedAccessibilityTree()
+{
+    RELEASE_ASSERT(isMainThread());
+
+    auto tree = AXIsolatedTree::treeForPageID(*m_document.pageID());
+    if (!tree)
+        tree = AXIsolatedTree::createTreeForPageID(*m_document.pageID());
+    
+    Vector<Ref<AXIsolatedTreeNode>> nodeChanges;
+    auto root = createIsolatedAccessibilityTreeHierarchy(*rootObject(), InvalidAXID, *tree, nodeChanges);
+    root->setIsRootNode(true);
+    tree->appendNodeChanges(nodeChanges);
+
+    return makeRef(*tree);
+}
+#endif
     
 void AXObjectCache::deferRecomputeIsIgnoredIfNeeded(Element* element)
 {

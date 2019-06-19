@@ -30,6 +30,9 @@
 #include "APIPageConfiguration.h"
 #include "DragAndDropHandler.h"
 #include "GestureController.h"
+#include "SameDocumentNavigationType.h"
+#include "ViewGestureController.h"
+#include "ViewSnapshotStore.h"
 #include "WebContextMenuProxyGtk.h"
 #include "WebInspectorProxy.h"
 #include "WebKitWebViewBase.h"
@@ -67,6 +70,7 @@ void webkitWebViewBaseResetClickCounter(WebKitWebViewBase*);
 void webkitWebViewBaseEnterAcceleratedCompositingMode(WebKitWebViewBase*, const WebKit::LayerTreeContext&);
 void webkitWebViewBaseUpdateAcceleratedCompositingMode(WebKitWebViewBase*, const WebKit::LayerTreeContext&);
 void webkitWebViewBaseExitAcceleratedCompositingMode(WebKitWebViewBase*);
+bool webkitWebViewBaseMakeGLContextCurrent(WebKitWebViewBase*);
 void webkitWebViewBaseDidRelaunchWebProcess(WebKitWebViewBase*);
 void webkitWebViewBasePageClosed(WebKitWebViewBase*);
 
@@ -77,3 +81,14 @@ WebKit::DragAndDropHandler& webkitWebViewBaseDragAndDropHandler(WebKitWebViewBas
 #if HAVE(GTK_GESTURES)
 WebKit::GestureController& webkitWebViewBaseGestureController(WebKitWebViewBase*);
 #endif
+
+RefPtr<WebKit::ViewSnapshot> webkitWebViewBaseTakeViewSnapshot(WebKitWebViewBase*);
+
+WebKit::ViewGestureController& webkitWebViewBaseViewGestureController(WebKitWebViewBase*);
+
+void webkitWebViewBaseDidStartProvisionalLoadForMainFrame(WebKitWebViewBase*);
+void webkitWebViewBaseDidFirstVisuallyNonEmptyLayoutForMainFrame(WebKitWebViewBase*);
+void webkitWebViewBaseDidFinishLoadForMainFrame(WebKitWebViewBase*);
+void webkitWebViewBaseDidFailLoadForMainFrame(WebKitWebViewBase*);
+void webkitWebViewBaseDidSameDocumentNavigationForMainFrame(WebKitWebViewBase*, WebKit::SameDocumentNavigationType);
+void webkitWebViewBaseDidRestoreScrollPosition(WebKitWebViewBase*);

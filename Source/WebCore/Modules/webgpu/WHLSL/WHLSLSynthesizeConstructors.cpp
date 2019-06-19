@@ -28,8 +28,14 @@
 
 #if ENABLE(WEBGPU)
 
+#include "WHLSLArrayType.h"
+#include "WHLSLArrayReferenceType.h"
+#include "WHLSLEnumerationDefinition.h"
 #include "WHLSLNativeFunctionDeclaration.h"
+#include "WHLSLNativeTypeDeclaration.h"
+#include "WHLSLPointerType.h"
 #include "WHLSLProgram.h"
+#include "WHLSLStructureDefinition.h"
 #include "WHLSLTypeReference.h"
 #include "WHLSLVariableDeclaration.h"
 #include "WHLSLVisitor.h"
@@ -101,16 +107,15 @@ void synthesizeConstructors(Program& program)
     auto m_namedTypes = findAllTypes.takeNamedTypes();
 
     bool isOperator = true;
-    bool isRestricted = false;
 
     for (auto& unnamedType : m_unnamedTypes) {
         AST::VariableDeclaration variableDeclaration(Lexer::Token(unnamedType.get().origin()), AST::Qualifiers(), { unnamedType.get().clone() }, String(), WTF::nullopt, WTF::nullopt);
         AST::VariableDeclarations parameters;
         parameters.append(WTFMove(variableDeclaration));
-        AST::NativeFunctionDeclaration copyConstructor(AST::FunctionDeclaration(Lexer::Token(unnamedType.get().origin()), AST::AttributeBlock(), WTF::nullopt, unnamedType.get().clone(), "operator cast"_str, WTFMove(parameters), WTF::nullopt, isOperator), isRestricted);
+        AST::NativeFunctionDeclaration copyConstructor(AST::FunctionDeclaration(Lexer::Token(unnamedType.get().origin()), AST::AttributeBlock(), WTF::nullopt, unnamedType.get().clone(), "operator cast"_str, WTFMove(parameters), WTF::nullopt, isOperator));
         program.append(WTFMove(copyConstructor));
 
-        AST::NativeFunctionDeclaration defaultConstructor(AST::FunctionDeclaration(Lexer::Token(unnamedType.get().origin()), AST::AttributeBlock(), WTF::nullopt, unnamedType.get().clone(), "operator cast"_str, AST::VariableDeclarations(), WTF::nullopt, isOperator), isRestricted);
+        AST::NativeFunctionDeclaration defaultConstructor(AST::FunctionDeclaration(Lexer::Token(unnamedType.get().origin()), AST::AttributeBlock(), WTF::nullopt, unnamedType.get().clone(), "operator cast"_str, AST::VariableDeclarations(), WTF::nullopt, isOperator));
         program.append(WTFMove(defaultConstructor));
     }
 
@@ -118,16 +123,16 @@ void synthesizeConstructors(Program& program)
         AST::VariableDeclaration variableDeclaration(Lexer::Token(namedType.get().origin()), AST::Qualifiers(), { AST::TypeReference::wrap(Lexer::Token(namedType.get().origin()), namedType.get()) }, String(), WTF::nullopt, WTF::nullopt);
         AST::VariableDeclarations parameters;
         parameters.append(WTFMove(variableDeclaration));
-        AST::NativeFunctionDeclaration copyConstructor(AST::FunctionDeclaration(Lexer::Token(namedType.get().origin()), AST::AttributeBlock(), WTF::nullopt, AST::TypeReference::wrap(Lexer::Token(namedType.get().origin()), namedType.get()), "operator cast"_str, WTFMove(parameters), WTF::nullopt, isOperator), isRestricted);
+        AST::NativeFunctionDeclaration copyConstructor(AST::FunctionDeclaration(Lexer::Token(namedType.get().origin()), AST::AttributeBlock(), WTF::nullopt, AST::TypeReference::wrap(Lexer::Token(namedType.get().origin()), namedType.get()), "operator cast"_str, WTFMove(parameters), WTF::nullopt, isOperator));
         program.append(WTFMove(copyConstructor));
 
-        AST::NativeFunctionDeclaration defaultConstructor(AST::FunctionDeclaration(Lexer::Token(namedType.get().origin()), AST::AttributeBlock(), WTF::nullopt, AST::TypeReference::wrap(Lexer::Token(namedType.get().origin()), namedType.get()), "operator cast"_str, AST::VariableDeclarations(), WTF::nullopt, isOperator), isRestricted);
+        AST::NativeFunctionDeclaration defaultConstructor(AST::FunctionDeclaration(Lexer::Token(namedType.get().origin()), AST::AttributeBlock(), WTF::nullopt, AST::TypeReference::wrap(Lexer::Token(namedType.get().origin()), namedType.get()), "operator cast"_str, AST::VariableDeclarations(), WTF::nullopt, isOperator));
         program.append(WTFMove(defaultConstructor));
     }
 }
 
-}
+} // namespace WHLSL
 
-}
+} // namespace WebCore
 
-#endif
+#endif // ENABLE(WEBGPU)

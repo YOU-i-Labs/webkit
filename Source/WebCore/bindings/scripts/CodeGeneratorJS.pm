@@ -3,7 +3,7 @@
 # Copyright (C) 2006 Anders Carlsson <andersca@mac.com>
 # Copyright (C) 2006, 2007 Samuel Weinig <sam@webkit.org>
 # Copyright (C) 2006 Alexey Proskuryakov <ap@webkit.org>
-# Copyright (C) 2006-2018 Apple Inc. All rights reserved.
+# Copyright (C) 2006-2019 Apple Inc. All rights reserved.
 # Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
 # Copyright (C) Research In Motion Limited 2010. All rights reserved.
 # Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
@@ -2758,7 +2758,7 @@ sub GenerateHeader
             # this just calls visitAdditionalChildren, you usually don't have to worry about this.
             push(@headerContent, "    static void visitOutputConstraints(JSCell*, JSC::SlotVisitor&);\n");
             my $subspaceFunc = IsDOMGlobalObject($interface) ? "globalObjectOutputConstraintSubspaceFor" : "outputConstraintSubspaceFor";
-            push(@headerContent, "    template<typename> static JSC::CompleteSubspace* subspaceFor(JSC::VM& vm) { return $subspaceFunc(vm); }\n");
+            push(@headerContent, "    template<typename, JSC::SubspaceAccess> static JSC::CompleteSubspace* subspaceFor(JSC::VM& vm) { return $subspaceFunc(vm); }\n");
         }
     }
 
@@ -3690,6 +3690,9 @@ sub GenerateRuntimeEnableConditionalString
         if ($context->extendedAttributes->{ContextHasServiceWorkerScheme}) {
             push(@conjuncts, "(jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->isSecureContext()"
                 . "|| jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->hasServiceWorkerScheme())");
+        } elsif ($context->extendedAttributes->{ContextAllowsMediaDevices}) {
+            push(@conjuncts, "(jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->isSecureContext()"
+                . "|| jsCast<JSDOMGlobalObject*>(" . $globalObjectPtr . ")->scriptExecutionContext()->allowsMediaDevices())");
         } else {
             push(@conjuncts, "jsCast<JSDOMGlobalObject*>(globalObject())->scriptExecutionContext()->isSecureContext()");
         }
@@ -4572,7 +4575,7 @@ sub GenerateImplementation
         push(@implContent, "    auto* thisObject = jsCast<${className}*>(cell);\n");
         push(@implContent, "    builder.setWrappedObjectForCell(cell, &thisObject->wrapped());\n");
         push(@implContent, "    if (thisObject->scriptExecutionContext())\n");
-        push(@implContent, "        builder.setLabelForCell(cell, String::format(\"url %s\", thisObject->scriptExecutionContext()->url().string().utf8().data()));\n");
+        push(@implContent, "        builder.setLabelForCell(cell, \"url \" + thisObject->scriptExecutionContext()->url().string());\n");
         push(@implContent, "    Base::heapSnapshot(cell, builder);\n");
         push(@implContent, "}\n\n");
     }
@@ -4679,7 +4682,7 @@ sub GenerateImplementation
             }
 
             push(@implContent, $rootString);
-            push(@implContent, "    return visitor.containsOpaqueRoot(root);\n");
+            push(@implContent, "    return root && visitor.containsOpaqueRoot(root);\n");
         } else {
             if (!$emittedJSCast) {
                 push(@implContent, "    UNUSED_PARAM(handle);\n");

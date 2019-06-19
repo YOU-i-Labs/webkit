@@ -25,10 +25,7 @@
 
 #pragma once
 
-#if PLATFORM(COCOA)
 #include "ViewSnapshotStore.h"
-#endif
-
 #include <WebCore/BackForwardItemIdentifier.h>
 #include <WebCore/FloatRect.h>
 #include <WebCore/FrameLoaderTypes.h>
@@ -110,6 +107,7 @@ struct FrameState {
     WebCore::FloatSize minimumLayoutSizeInScrollViewCoordinates;
     WebCore::IntSize contentSize;
     bool scaleIsInitial { false };
+    WebCore::FloatBoxExtent obscuredInsets;
 #endif
 
     Vector<FrameState> children;
@@ -132,7 +130,7 @@ struct BackForwardListItemState {
     WebCore::BackForwardItemIdentifier identifier;
 
     PageState pageState;
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || PLATFORM(GTK)
     RefPtr<ViewSnapshot> snapshot;
 #endif
 };

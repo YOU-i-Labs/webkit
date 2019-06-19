@@ -28,6 +28,9 @@
 
 #if ENABLE(WEBGPU)
 
+#include "WHLSLStructureDefinition.h"
+#include "WHLSLTypeDefinition.h"
+#include "WHLSLTypeReference.h"
 #include "WHLSLVisitor.h"
 #include <wtf/HashSet.h>
 
@@ -98,8 +101,8 @@ bool checkRecursiveTypes(Program& program)
     return recursiveTypeChecker.error();
 }
 
-}
+} // namespace WHLSL
 
-}
+} // namespace WebCore
 
-#endif
+#endif // ENABLE(WEBGPU)

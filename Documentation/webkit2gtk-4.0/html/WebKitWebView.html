@@ -2,9 +2,9 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>WebKitWebView: WebKit2GTK+ Reference Manual</title>
+<title>WebKitWebView: WebKitGTK Reference Manual</title>
 <meta name="generator" content="DocBook XSL Stylesheets V1.79.1">
-<link rel="home" href="index.html" title="WebKit2GTK+ Reference Manual">
+<link rel="home" href="index.html" title="WebKitGTK Reference Manual">
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitWebContext.html" title="WebKitWebContext">
 <link rel="next" href="WebKitAuthenticationRequest.html" title="WebKitAuthenticationRequest">
@@ -31,7 +31,7 @@
 <div class="refnamediv"><table width="100%"><tr>
 <td valign="top">
 <h2><span class="refentrytitle"><a name="WebKitWebView.top_of_page"></a>WebKitWebView</span></h2>
-<p>WebKitWebView — The central class of the WebKit2GTK+ API</p>
+<p>WebKitWebView — The central class of the WPE WebKit and WebKitGTK APIs</p>
 </td>
 <td class="gallery_image" valign="top" align="right"></td>
 </tr></table></div>
@@ -1086,13 +1086,13 @@ WebKitWebView implements
 </div>
 <div class="refsect1">
 <a name="WebKitWebView.description"></a><h2>Description</h2>
-<p><a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> is the central class of the WebKit2GTK+ API. It is
-responsible for managing the drawing of the content and forwarding
-of events. You can load any URI into the <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> or a data
-string. With <a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a> you can control various aspects of the
-rendering and loading of the content.</p>
-<p>Note that <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> is scrollable by itself, so you don't need
-to embed it in a <a href="../gtk3/GtkScrolledWindow.html#GtkScrolledWindow-struct"><span class="type">GtkScrolledWindow</span></a>.</p>
+<p><a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> is the central class of the WPE WebKit and WebKitGTK
+APIs. It is responsible for managing the drawing of the content and
+forwarding of events. You can load any URI into the <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> or
+a data string. With <a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a> you can control various aspects
+of the rendering and loading of the content.</p>
+<p>Note that in WebKitGTK, <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> is scrollable by itself, so
+you don't need to embed it in a <a href="../gtk3/GtkScrolledWindow.html#GtkScrolledWindow-struct"><span class="type">GtkScrolledWindow</span></a>.</p>
 </div>
 <div class="refsect1">
 <a name="WebKitWebView.functions_details"></a><h2>Functions</h2>

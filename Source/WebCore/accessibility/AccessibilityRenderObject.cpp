@@ -640,10 +640,7 @@ String AccessibilityRenderObject::textUnderElement(AccessibilityTextUnderElement
             // defining one based in the two external positions defining the boundaries of the subtree.
             RenderObject* firstChildRenderer = m_renderer->firstChildSlow();
             RenderObject* lastChildRenderer = m_renderer->lastChildSlow();
-            if (firstChildRenderer && lastChildRenderer) {
-                ASSERT(firstChildRenderer->node());
-                ASSERT(lastChildRenderer->node());
-
+            if (firstChildRenderer && firstChildRenderer->node() && lastChildRenderer && lastChildRenderer->node()) {
                 // We define the start and end positions for the range as the ones right before and after
                 // the first and the last nodes in the DOM tree that is wrapped inside the anonymous block.
                 Node* firstNodeInBlock = firstChildRenderer->node();
@@ -1511,7 +1508,7 @@ const AtomicString& AccessibilityRenderObject::accessKey() const
     Node* node = m_renderer->node();
     if (!is<Element>(node))
         return nullAtom();
-    return downcast<Element>(*node).getAttribute(accesskeyAttr);
+    return downcast<Element>(*node).attributeWithoutSynchronization(accesskeyAttr);
 }
 
 VisibleSelection AccessibilityRenderObject::selection() const
@@ -3676,7 +3673,7 @@ String AccessibilityRenderObject::positionalDescriptionForMSAA() const
     // See "positional descriptions",
     // https://wiki.mozilla.org/Accessibility/AT-Windows-API
     if (isHeading())
-        return "L" + String::number(headingLevel());
+        return makeString('L', headingLevel());
 
     // FIXME: Add positional descriptions for other elements.
     return String();

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -147,13 +147,6 @@ public:
         {     
             graph.m_plan.weakReferences().addLazily(cell);
             return TrustedImmPtr(bitwise_cast<size_t>(cell));
-        }
-
-        template<typename Key>
-        static TrustedImmPtr weakPoisonedPointer(Graph& graph, JSCell* cell)
-        {     
-            graph.m_plan.weakReferences().addLazily(cell);
-            return TrustedImmPtr(bitwise_cast<size_t>(cell) ^ Key::key());
         }
 
         operator MacroAssembler::TrustedImmPtr() const { return m_value; }
@@ -1236,9 +1229,9 @@ public:
         BasicBlock* target;
     };
     
-    void emitSwitchIntJump(SwitchData*, GPRReg value, GPRReg scratch, GPRReg scratch2);
+    void emitSwitchIntJump(SwitchData*, GPRReg value, GPRReg scratch);
     void emitSwitchImm(Node*, SwitchData*);
-    void emitSwitchCharStringJump(SwitchData*, GPRReg value, GPRReg scratch, GPRReg scratch2);
+    void emitSwitchCharStringJump(SwitchData*, GPRReg value, GPRReg scratch);
     void emitSwitchChar(Node*, SwitchData*);
     void emitBinarySwitchStringRecurse(
         SwitchData*, const Vector<StringSwitchCase>&, unsigned numChecked,
@@ -1480,7 +1473,6 @@ public:
     void compileNewTypedArray(Node*);
     void compileToThis(Node*);
     void compileObjectKeys(Node*);
-    void compileObjectToString(Node*);
     void compileObjectCreate(Node*);
     void compileCreateThis(Node*);
     void compileNewObject(Node*);
@@ -1550,7 +1542,7 @@ public:
     void emitGetLength(CodeOrigin, GPRReg lengthGPR, bool includeThis = false);
     void emitGetCallee(CodeOrigin, GPRReg calleeGPR);
     void emitGetArgumentStart(CodeOrigin, GPRReg startGPR);
-    void emitPopulateSliceIndex(Edge&, GPRReg length, GPRReg result);
+    void emitPopulateSliceIndex(Edge&, Optional<GPRReg> indexGPR, GPRReg lengthGPR, GPRReg resultGPR);
     
     // Generate an OSR exit fuzz check. Returns Jump() if OSR exit fuzz is not enabled, or if
     // it's in training mode.
@@ -1631,8 +1623,6 @@ public:
     void speculateStringOrOther(Edge);
     void speculateNotStringVar(Edge);
     void speculateNotSymbol(Edge);
-    template<typename StructureLocationType>
-    void speculateStringObjectForStructure(Edge, StructureLocationType);
     void speculateStringObject(Edge, GPRReg);
     void speculateStringObject(Edge);
     void speculateStringOrStringObject(Edge);
@@ -2603,20 +2593,6 @@ private:
     Edge m_edge;
     GPRReg m_gprOrInvalid;
 };
-
-template<typename StructureLocationType>
-void SpeculativeJIT::speculateStringObjectForStructure(Edge edge, StructureLocationType structureLocation)
-{
-    RegisteredStructure stringObjectStructure =
-        m_jit.graph().registerStructure(m_jit.globalObjectFor(m_currentNode->origin.semantic)->stringObjectStructure());
-    
-    if (!m_state.forNode(edge).m_structure.isSubsetOf(RegisteredStructureSet(stringObjectStructure))) {
-        speculationCheck(
-            NotStringObject, JSValueRegs(), 0,
-            m_jit.branchWeakStructure(
-                JITCompiler::NotEqual, structureLocation, stringObjectStructure));
-    }
-}
 
 #define DFG_TYPE_CHECK_WITH_EXIT_KIND(exitKind, source, edge, typesPassedThrough, jumpToFail) do { \
         JSValueSource _dtc_source = (source);                           \

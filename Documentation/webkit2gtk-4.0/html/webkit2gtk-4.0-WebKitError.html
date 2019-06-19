@@ -2,9 +2,9 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>WebKitError: WebKit2GTK+ Reference Manual</title>
+<title>WebKitError: WebKitGTK Reference Manual</title>
 <meta name="generator" content="DocBook XSL Stylesheets V1.79.1">
-<link rel="home" href="index.html" title="WebKit2GTK+ Reference Manual">
+<link rel="home" href="index.html" title="WebKitGTK Reference Manual">
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitWebResource.html" title="WebKitWebResource">
 <link rel="next" href="WebKitFaviconDatabase.html" title="WebKitFaviconDatabase">
@@ -95,6 +95,14 @@
 <a class="link" href="webkit2gtk-4.0-WebKitError.html#webkit-snapshot-error-quark" title="webkit_snapshot_error_quark ()">webkit_snapshot_error_quark</a> <span class="c_punctuation">()</span>
 </td>
 </tr>
+<tr>
+<td class="function_type">
+<a href="../glib/glib-Quarks.html#GQuark"><span class="returnvalue">GQuark</span></a>
+</td>
+<td class="function_name">
+<a class="link" href="webkit2gtk-4.0-WebKitError.html#webkit-user-content-filter-error-quark" title="webkit_user_content_filter_error_quark ()">webkit_user_content_filter_error_quark</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
 </tbody>
 </table></div>
 </div>
@@ -135,6 +143,10 @@
 <td class="function_name"><a class="link" href="webkit2gtk-4.0-WebKitError.html#WEBKIT-SNAPSHOT-ERROR:CAPS" title="WEBKIT_SNAPSHOT_ERROR">WEBKIT_SNAPSHOT_ERROR</a></td>
 </tr>
 <tr>
+<td class="define_keyword">#define</td>
+<td class="function_name"><a class="link" href="webkit2gtk-4.0-WebKitError.html#WEBKIT-USER-CONTENT-FILTER-ERROR:CAPS" title="WEBKIT_USER_CONTENT_FILTER_ERROR">WEBKIT_USER_CONTENT_FILTER_ERROR</a></td>
+</tr>
+<tr>
 <td class="datatype_keyword">enum</td>
 <td class="function_name"><a class="link" href="webkit2gtk-4.0-WebKitError.html#WebKitNetworkError" title="enum WebKitNetworkError">WebKitNetworkError</a></td>
 </tr>
@@ -161,6 +173,10 @@
 <tr>
 <td class="datatype_keyword">enum</td>
 <td class="function_name"><a class="link" href="webkit2gtk-4.0-WebKitError.html#WebKitSnapshotError" title="enum WebKitSnapshotError">WebKitSnapshotError</a></td>
+</tr>
+<tr>
+<td class="datatype_keyword">enum</td>
+<td class="function_name"><a class="link" href="webkit2gtk-4.0-WebKitError.html#WebKitUserContentFilterError" title="enum WebKitUserContentFilterError">WebKitUserContentFilterError</a></td>
 </tr>
 </tbody>
 </table></div>
@@ -212,48 +228,61 @@ webkit_javascript_error_quark (<em class="parameter"><code><span class="type">vo
 <pre class="programlisting"><a href="../glib/glib-Quarks.html#GQuark"><span class="returnvalue">GQuark</span></a>
 webkit_snapshot_error_quark (<em class="parameter"><code><span class="type">void</span></code></em>);</pre>
 </div>
+<hr>
+<div class="refsect2">
+<a name="webkit-user-content-filter-error-quark"></a><h3>webkit_user_content_filter_error_quark ()</h3>
+<pre class="programlisting"><a href="../glib/glib-Quarks.html#GQuark"><span class="returnvalue">GQuark</span></a>
+webkit_user_content_filter_error_quark
+                               (<em class="parameter"><code><span class="type">void</span></code></em>);</pre>
+</div>
 </div>
 <div class="refsect1">
 <a name="webkit2gtk-4.0-WebKitError.other_details"></a><h2>Types and Values</h2>
 <div class="refsect2">
 <a name="WEBKIT-NETWORK-ERROR:CAPS"></a><h3>WEBKIT_NETWORK_ERROR</h3>
-<pre class="programlisting">#define WEBKIT_NETWORK_ERROR    webkit_network_error_quark ()
+<pre class="programlisting">#define WEBKIT_NETWORK_ERROR             webkit_network_error_quark ()
 </pre>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-PLUGIN-ERROR:CAPS"></a><h3>WEBKIT_PLUGIN_ERROR</h3>
-<pre class="programlisting">#define WEBKIT_PLUGIN_ERROR     webkit_plugin_error_quark ()
+<pre class="programlisting">#define WEBKIT_PLUGIN_ERROR              webkit_plugin_error_quark ()
 </pre>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-POLICY-ERROR:CAPS"></a><h3>WEBKIT_POLICY_ERROR</h3>
-<pre class="programlisting">#define WEBKIT_POLICY_ERROR     webkit_policy_error_quark ()
+<pre class="programlisting">#define WEBKIT_POLICY_ERROR              webkit_policy_error_quark ()
 </pre>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOWNLOAD-ERROR:CAPS"></a><h3>WEBKIT_DOWNLOAD_ERROR</h3>
-<pre class="programlisting">#define WEBKIT_DOWNLOAD_ERROR   webkit_download_error_quark ()
+<pre class="programlisting">#define WEBKIT_DOWNLOAD_ERROR            webkit_download_error_quark ()
 </pre>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-PRINT-ERROR:CAPS"></a><h3>WEBKIT_PRINT_ERROR</h3>
-<pre class="programlisting">#define WEBKIT_PRINT_ERROR      webkit_print_error_quark ()
+<pre class="programlisting">#define WEBKIT_PRINT_ERROR               webkit_print_error_quark ()
 </pre>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-JAVASCRIPT-ERROR:CAPS"></a><h3>WEBKIT_JAVASCRIPT_ERROR</h3>
-<pre class="programlisting">#define WEBKIT_JAVASCRIPT_ERROR webkit_javascript_error_quark ()
+<pre class="programlisting">#define WEBKIT_JAVASCRIPT_ERROR          webkit_javascript_error_quark ()
 </pre>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-SNAPSHOT-ERROR:CAPS"></a><h3>WEBKIT_SNAPSHOT_ERROR</h3>
-<pre class="programlisting">#define WEBKIT_SNAPSHOT_ERROR   webkit_snapshot_error_quark ()
+<pre class="programlisting">#define WEBKIT_SNAPSHOT_ERROR            webkit_snapshot_error_quark ()
+</pre>
+</div>
+<hr>
+<div class="refsect2">
+<a name="WEBKIT-USER-CONTENT-FILTER-ERROR:CAPS"></a><h3>WEBKIT_USER_CONTENT_FILTER_ERROR</h3>
+<pre class="programlisting">#define WEBKIT_USER_CONTENT_FILTER_ERROR webkit_user_content_filter_error_quark ()
 </pre>
 </div>
 <hr>
@@ -538,6 +567,37 @@ webkit_snapshot_error_quark (<em class="parameter"><code><span class="type">void
 </tr></tbody>
 </table></div>
 </div>
+</div>
+<hr>
+<div class="refsect2">
+<a name="WebKitUserContentFilterError"></a><h3>enum WebKitUserContentFilterError</h3>
+<div class="refsect3">
+<a name="WebKitUserContentFilterError.members"></a><h4>Members</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="300px" class="enum_members_name">
+<col class="enum_members_description">
+<col width="200px" class="enum_members_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="enum_member_name"><p><a name="WEBKIT-USER-CONTENT-FILTER-ERROR-INVALID-SOURCE:CAPS"></a>WEBKIT_USER_CONTENT_FILTER_ERROR_INVALID_SOURCE</p></td>
+<td class="enum_member_description">
+<p>The JSON source for a content filter is invalid.</p>
+</td>
+<td class="enum_member_annotations"> </td>
+</tr>
+<tr>
+<td class="enum_member_name"><p><a name="WEBKIT-USER-CONTENT-FILTER-ERROR-NOT-FOUND:CAPS"></a>WEBKIT_USER_CONTENT_FILTER_ERROR_NOT_FOUND</p></td>
+<td class="enum_member_description">
+<p>The requested content filter could not be found.</p>
+</td>
+<td class="enum_member_annotations"> </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-24.html#api-index-2.24">2.24</a></p>
 </div>
 </div>
 </div>

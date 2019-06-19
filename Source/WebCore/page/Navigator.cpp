@@ -47,7 +47,6 @@
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
-using namespace WTF;
 
 Navigator::Navigator(ScriptExecutionContext* context, DOMWindow& window)
     : NavigatorBase(context)
@@ -92,7 +91,7 @@ const String& Navigator::userAgent() const
     if (RuntimeEnabledFeatures::sharedFeatures().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logNavigatorAPIAccessed(*frame->document(), ResourceLoadStatistics::NavigatorAPI::UserAgent);
     if (m_userAgent.isNull())
-        m_userAgent = frame->loader().userAgent(frame->document()->url());
+        m_userAgent = frame->loader().userAgentForJavaScript(frame->document()->url());
     return m_userAgent;
 }
     
@@ -192,14 +191,18 @@ bool Navigator::cookieEnabled() const
     if (RuntimeEnabledFeatures::sharedFeatures().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logNavigatorAPIAccessed(*frame->document(), ResourceLoadStatistics::NavigatorAPI::CookieEnabled);
 
-    if (frame->page() && !frame->page()->settings().cookieEnabled())
+    auto* page = frame->page();
+    if (!page)
+        return false;
+    
+    if (!page->settings().cookieEnabled())
         return false;
 
     auto* document = frame->document();
     if (!document)
         return false;
 
-    return cookiesEnabled(*document);
+    return page->cookieJar().cookiesEnabled(*document);
 }
 
 bool Navigator::javaEnabled() const

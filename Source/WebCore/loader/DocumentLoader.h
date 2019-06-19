@@ -270,7 +270,10 @@ public:
 
     void setCustomUserAgent(const String& customUserAgent) { m_customUserAgent = customUserAgent; }
     const String& customUserAgent() const { return m_customUserAgent; }
-        
+
+    void setCustomJavaScriptUserAgentAsSiteSpecificQuirks(const String& customUserAgent) { m_customJavaScriptUserAgentAsSiteSpecificQuirks = customUserAgent; }
+    const String& customJavaScriptUserAgentAsSiteSpecificQuirks() const { return m_customJavaScriptUserAgentAsSiteSpecificQuirks; }
+
     void setCustomNavigatorPlatform(const String& customNavigatorPlatform) { m_customNavigatorPlatform = customNavigatorPlatform; }
     const String& customNavigatorPlatform() const { return m_customNavigatorPlatform; }
 
@@ -340,7 +343,10 @@ public:
 
     WEBCORE_EXPORT void setCustomHeaderFields(Vector<HTTPHeaderField>&& fields);
     const Vector<HTTPHeaderField>& customHeaderFields() { return m_customHeaderFields; }
-    
+
+    void setAllowsWebArchiveForMainFrame(bool allowsWebArchiveForMainFrame) { m_allowsWebArchiveForMainFrame = allowsWebArchiveForMainFrame; }
+    bool allowsWebArchiveForMainFrame() const { return m_allowsWebArchiveForMainFrame; }
+
 protected:
     WEBCORE_EXPORT DocumentLoader(const ResourceRequest&, const SubstituteData&);
 
@@ -543,6 +549,7 @@ private:
     HashMap<String, Vector<std::pair<String, uint32_t>>> m_pendingContentExtensionDisplayNoneSelectors;
 #endif
     String m_customUserAgent;
+    String m_customJavaScriptUserAgentAsSiteSpecificQuirks;
     String m_customNavigatorPlatform;
     bool m_userContentExtensionsEnabled { true };
     bool m_deviceOrientationEventEnabled { true };
@@ -562,6 +569,8 @@ private:
 #ifndef NDEBUG
     bool m_hasEverBeenAttached { false };
 #endif
+
+    bool m_allowsWebArchiveForMainFrame { false };
 };
 
 inline void DocumentLoader::recordMemoryCacheLoadForFutureClientNotification(const ResourceRequest& request)

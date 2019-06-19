@@ -88,7 +88,6 @@
 
 
 namespace WebCore {
-using namespace WTF;
 
 static ThreadSpecific<ShaderNameHash*>& getCurrentNameHashMapForShader()
 {
@@ -227,7 +226,7 @@ void GraphicsContext3D::prepareTexture()
 
     makeContextCurrent();
 
-#if !USE(COORDINATED_GRAPHICS_THREADED)
+#if !USE(COORDINATED_GRAPHICS)
     TemporaryOpenGLSetting scopedScissor(GL_SCISSOR_TEST, GL_FALSE);
     TemporaryOpenGLSetting scopedDither(GL_DITHER, GL_FALSE);
 #endif
@@ -235,7 +234,7 @@ void GraphicsContext3D::prepareTexture()
     if (m_attrs.antialias)
         resolveMultisamplingIfNecessary();
 
-#if USE(COORDINATED_GRAPHICS_THREADED)
+#if USE(COORDINATED_GRAPHICS)
     std::swap(m_texture, m_compositorTexture);
     std::swap(m_texture, m_intermediateTexture);
     ::glBindFramebuffer(GL_FRAMEBUFFER, m_fbo);
@@ -976,7 +975,7 @@ static String generateHashedName(const String& name)
     uint64_t number = nameHashForShader(name.utf8().data(), name.length());
     StringBuilder builder;
     builder.appendLiteral("webgl_");
-    appendUnsigned64AsHex(number, builder, Lowercase);
+    appendUnsignedAsHex(number, builder, Lowercase);
     return builder.toString();
 }
 

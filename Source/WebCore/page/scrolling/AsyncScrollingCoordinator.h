@@ -90,6 +90,7 @@ private:
     bool hasVisibleSlowRepaintViewportConstrainedObjects(const FrameView&) const override { return false; }
     
     bool visualViewportEnabled() const;
+    bool asyncFrameOrOverflowScrollingEnabled() const;
 
     WEBCORE_EXPORT void frameViewLayoutUpdated(FrameView&) override;
     WEBCORE_EXPORT void frameViewRootLayerDidChange(FrameView&) override;
@@ -97,17 +98,22 @@ private:
 
     WEBCORE_EXPORT bool requestScrollPositionUpdate(FrameView&, const IntPoint&) override;
 
-    WEBCORE_EXPORT ScrollingNodeID attachToStateTree(ScrollingNodeType, ScrollingNodeID newNodeID, ScrollingNodeID parentID, size_t childIndex) override;
-    WEBCORE_EXPORT void detachFromStateTree(ScrollingNodeID) override;
-    WEBCORE_EXPORT void clearStateTree() override;
-    
-    WEBCORE_EXPORT void updateNodeLayer(ScrollingNodeID, GraphicsLayer*) override;
-    WEBCORE_EXPORT void updateNodeViewportConstraints(ScrollingNodeID, const ViewportConstraints&) override;
-    
-    WEBCORE_EXPORT void updateFrameScrollingNode(ScrollingNodeID, GraphicsLayer* scrollLayer, GraphicsLayer* scrolledContentsLayer, GraphicsLayer* counterScrollingLayer, GraphicsLayer* insetClipLayer, const ScrollingGeometry&) override;
-    WEBCORE_EXPORT void updateOverflowScrollingNode(ScrollingNodeID, GraphicsLayer* scrollLayer, GraphicsLayer* scrolledContentsLayer, const ScrollingGeometry&) override;
-    
+    WEBCORE_EXPORT ScrollingNodeID createNode(ScrollingNodeType, ScrollingNodeID newNodeID) override;
+    WEBCORE_EXPORT ScrollingNodeID insertNode(ScrollingNodeType, ScrollingNodeID newNodeID, ScrollingNodeID parentID, size_t childIndex) override;
+    WEBCORE_EXPORT void unparentNode(ScrollingNodeID) override;
+    WEBCORE_EXPORT void unparentChildrenAndDestroyNode(ScrollingNodeID) override;
+    WEBCORE_EXPORT void detachAndDestroySubtree(ScrollingNodeID) override;
+    WEBCORE_EXPORT void clearAllNodes() override;
+
+    WEBCORE_EXPORT ScrollingNodeID parentOfNode(ScrollingNodeID) const override;
+    WEBCORE_EXPORT Vector<ScrollingNodeID> childrenOfNode(ScrollingNodeID) const override;
+
+    WEBCORE_EXPORT void setNodeLayers(ScrollingNodeID, const NodeLayers&) override;
+    WEBCORE_EXPORT void setScrollingNodeGeometry(ScrollingNodeID, const ScrollingGeometry&) override;
+    WEBCORE_EXPORT void setViewportConstraintedNodeGeometry(ScrollingNodeID, const ViewportConstraints&) override;
+
     WEBCORE_EXPORT void reconcileScrollingState(FrameView&, const FloatPoint&, const LayoutViewportOriginOrOverrideRect&, bool programmaticScroll, ViewportRectStability, ScrollingLayerPositionAction) override;
+    void reconcileScrollPosition(FrameView&, ScrollingLayerPositionAction);
 
     bool isRubberBandInProgress() const override;
     void setScrollPinningBehavior(ScrollPinningBehavior) override;
@@ -124,7 +130,6 @@ private:
     virtual void scheduleTreeStateCommit() = 0;
 
     void ensureRootStateNodeForFrameView(FrameView&);
-    void updateScrollLayerPosition(FrameView&);
 
     void updateScrollPositionAfterAsyncScrollTimerFired();
     void setEventTrackingRegionsDirty();

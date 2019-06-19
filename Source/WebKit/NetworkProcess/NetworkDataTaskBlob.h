@@ -33,13 +33,14 @@
 
 #include "NetworkDataTask.h"
 #include <WebCore/FileStreamClient.h>
-#include <WebCore/FileSystem.h>
+#include <wtf/FileSystem.h>
 
 namespace WebCore {
 class AsyncFileStream;
 class BlobDataFileReference;
 class BlobData;
 class BlobDataItem;
+class BlobRegistryImpl;
 }
 
 namespace WebKit {
@@ -48,17 +49,16 @@ class NetworkProcess;
 
 class NetworkDataTaskBlob final : public NetworkDataTask, public WebCore::FileStreamClient {
 public:
-    static Ref<NetworkDataTask> create(NetworkSession& session, NetworkDataTaskClient& client, const WebCore::ResourceRequest& request, WebCore::ContentSniffingPolicy shouldContentSniff, const Vector<RefPtr<WebCore::BlobDataFileReference>>& fileReferences)
+    static Ref<NetworkDataTask> create(NetworkSession& session, WebCore::BlobRegistryImpl& blobRegistry, NetworkDataTaskClient& client, const WebCore::ResourceRequest& request, WebCore::ContentSniffingPolicy shouldContentSniff, const Vector<RefPtr<WebCore::BlobDataFileReference>>& fileReferences)
     {
-        return adoptRef(*new NetworkDataTaskBlob(session, client, request, shouldContentSniff, fileReferences));
+        return adoptRef(*new NetworkDataTaskBlob(session, blobRegistry, client, request, shouldContentSniff, fileReferences));
     }
 
     ~NetworkDataTaskBlob();
 
 private:
-    NetworkDataTaskBlob(NetworkSession&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, WebCore::ContentSniffingPolicy, const Vector<RefPtr<WebCore::BlobDataFileReference>>&);
+    NetworkDataTaskBlob(NetworkSession&, WebCore::BlobRegistryImpl&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, WebCore::ContentSniffingPolicy, const Vector<RefPtr<WebCore::BlobDataFileReference>>&);
 
-    void suspend() override;
     void cancel() override;
     void resume() override;
     void invalidateAndCancel() override;
@@ -113,7 +113,7 @@ private:
     unsigned m_sizeItemCount { 0 };
     unsigned m_readItemCount { 0 };
     bool m_fileOpened { false };
-    WebCore::FileSystem::PlatformFileHandle m_downloadFile { WebCore::FileSystem::invalidPlatformFileHandle };
+    FileSystem::PlatformFileHandle m_downloadFile { FileSystem::invalidPlatformFileHandle };
 
     Vector<RefPtr<WebCore::BlobDataFileReference>> m_fileReferences;
     RefPtr<SandboxExtension> m_sandboxExtension;

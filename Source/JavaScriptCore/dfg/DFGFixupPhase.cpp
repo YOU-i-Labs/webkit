@@ -30,7 +30,6 @@
 
 #include "ArrayPrototype.h"
 #include "DFGGraph.h"
-#include "DFGInferredTypeCheck.h"
 #include "DFGInsertionSet.h"
 #include "DFGPhase.h"
 #include "DFGPredictionPropagationPhase.h"
@@ -206,8 +205,32 @@ private:
                 break;
             }
 
-            fixEdge<UntypedUse>(node->child1());
-            fixEdge<UntypedUse>(node->child2());
+            if (Node::shouldSpeculateUntypedForBitOps(node->child1().node(), node->child2().node())) {
+                fixEdge<UntypedUse>(node->child1());
+                fixEdge<UntypedUse>(node->child2());
+                break;
+            }
+
+            // In such case, we need to fallback to ArithBitOp
+            switch (op) {
+            case ValueBitXor:
+                node->setOp(ArithBitXor);
+                break;
+            case ValueBitOr:
+                node->setOp(ArithBitOr);
+                break;
+            case ValueBitAnd:
+                node->setOp(ArithBitAnd);
+                break;
+            default:
+                DFG_CRASH(m_graph, node, "Unexpected node during ValueBit operation fixup");
+                break;
+            }
+
+            node->clearFlags(NodeMustGenerate);
+            node->setResult(NodeResultInt32);
+            fixIntConvertingEdge(node->child1());
+            fixIntConvertingEdge(node->child2());
             break;
         }
 
@@ -225,26 +248,6 @@ private:
         case ArithBitXor:
         case ArithBitOr:
         case ArithBitAnd: {
-            if (Node::shouldSpeculateUntypedForBitOps(node->child1().node(), node->child2().node())) {
-                fixEdge<UntypedUse>(node->child1());
-                fixEdge<UntypedUse>(node->child2());
-                switch (op) {
-                case ArithBitXor:
-                    node->setOpAndDefaultFlags(ValueBitXor);
-                    break;
-                case ArithBitOr:
-                    node->setOpAndDefaultFlags(ValueBitOr);
-                    break;
-                case ArithBitAnd:
-                    node->setOpAndDefaultFlags(ValueBitAnd);
-                    break;
-                default:
-                    DFG_CRASH(m_graph, node, "Unexpected node during ArithBit operation fixup");
-                    break;
-                }
-                break;
-            }
-
             fixIntConvertingEdge(node->child1());
             fixIntConvertingEdge(node->child2());
             break;
@@ -778,7 +781,7 @@ private:
             // Currently we have no good way of refining these.
             ASSERT(node->arrayMode() == ArrayMode(Array::String, Array::Read));
             blessArrayOperation(node->child1(), node->child2(), node->child3());
-            fixEdge<KnownCellUse>(node->child1());
+            fixEdge<KnownStringUse>(node->child1());
             fixEdge<Int32Use>(node->child2());
             break;
         }
@@ -895,6 +898,10 @@ private:
 #endif
                 break;
             case Array::ForceExit:
+                break;
+            case Array::String:
+                fixEdge<KnownStringUse>(m_graph.varArgChild(node, 0));
+                fixEdge<Int32Use>(m_graph.varArgChild(node, 1));
                 break;
             default:
                 fixEdge<KnownCellUse>(m_graph.varArgChild(node, 0));
@@ -1633,10 +1640,6 @@ private:
             if (!node->child1()->hasStorageResult())
                 fixEdge<KnownCellUse>(node->child1());
             fixEdge<KnownCellUse>(node->child2());
-            unsigned index = indexForChecks();
-            insertInferredTypeCheck(
-                m_insertionSet, index, originForCheck(index), node->child3().node(),
-                node->storageAccessData().inferredType);
             speculateForBarrier(node->child3());
             break;
         }
@@ -1846,13 +1849,13 @@ private:
             node->setArrayMode(
                 node->arrayMode().refine(
                     m_graph, node,
-                    node->child1()->prediction(),
-                    node->child2()->prediction(),
+                    m_graph.varArgChild(node, 0)->prediction(),
+                    m_graph.varArgChild(node, 1)->prediction(),
                     SpecNone));
             
-            blessArrayOperation(node->child1(), node->child2(), node->child3());
-            fixEdge<CellUse>(node->child1());
-            fixEdge<KnownInt32Use>(node->child2());
+            blessArrayOperation(m_graph.varArgChild(node, 0), m_graph.varArgChild(node, 1), m_graph.varArgChild(node, 2));
+            fixEdge<CellUse>(m_graph.varArgChild(node, 0));
+            fixEdge<KnownInt32Use>(m_graph.varArgChild(node, 1));
             break;
         }
         case GetDirectPname: {
@@ -2144,11 +2147,6 @@ private:
 
         case StringValueOf: {
             fixupStringValueOf(node);
-            break;
-        }
-
-        case ObjectToString: {
-            fixupObjectToString(node);
             break;
         }
 
@@ -2451,20 +2449,23 @@ private:
         if (!m_graph.canOptimizeStringObjectAccess(node->origin.semantic))
             return;
         
+        addCheckStructureForOriginalStringObjectUse(useKind, node->origin, node->child1().node());
         createToString<useKind>(node, node->child1());
         arrayMode = ArrayMode(Array::String, Array::Read);
     }
-    
-    template<UseKind useKind>
-    bool isStringObjectUse()
+
+    void addCheckStructureForOriginalStringObjectUse(UseKind useKind, const NodeOrigin& origin, Node* node)
     {
-        switch (useKind) {
-        case StringObjectUse:
-        case StringOrStringObjectUse:
-            return true;
-        default:
-            return false;
-        }
+        RELEASE_ASSERT(useKind == StringObjectUse || useKind == StringOrStringObjectUse);
+
+        StructureSet set;
+        set.add(m_graph.globalObjectFor(node->origin.semantic)->stringObjectStructure());
+        if (useKind == StringOrStringObjectUse)
+            set.add(vm().stringStructure.get());
+
+        m_insertionSet.insertNode(
+            m_indexInBlock, SpecNone, CheckStructure, origin,
+            OpInfo(m_graph.addStructureSet(set)), Edge(node, CellUse));
     }
     
     template<UseKind useKind>
@@ -2746,6 +2747,7 @@ private:
         
         if (node->child1()->shouldSpeculateStringObject()
             && m_graph.canOptimizeStringObjectAccess(node->origin.semantic)) {
+            addCheckStructureForOriginalStringObjectUse(StringObjectUse, node->origin, node->child1().node());
             fixEdge<StringObjectUse>(node->child1());
             node->convertToToString();
             return;
@@ -2753,6 +2755,7 @@ private:
         
         if (node->child1()->shouldSpeculateStringOrStringObject()
             && m_graph.canOptimizeStringObjectAccess(node->origin.semantic)) {
+            addCheckStructureForOriginalStringObjectUse(StringOrStringObjectUse, node->origin, node->child1().node());
             fixEdge<StringOrStringObjectUse>(node->child1());
             node->convertToToString();
             return;
@@ -2868,12 +2871,14 @@ private:
         
         if (node->child1()->shouldSpeculateStringObject()
             && m_graph.canOptimizeStringObjectAccess(node->origin.semantic)) {
+            addCheckStructureForOriginalStringObjectUse(StringObjectUse, node->origin, node->child1().node());
             fixEdge<StringObjectUse>(node->child1());
             return;
         }
         
         if (node->child1()->shouldSpeculateStringOrStringObject()
             && m_graph.canOptimizeStringObjectAccess(node->origin.semantic)) {
+            addCheckStructureForOriginalStringObjectUse(StringOrStringObjectUse, node->origin, node->child1().node());
             fixEdge<StringOrStringObjectUse>(node->child1());
             return;
         }
@@ -2937,15 +2942,6 @@ private:
         }
     }
 
-    void fixupObjectToString(Node* node)
-    {
-        if (node->child1()->shouldSpeculateOther()) {
-            fixEdge<OtherUse>(node->child1());
-            node->clearFlags(NodeMustGenerate);
-            return;
-        }
-    }
-
     bool attemptToMakeFastStringAdd(Node* node)
     {
         bool goodToGo = true;
@@ -2972,12 +2968,15 @@ private:
                     convertStringAddUse<StringUse>(node, edge);
                     return;
                 }
-                ASSERT(m_graph.canOptimizeStringObjectAccess(node->origin.semantic));
+                if (!Options::useConcurrentJIT())
+                    ASSERT(m_graph.canOptimizeStringObjectAccess(node->origin.semantic));
                 if (edge->shouldSpeculateStringObject()) {
+                    addCheckStructureForOriginalStringObjectUse(StringObjectUse, node->origin, edge.node());
                     convertStringAddUse<StringObjectUse>(node, edge);
                     return;
                 }
                 if (edge->shouldSpeculateStringOrStringObject()) {
+                    addCheckStructureForOriginalStringObjectUse(StringOrStringObjectUse, node->origin, edge.node());
                     convertStringAddUse<StringOrStringObjectUse>(node, edge);
                     return;
                 }
@@ -3485,18 +3484,29 @@ private:
     {
         node->setOp(HasIndexedProperty);
         node->clearFlags(NodeMustGenerate);
+
+        {
+            unsigned firstChild = m_graph.m_varArgChildren.size();
+            unsigned numChildren = 3;
+            m_graph.m_varArgChildren.append(node->child1());
+            m_graph.m_varArgChildren.append(node->child2());
+            m_graph.m_varArgChildren.append(Edge());
+            node->mergeFlags(NodeHasVarArgs);
+            node->children = AdjacencyList(AdjacencyList::Variable, firstChild, numChildren);
+        }
+
         node->setArrayMode(
             node->arrayMode().refine(
                 m_graph, node,
-                node->child1()->prediction(),
-                node->child2()->prediction(),
+                m_graph.varArgChild(node, 0)->prediction(),
+                m_graph.varArgChild(node, 1)->prediction(),
                 SpecNone));
         node->setInternalMethodType(PropertySlot::InternalMethodType::HasProperty);
 
-        blessArrayOperation(node->child1(), node->child2(), node->child3());
+        blessArrayOperation(m_graph.varArgChild(node, 0), m_graph.varArgChild(node, 1), m_graph.varArgChild(node, 2));
 
-        fixEdge<CellUse>(node->child1());
-        fixEdge<Int32Use>(node->child2());
+        fixEdge<CellUse>(m_graph.varArgChild(node, 0));
+        fixEdge<Int32Use>(m_graph.varArgChild(node, 1));
     }
 
     void fixupNormalizeMapKey(Node* node)

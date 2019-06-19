@@ -671,7 +671,6 @@ namespace JSC {
         RegisterID* emitLoad(RegisterID* dst, const Identifier&);
         RegisterID* emitLoad(RegisterID* dst, JSValue, SourceCodeRepresentation = SourceCodeRepresentation::Other);
         RegisterID* emitLoad(RegisterID* dst, IdentifierSet& excludedList);
-        RegisterID* emitLoadGlobalObject(RegisterID* dst);
 
         template<typename UnaryOp, typename = std::enable_if_t<UnaryOp::opcodeID != op_negate>>
         RegisterID* emitUnaryOp(RegisterID* dst, RegisterID* src)
@@ -1138,8 +1137,7 @@ namespace JSC {
                     newDerivedContextType = DerivedContextType::DerivedMethodContext;
             }
 
-            VariableEnvironment variablesUnderTDZ;
-            getVariablesUnderTDZ(variablesUnderTDZ);
+            CompactVariableMap::Handle variablesUnderTDZ = getVariablesUnderTDZ();
 
             // FIXME: These flags, ParserModes and propagation to XXXCodeBlocks should be reorganized.
             // https://bugs.webkit.org/show_bug.cgi?id=151547
@@ -1148,10 +1146,10 @@ namespace JSC {
             if (parseMode == SourceParseMode::MethodMode && metadata->constructorKind() != ConstructorKind::None)
                 constructAbility = ConstructAbility::CanConstruct;
 
-            return UnlinkedFunctionExecutable::create(m_vm, m_scopeNode->source(), metadata, isBuiltinFunction() ? UnlinkedBuiltinFunction : UnlinkedNormalFunction, constructAbility, scriptMode(), variablesUnderTDZ, newDerivedContextType);
+            return UnlinkedFunctionExecutable::create(m_vm, m_scopeNode->source(), metadata, isBuiltinFunction() ? UnlinkedBuiltinFunction : UnlinkedNormalFunction, constructAbility, scriptMode(), WTFMove(variablesUnderTDZ), newDerivedContextType);
         }
 
-        void getVariablesUnderTDZ(VariableEnvironment&);
+        CompactVariableMap::Handle getVariablesUnderTDZ();
 
         RegisterID* emitConstructVarargs(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, RegisterID* arguments, RegisterID* firstFreeRegister, int32_t firstVarArgOffset, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd, DebuggableCall);
         template<typename CallOp>
@@ -1241,7 +1239,6 @@ namespace JSC {
         RegisterID* m_lexicalEnvironmentRegister { nullptr };
         RegisterID* m_generatorRegister { nullptr };
         RegisterID* m_emptyValueRegister { nullptr };
-        RegisterID* m_globalObjectRegister { nullptr };
         RegisterID* m_newTargetRegister { nullptr };
         RegisterID* m_isDerivedConstuctor { nullptr };
         RegisterID* m_linkTimeConstantRegisters[LinkTimeConstantCount];
@@ -1314,6 +1311,8 @@ namespace JSC {
         bool m_inTailPosition { false };
         bool m_needsToUpdateArrowFunctionContext;
         DerivedContextType m_derivedContextType { DerivedContextType::None };
+
+        CompactVariableMap::Handle m_cachedVariablesUnderTDZ;
 
         using CatchEntry = std::tuple<TryData*, VirtualRegister, VirtualRegister>;
         Vector<CatchEntry> m_catchesToEmit;

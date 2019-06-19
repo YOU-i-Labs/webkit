@@ -2,6 +2,8 @@
 LocalizedStringsGtk.cpp
 ../LocalizedStrings.cpp
 ../network/soup/NetworkStorageSessionSoup.cpp
+../../editing/EditAction.cpp
+../../../JavaScriptCore/API/glib/JSCOptions.cpp
 ../../../WebKit/Shared/API/glib/WebKitHitTestResult.cpp
 ../../../WebKit/Shared/API/glib/WebKitURIRequest.cpp
 ../../../WebKit/Shared/API/glib/WebKitURIResponse.cpp
@@ -18,6 +20,7 @@ LocalizedStringsGtk.cpp
 ../../../WebKit/UIProcess/API/glib/WebKitNotification.cpp
 ../../../WebKit/UIProcess/API/glib/WebKitResponsePolicyDecision.cpp
 ../../../WebKit/UIProcess/API/glib/WebKitSettings.cpp
+../../../WebKit/UIProcess/API/glib/WebKitUserContentFilterStore.cpp
 ../../../WebKit/UIProcess/API/glib/WebKitUserMediaPermissionRequest.cpp
 ../../../WebKit/UIProcess/API/glib/WebKitWebContext.cpp
 ../../../WebKit/UIProcess/API/glib/WebKitWebResource.cpp
@@ -35,7 +38,6 @@ LocalizedStringsGtk.cpp
 ../../../WebKit/UIProcess/API/gtk/WebKitWebViewGtk.cpp
 ../../../WebKit/UIProcess/gtk/WebColorPickerGtk.cpp
 ../../../WebKit/UIProcess/gtk/WebKitInspectorWindow.cpp
-../../../WebKit/UIProcess/WebEditCommandProxy.cpp
 ../../../WebKit/UIProcess/WebsiteData/WebsiteDataRecord.cpp
 ../../../WebKit/WebProcess/InjectedBundle/API/glib/WebKitWebHitTestResult.cpp
 ../../../WebKit/WebProcess/InjectedBundle/API/glib/WebKitWebPage.cpp

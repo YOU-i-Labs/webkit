@@ -161,7 +161,7 @@ void HTMLInputElement::didAddUserAgentShadowRoot(ShadowRoot&)
 HTMLInputElement::~HTMLInputElement()
 {
     if (needsSuspensionCallback())
-        document().unregisterForDocumentSuspensionCallbacks(this);
+        document().unregisterForDocumentSuspensionCallbacks(*this);
 
     // Need to remove form association while this is still an HTMLInputElement
     // so that virtual functions are called correctly.
@@ -169,7 +169,7 @@ HTMLInputElement::~HTMLInputElement()
     // setForm(0) may register this to a document-level radio button group.
     // We should unregister it to avoid accessing a deleted object.
     if (isRadioButton())
-        document().formController().radioButtonGroups().removeButton(this);
+        document().formController().radioButtonGroups().removeButton(*this);
 #if ENABLE(TOUCH_EVENTS)
     if (m_hasTouchEventHandler)
         document().didRemoveEventTargetNode(*this);
@@ -459,11 +459,24 @@ void HTMLInputElement::updateFocusAppearance(SelectionRestorationMode restoratio
 {
     if (isTextField()) {
         if (restorationMode == SelectionRestorationMode::SetDefault || !hasCachedSelection())
-            select(revealMode, Element::defaultFocusTextStateChangeIntent());
+            setDefaultSelectionAfterFocus(revealMode);
         else
             restoreCachedSelection(revealMode);
     } else
         HTMLTextFormControlElement::updateFocusAppearance(restorationMode, revealMode);
+}
+
+void HTMLInputElement::setDefaultSelectionAfterFocus(SelectionRevealMode revealMode)
+{
+    ASSERT(isTextField());
+    int start = 0;
+    auto direction = SelectionHasNoDirection;
+    auto* frame = document().frame();
+    if (frame && frame->editor().behavior().shouldMoveSelectionToEndWhenFocusingTextInput()) {
+        start = std::numeric_limits<int>::max();
+        direction = SelectionHasForwardDirection;
+    }
+    setSelectionRange(start, std::numeric_limits<int>::max(), direction, revealMode, Element::defaultFocusTextStateChangeIntent());
 }
 
 void HTMLInputElement::endEditing()
@@ -645,7 +658,7 @@ void HTMLInputElement::accessKeyAction(bool sendMouseEvents)
 
 bool HTMLInputElement::isPresentationAttribute(const QualifiedName& name) const
 {
-    if (name == vspaceAttr || name == hspaceAttr || name == alignAttr || name == widthAttr || name == heightAttr || (name == borderAttr && isImageButton()))
+    if (name == vspaceAttr || name == hspaceAttr || name == widthAttr || name == heightAttr || (name == borderAttr && isImageButton()))
         return true;
     return HTMLTextFormControlElement::isPresentationAttribute(name);
 }
@@ -923,7 +936,7 @@ void HTMLInputElement::setChecked(bool nowChecked)
     invalidateStyleForSubtree();
 
     if (RadioButtonGroups* buttons = radioButtonGroups())
-        buttons->updateCheckedState(this);
+        buttons->updateCheckedState(*this);
     if (renderer() && renderer()->style().hasAppearance())
         renderer()->theme().stateChanged(*renderer(), ControlStates::CheckedState);
     updateValidity();
@@ -1015,22 +1028,6 @@ void HTMLInputElement::setValueForUser(const String& value)
 {
     // Call setValue and make it send a change event.
     setValue(value, DispatchChangeEvent);
-}
-
-void HTMLInputElement::setEditingValue(const String& value)
-{
-    if (!renderer() || !isTextField())
-        return;
-    setInnerTextValue(value);
-    subtreeHasChanged();
-
-    unsigned max = value.length();
-    if (focused())
-        setSelectionRange(max, max);
-    else
-        cacheSelectionInResponseToSetValue(max);
-
-    dispatchInputEvent();
 }
 
 ExceptionOr<void> HTMLInputElement::setValue(const String& value, TextFieldEventBehavior eventBehavior)
@@ -1442,13 +1439,13 @@ bool HTMLInputElement::needsSuspensionCallback()
 void HTMLInputElement::registerForSuspensionCallbackIfNeeded()
 {
     if (needsSuspensionCallback())
-        document().registerForDocumentSuspensionCallbacks(this);
+        document().registerForDocumentSuspensionCallbacks(*this);
 }
 
 void HTMLInputElement::unregisterForSuspensionCallbackIfNeeded()
 {
     if (!needsSuspensionCallback())
-        document().unregisterForDocumentSuspensionCallbacks(this);
+        document().unregisterForDocumentSuspensionCallbacks(*this);
 }
 
 bool HTMLInputElement::isRequiredFormControl() const
@@ -1547,11 +1544,11 @@ void HTMLInputElement::didMoveToNewDocument(Document& oldDocument, Document& new
 
     // Always unregister for cache callbacks when leaving a document, even if we would otherwise like to be registered
     if (needsSuspensionCallback()) {
-        oldDocument.unregisterForDocumentSuspensionCallbacks(this);
-        newDocument.registerForDocumentSuspensionCallbacks(this);
+        oldDocument.unregisterForDocumentSuspensionCallbacks(*this);
+        newDocument.registerForDocumentSuspensionCallbacks(*this);
     }
     if (isRadioButton())
-        oldDocument.formController().radioButtonGroups().removeButton(this);
+        oldDocument.formController().radioButtonGroups().removeButton(*this);
 #if ENABLE(TOUCH_EVENTS)
     if (m_hasTouchEventHandler) {
         oldDocument.didRemoveEventTargetNode(*this);
@@ -1868,7 +1865,7 @@ bool HTMLInputElement::isInRequiredRadioButtonGroup()
 {
     ASSERT(isRadioButton());
     if (RadioButtonGroups* buttons = radioButtonGroups())
-        return buttons->isInRequiredGroup(this);
+        return buttons->isInRequiredGroup(*this);
     return false;
 }
 
@@ -1900,14 +1897,14 @@ RadioButtonGroups* HTMLInputElement::radioButtonGroups() const
 
 inline void HTMLInputElement::addToRadioButtonGroup()
 {
-    if (RadioButtonGroups* buttons = radioButtonGroups())
-        buttons->addButton(this);
+    if (auto* buttons = radioButtonGroups())
+        buttons->addButton(*this);
 }
 
 inline void HTMLInputElement::removeFromRadioButtonGroup()
 {
-    if (RadioButtonGroups* buttons = radioButtonGroups())
-        buttons->removeButton(this);
+    if (auto* buttons = radioButtonGroups())
+        buttons->removeButton(*this);
 }
 
 unsigned HTMLInputElement::height() const

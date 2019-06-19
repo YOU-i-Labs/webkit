@@ -2,9 +2,9 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>WebKitWebContext: WebKit2GTK+ Reference Manual</title>
+<title>WebKitWebContext: WebKitGTK Reference Manual</title>
 <meta name="generator" content="DocBook XSL Stylesheets V1.79.1">
-<link rel="home" href="index.html" title="WebKit2GTK+ Reference Manual">
+<link rel="home" href="index.html" title="WebKitGTK Reference Manual">
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="ch01.html" title="Class Overview">
 <link rel="next" href="WebKitWebView.html" title="WebKitWebView">
@@ -223,22 +223,6 @@
 </td>
 <td class="function_name">
 <a class="link" href="WebKitWebContext.html#webkit-web-context-get-plugins-finish" title="webkit_web_context_get_plugins_finish ()">webkit_web_context_get_plugins_finish</a> <span class="c_punctuation">()</span>
-</td>
-</tr>
-<tr>
-<td class="function_type">
-<a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
-</td>
-<td class="function_name">
-<a class="link" href="WebKitWebContext.html#webkit-web-context-get-sandbox-enabled" title="webkit_web_context_get_sandbox_enabled ()">webkit_web_context_get_sandbox_enabled</a> <span class="c_punctuation">()</span>
-</td>
-</tr>
-<tr>
-<td class="function_type">
-<span class="returnvalue">void</span>
-</td>
-<td class="function_name">
-<a class="link" href="WebKitWebContext.html#webkit-web-context-set-sandbox-enabled" title="webkit_web_context_set_sandbox_enabled ()">webkit_web_context_set_sandbox_enabled</a> <span class="c_punctuation">()</span>
 </td>
 </tr>
 <tr>
@@ -1230,72 +1214,6 @@ webkit_web_context_get_plugins_finish (<em class="parameter"><code><a class="lin
 <a href="../glib/glib-Doubly-Linked-Lists.html#g-list-free"><code class="function">g_list_free()</code></a> and unref the <a class="link" href="WebKitPlugin.html" title="WebKitPlugin"><span class="type">WebKitPlugin</span></a>s with <a href="../gobject/gobject-The-Base-Object-Type.html#g-object-unref"><code class="function">g_object_unref()</code></a> when you're done with them. </p>
 <p><span class="annotation">[<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> WebKitPlugin][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
 </div>
-</div>
-<hr>
-<div class="refsect2">
-<a name="webkit-web-context-get-sandbox-enabled"></a><h3>webkit_web_context_get_sandbox_enabled ()</h3>
-<pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
-webkit_web_context_get_sandbox_enabled
-                               (<em class="parameter"><code><a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> *context</code></em>);</pre>
-<p>Get whether sandboxing is currently enabled.</p>
-<div class="refsect3">
-<a name="webkit-web-context-get-sandbox-enabled.parameters"></a><h4>Parameters</h4>
-<div class="informaltable"><table class="informaltable" width="100%" border="0">
-<colgroup>
-<col width="150px" class="parameters_name">
-<col class="parameters_description">
-<col width="200px" class="parameters_annotations">
-</colgroup>
-<tbody><tr>
-<td class="parameter_name"><p>context</p></td>
-<td class="parameter_description"><p>a <a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a></p></td>
-<td class="parameter_annotations"> </td>
-</tr></tbody>
-</table></div>
-</div>
-<div class="refsect3">
-<a name="webkit-web-context-get-sandbox-enabled.returns"></a><h4>Returns</h4>
-<p> <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS"><code class="literal">TRUE</code></a> if sandboxing is enabled, or <a href="../glib/glib-Standard-Macros.html#FALSE:CAPS"><code class="literal">FALSE</code></a> otherwise.</p>
-</div>
-<p class="since">Since: <a class="link" href="api-index-2-24.html#api-index-2.24">2.24</a></p>
-</div>
-<hr>
-<div class="refsect2">
-<a name="webkit-web-context-set-sandbox-enabled"></a><h3>webkit_web_context_set_sandbox_enabled ()</h3>
-<pre class="programlisting"><span class="returnvalue">void</span>
-webkit_web_context_set_sandbox_enabled
-                               (<em class="parameter"><code><a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> *context</code></em>,
-                                <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> enabled</code></em>);</pre>
-<p>Set whether WebKit subprocesses will be sandboxed, limiting access to the system.</p>
-<p>This method **must be called before any web process has been created**,
-as early as possible in your application. Calling it later is a fatal error.</p>
-<p>This is only implemented on Linux and is a no-op otherwise.</p>
-<p>The web process is granted read-only access to the subdirectory matching <a href="../glib/glib-Miscellaneous-Utility-Functions.html#g-get-prgname"><code class="function">g_get_prgname()</code></a>
-in <code class="literal">$XDG_CONFIG_HOME</code>, <code class="literal">$XDG_CACHE_HOME</code>, and <code class="literal">$XDG_DATA_HOME</code> if it exists before the
-process is created. This behavior may change in the future.</p>
-<div class="refsect3">
-<a name="webkit-web-context-set-sandbox-enabled.parameters"></a><h4>Parameters</h4>
-<div class="informaltable"><table class="informaltable" width="100%" border="0">
-<colgroup>
-<col width="150px" class="parameters_name">
-<col class="parameters_description">
-<col width="200px" class="parameters_annotations">
-</colgroup>
-<tbody>
-<tr>
-<td class="parameter_name"><p>context</p></td>
-<td class="parameter_description"><p>a <a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a></p></td>
-<td class="parameter_annotations"> </td>
-</tr>
-<tr>
-<td class="parameter_name"><p>enabled</p></td>
-<td class="parameter_description"><p>if <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS"><code class="literal">TRUE</code></a> enable sandboxing</p></td>
-<td class="parameter_annotations"> </td>
-</tr>
-</tbody>
-</table></div>
-</div>
-<p class="since">Since: <a class="link" href="api-index-2-24.html#api-index-2.24">2.24</a></p>
 </div>
 <hr>
 <div class="refsect2">

@@ -27,6 +27,7 @@
 #include "CodeCache.h"
 
 #include "IndirectEvalExecutable.h"
+#include <wtf/text/StringConcatenateNumbers.h>
 
 namespace JSC {
 
@@ -43,6 +44,9 @@ void CodeCacheMap::pruneSlowCase()
 
     while (m_size > m_capacity || !canPruneQuickly()) {
         MapType::iterator it = m_map.begin();
+
+        writeCodeBlock(*it->value.cell->vm(), it->key, it->value);
+
         m_size -= it->key.length();
         m_map.remove(it);
     }
@@ -59,21 +63,22 @@ UnlinkedCodeBlockType* CodeCache::getUnlinkedGlobalCodeBlock(VM& vm, ExecutableT
         vm.typeProfiler() ? TypeProfilerEnabled::Yes : TypeProfilerEnabled::No, 
         vm.controlFlowProfiler() ? ControlFlowProfilerEnabled::Yes : ControlFlowProfilerEnabled::No,
         WTF::nullopt);
-    SourceCodeValue* cache = m_sourceCode.findCacheAndUpdateAge(key);
-    if (cache && Options::useCodeCache()) {
-        UnlinkedCodeBlockType* unlinkedCodeBlock = jsCast<UnlinkedCodeBlockType*>(cache->cell.get());
+    UnlinkedCodeBlockType* unlinkedCodeBlock = m_sourceCode.findCacheAndUpdateAge<UnlinkedCodeBlockType>(vm, key);
+    if (unlinkedCodeBlock && Options::useCodeCache()) {
         unsigned lineCount = unlinkedCodeBlock->lineCount();
         unsigned startColumn = unlinkedCodeBlock->startColumn() + source.startColumn().oneBasedInt();
         bool endColumnIsOnStartLine = !lineCount;
         unsigned endColumn = unlinkedCodeBlock->endColumn() + (endColumnIsOnStartLine ? startColumn : 1);
         executable->recordParse(unlinkedCodeBlock->codeFeatures(), unlinkedCodeBlock->hasCapturedVariables(), source.firstLine().oneBasedInt() + lineCount, endColumn);
-        source.provider()->setSourceURLDirective(unlinkedCodeBlock->sourceURLDirective());
-        source.provider()->setSourceMappingURLDirective(unlinkedCodeBlock->sourceMappingURLDirective());
+        if (!unlinkedCodeBlock->sourceURLDirective().isNull())
+            source.provider()->setSourceURLDirective(unlinkedCodeBlock->sourceURLDirective());
+        if (!unlinkedCodeBlock->sourceMappingURLDirective().isNull())
+            source.provider()->setSourceMappingURLDirective(unlinkedCodeBlock->sourceMappingURLDirective());
         return unlinkedCodeBlock;
     }
-    
+
     VariableEnvironment variablesUnderTDZ;
-    UnlinkedCodeBlockType* unlinkedCodeBlock = generateUnlinkedCodeBlock<UnlinkedCodeBlockType, ExecutableType>(vm, executable, source, strictMode, scriptMode, debuggerMode, error, evalContextType, &variablesUnderTDZ);
+    unlinkedCodeBlock = generateUnlinkedCodeBlock<UnlinkedCodeBlockType, ExecutableType>(vm, executable, source, strictMode, scriptMode, debuggerMode, error, evalContextType, &variablesUnderTDZ);
 
     if (unlinkedCodeBlock && Options::useCodeCache())
         m_sourceCode.addCache(key, SourceCodeValue(vm, unlinkedCodeBlock, m_sourceCode.age()));
@@ -110,11 +115,12 @@ UnlinkedFunctionExecutable* CodeCache::getUnlinkedGlobalFunctionExecutable(VM& v
         vm.typeProfiler() ? TypeProfilerEnabled::Yes : TypeProfilerEnabled::No, 
         vm.controlFlowProfiler() ? ControlFlowProfilerEnabled::Yes : ControlFlowProfilerEnabled::No,
         functionConstructorParametersEndPosition);
-    SourceCodeValue* cache = m_sourceCode.findCacheAndUpdateAge(key);
-    if (cache && Options::useCodeCache()) {
-        UnlinkedFunctionExecutable* executable = jsCast<UnlinkedFunctionExecutable*>(cache->cell.get());
-        source.provider()->setSourceURLDirective(executable->sourceURLDirective());
-        source.provider()->setSourceMappingURLDirective(executable->sourceMappingURLDirective());
+    UnlinkedFunctionExecutable* executable = m_sourceCode.findCacheAndUpdateAge<UnlinkedFunctionExecutable>(vm, key);
+    if (executable && Options::useCodeCache()) {
+        if (!executable->sourceURLDirective().isNull())
+            source.provider()->setSourceURLDirective(executable->sourceURLDirective());
+        if (!executable->sourceMappingURLDirective().isNull())
+            source.provider()->setSourceMappingURLDirective(executable->sourceMappingURLDirective());
         return executable;
     }
 
@@ -145,14 +151,70 @@ UnlinkedFunctionExecutable* CodeCache::getUnlinkedGlobalFunctionExecutable(VM& v
     // in the global lexical environment, which we always TDZ check accesses from.
     VariableEnvironment emptyTDZVariables;
     ConstructAbility constructAbility = constructAbilityForParseMode(metadata->parseMode());
-    UnlinkedFunctionExecutable* functionExecutable = UnlinkedFunctionExecutable::create(&vm, source, metadata, UnlinkedNormalFunction, constructAbility, JSParserScriptMode::Classic, emptyTDZVariables, DerivedContextType::None);
+    UnlinkedFunctionExecutable* functionExecutable = UnlinkedFunctionExecutable::create(&vm, source, metadata, UnlinkedNormalFunction, constructAbility, JSParserScriptMode::Classic, vm.m_compactVariableMap->get(emptyTDZVariables), DerivedContextType::None);
 
-    functionExecutable->setSourceURLDirective(source.provider()->sourceURL());
-    functionExecutable->setSourceMappingURLDirective(source.provider()->sourceMappingURL());
+    if (!source.provider()->sourceURLDirective().isNull())
+        functionExecutable->setSourceURLDirective(source.provider()->sourceURLDirective());
+    if (!source.provider()->sourceMappingURLDirective().isNull())
+        functionExecutable->setSourceMappingURLDirective(source.provider()->sourceMappingURLDirective());
 
     if (Options::useCodeCache())
         m_sourceCode.addCache(key, SourceCodeValue(vm, functionExecutable, m_sourceCode.age()));
     return functionExecutable;
+}
+
+void CodeCache::write(VM& vm)
+{
+    for (auto& it : m_sourceCode) {
+        if (it.value.written)
+            continue;
+        it.value.written = true;
+        writeCodeBlock(vm, it.key, it.value);
+    }
+}
+
+void generateUnlinkedCodeBlockForFunctions(VM& vm, UnlinkedCodeBlock* unlinkedCodeBlock, const SourceCode& parentSource, DebuggerMode debuggerMode, ParserError& error)
+{
+    auto generate = [&](UnlinkedFunctionExecutable* unlinkedExecutable, CodeSpecializationKind constructorKind) {
+        if (constructorKind == CodeForConstruct && SourceParseModeSet(SourceParseMode::AsyncArrowFunctionMode, SourceParseMode::AsyncMethodMode, SourceParseMode::AsyncFunctionMode).contains(unlinkedExecutable->parseMode()))
+            return;
+
+        SourceCode source = unlinkedExecutable->linkedSourceCode(parentSource);
+        UnlinkedFunctionCodeBlock* unlinkedFunctionCodeBlock = unlinkedExecutable->unlinkedCodeBlockFor(vm, source, constructorKind, debuggerMode, error, unlinkedExecutable->parseMode());
+        if (unlinkedFunctionCodeBlock)
+            generateUnlinkedCodeBlockForFunctions(vm, unlinkedFunctionCodeBlock, source, debuggerMode, error);
+    };
+
+    // FIXME: We should also generate CodeBlocks for CodeForConstruct
+    // https://bugs.webkit.org/show_bug.cgi?id=193823
+    for (unsigned i = 0; i < unlinkedCodeBlock->numberOfFunctionDecls(); i++)
+        generate(unlinkedCodeBlock->functionDecl(i), CodeForCall);
+    for (unsigned i = 0; i < unlinkedCodeBlock->numberOfFunctionExprs(); i++)
+        generate(unlinkedCodeBlock->functionExpr(i), CodeForCall);
+}
+
+void writeCodeBlock(VM& vm, const SourceCodeKey& key, const SourceCodeValue& value)
+{
+    UnlinkedCodeBlock* codeBlock = jsDynamicCast<UnlinkedCodeBlock*>(vm, value.cell.get());
+    if (!codeBlock)
+        return;
+
+    key.source().provider().cacheBytecode([&] {
+        std::pair<MallocPtr<uint8_t>, size_t> result = encodeCodeBlock(vm, key, codeBlock);
+        return CachedBytecode { WTFMove(result.first), result.second };
+    });
+}
+
+CachedBytecode serializeBytecode(VM& vm, UnlinkedCodeBlock* codeBlock, const SourceCode& source, SourceCodeType codeType, JSParserStrictMode strictMode, JSParserScriptMode scriptMode, DebuggerMode debuggerMode)
+{
+    SourceCodeKey key(
+        source, String(), codeType, strictMode, scriptMode,
+        DerivedContextType::None, EvalContextType::None, false, debuggerMode,
+        vm.typeProfiler() ? TypeProfilerEnabled::Yes : TypeProfilerEnabled::No,
+        vm.controlFlowProfiler() ? ControlFlowProfilerEnabled::Yes : ControlFlowProfilerEnabled::No,
+        WTF::nullopt);
+    std::pair<MallocPtr<uint8_t>, size_t> result = encodeCodeBlock(vm, key, codeBlock);
+    return CachedBytecode { WTFMove(result.first), result.second };
 }
 
 }

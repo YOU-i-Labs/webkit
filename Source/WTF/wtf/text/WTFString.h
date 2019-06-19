@@ -261,8 +261,6 @@ public:
     // Use convertToASCIILowercase instead if ASCII case insensitive comparison is desired.
     WTF_EXPORT_PRIVATE String foldCase() const;
 
-    WTF_EXPORT_PRIVATE static String format(const char *, ...) WTF_ATTRIBUTE_PRINTF(1, 2);
-
     // Returns an uninitialized string. The characters needs to be written
     // into the buffer returned in data before the returned string is used.
     static String createUninitialized(unsigned length, UChar*& data) { return StringImpl::createUninitialized(length, data); }
@@ -423,8 +421,9 @@ bool codePointCompareLessThan(const String&, const String&);
 
 template<typename CharacterType> void appendNumber(Vector<CharacterType>&, unsigned char number);
 
-// Shared global empty string.
+// Shared global empty and null string.
 WTF_EXPORT_PRIVATE const String& emptyString();
+WTF_EXPORT_PRIVATE const String& nullString();
 
 template<typename> struct DefaultHash;
 template<> struct DefaultHash<String> { using Hash = StringHash; };
@@ -658,6 +657,7 @@ using WTF::charactersToUInt64Strict;
 using WTF::charactersToUInt;
 using WTF::charactersToUIntStrict;
 using WTF::emptyString;
+using WTF::nullString;
 using WTF::equal;
 using WTF::find;
 using WTF::isAllSpecialCharacters;

@@ -133,8 +133,8 @@ public:
     LayoutPoint bottomRight() const { return { right(), bottom() }; }
 
     LayoutSize size() const { return { width(), height() }; }
-    LayoutUnit width() const { return borderLeft() + paddingLeft().valueOr(0) + contentBoxWidth() + paddingRight().valueOr(0) + borderRight(); }
-    LayoutUnit height() const { return borderTop() + paddingTop().valueOr(0) + contentBoxHeight() + paddingBottom().valueOr(0) + borderBottom(); }
+    LayoutUnit width() const { return borderLeft() + paddingBoxWidth() + borderRight(); }
+    LayoutUnit height() const { return borderTop() + paddingBoxHeight() + borderBottom(); }
     Rect rect() const { return { top(), left(), width(), height() }; }
     Rect rectWithMargin() const;
 
@@ -143,6 +143,7 @@ public:
     LayoutUnit marginStart() const;
     LayoutUnit marginAfter() const;
     LayoutUnit marginEnd() const;
+    bool hasCollapsedThroughMargin() const { return m_verticalMargin.isCollapsedThrough(); }
     bool hasClearance() const { return m_hasClearance; }
 
     LayoutUnit nonCollapsedMarginBefore() const;
@@ -154,18 +155,29 @@ public:
     LayoutUnit borderLeft() const;
     LayoutUnit borderBottom() const;
     LayoutUnit borderRight() const;
+    LayoutUnit verticalBorder() const { return borderTop() + borderBottom(); }
+    LayoutUnit horizontalBorder() const { return borderLeft() + borderRight(); }
 
     Optional<LayoutUnit> paddingTop() const;
     Optional<LayoutUnit> paddingLeft() const;
     Optional<LayoutUnit> paddingBottom() const;
     Optional<LayoutUnit> paddingRight() const;
+    Optional<LayoutUnit> verticalPadding() const;
+    Optional<LayoutUnit> horizontalPadding() const;
 
-    LayoutUnit contentBoxTop() const { return borderTop() + paddingTop().valueOr(0); }
-    LayoutUnit contentBoxLeft() const { return borderLeft() + paddingLeft().valueOr(0); }
+    LayoutUnit contentBoxTop() const { return paddingBoxTop() + paddingTop().valueOr(0); }
+    LayoutUnit contentBoxLeft() const { return paddingBoxLeft() + paddingLeft().valueOr(0); }
     LayoutUnit contentBoxBottom() const { return contentBoxTop() + contentBoxHeight(); }
     LayoutUnit contentBoxRight() const { return contentBoxLeft() + contentBoxWidth(); }
     LayoutUnit contentBoxHeight() const;
     LayoutUnit contentBoxWidth() const;
+
+    LayoutUnit paddingBoxTop() const { return borderTop(); }
+    LayoutUnit paddingBoxLeft() const { return borderLeft(); }
+    LayoutUnit paddingBoxBottom() const { return paddingBoxTop() + paddingBoxHeight(); }
+    LayoutUnit paddingBoxRight() const { return paddingBoxLeft() + paddingBoxWidth(); }
+    LayoutUnit paddingBoxHeight() const { return paddingTop().valueOr(0) + contentBoxHeight() + paddingBottom().valueOr(0); }
+    LayoutUnit paddingBoxWidth() const { return paddingLeft().valueOr(0) + contentBoxWidth() + paddingRight().valueOr(0); }
 
     Rect marginBox() const;
     Rect nonCollapsedMarginBox() const;
@@ -231,7 +243,7 @@ private:
     Layout::UsedHorizontalMargin m_horizontalMargin;
     Layout::UsedVerticalMargin m_verticalMargin;
     Layout::ComputedHorizontalMargin m_horizontalComputedMargin;
-    bool m_hasClearance;
+    bool m_hasClearance { false };
 
     Layout::Edges m_border;
     Optional<Layout::Edges> m_padding;
@@ -646,6 +658,24 @@ inline Optional<LayoutUnit> Box::paddingRight() const
     if (!m_padding)
         return { };
     return m_padding->horizontal.right;
+}
+
+inline Optional<LayoutUnit> Box::verticalPadding() const
+{
+    auto paddingTop = this->paddingTop();
+    auto paddingBottom = this->paddingBottom();
+    if (!paddingTop && !paddingBottom)
+        return { };
+    return paddingTop.valueOr(0) + paddingBottom.valueOr(0);
+}
+
+inline Optional<LayoutUnit> Box::horizontalPadding() const
+{
+    auto paddingLeft = this->paddingLeft();
+    auto paddingRight = this->paddingRight();
+    if (!paddingLeft && !paddingRight)
+        return { };
+    return paddingLeft.valueOr(0) + paddingRight.valueOr(0);
 }
 
 inline LayoutUnit Box::borderTop() const

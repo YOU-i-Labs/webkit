@@ -515,7 +515,7 @@ MediaStreamEnabled:
 
 ScreenCaptureEnabled:
   type: bool
-  defaultValue: false
+  defaultValue: true
   webcoreBinding: RuntimeEnabledFeatures
   condition: ENABLE(MEDIA_STREAM) && PLATFORM(MAC)
   humanReadableName: "ScreenCapture"
@@ -557,7 +557,7 @@ WebRTCH264SimulcastEnabled:
 
 WebRTCMDNSICECandidatesEnabled:
   type: bool
-  defaultValue: false
+  defaultValue: true
   humanReadableName: "WebRTC mDNS ICE candidates"
   humanReadableDescription: "Enable WebRTC mDNS ICE candidates"
   webcoreBinding: RuntimeEnabledFeatures
@@ -574,7 +574,7 @@ SpatialNavigationEnabled:
 
 MediaSourceEnabled:
   type: bool
-  defaultValue: true
+  defaultValue: WebCore::Settings::platformDefaultMediaSourceEnabled()
   condition: ENABLE(MEDIA_SOURCE)
 
 ViewGestureDebuggingEnabled:
@@ -629,33 +629,15 @@ HTTPEquivEnabled:
   defaultValue: true
   webcoreName: httpEquivEnabled
 
-MockCaptureDevicesEnabled:
-  type: bool
-  defaultValue: DEFAULT_MOCK_CAPTURE_DEVICES_ENABLED
-  webcoreBinding: DeprecatedGlobalSettings
-  condition: ENABLE(MEDIA_STREAM)
-
 MockCaptureDevicesPromptEnabled:
   type: bool
   defaultValue: true
   webcoreBinding: none
 
-MediaCaptureRequiresSecureConnection:
-  type: bool
-  defaultValue: true
-  webcoreBinding: DeprecatedGlobalSettings
-  condition: ENABLE(MEDIA_STREAM)
-
 # FIXME: What is this for?
 EnumeratingAllNetworkInterfacesEnabled:
   type: bool
   defaultValue: false
-  webcoreBinding: none
-
-# FIXME: What is this for?
-ICECandidateFilteringEnabled:
-  type: bool
-  defaultValue: true
   webcoreBinding: none
 
 ShadowDOMEnabled:
@@ -1255,10 +1237,10 @@ PointerEventsEnabled:
 
 CSSOMViewScrollingAPIEnabled:
   type: bool
-  defaultValue: false
+  defaultValue: true
   humanReadableName: "CSSOM View Scrolling API"
   humanReadableDescription: "Implement standard behavior for scrollLeft, scrollTop, scrollWidth, scrollHeight, scrollTo, scrollBy and scrollingElement."
-  category: experimental
+  category: internal
 
 WebAnimationsEnabled:
   type: bool
@@ -1394,12 +1376,11 @@ ExperimentalPlugInSandboxProfilesEnabled:
   webcoreBinding: RuntimeEnabledFeatures
   webcoreName: experimentalPlugInSandboxProfilesEnabled
 
-ResourceLoadStatisticsDebugMode:
+ItpDebugModeEnabled:
   type: bool
   defaultValue: false
   humanReadableName: "ITP Debug Mode"
   humanReadableDescription: "Intelligent Tracking Prevention Debug Mode"
-  category: internal
   webcoreBinding: RuntimeEnabledFeatures
 
 ServiceWorkersEnabled:
@@ -1454,7 +1435,7 @@ FullScreenEnabled:
 
 AriaReflectionEnabled:
   type: bool
-  defaultValue: false
+  defaultValue: true
   humanReadableName: "ARIA Reflection"
   humanReadableDescription: "ARIA Reflection support"
   category: internal
@@ -1536,3 +1517,35 @@ UndoManagerAPIEnabled:
   humanReadableDescription: "Enable the UndoManager DOM API"
   category: internal
   webcoreBinding: RuntimeEnabledFeatures
+
+CSSLogicalEnabled:
+  type: bool
+  defaultValue: false
+  humanReadableName: "CSS Logical Properties and Values"
+  humanReadableDescription: "Enable CSS Logical Properties and Values"
+  webcoreBinding: RuntimeEnabledFeatures
+  category: internal
+
+AdClickAttributionEnabled:
+  type: bool
+  defaultValue: false
+  humanReadableName: "Ad Click Attribution"
+  humanReadableDescription: "Enable Ad Click Attribution for Cross-Site Link Navigations"
+  webcoreBinding: RuntimeEnabledFeatures
+  category: internal
+
+# Deprecated
+
+ICECandidateFilteringEnabled:
+  type: bool
+  defaultValue: true
+
+MockCaptureDevicesEnabled:
+  type: bool
+  defaultValue: DEFAULT_MOCK_CAPTURE_DEVICES_ENABLED
+  condition: ENABLE(MEDIA_STREAM)
+
+MediaCaptureRequiresSecureConnection:
+  type: bool
+  defaultValue: true
+  condition: ENABLE(MEDIA_STREAM)

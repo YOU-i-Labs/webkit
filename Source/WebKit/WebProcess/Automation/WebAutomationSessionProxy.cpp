@@ -567,11 +567,6 @@ void WebAutomationSessionProxy::computeElementLayout(uint64_t pageID, uint64_t f
         // FIXME: Wait in an implementation-specific way up to the session implicit wait timeout for the element to become in view.
     }
 
-    if (coordinateSystem == CoordinateSystem::VisualViewport) {
-        WebProcess::singleton().parentProcessConnection()->send(Messages::WebAutomationSession::DidComputeElementLayout(callbackID, { }, WTF::nullopt, false, notImplementedErrorType), 0);
-        return;
-    }
-
     WebCore::FrameView* frameView = frame->coreFrame()->view();
     WebCore::FrameView* mainView = frame->coreFrame()->mainFrame().view();
     WebCore::IntRect frameElementBounds = roundedIntRect(coreElement->boundingClientRect());
@@ -583,10 +578,10 @@ void WebAutomationSessionProxy::computeElementLayout(uint64_t pageID, uint64_t f
         break;
     case CoordinateSystem::LayoutViewport:
         // The element bounds are already in client coordinates.
-        resultElementBounds = rootElementBounds;
-        break;
-    case CoordinateSystem::VisualViewport:
-        ASSERT_NOT_REACHED();
+        if (frame->coreFrame()->settings().visualViewportEnabled())
+            resultElementBounds = WebCore::IntRect(mainView->clientToLayoutViewportRect(WebCore::FloatRect(rootElementBounds)));
+        else
+            resultElementBounds = rootElementBounds;
         break;
     }
 
@@ -602,10 +597,10 @@ void WebAutomationSessionProxy::computeElementLayout(uint64_t pageID, uint64_t f
                 break;
             case CoordinateSystem::LayoutViewport:
                 // The point is already in client coordinates.
-                resultInViewCenterPoint = rootInViewCenterPoint;
-                break;
-            case CoordinateSystem::VisualViewport:
-                ASSERT_NOT_REACHED();
+                if (frame->coreFrame()->settings().visualViewportEnabled())
+                    resultInViewCenterPoint = WebCore::IntPoint(mainView->clientToLayoutViewportPoint(rootInViewCenterPoint));
+                else
+                    resultInViewCenterPoint = rootInViewCenterPoint;
                 break;
             }
         }
@@ -750,7 +745,7 @@ void WebAutomationSessionProxy::getCookiesForFrame(uint64_t pageID, uint64_t fra
     auto& document = *frame->coreFrame()->document();
     Vector<WebCore::Cookie> foundCookies;
     if (!document.cookieURL().isEmpty())
-        WebCore::getRawCookies(document, document.cookieURL(), foundCookies);
+        page->corePage()->cookieJar().getRawCookies(document, document.cookieURL(), foundCookies);
 
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebAutomationSession::DidGetCookiesForFrame(callbackID, foundCookies, String()), 0);
 }
@@ -772,7 +767,7 @@ void WebAutomationSessionProxy::deleteCookie(uint64_t pageID, uint64_t frameID, 
     }
 
     auto& document = *frame->coreFrame()->document();
-    WebCore::deleteCookie(document, document.cookieURL(), cookieName);
+    page->corePage()->cookieJar().deleteCookie(document, document.cookieURL(), cookieName);
 
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebAutomationSession::DidDeleteCookie(callbackID, String()), 0);
 }

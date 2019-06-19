@@ -36,14 +36,17 @@
 
 namespace WebCore {
 
-// <index, length>
-typedef std::pair<unsigned, unsigned> SubstringRange;
-bool isValidContentType(const String&);
+enum class Mode {
+    Rfc2045,
+    MimeSniff
+};
+WEBCORE_EXPORT bool isValidContentType(const String&, Mode = Mode::MimeSniff);
 
 // FIXME: add support for comments.
 class ParsedContentType {
 public:
-    explicit ParsedContentType(const String&);
+    WEBCORE_EXPORT static Optional<ParsedContentType> create(const String&, Mode = Mode::MimeSniff);
+    ParsedContentType(ParsedContentType&&) = default;
 
     String mimeType() const { return m_mimeType; }
     String charset() const;
@@ -52,15 +55,20 @@ public:
     String parameterValueForName(const String&) const;
     size_t parameterCount() const;
 
+    WEBCORE_EXPORT String serialize() const;
+
 private:
-    template<class ReceiverType>
-    friend bool parseContentType(const String&, ReceiverType&);
-    void setContentType(const SubstringRange&);
-    void setContentTypeParameter(const SubstringRange&, const SubstringRange&);
+    ParsedContentType(const String&);
+    ParsedContentType(const ParsedContentType&) = delete;
+    ParsedContentType& operator=(ParsedContentType const&) = delete;
+    bool parseContentType(Mode);
+    void setContentType(StringView, Mode);
+    void setContentTypeParameter(const String&, const String&, Mode);
 
     typedef HashMap<String, String> KeyValuePairs;
     String m_contentType;
-    KeyValuePairs m_parameters;
+    KeyValuePairs m_parameterValues;
+    Vector<String> m_parameterNames;
     String m_mimeType;
 };
 

@@ -71,6 +71,10 @@ OBJC_CLASS NSObject;
 OBJC_CLASS NSString;
 #endif
 
+#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+#include "DisplayLink.h"
+#endif
+
 namespace API {
 class AutomationClient;
 class CustomProtocolManagerClient;
@@ -211,6 +215,12 @@ public:
     const HashMap<String, HashMap<String, HashMap<String, uint8_t>>>& pluginLoadClientPolicies() const { return m_pluginLoadClientPolicies; }
 #endif
 
+#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+    void startDisplayLink(IPC::Connection&, unsigned observerID, uint32_t displayID);
+    void stopDisplayLink(IPC::Connection&, unsigned observerID, uint32_t displayID);
+    void stopDisplayLinks(IPC::Connection&);
+#endif
+
     void addSupportedPlugin(String&& matchingDomain, String&& name, HashSet<String>&& mimeTypes, HashSet<String> extensions);
     void clearSupportedPlugins();
 
@@ -258,6 +268,8 @@ public:
     DownloadProxy* createDownloadProxy(const WebCore::ResourceRequest&, WebPageProxy* originatingPage);
     API::DownloadClient& downloadClient() { return *m_downloadClient; }
 
+    bool usesNetworkingDaemon() const;
+    
     API::LegacyContextHistoryClient& historyClient() { return *m_historyClient; }
     WebContextClient& client() { return m_client; }
 
@@ -449,10 +461,11 @@ public:
 
     // SuspendedPageProxy management.
     void addSuspendedPage(std::unique_ptr<SuspendedPageProxy>&&);
-    void removeAllSuspendedPagesForPage(WebPageProxy&);
+    void removeAllSuspendedPagesForPage(WebPageProxy&, WebProcessProxy* = nullptr);
+    void closeFailedSuspendedPagesForPage(WebPageProxy&);
     std::unique_ptr<SuspendedPageProxy> takeSuspendedPage(SuspendedPageProxy&);
     void removeSuspendedPage(SuspendedPageProxy&);
-    bool hasSuspendedPageFor(WebProcessProxy&) const;
+    bool hasSuspendedPageFor(WebProcessProxy&, WebPageProxy* = nullptr) const;
     unsigned maxSuspendedPageCount() const { return m_maxSuspendedPageCount; }
 
     void didReachGoodTimeToPrewarm();
@@ -468,11 +481,6 @@ public:
 
     void sendDisplayConfigurationChangedMessageForTesting();
     void clearCurrentModifierStateForTesting();
-
-#if PLATFORM(GTK) || PLATFORM(WPE)
-    void setSandboxEnabled(bool enabled) { m_sandboxEnabled = enabled; };
-    bool sandboxEnabled() const { return m_sandboxEnabled; };
-#endif
 
 private:
     void platformInitialize();
@@ -726,8 +734,8 @@ private:
 
     HashMap<String, std::unique_ptr<WebCore::PrewarmInformation>> m_prewarmInformationPerRegistrableDomain;
 
-#if PLATFORM(GTK) || PLATFORM(WPE)
-    bool m_sandboxEnabled { false };
+#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+    Vector<std::unique_ptr<DisplayLink>> m_displayLinks;
 #endif
 };
 

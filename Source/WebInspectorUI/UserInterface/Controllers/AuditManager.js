@@ -40,9 +40,33 @@ WI.AuditManager = class AuditManager extends WI.Object
         WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._handleFrameMainResourceDidChange, this);
     }
 
+    // Static
+
+    static synthesizeWarning(message)
+    {
+        message = WI.UIString("Audit Warning: %s").format(message);
+
+        if (window.InspectorTest) {
+            console.warn(message);
+            return;
+        }
+
+        let consoleMessage = new WI.ConsoleMessage(WI.mainTarget, WI.ConsoleMessage.MessageSource.Other, WI.ConsoleMessage.MessageLevel.Warning, message);
+        consoleMessage.shouldRevealConsole = true;
+
+        WI.consoleLogViewController.appendConsoleMessage(consoleMessage);
+    }
+
     static synthesizeError(message)
     {
-        let consoleMessage = new WI.ConsoleMessage(WI.mainTarget, WI.ConsoleMessage.MessageSource.Other, WI.ConsoleMessage.MessageLevel.Error, WI.UIString("Audit error: %s").format(message));
+        message = WI.UIString("Audit Error: %s").format(message);
+
+        if (window.InspectorTest) {
+            console.error(message);
+            return;
+        }
+
+        let consoleMessage = new WI.ConsoleMessage(WI.mainTarget, WI.ConsoleMessage.MessageSource.Other, WI.ConsoleMessage.MessageLevel.Error, message);
         consoleMessage.shouldRevealConsole = true;
 
         WI.consoleLogViewController.appendConsoleMessage(consoleMessage);
@@ -110,6 +134,7 @@ WI.AuditManager = class AuditManager extends WI.Object
         else
             tests = this._tests;
 
+        console.assert(tests.length);
         if (!tests.length)
             return;
 
@@ -122,7 +147,18 @@ WI.AuditManager = class AuditManager extends WI.Object
 
         this.dispatchEventToListeners(WI.AuditManager.Event.TestScheduled);
 
-        await Promise.chain(this._runningTests.map((test) => () => this._runningState === WI.AuditManager.RunningState.Active ? test.start() : null));
+        await Promise.chain(this._runningTests.map((test) => async () => {
+            if (this._runningState !== WI.AuditManager.RunningState.Active)
+                return;
+
+            if (InspectorBackend.domains.Audit)
+                await AuditAgent.setup();
+
+            await test.start();
+
+            if (InspectorBackend.domains.Audit)
+                await AuditAgent.teardown();
+        }));
 
         let result = this._runningTests.map((test) => test.result).filter((result) => !!result);
 
@@ -157,14 +193,20 @@ WI.AuditManager = class AuditManager extends WI.Object
             return;
         }
 
-        let object = await WI.AuditTestGroup.fromPayload(json) || await WI.AuditTestCase.fromPayload(json);
-        if (!object) {
-            object = await WI.AuditTestGroupResult.fromPayload(json) || await WI.AuditTestCaseResult.fromPayload(json);
-            if (!object) {
-                WI.AuditManager.synthesizeError(WI.UIString("invalid JSON."));
-                return;
-            }
+        if (typeof json !== "object" || json === null) {
+            WI.AuditManager.synthesizeError(WI.UIString("invalid JSON"));
+            return;
         }
+
+        if (json.type !== WI.AuditTestCase.TypeIdentifier && json.type !== WI.AuditTestGroup.TypeIdentifier
+            && json.type !== WI.AuditTestCaseResult.TypeIdentifier && json.type !== WI.AuditTestGroupResult.TypeIdentifier) {
+            WI.AuditManager.synthesizeError(WI.UIString("unknown %s \u0022%s\u0022").format(WI.unlocalizedString("type"), json.type));
+            return;
+        }
+
+        let object = await WI.AuditTestGroup.fromPayload(json) || await WI.AuditTestCase.fromPayload(json) || await WI.AuditTestGroupResult.fromPayload(json) || await WI.AuditTestCaseResult.fromPayload(json);
+        if (!object)
+            return;
 
         if (object instanceof WI.AuditTestBase) {
             this._addTest(object);

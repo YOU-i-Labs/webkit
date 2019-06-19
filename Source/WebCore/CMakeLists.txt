@@ -58,6 +58,7 @@ set(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/websockets"
     "${WEBCORE_DIR}/Modules/webvr"
     "${WEBCORE_DIR}/accessibility"
+    "${WEBCORE_DIR}/accessibility/isolatedtree"
     "${WEBCORE_DIR}/animation"
     "${WEBCORE_DIR}/bindings"
     "${WEBCORE_DIR}/bindings/js"
@@ -461,9 +462,16 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webdriver/NavigatorWebDriver.idl
 
     Modules/webgpu/DOMWindowWebGPU.idl
+    Modules/webgpu/GPUCompareFunction.idl
+    Modules/webgpu/GPUDepthStencilStateDescriptor.idl
+    Modules/webgpu/GPUExtent3D.idl
+    Modules/webgpu/GPURequestAdapterOptions.idl
+    Modules/webgpu/GPUTextureDescriptor.idl
+    Modules/webgpu/GPUTextureDimension.idl
+    Modules/webgpu/GPUTextureFormat.idl
+    Modules/webgpu/GPUTextureUsage.idl
     Modules/webgpu/WebGPU.idl
     Modules/webgpu/WebGPUAdapter.idl
-    Modules/webgpu/WebGPUAdapterDescriptor.idl
     Modules/webgpu/WebGPUBindGroup.idl
     Modules/webgpu/WebGPUBindGroupBinding.idl
     Modules/webgpu/WebGPUBindGroupDescriptor.idl
@@ -497,7 +505,6 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webgpu/WebGPUShaderStageBit.idl
     Modules/webgpu/WebGPUSwapChain.idl
     Modules/webgpu/WebGPUTexture.idl
-    Modules/webgpu/WebGPUTextureFormatEnum.idl
     Modules/webgpu/WebGPUTextureView.idl
     Modules/webgpu/WebGPUVertexAttributeDescriptor.idl
     Modules/webgpu/WebGPUVertexFormat.idl
@@ -888,6 +895,8 @@ set(WebCore_NON_SVG_IDL_FILES
     html/canvas/WebMetalTextureDescriptor.idl
 
     inspector/CommandLineAPIHost.idl
+    inspector/InspectorAuditAccessibilityObject.idl
+    inspector/InspectorAuditDOMObject.idl
     inspector/InspectorFrontendHost.idl
 
     loader/appcache/DOMApplicationCache.idl

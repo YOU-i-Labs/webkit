@@ -1,4 +1,91 @@
 =================
+WebKitGTK  2.24.2
+=================
+
+What's new in WebKitGTK 2.24.2?
+
+  - Fix rendering of emojis copy-pasted from GTK emoji chooser.
+  - Fix space characters not being rendered with some CJK fonts.
+  - Fix adaptive streaming playback with older GStreamer versions.
+  - Set a maximum zoom level for pinch zooming gesture.
+  - Fix navigation gesture to not interfere with scrolling.
+  - Fix SSE2 detection at compile time, ensuring the right flags are passed to the compiler.
+  - Fix several crashes and rendering issues.
+  - Translation updates: Danish, Spanish, Ukrainian.
+  - Security fixes: CVE-2019-8595, CVE-2019-8607, CVE-2019-8615.
+
+=================
+WebKitGTK  2.24.1
+=================
+
+What's new in WebKitGTK 2.24.1?
+
+  - Do not allow changes in active URI before provisional load starts for non-API requests.
+  - Stop the threaded compositor when the page is not visible or layer tree state is frozen.
+  - Use WebKit HTTP source element again for adaptive streaming fragments downloading.
+  - Properly handle empty resources in webkit_web_resource_get_data().
+  - Add quirk to ensure outlook.live.com uses the modern UI.
+  - Fix methods returing GObject or boxed types in JavaScriptCore GLib API.
+  - Ensure callback data is passed to functions and constructors with no parameters in JavaScriptCore GLib API.
+  - Fix rendering of complex text when the font uses x,y origins.
+  - Fix sound loop with Google Hangouts and WhatsApp notifications.
+  - Fix the build with GStreamer 1.12.5 and GST GL enabled.
+  - Detect SSE2 at compile time.
+  - Fix several crashes and rendering issues.
+  - Security fixes: CVE-2019-6251.
+
+=================
+WebKitGTK  2.24.0
+=================
+
+What's new in WebKitGTK 2.24.0?
+
+  - Fix several crashes.
+  - Translation updates: Italian.
+
+=================
+WebKitGTK 2.23.92
+=================
+
+What's new in WebKitGTK 2.23.92?
+
+  - Fix constructors returning a GObject in JSC GLib API.
+  - Do not scan NPAPI plugins when plugins are disabled in settings.
+  - Add WebKitUserContentFilterStore to the API docs.
+  - Fix several crashes and rendering issues.
+  - Translation updates: Polish.
+
+=================
+WebKitGTK 2.23.91
+=================
+
+What's new in WebKitGTK 2.23.91?
+
+  - Add new API to handle user content filters.
+  - Fix a UI process crash while filling selection data during drag and drop.
+  - Fix deadlock on Linux/x64 between SamplingProfiler and VMTraps.
+  - Fix several crashes and rendering issues.
+  - Translation updates: Italian.
+
+=================
+WebKitGTK 2.23.90
+=================
+
+What's new in WebKitGTK 2.23.90?
+
+  - Add a new setting to disable JavaScript elments from documents during parsing.
+  - Add new API to expose JavaScriptCore options.
+  - Add support for JPEG2000 images.
+  - Add support for back/forward touchpad gesture.
+  - Add support for pinch zoom on touchpad.
+  - Use a scrolled window in alert dialogs to handle long contents.
+  - Sleep disabler now inhibits idle when a "System" sleep disabler is requested.
+  - Remove experimental sandboxing support, it's not yet ready for stable release.
+  - Fix a web process deadlock when starting the remote inspector.
+  - Fix a crash when browsing inspector:// URI without port set.
+  - Fix several crashes and rendering issues.
+
+=================
 WebKitGTK+ 2.23.3
 =================
 

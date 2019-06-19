@@ -8,9 +8,11 @@
       <sub name="JSCWeakValue" link="JSCWeakValue.html"/>
       <sub name="JSCException" link="JSCException.html"/>
       <sub name="JSCClass" link="JSCClass.html"/>
+      <sub name="JSCOptions" link="jsc-glib-4.0-JSCOptions.html"/>
       <sub name="JSCVersion" link="jsc-glib-4.0-JSCVersion.html"/>
     </sub>
     <sub name="Index" link="index-all.html"/>
+    <sub name="Index of new symbols in 2.24" link="api-index-2-24.html"/>
     <sub name="Annotation Glossary" link="annotation-glossary.html"/>
   </chapters>
   <functions>
@@ -128,6 +130,28 @@
     <keyword type="property" name="The “context” property" link="JSCClass.html#JSCClass--context"/>
     <keyword type="property" name="The “name” property" link="JSCClass.html#JSCClass--name"/>
     <keyword type="property" name="The “parent” property" link="JSCClass.html#JSCClass--parent"/>
+    <keyword type="function" name="jsc_options_set_boolean ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-set-boolean" since="2.24"/>
+    <keyword type="function" name="jsc_options_get_boolean ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-get-boolean" since="2.24"/>
+    <keyword type="function" name="jsc_options_set_int ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-set-int" since="2.24"/>
+    <keyword type="function" name="jsc_options_get_int ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-get-int" since="2.24"/>
+    <keyword type="function" name="jsc_options_set_uint ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-set-uint" since="2.24"/>
+    <keyword type="function" name="jsc_options_get_uint ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-get-uint" since="2.24"/>
+    <keyword type="function" name="jsc_options_set_size ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-set-size" since="2.24"/>
+    <keyword type="function" name="jsc_options_get_size ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-get-size" since="2.24"/>
+    <keyword type="function" name="jsc_options_set_double ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-set-double" since="2.24"/>
+    <keyword type="function" name="jsc_options_get_double ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-get-double" since="2.24"/>
+    <keyword type="function" name="jsc_options_set_string ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-set-string" since="2.24"/>
+    <keyword type="function" name="jsc_options_get_string ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-get-string" since="2.24"/>
+    <keyword type="function" name="jsc_options_set_range_string ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-set-range-string" since="2.24"/>
+    <keyword type="function" name="jsc_options_get_range_string ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-get-range-string" since="2.24"/>
+    <keyword type="function" name="JSCOptionsFunc ()" link="jsc-glib-4.0-JSCOptions.html#JSCOptionsFunc" since="2.24"/>
+    <keyword type="function" name="jsc_options_foreach ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-foreach" since="2.24"/>
+    <keyword type="function" name="jsc_options_get_option_group ()" link="jsc-glib-4.0-JSCOptions.html#jsc-options-get-option-group" since="2.24"/>
+    <keyword type="enum" name="enum JSCOptionType" link="jsc-glib-4.0-JSCOptions.html#JSCOptionType" since="2.24"/>
+    <keyword type="macro" name="JSC_OPTIONS_USE_JIT" link="jsc-glib-4.0-JSCOptions.html#JSC-OPTIONS-USE-JIT:CAPS" since="2.24"/>
+    <keyword type="macro" name="JSC_OPTIONS_USE_DFG" link="jsc-glib-4.0-JSCOptions.html#JSC-OPTIONS-USE-DFG:CAPS" since="2.24"/>
+    <keyword type="macro" name="JSC_OPTIONS_USE_FTL" link="jsc-glib-4.0-JSCOptions.html#JSC-OPTIONS-USE-FTL:CAPS" since="2.24"/>
+    <keyword type="macro" name="JSC_OPTIONS_USE_LLINT" link="jsc-glib-4.0-JSCOptions.html#JSC-OPTIONS-USE-LLINT:CAPS" since="2.24"/>
     <keyword type="function" name="jsc_get_major_version ()" link="jsc-glib-4.0-JSCVersion.html#jsc-get-major-version"/>
     <keyword type="function" name="jsc_get_minor_version ()" link="jsc-glib-4.0-JSCVersion.html#jsc-get-minor-version"/>
     <keyword type="function" name="jsc_get_micro_version ()" link="jsc-glib-4.0-JSCVersion.html#jsc-get-micro-version"/>
@@ -146,6 +170,13 @@
     <keyword type="constant" name="JSC_VALUE_PROPERTY_CONFIGURABLE" link="JSCValue.html#JSC-VALUE-PROPERTY-CONFIGURABLE:CAPS"/>
     <keyword type="constant" name="JSC_VALUE_PROPERTY_ENUMERABLE" link="JSCValue.html#JSC-VALUE-PROPERTY-ENUMERABLE:CAPS"/>
     <keyword type="constant" name="JSC_VALUE_PROPERTY_WRITABLE" link="JSCValue.html#JSC-VALUE-PROPERTY-WRITABLE:CAPS"/>
+    <keyword type="constant" name="JSC_OPTION_BOOLEAN" link="jsc-glib-4.0-JSCOptions.html#JSC-OPTION-BOOLEAN:CAPS"/>
+    <keyword type="constant" name="JSC_OPTION_INT" link="jsc-glib-4.0-JSCOptions.html#JSC-OPTION-INT:CAPS"/>
+    <keyword type="constant" name="JSC_OPTION_UINT" link="jsc-glib-4.0-JSCOptions.html#JSC-OPTION-UINT:CAPS"/>
+    <keyword type="constant" name="JSC_OPTION_SIZE" link="jsc-glib-4.0-JSCOptions.html#JSC-OPTION-SIZE:CAPS"/>
+    <keyword type="constant" name="JSC_OPTION_DOUBLE" link="jsc-glib-4.0-JSCOptions.html#JSC-OPTION-DOUBLE:CAPS"/>
+    <keyword type="constant" name="JSC_OPTION_STRING" link="jsc-glib-4.0-JSCOptions.html#JSC-OPTION-STRING:CAPS"/>
+    <keyword type="constant" name="JSC_OPTION_RANGE_STRING" link="jsc-glib-4.0-JSCOptions.html#JSC-OPTION-RANGE-STRING:CAPS"/>
     <keyword type="member" name="JSCClassVTable.get-property" link="JSCClass.html#JSCClassVTable.get-property"/>
     <keyword type="member" name="JSCClassVTable.set-property" link="JSCClass.html#JSCClassVTable.set-property"/>
     <keyword type="member" name="JSCClassVTable.has-property" link="JSCClass.html#JSCClassVTable.has-property"/>

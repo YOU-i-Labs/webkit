@@ -28,6 +28,7 @@
 
 #if ENABLE(B3_JIT)
 
+#include "AirAllocateRegistersAndStackAndGenerateCode.h"
 #include "AirCCallSpecial.h"
 #include "AirCFG.h"
 #include "AllowMacroScratchRegisterUsageIf.h"
@@ -95,6 +96,11 @@ Code::Code(Procedure& proc)
 
 Code::~Code()
 {
+}
+
+void Code::emitDefaultPrologue(CCallHelpers& jit)
+{
+    defaultPrologueGenerator(jit, *this);
 }
 
 void Code::setRegsInPriorityOrder(Bank bank, const Vector<Reg>& regs)

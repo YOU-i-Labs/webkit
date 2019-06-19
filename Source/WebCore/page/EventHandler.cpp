@@ -51,6 +51,7 @@
 #include "FrameSelection.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include "HTMLDocument.h"
 #include "HTMLFrameElement.h"
 #include "HTMLFrameSetElement.h"
 #include "HTMLHtmlElement.h"
@@ -3115,7 +3116,7 @@ bool EventHandler::handleAccessKey(const PlatformKeyboardEvent& event)
 
     if ((event.modifiers() - PlatformEvent::Modifier::ShiftKey) != accessKeyModifiers())
         return false;
-    Element* element = m_frame.document()->getElementByAccessKey(event.unmodifiedText());
+    auto* element = m_frame.document()->elementForAccessKey(event.unmodifiedText());
     if (!element)
         return false;
     element->accessKeyAction(false);
@@ -3577,7 +3578,7 @@ void EventHandler::didStartDrag()
     }
 
     if (draggedContentRange) {
-        draggedContentRange->ownerDocument().markers().addDraggedContentMarker(draggedContentRange.get());
+        draggedContentRange->ownerDocument().markers().addDraggedContentMarker(*draggedContentRange);
         if (auto* renderer = m_frame.contentRenderer())
             renderer->repaintRootContents();
     }

@@ -275,7 +275,6 @@ enum CompositingPolicy {
 
     [MayThrowException] boolean wasLastChangeUserEdit(Element textField);
     boolean elementShouldAutoComplete(HTMLInputElement inputElement);
-    void setEditingValue(HTMLInputElement inputElement, DOMString value);
     void setAutofilled(HTMLInputElement inputElement, boolean enabled);
     void setShowAutoFillButton(HTMLInputElement inputElement, AutoFillButtonType autoFillButtonType);
     AutoFillButtonType autoFillButtonType(HTMLInputElement inputElement);
@@ -372,11 +371,13 @@ enum CompositingPolicy {
     const unsigned short LAYER_TREE_INCLUDES_CONTENT_LAYERS = 16;
     const unsigned short LAYER_TREE_INCLUDES_ACCELERATES_DRAWING = 32;
     const unsigned short LAYER_TREE_INCLUDES_BACKING_STORE_ATTACHED = 64;
+    const unsigned short LAYER_TREE_INCLUDES_ROOT_LAYER_PROPERTIES = 128;
     [MayThrowException] DOMString layerTreeAsText(Document document, optional unsigned short flags = 0);
 
     [MayThrowException] unsigned long long layerIDForElement(Element element);
 
-    [MayThrowException] DOMString scrollbarOverlayStyle();
+    [MayThrowException] DOMString scrollbarOverlayStyle(optional Node? node = null);
+    [MayThrowException] boolean scrollbarUsingDarkAppearance(optional Node? node = null);
 
     [MayThrowException] DOMString scrollingStateTreeAsText();
     [MayThrowException] DOMString mainThreadScrollingReasons(); // FIXME: rename to synchronousScrollingReasons().
@@ -403,6 +404,8 @@ enum CompositingPolicy {
     readonly attribute boolean isUnderMemoryPressure;
     void beginSimulatedMemoryPressure();
     void endSimulatedMemoryPressure();
+
+    unsigned long numberOfIDBTransactions();
 
     unsigned long numberOfLiveNodes();
     unsigned long numberOfLiveDocuments();
@@ -582,6 +585,7 @@ enum CompositingPolicy {
     [Conditional=WEB_RTC] void setICECandidateFiltering(boolean enabled);
     [Conditional=WEB_RTC] void setEnumeratingAllNetworkInterfacesEnabled(boolean enabled);
     [Conditional=WEB_RTC] void stopPeerConnection(RTCPeerConnection connection);
+    [Conditional=WEB_RTC] void clearPeerConnectionFactory();
 
     [Conditional=VIDEO] void simulateSystemSleep();
     [Conditional=VIDEO] void simulateSystemWake();
@@ -730,5 +734,5 @@ enum CompositingPolicy {
 
     sequence<CookieData> getCookies();
 
-    void setAlwaysAllowLocalWebarchive();
+    void setAlwaysAllowLocalWebarchive(boolean alwaysAllowLocalWebarchive);
 };

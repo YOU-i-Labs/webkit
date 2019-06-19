@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2019 Apple Inc. All rights reserved.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
  * Copyright (C) 2010, 2011 Research In Motion Limited. All rights reserved.
  *
@@ -585,6 +585,10 @@
 #define GLIB_VERSION_MIN_REQUIRED GLIB_VERSION_2_36
 #endif
 
+#if PLATFORM(WPE)
+#define GLIB_VERSION_MIN_REQUIRED GLIB_VERSION_2_40
+#endif
+
 #if PLATFORM(GTK) && !defined(GTK_API_VERSION_2)
 #define GDK_VERSION_MIN_REQUIRED GDK_VERSION_3_6
 #endif
@@ -760,8 +764,15 @@
 #if !defined(ENABLE_JIT)
 #define ENABLE_JIT 1
 #endif
+#elif CPU(MIPS) && OS(LINUX)
+/* Same on MIPS/Linux, but DFG is disabled for now. */
+#if !defined(ENABLE_JIT)
+#define ENABLE_JIT 1
+#endif
+#undef ENABLE_DFG_JIT
+#define ENABLE_DFG_JIT 0
 #else
-/* Disable JIT and force C_LOOP on all 32bit-architectures but ARMv7-Thumb2/Linux. */
+/* Disable JIT and force C_LOOP on all other 32bit architectures. */
 #undef ENABLE_JIT
 #define ENABLE_JIT 0
 #undef ENABLE_C_LOOP
@@ -958,12 +969,10 @@
 #define JIT_OPERATION
 #endif
 
-#ifndef ENABLE_SEPARATED_WX_HEAP
-#if (!ENABLE(FAST_JIT_PERMISSIONS) || !CPU(ARM64E)) && PLATFORM(IOS_FAMILY) && CPU(ARM64)
+#if PLATFORM(IOS_FAMILY) && CPU(ARM64) && (!ENABLE(FAST_JIT_PERMISSIONS) || !CPU(ARM64E))
 #define ENABLE_SEPARATED_WX_HEAP 1
 #else
 #define ENABLE_SEPARATED_WX_HEAP 0
-#endif
 #endif
 
 /* Configure the interpreter */
@@ -1037,8 +1046,6 @@
 #define ENABLE_SIGNAL_BASED_VM_TRAPS 1
 #endif
 
-#define ENABLE_POISON 0
-
 #if !defined(USE_POINTER_PROFILING) || USE(JSVALUE32_64) || !ENABLE(JIT)
 #undef USE_POINTER_PROFILING
 #define USE_POINTER_PROFILING 0
@@ -1077,6 +1084,9 @@
 
 #if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV) && !PLATFORM(IOSMAC)
 #define ENABLE_DATA_DETECTION 1
+#endif
+
+#if !PLATFORM(APPLETV) && !PLATFORM(IOSMAC)
 #define HAVE_PARENTAL_CONTROLS 1
 #endif
 
@@ -1340,7 +1350,6 @@
 
 #if PLATFORM(MAC)
 #define HAVE_TOUCH_BAR 1
-#define HAVE_ADVANCED_SPELL_CHECKING 1
 #define USE_DICTATION_ALTERNATIVES 1
 
 #if defined(__LP64__)
@@ -1477,5 +1486,19 @@
 #endif
 
 #if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 130000)
+#define HAVE_CFNETWORK_NSURLSESSION_STRICTRUSTEVALUATE 1
+#endif
+
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 130000)
 #define HAVE_CFNETWORK_NEGOTIATED_SSL_PROTOCOL_CIPHER 1
+#endif
+
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
+#define HAVE_CSCHECKFIXDISABLE 1
+#endif
+
+#if PLATFORM(MAC)
+#define ENABLE_MONOSPACE_FONT_EXCEPTION (__MAC_OS_X_VERSION_MIN_REQUIRED < 101500)
+#elif PLATFORM(IOS_FAMILY)
+#define ENABLE_MONOSPACE_FONT_EXCEPTION (__IPHONE_OS_VERSION_MIN_REQUIRED < 130000)
 #endif

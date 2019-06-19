@@ -28,6 +28,7 @@
 #include "ButterflyInlines.h"
 #include "CatchScope.h"
 #include "CodeBlock.h"
+#include "CodeCache.h"
 #include "Completion.h"
 #include "ConfigFile.h"
 #include "Disassembler.h"
@@ -86,10 +87,12 @@
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/Scope.h>
 #include <wtf/StringPrintStream.h>
 #include <wtf/URL.h>
 #include <wtf/WallTime.h>
 #include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 
 #if OS(WINDOWS)
 #include <direct.h>
@@ -155,7 +158,6 @@ struct MemoryFootprint {
 #endif
 
 using namespace JSC;
-using namespace WTF;
 
 namespace {
 
@@ -253,6 +255,8 @@ private:
 };
 
 class Workers {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(Workers);
 public:
     Workers();
     ~Workers();
@@ -328,6 +332,7 @@ static EncodedJSValue JSC_HOST_CALL functionIs32BitPlatform(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionCheckModuleSyntax(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionPlatformSupportsSamplingProfiler(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionGenerateHeapSnapshot(ExecState*);
+static EncodedJSValue JSC_HOST_CALL functionGenerateHeapSnapshotForGCDebugging(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionResetSuperSamplerState(ExecState*);
 static EncodedJSValue JSC_HOST_CALL functionEnsureArrayStorage(ExecState*);
 #if ENABLE(SAMPLING_PROFILER)
@@ -420,6 +425,7 @@ public:
     String m_uncaughtExceptionName;
     bool m_treatWatchdogExceptionAsSuccess { false };
     bool m_alwaysDumpUncaughtException { false };
+    bool m_dumpMemoryFootprint { false };
     bool m_dumpSamplingProfilerData { false };
     bool m_enableRemoteDebugging { false };
 
@@ -561,6 +567,7 @@ protected:
 
         addFunction(vm, "platformSupportsSamplingProfiler", functionPlatformSupportsSamplingProfiler, 0);
         addFunction(vm, "generateHeapSnapshot", functionGenerateHeapSnapshot, 0);
+        addFunction(vm, "generateHeapSnapshotForGCDebugging", functionGenerateHeapSnapshotForGCDebugging, 0);
         addFunction(vm, "resetSuperSamplerState", functionResetSuperSamplerState, 0);
         addFunction(vm, "ensureArrayStorage", functionEnsureArrayStorage, 0);
 #if ENABLE(SAMPLING_PROFILER)
@@ -950,12 +957,100 @@ static bool fetchScriptFromLocalFileSystem(const String& fileName, Vector<char>&
     return true;
 }
 
+class ShellSourceProvider : public StringSourceProvider {
+public:
+    static Ref<ShellSourceProvider> create(const String& source, const SourceOrigin& sourceOrigin, URL&& url, const TextPosition& startPosition, SourceProviderSourceType sourceType)
+    {
+        return adoptRef(*new ShellSourceProvider(source, sourceOrigin, WTFMove(url), startPosition, sourceType));
+    }
+
+    ~ShellSourceProvider()
+    {
+#if OS(DARWIN)
+        if (m_cachedBytecode.size())
+            munmap(const_cast<void*>(m_cachedBytecode.data()), m_cachedBytecode.size());
+#endif
+    }
+
+    const CachedBytecode* cachedBytecode() const override
+    {
+        return &m_cachedBytecode;
+    }
+
+    void cacheBytecode(const BytecodeCacheGenerator& generator) const override
+    {
+#if OS(DARWIN)
+        String filename = cachePath();
+        if (filename.isNull())
+            return;
+        int fd = open(filename.utf8().data(), O_CREAT | O_WRONLY | O_TRUNC | O_EXLOCK | O_NONBLOCK, 0666);
+        if (fd == -1)
+            return;
+        CachedBytecode cachedBytecode = generator();
+        write(fd, cachedBytecode.data(), cachedBytecode.size());
+        close(fd);
+#endif
+    }
+
+private:
+    String cachePath() const
+    {
+        const char* cachePath = Options::diskCachePath();
+        if (!cachePath)
+            return static_cast<const char*>(nullptr);
+        String filename = sourceOrigin().string();
+        filename.replace('/', '_');
+        return makeString(cachePath, '/', source().toString().hash(), '-', filename, ".bytecode-cache");
+    }
+
+    void loadBytecode()
+    {
+#if OS(DARWIN)
+        String filename = cachePath();
+        if (filename.isNull())
+            return;
+
+        int fd = open(filename.utf8().data(), O_RDONLY | O_SHLOCK | O_NONBLOCK);
+        if (fd == -1)
+            return;
+
+        auto closeFD = makeScopeExit([&] {
+            close(fd);
+        });
+
+        struct stat sb;
+        int res = fstat(fd, &sb);
+        size_t size = static_cast<size_t>(sb.st_size);
+        if (res || !size)
+            return;
+
+        void* buffer = mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd, 0);
+        if (buffer == MAP_FAILED)
+            return;
+        m_cachedBytecode = CachedBytecode { buffer, size };
+#endif
+    }
+
+    ShellSourceProvider(const String& source, const SourceOrigin& sourceOrigin, URL&& url, const TextPosition& startPosition, SourceProviderSourceType sourceType)
+        : StringSourceProvider(source, sourceOrigin, WTFMove(url), startPosition, sourceType)
+    {
+        loadBytecode();
+    }
+
+    CachedBytecode m_cachedBytecode;
+};
+
+static inline SourceCode jscSource(const String& source, const SourceOrigin& sourceOrigin, URL&& url = URL(), const TextPosition& startPosition = TextPosition(), SourceProviderSourceType sourceType = SourceProviderSourceType::Program)
+{
+    return SourceCode(ShellSourceProvider::create(source, sourceOrigin, WTFMove(url), startPosition, sourceType), startPosition.m_line.oneBasedInt(), startPosition.m_column.oneBasedInt());
+}
+
 template<typename Vector>
 static inline SourceCode jscSource(const Vector& utf8, const SourceOrigin& sourceOrigin, const String& filename)
 {
     // FIXME: This should use an absolute file URL https://bugs.webkit.org/show_bug.cgi?id=193077
     String str = stringFromUTF(utf8);
-    return makeSource(str, sourceOrigin, URL({ }, filename));
+    return jscSource(str, sourceOrigin, URL({ }, filename));
 }
 
 template<typename Vector>
@@ -1038,7 +1133,7 @@ JSInternalPromise* GlobalObject::moduleLoaderFetch(JSGlobalObject* globalObject,
     }
 #endif
 
-    auto sourceCode = JSSourceCode::create(vm, makeSource(stringFromUTF(buffer), SourceOrigin { moduleKey }, WTFMove(moduleURL), TextPosition(), SourceProviderSourceType::Module));
+    auto sourceCode = JSSourceCode::create(vm, jscSource(stringFromUTF(buffer), SourceOrigin { moduleKey }, WTFMove(moduleURL), TextPosition(), SourceProviderSourceType::Module));
     catchScope.releaseAssertNoException();
     auto result = deferred->resolve(exec, sourceCode);
     catchScope.clearException();
@@ -1168,7 +1263,7 @@ public:
 
     StackVisitor::Status operator()(StackVisitor& visitor) const
     {
-        m_trace.append(String::format("    %zu   %s\n", visitor->index(), visitor->toString().utf8().data()));
+        m_trace.append(makeString("    ", visitor->index(), "   ", visitor->toString(), '\n'));
         return StackVisitor::Continue;
     }
 
@@ -1711,7 +1806,7 @@ EncodedJSValue JSC_HOST_CALL functionDollarEvalScript(ExecState* exec)
         return JSValue::encode(throwException(exec, scope, createError(exec, "Expected global to point to a global object"_s)));
     
     NakedPtr<Exception> evaluationException;
-    JSValue result = evaluate(globalObject->globalExec(), makeSource(sourceCode, exec->callerSourceOrigin()), JSValue(), evaluationException);
+    JSValue result = evaluate(globalObject->globalExec(), jscSource(sourceCode, exec->callerSourceOrigin()), JSValue(), evaluationException);
     if (evaluationException)
         throwException(exec, scope, evaluationException);
     return JSValue::encode(result);
@@ -1985,8 +2080,11 @@ EncodedJSValue JSC_HOST_CALL functionFailNextNewCodeBlock(ExecState* exec)
     return JSValue::encode(jsUndefined());
 }
 
-EncodedJSValue JSC_HOST_CALL functionQuit(ExecState*)
+EncodedJSValue JSC_HOST_CALL functionQuit(ExecState* exec)
 {
+    VM& vm = exec->vm();
+    vm.codeCache()->write(vm);
+
     jscExit(EXIT_SUCCESS);
 
 #if COMPILER(MSVC)
@@ -2116,6 +2214,24 @@ EncodedJSValue JSC_HOST_CALL functionGenerateHeapSnapshot(ExecState* exec)
     EncodedJSValue result = JSValue::encode(JSONParse(exec, jsonString));
     scope.releaseAssertNoException();
     return result;
+}
+
+EncodedJSValue JSC_HOST_CALL functionGenerateHeapSnapshotForGCDebugging(ExecState* exec)
+{
+    VM& vm = exec->vm();
+    JSLockHolder lock(vm);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    String jsonString;
+    {
+        DeferGCForAWhile deferGC(vm.heap); // Prevent concurrent GC from interfering with the full GC that the snapshot does.
+
+        HeapSnapshotBuilder snapshotBuilder(vm.ensureHeapProfiler(), HeapSnapshotBuilder::SnapshotType::GCDebuggingSnapshot);
+        snapshotBuilder.buildSnapshot();
+
+        jsonString = snapshotBuilder.json();
+    }
+    scope.releaseAssertNoException();
+    return JSValue::encode(jsString(&vm, jsonString));
 }
 
 EncodedJSValue JSC_HOST_CALL functionResetSuperSamplerState(ExecState*)
@@ -2446,7 +2562,7 @@ static void runWithOptions(GlobalObject* globalObject, CommandLine& options, boo
         if (isModule) {
             if (!promise) {
                 // FIXME: This should use an absolute file URL https://bugs.webkit.org/show_bug.cgi?id=193077
-                promise = loadAndEvaluateModule(globalObject->globalExec(), makeSource(stringFromUTF(scriptBuffer), SourceOrigin { absolutePath(fileName) }, URL({ }, fileName), TextPosition(), SourceProviderSourceType::Module), jsUndefined());
+                promise = loadAndEvaluateModule(globalObject->globalExec(), jscSource(stringFromUTF(scriptBuffer), SourceOrigin { absolutePath(fileName) }, URL({ }, fileName), TextPosition(), SourceProviderSourceType::Module), jsUndefined());
             }
             scope.clearException();
 
@@ -2572,6 +2688,7 @@ static NO_RETURN void printUsageStatement(bool help = false)
     fprintf(stderr, "  --exception=<name>         Check the last script exits with an uncaught exception with the specified name\n");
     fprintf(stderr, "  --watchdog-exception-ok    Uncaught watchdog exceptions exit with success\n");
     fprintf(stderr, "  --dumpException            Dump uncaught exception text\n");
+    fprintf(stderr, "  --footprint                Dump memory footprint after done executing\n");
     fprintf(stderr, "  --options                  Dumps all JSC VM options and exits\n");
     fprintf(stderr, "  --dumpOptions              Dumps all non-default JSC VM options before continuing\n");
     fprintf(stderr, "  --<jsc VM option>=<value>  Sets the specified JSC VM option\n");
@@ -2720,6 +2837,11 @@ void CommandLine::parseArguments(int argc, char** argv)
             continue;
         }
 
+        if (!strcmp(arg, "--footprint")) {
+            m_dumpMemoryFootprint = true;
+            continue;
+        }
+
         static const unsigned exceptionStrLength = strlen("--exception=");
         if (!strncmp(arg, "--exception=", exceptionStrLength)) {
             m_uncaughtExceptionName = String(arg + exceptionStrLength);
@@ -2849,6 +2971,8 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
 #endif
     }
 
+    vm.codeCache()->write(vm);
+
     if (isWorker) {
         JSLockHolder locker(vm);
         // This is needed because we don't want the worker's main
@@ -2927,6 +3051,12 @@ int jscmain(int argc, char** argv)
         });
 
     printSuperSamplerState();
+
+    if (options.m_dumpMemoryFootprint) {
+        MemoryFootprint footprint = MemoryFootprint::now();
+
+        printf("Memory Footprint:\n    Current Footprint: %" PRIu64 "\n    Peak Footprint: %" PRIu64 "\n", footprint.current, footprint.peak);
+    }
 
     return result;
 }

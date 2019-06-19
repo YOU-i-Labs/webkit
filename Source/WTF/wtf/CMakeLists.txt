@@ -45,7 +45,6 @@ set(WTF_PUBLIC_HEADERS
     DataLog.h
     DateMath.h
     DebugUtilities.h
-    DecimalNumber.h
     DeferrableRefCounted.h
     DeprecatedOptional.h
     Deque.h
@@ -61,7 +60,9 @@ set(WTF_PUBLIC_HEADERS
     FastMalloc.h
     FastTLS.h
     FeatureDefines.h
+    FileMetadata.h
     FilePrintStream.h
+    FileSystem.h
     FlipBytes.h
     ForbidHeapAllocation.h
     Forward.h
@@ -163,8 +164,6 @@ set(WTF_PUBLIC_HEADERS
     PlatformRegisters.h
     PointerComparison.h
     PointerPreparations.h
-    Poisoned.h
-    PoisonedUniquePtr.h
     PrintStream.h
     PriorityQueue.h
     ProcessID.h
@@ -207,6 +206,7 @@ set(WTF_PUBLIC_HEADERS
     SixCharacterHash.h
     SmallPtrSet.h
     SoftLinking.h
+    SpanningTree.h
     Spectrum.h
     StackBounds.h
     StackPointer.h
@@ -241,6 +241,7 @@ set(WTF_PUBLIC_HEADERS
     TriState.h
     TypeCasts.h
     URL.h
+    URLHelpers.h
     URLHash.h
     URLParser.h
     UUID.h
@@ -271,9 +272,9 @@ set(WTF_PUBLIC_HEADERS
     dtoa/cached-powers.h
     dtoa/diy-fp.h
     dtoa/double-conversion.h
-    dtoa/double.h
     dtoa/fast-dtoa.h
     dtoa/fixed-dtoa.h
+    dtoa/ieee.h
     dtoa/strtod.h
     dtoa/utils.h
 
@@ -334,6 +335,7 @@ set(WTF_PUBLIC_HEADERS
 )
 
 set(WTF_SOURCES
+    ASCIICType.cpp
     Assertions.cpp
     AutomaticThread.cpp
     BitVector.cpp
@@ -349,20 +351,22 @@ set(WTF_SOURCES
     CurrentTime.cpp
     DataLog.cpp
     DateMath.cpp
-    DecimalNumber.cpp
     FastBitVector.cpp
     FastMalloc.cpp
     FilePrintStream.cpp
+    FileSystem.cpp
     FunctionDispatcher.cpp
     Gigacage.cpp
     GlobalVersion.cpp
     GregorianDateTime.cpp
     HashTable.cpp
+    HexNumber.cpp
     JSONValues.cpp
     JSValueMalloc.cpp
     Language.cpp
     Lock.cpp
     LockedPrintStream.cpp
+    Logger.cpp
     MD5.cpp
     MainThread.cpp
     MediaTime.cpp
@@ -371,11 +375,11 @@ set(WTF_SOURCES
     MonotonicTime.cpp
     NumberOfCores.cpp
     OSRandomSource.cpp
+    ObjectIdentifier.cpp
     PageBlock.cpp
     ParallelHelperPool.cpp
     ParallelJobsGeneric.cpp
     ParkingLot.cpp
-    Poisoned.cpp
     PrintStream.cpp
     ProcessPrivilege.cpp
     RAMSize.cpp
@@ -398,6 +402,7 @@ set(WTF_SOURCES
     TimeWithDynamicClockType.cpp
     TimingScope.cpp
     URL.cpp
+    URLHelpers.cpp
     URLParser.cpp
     UUID.cpp
     WTFAssertions.cpp
@@ -487,23 +492,6 @@ list(APPEND WTF_LIBRARIES
     ${ICU_I18N_LIBRARIES}
     ${ICU_LIBRARIES}
 )
-
-if (WIN32)
-    list(APPEND WTF_SOURCES
-        OSAllocatorWin.cpp
-        ThreadSpecificWin.cpp
-        ThreadingWin.cpp
-    )
-    list(APPEND WTF_LIBRARIES
-        DbgHelp
-        winmm
-    )
-else ()
-    list(APPEND WTF_SOURCES
-        OSAllocatorPosix.cpp
-        ThreadingPthreads.cpp
-    )
-endif ()
 
 WEBKIT_FRAMEWORK_DECLARE(WTF)
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()

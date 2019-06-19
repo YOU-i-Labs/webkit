@@ -296,15 +296,13 @@ RenderLayer::RenderLayer(RenderLayerModelObject& rendererLayerModelObject)
     , m_indirectCompositingReason(static_cast<unsigned>(IndirectCompositingReason::None))
     , m_viewportConstrainedNotCompositedReason(NoNotCompositedReason)
 #if PLATFORM(IOS_FAMILY)
-    , m_adjustForIOSCaretWhenScrolling(false)
-#endif
-#if PLATFORM(IOS_FAMILY)
 #if ENABLE(IOS_TOUCH_EVENTS)
     , m_registeredAsTouchEventListenerForScrolling(false)
 #endif
-    , m_inUserScroll(false)
-    , m_requiresScrollBoundsOriginUpdate(false)
+    , m_adjustForIOSCaretWhenScrolling(false)
 #endif
+    , m_inUserScroll(false)
+    , m_requiresScrollPositionReconciliation(false)
     , m_containsDirtyOverlayScrollbars(false)
     , m_updatingMarqueePosition(false)
 #if !ASSERT_DISABLED
@@ -603,7 +601,7 @@ void RenderLayer::setParent(RenderLayer* parent)
 
     if (m_parent && !renderer().renderTreeBeingDestroyed())
         compositor().layerWillBeRemoved(*m_parent, *this);
-    
+
     m_parent = parent;
 
     if (m_parent && !renderer().renderTreeBeingDestroyed())
@@ -1205,7 +1203,7 @@ TransformationMatrix RenderLayer::currentTransform(RenderStyle::ApplyTransformOr
             }
         }
     } else {
-        if (renderer().animation().isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyTransform, AnimationBase::Running | AnimationBase::Paused)) {
+        if (renderer().animation().isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyTransform)) {
             TransformationMatrix currTransform;
             FloatRect pixelSnappedBorderRect = snapRectToDevicePixels(box->borderBoxRect(), box->document().deviceScaleFactor());
             std::unique_ptr<RenderStyle> style = renderer().animation().animatedStyleForRenderer(renderer());
@@ -2223,7 +2221,7 @@ bool RenderLayer::usesCompositedScrolling() const
 // FIXME: this is only valid after we've made layers.
 bool RenderLayer::usesAsyncScrolling() const
 {
-    return usesCompositedScrolling();
+    return compositor().useCoordinatedScrollingForLayer(*this);
 }
 
 static inline int adjustedScrollDelta(int beginningDelta)
@@ -2347,7 +2345,7 @@ void RenderLayer::scrollTo(const ScrollPosition& position)
     if (!box)
         return;
 
-    LOG_WITH_STREAM(Scrolling, stream << "RenderLayer::scrollTo " << position);
+    LOG_WITH_STREAM(Scrolling, stream << "RenderLayer::scrollTo " << position << " from " << m_scrollPosition << " (in user scroll " << isInUserScroll() << ")");
 
     ScrollPosition newPosition = position;
     if (!box->isHTMLMarquee()) {
@@ -2374,12 +2372,12 @@ void RenderLayer::scrollTo(const ScrollPosition& position)
     }
     
     if (m_scrollPosition == newPosition) {
-#if PLATFORM(IOS_FAMILY)
-        if (m_requiresScrollBoundsOriginUpdate) {
+        // FIXME: Nothing guarantees we get a scrollTo() with an unchanged position at the end of a user gesture.
+        // The ScrollingCoordinator probably needs to message the main thread when a gesture ends.
+        if (requiresScrollPositionReconciliation()) {
             setNeedsCompositingGeometryUpdate();
             updateCompositingLayersAfterScroll();
         }
-#endif
         return;
     }
 
@@ -2392,10 +2390,7 @@ void RenderLayer::scrollTo(const ScrollPosition& position)
     if (!view.frameView().layoutContext().isInRenderTreeLayout()) {
         // If we're in the middle of layout, we'll just update layers once layout has finished.
         updateLayerPositionsAfterOverflowScroll();
-        // Update regions, scrolling may change the clip of a particular region.
-#if ENABLE(DASHBOARD_SUPPORT)
-        view.frameView().updateAnnotatedRegions();
-#endif
+
         view.frameView().scheduleUpdateWidgetPositions();
 
         if (!m_updatingMarqueePosition) {
@@ -2411,9 +2406,8 @@ void RenderLayer::scrollTo(const ScrollPosition& position)
             updateCompositingLayersAfterScroll();
         }
 
-#if PLATFORM(IOS_FAMILY) && ENABLE(TOUCH_EVENTS)
-        renderer().document().setTouchEventRegionsNeedUpdate();
-#endif
+        // Update regions, scrolling may change the clip of a particular region.
+        renderer().document().invalidateRenderingDependentRegions(Document::AnnotationsAction::Update);
         DebugPageOverlays::didLayout(renderer().frame());
     }
 
@@ -2555,7 +2549,7 @@ void RenderLayer::scrollRectToVisible(const LayoutRect& absoluteRect, bool insid
 #if !PLATFORM(IOS_FAMILY)
             LayoutRect viewRect = frameView.visibleContentRect();
 #else
-            LayoutRect viewRect = frameView.unobscuredContentRect();
+            LayoutRect viewRect = frameView.unobscuredContentRectExpandedByContentInsets();
 #endif
             // Move the target rect into "scrollView contents" coordinates.
             LayoutRect targetRect = absoluteRect;
@@ -2595,7 +2589,7 @@ void RenderLayer::updateCompositingLayersAfterScroll()
     }
 }
 
-LayoutRect RenderLayer::getRectToExpose(const LayoutRect &visibleRect, const LayoutRect &exposeRect, bool insideFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY) const
+LayoutRect RenderLayer::getRectToExpose(const LayoutRect& visibleRect, const LayoutRect& exposeRect, bool insideFixed, const ScrollAlignment& alignX, const ScrollAlignment& alignY) const
 {
     FrameView& frameView = renderer().view().frameView();
     if (renderer().isRenderView() && insideFixed) {
@@ -3193,11 +3187,7 @@ void RenderLayer::setHasHorizontalScrollbar(bool hasScrollbar)
     if (m_vBar)
         m_vBar->styleChanged();
 
-    // Force an update since we know the scrollbars have changed things.
-#if ENABLE(DASHBOARD_SUPPORT)
-    if (renderer().document().hasAnnotatedRegions())
-        renderer().document().setAnnotatedRegionsDirty(true);
-#endif
+    renderer().document().invalidateScrollbarDependentRegions();
 }
 
 void RenderLayer::setHasVerticalScrollbar(bool hasScrollbar)
@@ -3224,11 +3214,7 @@ void RenderLayer::setHasVerticalScrollbar(bool hasScrollbar)
     if (m_vBar)
         m_vBar->styleChanged();
 
-    // Force an update since we know the scrollbars have changed things.
-#if ENABLE(DASHBOARD_SUPPORT)
-    if (renderer().document().hasAnnotatedRegions())
-        renderer().document().setAnnotatedRegionsDirty(true);
-#endif
+    renderer().document().invalidateScrollbarDependentRegions();
 }
 
 ScrollableArea* RenderLayer::enclosingScrollableArea() const
@@ -3254,6 +3240,11 @@ bool RenderLayer::hasScrollableOrRubberbandableAncestor()
     }
 
     return false;
+}
+
+bool RenderLayer::useDarkAppearance() const
+{
+    return renderer().useDarkAppearance();
 }
 
 #if ENABLE(CSS_SCROLL_SNAP)
@@ -3494,12 +3485,7 @@ void RenderLayer::updateScrollbarsAfterLayout()
 
         updateSelfPaintingLayer();
 
-        // Force an update since we know the scrollbars have changed things.
-#if ENABLE(DASHBOARD_SUPPORT)
-        if (renderer().document().hasAnnotatedRegions())
-            renderer().document().setAnnotatedRegionsDirty(true);
-#endif
-
+        renderer().document().invalidateScrollbarDependentRegions();
         renderer().repaint();
 
         if (renderer().style().overflowX() == Overflow::Auto || renderer().style().overflowY() == Overflow::Auto) {
@@ -5930,8 +5916,13 @@ RenderLayerBacking* RenderLayer::ensureBacking()
 
 void RenderLayer::clearBacking(bool layerBeingDestroyed)
 {
-    if (m_backing && !renderer().renderTreeBeingDestroyed())
+    if (!m_backing)
+        return;
+
+    if (!renderer().renderTreeBeingDestroyed())
         compositor().layerBecameNonComposited(*this);
+    
+    m_backing->willBeDestroyed();
     m_backing = nullptr;
 
     if (!layerBeingDestroyed)
@@ -5941,11 +5932,6 @@ void RenderLayer::clearBacking(bool layerBeingDestroyed)
 bool RenderLayer::hasCompositedMask() const
 {
     return m_backing && m_backing->hasMaskLayer();
-}
-
-GraphicsLayer* RenderLayer::layerForScrolling() const
-{
-    return m_backing ? m_backing->scrollingContentsLayer() : nullptr;
 }
 
 GraphicsLayer* RenderLayer::layerForHorizontalScrollbar() const
@@ -6379,7 +6365,7 @@ void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(TOUCH_EVENTS)
     if (diff == StyleDifference::RecompositeLayer || diff >= StyleDifference::LayoutPositionedMovementOnly)
-        renderer().document().setTouchEventRegionsNeedUpdate();
+        renderer().document().invalidateRenderingDependentRegions();
 #else
     UNUSED_PARAM(diff);
 #endif
@@ -6599,8 +6585,10 @@ void RenderLayer::updateFilterPaintingStrategy()
 void RenderLayer::filterNeedsRepaint()
 {
     // We use the enclosing element so that we recalculate style for the ancestor of an anonymous object.
-    if (Element* element = enclosingElement())
+    if (Element* element = enclosingElement()) {
+        // FIXME: This really shouldn't have to invalidate layer composition, but tests like css3/filters/effect-reference-delete.html fail if that doesn't happen.
         element->invalidateStyleAndLayerComposition();
+    }
     renderer().repaint();
 }
 
@@ -6647,9 +6635,8 @@ static void outputPaintOrderTreeLegend(TextStream& stream)
     stream.nextLine();
     stream << "(S)tacking Context, (N)ormal flow only, (O)verflow clip, (A)lpha (opacity or mask), has (B)lend mode, (I)solates blending, (T)ransform-ish, (F)ilter, Fi(X)ed position, (C)omposited, (c)omposited descendant\n"
         "Dirty (z)-lists, Dirty (n)ormal flow lists\n"
-        "Descendant needs overlap (t)raversal, Descendant needs (b)acking or hierarchy update, All descendants need (r)equirements traversal, All (s)ubsequent layers need requirements traversal, All descendants need (h)ierarchy traversal\n"
-        "Needs compositing paint order update on (s)ubsequent layers, Needs compositing paint (o)rder children update, "
-        "Needs post-(l)ayout update, Needs compositing (g)eometry update, (k)ids need geometry update, Needs compositing (c)onfig update, Needs compositing layer conne(x)ion update";
+        "Traversal needs: requirements (t)raversal on descendants, (b)acking or hierarchy traversal on descendants, (r)equirements traversal on all descendants, requirements traversal on all (s)ubsequent layers, (h)ierarchy traversal on all descendants, update of paint (o)rder children\n"
+        "Update needs:    post-(l)ayout requirements, (g)eometry, (k)ids geometry, (c)onfig, layer conne(x)ion, (s)crolling tree\n";
     stream.nextLine();
 }
 
@@ -6686,15 +6673,16 @@ static void outputPaintOrderTreeRecursive(TextStream& stream, const WebCore::Ren
     stream << (layer.descendantsNeedCompositingRequirementsTraversal() ? "r" : "-");
     stream << (layer.subsequentLayersNeedCompositingRequirementsTraversal() ? "s" : "-");
     stream << (layer.descendantsNeedUpdateBackingAndHierarchyTraversal() ? "h" : "-");
+    stream << (layer.needsCompositingPaintOrderChildrenUpdate() ? "o" : "-");
 
     stream << " ";
 
-    stream << (layer.needsCompositingPaintOrderChildrenUpdate() ? "o" : "-");
     stream << (layer.needsPostLayoutCompositingUpdate() ? "l" : "-");
     stream << (layer.needsCompositingGeometryUpdate() ? "g" : "-");
     stream << (layer.childrenNeedCompositingGeometryUpdate() ? "k" : "-");
     stream << (layer.needsCompositingConfigurationUpdate() ? "c" : "-");
     stream << (layer.needsCompositingLayerConnection() ? "x" : "-");
+    stream << (layer.needsScrollingTreeUpdate() ? "s" : "-");
 
     stream << " ";
 
@@ -6705,8 +6693,38 @@ static void outputPaintOrderTreeRecursive(TextStream& stream, const WebCore::Ren
     auto layerRect = layer.rect();
 
     stream << &layer << " " << layerRect;
-    if (layer.isComposited())
-        stream << " (layerID " << layer.backing()->graphicsLayer()->primaryLayerID() << ")";
+    if (layer.isComposited()) {
+        auto& backing = *layer.backing();
+        stream << " (layerID " << backing.graphicsLayer()->primaryLayerID() << ")";
+
+        auto scrollingNodeID = backing.scrollingNodeIDForRole(WebCore::ScrollCoordinationRole::Scrolling);
+        auto frameHostingNodeID = backing.scrollingNodeIDForRole(WebCore::ScrollCoordinationRole::FrameHosting);
+        auto viewportConstrainedNodeID = backing.scrollingNodeIDForRole(WebCore::ScrollCoordinationRole::ViewportConstrained);
+
+        if (scrollingNodeID || frameHostingNodeID || viewportConstrainedNodeID) {
+            stream << " {";
+            bool first = true;
+            if (scrollingNodeID) {
+                stream << "sc " << scrollingNodeID;
+                first = false;
+            }
+
+            if (frameHostingNodeID) {
+                if (!first)
+                    stream << ", ";
+                stream << "fh " << frameHostingNodeID;
+                first = false;
+            }
+
+            if (viewportConstrainedNodeID) {
+                if (!first)
+                    stream << ", ";
+                stream << "vc " << viewportConstrainedNodeID;
+            }
+
+            stream << "}";
+        }
+    }
     stream << " " << layer.name();
     stream.nextLine();
 

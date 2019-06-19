@@ -99,7 +99,7 @@ void RemoteScrollingCoordinatorProxy::commitScrollingTreeState(const RemoteScrol
 void RemoteScrollingCoordinatorProxy::connectStateNodeLayers(ScrollingStateTree& stateTree, const RemoteLayerTreeHost& layerTreeHost)
 {
     for (auto& currNode : stateTree.nodeMap().values()) {
-        if (currNode->hasChangedProperty(ScrollingStateNode::ScrollLayer))
+        if (currNode->hasChangedProperty(ScrollingStateNode::Layer))
             currNode->setLayer(layerTreeHost.layerForID(currNode->layer()));
 
         switch (currNode->nodeType()) {
@@ -107,6 +107,9 @@ void RemoteScrollingCoordinatorProxy::connectStateNodeLayers(ScrollingStateTree&
         case ScrollingNodeType::Subframe: {
             ScrollingStateFrameScrollingNode& scrollingStateNode = downcast<ScrollingStateFrameScrollingNode>(*currNode);
             
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::ScrollContainerLayer))
+                scrollingStateNode.setScrollContainerLayer(layerTreeHost.layerForID(scrollingStateNode.scrollContainerLayer()));
+
             if (scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::ScrolledContentsLayer))
                 scrollingStateNode.setScrolledContentsLayer(layerTreeHost.layerForID(scrollingStateNode.scrolledContentsLayer()));
 
@@ -135,11 +138,14 @@ void RemoteScrollingCoordinatorProxy::connectStateNodeLayers(ScrollingStateTree&
         }
         case ScrollingNodeType::Overflow: {
             ScrollingStateOverflowScrollingNode& scrollingStateNode = downcast<ScrollingStateOverflowScrollingNode>(*currNode);
+            if (scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::ScrollContainerLayer))
+                scrollingStateNode.setScrollContainerLayer(layerTreeHost.layerForID(scrollingStateNode.scrollContainerLayer()));
 
             if (scrollingStateNode.hasChangedProperty(ScrollingStateScrollingNode::ScrolledContentsLayer))
                 scrollingStateNode.setScrolledContentsLayer(layerTreeHost.layerForID(scrollingStateNode.scrolledContentsLayer()));
             break;
         }
+        case ScrollingNodeType::FrameHosting:
         case ScrollingNodeType::Fixed:
         case ScrollingNodeType::Sticky:
             break;
@@ -150,8 +156,8 @@ void RemoteScrollingCoordinatorProxy::connectStateNodeLayers(ScrollingStateTree&
 
 bool RemoteScrollingCoordinatorProxy::handleWheelEvent(const PlatformWheelEvent& event)
 {
-    ScrollingTree::EventResult result = m_scrollingTree->tryToHandleWheelEvent(event);
-    return result == ScrollingTree::DidHandleEvent; // FIXME: handle other values.
+    ScrollingEventResult result = m_scrollingTree->tryToHandleWheelEvent(event);
+    return result == ScrollingEventResult::DidHandleEvent; // FIXME: handle other values.
 }
 
 void RemoteScrollingCoordinatorProxy::handleMouseEvent(const WebCore::PlatformMouseEvent& event)
@@ -204,6 +210,33 @@ String RemoteScrollingCoordinatorProxy::scrollingTreeAsText() const
     
     return emptyString();
 }
+
+#if ENABLE(POINTER_EVENTS)
+Optional<TouchActionData> RemoteScrollingCoordinatorProxy::touchActionDataAtPoint(const IntPoint p) const
+{
+    return m_scrollingTree->touchActionDataAtPoint(p);
+}
+
+Optional<TouchActionData> RemoteScrollingCoordinatorProxy::touchActionDataForScrollNodeID(ScrollingNodeID scrollingNodeID) const
+{
+    for (auto& touchActionData : m_touchActionDataByTouchIdentifier.values()) {
+        if (touchActionData.scrollingNodeID == scrollingNodeID)
+            return touchActionData;
+    }
+    return WTF::nullopt;
+}
+
+void RemoteScrollingCoordinatorProxy::setTouchDataForTouchIdentifier(TouchActionData touchActionData, unsigned touchIdentifier)
+{
+    m_touchActionDataByTouchIdentifier.set(touchIdentifier, touchActionData);
+}
+
+void RemoteScrollingCoordinatorProxy::clearTouchDataForTouchIdentifier(unsigned touchIdentifier)
+{
+    m_touchActionDataByTouchIdentifier.remove(touchIdentifier);
+}
+
+#endif
 
 } // namespace WebKit
 

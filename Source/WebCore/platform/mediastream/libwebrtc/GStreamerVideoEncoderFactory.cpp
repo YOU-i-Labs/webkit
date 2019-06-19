@@ -42,6 +42,7 @@
 #include <gst/pbutils/encoding-profile.h>
 #include <gst/video/video.h>
 #include <wtf/HashMap.h>
+#include <wtf/HexNumber.h>
 #include <wtf/Lock.h>
 #include <wtf/StdMap.h>
 
@@ -100,7 +101,7 @@ public:
 
     GstElement* makeElement(const gchar* factoryName)
     {
-        auto name = String::format("%s_enc_%s_%p", Name(), factoryName, this);
+        auto name = makeString(Name(), "_enc_", factoryName, "_0x", hex(reinterpret_cast<uintptr_t>(this)));
         auto elem = gst_element_factory_make(factoryName, name.utf8().data());
 
         return elem;
@@ -142,7 +143,7 @@ public:
         gst_app_sink_set_emit_signals(GST_APP_SINK(sink), TRUE);
         g_signal_connect(sink, "new-sample", G_CALLBACK(newSampleCallbackTramp), this);
 
-        auto name = String::format("%s_enc_rawcapsfilter_%p", Name(), this);
+        auto name = makeString(Name(), "_enc_rawcapsfilter_0x", hex(reinterpret_cast<uintptr_t>(this)));
         m_capsFilter = gst_element_factory_make("capsfilter", name.utf8().data());
         if (m_restrictionCaps)
             g_object_set(m_capsFilter, "caps", m_restrictionCaps.get(), nullptr);
@@ -342,22 +343,22 @@ public:
     virtual void Fragmentize(webrtc::EncodedImage* encodedImage, std::unique_ptr<uint8_t[]>* encodedImageBuffer,
         size_t* bufferSize, GstBuffer* buffer, webrtc::RTPFragmentationHeader* fragmentationInfo)
     {
-        GstMappedBuffer map(buffer, GST_MAP_READ);
+        auto map = GstMappedBuffer::create(buffer, GST_MAP_READ);
 
-        if (*bufferSize < map.size()) {
-            encodedImage->_size = map.size();
+        if (*bufferSize < map->size()) {
+            encodedImage->_size = map->size();
             encodedImage->_buffer = new uint8_t[encodedImage->_size];
             encodedImageBuffer->reset(encodedImage->_buffer);
-            *bufferSize = map.size();
+            *bufferSize = map->size();
         }
 
-        memcpy(encodedImage->_buffer, map.data(), map.size());
-        encodedImage->_length = map.size();
-        encodedImage->_size = map.size();
+        memcpy(encodedImage->_buffer, map->data(), map->size());
+        encodedImage->_length = map->size();
+        encodedImage->_size = map->size();
 
         fragmentationInfo->VerifyAndAllocateFragmentationHeader(1);
         fragmentationInfo->fragmentationOffset[0] = 0;
-        fragmentationInfo->fragmentationLength[0] = map.size();
+        fragmentationInfo->fragmentationLength[0] = map->size();
         fragmentationInfo->fragmentationPlType[0] = 0;
         fragmentationInfo->fragmentationTimeDiff[0] = 0;
     }
@@ -438,9 +439,9 @@ public:
         std::vector<GstH264NalUnit> nals;
 
         const uint8_t startCode[4] = { 0, 0, 0, 1 };
-        GstMappedBuffer map(gstbuffer, GST_MAP_READ);
+        auto map = GstMappedBuffer::create(gstbuffer, GST_MAP_READ);
         while (parserResult == GST_H264_PARSER_OK) {
-            parserResult = gst_h264_parser_identify_nalu(m_parser, map.data(), offset, map.size(), &nalu);
+            parserResult = gst_h264_parser_identify_nalu(m_parser, map->data(), offset, map->size(), &nalu);
 
             nalu.sc_offset = offset;
             nalu.offset = offset + sizeof(startCode);
@@ -456,7 +457,7 @@ public:
             encodedImage->_size = requiredSize;
             encodedImage->_buffer = new uint8_t[encodedImage->_size];
             encodedImageBuffer->reset(encodedImage->_buffer);
-            *bufferSize = map.size();
+            *bufferSize = map->size();
         }
 
         // Iterate nal units and fill the Fragmentation info.
@@ -465,15 +466,15 @@ public:
         encodedImage->_length = 0;
         for (std::vector<GstH264NalUnit>::iterator nal = nals.begin(); nal != nals.end(); ++nal, fragmentIndex++) {
 
-            ASSERT(map.data()[nal->sc_offset + 0] == startCode[0]);
-            ASSERT(map.data()[nal->sc_offset + 1] == startCode[1]);
-            ASSERT(map.data()[nal->sc_offset + 2] == startCode[2]);
-            ASSERT(map.data()[nal->sc_offset + 3] == startCode[3]);
+            ASSERT(map->data()[nal->sc_offset + 0] == startCode[0]);
+            ASSERT(map->data()[nal->sc_offset + 1] == startCode[1]);
+            ASSERT(map->data()[nal->sc_offset + 2] == startCode[2]);
+            ASSERT(map->data()[nal->sc_offset + 3] == startCode[3]);
 
             fragmentationHeader->fragmentationOffset[fragmentIndex] = nal->offset;
             fragmentationHeader->fragmentationLength[fragmentIndex] = nal->size;
 
-            memcpy(encodedImage->_buffer + encodedImage->_length, &map.data()[nal->sc_offset],
+            memcpy(encodedImage->_buffer + encodedImage->_length, &map->data()[nal->sc_offset],
                 sizeof(startCode) + nal->size);
             encodedImage->_length += nal->size + sizeof(startCode);
         }

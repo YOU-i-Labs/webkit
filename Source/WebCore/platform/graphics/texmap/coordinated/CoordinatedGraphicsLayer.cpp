@@ -44,6 +44,10 @@
 #endif
 #include <wtf/text/CString.h>
 
+#if USE(GLIB_EVENT_LOOP)
+#include <wtf/glib/RunLoopSourcePriority.h>
+#endif
+
 namespace WebCore {
 
 Ref<GraphicsLayer> GraphicsLayer::create(GraphicsLayerFactory* factory, GraphicsLayerClient& client, Type layerType)
@@ -121,6 +125,7 @@ CoordinatedGraphicsLayer::CoordinatedGraphicsLayer(Type layerType, GraphicsLayer
     , m_coordinator(0)
     , m_compositedNativeImagePtr(0)
     , m_animationStartedTimer(*this, &CoordinatedGraphicsLayer::animationStartedTimerFired)
+    , m_requestPendingTileCreationTimer(RunLoop::main(), this, &CoordinatedGraphicsLayer::requestPendingTileCreationTimerFired)
 {
     static Nicosia::PlatformLayer::LayerID nextLayerID = 1;
     m_id = nextLayerID++;
@@ -130,6 +135,10 @@ CoordinatedGraphicsLayer::CoordinatedGraphicsLayer(Type layerType, GraphicsLayer
 
     // Enforce a complete flush on the first occasion.
     m_nicosia.delta.value = UINT_MAX;
+
+#if USE(GLIB_EVENT_LOOP)
+    m_requestPendingTileCreationTimer.setPriority(RunLoopSourcePriority::LayerFlushTimer);
+#endif
 }
 
 CoordinatedGraphicsLayer::~CoordinatedGraphicsLayer()
@@ -395,7 +404,7 @@ bool GraphicsLayer::supportsContentsTiling()
 
 void CoordinatedGraphicsLayer::setContentsNeedsDisplay()
 {
-#if USE(COORDINATED_GRAPHICS_THREADED) && USE(NICOSIA)
+#if USE(COORDINATED_GRAPHICS) && USE(NICOSIA)
     if (m_nicosia.contentLayer)
         m_shouldUpdatePlatformLayer = true;
 #endif
@@ -406,11 +415,13 @@ void CoordinatedGraphicsLayer::setContentsNeedsDisplay()
 
 void CoordinatedGraphicsLayer::setContentsToPlatformLayer(PlatformLayer* platformLayer, ContentsLayerPurpose)
 {
-#if USE(COORDINATED_GRAPHICS_THREADED) && USE(NICOSIA)
+#if USE(COORDINATED_GRAPHICS) && USE(NICOSIA)
     auto* contentLayer = downcast<Nicosia::ContentLayer>(platformLayer);
     if (m_nicosia.contentLayer != contentLayer) {
         m_nicosia.contentLayer = contentLayer;
         m_nicosia.delta.contentLayerChanged = true;
+        if (m_nicosia.contentLayer)
+            m_shouldUpdatePlatformLayer = true;
     }
     notifyFlushRequired();
 #else
@@ -614,7 +625,7 @@ void CoordinatedGraphicsLayer::updatePlatformLayer()
         return;
 
     m_shouldUpdatePlatformLayer = false;
-#if USE(COORDINATED_GRAPHICS_THREADED) && USE(NICOSIA)
+#if USE(COORDINATED_GRAPHICS) && USE(NICOSIA)
     if (m_nicosia.contentLayer)
         downcast<Nicosia::ContentLayerTextureMapperImpl>(m_nicosia.contentLayer->impl()).swapBuffersIfNeeded();
 #endif
@@ -622,6 +633,9 @@ void CoordinatedGraphicsLayer::updatePlatformLayer()
 
 void CoordinatedGraphicsLayer::flushCompositingStateForThisLayerOnly()
 {
+    // Whether it kicked or not, we don't need this timer running anymore.
+    m_requestPendingTileCreationTimer.stop();
+
     // When we have a transform animation, we need to update visible rect every frame to adjust the visible rect of a backing store.
     bool hasActiveTransformAnimation = selfOrAncestorHasActiveTransformAnimation();
     if (hasActiveTransformAnimation)
@@ -888,7 +902,7 @@ void CoordinatedGraphicsLayer::updateContentBuffers()
 
     if (!m_needsDisplay.completeLayer) {
         for (auto& rect : m_needsDisplay.rects)
-            layerState.mainBackingStore->invalidate(IntRect { rect });
+            layerState.mainBackingStore->invalidate(enclosingIntRect(rect));
     } else
         layerState.mainBackingStore->invalidate({ { }, IntSize { m_size } });
 
@@ -935,10 +949,11 @@ void CoordinatedGraphicsLayer::updateContentBuffers()
             didUpdateTileBuffers();
     }
 
-    // Request a second update immediately if some tiles are still pending creation.
+    // Request a new update immediately if some tiles are still pending creation. Do this on a timer
+    // as we're in a layer flush and flush requests at this point would be discarded.
     if (layerState.hasPendingTileCreation) {
         setNeedsVisibleRectAdjustment();
-        notifyFlushRequired();
+        m_requestPendingTileCreationTimer.startOneShot(0_s);
     }
 
     finishUpdate();
@@ -976,7 +991,7 @@ void CoordinatedGraphicsLayer::setCoordinator(CoordinatedGraphicsLayerClient* co
 
 void CoordinatedGraphicsLayer::setCoordinatorIncludingSubLayersIfNeeded(CoordinatedGraphicsLayerClient* coordinator)
 {
-    if (m_coordinator == coordinator)
+    if (!coordinator || m_coordinator == coordinator)
         return;
 
     // If the coordinators are different it means that we are attaching a layer that was created by a different
@@ -1179,6 +1194,11 @@ void CoordinatedGraphicsLayer::resumeAnimations()
 void CoordinatedGraphicsLayer::animationStartedTimerFired()
 {
     client().notifyAnimationStarted(this, "", m_lastAnimationStartTime);
+}
+
+void CoordinatedGraphicsLayer::requestPendingTileCreationTimerFired()
+{
+    notifyFlushRequired();
 }
 
 bool CoordinatedGraphicsLayer::usesContentsLayer() const

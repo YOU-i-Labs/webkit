@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -113,7 +113,7 @@ void* prepareOSREntry(ExecState* exec, CodeBlock* codeBlock, unsigned bytecodeIn
     sanitizeStackForVM(vm);
     
     if (bytecodeIndex)
-        codeBlock->ownerScriptExecutable()->setDidTryToEnterInLoop(true);
+        codeBlock->ownerExecutable()->setDidTryToEnterInLoop(true);
     
     if (codeBlock->jitType() != JITCode::DFGJIT) {
         RELEASE_ASSERT(codeBlock->jitType() == JITCode::FTLJIT);
@@ -313,7 +313,7 @@ void* prepareOSREntry(ExecState* exec, CodeBlock* codeBlock, unsigned bytecodeIn
 
     // 6) Copy our callee saves to buffer.
 #if NUMBER_OF_CALLEE_SAVES_REGISTERS > 0
-    RegisterAtOffsetList* registerSaveLocations = codeBlock->calleeSaveRegisters();
+    const RegisterAtOffsetList* registerSaveLocations = codeBlock->calleeSaveRegisters();
     RegisterAtOffsetList* allCalleeSaves = RegisterSet::vmCalleeSaveRegisterOffsets();
     RegisterSet dontSaveRegisters = RegisterSet(RegisterSet::stackRegisters(), RegisterSet::allFPRs());
 
@@ -392,7 +392,7 @@ MacroAssemblerCodePtr<ExceptionHandlerPtrTag> prepareCatchOSREntry(ExecState* ex
 
     auto instruction = exec->codeBlock()->instructions().at(exec->bytecodeOffset());
     ASSERT(instruction->is<OpCatch>());
-    ValueProfileAndOperandBuffer* buffer = instruction->as<OpCatch>().metadata(exec).buffer;
+    ValueProfileAndOperandBuffer* buffer = instruction->as<OpCatch>().metadata(exec).m_buffer;
     JSValue* dataBuffer = reinterpret_cast<JSValue*>(dfgCommon->catchOSREntryBuffer->dataBuffer());
     unsigned index = 0;
     buffer->forEach([&] (ValueProfileAndOperand& profile) {

@@ -37,9 +37,7 @@ WI.Setting = class Setting extends WI.Object
 
         this._name = name;
 
-        let inspectionLevel = InspectorFrontendHost ? InspectorFrontendHost.inspectionLevel() : 1;
-        let levelString = inspectionLevel > 1 ? "-" + inspectionLevel : "";
-        this._localStorageKey = `com.apple.WebInspector${levelString}.${name}`;
+        this._localStorageKey = WI.Setting._localStorageKey(this._name);
         this._defaultValue = defaultValue;
     }
 
@@ -47,15 +45,24 @@ WI.Setting = class Setting extends WI.Object
 
     static migrateValue(key)
     {
+        let localStorageKey = WI.Setting._localStorageKey(key);
+
         let value = undefined;
-        if (!window.InspectorTest && window.localStorage && key in window.localStorage) {
+        if (!window.InspectorTest && window.localStorage && localStorageKey in window.localStorage) {
             try {
-                value = JSON.parse(window.localStorage[key]);
+                value = JSON.parse(window.localStorage[localStorageKey]);
             } catch { }
 
-            window.localStorage.removeItem(key);
+            window.localStorage.removeItem(localStorageKey);
         }
         return value;
+    }
+
+    static _localStorageKey(name)
+    {
+        let inspectionLevel = InspectorFrontendHost ? InspectorFrontendHost.inspectionLevel() : 1;
+        let levelString = inspectionLevel > 1 ? "-" + inspectionLevel : "";
+        return `com.apple.WebInspector${levelString}.${name}`;
     }
 
     // Public
@@ -145,7 +152,6 @@ WI.settings = {
     zoomFactor: new WI.Setting("zoom-factor", 1),
 
     // Experimental
-    experimentalEnableComputedStyleCascades: new WI.Setting("experimental-enable-computed-style-cascades", false),
     experimentalEnableLayersTab: new WI.Setting("experimental-enable-layers-tab", false),
     experimentalEnableNewTabBar: new WI.Setting("experimental-enable-new-tab-bar", false),
     experimentalEnableAuditTab: new WI.Setting("experimental-enable-audit-tab", false),
@@ -159,4 +165,5 @@ WI.settings = {
     filterMultiplexingBackendInspectorProtocolMessages: new WI.Setting("filter-multiplexing-backend-inspector-protocol-messages", true),
     layoutDirection: new WI.Setting("layout-direction-override", "system"),
     pauseForInternalScripts: new WI.Setting("pause-for-internal-scripts", false),
+    debugShowInternalObjectsInHeapSnapshot: new WI.Setting("debug-show-internal-objects-in-heap-snapshot", false),
 };

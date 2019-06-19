@@ -65,7 +65,6 @@
                 { "name": "shadowRoots", "type": "array", "optional": true, "items": { "$ref": "Node" }, "description": "Shadow root list for given element host." },
                 { "name": "templateContent", "$ref": "Node", "optional": true, "description": "Content document fragment for template elements" },
                 { "name": "pseudoElements", "type": "array", "items": { "$ref": "Node" }, "optional": true, "description": "Pseudo elements associated with this node." },
-                { "name": "role", "type": "string", "optional": true, "description": "Computed value for first recognized role token, default role per element, or overridden role." },
                 { "name": "contentSecurityPolicyHash", "type": "string", "optional": true, "description": "Computed SHA-256 Content Security Policy hash source for given element." }
             ]
         },
@@ -79,10 +78,9 @@
                 { "name": "useCapture", "type": "boolean", "description": "<code>EventListener</code>'s useCapture." },
                 { "name": "isAttribute", "type": "boolean", "description": "<code>EventListener</code>'s isAttribute." },
                 { "name": "nodeId", "$ref": "NodeId", "description": "Target <code>DOMNode</code> id." },
-                { "name": "handlerBody", "type": "string", "description": "Event handler function body." },
                 { "name": "location", "$ref": "Debugger.Location", "optional": true, "description": "Handler code location." },
-                { "name": "sourceName", "type": "string", "optional": true, "description": "Source script URL." },
-                { "name": "handler", "$ref": "Runtime.RemoteObject", "optional": true, "description": "Event handler function value." },
+                { "name": "handlerName", "type": "string", "optional": true, "description": "Event handler function name." },
+                { "name": "handlerObject", "$ref": "Runtime.RemoteObject", "optional": true, "description": "Event handler function value." },
                 { "name": "passive", "type": "boolean", "optional": true, "description": "<code>EventListener</code>'s passive." },
                 { "name": "once", "type": "boolean", "optional": true, "description": "<code>EventListener</code>'s once." },
                 { "name": "disabled", "type": "boolean", "optional": true },

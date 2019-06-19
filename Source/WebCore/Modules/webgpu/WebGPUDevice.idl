@@ -29,11 +29,10 @@
     EnabledAtRuntime=WebGPU,
     ImplementationLacksVTable
 ] interface WebGPUDevice {
-    // readonly attribute WebGPUExtensions extensions;
-    // readonly attribute WebGPULimits limits;
     readonly attribute WebGPUAdapter adapter;
 
     WebGPUBuffer createBuffer(WebGPUBufferDescriptor descriptor);
+    WebGPUTexture createTexture(GPUTextureDescriptor descriptor);
 
     WebGPUBindGroupLayout createBindGroupLayout(WebGPUBindGroupLayoutDescriptor descriptor);
     WebGPUPipelineLayout createPipelineLayout(WebGPUPipelineLayoutDescriptor descriptor);
@@ -48,18 +47,15 @@
     WebGPUQueue getQueue();
 
     // FIXME: Unimplemented.
+    // readonly attribute WebGPUExtensions extensions;
+    // readonly attribute WebGPULimits limits;
+
     // WebGPUTexture createTexture(WebGPUTextureDescriptor descriptor);
     // WebGPUSampler createSampler(WebGPUSamplerDescriptor descriptor);
-    //
-    // WebGPUBindGroup createBindGroup(WebGPUBindGroupDescriptor descriptor);
-    //
-    // WebGPUBlendState createBlendState(WebGPUBlendStateDescriptor descriptor);
-    // WebGPUDepthStencilState createDepthStencilState(WebGPUDepthStencilStateDescriptor descriptor);
-    // WebGPUInputState createInputState(WebGPUInputStateDescriptor descriptor);
-    // WebGPUAttachmentState createAttachmentState(WebGPUAttachmentStateDescriptor descriptor);
+
     // WebGPUComputePipeline createComputePipeline(WebGPUComputePipelineDescriptor descriptor);
     // WebGPUFence createFence(WebGPUFenceDescriptor descriptor);
-    //
+
     // attribute WebGPULogCallback onLog;
     // WebGPUObjectStatusQuery getObjectStatus(StatusableObject statusableObject);
 };

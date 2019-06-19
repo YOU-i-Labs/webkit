@@ -69,6 +69,7 @@ public:
     BuiltInSemantic(BuiltInSemantic&&) = default;
 
     Variable variable() const { return m_variable; }
+    Optional<unsigned>& targetIndex() { return m_targetIndex; }
 
     bool operator==(const BuiltInSemantic& other) const
     {
@@ -81,7 +82,7 @@ public:
     }
 
     bool isAcceptableType(const UnnamedType&, const Intrinsics&) const override;
-    bool isAcceptableForShaderItemDirection(ShaderItemDirection, const FunctionDefinition&) const override;
+    bool isAcceptableForShaderItemDirection(ShaderItemDirection, const Optional<EntryPointType>&) const override;
 
 private:
     Variable m_variable;

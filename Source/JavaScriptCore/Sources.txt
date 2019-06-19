@@ -21,6 +21,7 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 // THE POSSIBILITY OF SUCH DAMAGE.
 
+API/JSAPIGlobalObject.cpp
 API/JSAPIValueWrapper.cpp
 API/JSBase.cpp
 API/JSCTestRunnerUtils.cpp
@@ -55,6 +56,7 @@ assembler/Printer.cpp
 assembler/ProbeContext.cpp
 assembler/ProbeStack.cpp
 
+b3/air/AirAllocateRegistersAndStackAndGenerateCode.cpp
 b3/air/AirAllocateRegistersAndStackByLinearScan.cpp
 b3/air/AirAllocateRegistersByGraphColoring.cpp
 b3/air/AirAllocateStackByGraphColoring.cpp
@@ -343,7 +345,6 @@ dfg/DFGGraph.cpp
 dfg/DFGGraphSafepoint.cpp
 dfg/DFGHeapLocation.cpp
 dfg/DFGInPlaceAbstractState.cpp
-dfg/DFGInferredTypeCheck.cpp
 dfg/DFGInsertionSet.cpp
 dfg/DFGIntegerCheckCombiningPhase.cpp
 dfg/DFGIntegerRangeOptimizationPhase.cpp
@@ -578,12 +579,14 @@ inspector/InspectorFrontendDispatchers.cpp
 inspector/InspectorProtocolObjects.cpp
 
 inspector/agents/InspectorAgent.cpp
+inspector/agents/InspectorAuditAgent.cpp
 inspector/agents/InspectorConsoleAgent.cpp
 inspector/agents/InspectorDebuggerAgent.cpp
 inspector/agents/InspectorHeapAgent.cpp
 inspector/agents/InspectorRuntimeAgent.cpp
 inspector/agents/InspectorScriptProfilerAgent.cpp
 inspector/agents/InspectorTargetAgent.cpp
+inspector/agents/JSGlobalObjectAuditAgent.cpp
 inspector/agents/JSGlobalObjectDebuggerAgent.cpp
 inspector/agents/JSGlobalObjectRuntimeAgent.cpp
 
@@ -711,6 +714,7 @@ runtime/BooleanConstructor.cpp
 runtime/BooleanObject.cpp
 runtime/BooleanPrototype.cpp
 runtime/CallData.cpp
+runtime/CachedTypes.cpp
 runtime/CatchScope.cpp
 runtime/ClassInfo.cpp
 runtime/ClonedArguments.cpp
@@ -745,6 +749,7 @@ runtime/ErrorConstructor.cpp
 runtime/ErrorHandlingScope.cpp
 runtime/ErrorInstance.cpp
 runtime/ErrorPrototype.cpp
+runtime/ErrorType.cpp
 runtime/EvalExecutable.cpp
 runtime/Exception.cpp
 runtime/ExceptionEventLocation.cpp
@@ -767,10 +772,6 @@ runtime/HashMapImpl.cpp
 runtime/Identifier.cpp
 runtime/IndexingType.cpp
 runtime/IndirectEvalExecutable.cpp
-runtime/InferredStructure.cpp
-runtime/InferredStructureWatchpoint.cpp
-runtime/InferredType.cpp
-runtime/InferredTypeTable.cpp
 runtime/InferredValue.cpp
 runtime/InitializeThreading.cpp
 runtime/InspectorInstrumentationObject.cpp
@@ -801,7 +802,6 @@ runtime/JSAsyncGeneratorFunction.cpp
 runtime/JSBigInt.cpp
 runtime/JSBoundFunction.cpp
 runtime/JSCJSValue.cpp
-runtime/JSCPoison.cpp
 runtime/JSCallee.cpp
 runtime/JSCell.cpp
 runtime/JSCustomGetterSetterFunction.cpp
@@ -831,6 +831,7 @@ runtime/JSModuleLoader.cpp
 runtime/JSModuleNamespaceObject.cpp
 runtime/JSModuleRecord.cpp
 runtime/JSNativeStdFunction.cpp
+runtime/JSNonDestructibleProxy.cpp
 runtime/JSONObject.cpp
 runtime/JSObject.cpp
 runtime/JSPromise.cpp
@@ -902,6 +903,7 @@ runtime/RegExp.cpp
 runtime/RegExpCache.cpp
 runtime/RegExpCachedResult.cpp
 runtime/RegExpConstructor.cpp
+runtime/RegExpGlobalData.cpp
 runtime/RegExpMatchesArray.cpp
 runtime/RegExpObject.cpp
 runtime/RegExpPrototype.cpp
@@ -970,6 +972,7 @@ tools/JSDollarVM.cpp
 tools/SigillCrashAnalyzer.cpp
 tools/VMInspector.cpp
 
+wasm/WasmAirIRGenerator.cpp @no-unify
 wasm/WasmB3IRGenerator.cpp
 wasm/WasmBBQPlan.cpp
 wasm/WasmBinding.cpp

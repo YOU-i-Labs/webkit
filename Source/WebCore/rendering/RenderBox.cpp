@@ -526,12 +526,12 @@ void RenderBox::layout()
 // excluding border and scrollbar.
 LayoutUnit RenderBox::clientWidth() const
 {
-    return width() - borderLeft() - borderRight() - verticalScrollbarWidth();
+    return paddingBoxWidth();
 }
 
 LayoutUnit RenderBox::clientHeight() const
 {
-    return height() - borderTop() - borderBottom() - horizontalScrollbarHeight();
+    return paddingBoxHeight();
 }
 
 int RenderBox::scrollWidth() const
@@ -1988,7 +1988,7 @@ void RenderBox::mapLocalToContainer(const RenderLayerModelObject* repaintContain
     if (repaintContainer == this)
         return;
 
-    if (view().frameView().layoutContext().isPaintOffsetCacheEnabled() && !repaintContainer) {
+    if (!repaintContainer && view().frameView().layoutContext().isPaintOffsetCacheEnabled()) {
         auto* layoutState = view().frameView().layoutContext().layoutState();
         LayoutSize offset = layoutState->paintOffset() + locationOffset();
         if (style().hasInFlowPosition() && layer())

@@ -30,7 +30,7 @@
 #include "FrameInfoData.h"
 #include "NavigationActionData.h"
 #include "WebBackForwardListItem.h"
-#include <WebCore/Process.h>
+#include <WebCore/ProcessIdentifier.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/SecurityOriginData.h>
 #include <wtf/Ref.h>
@@ -106,12 +106,14 @@ public:
 
     bool wasUserInitiated() const { return !!m_lastNavigationAction.userGestureTokenIdentifier; }
 
-    bool shouldForceDownload() const
+    bool shouldForceDownload() const { return !m_lastNavigationAction.downloadAttribute.isNull(); }
+
+    bool isSystemPreview() const
     {
 #if USE(SYSTEM_PREVIEW)
-        return !m_lastNavigationAction.downloadAttribute.isNull() || currentRequest().isSystemPreview();
+        return currentRequest().isSystemPreview();
 #else
-        return !m_lastNavigationAction.downloadAttribute.isNull();
+        return false;
 #endif
     }
 

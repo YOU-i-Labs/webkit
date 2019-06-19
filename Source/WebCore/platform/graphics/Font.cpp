@@ -33,6 +33,7 @@
 #if PLATFORM(COCOA)
 #include <pal/spi/cocoa/CoreTextSPI.h>
 #endif
+#include "CharacterProperties.h"
 #include "FontCache.h"
 #include "FontCascade.h"
 #include "OpenTypeMathData.h"
@@ -102,14 +103,20 @@ void Font::initCharWidths()
 
 void Font::platformGlyphInit()
 {
-    auto* glyphPageZero = glyphPage(0);
+#if USE(FREETYPE)
+    auto* glyphPageZeroWidthSpace = glyphPage(GlyphPage::pageNumberForCodePoint(zeroWidthSpace));
+    UChar32 zeroWidthSpaceCharacter = zeroWidthSpace;
+#else
+    // Ask for the glyph for 0 to avoid paging in ZERO WIDTH SPACE. Control characters, including 0,
+    // are mapped to the ZERO WIDTH SPACE glyph for non FreeType based ports.
+    auto* glyphPageZeroWidthSpace = glyphPage(0);
+    UChar32 zeroWidthSpaceCharacter = 0;
+#endif
     auto* glyphPageCharacterZero = glyphPage(GlyphPage::pageNumberForCodePoint('0'));
     auto* glyphPageSpace = glyphPage(GlyphPage::pageNumberForCodePoint(space));
 
-    // Ask for the glyph for 0 to avoid paging in ZERO WIDTH SPACE. Control characters, including 0,
-    // are mapped to the ZERO WIDTH SPACE glyph.
-    if (glyphPageZero)
-        m_zeroWidthSpaceGlyph = glyphPageZero->glyphDataForCharacter(0).glyph;
+    if (glyphPageZeroWidthSpace)
+        m_zeroWidthSpaceGlyph = glyphPageZeroWidthSpace->glyphDataForCharacter(zeroWidthSpaceCharacter).glyph;
 
     // Nasty hack to determine if we should round or ceil space widths.
     // If the font is monospace or fake monospace we ceil to ensure that 
@@ -635,9 +642,9 @@ bool Font::variantCapsSupportsCharacterForSynthesis(FontVariantCaps fontVariantC
     }
 }
 
-bool Font::platformSupportsCodePoint(UChar32 character) const
+bool Font::platformSupportsCodePoint(UChar32 character, Optional<UChar32> variation) const
 {
-    return glyphForCharacter(character);
+    return variation ? false : glyphForCharacter(character);
 }
 #endif
 
@@ -665,7 +672,23 @@ bool Font::canRenderCombiningCharacterSequence(const UChar* characters, size_t l
 {
     ASSERT(isMainThread());
 
-    for (UChar32 codePoint : StringView(characters, length).codePoints()) {
+    auto codePoints = StringView(characters, length).codePoints();
+    auto it = codePoints.begin();
+    auto end = codePoints.end();
+    while (it != end) {
+        auto codePoint = *it;
+        ++it;
+
+        if (it != end && isVariationSelector(*it)) {
+            if (!platformSupportsCodePoint(codePoint, *it)) {
+                // Try the characters individually.
+                if (!supportsCodePoint(codePoint) || !supportsCodePoint(*it))
+                    return false;
+            }
+            ++it;
+            continue;
+        }
+
         if (!supportsCodePoint(codePoint))
             return false;
     }

@@ -44,7 +44,7 @@
 #include "RealtimeMediaSourceSettings.h"
 #include <math.h>
 #include <wtf/UUID.h>
-#include <wtf/text/StringView.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 
 namespace WebCore {
 
@@ -350,29 +350,29 @@ void MockRealtimeVideoSource::drawText(GraphicsContext& context)
     FloatPoint timeLocation(captureSize.width() * .05, captureSize.height() * .15);
     context.setFillColor(Color::white);
     context.setTextDrawingMode(TextModeFill);
-    String string = String::format("%02u:%02u:%02u.%03u", hours, minutes, seconds, milliseconds % 1000);
+    String string = makeString(pad('0', 2, hours), ':', pad('0', 2, minutes), ':', pad('0', 2, seconds), '.', pad('0', 3, milliseconds % 1000));
     context.drawText(timeFont, TextRun((StringView(string))), timeLocation);
 
-    string = String::format("%06u", m_frameNumber++);
+    string = makeString(pad('0', 6, m_frameNumber++));
     timeLocation.move(0, m_baseFontSize);
     context.drawText(timeFont, TextRun((StringView(string))), timeLocation);
 
     FloatPoint statsLocation(captureSize.width() * .45, captureSize.height() * .75);
-    string = String::format("Requested frame rate: %.1f fps", frameRate());
+    string = makeString("Requested frame rate: ", FormattedNumber::fixedWidth(frameRate(), 1), " fps");
     context.drawText(statsFont, TextRun((StringView(string))), statsLocation);
 
     statsLocation.move(0, m_statsFontSize);
-    string = String::format("Observed frame rate: %.1f fps", observedFrameRate());
+    string = makeString("Observed frame rate: ", FormattedNumber::fixedWidth(observedFrameRate(), 1), " fps");
     context.drawText(statsFont, TextRun((StringView(string))), statsLocation);
 
     auto size = this->size();
     statsLocation.move(0, m_statsFontSize);
-    string = String::format("Size: %u x %u", size.width(), size.height());
+    string = makeString("Size: ", size.width(), " x ", size.height());
     context.drawText(statsFont, TextRun((StringView(string))), statsLocation);
 
     if (mockCamera()) {
         statsLocation.move(0, m_statsFontSize);
-        string = String::format("Preset size: %u x %u", captureSize.width(), captureSize.height());
+        string = makeString("Preset size: ", captureSize.width(), " x ", captureSize.height());
         context.drawText(statsFont, TextRun((StringView(string))), statsLocation);
 
         const char* camera;
@@ -393,7 +393,7 @@ void MockRealtimeVideoSource::drawText(GraphicsContext& context)
             camera = "Unknown";
             break;
         }
-        string = String::format("Camera: %s", camera);
+        string = makeString("Camera: ", camera);
         statsLocation.move(0, m_statsFontSize);
         context.drawText(statsFont, TextRun((StringView(string))), statsLocation);
     } else if (!name().isNull()) {

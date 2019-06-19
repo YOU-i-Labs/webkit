@@ -256,7 +256,6 @@ public:
 
     ExceptionOr<bool> wasLastChangeUserEdit(Element& textField);
     bool elementShouldAutoComplete(HTMLInputElement&);
-    void setEditingValue(HTMLInputElement&, const String&);
     void setAutofilled(HTMLInputElement&, bool enabled);
     enum class AutoFillButtonType { None, Contacts, Credentials, StrongPassword, CreditCard };
     void setShowAutoFillButton(HTMLInputElement&, AutoFillButtonType);
@@ -347,12 +346,14 @@ public:
         LAYER_TREE_INCLUDES_CONTENT_LAYERS = 16,
         LAYER_TREE_INCLUDES_ACCELERATES_DRAWING = 32,
         LAYER_TREE_INCLUDES_BACKING_STORE_ATTACHED = 64,
+        LAYER_TREE_INCLUDES_ROOT_LAYER_PROPERTIES = 128,
     };
     ExceptionOr<String> layerTreeAsText(Document&, unsigned short flags) const;
     ExceptionOr<uint64_t> layerIDForElement(Element&);
     ExceptionOr<String> repaintRectsAsText() const;
 
-    ExceptionOr<String> scrollbarOverlayStyle() const;
+    ExceptionOr<String> scrollbarOverlayStyle(Node*) const;
+    ExceptionOr<bool> scrollbarUsingDarkAppearance(Node*) const;
 
     ExceptionOr<String> scrollingStateTreeAsText() const;
     ExceptionOr<String> mainThreadScrollingReasons() const;
@@ -376,6 +377,8 @@ public:
 
     ExceptionOr<void> insertAuthorCSS(const String&) const;
     ExceptionOr<void> insertUserCSS(const String&) const;
+
+    unsigned numberOfIDBTransactions() const;
 
     unsigned numberOfLiveNodes() const;
     unsigned numberOfLiveDocuments() const;
@@ -507,6 +510,7 @@ public:
 
 #if ENABLE(MEDIA_STREAM)
     void setMockMediaCaptureDevicesEnabled(bool);
+    void setMediaCaptureRequiresSecureConnection(bool);
     void setCustomPrivateRecorderCreator();
 #endif
 
@@ -516,6 +520,7 @@ public:
     void setICECandidateFiltering(bool);
     void setEnumeratingAllNetworkInterfacesEnabled(bool);
     void stopPeerConnection(RTCPeerConnection&);
+    void clearPeerConnectionFactory();
     void applyRotationForOutgoingVideoSources(RTCPeerConnection&);
 #endif
 
@@ -791,7 +796,7 @@ public:
     };
     Vector<CookieData> getCookies() const;
 
-    void setAlwaysAllowLocalWebarchive() const;
+    void setAlwaysAllowLocalWebarchive(bool);
 
 private:
     explicit Internals(Document&);

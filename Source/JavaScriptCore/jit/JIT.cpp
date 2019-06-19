@@ -681,26 +681,6 @@ void JIT::compileWithoutLinking(JITCompilationEffort effort)
     sampleInstruction(m_codeBlock->instructions().begin());
 #endif
 
-    if (m_codeBlock->codeType() == FunctionCode) {
-        ASSERT(m_bytecodeOffset == std::numeric_limits<unsigned>::max());
-        if (shouldEmitProfiling()) {
-            for (int argument = 0; argument < m_codeBlock->numParameters(); ++argument) {
-                // If this is a constructor, then we want to put in a dummy profiling site (to
-                // keep things consistent) but we don't actually want to record the dummy value.
-                if (m_codeBlock->m_isConstructor && !argument)
-                    continue;
-                int offset = CallFrame::argumentOffsetIncludingThis(argument) * static_cast<int>(sizeof(Register));
-#if USE(JSVALUE64)
-                load64(Address(callFrameRegister, offset), regT0);
-#elif USE(JSVALUE32_64)
-                load32(Address(callFrameRegister, offset + OBJECT_OFFSETOF(JSValue, u.asBits.payload)), regT0);
-                load32(Address(callFrameRegister, offset + OBJECT_OFFSETOF(JSValue, u.asBits.tag)), regT1);
-#endif
-                emitValueProfilingSite(m_codeBlock->valueProfileForArgument(argument));
-            }
-        }
-    }
-
     int frameTopOffset = stackPointerOffsetFor(m_codeBlock) * sizeof(Register);
     unsigned maxFrameSize = -frameTopOffset;
     addPtr(TrustedImm32(frameTopOffset), callFrameRegister, regT1);
@@ -716,6 +696,26 @@ void JIT::compileWithoutLinking(JITCompilationEffort effort)
 
     emitSaveCalleeSaves();
     emitMaterializeTagCheckRegisters();
+
+    if (m_codeBlock->codeType() == FunctionCode) {
+        ASSERT(m_bytecodeOffset == std::numeric_limits<unsigned>::max());
+        if (shouldEmitProfiling()) {
+            for (int argument = 0; argument < m_codeBlock->numParameters(); ++argument) {
+                // If this is a constructor, then we want to put in a dummy profiling site (to
+                // keep things consistent) but we don't actually want to record the dummy value.
+                if (m_codeBlock->isConstructor() && !argument)
+                    continue;
+                int offset = CallFrame::argumentOffsetIncludingThis(argument) * static_cast<int>(sizeof(Register));
+#if USE(JSVALUE64)
+                load64(Address(callFrameRegister, offset), regT0);
+#elif USE(JSVALUE32_64)
+                load32(Address(callFrameRegister, offset + OBJECT_OFFSETOF(JSValue, u.asBits.payload)), regT0);
+                load32(Address(callFrameRegister, offset + OBJECT_OFFSETOF(JSValue, u.asBits.tag)), regT1);
+#endif
+                emitValueProfilingSite(m_codeBlock->valueProfileForArgument(argument));
+            }
+        }
+    }
     
     RELEASE_ASSERT(!JITCode::isJIT(m_codeBlock->jitType()));
 
@@ -748,7 +748,7 @@ void JIT::compileWithoutLinking(JITCompilationEffort effort)
 
         if (maxFrameExtentForSlowPathCall)
             addPtr(TrustedImm32(-static_cast<int32_t>(maxFrameExtentForSlowPathCall)), stackPointerRegister);
-        callOperationWithCallFrameRollbackOnException(m_codeBlock->m_isConstructor ? operationConstructArityCheck : operationCallArityCheck);
+        callOperationWithCallFrameRollbackOnException(m_codeBlock->isConstructor() ? operationConstructArityCheck : operationCallArityCheck);
         if (maxFrameExtentForSlowPathCall)
             addPtr(TrustedImm32(maxFrameExtentForSlowPathCall), stackPointerRegister);
         branchTest32(Zero, returnValueGPR).linkTo(beginLabel, this);

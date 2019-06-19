@@ -30,7 +30,7 @@
 #include "APIPageGroupHandle.h"
 #include "APIPageHandle.h"
 #include "AuthenticationManager.h"
-#include "ChildProcessMessages.h"
+#include "AuxiliaryProcessMessages.h"
 #include "DrawingArea.h"
 #include "EventDispatcher.h"
 #include "InjectedBundle.h"
@@ -204,13 +204,17 @@ WebProcess::WebProcess()
 
     m_plugInAutoStartOriginHashes.add(PAL::SessionID::defaultSessionID(), HashMap<unsigned, WallTime>());
 
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
     ResourceLoadObserver::shared().setNotificationCallback([this] (Vector<ResourceLoadStatistics>&& statistics) {
         parentProcessConnection()->send(Messages::WebResourceLoadStatisticsStore::ResourceLoadStatisticsUpdated(WTFMove(statistics)), 0);
+
+        m_networkProcessConnection->connection().send(Messages::NetworkConnectionToWebProcess::RequestResourceLoadStatisticsUpdate(), 0);
     });
 
     ResourceLoadObserver::shared().setRequestStorageAccessUnderOpenerCallback([this] (const String& domainInNeedOfStorageAccess, uint64_t openerPageID, const String& openerDomain) {
         parentProcessConnection()->send(Messages::WebResourceLoadStatisticsStore::RequestStorageAccessUnderOpener(domainInNeedOfStorageAccess, openerPageID, openerDomain), 0);
     });
+#endif
     
     Gigacage::disableDisablingPrimitiveGigacageIfShouldBeEnabled();
 }
@@ -219,7 +223,7 @@ WebProcess::~WebProcess()
 {
 }
 
-void WebProcess::initializeProcess(const ChildProcessInitializationParameters& parameters)
+void WebProcess::initializeProcess(const AuxiliaryProcessInitializationParameters& parameters)
 {
     WTF::setProcessPrivileges({ });
 
@@ -230,10 +234,10 @@ void WebProcess::initializeProcess(const ChildProcessInitializationParameters& p
 
 void WebProcess::initializeConnection(IPC::Connection* connection)
 {
-    ChildProcess::initializeConnection(connection);
+    AuxiliaryProcess::initializeConnection(connection);
 
     // We call _exit() directly from the background queue in case the main thread is unresponsive
-    // and ChildProcess::didClose() does not get called.
+    // and AuxiliaryProcess::didClose() does not get called.
     connection->setDidCloseOnConnectionWorkQueueCallback(callExit);
 
 #if !PLATFORM(GTK) && !PLATFORM(WPE)
@@ -381,6 +385,24 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
     setShouldUseFontSmoothing(parameters.shouldUseFontSmoothing);
 
     ensureNetworkProcessConnection();
+
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    ResourceLoadObserver::shared().setLogUserInteractionNotificationCallback([this] (PAL::SessionID sessionID, const String& topLevelOrigin) {
+        m_networkProcessConnection->connection().send(Messages::NetworkConnectionToWebProcess::LogUserInteraction(sessionID, topLevelOrigin), 0);
+    });
+
+    ResourceLoadObserver::shared().setLogWebSocketLoadingNotificationCallback([this] (PAL::SessionID sessionID, const String& targetPrimaryDomain, const String& mainFramePrimaryDomain, WallTime lastSeen) {
+        m_networkProcessConnection->connection().send(Messages::NetworkConnectionToWebProcess::LogWebSocketLoading(sessionID, targetPrimaryDomain, mainFramePrimaryDomain, lastSeen), 0);
+    });
+    
+    ResourceLoadObserver::shared().setLogSubresourceLoadingNotificationCallback([this] (PAL::SessionID sessionID, const String& targetPrimaryDomain, const String& mainFramePrimaryDomain, WallTime lastSeen) {
+        m_networkProcessConnection->connection().send(Messages::NetworkConnectionToWebProcess::LogSubresourceLoading(sessionID, targetPrimaryDomain, mainFramePrimaryDomain, lastSeen), 0);
+    });
+
+    ResourceLoadObserver::shared().setLogSubresourceRedirectNotificationCallback([this] (PAL::SessionID sessionID, const String& sourcePrimaryDomain, const String& targetPrimaryDomain) {
+        m_networkProcessConnection->connection().send(Messages::NetworkConnectionToWebProcess::LogSubresourceRedirect(sessionID, sourcePrimaryDomain, targetPrimaryDomain), 0);
+    });
+#endif
 
     setTerminationTimeout(parameters.terminationTimeout);
 
@@ -570,11 +592,6 @@ void WebProcess::setCacheModel(CacheModel cacheModel)
     platformSetCacheModel(cacheModel);
 }
 
-void WebProcess::clearCachedCredentials()
-{
-    NetworkStorageSession::defaultStorageSession().credentialStorage().clearCredentials();
-}
-
 WebPage* WebProcess::focusedWebPage() const
 {    
     for (auto& page : m_pageMap.values()) {
@@ -644,7 +661,7 @@ void WebProcess::terminate()
 
     platformTerminate();
 
-    ChildProcess::terminate();
+    AuxiliaryProcess::terminate();
 }
 
 void WebProcess::didReceiveSyncMessage(IPC::Connection& connection, IPC::Decoder& decoder, std::unique_ptr<IPC::Encoder>& replyEncoder)
@@ -665,8 +682,8 @@ void WebProcess::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& de
         return;
     }
 
-    if (decoder.messageReceiverName() == Messages::ChildProcess::messageReceiverName()) {
-        ChildProcess::didReceiveMessage(connection, decoder);
+    if (decoder.messageReceiverName() == Messages::AuxiliaryProcess::messageReceiverName()) {
+        AuxiliaryProcess::didReceiveMessage(connection, decoder);
         return;
     }
 
@@ -1291,11 +1308,6 @@ void WebProcess::deleteWebsiteData(PAL::SessionID sessionID, OptionSet<WebsiteDa
 
         CrossOriginPreflightResultCache::singleton().clear();
     }
-
-    if (websiteDataTypes.contains(WebsiteDataType::Credentials)) {
-        if (WebCore::NetworkStorageSession::storageSession(sessionID))
-            NetworkStorageSession::storageSession(sessionID)->credentialStorage().clearCredentials();
-    }
 }
 
 void WebProcess::deleteWebsiteDataForOrigins(PAL::SessionID sessionID, OptionSet<WebsiteDataType> websiteDataTypes, const Vector<WebCore::SecurityOriginData>& originDatas)
@@ -1316,15 +1328,15 @@ void WebProcess::setHiddenPageDOMTimerThrottlingIncreaseLimit(int milliseconds)
 }
 
 #if !PLATFORM(COCOA)
-void WebProcess::initializeProcessName(const ChildProcessInitializationParameters&)
+void WebProcess::initializeProcessName(const AuxiliaryProcessInitializationParameters&)
 {
 }
 
-void WebProcess::initializeSandbox(const ChildProcessInitializationParameters&, SandboxInitializationParameters&)
+void WebProcess::initializeSandbox(const AuxiliaryProcessInitializationParameters&, SandboxInitializationParameters&)
 {
 }
 
-void WebProcess::platformInitializeProcess(const ChildProcessInitializationParameters&)
+void WebProcess::platformInitializeProcess(const AuxiliaryProcessInitializationParameters&)
 {
 }
 

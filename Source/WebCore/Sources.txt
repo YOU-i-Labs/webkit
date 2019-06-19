@@ -309,6 +309,8 @@ Modules/webgpu/DOMWindowWebGPU.cpp
 Modules/webgpu/WHLSL/WHLSLInferTypes.cpp
 Modules/webgpu/WHLSL/WHLSLLexer.cpp
 Modules/webgpu/WHLSL/WHLSLParser.cpp
+Modules/webgpu/WHLSL/WHLSLChecker.cpp
+Modules/webgpu/WHLSL/WHLSLGatherEntryPointItems.cpp
 Modules/webgpu/WHLSL/WHLSLCheckDuplicateFunctions.cpp
 Modules/webgpu/WHLSL/WHLSLRecursiveTypeChecker.cpp
 Modules/webgpu/WHLSL/WHLSLSynthesizeArrayOperatorLength.cpp
@@ -316,10 +318,22 @@ Modules/webgpu/WHLSL/WHLSLSynthesizeConstructors.cpp
 Modules/webgpu/WHLSL/WHLSLSynthesizeEnumerationFunctions.cpp
 Modules/webgpu/WHLSL/WHLSLSynthesizeStructureAccessors.cpp
 Modules/webgpu/WHLSL/WHLSLIntrinsics.cpp
+Modules/webgpu/WHLSL/WHLSLStatementBehaviorChecker.cpp
 Modules/webgpu/WHLSL/WHLSLNameContext.cpp
 Modules/webgpu/WHLSL/WHLSLNameResolver.cpp
 Modules/webgpu/WHLSL/WHLSLResolveOverloadImpl.cpp
+Modules/webgpu/WHLSL/WHLSLRecursionChecker.cpp
 Modules/webgpu/WHLSL/WHLSLVisitor.cpp
+Modules/webgpu/WHLSL/WHLSLLiteralTypeChecker.cpp
+Modules/webgpu/WHLSL/WHLSLHighZombieFinder.cpp
+Modules/webgpu/WHLSL/Metal/WHLSLTypeNamer.cpp
+Modules/webgpu/WHLSL/Metal/WHLSLFunctionWriter.cpp
+Modules/webgpu/WHLSL/Metal/WHLSLMetalCodeGenerator.cpp
+Modules/webgpu/WHLSL/Metal/WHLSLNativeFunctionWriter.cpp
+Modules/webgpu/WHLSL/Metal/WHLSLEntryPointScaffolding.cpp
+Modules/webgpu/WHLSL/Metal/WHLSLNativeTypeWriter.cpp
+Modules/webgpu/WHLSL/Metal/WHLSLVertexBufferIndexCalculator.cpp
+Modules/webgpu/WHLSL/WHLSLFunctionStageChecker.cpp
 Modules/webgpu/WHLSL/AST/WHLSLTypeArgument.cpp
 Modules/webgpu/WHLSL/AST/WHLSLBuiltInSemantic.cpp
 Modules/webgpu/WHLSL/AST/WHLSLResourceSemantic.cpp
@@ -392,6 +406,8 @@ accessibility/AccessibilityTableRow.cpp
 accessibility/AccessibilityTree.cpp
 accessibility/AccessibilityTreeItem.cpp
 accessibility/AccessibleSetValueEvent.cpp
+accessibility/isolatedtree/AXIsolatedTree.cpp
+accessibility/isolatedtree/AXIsolatedTreeNode.cpp
 
 animation/AnimationEffect.cpp
 animation/AnimationPlaybackEvent.cpp
@@ -473,6 +489,7 @@ bindings/js/JSIDBCursorCustom.cpp
 bindings/js/JSIDBCursorWithValueCustom.cpp
 bindings/js/JSIDBIndexCustom.cpp
 bindings/js/JSIDBObjectStoreCustom.cpp
+bindings/js/JSIDBRequestCustom.cpp
 bindings/js/JSIDBTransactionCustom.cpp
 bindings/js/JSImageDataCustom.cpp
 bindings/js/JSIntersectionObserverEntryCustom.cpp
@@ -513,6 +530,7 @@ bindings/js/JSTextTrackListCustom.cpp
 bindings/js/JSTrackCustom.cpp
 bindings/js/JSTreeWalkerCustom.cpp
 bindings/js/JSTypedOMCSSStyleValueCustom.cpp
+bindings/js/JSUndoItemCustom.cpp
 bindings/js/JSVideoTrackCustom.cpp
 bindings/js/JSVideoTrackListCustom.cpp
 bindings/js/JSWebAnimationCustom.cpp
@@ -938,6 +956,7 @@ editing/BreakBlockquoteCommand.cpp
 editing/ChangeListTypeCommand.cpp
 editing/CompositeEditCommand.cpp
 editing/CreateLinkCommand.cpp
+editing/CustomUndoStep.cpp
 editing/DeleteFromTextNodeCommand.cpp
 editing/DeleteSelectionCommand.cpp
 editing/DictationAlternative.cpp
@@ -1246,6 +1265,8 @@ inspector/CommandLineAPIHost.cpp
 inspector/CommandLineAPIModule.cpp
 inspector/DOMEditor.cpp
 inspector/DOMPatchSupport.cpp
+inspector/InspectorAuditAccessibilityObject.cpp
+inspector/InspectorAuditDOMObject.cpp
 inspector/InspectorCanvas.cpp
 inspector/InspectorClient.cpp
 inspector/InspectorController.cpp
@@ -1269,6 +1290,7 @@ inspector/WorkerInspectorController.cpp
 inspector/WorkerScriptDebugServer.cpp
 
 inspector/agents/InspectorApplicationCacheAgent.cpp
+inspector/agents/InspectorCPUProfilerAgent.cpp
 inspector/agents/InspectorCSSAgent.cpp
 inspector/agents/InspectorCanvasAgent.cpp
 inspector/agents/InspectorDOMAgent.cpp
@@ -1286,6 +1308,7 @@ inspector/agents/WebConsoleAgent.cpp
 inspector/agents/WebDebuggerAgent.cpp
 inspector/agents/WebHeapAgent.cpp
 
+inspector/agents/page/PageAuditAgent.cpp
 inspector/agents/page/PageConsoleAgent.cpp
 inspector/agents/page/PageDebuggerAgent.cpp
 inspector/agents/page/PageHeapAgent.cpp
@@ -1293,6 +1316,7 @@ inspector/agents/page/PageNetworkAgent.cpp
 inspector/agents/page/PageRuntimeAgent.cpp
 
 inspector/agents/worker/ServiceWorkerAgent.cpp
+inspector/agents/worker/WorkerAuditAgent.cpp
 inspector/agents/worker/WorkerConsoleAgent.cpp
 inspector/agents/worker/WorkerDebuggerAgent.cpp
 inspector/agents/worker/WorkerNetworkAgent.cpp
@@ -1317,11 +1341,11 @@ layout/floats/FloatingContext.cpp
 layout/floats/FloatingState.cpp
 layout/inlineformatting/InlineFormattingContext.cpp
 layout/inlineformatting/InlineFormattingContextGeometry.cpp
+layout/inlineformatting/InlineFormattingContextLineLayout.cpp
 layout/inlineformatting/InlineFormattingState.cpp
 layout/inlineformatting/InlineInvalidation.cpp
 layout/inlineformatting/InlineLineBreaker.cpp
 layout/inlineformatting/InlineRunProvider.cpp
-layout/inlineformatting/Line.cpp
 layout/inlineformatting/text/TextUtil.cpp
 layout/layouttree/LayoutBlockContainer.cpp
 layout/layouttree/LayoutBox.cpp
@@ -1332,6 +1356,7 @@ layout/layouttree/LayoutLineBreakBox.cpp
 layout/layouttree/LayoutReplaced.cpp
 layout/layouttree/LayoutTreeBuilder.cpp
 
+loader/AdClickAttribution.cpp
 loader/CanvasActivityRecord.cpp
 loader/ContentFilter.cpp
 loader/CookieJar.cpp
@@ -1368,6 +1393,7 @@ loader/PingLoader.cpp
 loader/PolicyChecker.cpp
 loader/ProgressTracker.cpp
 loader/ResourceCryptographicDigest.cpp
+loader/ResourceLoadInfo.cpp
 loader/ResourceLoadNotifier.cpp
 loader/ResourceLoadObserver.cpp
 loader/ResourceLoadStatistics.cpp
@@ -1501,6 +1527,7 @@ page/PerformanceResourceTiming.cpp
 page/PerformanceServerTiming.cpp
 page/PerformanceTiming.cpp
 page/PerformanceUserTiming.cpp
+page/PointerCaptureController.cpp
 page/PointerLockController.cpp
 page/PrintContext.cpp
 page/ProcessWarming.cpp
@@ -1519,6 +1546,7 @@ page/SocketProvider.cpp
 page/SpatialNavigation.cpp
 page/SuspendableTimer.cpp
 page/TextIndicator.cpp
+page/UndoItem.cpp
 page/UndoManager.cpp
 page/UserContentProvider.cpp
 page/UserContentController.cpp
@@ -1555,6 +1583,7 @@ page/scrolling/ScrollLatchingState.cpp
 page/scrolling/ScrollingConstraints.cpp
 page/scrolling/ScrollingCoordinator.cpp
 page/scrolling/ScrollingStateFixedNode.cpp
+page/scrolling/ScrollingStateFrameHostingNode.cpp
 page/scrolling/ScrollingStateFrameScrollingNode.cpp
 page/scrolling/ScrollingStateNode.cpp
 page/scrolling/ScrollingStateOverflowScrollingNode.cpp
@@ -1563,6 +1592,7 @@ page/scrolling/ScrollingStateStickyNode.cpp
 page/scrolling/ScrollingStateTree.cpp
 page/scrolling/ScrollingThread.cpp
 page/scrolling/ScrollingTree.cpp
+page/scrolling/ScrollingTreeFrameHostingNode.cpp
 page/scrolling/ScrollingTreeFrameScrollingNode.cpp
 page/scrolling/ScrollingTreeNode.cpp
 page/scrolling/ScrollingTreeOverflowScrollingNode.cpp
@@ -1583,7 +1613,6 @@ platform/FileChooser.cpp
 platform/FileHandle.cpp
 platform/FileMonitor.cpp
 platform/FileStream.cpp
-platform/FileSystem.cpp
 platform/GenericTaskQueue.cpp
 platform/LayoutUnit.cpp
 platform/Length.cpp
@@ -1603,7 +1632,7 @@ platform/PlatformSpeechSynthesisUtterance.cpp
 platform/PlatformSpeechSynthesisVoice.cpp
 platform/PlatformSpeechSynthesizer.cpp
 platform/PlatformStrategies.cpp
-platform/Process.cpp
+platform/ProcessIdentifier.cpp
 platform/ReferrerPolicy.cpp
 platform/RemoteCommandListener.cpp
 platform/RuntimeApplicationChecks.cpp
@@ -2736,6 +2765,14 @@ JSFillMode.cpp
 JSFocusEvent.cpp
 JSFontFace.cpp
 JSFontFaceSet.cpp
+JSGPUCompareFunction.cpp
+JSGPUDepthStencilStateDescriptor.cpp
+JSGPUExtent3D.cpp
+JSGPURequestAdapterOptions.cpp
+JSGPUTextureDescriptor.cpp
+JSGPUTextureDimension.cpp
+JSGPUTextureFormat.cpp
+JSGPUTextureUsage.cpp
 JSGainNode.cpp
 JSGeolocation.cpp
 JSGeoposition.cpp
@@ -2848,6 +2885,8 @@ JSImageBitmapRenderingContextSettings.cpp
 JSImageData.cpp
 JSImageSmoothingQuality.cpp
 JSInputEvent.cpp
+JSInspectorAuditAccessibilityObject.cpp
+JSInspectorAuditDOMObject.cpp
 JSInspectorFrontendHost.cpp
 JSIntersectionObserver.cpp
 JSIntersectionObserverCallback.cpp
@@ -3264,7 +3303,6 @@ JSWaveShaperNode.cpp
 JSWebAnimation.cpp
 JSWebGPU.cpp
 JSWebGPUAdapter.cpp
-JSWebGPUAdapterDescriptor.cpp
 JSWebGPUBindGroup.cpp
 JSWebGPUBindGroupBinding.cpp
 JSWebGPUBindGroupDescriptor.cpp
@@ -3275,8 +3313,8 @@ JSWebGPUBuffer.cpp
 JSWebGPUBufferBinding.cpp
 JSWebGPUBufferDescriptor.cpp
 JSWebGPUBufferUsage.cpp
-JSWebGPUCommandBuffer.cpp
 JSWebGPUColor.cpp
+JSWebGPUCommandBuffer.cpp
 JSWebGPUDevice.cpp
 JSWebGPUIndexFormat.cpp
 JSWebGPUInputStateDescriptor.cpp
@@ -3298,7 +3336,6 @@ JSWebGPUShaderModuleDescriptor.cpp
 JSWebGPUShaderStageBit.cpp
 JSWebGPUSwapChain.cpp
 JSWebGPUTexture.cpp
-JSWebGPUTextureFormatEnum.cpp
 JSWebGPUTextureView.cpp
 JSWebGPUVertexAttributeDescriptor.cpp
 JSWebGPUVertexFormat.cpp

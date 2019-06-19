@@ -31,16 +31,14 @@
 #endif
 #include "WebProcessPool.h"
 #include "WebsiteDataStore.h"
-#include <WebCore/FileSystem.h>
 #include <WebCore/PlatformDisplay.h>
+#include <wtf/FileSystem.h>
 
 namespace WebKit {
 using namespace WebCore;
 
 void WebProcessProxy::platformGetLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
 {
-    launchOptions.extraInitializationData.set("enable-sandbox", m_processPool->sandboxEnabled() ? "true" : "false");
-
     websiteDataStore().resolveDirectoriesIfNecessary();
     launchOptions.extraInitializationData.set("applicationCacheDirectory", websiteDataStore().resolvedApplicationCacheDirectory());
 

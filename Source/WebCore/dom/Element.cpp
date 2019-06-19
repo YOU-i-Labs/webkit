@@ -78,9 +78,12 @@
 #include "MutationRecord.h"
 #include "NodeRenderStyle.h"
 #include "PlatformWheelEvent.h"
+#include "PointerCaptureController.h"
 #include "PointerLockController.h"
 #include "RenderFragmentContainer.h"
 #include "RenderLayer.h"
+#include "RenderLayerBacking.h"
+#include "RenderLayerCompositor.h"
 #include "RenderListBox.h"
 #include "RenderTheme.h"
 #include "RenderTreeUpdater.h"
@@ -103,6 +106,7 @@
 #include "StyleScope.h"
 #include "StyleTreeResolver.h"
 #include "TextIterator.h"
+#include "TouchAction.h"
 #include "VoidCallback.h"
 #include "WebAnimation.h"
 #include "WheelEvent.h"
@@ -199,7 +203,7 @@ Element::~Element()
         detachAllAttrNodesFromElement();
 
     if (hasPendingResources()) {
-        document().accessSVGExtensions().removeElementFromPendingResources(this);
+        document().accessSVGExtensions().removeElementFromPendingResources(*this);
         ASSERT(!hasPendingResources());
     }
 }
@@ -545,7 +549,7 @@ bool Element::isFocusable() const
 bool Element::isUserActionElementInActiveChain() const
 {
     ASSERT(isUserActionElement());
-    return document().userActionElements().inActiveChain(*this);
+    return document().userActionElements().isInActiveChain(*this);
 }
 
 bool Element::isUserActionElementActive() const
@@ -1551,7 +1555,11 @@ void Element::attributeChanged(const QualifiedName& name, const AtomicString& ol
     bool valueIsSameAsBefore = oldValue == newValue;
 
     if (!valueIsSameAsBefore) {
-        if (name == HTMLNames::idAttr) {
+        if (name == HTMLNames::accesskeyAttr)
+            document().invalidateAccessKeyCache();
+        else if (name == HTMLNames::classAttr)
+            classAttributeChanged(newValue);
+        else if (name == HTMLNames::idAttr) {
             AtomicString oldId = elementData()->idForStyleResolution();
             AtomicString newId = makeIdForStyleResolution(newValue, document().inQuirksMode());
             if (newId != oldId) {
@@ -1563,15 +1571,12 @@ void Element::attributeChanged(const QualifiedName& name, const AtomicString& ol
                 treeScope().idTargetObserverRegistry().notifyObservers(*oldValue.impl());
             if (!newValue.isEmpty())
                 treeScope().idTargetObserverRegistry().notifyObservers(*newValue.impl());
-        } else if (name == classAttr)
-            classAttributeChanged(newValue);
-        else if (name == HTMLNames::nameAttr)
+        } else if (name == HTMLNames::nameAttr)
             elementData()->setHasNameAttribute(!newValue.isNull());
         else if (name == HTMLNames::pseudoAttr) {
             if (needsStyleInvalidation() && isInShadowTree())
                 invalidateStyleForSubtree();
-        }
-        else if (name == HTMLNames::slotAttr) {
+        } else if (name == HTMLNames::slotAttr) {
             if (auto* parent = parentElement()) {
                 if (auto* shadowRoot = parent->shadowRoot())
                     shadowRoot->hostChildElementDidChangeSlotAttribute(*this, oldValue, newValue);
@@ -1664,8 +1669,10 @@ URL Element::absoluteLinkURL() const
 #if ENABLE(TOUCH_EVENTS)
 bool Element::allowsDoubleTapGesture() const
 {
-    if (renderStyle() && renderStyle()->touchAction() != TouchAction::Auto)
+#if ENABLE(POINTER_EVENTS)
+    if (renderStyle() && renderStyle()->touchActions() != TouchAction::Auto)
         return false;
+#endif
 
     Element* parent = parentElement();
     return !parent || parent->allowsDoubleTapGesture();
@@ -1842,16 +1849,16 @@ bool Element::hasAttributes() const
     return elementData() && elementData()->length();
 }
 
-bool Element::hasEquivalentAttributes(const Element* other) const
+bool Element::hasEquivalentAttributes(const Element& other) const
 {
     synchronizeAllAttributes();
-    other->synchronizeAllAttributes();
-    if (elementData() == other->elementData())
+    other.synchronizeAllAttributes();
+    if (elementData() == other.elementData())
         return true;
     if (elementData())
-        return elementData()->isEquivalent(other->elementData());
-    if (other->elementData())
-        return other->elementData()->isEquivalent(elementData());
+        return elementData()->isEquivalent(other.elementData());
+    if (other.elementData())
+        return other.elementData()->isEquivalent(elementData());
     return true;
 }
 
@@ -2012,7 +2019,7 @@ void Element::removedFromAncestor(RemovalType removalType, ContainerNode& oldPar
     ContainerNode::removedFromAncestor(removalType, oldParentOfRemovedTree);
 
     if (hasPendingResources())
-        document().accessSVGExtensions().removeElementFromPendingResources(this);
+        document().accessSVGExtensions().removeElementFromPendingResources(*this);
 
     RefPtr<Frame> frame = document().frame();
     if (auto* timeline = document().existingTimeline())
@@ -3398,6 +3405,16 @@ bool Element::childShouldCreateRenderer(const Node& child) const
     return true;
 }
 
+#if ENABLE(FULLSCREEN_API) || ENABLE(POINTER_EVENTS)
+static Element* parentCrossingFrameBoundaries(const Element* element)
+{
+    ASSERT(element);
+    if (auto* parent = element->parentElementInComposedTree())
+        return parent;
+    return element->document().ownerElement();
+}
+#endif
+
 #if ENABLE(FULLSCREEN_API)
 void Element::webkitRequestFullscreen()
 {
@@ -3415,17 +3432,34 @@ void Element::setContainsFullScreenElement(bool flag)
     invalidateStyleAndLayerComposition();
 }
 
-static Element* parentCrossingFrameBoundaries(Element* element)
-{
-    ASSERT(element);
-    return element->parentElement() ? element->parentElement() : element->document().ownerElement();
-}
-
 void Element::setContainsFullScreenElementOnAncestorsCrossingFrameBoundaries(bool flag)
 {
     Element* element = this;
     while ((element = parentCrossingFrameBoundaries(element)))
         element->setContainsFullScreenElement(flag);
+}
+#endif
+
+#if ENABLE(POINTER_EVENTS)
+ExceptionOr<void> Element::setPointerCapture(int32_t pointerId)
+{
+    if (document().page())
+        return document().page()->pointerCaptureController().setPointerCapture(this, pointerId);
+    return { };
+}
+
+ExceptionOr<void> Element::releasePointerCapture(int32_t pointerId)
+{
+    if (document().page())
+        return document().page()->pointerCaptureController().releasePointerCapture(this, pointerId);
+    return { };
+}
+
+bool Element::hasPointerCapture(int32_t pointerId)
+{
+    if (document().page())
+        return document().page()->pointerCaptureController().hasPointerCapture(this, pointerId);
+    return false;
 }
 #endif
 
@@ -3767,9 +3801,9 @@ void Element::clearHoverAndActiveStatusBeforeDetachingRenderer()
     if (!isUserActionElement())
         return;
     if (hovered())
-        document().hoveredElementDidDetach(this);
-    if (inActiveChain())
-        document().elementInActiveChainDidDetach(this);
+        document().hoveredElementDidDetach(*this);
+    if (isInActiveChain())
+        document().elementInActiveChainDidDetach(*this);
     document().userActionElements().clearActiveAndHovered(*this);
 }
 
@@ -4117,6 +4151,68 @@ void Element::setAttributeStyleMap(Ref<StylePropertyMap>&& map)
 {
     ensureElementRareData().setAttributeStyleMap(WTFMove(map));
 }
+#endif
+
+#if ENABLE(POINTER_EVENTS)
+OptionSet<TouchAction> Element::computedTouchActions() const
+{
+    OptionSet<TouchAction> computedTouchActions = TouchAction::Auto;
+    for (auto* element = this; element; element = parentCrossingFrameBoundaries(element)) {
+        auto* renderer = element->renderer();
+        if (!renderer)
+            continue;
+
+        auto touchActions = renderer->style().touchActions();
+
+        // Once we've encountered touch-action: none, we know that this will be the computed value.
+        if (touchActions == TouchAction::None)
+            return touchActions;
+
+        // If the computed touch-action so far was "auto", we can just use the current element's touch-action.
+        if (computedTouchActions == TouchAction::Auto) {
+            computedTouchActions = touchActions;
+            continue;
+        }
+
+        // If the current element has touch-action: auto or the same touch-action as the computed touch-action,
+        // we need to keep going up the ancestry chain.
+        if (touchActions == TouchAction::Auto || touchActions == computedTouchActions)
+            continue;
+
+        // Now, the element's touch-action and the computed touch-action are different and are neither "auto" nor "none".
+        if (computedTouchActions == TouchAction::Manipulation) {
+            // If the computed touch-action is "manipulation", we can take the current element's touch-action as the newly
+            // computed touch-action.
+            computedTouchActions = touchActions;
+        } else if (touchActions == TouchAction::Manipulation) {
+            // Otherwise, we have a restricted computed touch-action so far. If the current element's touch-action is "manipulation"
+            // then we can just keep going and leave the computed touch-action untouched.
+            continue;
+        }
+
+        // In any other case, we have competing restrictive touch-action values that can only yield "none".
+        return TouchAction::None;
+    }
+    return computedTouchActions;
+}
+
+#if ENABLE(ACCELERATED_OVERFLOW_SCROLLING)
+ScrollingNodeID Element::nearestScrollingNodeIDUsingTouchOverflowScrolling() const
+{
+    if (!renderer())
+        return 0;
+
+    // We are not interested in the root, so check that we also have a valid parent.
+    for (auto* layer = renderer()->enclosingLayer(); layer && layer->parent(); layer = layer->parent()) {
+        if (layer->isComposited()) {
+            if (auto scrollingNodeID = layer->backing()->scrollingNodeIDForRole(ScrollCoordinationRole::Scrolling))
+                return scrollingNodeID;
+        }
+    }
+
+    return 0;
+}
+#endif
 #endif
 
 } // namespace WebCore

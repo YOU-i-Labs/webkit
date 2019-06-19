@@ -30,13 +30,13 @@
 #include "SoupNetworkSession.h"
 
 #include "AuthenticationChallenge.h"
-#include "FileSystem.h"
 #include "GUniquePtrSoup.h"
 #include "Logging.h"
 #include "SoupNetworkProxySettings.h"
 #include <glib/gstdio.h>
 #include <libsoup/soup.h>
 #include <pal/crypto/CryptoDigest.h>
+#include <wtf/FileSystem.h>
 #include <wtf/HashSet.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/Base64.h>
@@ -98,9 +98,11 @@ private:
     HashSet<String> m_certificates;
 };
 
-static HashMap<String, HostTLSCertificateSet, ASCIICaseInsensitiveHash>& clientCertificates()
+using AllowedCertificatesMap = HashMap<String, HostTLSCertificateSet, ASCIICaseInsensitiveHash>;
+
+static AllowedCertificatesMap& allowedCertificates()
 {
-    static NeverDestroyed<HashMap<String, HostTLSCertificateSet, ASCIICaseInsensitiveHash>> certificates;
+    static NeverDestroyed<AllowedCertificatesMap> certificates;
     return certificates;
 }
 
@@ -284,8 +286,8 @@ Optional<ResourceError> SoupNetworkSession::checkTLSErrors(const URL& requestURL
     if (!tlsErrors)
         return WTF::nullopt;
 
-    auto it = clientCertificates().find(requestURL.host().toString());
-    if (it != clientCertificates().end() && it->value.contains(certificate))
+    auto it = allowedCertificates().find(requestURL.host().toStringWithoutCopying());
+    if (it != allowedCertificates().end() && it->value.contains(certificate))
         return WTF::nullopt;
 
     return ResourceError::tlsError(requestURL, tlsErrors, certificate);
@@ -293,7 +295,7 @@ Optional<ResourceError> SoupNetworkSession::checkTLSErrors(const URL& requestURL
 
 void SoupNetworkSession::allowSpecificHTTPSCertificateForHost(const CertificateInfo& certificateInfo, const String& host)
 {
-    clientCertificates().add(host, HostTLSCertificateSet()).iterator->value.add(certificateInfo.certificate());
+    allowedCertificates().add(host, HostTLSCertificateSet()).iterator->value.add(certificateInfo.certificate());
 }
 
 } // namespace WebCore

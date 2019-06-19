@@ -72,8 +72,6 @@ public:
     void start();
     void abort();
 
-    void setDefersLoading(bool);
-
     // Message handlers.
     void didReceiveNetworkResourceLoaderMessage(IPC::Connection&, IPC::Decoder&);
 
@@ -81,7 +79,7 @@ public:
 
     const WebCore::ResourceResponse& response() const { return m_response; }
 
-    NetworkConnectionToWebProcess& connectionToWebProcess() { return m_connection; }
+    NetworkConnectionToWebProcess& connectionToWebProcess() const { return m_connection; }
     PAL::SessionID sessionID() const { return m_parameters.sessionID; }
     ResourceLoadIdentifier identifier() const { return m_parameters.identifier; }
     uint64_t frameID() const { return m_parameters.webFrameID; }
@@ -113,12 +111,14 @@ public:
     static void logCookieInformation(NetworkConnectionToWebProcess&, const String& label, const void* loggedObject, const WebCore::NetworkStorageSession&, const URL& firstParty, const WebCore::SameSiteInfo&, const URL&, const String& referrer, Optional<uint64_t> frameID, Optional<uint64_t> pageID, Optional<uint64_t> identifier);
 #endif
 
+    void disableExtraNetworkLoadMetricsCapture() { m_shouldCaptureExtraNetworkLoadMetrics = false; }
+
 private:
     NetworkResourceLoader(NetworkResourceLoadParameters&&, NetworkConnectionToWebProcess&, Messages::NetworkConnectionToWebProcess::PerformSynchronousLoad::DelayedReply&&);
 
     // IPC::MessageSender
-    IPC::Connection* messageSenderConnection() override;
-    uint64_t messageSenderDestinationID() override { return m_parameters.identifier; }
+    IPC::Connection* messageSenderConnection() const override;
+    uint64_t messageSenderDestinationID() const override { return m_parameters.identifier; }
 
     bool canUseCache(const WebCore::ResourceRequest&) const;
     bool canUseCachedRedirect(const WebCore::ResourceRequest&) const;
@@ -189,7 +189,6 @@ private:
 
     bool m_wasStarted { false };
     bool m_didConsumeSandboxExtensions { false };
-    bool m_defersLoading { false };
     bool m_isAllowedToAskUserForCredentials { false };
     size_t m_numBytesReceived { 0 };
 
@@ -205,6 +204,7 @@ private:
     std::unique_ptr<NetworkLoadChecker> m_networkLoadChecker;
     bool m_shouldRestartLoad { false };
     ResponseCompletionHandler m_responseCompletionHandler;
+    bool m_shouldCaptureExtraNetworkLoadMetrics { false };
 
     Optional<NetworkActivityTracker> m_networkActivityTracker;
 };

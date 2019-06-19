@@ -35,7 +35,9 @@
 #include "CallFrameClosure.h"
 #include "CatchScope.h"
 #include "CodeBlock.h"
+#include "CodeCache.h"
 #include "DirectArguments.h"
+#include "ExecutableBaseInlines.h"
 #include "Heap.h"
 #include "Debugger.h"
 #include "DebuggerCallFrame.h"
@@ -158,7 +160,7 @@ JSValue eval(CallFrame* callFrame)
         
         VariableEnvironment variablesUnderTDZ;
         JSScope::collectClosureVariablesUnderTDZ(callerScopeChain, variablesUnderTDZ);
-        eval = DirectEvalExecutable::create(callFrame, makeSource(programSource, callerCodeBlock->source()->sourceOrigin()), callerCodeBlock->isStrictMode(), derivedContextType, isArrowFunctionContext, evalContextType, &variablesUnderTDZ);
+        eval = DirectEvalExecutable::create(callFrame, makeSource(programSource, callerCodeBlock->source().provider()->sourceOrigin()), callerCodeBlock->isStrictMode(), derivedContextType, isArrowFunctionContext, evalContextType, &variablesUnderTDZ);
         EXCEPTION_ASSERT(!!scope.exception() == !eval);
         if (!eval)
             return jsUndefined();
@@ -562,7 +564,7 @@ private:
     void copyCalleeSavesToEntryFrameCalleeSavesBuffer(StackVisitor& visitor) const
     {
 #if !ENABLE(C_LOOP) && NUMBER_OF_CALLEE_SAVES_REGISTERS > 0
-        RegisterAtOffsetList* currentCalleeSaves = visitor->calleeSaveRegisters();
+        const RegisterAtOffsetList* currentCalleeSaves = visitor->calleeSaveRegisters();
 
         if (!currentCalleeSaves)
             return;
@@ -1043,12 +1045,13 @@ JSValue Interpreter::execute(EvalExecutable* eval, CallFrame* callFrame, JSValue
             return checkedReturn(compileError);
         codeBlock = jsCast<EvalCodeBlock*>(tempCodeBlock);
     }
+    UnlinkedEvalCodeBlock* unlinkedCodeBlock = codeBlock->unlinkedEvalCodeBlock();
 
     // We can't declare a "var"/"function" that overwrites a global "let"/"const"/"class" in a sloppy-mode eval.
     if (variableObject->isGlobalObject() && !eval->isStrictMode() && (numVariables || numTopLevelFunctionDecls)) {
         JSGlobalLexicalEnvironment* globalLexicalEnvironment = jsCast<JSGlobalObject*>(variableObject)->globalLexicalEnvironment();
         for (unsigned i = 0; i < numVariables; ++i) {
-            const Identifier& ident = codeBlock->variable(i);
+            const Identifier& ident = unlinkedCodeBlock->variable(i);
             PropertySlot slot(globalLexicalEnvironment, PropertySlot::InternalMethodType::VMInquiry);
             if (JSGlobalLexicalEnvironment::getOwnPropertySlot(globalLexicalEnvironment, callFrame, ident, slot)) {
                 return checkedReturn(throwTypeError(callFrame, throwScope, makeString("Can't create duplicate global variable in eval: '", String(ident.impl()), "'")));
@@ -1073,7 +1076,7 @@ JSValue Interpreter::execute(EvalExecutable* eval, CallFrame* callFrame, JSValue
             variableObject->globalObject(vm)->varInjectionWatchpoint()->fireAll(vm, "Executed eval, fired VarInjection watchpoint");
 
         for (unsigned i = 0; i < numVariables; ++i) {
-            const Identifier& ident = codeBlock->variable(i);
+            const Identifier& ident = unlinkedCodeBlock->variable(i);
             bool hasProperty = variableObject->hasProperty(callFrame, ident);
             RETURN_IF_EXCEPTION(throwScope, checkedReturn(throwScope.exception()));
             if (!hasProperty) {
@@ -1107,7 +1110,7 @@ JSValue Interpreter::execute(EvalExecutable* eval, CallFrame* callFrame, JSValue
             }
 
             for (unsigned i = 0; i < numFunctionHoistingCandidates; ++i) {
-                const Identifier& ident = codeBlock->functionHoistingCandidate(i);
+                const Identifier& ident = unlinkedCodeBlock->functionHoistingCandidate(i);
                 JSValue resolvedScope = JSScope::resolveScopeForHoistingFuncDeclInEval(callFrame, scope, ident);
                 RETURN_IF_EXCEPTION(throwScope, checkedReturn(throwScope.exception()));
                 if (!resolvedScope.isUndefined()) {

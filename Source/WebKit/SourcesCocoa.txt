@@ -39,7 +39,8 @@ NetworkProcess/CustomProtocols/LegacyCustomProtocolManager.cpp
 
 NetworkProcess/Downloads/cocoa/DownloadCocoa.mm
 
-NetworkProcess/EntryPoint/mac/XPCService/NetworkServiceEntryPoint.mm
+NetworkProcess/EntryPoint/Cocoa/Daemon/DaemonEntryPoint.mm
+NetworkProcess/EntryPoint/Cocoa/XPCService/NetworkServiceEntryPoint.mm
 
 NetworkProcess/ios/NetworkProcessIOS.mm
 
@@ -81,7 +82,7 @@ Platform/mac/StringUtilities.mm
 
 Platform/unix/EnvironmentUtilities.cpp
 
-PluginProcess/EntryPoint/mac/XPCService/PluginServiceEntryPoint.mm @no-unify
+PluginProcess/EntryPoint/Cocoa/XPCService/PluginServiceEntryPoint.mm @no-unify
 
 PluginProcess/mac/PluginControllerProxyMac.mm @no-unify
 PluginProcess/mac/PluginProcessMac.mm @no-unify
@@ -108,6 +109,7 @@ Shared/API/Cocoa/_WKRemoteObjectRegistry.mm
 Shared/API/Cocoa/RemoteObjectInvocation.mm
 Shared/API/Cocoa/RemoteObjectRegistry.mm
 Shared/API/Cocoa/WKBrowsingContextHandle.mm
+Shared/API/Cocoa/WKMain.mm
 Shared/API/Cocoa/WKRemoteObject.mm
 Shared/API/Cocoa/WKRemoteObjectCoder.mm
 
@@ -123,11 +125,12 @@ Shared/cf/CookieStorageUtilsCF.mm
 Shared/cg/ShareableBitmapCG.cpp
 
 Shared/Authentication/cocoa/AuthenticationManagerCocoa.mm
+Shared/Authentication/cocoa/ClientCertificateAuthenticationXPCConstants.cpp
 
 Shared/Cocoa/APIDataCocoa.mm
 Shared/Cocoa/APIObject.mm
 Shared/Cocoa/ArgumentCodersCocoa.mm
-Shared/Cocoa/ChildProcessCocoa.mm
+Shared/Cocoa/AuxiliaryProcessCocoa.mm
 Shared/Cocoa/CompletionHandlerCallChecker.mm
 Shared/Cocoa/DataDetectionResult.mm
 Shared/Cocoa/LoadParametersCocoa.mm
@@ -146,10 +149,10 @@ Shared/Cocoa/WKNSURLExtras.mm
 Shared/Cocoa/WKNSURLRequest.mm
 Shared/Cocoa/WKObject.mm
 
-Shared/EntryPointUtilities/mac/XPCService/XPCServiceEntryPoint.mm
-Shared/EntryPointUtilities/mac/XPCService/XPCServiceMain.mm
+Shared/EntryPointUtilities/Cocoa/XPCService/XPCServiceEntryPoint.mm
+Shared/EntryPointUtilities/Cocoa/XPCService/XPCServiceMain.mm
 
-Shared/ios/ChildProcessIOS.mm
+Shared/ios/AuxiliaryProcessIOS.mm
 Shared/ios/InteractionInformationAtPosition.mm
 Shared/ios/InteractionInformationRequest.cpp
 Shared/ios/NativeWebKeyboardEventIOS.mm
@@ -163,7 +166,7 @@ Shared/ios/WebTouchEventIOS.cpp
 
 Shared/mac/ArgumentCodersMac.mm
 Shared/mac/AttributedString.mm
-Shared/mac/ChildProcessMac.mm
+Shared/mac/AuxiliaryProcessMac.mm
 Shared/mac/CodeSigning.mm
 Shared/mac/ColorSpaceData.mm
 Shared/mac/HangDetectionDisablerMac.mm
@@ -202,9 +205,12 @@ UIProcess/_WKWebViewPrintFormatter.mm
 UIProcess/ApplicationStateTracker.mm
 UIProcess/HighPerformanceGraphicsUsageSampler.cpp
 UIProcess/PerActivityStateCPUUsageSampler.cpp
+UIProcess/ViewGestureController.cpp
+UIProcess/ViewSnapshotStore.cpp
 UIProcess/WebDataListSuggestionsDropdown.cpp
 UIProcess/WebMediaSessionFocusManager.cpp
 UIProcess/WebMediaSessionFocusManagerClient.cpp
+UIProcess/WebMemoryPressureHandler.cpp
 UIProcess/WKImagePreviewViewController.mm
 UIProcess/WKInspectorHighlightView.mm
 
@@ -215,7 +221,6 @@ UIProcess/API/APIWebsiteDataRecord.cpp
 UIProcess/API/C/WKContextMenuListener.cpp
 UIProcess/API/C/WKMediaSessionFocusManager.cpp
 UIProcess/API/C/WKTestingSupport.cpp
-UIProcess/API/C/WKUserContentExtensionStoreRef.cpp
 UIProcess/API/C/WKUserScriptRef.cpp
 
 UIProcess/API/C/cg/WKIconDatabaseCG.cpp
@@ -236,6 +241,7 @@ UIProcess/API/Cocoa/_WKErrorRecoveryAttempting.mm
 UIProcess/API/Cocoa/_WKExperimentalFeature.mm
 UIProcess/API/Cocoa/_WKGeolocationPosition.mm
 UIProcess/API/Cocoa/_WKInspector.mm
+UIProcess/API/Cocoa/_WKInspectorWindow.mm
 UIProcess/API/Cocoa/_WKInternalDebugFeature.mm
 UIProcess/API/Cocoa/_WKLinkIconParameters.mm
 UIProcess/API/Cocoa/_WKProcessPoolConfiguration.mm
@@ -254,6 +260,7 @@ UIProcess/API/Cocoa/_WKWebsiteDataStoreConfiguration.mm
 UIProcess/API/Cocoa/_WKWebsitePolicies.mm
 UIProcess/API/Cocoa/APIAttachmentCocoa.mm
 UIProcess/API/Cocoa/APIContentRuleListStoreCocoa.mm
+UIProcess/API/Cocoa/APIHTTPCookieStoreCocoa.mm
 UIProcess/API/Cocoa/APISerializedScriptValueCocoa.mm
 UIProcess/API/Cocoa/APIWebsiteDataStoreCocoa.mm
 UIProcess/API/Cocoa/LegacyBundleForClass.mm
@@ -321,6 +328,7 @@ UIProcess/Cocoa/FullscreenClient.mm
 UIProcess/Cocoa/GlobalFindInPageState.mm
 UIProcess/Cocoa/IconLoadingDelegate.mm
 UIProcess/Cocoa/LegacyCustomProtocolManagerClient.mm
+UIProcess/Cocoa/MediaCaptureUtilities.mm
 UIProcess/Cocoa/NavigationState.mm
 UIProcess/Cocoa/PageClientImplCocoa.mm
 UIProcess/Cocoa/PlaybackSessionManagerProxy.mm
@@ -332,8 +340,6 @@ UIProcess/Cocoa/UIDelegate.mm
 UIProcess/Cocoa/UserMediaCaptureManagerProxy.cpp
 UIProcess/Cocoa/VersionChecks.mm
 UIProcess/Cocoa/VideoFullscreenManagerProxy.mm
-UIProcess/Cocoa/ViewGestureController.cpp
-UIProcess/Cocoa/WebMemoryPressureHandlerCocoa.mm
 UIProcess/Cocoa/WebPageProxyCocoa.mm
 UIProcess/Cocoa/WebPasteboardProxyCocoa.mm
 UIProcess/Cocoa/WebProcessPoolCocoa.mm
@@ -403,6 +409,7 @@ UIProcess/ios/WKPDFPageNumberIndicator.mm
 UIProcess/ios/WKPDFView.mm
 UIProcess/ios/WKScrollView.mm
 UIProcess/ios/WKSyntheticClickTapGestureRecognizer.m
+UIProcess/ios/WKSyntheticFlagsChangedWebEvent.mm
 UIProcess/ios/WKSystemPreviewView.mm
 UIProcess/ios/WKWebEvent.mm
 
@@ -419,7 +426,7 @@ UIProcess/mac/ServicesController.mm
 UIProcess/mac/TextCheckerMac.mm
 UIProcess/mac/TiledCoreAnimationDrawingAreaProxy.mm
 UIProcess/mac/ViewGestureControllerMac.mm
-UIProcess/mac/ViewSnapshotStore.mm
+UIProcess/mac/ViewSnapshotStoreMac.mm
 UIProcess/mac/WebColorPickerMac.mm
 UIProcess/mac/WebContextMenuProxyMac.mm
 UIProcess/mac/WebCookieManagerProxyMac.mm
@@ -433,7 +440,6 @@ UIProcess/mac/WindowServerConnection.mm
 UIProcess/mac/WKFullScreenWindowController.mm
 UIProcess/mac/WKImmediateActionController.mm
 UIProcess/mac/WKInspectorViewController.mm
-UIProcess/mac/WKInspectorWindow.mm
 UIProcess/mac/WKInspectorWKWebView.mm
 UIProcess/mac/WKPrintingView.mm
 UIProcess/mac/WKSharingServicePickerDelegate.mm
@@ -453,6 +459,7 @@ UIProcess/RemoteLayerTree/mac/ScrollingTreeFrameScrollingNodeRemoteMac.cpp
 
 UIProcess/RemoteLayerTree/ios/RemoteLayerTreeHostIOS.mm
 UIProcess/RemoteLayerTree/ios/RemoteScrollingCoordinatorProxyIOS.mm
+UIProcess/RemoteLayerTree/ios/ScrollingTreeFrameScrollingNodeRemoteIOS.mm
 UIProcess/RemoteLayerTree/ios/ScrollingTreeOverflowScrollingNodeIOS.mm
 UIProcess/RemoteLayerTree/ios/ScrollingTreeScrollingNodeDelegateIOS.mm
 
@@ -465,6 +472,7 @@ UIProcess/RemoteLayerTree/RemoteScrollingTree.cpp
 
 UIProcess/WebAuthentication/Cocoa/HidConnection.mm
 UIProcess/WebAuthentication/Cocoa/HidService.mm
+UIProcess/WebAuthentication/Cocoa/LocalAuthenticationSoftLink.mm @no-unify
 UIProcess/WebAuthentication/Cocoa/LocalAuthenticator.mm
 UIProcess/WebAuthentication/Cocoa/LocalConnection.mm
 UIProcess/WebAuthentication/Cocoa/LocalService.mm
@@ -487,7 +495,7 @@ WebProcess/cocoa/UserMediaCaptureManager.cpp
 WebProcess/cocoa/VideoFullscreenManager.mm
 WebProcess/cocoa/WebProcessCocoa.mm
 
-WebProcess/EntryPoint/mac/XPCService/WebContentServiceEntryPoint.mm
+WebProcess/EntryPoint/Cocoa/XPCService/WebContentServiceEntryPoint.mm
 
 WebProcess/InjectedBundle/API/c/WKBundlePageBanner.cpp
 

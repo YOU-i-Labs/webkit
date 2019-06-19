@@ -46,6 +46,7 @@
 #include "ProxyObject.h"
 #include "SlotVisitorInlines.h"
 #include "TypeError.h"
+#include "VMInlines.h"
 #include <math.h>
 #include <wtf/Assertions.h>
 
@@ -123,7 +124,7 @@ ALWAYS_INLINE void JSObject::markAuxiliaryAndVisitOutOfLineProperties(SlotVisito
 
 ALWAYS_INLINE Structure* JSObject::visitButterfly(SlotVisitor& visitor)
 {
-    static const char* raceReason = "JSObject::visitButterfly";
+    static const char* const raceReason = "JSObject::visitButterfly";
     Structure* result = visitButterflyImpl(visitor);
     if (!result)
         visitor.didRace(this, raceReason);
@@ -1742,7 +1743,7 @@ void JSObject::setPrototypeDirect(VM& vm, JSValue prototype)
 {
     ASSERT(prototype);
     if (prototype.isObject())
-        prototype.asCell()->didBecomePrototype();
+        asObject(prototype)->didBecomePrototype();
     
     if (structure(vm)->hasMonoProto()) {
         DeferredStructureTransitionWatchpointFire deferred(vm, structure(vm));
@@ -2206,8 +2207,13 @@ bool JSObject::hasInstance(ExecState* exec, JSValue value, JSValue hasInstanceVa
         RETURN_IF_EXCEPTION(scope, false);
         RELEASE_AND_RETURN(scope, defaultHasInstance(exec, value, prototype));
     }
-    if (info.implementsHasInstance())
+    if (info.implementsHasInstance()) {
+        if (UNLIKELY(!vm.isSafeToRecurseSoft())) {
+            throwStackOverflowError(exec, scope);
+            return false;
+        }
         RELEASE_AND_RETURN(scope, methodTable(vm)->customHasInstance(this, exec, value));
+    }
 
     throwException(exec, scope, createInvalidInstanceofParameterErrorNotFunction(exec, this));
     return false;

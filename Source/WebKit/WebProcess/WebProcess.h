@@ -25,8 +25,8 @@
 
 #pragma once
 
+#include "AuxiliaryProcess.h"
 #include "CacheModel.h"
-#include "ChildProcess.h"
 #include "PluginProcessConnectionManager.h"
 #include "ResourceCachesToClear.h"
 #include "SandboxExtension.h"
@@ -73,7 +73,6 @@ struct MockMediaDevice;
 struct PluginInfo;
 struct PrewarmInformation;
 struct SecurityOriginData;
-struct SoupNetworkProxySettings;
 
 #if ENABLE(SERVICE_WORKER)
 struct ServiceWorkerContextData;
@@ -106,7 +105,7 @@ struct WebProcessCreationParameters;
 struct WebsiteData;
 struct WebsiteDataStoreParameters;
 
-class WebProcess : public ChildProcess {
+class WebProcess : public AuxiliaryProcess {
 public:
     static WebProcess& singleton();
     static constexpr ProcessType processType = ProcessType::WebContent;
@@ -166,7 +165,7 @@ public:
     PluginProcessConnectionManager& pluginProcessConnectionManager();
 #endif
 
-    EventDispatcher& eventDispatcher() { return *m_eventDispatcher; }
+    EventDispatcher& eventDispatcher() { return m_eventDispatcher.get(); }
 
     NetworkProcessConnection& ensureNetworkProcessConnection();
     void networkProcessConnectionClosed(NetworkProcessConnection*);
@@ -266,8 +265,6 @@ private:
 
     void processSuspensionCleanupTimerFired();
 
-    void clearCachedCredentials();
-
     void platformTerminate();
 
     void markIsNoLongerPrewarmed();
@@ -321,9 +318,7 @@ private:
     void gamepadConnected(const GamepadData&);
     void gamepadDisconnected(unsigned index);
 #endif
-#if USE(SOUP)
-    void setNetworkProxySettings(const WebCore::SoupNetworkProxySettings&);
-#endif
+
 #if ENABLE(SERVICE_WORKER)
     void establishWorkerContextConnectionToNetworkProcess(uint64_t pageGroupID, uint64_t pageID, const WebPreferencesStore&, PAL::SessionID);
     void registerServiceWorkerClients();
@@ -359,10 +354,10 @@ private:
     enum class CPUMonitorUpdateReason { LimitHasChanged, VisibilityHasChanged };
     void updateCPUMonitorState(CPUMonitorUpdateReason);
 
-    // ChildProcess
-    void initializeProcess(const ChildProcessInitializationParameters&) override;
-    void initializeProcessName(const ChildProcessInitializationParameters&) override;
-    void initializeSandbox(const ChildProcessInitializationParameters&, SandboxInitializationParameters&) override;
+    // AuxiliaryProcess
+    void initializeProcess(const AuxiliaryProcessInitializationParameters&) override;
+    void initializeProcessName(const AuxiliaryProcessInitializationParameters&) override;
+    void initializeSandbox(const AuxiliaryProcessInitializationParameters&, SandboxInitializationParameters&) override;
     void initializeConnection(IPC::Connection*) override;
     bool shouldTerminate() override;
     void terminate() override;
@@ -378,7 +373,7 @@ private:
     void resetMockMediaDevices();
 #endif
 
-    void platformInitializeProcess(const ChildProcessInitializationParameters&);
+    void platformInitializeProcess(const AuxiliaryProcessInitializationParameters&);
 
     // IPC::Connection::Client
     friend class WebConnectionToUIProcess;
@@ -407,7 +402,7 @@ private:
     HashMap<uint64_t, RefPtr<WebPageGroupProxy>> m_pageGroupMap;
     RefPtr<InjectedBundle> m_injectedBundle;
 
-    RefPtr<EventDispatcher> m_eventDispatcher;
+    Ref<EventDispatcher> m_eventDispatcher;
 #if PLATFORM(IOS_FAMILY)
     RefPtr<ViewUpdateDispatcher> m_viewUpdateDispatcher;
 #endif

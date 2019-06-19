@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,6 +41,7 @@ class SessionID;
 
 namespace WebCore {
 class BlobDataFileReference;
+class BlobRegistryImpl;
 class ResourceError;
 class ResourceRequest;
 struct SameSiteInfo;
@@ -121,6 +122,10 @@ public:
     Optional<NetworkActivityTracker> startTrackingResourceLoad(uint64_t pageID, ResourceLoadIdentifier resourceID, bool isMainResource, const PAL::SessionID&);
     void stopTrackingResourceLoad(ResourceLoadIdentifier resourceID, NetworkActivityTracker::CompletionCode);
 
+    WebCore::BlobRegistryImpl& blobRegistry();
+    Vector<RefPtr<WebCore::BlobDataFileReference>> filesInBlob(const URL&);
+    Vector<RefPtr<WebCore::BlobDataFileReference>> resolveBlobReferences(const NetworkResourceLoadParameters&);
+
 private:
     NetworkConnectionToWebProcess(NetworkProcess&, IPC::Connection::Identifier);
 
@@ -144,7 +149,6 @@ private:
 
     void removeLoadIdentifier(ResourceLoadIdentifier);
     void pageLoadCompleted(uint64_t webPageID);
-    void setDefersLoading(ResourceLoadIdentifier, bool);
     void crossOriginRedirectReceived(ResourceLoadIdentifier, const URL& redirectURL);
     void startDownload(PAL::SessionID, DownloadID, const WebCore::ResourceRequest&, const String& suggestedName = { });
     void convertMainResourceLoadToDownload(PAL::SessionID, uint64_t mainResourceLoadIdentifier, DownloadID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
@@ -175,7 +179,6 @@ private:
 #if ENABLE(INDEXED_DATABASE)
     // Messages handlers (Modern IDB).
     void establishIDBConnectionToServer(PAL::SessionID, uint64_t& serverConnectionIdentifier);
-    void removeIDBConnectionToServer(uint64_t serverConnectionIdentifier);
 #endif
 
 #if ENABLE(SERVICE_WORKER)
@@ -192,8 +195,18 @@ private:
 
     CacheStorageEngineConnection& cacheStorageConnection();
 
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
     void removeStorageAccessForFrame(PAL::SessionID, uint64_t frameID, uint64_t pageID);
     void removeStorageAccessForAllFramesOnPage(PAL::SessionID, uint64_t pageID);
+
+    void logUserInteraction(PAL::SessionID, const String& topLevelOrigin);
+    void logWebSocketLoading(PAL::SessionID, const String& targetPrimaryDomain, const String& mainFramePrimaryDomain, WallTime lastSeen);
+    void logSubresourceLoading(PAL::SessionID, const String& targetPrimaryDomain, const String& mainFramePrimaryDomain, WallTime lastSeen);
+    void logSubresourceRedirect(PAL::SessionID, const String& sourcePrimaryDomain, const String& targetPrimaryDomain);
+    void requestResourceLoadStatisticsUpdate();
+    void hasStorageAccess(PAL::SessionID, const String& subFrameHost, const String& topFrameHost, uint64_t frameID, uint64_t pageID, CompletionHandler<void(bool)>&&);
+    void requestStorageAccess(PAL::SessionID, const String& subFrameHost, const String& topFrameHost, uint64_t frameID, uint64_t pageID, bool prompt, CompletionHandler<void(bool)>&&);
+#endif
 
     void addOriginAccessWhitelistEntry(const String& sourceOrigin, const String& destinationProtocol, const String& destinationHost, bool allowDestinationSubdomains);
     void removeOriginAccessWhitelistEntry(const String& sourceOrigin, const String& destinationProtocol, const String& destinationHost, bool allowDestinationSubdomains);

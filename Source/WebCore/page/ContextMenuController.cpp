@@ -68,13 +68,14 @@
 #include "UserTypingGestureIndicator.h"
 #include "WindowFeatures.h"
 #include "markup.h"
+#include <wtf/SetForScope.h>
 #include <wtf/WallTime.h>
 #include <wtf/unicode/CharacterNames.h>
 
 
 namespace WebCore {
-using namespace WTF;
-using namespace Unicode;
+
+using namespace WTF::Unicode;
 
 ContextMenuController::ContextMenuController(Page& page, ContextMenuClient& client)
     : m_page(page)
@@ -97,6 +98,11 @@ void ContextMenuController::clearContextMenu()
 
 void ContextMenuController::handleContextMenuEvent(Event& event)
 {
+    if (m_isHandlingContextMenuEvent)
+        return;
+
+    SetForScope<bool> isHandlingContextMenuEventForScope(m_isHandlingContextMenuEvent, true);
+
     m_contextMenu = maybeCreateContextMenu(event);
     if (!m_contextMenu)
         return;

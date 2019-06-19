@@ -57,7 +57,6 @@
 #endif
 
 using namespace JSC;
-using namespace WTF;
 
 namespace {
 
@@ -1462,7 +1461,7 @@ static CodeBlock* codeBlockFromArg(ExecState* exec)
             else
                 candidateCodeBlock = func->jsExecutable()->eitherCodeBlock();
         } else
-            candidateCodeBlock = reinterpret_cast<CodeBlock*>(value.asCell());
+            candidateCodeBlock = static_cast<CodeBlock*>(value.asCell());
     }
 
     if (candidateCodeBlock && VMInspector::isValidCodeBlock(exec, candidateCodeBlock))
@@ -1855,11 +1854,11 @@ static EncodedJSValue JSC_HOST_CALL functionGetPrivateProperty(ExecState* exec)
 
     String str = asString(exec->argument(1))->value(exec);
 
-    const Identifier* ident = vm.propertyNames->lookUpPrivateName(Identifier::fromString(exec, str));
-    if (!ident)
+    SymbolImpl* symbol = vm.propertyNames->lookUpPrivateName(Identifier::fromString(exec, str));
+    if (!symbol)
         return throwVMError(exec, scope, "Unknown private name.");
 
-    RELEASE_AND_RETURN(scope, JSValue::encode(exec->argument(0).get(exec, *ident)));
+    RELEASE_AND_RETURN(scope, JSValue::encode(exec->argument(0).get(exec, symbol)));
 }
 
 static EncodedJSValue JSC_HOST_CALL functionCreateRoot(ExecState* exec)
@@ -1932,7 +1931,25 @@ static EncodedJSValue JSC_HOST_CALL functionSetHiddenValue(ExecState* exec)
 static EncodedJSValue JSC_HOST_CALL functionShadowChickenFunctionsOnStack(ExecState* exec)
 {
     VM& vm = exec->vm();
-    return JSValue::encode(vm.shadowChicken().functionsOnStack(exec));
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    if (auto* shadowChicken = vm.shadowChicken()) {
+        scope.release();
+        return JSValue::encode(shadowChicken->functionsOnStack(exec));
+    }
+
+    JSArray* result = constructEmptyArray(exec, 0);
+    RETURN_IF_EXCEPTION(scope, { });
+    StackVisitor::visit(exec, &vm, [&] (StackVisitor& visitor) -> StackVisitor::Status {
+        if (visitor->isInlinedFrame())
+            return StackVisitor::Continue;
+        if (visitor->isWasmFrame())
+            return StackVisitor::Continue;
+        result->push(exec, jsCast<JSObject*>(visitor->callee().asCell()));
+        scope.releaseAssertNoException(); // This function is only called from tests.
+        return StackVisitor::Continue;
+    });
+    RETURN_IF_EXCEPTION(scope, { });
+    return JSValue::encode(result);
 }
 
 static EncodedJSValue JSC_HOST_CALL functionSetGlobalConstRedeclarationShouldNotThrow(ExecState* exec)
@@ -1971,7 +1988,7 @@ static EncodedJSValue JSC_HOST_CALL functionReturnTypeFor(ExecState* exec)
     RELEASE_ASSERT(functionValue.isFunction(vm));
     FunctionExecutable* executable = (jsDynamicCast<JSFunction*>(vm, functionValue.asCell()->getObject()))->jsExecutable();
 
-    unsigned offset = executable->typeProfilingStartOffset();
+    unsigned offset = executable->typeProfilingStartOffset(vm);
     String jsonString = vm.typeProfiler()->typeInformationForExpressionAtOffset(TypeProfilerSearchDescriptorFunctionReturn, offset, executable->sourceID(), vm);
     return JSValue::encode(JSONParse(exec, jsonString));
 }
@@ -2047,6 +2064,8 @@ static EncodedJSValue changeDebuggerModeWhenIdle(ExecState* exec, DebuggerMode m
     vm->whenIdle([=] () {
         Options::forceDebuggerBytecodeGeneration() = newDebuggerMode;
         vm->deleteAllCode(PreventCollectionAndDeleteAllCode);
+        if (mode == DebuggerMode::DebuggerOn)
+            vm->ensureShadowChicken();
     });
     return JSValue::encode(jsUndefined());
 }

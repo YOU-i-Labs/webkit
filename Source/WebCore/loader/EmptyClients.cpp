@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Eric Seidel <eric@webkit.org>
- * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2019 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2011. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,7 @@
 #include "CacheStorageProvider.h"
 #include "ColorChooser.h"
 #include "ContextMenuClient.h"
+#include "CookieJar.h"
 #include "DataListSuggestionPicker.h"
 #include "DatabaseProvider.h"
 #include "DiagnosticLoggingClient.h"
@@ -287,7 +288,7 @@ private:
     EmptyFrameNetworkingContext();
 
     bool shouldClearReferrerOnHTTPSToHTTPRedirect() const { return true; }
-    NetworkStorageSession* storageSession() const final { return &NetworkStorageSession::defaultStorageSession(); }
+    NetworkStorageSession* storageSession() const final { return nullptr; }
 
 #if PLATFORM(COCOA)
     bool localFileContentSniffingEnabled() const { return false; }
@@ -311,7 +312,6 @@ class EmptyInspectorClient final : public InspectorClient {
 #if ENABLE(APPLE_PAY)
 
 class EmptyPaymentCoordinatorClient final : public PaymentCoordinatorClient {
-    bool supportsVersion(unsigned) final { return false; }
     Optional<String> validatedPaymentNetwork(const String&) final { return WTF::nullopt; }
     bool canMakePayments() final { return false; }
     void canMakePaymentsWithActiveCard(const String&, const String&, WTF::Function<void(bool)>&& completionHandler) final { callOnMainThread([completionHandler = WTFMove(completionHandler)] { completionHandler(false); }); }
@@ -451,11 +451,11 @@ PAL::SessionID EmptyFrameLoaderClient::sessionID() const
     return PAL::SessionID::defaultSessionID();
 }
 
-void EmptyFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const NavigationAction&, const ResourceRequest&, FormState*, const String&, FramePolicyFunction&&)
+void EmptyFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const NavigationAction&, const ResourceRequest&, FormState*, const String&, PolicyCheckIdentifier, FramePolicyFunction&&)
 {
 }
 
-void EmptyFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, const ResourceResponse&, FormState*, PolicyDecisionMode, FramePolicyFunction&&)
+void EmptyFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const NavigationAction&, const ResourceRequest&, const ResourceResponse&, FormState*, PolicyDecisionMode, PolicyCheckIdentifier, FramePolicyFunction&&)
 {
 }
 
@@ -534,6 +534,10 @@ Ref<StorageNamespace> EmptyStorageNamespaceProvider::createTransientLocalStorage
     return adoptRef(*new EmptyStorageNamespace);
 }
 
+class EmptyStorageSessionProvider : public StorageSessionProvider {
+    NetworkStorageSession* storageSession() const final { return nullptr; }
+};
+
 PageConfiguration pageConfigurationWithEmptyClients()
 {
     PageConfiguration pageConfiguration {
@@ -541,7 +545,8 @@ PageConfiguration pageConfigurationWithEmptyClients()
         SocketProvider::create(),
         LibWebRTCProvider::create(),
         CacheStorageProvider::create(),
-        adoptRef(*new EmptyBackForwardClient)
+        adoptRef(*new EmptyBackForwardClient),
+        CookieJar::create(adoptRef(*new EmptyStorageSessionProvider))
     };
 
     static NeverDestroyed<EmptyChromeClient> dummyChromeClient;

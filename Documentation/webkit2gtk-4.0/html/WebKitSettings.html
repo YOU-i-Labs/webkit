@@ -2,9 +2,9 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>WebKitSettings: WebKit2GTK+ Reference Manual</title>
+<title>WebKitSettings: WebKitGTK Reference Manual</title>
 <meta name="generator" content="DocBook XSL Stylesheets V1.79.1">
-<link rel="home" href="index.html" title="WebKit2GTK+ Reference Manual">
+<link rel="home" href="index.html" title="WebKitGTK Reference Manual">
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitBackForwardListItem.html" title="WebKitBackForwardListItem">
 <link rel="next" href="WebKitURIRequest.html" title="WebKitURIRequest">
@@ -167,6 +167,22 @@
 </td>
 <td class="function_name">
 <a class="link" href="WebKitSettings.html#webkit-settings-set-enable-javascript" title="webkit_settings_set_enable_javascript ()">webkit_settings_set_enable_javascript</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitSettings.html#webkit-settings-get-enable-javascript-markup" title="webkit_settings_get_enable_javascript_markup ()">webkit_settings_get_enable_javascript_markup</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">void</span>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitSettings.html#webkit-settings-set-enable-javascript-markup" title="webkit_settings_set_enable_javascript_markup ()">webkit_settings_set_enable_javascript_markup</a> <span class="c_punctuation">()</span>
 </td>
 </tr>
 <tr>
@@ -922,6 +938,22 @@
 </tr>
 <tr>
 <td class="function_type">
+<a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitSettings.html#webkit-settings-get-enable-back-forward-navigation-gestures" title="webkit_settings_get_enable_back_forward_navigation_gestures ()">webkit_settings_get_enable_back_forward_navigation_gestures</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">void</span>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitSettings.html#webkit-settings-set-enable-back-forward-navigation-gestures" title="webkit_settings_set_enable_back_forward_navigation_gestures ()">webkit_settings_set_enable_back_forward_navigation_gestures</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
 <a href="../glib/glib-Basic-Types.html#guint32"><span class="returnvalue">guint32</span></a>
 </td>
 <td class="function_name">
@@ -1008,6 +1040,11 @@
 </tr>
 <tr>
 <td class="property_type"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></td>
+<td class="property_name"><a class="link" href="WebKitSettings.html#WebKitSettings--enable-back-forward-navigation-gestures" title="The “enable-back-forward-navigation-gestures” property">enable-back-forward-navigation-gestures</a></td>
+<td class="property_flags">Read / Write / Construct</td>
+</tr>
+<tr>
+<td class="property_type"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></td>
 <td class="property_name"><a class="link" href="WebKitSettings.html#WebKitSettings--enable-caret-browsing" title="The “enable-caret-browsing” property">enable-caret-browsing</a></td>
 <td class="property_flags">Read / Write / Construct</td>
 </tr>
@@ -1059,6 +1096,11 @@
 <tr>
 <td class="property_type"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></td>
 <td class="property_name"><a class="link" href="WebKitSettings.html#WebKitSettings--enable-javascript" title="The “enable-javascript” property">enable-javascript</a></td>
+<td class="property_flags">Read / Write / Construct</td>
+</tr>
+<tr>
+<td class="property_type"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></td>
+<td class="property_name"><a class="link" href="WebKitSettings.html#WebKitSettings--enable-javascript-markup" title="The “enable-javascript-markup” property">enable-javascript-markup</a></td>
 <td class="property_flags">Read / Write / Construct</td>
 </tr>
 <tr>
@@ -1728,6 +1770,66 @@ webkit_settings_set_enable_javascript (<em class="parameter"><code><a class="lin
 </tbody>
 </table></div>
 </div>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-settings-get-enable-javascript-markup"></a><h3>webkit_settings_get_enable_javascript_markup ()</h3>
+<pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
+webkit_settings_get_enable_javascript_markup
+                               (<em class="parameter"><code><a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a> *settings</code></em>);</pre>
+<p>Get the <a class="link" href="WebKitSettings.html#WebKitSettings--enable-javascript-markup" title="The “enable-javascript-markup” property"><span class="type">“enable-javascript-markup”</span></a> property.</p>
+<div class="refsect3">
+<a name="webkit-settings-get-enable-javascript-markup.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>settings</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="webkit-settings-get-enable-javascript-markup.returns"></a><h4>Returns</h4>
+<p> <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS"><code class="literal">TRUE</code></a> if JavaScript markup is enabled or <a href="../glib/glib-Standard-Macros.html#FALSE:CAPS"><code class="literal">FALSE</code></a> otherwise.</p>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-24.html#api-index-2.24">2.24</a></p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-settings-set-enable-javascript-markup"></a><h3>webkit_settings_set_enable_javascript_markup ()</h3>
+<pre class="programlisting"><span class="returnvalue">void</span>
+webkit_settings_set_enable_javascript_markup
+                               (<em class="parameter"><code><a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a> *settings</code></em>,
+                                <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> enabled</code></em>);</pre>
+<p>Set the <a class="link" href="WebKitSettings.html#WebKitSettings--enable-javascript-markup" title="The “enable-javascript-markup” property"><span class="type">“enable-javascript-markup”</span></a> property.</p>
+<div class="refsect3">
+<a name="webkit-settings-set-enable-javascript-markup.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="parameter_name"><p>settings</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>enabled</p></td>
+<td class="parameter_description"><p>Value to be set</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-24.html#api-index-2.24">2.24</a></p>
 </div>
 <hr>
 <div class="refsect2">
@@ -4483,6 +4585,66 @@ webkit_settings_set_hardware_acceleration_policy
 </div>
 <hr>
 <div class="refsect2">
+<a name="webkit-settings-get-enable-back-forward-navigation-gestures"></a><h3>webkit_settings_get_enable_back_forward_navigation_gestures ()</h3>
+<pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
+webkit_settings_get_enable_back_forward_navigation_gestures
+                               (<em class="parameter"><code><a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a> *settings</code></em>);</pre>
+<p>Get the <a class="link" href="WebKitSettings.html#WebKitSettings--enable-back-forward-navigation-gestures" title="The “enable-back-forward-navigation-gestures” property"><span class="type">“enable-back-forward-navigation-gestures”</span></a> property.</p>
+<div class="refsect3">
+<a name="webkit-settings-get-enable-back-forward-navigation-gestures.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>settings</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="webkit-settings-get-enable-back-forward-navigation-gestures.returns"></a><h4>Returns</h4>
+<p> <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS"><code class="literal">TRUE</code></a> if horizontal swipe gesture will trigger back-forward navigaiton or <a href="../glib/glib-Standard-Macros.html#FALSE:CAPS"><code class="literal">FALSE</code></a> otherwise.</p>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-24.html#api-index-2.24">2.24</a></p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-settings-set-enable-back-forward-navigation-gestures"></a><h3>webkit_settings_set_enable_back_forward_navigation_gestures ()</h3>
+<pre class="programlisting"><span class="returnvalue">void</span>
+webkit_settings_set_enable_back_forward_navigation_gestures
+                               (<em class="parameter"><code><a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a> *settings</code></em>,
+                                <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> enabled</code></em>);</pre>
+<p>Set the <a class="link" href="WebKitSettings.html#WebKitSettings--enable-back-forward-navigation-gestures" title="The “enable-back-forward-navigation-gestures” property"><span class="type">“enable-back-forward-navigation-gestures”</span></a> property.</p>
+<div class="refsect3">
+<a name="webkit-settings-set-enable-back-forward-navigation-gestures.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="parameter_name"><p>settings</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>enabled</p></td>
+<td class="parameter_description"><p>value to be set</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-24.html#api-index-2.24">2.24</a></p>
+</div>
+<hr>
+<div class="refsect2">
 <a name="webkit-settings-font-size-to-points"></a><h3>webkit_settings_font_size_to_points ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#guint32"><span class="returnvalue">guint32</span></a>
 webkit_settings_font_size_to_points (<em class="parameter"><code><a href="../glib/glib-Basic-Types.html#guint32"><span class="type">guint32</span></a> pixels</code></em>);</pre>
@@ -4698,12 +4860,21 @@ to web content that is composited with the GPU.</p>
 <a name="WebKitSettings--enable-accelerated-2d-canvas"></a><h3>The <code class="literal">“enable-accelerated-2d-canvas”</code> property</h3>
 <pre class="programlisting">  “enable-accelerated-2d-canvas” <a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></pre>
 <p>Enable or disable accelerated 2D canvas. Accelerated 2D canvas is only available
-if WebKitGTK+ was compiled with a version of Cairo including the unstable CairoGL API.
+if WebKit was compiled with a version of Cairo including the unstable CairoGL API.
 When accelerated 2D canvas is enabled, WebKit may render some 2D canvas content
 using hardware accelerated drawing operations.</p>
 <p>Flags: Read / Write / Construct</p>
 <p>Default value: FALSE</p>
 <p class="since">Since: <a class="link" href="api-index-2-2.html#api-index-2.2">2.2</a></p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="WebKitSettings--enable-back-forward-navigation-gestures"></a><h3>The <code class="literal">“enable-back-forward-navigation-gestures”</code> property</h3>
+<pre class="programlisting">  “enable-back-forward-navigation-gestures” <a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></pre>
+<p>Enable or disable horizontal swipe gesture for back-forward navigation.</p>
+<p>Flags: Read / Write / Construct</p>
+<p>Default value: FALSE</p>
+<p class="since">Since: <a class="link" href="api-index-2-24.html#api-index-2.24">2.24</a></p>
 </div>
 <hr>
 <div class="refsect2">
@@ -4812,6 +4983,17 @@ http://www.whatwg.org/specs/web-apps/current-work/multipage/links.html<span clas
 <p>Determines whether or not JavaScript executes within a page.</p>
 <p>Flags: Read / Write / Construct</p>
 <p>Default value: TRUE</p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="WebKitSettings--enable-javascript-markup"></a><h3>The <code class="literal">“enable-javascript-markup”</code> property</h3>
+<pre class="programlisting">  “enable-javascript-markup” <a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></pre>
+<p>Determines whether or not JavaScript markup is allowed in document. When this setting is disabled,
+all JavaScript-related elements and attributes are removed from the document during parsing. Note that
+executing JavaScript is still allowed if <a class="link" href="WebKitSettings.html#WebKitSettings--enable-javascript" title="The “enable-javascript” property"><span class="type">“enable-javascript”</span></a> is <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS"><code class="literal">TRUE</code></a>.</p>
+<p>Flags: Read / Write / Construct</p>
+<p>Default value: TRUE</p>
+<p class="since">Since: <a class="link" href="api-index-2-24.html#api-index-2.24">2.24</a></p>
 </div>
 <hr>
 <div class="refsect2">

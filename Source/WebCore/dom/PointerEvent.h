@@ -25,7 +25,10 @@
 
 #pragma once
 
+#if ENABLE(POINTER_EVENTS)
+
 #include "MouseEvent.h"
+#include "PointerID.h"
 #include <wtf/text/WTFString.h>
 
 #if ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY)
@@ -37,7 +40,7 @@ namespace WebCore {
 class PointerEvent final : public MouseEvent {
 public:
     struct Init : MouseEventInit {
-        long pointerId { 0 };
+        PointerID pointerId { 0 };
         double width { 1 };
         double height { 1 };
         float pressure { 0 };
@@ -45,12 +48,31 @@ public:
         long tiltX { 0 };
         long tiltY { 0 };
         long twist { 0 };
-        String pointerType;
+        String pointerType { PointerEvent::mousePointerType() };
         bool isPrimary { false };
     };
 
     static Ref<PointerEvent> create(const AtomicString& type, Init&& initializer)
     {
+        return adoptRef(*new PointerEvent(type, WTFMove(initializer)));
+    }
+
+    static Ref<PointerEvent> create(const AtomicString& type, PointerID pointerId, String pointerType)
+    {
+        Init initializer;
+        initializer.bubbles = true;
+        initializer.pointerId = pointerId;
+        initializer.pointerType = pointerType;
+        return adoptRef(*new PointerEvent(type, WTFMove(initializer)));
+    }
+
+    static Ref<PointerEvent> createForPointerCapture(const AtomicString& type, const PointerEvent& pointerEvent)
+    {
+        Init initializer;
+        initializer.bubbles = true;
+        initializer.pointerId = pointerEvent.pointerId();
+        initializer.isPrimary = pointerEvent.isPrimary();
+        initializer.pointerType = pointerEvent.pointerType();
         return adoptRef(*new PointerEvent(type, WTFMove(initializer)));
     }
 
@@ -63,9 +85,13 @@ public:
     static Ref<PointerEvent> create(const PlatformTouchEvent&, unsigned touchIndex, bool isPrimary, Ref<WindowProxy>&&);
 #endif
 
+    static const String& mousePointerType();
+    static const String& penPointerType();
+    static const String& touchPointerType();
+
     virtual ~PointerEvent();
 
-    long pointerId() const { return m_pointerId; }
+    PointerID pointerId() const { return m_pointerId; }
     double width() const { return m_width; }
     double height() const { return m_height; }
     float pressure() const { return m_pressure; }
@@ -87,7 +113,7 @@ private:
     PointerEvent(const AtomicString& type, const PlatformTouchEvent&, IsCancelable isCancelable, unsigned touchIndex, bool isPrimary, Ref<WindowProxy>&&);
 #endif
 
-    long m_pointerId { 0 };
+    PointerID m_pointerId { 0 };
     double m_width { 1 };
     double m_height { 1 };
     float m_pressure { 0 };
@@ -95,10 +121,12 @@ private:
     long m_tiltX { 0 };
     long m_tiltY { 0 };
     long m_twist { 0 };
-    String m_pointerType;
+    String m_pointerType { PointerEvent::mousePointerType() };
     bool m_isPrimary { false };
 };
 
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_EVENT(PointerEvent)
+
+#endif // ENABLE(POINTER_EVENTS)

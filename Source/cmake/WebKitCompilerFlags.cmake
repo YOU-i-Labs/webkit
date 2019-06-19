@@ -131,7 +131,8 @@ if (COMPILER_IS_GCC_OR_CLANG)
     WEBKIT_PREPEND_GLOBAL_COMPILER_FLAGS(-Qunused-arguments
                                          -Wno-maybe-uninitialized
                                          -Wno-noexcept-type
-                                         -Wno-parentheses-equality)
+                                         -Wno-parentheses-equality
+                                         -Wno-psabi)
 
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80947
     if (${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS "8.0" AND NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -142,6 +143,15 @@ if (COMPILER_IS_GCC_OR_CLANG)
     # https://bugs.webkit.org/show_bug.cgi?id=167643#c13
     if (CMAKE_COMPILER_IS_GNUCXX)
         WEBKIT_PREPEND_GLOBAL_COMPILER_FLAGS(-Wno-expansion-to-defined)
+    endif ()
+
+    # Force SSE2 fp on x86 builds.
+    if (WTF_CPU_X86 AND NOT CMAKE_CROSSCOMPILING)
+        WEBKIT_PREPEND_GLOBAL_COMPILER_FLAGS(-msse2 -mfpmath=sse)
+        include(DetectSSE2)
+        if (NOT SSE2_SUPPORT_FOUND)
+            message(FATAL_ERROR "SSE2 support is required to compile WebKit")
+        endif ()
     endif ()
 endif ()
 

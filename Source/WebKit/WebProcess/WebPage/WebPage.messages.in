@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2016 Apple Inc. All rights reserved.
+# Copyright (C) 2010-2019 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -25,7 +25,7 @@ messages -> WebPage LegacyReceiver {
     SetActivityState(OptionSet<WebCore::ActivityState::Flag> activityState, WebKit::ActivityStateChangeID activityStateChangeID, Vector<WebKit::CallbackID> callbackIDs)
     SetLayerHostingMode(enum:uint8_t WebKit::LayerHostingMode layerHostingMode)
 
-    SetDrawsBackground(bool drawsBackground)
+    SetBackgroundColor(Optional<WebCore::Color> color)
 
     AddConsoleMessage(uint64_t frameID, enum:uint8_t JSC::MessageSource messageSource, enum:uint8_t JSC::MessageLevel messageLevel, String message, uint64_t requestID)
     SendCSPViolationReport(uint64_t frameID, URL reportURL, IPC::FormDataReference reportData)
@@ -51,9 +51,9 @@ messages -> WebPage LegacyReceiver {
     SetOverrideViewportArguments(Optional<WebCore::ViewportArguments> arguments)
     DynamicViewportSizeUpdate(WebCore::FloatSize viewLayoutSize, WebCore::FloatSize maximumUnobscuredSize, WebCore::FloatRect targetExposedContentRect, WebCore::FloatRect targetUnobscuredRect, WebCore::FloatRect targetUnobscuredRectInScrollViewCoordinates, WebCore::RectEdges<float> targetUnobscuredSafeAreaInsets, double scale, int32_t deviceOrientation, uint64_t dynamicViewportSizeUpdateID)
 
-    HandleTap(WebCore::IntPoint point, uint64_t lastLayerTreeTransactionId)
+    HandleTap(WebCore::IntPoint point, OptionSet<WebKit::WebEvent::Modifier> modifiers, uint64_t lastLayerTreeTransactionId)
     PotentialTapAtPosition(uint64_t requestID, WebCore::FloatPoint point)
-    CommitPotentialTap(uint64_t lastLayerTreeTransactionId)
+    CommitPotentialTap(OptionSet<WebKit::WebEvent::Modifier> modifiers, uint64_t lastLayerTreeTransactionId)
     CancelPotentialTap()
     TapHighlightAtPosition(uint64_t requestID, WebCore::FloatPoint point)
     InspectorNodeSearchMovedToPosition(WebCore::FloatPoint point)
@@ -77,10 +77,10 @@ messages -> WebPage LegacyReceiver {
     ReplaceSelectedText(String oldText, String newText)
     RequestAutocorrectionData(String textForAutocorrection, WebKit::CallbackID callbackID)
     ApplyAutocorrection(String correction, String originalText, WebKit::CallbackID callbackID)
-    SyncApplyAutocorrection(String correction, String originalText) -> (bool autocorrectionApplied) LegacySync
+    SyncApplyAutocorrection(String correction, String originalText) -> (bool autocorrectionApplied) Delayed
     RequestAutocorrectionContext(WebKit::CallbackID callbackID)
-    GetAutocorrectionContext() -> (String beforeContext, String markedText, String selectedText, String afterContext, uint64_t location, uint64_t length) LegacySync
-    GetPositionInformation(struct WebKit::InteractionInformationRequest request) -> (struct WebKit::InteractionInformationAtPosition information) LegacySync
+    AutocorrectionContextSync() -> (struct WebKit::WebAutocorrectionContext context) Delayed
+    GetPositionInformation(struct WebKit::InteractionInformationRequest request) -> (struct WebKit::InteractionInformationAtPosition information) Delayed
     RequestPositionInformation(struct WebKit::InteractionInformationRequest request)
     StartInteractionWithElementAtPosition(WebCore::IntPoint point)
     StopInteraction()
@@ -98,7 +98,7 @@ messages -> WebPage LegacyReceiver {
     ContentSizeCategoryDidChange(String contentSizeCategory)
     GetSelectionContext(WebKit::CallbackID callbackID)
     SetAllowsMediaDocumentInlinePlayback(bool allows)
-    HandleTwoFingerTapAtPoint(WebCore::IntPoint point, uint64_t requestID)
+    HandleTwoFingerTapAtPoint(WebCore::IntPoint point, OptionSet<WebKit::WebEvent::Modifier> modifiers, uint64_t requestID)
     HandleStylusSingleTapAtPoint(WebCore::IntPoint point, uint64_t requestID)
     SetForceAlwaysUserScalable(bool userScalable)
     GetRectsForGranularityWithSelectionOffset(uint32_t granularity, int32_t offset, WebKit::CallbackID callbackID)
@@ -121,10 +121,14 @@ messages -> WebPage LegacyReceiver {
 #endif
 
 #if ENABLE(IOS_TOUCH_EVENTS)
-    TouchEventSync(WebKit::WebTouchEvent event) -> (bool handled) LegacySync
+    TouchEventSync(WebKit::WebTouchEvent event) -> (bool handled) Delayed
 #endif
 #if !ENABLE(IOS_TOUCH_EVENTS) && ENABLE(TOUCH_EVENTS)
     TouchEvent(WebKit::WebTouchEvent event)
+#endif
+
+#if ENABLE(POINTER_EVENTS)
+    CancelPointer(WebCore::PointerID pointerId, WebCore::IntPoint documentPoint)
 #endif
 
 #if ENABLE(INPUT_TYPE_COLOR)
@@ -167,7 +171,7 @@ messages -> WebPage LegacyReceiver {
     DidRemoveBackForwardItem(struct WebCore::BackForwardItemIdentifier backForwardItemID)
 
     UpdateWebsitePolicies(struct WebKit::WebsitePoliciesData websitePolicies)
-    DidReceivePolicyDecision(uint64_t frameID, uint64_t listenerID, enum:uint8_t WebKit::WebPolicyAction policyAction, uint64_t navigationID, WebKit::DownloadID downloadID, Optional<WebKit::WebsitePoliciesData> websitePolicies)
+    DidReceivePolicyDecision(uint64_t frameID, uint64_t listenerID, WebCore::PolicyCheckIdentifier policyCheckIdentifier, enum:uint8_t WebCore::PolicyAction policyAction, uint64_t navigationID, WebKit::DownloadID downloadID, Optional<WebKit::WebsitePoliciesData> websitePolicies)
     ContinueWillSubmitForm(uint64_t frameID, uint64_t listenerID)
 
     ClearSelection()
@@ -289,7 +293,7 @@ messages -> WebPage LegacyReceiver {
 #endif
 
 #if ENABLE(DATA_INTERACTION)
-    RequestStartDataInteraction(WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition)
+    RequestDragStart(WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition)
     RequestAdditionalItemsForDragSession(WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition)
 #endif
 
@@ -474,11 +478,12 @@ messages -> WebPage LegacyReceiver {
     HandleAcceptedCandidate(struct WebCore::TextCheckingResult acceptedCandidate)
 
     SetUseSystemAppearance(bool useSystemAppearance);
-    SetUseDarkAppearance(bool useDarkAppearance);
 
     SetHeaderBannerHeightForTesting(int height);
     SetFooterBannerHeightForTesting(int height);
 #endif
+
+    SetUseDarkAppearance(bool useDarkAppearance);
 
 #if PLATFORM(COCOA)
     RequestActiveNowPlayingSessionInfo(WebKit::CallbackID callbackID)
@@ -530,10 +535,6 @@ messages -> WebPage LegacyReceiver {
     URLSchemeTaskDidComplete(uint64_t handlerIdentifier, uint64_t taskIdentifier, WebCore::ResourceError error)
 
     SetIsSuspended(bool suspended)
-
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
-    StorageAccessResponse(bool wasGranted, uint64_t contextId)
-#endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     InsertAttachment(String identifier, Optional<uint64_t> fileSize, String fileName, String contentType, WebKit::CallbackID callbackID)

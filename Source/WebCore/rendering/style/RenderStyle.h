@@ -64,6 +64,7 @@
 #include "StyleVisualData.h"
 #include "TextFlags.h"
 #include "ThemeTypes.h"
+#include "TouchAction.h"
 #include "TransformOperations.h"
 #include "UnicodeBidi.h"
 #include <memory>
@@ -703,8 +704,8 @@ public:
     int initialLetterDrop() const { return initialLetter().width(); }
     int initialLetterHeight() const { return initialLetter().height(); }
 
-#if ENABLE(TOUCH_EVENTS)
-    TouchAction touchAction() const { return static_cast<TouchAction>(m_rareNonInheritedData->touchAction); }
+#if ENABLE(POINTER_EVENTS)
+    OptionSet<TouchAction> touchActions() const { return OptionSet<TouchAction>::fromRaw(m_rareNonInheritedData->touchActions); }
 #endif
 
 #if ENABLE(CSS_SCROLL_SNAP)
@@ -799,7 +800,7 @@ public:
     bool shouldPlaceBlockDirectionScrollbarOnLeft() const;
 
 #if ENABLE(CSS_TRAILING_WORD)
-    TrailingWord trailingWord() const { return static_cast<TrailingWord>(m_rareInheritedData->trailingWord); }
+    TrailingWord trailingWord() const { return TrailingWord::Auto; }
 #endif
 
 #if ENABLE(APPLE_PAY)
@@ -1054,7 +1055,7 @@ public:
     void setTextStrokeWidth(float w) { SET_VAR(m_rareInheritedData, textStrokeWidth, w); }
     void setTextFillColor(const Color& c) { SET_VAR(m_rareInheritedData, textFillColor, c); }
     void setCaretColor(const Color& c) { SET_VAR(m_rareInheritedData, caretColor, c); }
-    void setOpacity(float f) { float v = clampTo<float>(f, 0, 1); SET_VAR(m_rareNonInheritedData, opacity, v); }
+    void setOpacity(float f) { float v = clampTo<float>(f, 0.f, 1.f); SET_VAR(m_rareNonInheritedData, opacity, v); }
     void setAppearance(ControlPart a) { SET_VAR(m_rareNonInheritedData, appearance, a); }
     // For valid values of box-align see http://www.w3.org/TR/2009/WD-css3-flexbox-20090723/#alignment
     void setBoxAlign(BoxAlignment a) { SET_NESTED_VAR(m_rareNonInheritedData, deprecatedFlexibleBox, align, static_cast<unsigned>(a)); }
@@ -1222,8 +1223,8 @@ public:
     
     void setInitialLetter(const IntSize& size) { SET_VAR(m_rareNonInheritedData, initialLetter, size); }
     
-#if ENABLE(TOUCH_EVENTS)
-    void setTouchAction(TouchAction touchAction) { SET_VAR(m_rareNonInheritedData, touchAction, static_cast<unsigned>(touchAction)); }
+#if ENABLE(POINTER_EVENTS)
+    void setTouchActions(OptionSet<TouchAction> touchActions) { SET_VAR(m_rareNonInheritedData, touchActions, touchActions.toRaw()); }
 #endif
 
 #if ENABLE(CSS_SCROLL_SNAP)
@@ -1259,7 +1260,7 @@ public:
     void setTextSecurity(TextSecurity security) { SET_VAR(m_rareInheritedData, textSecurity, static_cast<unsigned>(security)); }
 
 #if ENABLE(CSS_TRAILING_WORD)
-    void setTrailingWord(TrailingWord v) { SET_VAR(m_rareInheritedData, trailingWord, static_cast<unsigned>(v)); }
+    void setTrailingWord(TrailingWord) { }
 #endif
 
 #if ENABLE(APPLE_PAY)
@@ -1618,8 +1619,8 @@ public:
 
     static WillChangeData* initialWillChange() { return nullptr; }
 
-#if ENABLE(TOUCH_EVENTS)
-    static TouchAction initialTouchAction() { return TouchAction::Auto; }
+#if ENABLE(POINTER_EVENTS)
+    static TouchAction initialTouchActions() { return TouchAction::Auto; }
 #endif
 
 #if ENABLE(CSS_SCROLL_SNAP)
@@ -2195,7 +2196,7 @@ inline void RenderStyle::setShapeOutside(RefPtr<ShapeValue>&& value)
 
 inline void RenderStyle::setShapeImageThreshold(float shapeImageThreshold)
 {
-    float clampedShapeImageThreshold = clampTo<float>(shapeImageThreshold, 0, 1);
+    float clampedShapeImageThreshold = clampTo<float>(shapeImageThreshold, 0.f, 1.f);
     SET_VAR(m_rareNonInheritedData, shapeImageThreshold, clampedShapeImageThreshold);
 }
 

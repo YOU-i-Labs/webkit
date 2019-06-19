@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,88 +48,6 @@ ExecutableBase* AssemblyHelpers::executableFor(const CodeOrigin& codeOrigin)
         return m_codeBlock->ownerExecutable();
     
     return codeOrigin.inlineCallFrame->baselineCodeBlock->ownerExecutable();
-}
-
-AssemblyHelpers::JumpList AssemblyHelpers::branchIfNotType(
-    JSValueRegs regs, GPRReg tempGPR, const InferredType::Descriptor& descriptor, TagRegistersMode mode)
-{
-    AssemblyHelpers::JumpList result;
-
-    switch (descriptor.kind()) {
-    case InferredType::Bottom:
-        result.append(jump());
-        break;
-
-    case InferredType::Boolean:
-        result.append(branchIfNotBoolean(regs, tempGPR));
-        break;
-
-    case InferredType::Other:
-        result.append(branchIfNotOther(regs, tempGPR));
-        break;
-
-    case InferredType::Int32:
-        result.append(branchIfNotInt32(regs, mode));
-        break;
-
-    case InferredType::Number:
-        result.append(branchIfNotNumber(regs, tempGPR, mode));
-        break;
-
-    case InferredType::String:
-        result.append(branchIfNotCell(regs, mode));
-        result.append(branchIfNotString(regs.payloadGPR()));
-        break;
-
-    case InferredType::Symbol:
-        result.append(branchIfNotCell(regs, mode));
-        result.append(branchIfNotSymbol(regs.payloadGPR()));
-        break;
-
-    case InferredType::BigInt:
-        result.append(branchIfNotCell(regs, mode));
-        result.append(branchIfNotBigInt(regs.payloadGPR()));
-        break;
-
-    case InferredType::ObjectWithStructure:
-        result.append(branchIfNotCell(regs, mode));
-        result.append(
-            branchStructure(
-                NotEqual,
-                Address(regs.payloadGPR(), JSCell::structureIDOffset()),
-                descriptor.structure()));
-        break;
-
-    case InferredType::ObjectWithStructureOrOther: {
-        Jump ok = branchIfOther(regs, tempGPR);
-        result.append(branchIfNotCell(regs, mode));
-        result.append(
-            branchStructure(
-                NotEqual,
-                Address(regs.payloadGPR(), JSCell::structureIDOffset()),
-                descriptor.structure()));
-        ok.link(this);
-        break;
-    }
-
-    case InferredType::Object:
-        result.append(branchIfNotCell(regs, mode));
-        result.append(branchIfNotObject(regs.payloadGPR()));
-        break;
-
-    case InferredType::ObjectOrOther: {
-        Jump ok = branchIfOther(regs, tempGPR);
-        result.append(branchIfNotCell(regs, mode));
-        result.append(branchIfNotObject(regs.payloadGPR()));
-        ok.link(this);
-        break;
-    }
-
-    case InferredType::Top:
-        break;
-    }
-
-    return result;
 }
 
 AssemblyHelpers::Jump AssemblyHelpers::branchIfFastTypedArray(GPRReg baseGPR)
@@ -451,15 +369,29 @@ void AssemblyHelpers::loadProperty(GPRReg object, GPRReg offset, JSValueRegs res
 void AssemblyHelpers::emitLoadStructure(VM& vm, RegisterID source, RegisterID dest, RegisterID scratch)
 {
 #if USE(JSVALUE64)
-    ASSERT(dest != scratch);
-    load32(MacroAssembler::Address(source, JSCell::structureIDOffset()), dest);
-    loadPtr(vm.heap.structureIDTable().base(), scratch);
-    loadPtr(MacroAssembler::BaseIndex(scratch, dest, MacroAssembler::TimesEight), dest);
+#if CPU(ARM64)
+    RegisterID scratch2 = dataTempRegister;
+#elif CPU(X86_64)
+    RegisterID scratch2 = scratchRegister();
 #else
+#error "Unsupported cpu"
+#endif
+
+    ASSERT(dest != scratch);
+    ASSERT(dest != scratch2);
+    ASSERT(scratch != scratch2);
+
+    load32(MacroAssembler::Address(source, JSCell::structureIDOffset()), scratch2);
+    loadPtr(vm.heap.structureIDTable().base(), scratch);
+    rshift32(scratch2, TrustedImm32(StructureIDTable::s_numberOfEntropyBits), dest);
+    loadPtr(MacroAssembler::BaseIndex(scratch, dest, MacroAssembler::TimesEight), dest);
+    lshiftPtr(TrustedImm32(StructureIDTable::s_entropyBitsShiftForStructurePointer), scratch2);
+    xorPtr(scratch2, dest);
+#else // not USE(JSVALUE64)
     UNUSED_PARAM(scratch);
     UNUSED_PARAM(vm);
     loadPtr(MacroAssembler::Address(source, JSCell::structureIDOffset()), dest);
-#endif
+#endif // not USE(JSVALUE64)
 }
 
 void AssemblyHelpers::makeSpaceOnStackForCCall()
@@ -795,8 +727,11 @@ void AssemblyHelpers::emitConvertValueToBoolean(VM& vm, JSValueRegs value, GPRRe
     done.append(jump());
 
     isString.link(this);
+    move(TrustedImmPtr(jsEmptyString(&vm)), result);
+    comparePtr(invert ? Equal : NotEqual, value.payloadGPR(), result, result);
+    done.append(jump());
+
     isBigInt.link(this);
-    RELEASE_ASSERT(JSString::offsetOfLength() == JSBigInt::offsetOfLength());
     load32(Address(value.payloadGPR(), JSBigInt::offsetOfLength()), result);
     compare32(invert ? Equal : NotEqual, result, TrustedImm32(0), result);
     done.append(jump());
@@ -882,8 +817,10 @@ AssemblyHelpers::JumpList AssemblyHelpers::branchIfValue(VM& vm, JSValueRegs val
     }
 
     isString.link(this);
+    truthy.append(branchPtr(invert ? Equal : NotEqual, value.payloadGPR(), TrustedImmPtr(jsEmptyString(&vm))));
+    done.append(jump());
+
     isBigInt.link(this);
-    RELEASE_ASSERT(JSString::offsetOfLength() == JSBigInt::offsetOfLength());
     truthy.append(branchTest32(invert ? Zero : NonZero, Address(value.payloadGPR(), JSBigInt::offsetOfLength())));
     done.append(jump());
 
@@ -1068,41 +1005,6 @@ void AssemblyHelpers::emitPreparePreciseIndexMask32(GPRReg index, GPRReg length,
         subPtr(length, result);
     }
     rshiftPtr(TrustedImm32(preciseIndexMaskShift<void*>()), result);
-}
-
-void AssemblyHelpers::emitDynamicPoison(GPRReg base, GPRReg poisonValue)
-{
-#if CPU(X86_64) || (CPU(ARM64) && !defined(__ILP32__))
-    lshiftPtr(TrustedImm32(40), poisonValue);
-    addPtr(poisonValue, base);
-#else
-    UNUSED_PARAM(base);
-    UNUSED_PARAM(poisonValue);
-#endif
-}
-
-void AssemblyHelpers::emitDynamicPoisonOnLoadedType(GPRReg base, GPRReg actualType, JSType expectedType)
-{
-#if CPU(X86_64) || (CPU(ARM64) && !defined(__ILP32__))
-    xor32(TrustedImm32(expectedType), actualType);
-    emitDynamicPoison(base, actualType);
-#else
-    UNUSED_PARAM(base);
-    UNUSED_PARAM(actualType);
-    UNUSED_PARAM(expectedType);
-#endif
-}
-
-void AssemblyHelpers::emitDynamicPoisonOnType(GPRReg base, GPRReg scratch, JSType expectedType)
-{
-#if CPU(X86_64) || (CPU(ARM64) && !defined(__ILP32__))
-    load8(Address(base, JSCell::typeInfoTypeOffset()), scratch);
-    emitDynamicPoisonOnLoadedType(base, scratch, expectedType);
-#else
-    UNUSED_PARAM(base);
-    UNUSED_PARAM(scratch);
-    UNUSED_PARAM(expectedType);
-#endif
 }
 
 } // namespace JSC

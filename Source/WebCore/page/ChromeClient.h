@@ -34,6 +34,7 @@
 #include "HTMLMediaElementEnums.h"
 #include "HostWindow.h"
 #include "Icon.h"
+#include "InputMode.h"
 #include "LayerFlushThrottleState.h"
 #include "MediaProducer.h"
 #include "PopupMenu.h"
@@ -292,7 +293,9 @@ public:
     virtual void elementDidFocus(Element&) { }
     virtual void elementDidBlur(Element&) { }
     virtual void elementDidRefocus(Element&) { }
-    
+
+    virtual void focusedElementDidChangeInputMode(Element&, InputMode) { }
+
     virtual bool shouldPaintEntireContents() const { return false; }
     virtual bool hasStablePageScaleFactor() const { return true; }
 
@@ -305,7 +308,7 @@ public:
 
     // Pass nullptr as the GraphicsLayer to detatch the root layer.
     virtual void attachRootGraphicsLayer(Frame&, GraphicsLayer*) = 0;
-    virtual void attachViewOverlayGraphicsLayer(Frame&, GraphicsLayer*) = 0;
+    virtual void attachViewOverlayGraphicsLayer(GraphicsLayer*) = 0;
     // Sets a flag to specify that the next time content is drawn to the window,
     // the changes appear on the screen in synchrony with updates to GraphicsLayers.
     virtual void setNeedsOneShotDrawingSynchronization() = 0;
@@ -403,7 +406,7 @@ public:
     virtual void notifyScrollerThumbIsVisibleInRect(const IntRect&) { }
     virtual void recommendedScrollbarStyleDidChange(ScrollbarStyle) { }
 
-    virtual Optional<ScrollbarOverlayStyle> preferredScrollbarOverlayStyle() { return ScrollbarOverlayStyleDefault; }
+    virtual Optional<ScrollbarOverlayStyle> preferredScrollbarOverlayStyle() { return WTF::nullopt; }
 
     virtual void wheelEventHandlersChanged(bool hasHandlers) = 0;
         

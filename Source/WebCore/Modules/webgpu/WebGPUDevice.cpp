@@ -36,6 +36,7 @@
 #include "GPUPipelineStageDescriptor.h"
 #include "GPURenderPipelineDescriptor.h"
 #include "GPUShaderModuleDescriptor.h"
+#include "GPUTextureDescriptor.h"
 #include "Logging.h"
 #include "WebGPUBindGroup.h"
 #include "WebGPUBindGroupBinding.h"
@@ -52,13 +53,14 @@
 #include "WebGPURenderPipelineDescriptor.h"
 #include "WebGPUShaderModule.h"
 #include "WebGPUShaderModuleDescriptor.h"
+#include "WebGPUTexture.h"
 #include <wtf/Variant.h>
 
 namespace WebCore {
 
 RefPtr<WebGPUDevice> WebGPUDevice::create(Ref<WebGPUAdapter>&& adapter)
 {
-    if (auto device = GPUDevice::create()) // FIXME: Take adapter into account when creating m_device.
+    if (auto device = GPUDevice::create(adapter->options()))
         return adoptRef(new WebGPUDevice(WTFMove(adapter), device.releaseNonNull()));
     return nullptr;
 }
@@ -76,6 +78,12 @@ RefPtr<WebGPUBuffer> WebGPUDevice::createBuffer(WebGPUBufferDescriptor&& descrip
     if (auto buffer = m_device->createBuffer(GPUBufferDescriptor { descriptor.size, descriptor.usage }))
         return WebGPUBuffer::create(buffer.releaseNonNull());
     return nullptr;
+}
+
+Ref<WebGPUTexture> WebGPUDevice::createTexture(GPUTextureDescriptor&& descriptor) const
+{
+    auto texture = m_device->tryCreateTexture(WTFMove(descriptor));
+    return WebGPUTexture::create(WTFMove(texture));
 }
 
 Ref<WebGPUBindGroupLayout> WebGPUDevice::createBindGroupLayout(WebGPUBindGroupLayoutDescriptor&& descriptor) const
@@ -97,7 +105,12 @@ Ref<WebGPUPipelineLayout> WebGPUDevice::createPipelineLayout(WebGPUPipelineLayou
 Ref<WebGPUBindGroup> WebGPUDevice::createBindGroup(WebGPUBindGroupDescriptor&& descriptor) const
 {
     if (!descriptor.layout || !descriptor.layout->bindGroupLayout()) {
-        LOG(WebGPU, "WebGPUDevice::createBindGroup: Invalid WebGPUBindGroupLayout!");
+        LOG(WebGPU, "WebGPUDevice::createBindGroup(): Invalid WebGPUBindGroupLayout!");
+        return WebGPUBindGroup::create(nullptr);
+    }
+
+    if (descriptor.bindings.size() != descriptor.layout->bindGroupLayout()->bindingsMap().size()) {
+        LOG(WebGPU, "WebGPUDevice::createBindGroup(): Mismatched number of WebGPUBindGroupLayoutBindings and WebGPUBindGroupBindings!");
         return WebGPUBindGroup::create(nullptr);
     }
 
@@ -115,11 +128,16 @@ Ref<WebGPUBindGroup> WebGPUDevice::createBindGroup(WebGPUBindGroupDescriptor&& d
     bindGroupBindings.reserveCapacity(descriptor.bindings.size());
 
     for (const auto& binding : descriptor.bindings) {
+        if (!descriptor.layout->bindGroupLayout()->bindingsMap().contains(binding.binding)) {
+            LOG(WebGPU, "WebGPUDevice::createBindGroup(): WebGPUBindGroupBinding %lu not found in WebGPUBindGroupLayout!", binding.binding);
+            return WebGPUBindGroup::create(nullptr);
+        }
+
         auto bindingResource = WTF::visit(bindingResourceVisitor, binding.resource);
         if (bindingResource)
             bindGroupBindings.uncheckedAppend(GPUBindGroupBinding { binding.binding, WTFMove(bindingResource.value()) });
         else {
-            LOG(WebGPU, "WebGPUDevice::createBindGroup: Invalid WebGPUBindingResource in WebGPUBindGroupBindings!");
+            LOG(WebGPU, "WebGPUDevice::createBindGroup(): Invalid WebGPUBindingResource for binding %lu in WebGPUBindGroupBindings!", binding.binding);
             return WebGPUBindGroup::create(nullptr);
         }
     }
@@ -155,7 +173,7 @@ RefPtr<WebGPURenderPipeline> WebGPUDevice::createRenderPipeline(WebGPURenderPipe
         return nullptr;
     }
 
-    if (auto pipeline = m_device->createRenderPipeline(GPURenderPipelineDescriptor { WTFMove(pipelineLayout), WTFMove(*vertexStage), WTFMove(*fragmentStage), descriptor.primitiveTopology, WTFMove(descriptor.inputState) }))
+    if (auto pipeline = m_device->createRenderPipeline(GPURenderPipelineDescriptor { WTFMove(pipelineLayout), WTFMove(*vertexStage), WTFMove(*fragmentStage), descriptor.primitiveTopology, WTFMove(descriptor.depthStencilState), WTFMove(descriptor.inputState) }))
         return WebGPURenderPipeline::create(pipeline.releaseNonNull());
     return nullptr;
 }

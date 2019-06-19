@@ -54,8 +54,8 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
         this._editing = false;
         this._visible = false;
 
-        this._hideElementKeyboardShortcut = new WI.KeyboardShortcut(null, "H", this._hideElement.bind(this), this.element);
-        this._hideElementKeyboardShortcut.implicitlyPreventsDefault = false;
+        this._hideElementsKeyboardShortcut = new WI.KeyboardShortcut(null, "H", this._hideElements.bind(this), this.element);
+        this._hideElementsKeyboardShortcut.implicitlyPreventsDefault = false;
 
         WI.settings.showShadowDOM.addEventListener(WI.Setting.Event.Changed, this._showShadowDOMSettingChanged, this);
     }
@@ -195,6 +195,12 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
             treeElement.updateSelectionArea();
     }
 
+    toggleSelectedElementsVisibility(forceHidden)
+    {
+        for (let treeElement of this.selectedTreeElements)
+            treeElement.toggleElementVisibility(forceHidden);
+    }
+
     _selectedNodeChanged()
     {
         this.dispatchEventToListeners(WI.DOMTreeOutline.Event.SelectedNodeChanged);
@@ -311,6 +317,23 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
         }
 
         return true;
+    }
+
+    // Protected
+
+    objectForSelection(treeElement)
+    {
+        if (treeElement instanceof WI.DOMTreeElement && treeElement.isCloseTag()) {
+            // SelectionController requires every selectable item to be unique.
+            // The DOMTreeElement for a close tag has the same represented object
+            // as it's parent (the open tag). Return a proxy object associated
+            // with the tree element for the close tag so it can be selected.
+            if (!treeElement.__closeTagProxyObject)
+                treeElement.__closeTagProxyObject = {__proxyObjectTreeElement: treeElement};
+            return treeElement.__closeTagProxyObject;
+        }
+
+        return super.objectForSelection(treeElement);
     }
 
     // Private
@@ -534,14 +557,15 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
             this.selectDOMNode(nodeToSelect);
     }
 
-    _hideElement(event, keyboardShortcut)
+    _hideElements(event, keyboardShortcut)
     {
         if (!this.selectedTreeElement || WI.isEditingAnyField())
             return;
 
         event.preventDefault();
 
-        this.selectedTreeElement.toggleElementVisibility();
+        let forceHidden = !this.selectedTreeElements.every((treeElement) => treeElement.isNodeHidden);
+        this.toggleSelectedElementsVisibility(forceHidden);
     }
 };
 

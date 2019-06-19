@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,6 +54,7 @@
 #include <wtf/RefPtr.h>
 #include <wtf/StackTrace.h>
 #include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringConcatenateNumbers.h>
 
 namespace JSC {
 
@@ -862,7 +863,7 @@ String SamplingProfiler::StackFrame::url()
 
     String url = static_cast<ScriptExecutable*>(executable)->sourceURL();
     if (url.isEmpty())
-        return static_cast<ScriptExecutable*>(executable)->source().provider()->sourceURL(); // Fall back to sourceURL directive.
+        return static_cast<ScriptExecutable*>(executable)->source().provider()->sourceURLDirective(); // Fall back to sourceURL directive.
     return url;
 }
 
@@ -903,9 +904,7 @@ String SamplingProfiler::stackTracesAsJSON()
         loopedOnce = false;
         for (StackFrame& stackFrame : stackTrace.frames) {
             comma();
-            json.append('"');
-            json.append(stackFrame.displayNameForJSONTests(m_vm));
-            json.append('"');
+            json.appendQuotedJSONString(stackFrame.displayNameForJSONTests(m_vm));
             loopedOnce = true;
         }
         json.append(']');
@@ -974,7 +973,7 @@ void SamplingProfiler::reportTopFunctions(PrintStream& out)
             continue;
 
         StackFrame& frame = stackTrace.frames.first();
-        String frameDescription = makeString(frame.displayName(m_vm), ":", String::number(frame.sourceID()));
+        String frameDescription = makeString(frame.displayName(m_vm), ':', frame.sourceID());
         functionCounts.add(frameDescription, 0).iterator->value++;
     }
 
@@ -1078,6 +1077,16 @@ void SamplingProfiler::reportTopBytecodes(PrintStream& out)
         }
     }
 }
+
+#if OS(DARWIN)
+mach_port_t SamplingProfiler::machThread()
+{
+    if (!m_thread)
+        return MACH_PORT_NULL;
+
+    return m_thread->machThread();
+}
+#endif
 
 } // namespace JSC
 

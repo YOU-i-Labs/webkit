@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
-<book xmlns="http://www.devhelp.net/book" title="WebKit2GTK+ Reference Manual" link="index.html" author="" name="webkit2gtk-4.0" version="2" language="c">
+<book xmlns="http://www.devhelp.net/book" title="WebKitGTK Reference Manual" link="index.html" author="" name="webkit2gtk-4.0" version="2" language="c">
   <chapters>
     <sub name="Class Overview" link="ch01.html">
       <sub name="WebKitWebContext" link="WebKitWebContext.html"/>
@@ -42,6 +42,7 @@
       <sub name="WebKitOptionMenuItem" link="WebKitOptionMenuItem.html"/>
       <sub name="WebKitFormSubmissionRequest" link="WebKitFormSubmissionRequest.html"/>
       <sub name="WebKitSecurityManager" link="WebKitSecurityManager.html"/>
+      <sub name="WebKitUserContentFilterStore" link="WebKitUserContentFilterStore.html"/>
       <sub name="WebKitUserContentManager" link="WebKitUserContentManager.html"/>
       <sub name="User content" link="webkit2gtk-4.0-WebKitUserContent.html"/>
       <sub name="WebKitNotification" link="WebKitNotification.html"/>
@@ -61,6 +62,9 @@
       <sub name="WebKitWebHitTestResult" link="WebKitWebHitTestResult.html"/>
       <sub name="WebKitWebEditor" link="WebKitWebEditor.html"/>
       <sub name="WebKitConsoleMessage" link="WebKitConsoleMessage.html"/>
+    </sub>
+    <sub name="Utilities" link="ch03.html">
+      <sub name="WebKitURIUtilities" link="webkit2gtk-4.0-WebKitURIUtilities.html"/>
     </sub>
     <sub name="Index" link="index-all.html"/>
     <sub name="Index of deprecated symbols" link="api-index-deprecated.html"/>
@@ -102,8 +106,6 @@
     <keyword type="function" name="webkit_web_context_set_additional_plugins_directory ()" link="WebKitWebContext.html#webkit-web-context-set-additional-plugins-directory"/>
     <keyword type="function" name="webkit_web_context_get_plugins ()" link="WebKitWebContext.html#webkit-web-context-get-plugins"/>
     <keyword type="function" name="webkit_web_context_get_plugins_finish ()" link="WebKitWebContext.html#webkit-web-context-get-plugins-finish"/>
-    <keyword type="function" name="webkit_web_context_get_sandbox_enabled ()" link="WebKitWebContext.html#webkit-web-context-get-sandbox-enabled" since="2.24"/>
-    <keyword type="function" name="webkit_web_context_set_sandbox_enabled ()" link="WebKitWebContext.html#webkit-web-context-set-sandbox-enabled" since="2.24"/>
     <keyword type="function" name="webkit_web_context_get_spell_checking_enabled ()" link="WebKitWebContext.html#webkit-web-context-get-spell-checking-enabled"/>
     <keyword type="function" name="webkit_web_context_set_spell_checking_enabled ()" link="WebKitWebContext.html#webkit-web-context-set-spell-checking-enabled"/>
     <keyword type="function" name="webkit_web_context_get_spell_checking_languages ()" link="WebKitWebContext.html#webkit-web-context-get-spell-checking-languages"/>
@@ -332,6 +334,8 @@
     <keyword type="function" name="webkit_settings_set_enable_java ()" link="WebKitSettings.html#webkit-settings-set-enable-java"/>
     <keyword type="function" name="webkit_settings_get_enable_javascript ()" link="WebKitSettings.html#webkit-settings-get-enable-javascript"/>
     <keyword type="function" name="webkit_settings_set_enable_javascript ()" link="WebKitSettings.html#webkit-settings-set-enable-javascript"/>
+    <keyword type="function" name="webkit_settings_get_enable_javascript_markup ()" link="WebKitSettings.html#webkit-settings-get-enable-javascript-markup" since="2.24"/>
+    <keyword type="function" name="webkit_settings_set_enable_javascript_markup ()" link="WebKitSettings.html#webkit-settings-set-enable-javascript-markup" since="2.24"/>
     <keyword type="function" name="webkit_settings_get_enable_offline_web_application_cache ()" link="WebKitSettings.html#webkit-settings-get-enable-offline-web-application-cache"/>
     <keyword type="function" name="webkit_settings_set_enable_offline_web_application_cache ()" link="WebKitSettings.html#webkit-settings-set-enable-offline-web-application-cache"/>
     <keyword type="function" name="webkit_settings_get_enable_plugins ()" link="WebKitSettings.html#webkit-settings-get-enable-plugins"/>
@@ -427,6 +431,8 @@
     <keyword type="function" name="webkit_settings_set_allow_universal_access_from_file_urls ()" link="WebKitSettings.html#webkit-settings-set-allow-universal-access-from-file-urls" since="2.14"/>
     <keyword type="function" name="webkit_settings_get_hardware_acceleration_policy ()" link="WebKitSettings.html#webkit-settings-get-hardware-acceleration-policy" since="2.16"/>
     <keyword type="function" name="webkit_settings_set_hardware_acceleration_policy ()" link="WebKitSettings.html#webkit-settings-set-hardware-acceleration-policy" since="2.16"/>
+    <keyword type="function" name="webkit_settings_get_enable_back_forward_navigation_gestures ()" link="WebKitSettings.html#webkit-settings-get-enable-back-forward-navigation-gestures" since="2.24"/>
+    <keyword type="function" name="webkit_settings_set_enable_back_forward_navigation_gestures ()" link="WebKitSettings.html#webkit-settings-set-enable-back-forward-navigation-gestures" since="2.24"/>
     <keyword type="function" name="webkit_settings_font_size_to_points ()" link="WebKitSettings.html#webkit-settings-font-size-to-points" since="2.20"/>
     <keyword type="function" name="webkit_settings_font_size_to_pixels ()" link="WebKitSettings.html#webkit-settings-font-size-to-pixels" since="2.20"/>
     <keyword type="struct" name="struct WebKitSettings" link="WebKitSettings.html#WebKitSettings-struct"/>
@@ -442,6 +448,7 @@
     <keyword type="property" name="The “default-monospace-font-size” property" link="WebKitSettings.html#WebKitSettings--default-monospace-font-size"/>
     <keyword type="property" name="The “draw-compositing-indicators” property" link="WebKitSettings.html#WebKitSettings--draw-compositing-indicators"/>
     <keyword type="property" name="The “enable-accelerated-2d-canvas” property" link="WebKitSettings.html#WebKitSettings--enable-accelerated-2d-canvas"/>
+    <keyword type="property" name="The “enable-back-forward-navigation-gestures” property" link="WebKitSettings.html#WebKitSettings--enable-back-forward-navigation-gestures"/>
     <keyword type="property" name="The “enable-caret-browsing” property" link="WebKitSettings.html#WebKitSettings--enable-caret-browsing"/>
     <keyword type="property" name="The “enable-developer-extras” property" link="WebKitSettings.html#WebKitSettings--enable-developer-extras"/>
     <keyword type="property" name="The “enable-dns-prefetching” property" link="WebKitSettings.html#WebKitSettings--enable-dns-prefetching"/>
@@ -453,6 +460,7 @@
     <keyword type="property" name="The “enable-hyperlink-auditing” property" link="WebKitSettings.html#WebKitSettings--enable-hyperlink-auditing"/>
     <keyword type="property" name="The “enable-java” property" link="WebKitSettings.html#WebKitSettings--enable-java"/>
     <keyword type="property" name="The “enable-javascript” property" link="WebKitSettings.html#WebKitSettings--enable-javascript"/>
+    <keyword type="property" name="The “enable-javascript-markup” property" link="WebKitSettings.html#WebKitSettings--enable-javascript-markup"/>
     <keyword type="property" name="The “enable-media-capabilities” property" link="WebKitSettings.html#WebKitSettings--enable-media-capabilities"/>
     <keyword type="property" name="The “enable-media-stream” property" link="WebKitSettings.html#WebKitSettings--enable-media-stream"/>
     <keyword type="property" name="The “enable-mediasource” property" link="WebKitSettings.html#WebKitSettings--enable-mediasource"/>
@@ -659,6 +667,7 @@
     <keyword type="function" name="webkit_print_error_quark ()" link="webkit2gtk-4.0-WebKitError.html#webkit-print-error-quark"/>
     <keyword type="function" name="webkit_javascript_error_quark ()" link="webkit2gtk-4.0-WebKitError.html#webkit-javascript-error-quark"/>
     <keyword type="function" name="webkit_snapshot_error_quark ()" link="webkit2gtk-4.0-WebKitError.html#webkit-snapshot-error-quark"/>
+    <keyword type="function" name="webkit_user_content_filter_error_quark ()" link="webkit2gtk-4.0-WebKitError.html#webkit-user-content-filter-error-quark"/>
     <keyword type="macro" name="WEBKIT_NETWORK_ERROR" link="webkit2gtk-4.0-WebKitError.html#WEBKIT-NETWORK-ERROR:CAPS"/>
     <keyword type="macro" name="WEBKIT_PLUGIN_ERROR" link="webkit2gtk-4.0-WebKitError.html#WEBKIT-PLUGIN-ERROR:CAPS"/>
     <keyword type="macro" name="WEBKIT_POLICY_ERROR" link="webkit2gtk-4.0-WebKitError.html#WEBKIT-POLICY-ERROR:CAPS"/>
@@ -666,6 +675,7 @@
     <keyword type="macro" name="WEBKIT_PRINT_ERROR" link="webkit2gtk-4.0-WebKitError.html#WEBKIT-PRINT-ERROR:CAPS"/>
     <keyword type="macro" name="WEBKIT_JAVASCRIPT_ERROR" link="webkit2gtk-4.0-WebKitError.html#WEBKIT-JAVASCRIPT-ERROR:CAPS"/>
     <keyword type="macro" name="WEBKIT_SNAPSHOT_ERROR" link="webkit2gtk-4.0-WebKitError.html#WEBKIT-SNAPSHOT-ERROR:CAPS"/>
+    <keyword type="macro" name="WEBKIT_USER_CONTENT_FILTER_ERROR" link="webkit2gtk-4.0-WebKitError.html#WEBKIT-USER-CONTENT-FILTER-ERROR:CAPS"/>
     <keyword type="enum" name="enum WebKitNetworkError" link="webkit2gtk-4.0-WebKitError.html#WebKitNetworkError"/>
     <keyword type="enum" name="enum WebKitPluginError" link="webkit2gtk-4.0-WebKitError.html#WebKitPluginError"/>
     <keyword type="enum" name="enum WebKitPolicyError" link="webkit2gtk-4.0-WebKitError.html#WebKitPolicyError"/>
@@ -673,6 +683,7 @@
     <keyword type="enum" name="enum WebKitPrintError" link="webkit2gtk-4.0-WebKitError.html#WebKitPrintError"/>
     <keyword type="enum" name="enum WebKitJavascriptError" link="webkit2gtk-4.0-WebKitError.html#WebKitJavascriptError"/>
     <keyword type="enum" name="enum WebKitSnapshotError" link="webkit2gtk-4.0-WebKitError.html#WebKitSnapshotError"/>
+    <keyword type="enum" name="enum WebKitUserContentFilterError" link="webkit2gtk-4.0-WebKitError.html#WebKitUserContentFilterError" since="2.24"/>
     <keyword type="function" name="webkit_favicon_database_get_favicon ()" link="WebKitFaviconDatabase.html#webkit-favicon-database-get-favicon"/>
     <keyword type="function" name="webkit_favicon_database_get_favicon_finish ()" link="WebKitFaviconDatabase.html#webkit-favicon-database-get-favicon-finish"/>
     <keyword type="function" name="webkit_favicon_database_get_favicon_uri ()" link="WebKitFaviconDatabase.html#webkit-favicon-database-get-favicon-uri"/>
@@ -842,6 +853,20 @@
     <keyword type="function" name="webkit_security_manager_register_uri_scheme_as_empty_document ()" link="WebKitSecurityManager.html#webkit-security-manager-register-uri-scheme-as-empty-document"/>
     <keyword type="function" name="webkit_security_manager_uri_scheme_is_empty_document ()" link="WebKitSecurityManager.html#webkit-security-manager-uri-scheme-is-empty-document"/>
     <keyword type="struct" name="struct WebKitSecurityManager" link="WebKitSecurityManager.html#WebKitSecurityManager-struct"/>
+    <keyword type="function" name="webkit_user_content_filter_store_new ()" link="WebKitUserContentFilterStore.html#webkit-user-content-filter-store-new" since="2.24"/>
+    <keyword type="function" name="webkit_user_content_filter_store_get_path ()" link="WebKitUserContentFilterStore.html#webkit-user-content-filter-store-get-path" since="2.24"/>
+    <keyword type="function" name="webkit_user_content_filter_store_save ()" link="WebKitUserContentFilterStore.html#webkit-user-content-filter-store-save" since="2.24"/>
+    <keyword type="function" name="webkit_user_content_filter_store_save_finish ()" link="WebKitUserContentFilterStore.html#webkit-user-content-filter-store-save-finish" since="2.24"/>
+    <keyword type="function" name="webkit_user_content_filter_store_save_from_file ()" link="WebKitUserContentFilterStore.html#webkit-user-content-filter-store-save-from-file" since="2.24"/>
+    <keyword type="function" name="webkit_user_content_filter_store_save_from_file_finish ()" link="WebKitUserContentFilterStore.html#webkit-user-content-filter-store-save-from-file-finish" since="2.24"/>
+    <keyword type="function" name="webkit_user_content_filter_store_load ()" link="WebKitUserContentFilterStore.html#webkit-user-content-filter-store-load" since="2.24"/>
+    <keyword type="function" name="webkit_user_content_filter_store_load_finish ()" link="WebKitUserContentFilterStore.html#webkit-user-content-filter-store-load-finish" since="2.24"/>
+    <keyword type="function" name="webkit_user_content_filter_store_remove ()" link="WebKitUserContentFilterStore.html#webkit-user-content-filter-store-remove" since="2.24"/>
+    <keyword type="function" name="webkit_user_content_filter_store_remove_finish ()" link="WebKitUserContentFilterStore.html#webkit-user-content-filter-store-remove-finish" since="2.24"/>
+    <keyword type="function" name="webkit_user_content_filter_store_fetch_identifiers ()" link="WebKitUserContentFilterStore.html#webkit-user-content-filter-store-fetch-identifiers" since="2.24"/>
+    <keyword type="function" name="webkit_user_content_filter_store_fetch_identifiers_finish ()" link="WebKitUserContentFilterStore.html#webkit-user-content-filter-store-fetch-identifiers-finish" since="2.24"/>
+    <keyword type="struct" name="struct WebKitUserContentFilterStore" link="WebKitUserContentFilterStore.html#WebKitUserContentFilterStore-struct"/>
+    <keyword type="property" name="The “path” property" link="WebKitUserContentFilterStore.html#WebKitUserContentFilterStore--path"/>
     <keyword type="function" name="webkit_user_content_manager_new ()" link="WebKitUserContentManager.html#webkit-user-content-manager-new" since="2.6"/>
     <keyword type="function" name="webkit_user_content_manager_add_style_sheet ()" link="WebKitUserContentManager.html#webkit-user-content-manager-add-style-sheet" since="2.6"/>
     <keyword type="function" name="webkit_user_content_manager_remove_all_style_sheets ()" link="WebKitUserContentManager.html#webkit-user-content-manager-remove-all-style-sheets" since="2.6"/>
@@ -851,6 +876,9 @@
     <keyword type="function" name="webkit_user_content_manager_unregister_script_message_handler ()" link="WebKitUserContentManager.html#webkit-user-content-manager-unregister-script-message-handler" since="2.8"/>
     <keyword type="function" name="webkit_user_content_manager_register_script_message_handler_in_world ()" link="WebKitUserContentManager.html#webkit-user-content-manager-register-script-message-handler-in-world" since="2.22"/>
     <keyword type="function" name="webkit_user_content_manager_unregister_script_message_handler_in_world ()" link="WebKitUserContentManager.html#webkit-user-content-manager-unregister-script-message-handler-in-world" since="2.22"/>
+    <keyword type="function" name="webkit_user_content_manager_add_filter ()" link="WebKitUserContentManager.html#webkit-user-content-manager-add-filter" since="2.24"/>
+    <keyword type="function" name="webkit_user_content_manager_remove_filter ()" link="WebKitUserContentManager.html#webkit-user-content-manager-remove-filter"/>
+    <keyword type="function" name="webkit_user_content_manager_remove_all_filters ()" link="WebKitUserContentManager.html#webkit-user-content-manager-remove-all-filters" since="2.24"/>
     <keyword type="struct" name="struct WebKitUserContentManager" link="WebKitUserContentManager.html#WebKitUserContentManager-struct"/>
     <keyword type="signal" name="The “script-message-received” signal" link="WebKitUserContentManager.html#WebKitUserContentManager-script-message-received"/>
     <keyword type="function" name="webkit_user_style_sheet_ref ()" link="webkit2gtk-4.0-WebKitUserContent.html#webkit-user-style-sheet-ref" since="2.6"/>
@@ -861,11 +889,15 @@
     <keyword type="function" name="webkit_user_script_unref ()" link="webkit2gtk-4.0-WebKitUserContent.html#webkit-user-script-unref" since="2.6"/>
     <keyword type="function" name="webkit_user_script_new ()" link="webkit2gtk-4.0-WebKitUserContent.html#webkit-user-script-new" since="2.6"/>
     <keyword type="function" name="webkit_user_script_new_for_world ()" link="webkit2gtk-4.0-WebKitUserContent.html#webkit-user-script-new-for-world" since="2.22"/>
+    <keyword type="function" name="webkit_user_content_filter_ref ()" link="webkit2gtk-4.0-WebKitUserContent.html#webkit-user-content-filter-ref" since="2.24"/>
+    <keyword type="function" name="webkit_user_content_filter_unref ()" link="webkit2gtk-4.0-WebKitUserContent.html#webkit-user-content-filter-unref" since="2.24"/>
+    <keyword type="function" name="webkit_user_content_filter_get_identifier ()" link="webkit2gtk-4.0-WebKitUserContent.html#webkit-user-content-filter-get-identifier" since="2.24"/>
     <keyword type="struct" name="WebKitUserStyleSheet" link="webkit2gtk-4.0-WebKitUserContent.html#WebKitUserStyleSheet-struct"/>
     <keyword type="struct" name="WebKitUserScript" link="webkit2gtk-4.0-WebKitUserContent.html#WebKitUserScript-struct"/>
     <keyword type="enum" name="enum WebKitUserContentInjectedFrames" link="webkit2gtk-4.0-WebKitUserContent.html#WebKitUserContentInjectedFrames" since="2.6"/>
     <keyword type="enum" name="enum WebKitUserStyleLevel" link="webkit2gtk-4.0-WebKitUserContent.html#WebKitUserStyleLevel" since="2.6"/>
     <keyword type="enum" name="enum WebKitUserScriptInjectionTime" link="webkit2gtk-4.0-WebKitUserContent.html#WebKitUserScriptInjectionTime" since="2.6"/>
+    <keyword type="struct" name="WebKitUserContentFilter" link="webkit2gtk-4.0-WebKitUserContent.html#WebKitUserContentFilter-struct"/>
     <keyword type="function" name="webkit_notification_get_id ()" link="WebKitNotification.html#webkit-notification-get-id" since="2.8"/>
     <keyword type="function" name="webkit_notification_get_title ()" link="WebKitNotification.html#webkit-notification-get-title" since="2.8"/>
     <keyword type="function" name="webkit_notification_get_body ()" link="WebKitNotification.html#webkit-notification-get-body" since="2.8"/>
@@ -992,6 +1024,7 @@
     <keyword type="struct" name="WebKitConsoleMessage" link="WebKitConsoleMessage.html#WebKitConsoleMessage-struct"/>
     <keyword type="enum" name="enum WebKitConsoleMessageSource" link="WebKitConsoleMessage.html#WebKitConsoleMessageSource" since="2.12"/>
     <keyword type="enum" name="enum WebKitConsoleMessageLevel" link="WebKitConsoleMessage.html#WebKitConsoleMessageLevel" since="2.12"/>
+    <keyword type="function" name="webkit_uri_for_display ()" link="webkit2gtk-4.0-WebKitURIUtilities.html#webkit-uri-for-display" since="2.24"/>
     <keyword type="constant" name="WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER" link="WebKitWebContext.html#WEBKIT-CACHE-MODEL-DOCUMENT-VIEWER:CAPS"/>
     <keyword type="constant" name="WEBKIT_CACHE_MODEL_WEB_BROWSER" link="WebKitWebContext.html#WEBKIT-CACHE-MODEL-WEB-BROWSER:CAPS"/>
     <keyword type="constant" name="WEBKIT_CACHE_MODEL_DOCUMENT_BROWSER" link="WebKitWebContext.html#WEBKIT-CACHE-MODEL-DOCUMENT-BROWSER:CAPS"/>
@@ -1082,6 +1115,8 @@
     <keyword type="constant" name="WEBKIT_PRINT_ERROR_INVALID_PAGE_RANGE" link="webkit2gtk-4.0-WebKitError.html#WEBKIT-PRINT-ERROR-INVALID-PAGE-RANGE:CAPS"/>
     <keyword type="constant" name="WEBKIT_JAVASCRIPT_ERROR_SCRIPT_FAILED" link="webkit2gtk-4.0-WebKitError.html#WEBKIT-JAVASCRIPT-ERROR-SCRIPT-FAILED:CAPS"/>
     <keyword type="constant" name="WEBKIT_SNAPSHOT_ERROR_FAILED_TO_CREATE" link="webkit2gtk-4.0-WebKitError.html#WEBKIT-SNAPSHOT-ERROR-FAILED-TO-CREATE:CAPS"/>
+    <keyword type="constant" name="WEBKIT_USER_CONTENT_FILTER_ERROR_INVALID_SOURCE" link="webkit2gtk-4.0-WebKitError.html#WEBKIT-USER-CONTENT-FILTER-ERROR-INVALID-SOURCE:CAPS"/>
+    <keyword type="constant" name="WEBKIT_USER_CONTENT_FILTER_ERROR_NOT_FOUND" link="webkit2gtk-4.0-WebKitError.html#WEBKIT-USER-CONTENT-FILTER-ERROR-NOT-FOUND:CAPS"/>
     <keyword type="constant" name="WEBKIT_FAVICON_DATABASE_ERROR_NOT_INITIALIZED" link="WebKitFaviconDatabase.html#WEBKIT-FAVICON-DATABASE-ERROR-NOT-INITIALIZED:CAPS"/>
     <keyword type="constant" name="WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_NOT_FOUND" link="WebKitFaviconDatabase.html#WEBKIT-FAVICON-DATABASE-ERROR-FAVICON-NOT-FOUND:CAPS"/>
     <keyword type="constant" name="WEBKIT_FAVICON_DATABASE_ERROR_FAVICON_UNKNOWN" link="WebKitFaviconDatabase.html#WEBKIT-FAVICON-DATABASE-ERROR-FAVICON-UNKNOWN:CAPS"/>

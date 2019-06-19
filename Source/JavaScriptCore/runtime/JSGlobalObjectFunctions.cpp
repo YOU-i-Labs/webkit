@@ -31,6 +31,8 @@
 #include "Exception.h"
 #include "IndirectEvalExecutable.h"
 #include "Interpreter.h"
+#include "IntlDateTimeFormat.h"
+#include "IntlObject.h"
 #include "JSCInlines.h"
 #include "JSFunction.h"
 #include "JSGlobalObject.h"
@@ -57,10 +59,9 @@
 #include <wtf/text/StringBuilder.h>
 #include <wtf/unicode/UTF8Conversion.h>
 
-using namespace WTF;
-using namespace Unicode;
-
 namespace JSC {
+
+using namespace WTF::Unicode;
 
 const ASCIILiteral ObjectProtoCalledOnNullOrUndefinedError { "Object.prototype.__proto__ called on null or undefined"_s };
 
@@ -146,7 +147,7 @@ static JSValue encode(ExecState* exec, const Bitmap<256>& doNotEscape, const Cha
             // 4-d-vi-1. Let jOctet be the value at index j within Octets.
             // 4-d-vi-2. Let S be a String containing three code units "%XY" where XY are two uppercase hexadecimal digits encoding the value of jOctet.
             // 4-d-vi-3. Let R be a new String value computed by concatenating the previous value of R and S.
-            builder.append(static_cast<LChar>('%'));
+            builder.append('%');
             appendByteAsHex(utf8OctetsBuffer[index], builder);
         }
     }
@@ -601,8 +602,8 @@ EncodedJSValue JSC_HOST_CALL globalFuncEscape(ExecState* exec)
                 if (doNotEscape.get(static_cast<LChar>(u)))
                     builder.append(*c);
                 else {
-                    builder.append(static_cast<LChar>('%'));
-                    appendByteAsHex(static_cast<LChar>(u), builder);
+                    builder.append('%');
+                    appendByteAsHex(u, builder);
                 }
             }
             return jsString(exec, builder.toString());
@@ -612,14 +613,13 @@ EncodedJSValue JSC_HOST_CALL globalFuncEscape(ExecState* exec)
         for (unsigned k = 0; k < view.length(); k++, c++) {
             UChar u = c[0];
             if (u >= doNotEscape.size()) {
-                builder.append(static_cast<LChar>('%'));
-                builder.append(static_cast<LChar>('u'));
+                builder.appendLiteral("%u");
                 appendByteAsHex(u >> 8, builder);
                 appendByteAsHex(u & 0xFF, builder);
             } else if (doNotEscape.get(static_cast<LChar>(u)))
                 builder.append(*c);
             else {
-                builder.append(static_cast<LChar>('%'));
+                builder.append('%');
                 appendByteAsHex(u, builder);
             }
         }
@@ -831,5 +831,21 @@ EncodedJSValue JSC_HOST_CALL globalFuncPropertyIsEnumerable(ExecState* exec)
     bool enumerable = object->getOwnPropertyDescriptor(exec, propertyName, descriptor) && descriptor.enumerable();
     return JSValue::encode(jsBoolean(enumerable));
 }
+
+#if ENABLE(INTL)
+EncodedJSValue JSC_HOST_CALL globalFuncDateTimeFormat(ExecState* exec)
+{
+    VM& vm = exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSGlobalObject* globalObject = exec->lexicalGlobalObject();
+    IntlDateTimeFormat* dateTimeFormat = IntlDateTimeFormat::create(vm, globalObject->dateTimeFormatStructure());
+    dateTimeFormat->initializeDateTimeFormat(*exec, exec->argument(0), exec->argument(1));
+    RETURN_IF_EXCEPTION(scope, encodedJSValue());
+    double value = exec->argument(2).toNumber(exec);
+    RETURN_IF_EXCEPTION(scope, encodedJSValue());
+    RELEASE_AND_RETURN(scope, JSValue::encode(dateTimeFormat->format(*exec, value)));
+}
+#endif
 
 } // namespace JSC

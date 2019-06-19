@@ -334,7 +334,6 @@ inline CapabilityLevel canCompile(Node* node)
     case StringValueOf:
     case StringSlice:
     case ToLowerCase:
-    case ObjectToString:
     case NumberToStringWithRadix:
     case NumberToStringWithValidRadixConstant:
     case CheckSubClass:
@@ -406,7 +405,7 @@ CapabilityLevel canCompile(Graph& graph)
         return CannotCompile;
     }
     
-    if (UNLIKELY(graph.m_codeBlock->ownerScriptExecutable()->neverFTLOptimize())) {
+    if (UNLIKELY(graph.m_codeBlock->ownerExecutable()->neverFTLOptimize())) {
         if (verboseCapabilities())
             dataLog("FTL rejecting ", *graph.m_codeBlock, " because it is marked as never FTL compile.\n");
         return CannotCompile;

@@ -27,9 +27,8 @@
 
 #if ENABLE(WEBGPU)
 
-#include "GPUCommandBuffer.h"
 #include "GPUQueue.h"
-
+#include <wtf/Optional.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
@@ -43,21 +42,26 @@ using PlatformDeviceSmartPtr = RetainPtr<MTLDevice>;
 
 class GPUBindGroupLayout;
 class GPUBuffer;
+class GPUCommandBuffer;
 class GPUPipelineLayout;
 class GPURenderPipeline;
 class GPUShaderModule;
+class GPUTexture;
 
 struct GPUBindGroupLayoutDescriptor;
 struct GPUBufferDescriptor;
 struct GPUPipelineLayoutDescriptor;
 struct GPURenderPipelineDescriptor;
+struct GPURequestAdapterOptions;
 struct GPUShaderModuleDescriptor;
+struct GPUTextureDescriptor;
 
 class GPUDevice : public RefCounted<GPUDevice> {
 public:
-    static RefPtr<GPUDevice> create();
+    static RefPtr<GPUDevice> create(Optional<GPURequestAdapterOptions>&&);
 
     RefPtr<GPUBuffer> createBuffer(GPUBufferDescriptor&&) const;
+    RefPtr<GPUTexture> tryCreateTexture(GPUTextureDescriptor&&) const;
 
     RefPtr<GPUBindGroupLayout> tryCreateBindGroupLayout(GPUBindGroupLayoutDescriptor&&) const;
     Ref<GPUPipelineLayout> createPipelineLayout(GPUPipelineLayoutDescriptor&&) const;

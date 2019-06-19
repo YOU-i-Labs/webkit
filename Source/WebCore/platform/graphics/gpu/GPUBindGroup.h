@@ -41,8 +41,11 @@ class GPUBindGroup : public RefCounted<GPUBindGroup> {
 public:
     static Ref<GPUBindGroup> create(GPUBindGroupDescriptor&&);
 
+    const GPUBindGroupLayout& layout() const { return m_layout.get(); }
+    const Vector<GPUBindGroupBinding>& bindings() const { return m_bindings; }
+
 private:
-    GPUBindGroup(GPUBindGroupDescriptor&&);
+    explicit GPUBindGroup(GPUBindGroupDescriptor&&);
 
     Ref<GPUBindGroupLayout> m_layout;
     Vector<GPUBindGroupBinding> m_bindings;

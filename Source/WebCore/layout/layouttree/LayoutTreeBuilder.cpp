@@ -40,6 +40,7 @@
 #include "RenderBlock.h"
 #include "RenderChildIterator.h"
 #include "RenderElement.h"
+#include "RenderImage.h"
 #include "RenderInline.h"
 #include "RenderStyle.h"
 #include "RenderView.h"
@@ -50,7 +51,11 @@ namespace Layout {
 
 std::unique_ptr<Container> TreeBuilder::createLayoutTree(const RenderView& renderView)
 {
-    std::unique_ptr<Container> initialContainingBlock(new BlockContainer(WTF::nullopt, RenderStyle::clone(renderView.style())));
+    auto style = RenderStyle::clone(renderView.style());
+    style.setLogicalWidth(Length(renderView.width(), Fixed));
+    style.setLogicalHeight(Length(renderView.height(), Fixed));
+
+    std::unique_ptr<Container> initialContainingBlock(new BlockContainer(WTF::nullopt, WTFMove(style)));
     TreeBuilder::createSubTree(renderView, *initialContainingBlock);
     return initialContainingBlock;
 }
@@ -78,7 +83,9 @@ void TreeBuilder::createSubTree(const RenderElement& rootRenderer, Container& ro
             if (element->hasTagName(HTMLNames::tfootTag))
                 return Box::ElementAttributes { Box::ElementType::TableFooterGroup };
             if (element->hasTagName(HTMLNames::imgTag))
-                return Box::ElementAttributes { Box::ElementType::Replaced };
+                return Box::ElementAttributes { Box::ElementType::Image };
+            if (element->hasTagName(HTMLNames::iframeTag))
+                return Box::ElementAttributes { Box::ElementType::IFrame };
             return Box::ElementAttributes { Box::ElementType::GenericElement };
         }
         return WTF::nullopt;
@@ -92,7 +99,19 @@ void TreeBuilder::createSubTree(const RenderElement& rootRenderer, Container& ro
             downcast<InlineBox>(*box).setTextContent(downcast<RenderText>(child).originalText());
         } else if (is<RenderReplaced>(child)) {
             auto& renderer = downcast<RenderReplaced>(child);
-            box = std::make_unique<InlineBox>(elementAttributes(renderer), RenderStyle::clone(renderer.style()));
+            auto display = renderer.style().display();
+            if (display == DisplayType::Block)
+                box = std::make_unique<Box>(elementAttributes(renderer), RenderStyle::clone(renderer.style()));
+            else
+                box = std::make_unique<InlineBox>(elementAttributes(renderer), RenderStyle::clone(renderer.style()));
+            // FIXME: We don't yet support all replaced elements.
+            if (!renderer.intrinsicSize().isEmpty() && box->replaced())
+                box->replaced()->setIntrinsicSize(renderer.intrinsicSize());
+            if (is<RenderImage>(renderer)) {
+                auto& imageRenderer = downcast<RenderImage>(renderer);
+                if (imageRenderer.imageResource().errorOccurred())
+                    box->replaced()->setIntrinsicRatio(1);
+            }
         } else if (is<RenderElement>(child)) {
             auto& renderer = downcast<RenderElement>(child);
             auto display = renderer.style().display();
@@ -176,7 +195,9 @@ static void outputLayoutBox(TextStream& stream, const Box& layoutBox, const Disp
         if (!layoutBox.parent())
             stream << "initial ";
         stream << "block container";
-    } else
+    } else if (layoutBox.isBlockLevelBox())
+        stream << "block box";
+    else
         stream << "box";
     // FIXME: Inline text runs don't create display boxes yet.
     if (displayBox) {

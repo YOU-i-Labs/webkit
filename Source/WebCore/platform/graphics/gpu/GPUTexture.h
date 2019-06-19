@@ -35,11 +35,16 @@ OBJC_PROTOCOL(MTLTexture);
 
 namespace WebCore {
 
+class GPUDevice;
+
+struct GPUTextureDescriptor;
+
 using PlatformTexture = MTLTexture;
 using PlatformTextureSmartPtr = RetainPtr<MTLTexture>;
 
 class GPUTexture : public RefCounted<GPUTexture> {
 public:
+    static RefPtr<GPUTexture> tryCreate(const GPUDevice&, GPUTextureDescriptor&&);
     static Ref<GPUTexture> create(PlatformTextureSmartPtr&&);
 
     PlatformTexture *platformTexture() const { return m_platformTexture.get(); }

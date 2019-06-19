@@ -98,6 +98,7 @@
 #include <JavaScriptCore/TypedArrayInlines.h>
 #include <JavaScriptCore/Uint32Array.h>
 #include <wtf/CheckedArithmetic.h>
+#include <wtf/HexNumber.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/UniqueArray.h>
 #include <wtf/text/CString.h>
@@ -2986,7 +2987,7 @@ RefPtr<WebGLUniformLocation> WebGLRenderingContextBase::getUniformLocation(WebGL
             info.name = info.name.left(info.name.length() - 3);
         // If it's an array, we need to iterate through each element, appending "[index]" to the name.
         for (GC3Dint index = 0; index < info.size; ++index) {
-            String uniformName = info.name + "[" + String::number(index) + "]";
+            String uniformName = makeString(info.name, '[', index, ']');
 
             if (name == uniformName || name == info.name)
                 return WebGLUniformLocation::create(program, uniformLocation, info.type);
@@ -4985,8 +4986,16 @@ void WebGLRenderingContextBase::vertexAttribPointer(GC3Duint index, GC3Dint size
         synthesizeGLError(GraphicsContext3D::INVALID_VALUE, "vertexAttribPointer", "index out of range");
         return;
     }
-    if (size < 1 || size > 4 || stride < 0 || stride > 255 || offset < 0) {
-        synthesizeGLError(GraphicsContext3D::INVALID_VALUE, "vertexAttribPointer", "bad size, stride or offset");
+    if (size < 1 || size > 4) {
+        synthesizeGLError(GraphicsContext3D::INVALID_VALUE, "vertexAttribPointer", "bad size");
+        return;
+    }
+    if (stride < 0 || stride > 255) {
+        synthesizeGLError(GraphicsContext3D::INVALID_VALUE, "vertexAttribPointer", "bad stride");
+        return;
+    }
+    if (offset < 0 || offset > std::numeric_limits<int32_t>::max()) {
+        synthesizeGLError(GraphicsContext3D::INVALID_VALUE, "vertexAttribPointer", "bad offset");
         return;
     }
     if (!m_boundArrayBuffer) {
@@ -5287,10 +5296,9 @@ bool WebGLRenderingContextBase::checkTextureCompleteness(const char* functionNam
         RefPtr<WebGLTexture> tex2D;
         RefPtr<WebGLTexture> texCubeMap;
         if (prepareToDraw) {
-            String msg(String("texture bound to texture unit ") + String::number(badTexture)
-                + " is not renderable. It maybe non-power-of-2 and have incompatible texture filtering or is not 'texture complete',"
-                + " or it is a float/half-float type with linear filtering and without the relevant float/half-float linear extension enabled.");
-            printToConsole(MessageLevel::Error, "WebGL: " + String(functionName) + ": " + msg);
+            printToConsole(MessageLevel::Error, makeString("WebGL: ", functionName, ": texture bound to texture unit ", badTexture,
+                " is not renderable. It maybe non-power-of-2 and have incompatible texture filtering or is not 'texture complete',"
+                " or it is a float/half-float type with linear filtering and without the relevant float/half-float linear extension enabled."));
             tex2D = m_blackTexture2D.get();
             texCubeMap = m_blackTextureCubeMap.get();
         } else {
@@ -6290,7 +6298,7 @@ namespace {
         case GraphicsContext3D::CONTEXT_LOST_WEBGL:
             return "CONTEXT_LOST_WEBGL"_s;
         default:
-            return String::format("WebGL ERROR(%04x)", error);
+            return makeString("WebGL ERROR(", hex(error, 4, Lowercase), ')');
         }
     }
 

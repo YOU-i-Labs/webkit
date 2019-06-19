@@ -28,6 +28,7 @@
 #include "CachedResourceClientWalker.h"
 #include "CachedResourceHandle.h"
 #include "CachedResourceLoader.h"
+#include "CookieJar.h"
 #include "CrossOriginAccessControl.h"
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
@@ -59,11 +60,9 @@
 #include "QuickLook.h"
 #endif
 
-
 #define RELEASE_LOG_IF_ALLOWED(fmt, ...) RELEASE_LOG_IF(cachedResourceLoader.isAlwaysOnLoggingAllowed(), Network, "%p - CachedResource::" fmt, this, ##__VA_ARGS__)
 
 namespace WebCore {
-using namespace WTF;
 
 ResourceLoadPriority CachedResource::defaultPriorityForResourceType(Type type)
 {
@@ -114,13 +113,14 @@ static Seconds deadDecodedDataDeletionIntervalForResourceType(CachedResource::Ty
     return MemoryCache::singleton().deadDecodedDataDeletionInterval();
 }
 
-DEFINE_DEBUG_ONLY_GLOBAL(RefCountedLeakCounter, cachedResourceLeakCounter, ("CachedResource"));
+DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, cachedResourceLeakCounter, ("CachedResource"));
 
-CachedResource::CachedResource(CachedResourceRequest&& request, Type type, PAL::SessionID sessionID)
+CachedResource::CachedResource(CachedResourceRequest&& request, Type type, const PAL::SessionID& sessionID, const CookieJar* cookieJar)
     : m_options(request.options())
     , m_resourceRequest(request.releaseResourceRequest())
     , m_decodedDataDeletionTimer(*this, &CachedResource::destroyDecodedData, deadDecodedDataDeletionIntervalForResourceType(type))
     , m_sessionID(sessionID)
+    , m_cookieJar(cookieJar)
     , m_responseTimestamp(WallTime::now())
     , m_fragmentIdentifierForRequest(request.releaseFragmentIdentifier())
     , m_origin(request.releaseOrigin())
@@ -131,7 +131,7 @@ CachedResource::CachedResource(CachedResourceRequest&& request, Type type, PAL::
     , m_hasUnknownEncoding(request.isLinkPreload())
     , m_ignoreForRequestCount(request.ignoreForRequestCount())
 {
-    ASSERT(sessionID.isValid());
+    ASSERT(m_sessionID.isValid());
 
     setLoadPriority(request.priority());
 #ifndef NDEBUG
@@ -146,16 +146,17 @@ CachedResource::CachedResource(CachedResourceRequest&& request, Type type, PAL::
 }
 
 // FIXME: For this constructor, we should probably mandate that the URL has no fragment identifier.
-CachedResource::CachedResource(const URL& url, Type type, PAL::SessionID sessionID)
+CachedResource::CachedResource(const URL& url, Type type, const PAL::SessionID& sessionID, const CookieJar* cookieJar)
     : m_resourceRequest(url)
     , m_decodedDataDeletionTimer(*this, &CachedResource::destroyDecodedData, deadDecodedDataDeletionIntervalForResourceType(type))
     , m_sessionID(sessionID)
+    , m_cookieJar(cookieJar)
     , m_responseTimestamp(WallTime::now())
     , m_fragmentIdentifierForRequest(CachedResourceRequest::splitFragmentIdentifierFromRequestURL(m_resourceRequest))
     , m_status(Cached)
     , m_type(type)
 {
-    ASSERT(sessionID.isValid());
+    ASSERT(m_sessionID.isValid());
 #ifndef NDEBUG
     cachedResourceLeakCounter.increment();
 #endif
@@ -173,9 +174,6 @@ CachedResource::~CachedResource()
     m_deleted = true;
     cachedResourceLeakCounter.decrement();
 #endif
-
-    if (m_owningCachedResourceLoader)
-        m_owningCachedResourceLoader->removeCachedResource(*this);
 }
 
 void CachedResource::failBeforeStarting()
@@ -476,7 +474,7 @@ void CachedResource::setResponse(const ResourceResponse& response)
 {
     ASSERT(m_response.type() == ResourceResponse::Type::Default);
     m_response = response;
-    m_varyingHeaderValues = collectVaryingRequestHeaders(m_resourceRequest, m_response, m_sessionID);
+    m_varyingHeaderValues = collectVaryingRequestHeaders(cookieJar(), m_resourceRequest, m_response, sessionID());
 
 #if ENABLE(SERVICE_WORKER)
     if (m_response.source() == ResourceResponse::Source::ServiceWorker) {
@@ -858,7 +856,7 @@ bool CachedResource::varyHeaderValuesMatch(const ResourceRequest& request)
     if (m_varyingHeaderValues.isEmpty())
         return true;
 
-    return verifyVaryingRequestHeaders(m_varyingHeaderValues, request, m_sessionID);
+    return verifyVaryingRequestHeaders(cookieJar(), m_varyingHeaderValues, request, sessionID());
 }
 
 unsigned CachedResource::overheadSize() const

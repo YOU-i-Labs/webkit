@@ -78,13 +78,13 @@ public:
 
             GstBuffer* buffer = gst_buffer_new_allocate(nullptr, bipBopCount * m_streamFormat->bytesPerFrame(), nullptr);
             {
-                GstMappedBuffer map(buffer, GST_MAP_WRITE);
+                auto map = GstMappedBuffer::create(buffer, GST_MAP_WRITE);
 
                 if (!muted()) {
-                    memcpy(map.data(), &m_bipBopBuffer[bipBopStart], sizeof(float) * bipBopCount);
-                    addHum(s_HumVolume, s_HumFrequency, sampleRate(), m_samplesRendered, (float*)map.data(), bipBopCount);
+                    memcpy(map->data(), &m_bipBopBuffer[bipBopStart], sizeof(float) * bipBopCount);
+                    addHum(s_HumVolume, s_HumFrequency, sampleRate(), m_samplesRendered, (float*)map->data(), bipBopCount);
                 } else
-                    memset(map.data(), 0, sizeof(float) * bipBopCount);
+                    memset(map->data(), 0, sizeof(float) * bipBopCount);
             }
 
             gst_app_src_push_buffer(GST_APP_SRC(m_src.get()), buffer);
@@ -141,15 +141,15 @@ CaptureSourceOrError MockRealtimeAudioSource::create(String&& deviceID,
     return CaptureSourceOrError(WTFMove(source));
 }
 
-Optional<std::pair<String, String>> MockGStreamerAudioCaptureSource::applyConstraints(const MediaConstraints& constraints)
+Optional<RealtimeMediaSource::ApplyConstraintsError> MockGStreamerAudioCaptureSource::applyConstraints(const MediaConstraints& constraints)
 {
     m_wrappedSource->applyConstraints(constraints);
     return GStreamerAudioCaptureSource::applyConstraints(constraints);
 }
 
-void MockGStreamerAudioCaptureSource::applyConstraints(const MediaConstraints& constraints, SuccessHandler&& successHandler, FailureHandler&& failureHandler)
+void MockGStreamerAudioCaptureSource::applyConstraints(const MediaConstraints& constraints, ApplyConstraintsHandler&& completionHandler)
 {
-    m_wrappedSource->applyConstraints(constraints, WTFMove(successHandler), WTFMove(failureHandler));
+    m_wrappedSource->applyConstraints(constraints, WTFMove(completionHandler));
 }
 
 MockGStreamerAudioCaptureSource::MockGStreamerAudioCaptureSource(String&& deviceID, String&& name, String&& hashSalt)

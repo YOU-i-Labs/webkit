@@ -199,6 +199,7 @@ def forward_declarations_and_headers(receiver):
         'String',
         'WebCore::DocumentIdentifier',
         'WebCore::FetchIdentifier',
+        'WebCore::PointerID',
         'WebCore::ServiceWorkerIdentifier',
         'WebCore::ServiceWorkerJobIdentifier',
         'WebCore::ServiceWorkerOrClientData',
@@ -306,6 +307,8 @@ def sync_message_statement(receiver, message):
     dispatch_function = 'handleMessage'
     if message.has_attribute(DELAYED_ATTRIBUTE):
         dispatch_function += 'Delayed'
+        if message.has_attribute(WANTS_CONNECTION_ATTRIBUTE):
+            dispatch_function += 'WantsConnection'
     if message.has_attribute(ASYNC_ATTRIBUTE):
         dispatch_function += 'Async'
     if message.has_attribute(LEGACY_SYNC_ATTRIBUTE):
@@ -406,7 +409,9 @@ def headers_for_type(type):
         'WebCore::GrammarDetail': ['<WebCore/TextCheckerClient.h>'],
         'WebCore::HasInsecureContent': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::Highlight': ['<WebCore/InspectorOverlay.h>'],
-        'WebCore::IncludeSecureCookies': ['<WebCore/CookiesStrategy.h>'],
+        'WebCore::IncludeSecureCookies': ['<WebCore/CookieJar.h>'],
+        'WebCore::IndexedDB::ObjectStoreOverwriteMode': ['<WebCore/IndexedDB.h>'],
+        'WebCore::InputMode': ['<WebCore/InputMode.h>'],
         'WebCore::KeyframeValueList': ['<WebCore/GraphicsLayer.h>'],
         'WebCore::KeypressCommand': ['<WebCore/KeyboardEvent.h>'],
         'WebCore::LockBackForwardList': ['<WebCore/FrameLoaderTypes.h>'],
@@ -419,6 +424,7 @@ def headers_for_type(type):
         'WebCore::PaymentMethodUpdate': ['<WebCore/ApplePaySessionPaymentRequest.h>'],
         'WebCore::PluginInfo': ['<WebCore/PluginData.h>'],
         'WebCore::PolicyAction': ['<WebCore/FrameLoaderTypes.h>'],
+        'WebCore::PolicyCheckIdentifier': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::RecentSearch': ['<WebCore/SearchPopupMenu.h>'],
         'WebCore::RouteSharingPolicy': ['<WebCore/AudioSession.h>'],
         'WebCore::SWServerConnectionIdentifier': ['<WebCore/ServiceWorkerTypes.h>'],

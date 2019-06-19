@@ -26,8 +26,8 @@
 #pragma once
 
 #include "APIUserInitiatedAction.h"
+#include "AuxiliaryProcessProxy.h"
 #include "BackgroundProcessResponsivenessTimer.h"
-#include "ChildProcessProxy.h"
 #include "MessageReceiverMap.h"
 #include "PluginInfoStore.h"
 #include "ProcessLauncher.h"
@@ -40,7 +40,7 @@
 #include "WebProcessProxyMessages.h"
 #include <WebCore/MessagePortChannelProvider.h>
 #include <WebCore/MessagePortIdentifier.h>
-#include <WebCore/Process.h>
+#include <WebCore/ProcessIdentifier.h>
 #include <WebCore/SharedStringHash.h>
 #include <memory>
 #include <pal/SessionID.h>
@@ -49,10 +49,6 @@
 #include <wtf/HashSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
-
-#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
-#include "DisplayLink.h"
-#endif
 
 namespace API {
 class Navigation;
@@ -70,6 +66,7 @@ namespace WebKit {
 class NetworkProcessProxy;
 class ObjCObjectGraph;
 class PageClient;
+class ProvisionalPageProxy;
 class UserMediaCaptureManagerProxy;
 class VisitedLinkStore;
 class WebBackForwardListItem;
@@ -93,7 +90,7 @@ typedef RefCounter<BackgroundWebProcessCounterType> BackgroundWebProcessCounter;
 typedef BackgroundWebProcessCounter::Token BackgroundWebProcessToken;
 #endif
 
-class WebProcessProxy : public ChildProcessProxy, public ResponsivenessTimer::Client, public ThreadSafeRefCounted<WebProcessProxy>, public CanMakeWeakPtr<WebProcessProxy>, private ProcessThrottlerClient {
+class WebProcessProxy : public AuxiliaryProcessProxy, public ResponsivenessTimer::Client, public ThreadSafeRefCounted<WebProcessProxy>, public CanMakeWeakPtr<WebProcessProxy>, private ProcessThrottlerClient {
 public:
     typedef HashMap<uint64_t, RefPtr<WebFrameProxy>> WebFrameProxyMap;
     typedef HashMap<uint64_t, WebPageProxy*> WebPageProxyMap;
@@ -123,6 +120,9 @@ public:
 
     enum class EndsUsingDataStore : bool { No, Yes };
     void removeWebPage(WebPageProxy&, uint64_t pageID, EndsUsingDataStore);
+
+    void addProvisionalPageProxy(ProvisionalPageProxy& provisionalPage) { ASSERT(!m_provisionalPages.contains(&provisionalPage)); m_provisionalPages.add(&provisionalPage); }
+    void removeProvisionalPageProxy(ProvisionalPageProxy& provisionalPage) { ASSERT(m_provisionalPages.contains(&provisionalPage)); m_provisionalPages.remove(&provisionalPage); }
 
     typename WebPageProxyMap::ValuesConstIteratorRange pages() const { return m_pageMap.values(); }
     unsigned pageCount() const { return m_pageMap.size(); }
@@ -167,10 +167,14 @@ public:
     void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, CompletionHandler<void(WebsiteData)>&&);
     void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&&);
     void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>&, CompletionHandler<void()>&&);
-    static void deleteWebsiteDataForTopPrivatelyControlledDomainsInAllPersistentDataStores(OptionSet<WebsiteDataType>, Vector<String>&& topPrivatelyControlledDomains, bool shouldNotifyPages, CompletionHandler<void (const HashSet<String>&)>&&);
-    static void topPrivatelyControlledDomainsWithWebsiteData(OptionSet<WebsiteDataType> dataTypes, bool shouldNotifyPage, CompletionHandler<void(HashSet<String>&&)>&&);
+
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
     static void notifyPageStatisticsAndDataRecordsProcessed();
     static void notifyPageStatisticsTelemetryFinished(API::Object* messageBody);
+
+    static void notifyWebsiteDataDeletionForTopPrivatelyOwnedDomainsFinished();
+    static void notifyWebsiteDataScanForTopPrivatelyControlledDomainsFinished();
+#endif
 
     void enableSuddenTermination();
     void disableSuddenTermination();
@@ -198,6 +202,7 @@ public:
     ProcessThrottler& throttler() { return m_throttler; }
 
     void isResponsive(WTF::Function<void(bool isWebProcessResponsive)>&&);
+    void isResponsiveWithLazyStop();
     void didReceiveMainThreadPing();
     void didReceiveBackgroundResponsivenessPing();
 
@@ -248,7 +253,7 @@ protected:
     static uint64_t generatePageID();
     WebProcessProxy(WebProcessPool&, WebsiteDataStore&, IsPrewarmed);
 
-    // ChildProcessProxy
+    // AuxiliaryProcessProxy
     void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
     void platformGetLaunchOptions(ProcessLauncher::LaunchOptions&) override;
     void connectionWillOpen(IPC::Connection&) override;
@@ -262,7 +267,7 @@ protected:
 #endif
 
     bool isJITEnabled() const final;
-    
+
 private:
     // IPC message handlers.
     void updateBackForwardItem(const BackForwardListItemState&);
@@ -324,7 +329,7 @@ private:
     void didReceiveWebProcessProxyMessage(IPC::Connection&, IPC::Decoder&);
     void didReceiveSyncWebProcessProxyMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&);
 
-    bool canTerminateChildProcess();
+    bool canTerminateAuxiliaryProcess();
 
     void didCollectPrewarmInformation(const String& domain, const WebCore::PrewarmInformation&);
 
@@ -373,6 +378,7 @@ private:
 
     WebPageProxyMap m_pageMap;
     WebFrameProxyMap m_frameMap;
+    HashSet<ProvisionalPageProxy*> m_provisionalPages;
     UserInitiatedActionMap m_userInitiatedActionMap;
 
     HashSet<VisitedLinkStore*> m_visitedLinkStores;
@@ -411,10 +417,6 @@ private:
 
 #if PLATFORM(WATCHOS)
     ProcessThrottler::BackgroundActivityToken m_backgroundActivityTokenForFullscreenFormControls;
-#endif
-
-#if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
-    Vector<std::unique_ptr<DisplayLink>> m_displayLinks;
 #endif
 };
 

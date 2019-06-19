@@ -234,9 +234,6 @@ public:
 
     // If this node is in a shadow tree, returns its shadow host. Otherwise, returns null.
     WEBCORE_EXPORT Element* shadowHost() const;
-    // If this node is in a shadow tree, returns its shadow host. Otherwise, returns this.
-    // Deprecated. Should use shadowHost() and check the return value.
-    WEBCORE_EXPORT Node* deprecatedShadowAncestorNode() const;
     ShadowRoot* containingShadowRoot() const;
     ShadowRoot* shadowRoot() const;
     bool isClosedShadowHidden(const Node&) const;
@@ -395,7 +392,6 @@ public:
     bool isDescendantOrShadowDescendantOf(const Node*) const;
     WEBCORE_EXPORT bool contains(const Node*) const;
     bool containsIncludingShadowDOM(const Node*) const;
-    bool containsIncludingHostElements(const Node*) const;
 
     // Number of DOM 16-bit units contained in node. Note that rendered text length can be different - e.g. because of
     // css-transform:capitalize breaking up precomposed characters and ligatures.

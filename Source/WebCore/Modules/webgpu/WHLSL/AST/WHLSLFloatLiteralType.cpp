@@ -67,7 +67,7 @@ bool FloatLiteralType::canResolve(const Type& type) const
 
 unsigned FloatLiteralType::conversionCost(const UnnamedType& unnamedType) const
 {
-    if (matches(unnamedType, static_cast<const TypeReference&>(m_preferredType)))
+    if (matches(unnamedType, m_preferredType))
         return 0;
     return 1;
 }

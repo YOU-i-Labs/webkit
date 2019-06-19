@@ -27,7 +27,7 @@
 
 namespace JSC {
 
-enum Intrinsic {
+enum Intrinsic : uint8_t {
     // Call intrinsics.
     NoIntrinsic,
     AbsIntrinsic,
@@ -73,7 +73,6 @@ enum Intrinsic {
     ObjectGetPrototypeOfIntrinsic,
     ObjectIsIntrinsic,
     ObjectKeysIntrinsic,
-    ObjectPrototypeToStringIntrinsic,
     ReflectGetPrototypeOfIntrinsic,
     StringPrototypeValueOfIntrinsic,
     StringPrototypeReplaceIntrinsic,

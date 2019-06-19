@@ -31,9 +31,11 @@
 #include "RemoteLayerTreeHost.h"
 #include "RemoteScrollingCoordinatorProxy.h"
 #include <WebCore/ScrollingTreeFixedNode.h>
+#include <WebCore/ScrollingTreeFrameHostingNode.h>
 #include <WebCore/ScrollingTreeStickyNode.h>
 
 #if PLATFORM(IOS_FAMILY)
+#include "ScrollingTreeFrameScrollingNodeRemoteIOS.h"
 #include "ScrollingTreeOverflowScrollingNodeIOS.h"
 #include <WebCore/ScrollingTreeFrameScrollingNodeIOS.h>
 #else
@@ -57,16 +59,16 @@ RemoteScrollingTree::~RemoteScrollingTree()
 {
 }
 
-ScrollingTree::EventResult RemoteScrollingTree::tryToHandleWheelEvent(const PlatformWheelEvent& wheelEvent)
+ScrollingEventResult RemoteScrollingTree::tryToHandleWheelEvent(const PlatformWheelEvent& wheelEvent)
 {
     if (shouldHandleWheelEventSynchronously(wheelEvent))
-        return SendToMainThread;
+        return ScrollingEventResult::SendToMainThread;
 
     if (willWheelEventStartSwipeGesture(wheelEvent))
-        return DidNotHandleEvent;
+        return ScrollingEventResult::DidNotHandleEvent;
 
     handleWheelEvent(wheelEvent);
-    return DidHandleEvent;
+    return ScrollingEventResult::DidHandleEvent;
 }
 
 #if PLATFORM(MAC)
@@ -115,10 +117,12 @@ Ref<ScrollingTreeNode> RemoteScrollingTree::createScrollingTreeNode(ScrollingNod
     case ScrollingNodeType::MainFrame:
     case ScrollingNodeType::Subframe:
 #if PLATFORM(IOS_FAMILY)
-        return ScrollingTreeFrameScrollingNodeIOS::create(*this, nodeType, nodeID);
+        return ScrollingTreeFrameScrollingNodeRemoteIOS::create(*this, nodeType, nodeID);
 #else
         return ScrollingTreeFrameScrollingNodeRemoteMac::create(*this, nodeType, nodeID);
 #endif
+    case ScrollingNodeType::FrameHosting:
+        return ScrollingTreeFrameHostingNode::create(*this, nodeID);
     case ScrollingNodeType::Overflow:
 #if PLATFORM(IOS_FAMILY)
         return ScrollingTreeOverflowScrollingNodeIOS::create(*this, nodeID);

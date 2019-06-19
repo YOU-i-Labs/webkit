@@ -60,6 +60,7 @@ set(JavaScriptCore_SYSTEM_INCLUDE_DIRECTORIES
 set(JavaScriptCore_OBJECT_LUT_SOURCES
     runtime/ArrayConstructor.cpp
     runtime/ArrayIteratorPrototype.cpp
+    runtime/AsyncFromSyncIteratorPrototype.cpp
     runtime/AsyncGeneratorPrototype.cpp
     runtime/BigIntConstructor.cpp
     runtime/BigIntPrototype.cpp
@@ -75,6 +76,7 @@ set(JavaScriptCore_OBJECT_LUT_SOURCES
     runtime/IntlDateTimeFormatPrototype.cpp
     runtime/IntlNumberFormatConstructor.cpp
     runtime/IntlNumberFormatPrototype.cpp
+    runtime/IntlObject.cpp
     runtime/IntlPluralRulesConstructor.cpp
     runtime/IntlPluralRulesPrototype.cpp
     runtime/JSDataViewPrototype.cpp
@@ -161,6 +163,8 @@ foreach (_file ${JavaScriptCore_SCRIPTS_SOURCES})
 endforeach ()
 
 set(UDIS_GEN_DEP
+    disassembler/udis86/optable.xml
+    disassembler/udis86/ud_itab.py
     disassembler/udis86/ud_opcode.py
 )
 
@@ -224,9 +228,19 @@ add_custom_command(
     COMMAND ${RUBY_EXECUTABLE} ${JAVASCRIPTCORE_DIR}/generator/main.rb --bytecodes_h ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/Bytecodes.h --init_bytecodes_asm ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/InitBytecodes.asm --bytecode_structs_h ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/BytecodeStructs.h --bytecode_indices_h ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/BytecodeIndices.h ${JAVASCRIPTCORE_DIR}/bytecode/BytecodeList.rb
     VERBATIM)
 
+
+if (WTF_OS_MAC_OS_X)
+    execute_process(COMMAND bash -c "date +'%s'" OUTPUT_VARIABLE BUILD_TIME OUTPUT_STRIP_TRAILING_WHITESPACE)
+else ()
+    set(BUILD_TIME 0)
+endif ()
+
+file(WRITE ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/BytecodeCacheVersion.h "#define JSC_BYTECODE_CACHE_VERSION ${BUILD_TIME}\n")
+
 list(APPEND JavaScriptCore_HEADERS
-    ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/Bytecodes.h
+    ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/BytecodeCacheVersion.h
     ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/BytecodeStructs.h
+    ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/Bytecodes.h
 )
 
 if (WIN32)
@@ -634,6 +648,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     inspector/ScriptDebugServer.h
 
     inspector/agents/InspectorAgent.h
+    inspector/agents/InspectorAuditAgent.h
     inspector/agents/InspectorConsoleAgent.h
     inspector/agents/InspectorDebuggerAgent.h
     inspector/agents/InspectorHeapAgent.h
@@ -770,12 +785,14 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/ErrorHandlingScope.h
     runtime/ErrorInstance.h
     runtime/ErrorPrototype.h
+    runtime/ErrorType.h
     runtime/EvalExecutable.h
     runtime/Exception.h
     runtime/ExceptionEventLocation.h
     runtime/ExceptionHelpers.h
     runtime/ExceptionScope.h
     runtime/ExecutableBase.h
+    runtime/ExecutableBaseInlines.h
     runtime/Float32Array.h
     runtime/Float64Array.h
     runtime/FunctionConstructor.h
@@ -793,10 +810,6 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/IndexingHeader.h
     runtime/IndexingHeaderInlines.h
     runtime/IndexingType.h
-    runtime/InferredStructure.h
-    runtime/InferredStructureWatchpoint.h
-    runtime/InferredType.h
-    runtime/InferredTypeTable.h
     runtime/InferredValue.h
     runtime/InitializeThreading.h
     runtime/Int16Array.h
@@ -817,7 +830,6 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSCInlines.h
     runtime/JSCJSValue.h
     runtime/JSCJSValueInlines.h
-    runtime/JSCPoison.h
     runtime/JSCPtrTag.h
     runtime/JSCallee.h
     runtime/JSCast.h
@@ -835,7 +847,9 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSGenericTypedArrayViewPrototypeInlines.h
     runtime/JSGlobalLexicalEnvironment.h
     runtime/JSGlobalObject.h
+    runtime/JSGlobalObjectFunctions.h
     runtime/JSGlobalObjectInlines.h
+    runtime/JSImmutableButterfly.h
     runtime/JSInternalPromise.h
     runtime/JSInternalPromiseDeferred.h
     runtime/JSMicrotask.h
@@ -845,12 +859,14 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSModuleLoader.h
     runtime/JSModuleRecord.h
     runtime/JSNativeStdFunction.h
+    runtime/JSNonDestructibleProxy.h
     runtime/JSONObject.h
     runtime/JSObject.h
     runtime/JSObjectInlines.h
     runtime/JSPromise.h
     runtime/JSPromiseConstructor.h
     runtime/JSPromiseDeferred.h
+    runtime/JSPropertyNameEnumerator.h
     runtime/JSProxy.h
     runtime/JSRunLoopTimer.h
     runtime/JSScope.h
@@ -904,6 +920,8 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/PutDirectIndexMode.h
     runtime/PutPropertySlot.h
     runtime/RegExp.h
+    runtime/RegExpCachedResult.h
+    runtime/RegExpGlobalData.h
     runtime/RegExpKey.h
     runtime/RegExpObject.h
     runtime/RuntimeFlags.h
@@ -931,6 +949,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/StructureRareData.h
     runtime/StructureRareDataInlines.h
     runtime/StructureTransitionTable.h
+    runtime/SubspaceAccess.h
     runtime/Symbol.h
     runtime/SymbolPrototype.h
     runtime/SymbolTable.h
@@ -1063,6 +1082,7 @@ set(JavaScriptCore_INSPECTOR_PROTOCOL_SCRIPTS
 
 set(JavaScriptCore_INSPECTOR_DOMAINS
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/ApplicationCache.json
+    ${JAVASCRIPTCORE_DIR}/inspector/protocol/Audit.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/CSS.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/Canvas.json
     ${JAVASCRIPTCORE_DIR}/inspector/protocol/Console.json
@@ -1095,6 +1115,7 @@ endif ()
 
 if (ENABLE_RESOURCE_USAGE)
     list(APPEND JavaScriptCore_INSPECTOR_DOMAINS
+        ${JAVASCRIPTCORE_DIR}/inspector/protocol/CPUProfiler.json
         ${JAVASCRIPTCORE_DIR}/inspector/protocol/Memory.json
     )
 endif ()
@@ -1168,7 +1189,6 @@ set(JavaScriptCore_BUILTINS_SOURCES
     ${JAVASCRIPTCORE_DIR}/builtins/MapPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/ModuleLoader.js
     ${JAVASCRIPTCORE_DIR}/builtins/NumberConstructor.js
-    ${JAVASCRIPTCORE_DIR}/builtins/NumberPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/ObjectConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/PromiseConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/PromiseOperations.js

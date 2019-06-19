@@ -62,7 +62,7 @@ private:
     void visit(AST::PropertyAccessExpression&) override;
     void visit(AST::DotExpression&) override;
     void visit(AST::CallExpression&) override;
-    void visit(AST::ConstantExpressionEnumerationMemberReference&) override;
+    void visit(AST::EnumerationMemberLiteral&) override;
 
     NameContext m_nameContext;
     AST::FunctionDefinition* m_currentFunction { nullptr };
@@ -71,8 +71,8 @@ private:
 bool resolveNamesInTypes(Program&, NameResolver&);
 bool resolveNamesInFunctions(Program&, NameResolver&);
 
-}
+} // namespace WHLSL
 
-}
+} // namespace WebCore
 
-#endif
+#endif // ENABLE(WEBGPU)

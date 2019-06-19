@@ -404,7 +404,7 @@ void DOMWindow::setCanShowModalDialogOverride(bool allow)
 }
 
 DOMWindow::DOMWindow(Document& document)
-    : AbstractDOMWindow(GlobalWindowIdentifier { Process::identifier(), generateObjectIdentifier<WindowIdentifierType>() })
+    : AbstractDOMWindow(GlobalWindowIdentifier { Process::identifier(), WindowIdentifier::generate() })
     , ContextDestructionObserver(&document)
 {
     ASSERT(frame());
@@ -456,16 +456,20 @@ void DOMWindow::willDestroyCachedFrame()
 {
     // It is necessary to copy m_properties to a separate vector because the DOMWindowProperties may
     // unregister themselves from the DOMWindow as a result of the call to willDestroyGlobalObjectInCachedFrame.
-    for (auto& property : copyToVector(m_properties))
-        property->willDestroyGlobalObjectInCachedFrame();
+    for (auto* property : copyToVector(m_properties)) {
+        if (m_properties.contains(property))
+            property->willDestroyGlobalObjectInCachedFrame();
+    }
 }
 
 void DOMWindow::willDestroyDocumentInFrame()
 {
     // It is necessary to copy m_properties to a separate vector because the DOMWindowProperties may
     // unregister themselves from the DOMWindow as a result of the call to willDestroyGlobalObjectInFrame.
-    for (auto& property : copyToVector(m_properties))
-        property->willDestroyGlobalObjectInFrame();
+    for (auto* property : copyToVector(m_properties)) {
+        if (m_properties.contains(property))
+            property->willDestroyGlobalObjectInFrame();
+    }
 }
 
 void DOMWindow::willDetachDocumentFromFrame()
@@ -475,11 +479,16 @@ void DOMWindow::willDetachDocumentFromFrame()
 
     // It is necessary to copy m_properties to a separate vector because the DOMWindowProperties may
     // unregister themselves from the DOMWindow as a result of the call to willDetachGlobalObjectFromFrame.
-    for (auto& property : copyToVector(m_properties))
-        property->willDetachGlobalObjectFromFrame();
+    for (auto& property : copyToVector(m_properties)) {
+        if (m_properties.contains(property))
+            property->willDetachGlobalObjectFromFrame();
+    }
 
     if (m_performance)
         m_performance->clearResourceTimings();
+
+    JSDOMWindowBase::fireFrameClearedWatchpointsForWindow(this);
+    InspectorInstrumentation::frameWindowDiscarded(*frame(), this);
 }
 
 #if ENABLE(GAMEPAD)
@@ -520,16 +529,20 @@ void DOMWindow::resetUnlessSuspendedForDocumentSuspension()
 
 void DOMWindow::suspendForPageCache()
 {
-    for (auto& property : copyToVector(m_properties))
-        property->suspendForPageCache();
+    for (auto* property : copyToVector(m_properties)) {
+        if (m_properties.contains(property))
+            property->suspendForPageCache();
+    }
 
     m_suspendedForDocumentSuspension = true;
 }
 
 void DOMWindow::resumeFromPageCache()
 {
-    for (auto& property : copyToVector(m_properties))
-        property->resumeFromPageCache();
+    for (auto* property : copyToVector(m_properties)) {
+        if (m_properties.contains(property))
+            property->resumeFromPageCache();
+    }
 
     m_suspendedForDocumentSuspension = false;
 }
@@ -1844,9 +1857,9 @@ bool DOMWindow::addEventListener(const AtomicString& eventType, Ref<EventListene
         if ((eventType == eventNames().devicemotionEvent || eventType == eventNames().deviceorientationEvent)) {
             if (isSameSecurityOriginAsMainFrame() && isSecureContext()) {
                 if (eventType == eventNames().deviceorientationEvent)
-                    document()->deviceOrientationController()->addDeviceEventListener(this);
+                    document()->deviceOrientationController().addDeviceEventListener(*this);
                 else
-                    document()->deviceMotionController()->addDeviceEventListener(this);
+                    document()->deviceMotionController().addDeviceEventListener(*this);
             } else if (document()) {
                 if (isSecureContext())
                     document()->addConsoleMessage(MessageSource::JS, MessageLevel::Warning, "Blocked attempt to add a device motion or orientation listener from child frame that wasn't the same security origin as the main page."_s);
@@ -1858,13 +1871,13 @@ bool DOMWindow::addEventListener(const AtomicString& eventType, Ref<EventListene
         if (eventType == eventNames().devicemotionEvent) {
             if (isSameSecurityOriginAsMainFrame() && isSecureContext()) {
                 if (DeviceMotionController* controller = DeviceMotionController::from(page()))
-                    controller->addDeviceEventListener(this);
+                    controller->addDeviceEventListener(*this);
             } else
                 document()->addConsoleMessage(MessageSource::JS, MessageLevel::Warning, "Blocked attempt to add a device motion listener from child frame that wasn't the same security origin as the main page."_s);
         } else if (eventType == eventNames().deviceorientationEvent) {
             if (isSameSecurityOriginAsMainFrame() && isSecureContext()) {
                 if (DeviceOrientationController* controller = DeviceOrientationController::from(page()))
-                    controller->addDeviceEventListener(this);
+                    controller->addDeviceEventListener(*this);
             } else {
                 if (isSecureContext())
                     document()->addConsoleMessage(MessageSource::JS, MessageLevel::Warning, "Blocked attempt to add a device orientation listener from child frame that wasn't the same security origin as the main page."_s);
@@ -1931,16 +1944,16 @@ bool DOMWindow::removeEventListener(const AtomicString& eventType, EventListener
 #if ENABLE(DEVICE_ORIENTATION)
 #if PLATFORM(IOS_FAMILY)
     else if (eventType == eventNames().devicemotionEvent && document())
-        document()->deviceMotionController()->removeDeviceEventListener(this);
+        document()->deviceMotionController().removeDeviceEventListener(*this);
     else if (eventType == eventNames().deviceorientationEvent && document())
-        document()->deviceOrientationController()->removeDeviceEventListener(this);
+        document()->deviceOrientationController().removeDeviceEventListener(*this);
 #else
     else if (eventType == eventNames().devicemotionEvent) {
         if (DeviceMotionController* controller = DeviceMotionController::from(page()))
-            controller->removeDeviceEventListener(this);
+            controller->removeDeviceEventListener(*this);
     } else if (eventType == eventNames().deviceorientationEvent) {
         if (DeviceOrientationController* controller = DeviceOrientationController::from(page()))
-            controller->removeDeviceEventListener(this);
+            controller->removeDeviceEventListener(*this);
     }
 #endif // PLATFORM(IOS_FAMILY)
 #endif // ENABLE(DEVICE_ORIENTATION)
@@ -2048,14 +2061,14 @@ void DOMWindow::removeAllEventListeners()
 #if ENABLE(DEVICE_ORIENTATION)
 #if PLATFORM(IOS_FAMILY)
     if (Document* document = this->document()) {
-        document->deviceMotionController()->removeAllDeviceEventListeners(this);
-        document->deviceOrientationController()->removeAllDeviceEventListeners(this);
+        document->deviceMotionController().removeAllDeviceEventListeners(*this);
+        document->deviceOrientationController().removeAllDeviceEventListeners(*this);
     }
 #else
     if (DeviceMotionController* controller = DeviceMotionController::from(page()))
-        controller->removeAllDeviceEventListeners(this);
+        controller->removeAllDeviceEventListeners(*this);
     if (DeviceOrientationController* controller = DeviceOrientationController::from(page()))
-        controller->removeAllDeviceEventListeners(this);
+        controller->removeAllDeviceEventListeners(*this);
 #endif // PLATFORM(IOS_FAMILY)
 #endif // ENABLE(DEVICE_ORIENTATION)
 

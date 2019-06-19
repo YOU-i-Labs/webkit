@@ -28,6 +28,7 @@
 
 #if ENABLE(WEBGPU)
 
+#include "WHLSLAddressSpace.h"
 #include "WHLSLProgram.h"
 #include "WHLSLTypeReference.h"
 
@@ -38,49 +39,45 @@ namespace WHLSL {
 void synthesizeEnumerationFunctions(Program& program)
 {
     bool isOperator = true;
-    bool isRestricted = false;
     for (auto& enumerationDefinition : program.enumerationDefinitions()) {
         {
-            AST::VariableDeclaration variableDeclaration1(Lexer::Token(enumerationDefinition->origin()), AST::Qualifiers(), { AST::TypeReference::wrap(Lexer::Token(enumerationDefinition->origin()), static_cast<AST::EnumerationDefinition&>(enumerationDefinition)) }, String(), WTF::nullopt, WTF::nullopt);
-            AST::VariableDeclaration variableDeclaration2(Lexer::Token(enumerationDefinition->origin()), AST::Qualifiers(), { AST::TypeReference::wrap(Lexer::Token(enumerationDefinition->origin()), static_cast<AST::EnumerationDefinition&>(enumerationDefinition)) }, String(), WTF::nullopt, WTF::nullopt);
+            AST::VariableDeclaration variableDeclaration1(Lexer::Token(enumerationDefinition->origin()), AST::Qualifiers(), { AST::TypeReference::wrap(Lexer::Token(enumerationDefinition->origin()), enumerationDefinition) }, String(), WTF::nullopt, WTF::nullopt);
+            AST::VariableDeclaration variableDeclaration2(Lexer::Token(enumerationDefinition->origin()), AST::Qualifiers(), { AST::TypeReference::wrap(Lexer::Token(enumerationDefinition->origin()), enumerationDefinition) }, String(), WTF::nullopt, WTF::nullopt);
             AST::VariableDeclarations parameters;
             parameters.append(WTFMove(variableDeclaration1));
             parameters.append(WTFMove(variableDeclaration2));
-            AST::NativeFunctionDeclaration nativeFunctionDeclaration(AST::FunctionDeclaration(Lexer::Token(enumerationDefinition->origin()), AST::AttributeBlock(), WTF::nullopt, AST::TypeReference::wrap(Lexer::Token(enumerationDefinition->origin()), program.intrinsics().boolType()), "operator=="_str, WTFMove(parameters), WTF::nullopt, isOperator), isRestricted);
+            AST::NativeFunctionDeclaration nativeFunctionDeclaration(AST::FunctionDeclaration(Lexer::Token(enumerationDefinition->origin()), AST::AttributeBlock(), WTF::nullopt, AST::TypeReference::wrap(Lexer::Token(enumerationDefinition->origin()), program.intrinsics().boolType()), "operator=="_str, WTFMove(parameters), WTF::nullopt, isOperator));
             program.append(WTFMove(nativeFunctionDeclaration));
         }
 
-        if (enumerationDefinition->type()) {
-            // FIXME: Handle a null base type.
-            {
-                AST::VariableDeclaration variableDeclaration(Lexer::Token(enumerationDefinition->origin()), AST::Qualifiers(), { AST::TypeReference::wrap(Lexer::Token(enumerationDefinition->origin()), static_cast<AST::EnumerationDefinition&>(enumerationDefinition)) }, String(), WTF::nullopt, WTF::nullopt);
-                AST::VariableDeclarations parameters;
-                parameters.append(WTFMove(variableDeclaration));
-                AST::NativeFunctionDeclaration nativeFunctionDeclaration(AST::FunctionDeclaration(Lexer::Token(enumerationDefinition->origin()), AST::AttributeBlock(), WTF::nullopt, enumerationDefinition->type()->clone(), "operator.value"_str, WTFMove(parameters), WTF::nullopt, isOperator), isRestricted);
-                program.append(WTFMove(nativeFunctionDeclaration));
-            }
+        {
+            AST::VariableDeclaration variableDeclaration(Lexer::Token(enumerationDefinition->origin()), AST::Qualifiers(), { AST::TypeReference::wrap(Lexer::Token(enumerationDefinition->origin()), enumerationDefinition) }, String(), WTF::nullopt, WTF::nullopt);
+            AST::VariableDeclarations parameters;
+            parameters.append(WTFMove(variableDeclaration));
+            AST::NativeFunctionDeclaration nativeFunctionDeclaration(AST::FunctionDeclaration(Lexer::Token(enumerationDefinition->origin()), AST::AttributeBlock(), WTF::nullopt, enumerationDefinition->type().clone(), "operator.value"_str, WTFMove(parameters), WTF::nullopt, isOperator));
+            program.append(WTFMove(nativeFunctionDeclaration));
+        }
 
-            {
-                AST::VariableDeclaration variableDeclaration(Lexer::Token(enumerationDefinition->origin()), AST::Qualifiers(), { AST::TypeReference::wrap(Lexer::Token(enumerationDefinition->origin()), static_cast<AST::EnumerationDefinition&>(enumerationDefinition)) }, String(), WTF::nullopt, WTF::nullopt);
-                AST::VariableDeclarations parameters;
-                parameters.append(WTFMove(variableDeclaration));
-                AST::NativeFunctionDeclaration nativeFunctionDeclaration(AST::FunctionDeclaration(Lexer::Token(enumerationDefinition->origin()), AST::AttributeBlock(), WTF::nullopt, enumerationDefinition->type()->clone(), "operator cast"_str, WTFMove(parameters), WTF::nullopt, isOperator), isRestricted);
-                program.append(WTFMove(nativeFunctionDeclaration));
-            }
+        {
+            AST::VariableDeclaration variableDeclaration(Lexer::Token(enumerationDefinition->origin()), AST::Qualifiers(), { AST::TypeReference::wrap(Lexer::Token(enumerationDefinition->origin()), enumerationDefinition) }, String(), WTF::nullopt, WTF::nullopt);
+            AST::VariableDeclarations parameters;
+            parameters.append(WTFMove(variableDeclaration));
+            AST::NativeFunctionDeclaration nativeFunctionDeclaration(AST::FunctionDeclaration(Lexer::Token(enumerationDefinition->origin()), AST::AttributeBlock(), WTF::nullopt, enumerationDefinition->type().clone(), "operator cast"_str, WTFMove(parameters), WTF::nullopt, isOperator));
+            program.append(WTFMove(nativeFunctionDeclaration));
+        }
 
-            {
-                AST::VariableDeclaration variableDeclaration(Lexer::Token(enumerationDefinition->origin()), AST::Qualifiers(), enumerationDefinition->type()->clone(), String(), WTF::nullopt, WTF::nullopt);
-                AST::VariableDeclarations parameters;
-                parameters.append(WTFMove(variableDeclaration));
-                AST::NativeFunctionDeclaration nativeFunctionDeclaration(AST::FunctionDeclaration(Lexer::Token(enumerationDefinition->origin()), AST::AttributeBlock(), WTF::nullopt, { AST::TypeReference::wrap(Lexer::Token(enumerationDefinition->origin()), static_cast<AST::EnumerationDefinition&>(enumerationDefinition)) }, "operator cast"_str, WTFMove(parameters), WTF::nullopt, isOperator), isRestricted);
-                program.append(WTFMove(nativeFunctionDeclaration));
-            }
+        {
+            AST::VariableDeclaration variableDeclaration(Lexer::Token(enumerationDefinition->origin()), AST::Qualifiers(), enumerationDefinition->type().clone(), String(), WTF::nullopt, WTF::nullopt);
+            AST::VariableDeclarations parameters;
+            parameters.append(WTFMove(variableDeclaration));
+            AST::NativeFunctionDeclaration nativeFunctionDeclaration(AST::FunctionDeclaration(Lexer::Token(enumerationDefinition->origin()), AST::AttributeBlock(), WTF::nullopt, { AST::TypeReference::wrap(Lexer::Token(enumerationDefinition->origin()), enumerationDefinition) }, "operator cast"_str, WTFMove(parameters), WTF::nullopt, isOperator));
+            program.append(WTFMove(nativeFunctionDeclaration));
         }
     }
 }
 
-}
+} // namespace WHLSL
 
-}
+} // namespace WebCore
 
-#endif
+#endif // ENABLE(WEBGPU)

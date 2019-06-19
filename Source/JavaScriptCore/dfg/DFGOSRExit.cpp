@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -80,7 +80,7 @@ static void restoreCalleeSavesFor(Context& context, CodeBlock* codeBlock)
 {
     ASSERT(codeBlock);
 
-    RegisterAtOffsetList* calleeSaves = codeBlock->calleeSaveRegisters();
+    const RegisterAtOffsetList* calleeSaves = codeBlock->calleeSaveRegisters();
     RegisterSet dontRestoreRegisters = RegisterSet(RegisterSet::stackRegisters(), RegisterSet::allFPRs());
     unsigned registerCount = calleeSaves->size();
 
@@ -103,7 +103,7 @@ static void saveCalleeSavesFor(Context& context, CodeBlock* codeBlock)
     auto& stack = context.stack();
     ASSERT(codeBlock);
 
-    RegisterAtOffsetList* calleeSaves = codeBlock->calleeSaveRegisters();
+    const RegisterAtOffsetList* calleeSaves = codeBlock->calleeSaveRegisters();
     RegisterSet dontSaveRegisters = RegisterSet(RegisterSet::stackRegisters(), RegisterSet::allFPRs());
     unsigned registerCount = calleeSaves->size();
 
@@ -182,7 +182,7 @@ static void saveOrCopyCalleeSavesFor(Context& context, CodeBlock* codeBlock, Vir
     Frame frame(context.fp(), context.stack());
     ASSERT(codeBlock);
 
-    RegisterAtOffsetList* calleeSaves = codeBlock->calleeSaveRegisters();
+    const RegisterAtOffsetList* calleeSaves = codeBlock->calleeSaveRegisters();
     RegisterSet dontSaveRegisters = RegisterSet(RegisterSet::stackRegisters(), RegisterSet::allFPRs());
     unsigned registerCount = calleeSaves->size();
 
@@ -337,6 +337,12 @@ void OSRExit::executeOSRExit(Context& context)
     ExecState* exec = context.fp<ExecState*>();
     ASSERT(&exec->vm() == &vm);
     auto& cpu = context.cpu;
+
+    if (validateDFGDoesGC) {
+        // We're about to exit optimized code. So, there's no longer any optimized
+        // code running that expects no GC.
+        vm.heap.setExpectDoesGC(true);
+    }
 
     if (vm.callFrameForCatch) {
         exec = vm.callFrameForCatch;
@@ -507,7 +513,7 @@ void OSRExit::executeOSRExit(Context& context)
             ASSERT(exit.m_kind == BadCache || exit.m_kind == BadIndexingType);
             Structure* structure = profiledValue.asCell()->structure(vm);
             arrayProfile->observeStructure(structure);
-            arrayProfile->observeArrayMode(asArrayModes(structure->indexingMode()));
+            arrayProfile->observeArrayMode(arrayModesFromStructure(structure));
         }
         if (extraInitializationLevel <= ExtraInitializationLevel::ArrayProfileUpdate)
             break;
@@ -1009,6 +1015,12 @@ void JIT_OPERATION OSRExit::compileOSRExit(ExecState* exec)
     VM* vm = &exec->vm();
     auto scope = DECLARE_THROW_SCOPE(*vm);
 
+    if (validateDFGDoesGC) {
+        // We're about to exit optimized code. So, there's no longer any optimized
+        // code running that expects no GC.
+        vm->heap.setExpectDoesGC(true);
+    }
+
     if (vm->callFrameForCatch)
         RELEASE_ASSERT(vm->callFrameForCatch == exec);
 
@@ -1185,6 +1197,15 @@ void OSRExit::compileExit(CCallHelpers& jit, VM& vm, const OSRExit& exit, const 
 
                 jit.load32(AssemblyHelpers::Address(value, JSCell::structureIDOffset()), scratch1);
                 jit.store32(scratch1, arrayProfile->addressOfLastSeenStructureID());
+
+                jit.load8(AssemblyHelpers::Address(value, JSCell::typeInfoTypeOffset()), scratch2);
+                jit.sub32(AssemblyHelpers::TrustedImm32(FirstTypedArrayType), scratch2);
+                auto notTypedArray = jit.branch32(MacroAssembler::AboveOrEqual, scratch2, AssemblyHelpers::TrustedImm32(NumberOfTypedArrayTypesExcludingDataView));
+                jit.move(AssemblyHelpers::TrustedImmPtr(typedArrayModes), scratch1);
+                jit.load32(AssemblyHelpers::BaseIndex(scratch1, scratch2, AssemblyHelpers::TimesFour), scratch2);
+                auto storeArrayModes = jit.jump();
+
+                notTypedArray.link(&jit);
 #if USE(JSVALUE64)
                 jit.load8(AssemblyHelpers::Address(value, JSCell::indexingTypeAndMiscOffset()), scratch1);
 #else
@@ -1193,6 +1214,7 @@ void OSRExit::compileExit(CCallHelpers& jit, VM& vm, const OSRExit& exit, const 
                 jit.and32(AssemblyHelpers::TrustedImm32(IndexingModeMask), scratch1);
                 jit.move(AssemblyHelpers::TrustedImm32(1), scratch2);
                 jit.lshift32(scratch1, scratch2);
+                storeArrayModes.link(&jit);
                 jit.or32(scratch2, AssemblyHelpers::AbsoluteAddress(arrayProfile->addressOfArrayModes()));
 
                 if (isARM64()) {
@@ -1377,6 +1399,18 @@ void OSRExit::compileExit(CCallHelpers& jit, VM& vm, const OSRExit& exit, const 
         default:
             break;
         }
+    }
+
+    if (validateDFGDoesGC) {
+        // We're about to exit optimized code. So, there's no longer any optimized
+        // code running that expects no GC. We need to set this before arguments
+        // materialization below (see emitRestoreArguments()).
+
+        // Even though we set Heap::m_expectDoesGC in compileOSRExit(), we also need
+        // to set it here because compileOSRExit() is only called on the first time
+        // we exit from this site, but all subsequent exits will take this compiled
+        // ramp without calling compileOSRExit() first.
+        jit.store8(CCallHelpers::TrustedImm32(true), vm.heap.addressOfExpectDoesGC());
     }
 
     // Need to ensure that the stack pointer accounts for the worst-case stack usage at exit. This

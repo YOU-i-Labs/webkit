@@ -40,19 +40,22 @@ NetworkSessionSoup::NetworkSessionSoup(NetworkProcess& networkProcess, NetworkSe
     : NetworkSession(networkProcess, parameters.sessionID)
 {
     networkStorageSession().setCookieObserverHandler([this] {
-        NetworkProcess::singleton().supplement<WebCookieManager>()->notifyCookiesDidChange(m_sessionID);
+        this->networkProcess().supplement<WebCookieManager>()->notifyCookiesDidChange(m_sessionID);
     });
+
+    if (!parameters.cookiePersistentStoragePath.isEmpty())
+        this->networkProcess().supplement<WebCookieManager>()->setCookiePersistentStorage(m_sessionID, parameters.cookiePersistentStoragePath, parameters.cookiePersistentStorageType);
 }
 
 NetworkSessionSoup::~NetworkSessionSoup()
 {
-    if (auto* storageSession = NetworkStorageSession::storageSession(m_sessionID))
+    if (auto* storageSession = networkProcess().storageSession(m_sessionID))
         storageSession->setCookieObserverHandler(nullptr);
 }
 
 SoupSession* NetworkSessionSoup::soupSession() const
 {
-    return networkStorageSession().getOrCreateSoupNetworkSession().soupSession();
+    return networkStorageSession().soupNetworkSession().soupSession();
 }
 
 void NetworkSessionSoup::clearCredentials()

@@ -34,6 +34,7 @@
 #include "ConstantPropertyMap.h"
 #include "ContextMenuClient.h"
 #include "ContextMenuController.h"
+#include "CookieJar.h"
 #include "DOMRect.h"
 #include "DOMRectList.h"
 #include "DatabaseProvider.h"
@@ -50,7 +51,6 @@
 #include "Event.h"
 #include "EventNames.h"
 #include "ExtensionStyleSheets.h"
-#include "FileSystem.h"
 #include "FocusController.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
@@ -86,6 +86,7 @@
 #include "PluginData.h"
 #include "PluginInfoProvider.h"
 #include "PluginViewBase.h"
+#include "PointerCaptureController.h"
 #include "PointerLockController.h"
 #include "ProgressTracker.h"
 #include "PublicSuffix.h"
@@ -121,6 +122,7 @@
 #include "WebGLStateTracker.h"
 #include "WheelEventDeltaFilter.h"
 #include "Widget.h"
+#include <wtf/FileSystem.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/Base64.h>
@@ -213,6 +215,9 @@ Page::Page(PageConfiguration&& pageConfiguration)
 #endif
     , m_userInputBridge(std::make_unique<UserInputBridge>(*this))
     , m_inspectorController(std::make_unique<InspectorController>(*this, pageConfiguration.inspectorClient))
+#if ENABLE(POINTER_EVENTS)
+    , m_pointerCaptureController(std::make_unique<PointerCaptureController>(*this))
+#endif
 #if ENABLE(POINTER_LOCK)
     , m_pointerLockController(std::make_unique<PointerLockController>(*this))
 #endif
@@ -238,6 +243,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_inspectorDebuggable(std::make_unique<PageDebuggable>(*this))
 #endif
     , m_socketProvider(WTFMove(pageConfiguration.socketProvider))
+    , m_cookieJar(WTFMove(pageConfiguration.cookieJar))
     , m_applicationCacheStorage(*WTFMove(pageConfiguration.applicationCacheStorage))
     , m_cacheStorageProvider(WTFMove(pageConfiguration.cacheStorageProvider))
     , m_databaseProvider(*WTFMove(pageConfiguration.databaseProvider))
@@ -303,6 +309,10 @@ Page::Page(PageConfiguration&& pageConfiguration)
 
 #if PLATFORM(COCOA)
     platformInitialize();
+#endif
+
+#if USE(LIBWEBRTC)
+    m_libWebRTCProvider->supportsVP8(RuntimeEnabledFeatures::sharedFeatures().webRTCVP8CodecEnabled());
 #endif
 }
 
@@ -999,11 +1009,8 @@ void Page::setPageScaleFactor(float scale, const IntPoint& origin, bool inStable
     m_pageScaleFactor = scale;
 
     if (!m_settings->delegatesPageScaling()) {
-        if (auto* renderView = document->renderView()) {
-            renderView->setNeedsLayout();
-            if (renderView->hasLayer() && renderView->layer()->isComposited())
-                renderView->layer()->setNeedsCompositingGeometryUpdate();
-        }
+        view->setNeedsLayoutAfterViewConfigurationChange();
+        view->setNeedsCompositingGeometryUpdate();
 
         document->resolveStyle(Document::ResolveStyleType::Rebuild);
 
@@ -1962,9 +1969,11 @@ VisibilityState Page::visibilityState() const
     return VisibilityState::Hidden;
 }
 
-#if ENABLE(RUBBER_BANDING)
-void Page::addHeaderWithHeight(int headerHeight)
+void Page::setHeaderHeight(int headerHeight)
 {
+    if (headerHeight == m_headerHeight)
+        return;
+
     m_headerHeight = headerHeight;
 
     FrameView* frameView = mainFrame().view();
@@ -1975,12 +1984,15 @@ void Page::addHeaderWithHeight(int headerHeight)
     if (!renderView)
         return;
 
-    frameView->setHeaderHeight(m_headerHeight);
-    renderView->compositor().updateLayerForHeader(m_headerHeight);
+    frameView->setNeedsLayoutAfterViewConfigurationChange();
+    frameView->setNeedsCompositingGeometryUpdate();
 }
 
-void Page::addFooterWithHeight(int footerHeight)
+void Page::setFooterHeight(int footerHeight)
 {
+    if (footerHeight == m_footerHeight)
+        return;
+
     m_footerHeight = footerHeight;
 
     FrameView* frameView = mainFrame().view();
@@ -1991,10 +2003,9 @@ void Page::addFooterWithHeight(int footerHeight)
     if (!renderView)
         return;
 
-    frameView->setFooterHeight(m_footerHeight);
-    renderView->compositor().updateLayerForFooter(m_footerHeight);
+    frameView->setNeedsLayoutAfterViewConfigurationChange();
+    frameView->setNeedsCompositingGeometryUpdate();
 }
-#endif
 
 void Page::incrementNestedRunLoopCount()
 {
@@ -2358,7 +2369,7 @@ void Page::logNavigation(const Navigation& navigation)
     diagnosticLoggingClient().logDiagnosticMessage(DiagnosticLoggingKeys::navigationKey(), navigationDescription, ShouldSample::No);
 
     if (!navigation.domain.isEmpty())
-        diagnosticLoggingClient().logDiagnosticMessageWithEnhancedPrivacy(DiagnosticLoggingKeys::domainVisitedKey(), navigation.domain, ShouldSample::No);
+        diagnosticLoggingClient().logDiagnosticMessageWithEnhancedPrivacy(DiagnosticLoggingKeys::domainVisitedKey(), navigation.domain, ShouldSample::Yes);
 }
 
 void Page::mainFrameLoadStarted(const URL& destinationURL, FrameLoadType type)
@@ -2628,6 +2639,19 @@ void Page::appearanceDidChange()
         document->styleScope().evaluateMediaQueriesForAppearanceChange();
         document->evaluateMediaQueryList();
     }
+}
+
+void Page::installedPageOverlaysChanged()
+{
+    if (isInWindow()) {
+        if (pageOverlayController().hasViewOverlays())
+            chrome().client().attachViewOverlayGraphicsLayer(&pageOverlayController().layerWithViewOverlays());
+        else
+            chrome().client().attachViewOverlayGraphicsLayer(nullptr);
+    }
+
+    if (auto* frameView = mainFrame().view())
+        frameView->setNeedsCompositingConfigurationUpdate();
 }
 
 void Page::setUnobscuredSafeAreaInsets(const FloatBoxExtent& insets)

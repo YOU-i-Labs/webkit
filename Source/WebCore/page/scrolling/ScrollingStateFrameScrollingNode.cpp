@@ -64,7 +64,11 @@ ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(const Scrolli
     , m_requestedScrollPositionRepresentsProgrammaticScroll(stateNode.requestedScrollPositionRepresentsProgrammaticScroll())
     , m_fixedElementsLayoutRelativeToFrame(stateNode.fixedElementsLayoutRelativeToFrame())
     , m_visualViewportEnabled(stateNode.visualViewportEnabled())
+    , m_asyncFrameOrOverflowScrollingEnabled(stateNode.asyncFrameOrOverflowScrollingEnabled())
 {
+    if (hasChangedProperty(RootContentsLayer))
+        setRootContentsLayer(stateNode.rootContentsLayer().toRepresentation(adoptiveTree.preferredLayerRepresentation()));
+
     if (hasChangedProperty(CounterScrollingLayer))
         setCounterScrollingLayer(stateNode.counterScrollingLayer().toRepresentation(adoptiveTree.preferredLayerRepresentation()));
 
@@ -92,6 +96,35 @@ ScrollingStateFrameScrollingNode::~ScrollingStateFrameScrollingNode() = default;
 Ref<ScrollingStateNode> ScrollingStateFrameScrollingNode::clone(ScrollingStateTree& adoptiveTree)
 {
     return adoptRef(*new ScrollingStateFrameScrollingNode(*this, adoptiveTree));
+}
+
+void ScrollingStateFrameScrollingNode::setAllPropertiesChanged()
+{
+    setPropertyChangedBit(FrameScaleFactor);
+    setPropertyChangedBit(EventTrackingRegion);
+    setPropertyChangedBit(ReasonsForSynchronousScrolling);
+    setPropertyChangedBit(RootContentsLayer);
+    setPropertyChangedBit(ScrolledContentsLayer);
+    setPropertyChangedBit(CounterScrollingLayer);
+    setPropertyChangedBit(InsetClipLayer);
+    setPropertyChangedBit(ContentShadowLayer);
+    setPropertyChangedBit(HeaderHeight);
+    setPropertyChangedBit(FooterHeight);
+    setPropertyChangedBit(HeaderLayer);
+    setPropertyChangedBit(FooterLayer);
+    setPropertyChangedBit(VerticalScrollbarLayer);
+    setPropertyChangedBit(HorizontalScrollbarLayer);
+    setPropertyChangedBit(PainterForScrollbar);
+    setPropertyChangedBit(BehaviorForFixedElements);
+    setPropertyChangedBit(TopContentInset);
+    setPropertyChangedBit(FixedElementsLayoutRelativeToFrame);
+    setPropertyChangedBit(VisualViewportEnabled);
+    setPropertyChangedBit(AsyncFrameOrOverflowScrollingEnabled);
+    setPropertyChangedBit(LayoutViewport);
+    setPropertyChangedBit(MinLayoutViewportOrigin);
+    setPropertyChangedBit(MaxLayoutViewportOrigin);
+
+    ScrollingStateScrollingNode::setAllPropertiesChanged();
 }
 
 void ScrollingStateFrameScrollingNode::setFrameScaleFactor(float scaleFactor)
@@ -185,6 +218,15 @@ void ScrollingStateFrameScrollingNode::setTopContentInset(float topContentInset)
     setPropertyChanged(TopContentInset);
 }
 
+void ScrollingStateFrameScrollingNode::setRootContentsLayer(const LayerRepresentation& layerRepresentation)
+{
+    if (layerRepresentation == m_rootContentsLayer)
+        return;
+
+    m_rootContentsLayer = layerRepresentation;
+    setPropertyChanged(RootContentsLayer);
+}
+
 void ScrollingStateFrameScrollingNode::setCounterScrollingLayer(const LayerRepresentation& layerRepresentation)
 {
     if (layerRepresentation == m_counterScrollingLayer)
@@ -267,6 +309,15 @@ void ScrollingStateFrameScrollingNode::setVisualViewportEnabled(bool visualViewp
     setPropertyChanged(VisualViewportEnabled);
 }
 
+void ScrollingStateFrameScrollingNode::setAsyncFrameOrOverflowScrollingEnabled(bool enabled)
+{
+    if (enabled == m_asyncFrameOrOverflowScrollingEnabled)
+        return;
+    
+    m_asyncFrameOrOverflowScrollingEnabled = enabled;
+    setPropertyChanged(AsyncFrameOrOverflowScrollingEnabled);
+}
+
 #if !PLATFORM(MAC)
 void ScrollingStateFrameScrollingNode::setScrollerImpsFromScrollbars(Scrollbar*, Scrollbar*)
 {
@@ -280,6 +331,7 @@ void ScrollingStateFrameScrollingNode::dumpProperties(TextStream& ts, ScrollingS
     ScrollingStateScrollingNode::dumpProperties(ts, behavior);
     
     if (behavior & ScrollingStateTreeAsTextBehaviorIncludeLayerIDs) {
+        ts.dumpProperty("root contents layer ID", m_rootContentsLayer.layerID());
         ts.dumpProperty("counter scrolling layer ID", m_counterScrollingLayer.layerID());
         ts.dumpProperty("inset clip layer ID", m_insetClipLayer.layerID());
         ts.dumpProperty("content shadow layer ID", m_contentShadowLayer.layerID());

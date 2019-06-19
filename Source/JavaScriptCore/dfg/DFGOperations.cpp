@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -63,16 +63,15 @@
 #include "JSWeakSet.h"
 #include "NumberConstructor.h"
 #include "ObjectConstructor.h"
-#include "ObjectPrototypeInlines.h"
 #include "Operations.h"
 #include "ParseInt.h"
-#include "RegExpConstructor.h"
+#include "RegExpGlobalDataInlines.h"
 #include "RegExpMatchesArray.h"
 #include "RegExpObjectInlines.h"
 #include "Repatch.h"
 #include "ScopedArguments.h"
 #include "StringConstructor.h"
-#include "StructureRareDataInlines.h"
+#include "StringPrototypeInlines.h"
 #include "SuperSampler.h"
 #include "Symbol.h"
 #include "TypeProfilerLog.h"
@@ -301,7 +300,7 @@ JSCell* JIT_OPERATION operationCreateThis(ExecState* exec, JSObject* constructor
     auto scope = DECLARE_THROW_SCOPE(vm);
     if (constructor->type() == JSFunctionType && jsCast<JSFunction*>(constructor)->canUseAllocationProfile()) {
         auto rareData = jsCast<JSFunction*>(constructor)->ensureRareDataAndAllocationProfile(exec, inlineCapacity);
-        RETURN_IF_EXCEPTION(scope, nullptr);
+        scope.releaseAssertNoException();
         ObjectAllocationProfile* allocationProfile = rareData->objectAllocationProfile();
         Structure* structure = allocationProfile->structure();
         JSObject* result = constructEmptyObject(exec, structure);
@@ -505,12 +504,7 @@ EncodedJSValue JIT_OPERATION operationValueAddNotNumber(ExecState* exec, Encoded
     JSValue op1 = JSValue::decode(encodedOp1);
     JSValue op2 = JSValue::decode(encodedOp2);
     
-    ASSERT(!op1.isNumber() || !op2.isNumber());
-    
-    if (op1.isString() && !op2.isObject())
-        return JSValue::encode(jsString(exec, asString(op1), op2.toString(exec)));
-
-    return JSValue::encode(jsAddSlowCase(exec, op1, op2));
+    return JSValue::encode(jsAddNonNumber(exec, op1, op2));
 }
 
 EncodedJSValue JIT_OPERATION operationValueDiv(ExecState* exec, EncodedJSValue encodedOp1, EncodedJSValue encodedOp2)
@@ -1176,7 +1170,6 @@ EncodedJSValue JIT_OPERATION operationRegExpExecNonGlobalOrSticky(ExecState* exe
 
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    RegExpConstructor* regExpConstructor = globalObject->regExpConstructor();
     String input = string->value(exec);
     RETURN_IF_EXCEPTION(scope, { });
 
@@ -1189,7 +1182,7 @@ EncodedJSValue JIT_OPERATION operationRegExpExecNonGlobalOrSticky(ExecState* exe
     }
 
     RETURN_IF_EXCEPTION(scope, { });
-    regExpConstructor->recordMatch(vm, regExp, string, result);
+    globalObject->regExpGlobalData().recordMatch(vm, globalObject, regExp, string, result);
     return JSValue::encode(array);
 }
 
@@ -1219,19 +1212,17 @@ EncodedJSValue JIT_OPERATION operationRegExpMatchFastGlobalString(ExecState* exe
     String s = string->value(exec);
     RETURN_IF_EXCEPTION(scope, { });
 
-    RegExpConstructor* regExpConstructor = globalObject->regExpConstructor();
-
     if (regExp->unicode()) {
         unsigned stringLength = s.length();
         RELEASE_AND_RETURN(scope, JSValue::encode(collectMatches(
-            vm, exec, string, s, regExpConstructor, regExp,
+            vm, exec, string, s, globalObject, regExp,
             [&] (size_t end) -> size_t {
                 return advanceStringUnicode(s, stringLength, end);
             })));
     }
 
     RELEASE_AND_RETURN(scope, JSValue::encode(collectMatches(
-        vm, exec, string, s, regExpConstructor, regExp,
+        vm, exec, string, s, globalObject, regExp,
         [&] (size_t end) -> size_t {
             return end + 1;
         })));
@@ -2156,13 +2147,6 @@ JSString* JIT_OPERATION operationStringValueOf(ExecState* exec, EncodedJSValue e
     return nullptr;
 }
 
-JSString* JIT_OPERATION operationObjectToString(ExecState* exec, EncodedJSValue source)
-{
-    VM& vm = exec->vm();
-    NativeCallFrameTracer tracer(&vm, exec);
-    return objectToString(exec, JSValue::decode(source));
-}
-
 JSCell* JIT_OPERATION operationStringSubstr(ExecState* exec, JSCell* cell, int32_t from, int32_t span)
 {
     VM& vm = exec->vm();
@@ -2172,6 +2156,20 @@ JSCell* JIT_OPERATION operationStringSubstr(ExecState* exec, JSCell* cell, int32
     auto string = jsCast<JSString*>(cell)->value(exec);
     RETURN_IF_EXCEPTION(scope, nullptr);
     return jsSubstring(exec, string, from, span);
+}
+
+JSCell* JIT_OPERATION operationStringSlice(ExecState* exec, JSCell* cell, int32_t start, int32_t end)
+{
+    VM& vm = exec->vm();
+    NativeCallFrameTracer tracer(&vm, exec);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    auto string = jsCast<JSString*>(cell)->value(exec);
+    RETURN_IF_EXCEPTION(scope, nullptr);
+    static_assert(static_cast<uint64_t>(JSString::MaxLength) <= static_cast<uint64_t>(std::numeric_limits<int32_t>::max()), "");
+
+    scope.release();
+    return stringSlice(exec, WTFMove(string), start, end);
 }
 
 JSString* JIT_OPERATION operationToLowerCase(ExecState* exec, JSString* string, uint32_t failingIndex)
@@ -2281,8 +2279,12 @@ Symbol* JIT_OPERATION operationNewSymbolWithDescription(ExecState* exec, JSStrin
 {
     VM& vm = exec->vm();
     NativeCallFrameTracer tracer(&vm, exec);
+    auto scope = DECLARE_THROW_SCOPE(vm);
 
-    return Symbol::create(exec, description);
+    String string = description->value(exec);
+    RETURN_IF_EXCEPTION(scope, nullptr);
+
+    return Symbol::createWithDescription(vm, string);
 }
 
 JSCell* JIT_OPERATION operationNewStringObject(ExecState* exec, JSString* string, Structure* structure)
@@ -2711,6 +2713,11 @@ JSCell* JIT_OPERATION operationNewArrayWithSpreadSlow(ExecState* exec, void* buf
     }
 
     unsigned length = checkedLength.unsafeGet();
+    if (UNLIKELY(length >= MIN_ARRAY_STORAGE_CONSTRUCTION_LENGTH)) {
+        throwOutOfMemoryError(exec, scope);
+        return nullptr;
+    }
+
     JSGlobalObject* globalObject = exec->lexicalGlobalObject();
     Structure* structure = globalObject->arrayStructureForIndexingTypeDuringAllocation(ArrayWithContiguous);
 
@@ -2909,7 +2916,7 @@ JSCell* JIT_OPERATION operationJSMapFindBucket(ExecState* exec, JSCell* map, Enc
     NativeCallFrameTracer tracer(&vm, exec);
     JSMap::BucketType** bucket = jsCast<JSMap*>(map)->findBucket(exec, JSValue::decode(key), hash);
     if (!bucket)
-        return vm.sentinelMapBucket.get();
+        return vm.sentinelMapBucket();
     return *bucket;
 }
 
@@ -2919,7 +2926,7 @@ JSCell* JIT_OPERATION operationJSSetFindBucket(ExecState* exec, JSCell* map, Enc
     NativeCallFrameTracer tracer(&vm, exec);
     JSSet::BucketType** bucket = jsCast<JSSet*>(map)->findBucket(exec, JSValue::decode(key), hash);
     if (!bucket)
-        return vm.sentinelSetBucket.get();
+        return vm.sentinelSetBucket();
     return *bucket;
 }
 
@@ -2929,7 +2936,7 @@ JSCell* JIT_OPERATION operationSetAdd(ExecState* exec, JSCell* set, EncodedJSVal
     NativeCallFrameTracer tracer(&vm, exec);
     auto* bucket = jsCast<JSSet*>(set)->addNormalized(exec, JSValue::decode(key), JSValue(), hash);
     if (!bucket)
-        return vm.sentinelSetBucket.get();
+        return vm.sentinelSetBucket();
     return bucket;
 }
 
@@ -2939,7 +2946,7 @@ JSCell* JIT_OPERATION operationMapSet(ExecState* exec, JSCell* map, EncodedJSVal
     NativeCallFrameTracer tracer(&vm, exec);
     auto* bucket = jsCast<JSMap*>(map)->addNormalized(exec, JSValue::decode(key), JSValue::decode(value), hash);
     if (!bucket)
-        return vm.sentinelMapBucket.get();
+        return vm.sentinelMapBucket();
     return bucket;
 }
 
@@ -3035,7 +3042,7 @@ extern "C" void JIT_OPERATION triggerReoptimizationNow(CodeBlock* codeBlock, Cod
     
     bool didTryToEnterIntoInlinedLoops = false;
     for (InlineCallFrame* inlineCallFrame = exit->m_codeOrigin.inlineCallFrame; inlineCallFrame; inlineCallFrame = inlineCallFrame->directCaller.inlineCallFrame) {
-        if (inlineCallFrame->baselineCodeBlock->ownerScriptExecutable()->didTryToEnterInLoop()) {
+        if (inlineCallFrame->baselineCodeBlock->ownerExecutable()->didTryToEnterInLoop()) {
             didTryToEnterIntoInlinedLoops = true;
             break;
         }
@@ -3125,7 +3132,7 @@ static void triggerFTLReplacementCompile(VM* vm, CodeBlock* codeBlock, JITCode* 
     // We need to compile the code.
     compile(
         *vm, codeBlock->newReplacement(), codeBlock, FTLMode, UINT_MAX,
-        Operands<JSValue>(), ToFTLDeferredCompilationCallback::create());
+        Operands<Optional<JSValue>>(), ToFTLDeferredCompilationCallback::create());
 
     // If we reached here, the counter has not be reset. Do that now.
     jitCode->setOptimizationThresholdBasedOnCompilationResult(
@@ -3363,7 +3370,7 @@ static char* tierUpCommon(ExecState* exec, unsigned originBytecodeIndex, bool ca
 
     JITCode::TriggerReason* triggerAddress = &(triggerIterator->value);
 
-    Operands<JSValue> mustHandleValues;
+    Operands<Optional<JSValue>> mustHandleValues;
     unsigned streamIndex = jitCode->bytecodeIndexToStreamIndex.get(originBytecodeIndex);
     jitCode->reconstruct(
         exec, codeBlock, CodeOrigin(originBytecodeIndex), streamIndex, mustHandleValues);

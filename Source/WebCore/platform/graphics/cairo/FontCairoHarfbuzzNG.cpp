@@ -32,7 +32,6 @@
 #include "CharacterProperties.h"
 #include "FontCache.h"
 #include "SurrogatePairAwareTextIterator.h"
-#include <unicode/normlzr.h>
 
 namespace WebCore {
 
@@ -46,11 +45,10 @@ bool FontCascade::canExpandAroundIdeographsInComplexText()
     return false;
 }
 
-static bool characterSequenceIsEmoji(const Vector<UChar, 4>& normalizedCharacters, int32_t normalizedLength)
+static bool characterSequenceIsEmoji(SurrogatePairAwareTextIterator& iterator, UChar32 firstCharacter, unsigned firstClusterLength)
 {
-    UChar32 character;
-    unsigned clusterLength = 0;
-    SurrogatePairAwareTextIterator iterator(normalizedCharacters.data(), 0, normalizedLength, normalizedLength);
+    UChar32 character = firstCharacter;
+    unsigned clusterLength = firstClusterLength;
     if (!iterator.consume(character, clusterLength))
         return false;
 
@@ -100,28 +98,35 @@ static bool characterSequenceIsEmoji(const Vector<UChar, 4>& normalizedCharacter
     return false;
 }
 
-const Font* FontCascade::fontForCombiningCharacterSequence(const UChar* characters, size_t length) const
+const Font* FontCascade::fontForCombiningCharacterSequence(const UChar* originalCharacters, size_t originalLength) const
 {
-    UErrorCode error = U_ZERO_ERROR;
-    Vector<UChar, 4> normalizedCharacters(length);
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    int32_t normalizedLength = unorm_normalize(characters, length, UNORM_NFC, UNORM_UNICODE_3_2, normalizedCharacters.data(), length, &error);
-    ALLOW_DEPRECATED_DECLARATIONS_END
-    if (U_FAILURE(error))
-        return nullptr;
+    auto normalizedString = normalizedNFC(StringView { originalCharacters, static_cast<unsigned>(originalLength) });
+
+    // Code below relies on normalizedNFC never narrowing a 16-bit input string into an 8-bit output string.
+    // At the time of this writing, the function never does this, but in theory a future version could, and
+    // we would then need to add code paths here for the simpler 8-bit case.
+    auto characters = normalizedString.view.characters16();
+    auto length = normalizedString.view.length();
 
     UChar32 character;
     unsigned clusterLength = 0;
-    SurrogatePairAwareTextIterator iterator(normalizedCharacters.data(), 0, normalizedLength, normalizedLength);
+    SurrogatePairAwareTextIterator iterator(characters, 0, length, length);
     if (!iterator.consume(character, clusterLength))
         return nullptr;
 
-    bool isEmoji = characterSequenceIsEmoji(normalizedCharacters, normalizedLength);
+    bool isEmoji = characterSequenceIsEmoji(iterator, character, clusterLength);
+    bool preferColoredFont = isEmoji;
+    // U+FE0E forces text style.
+    // U+FE0F forces emoji style.
+    if (characters[length - 1] == 0xFE0E)
+        preferColoredFont = false;
+    else if (characters[length - 1] == 0xFE0F)
+        preferColoredFont = true;
 
     const Font* baseFont = glyphDataForCharacter(character, false, NormalVariant).font;
     if (baseFont
-        && (static_cast<int32_t>(clusterLength) == normalizedLength || baseFont->canRenderCombiningCharacterSequence(characters, length))
-        && (!isEmoji || baseFont->platformData().isColorBitmapFont()))
+        && (clusterLength == length || baseFont->canRenderCombiningCharacterSequence(characters, length))
+        && (!preferColoredFont || baseFont->platformData().isColorBitmapFont()))
         return baseFont;
 
     for (unsigned i = 0; !fallbackRangesAt(i).isNull(); ++i) {
@@ -129,12 +134,16 @@ const Font* FontCascade::fontForCombiningCharacterSequence(const UChar* characte
         if (!fallbackFont || fallbackFont == baseFont)
             continue;
 
-        if (fallbackFont->canRenderCombiningCharacterSequence(characters, length) && (!isEmoji || fallbackFont->platformData().isColorBitmapFont()))
+        if (fallbackFont->canRenderCombiningCharacterSequence(characters, length) && (!preferColoredFont || fallbackFont->platformData().isColorBitmapFont()))
             return fallbackFont;
     }
 
-    if (auto systemFallback = FontCache::singleton().systemFallbackForCharacters(m_fontDescription, baseFont, IsForPlatformFont::No, isEmoji ? FontCache::PreferColoredFont::Yes : FontCache::PreferColoredFont::No, characters, length)) {
-        if (systemFallback->canRenderCombiningCharacterSequence(characters, length) && (!isEmoji || systemFallback->platformData().isColorBitmapFont()))
+    if (auto systemFallback = FontCache::singleton().systemFallbackForCharacters(m_fontDescription, baseFont, IsForPlatformFont::No, preferColoredFont ? FontCache::PreferColoredFont::Yes : FontCache::PreferColoredFont::No, characters, length)) {
+        if (systemFallback->canRenderCombiningCharacterSequence(characters, length) && (!preferColoredFont || systemFallback->platformData().isColorBitmapFont()))
+            return systemFallback.get();
+
+        // In case of emoji, if fallback font is colored try again without the variation selector character.
+        if (isEmoji && characters[length - 1] == 0xFE0F && systemFallback->platformData().isColorBitmapFont() && systemFallback->canRenderCombiningCharacterSequence(characters, length - 1))
             return systemFallback.get();
     }
 

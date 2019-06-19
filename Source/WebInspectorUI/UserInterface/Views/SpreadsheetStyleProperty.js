@@ -75,8 +75,6 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
 
     get element() { return this._element; }
     get property() { return this._property; }
-    get nameTextField() { return this._nameTextField; }
-    get valueTextField() { return this._valueTextField; }
     get enabled() { return this._property.enabled; }
 
     set index(index)
@@ -133,7 +131,6 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
 
     remove(replacement = null)
     {
-        console.assert(this._property.ownerStyle.locked, `Removed property was unlocked (${this._property.name})`);
         this.element.remove();
 
         if (replacement)
@@ -158,7 +155,6 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
             this._checkboxElement.checked = this._property.enabled;
             this._checkboxElement.tabIndex = -1;
             this._checkboxElement.addEventListener("click", (event) => {
-                console.assert(this._property.ownerStyle.locked, `Toggled property was unlocked (${this._property.name})`);
                 event.stopPropagation();
                 let disabled = !this._checkboxElement.checked;
                 this._property.commentOut(disabled);
@@ -247,7 +243,7 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
         let duplicatePropertyExistsBelow = (cssProperty) => {
             let propertyFound = false;
 
-            for (let property of this._property.ownerStyle.properties) {
+            for (let property of this._property.ownerStyle.enabledProperties) {
                 if (property === cssProperty)
                     propertyFound = true;
                 else if (property.name === cssProperty.name && propertyFound)
@@ -294,6 +290,9 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
 
         if (!this._property.enabled)
             classNames.push("disabled");
+
+        if (this._property.modified)
+            classNames.push("modified");
 
         if (this._selected)
             classNames.push("selected");
@@ -485,14 +484,14 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
             this._handleValueChange();
         }, this);
 
-        if (typeof this._delegate.stylePropertyInlineSwatchActivated === "function") {
+        if (this._delegate && typeof this._delegate.stylePropertyInlineSwatchActivated === "function") {
             swatch.addEventListener(WI.InlineSwatch.Event.Activated, () => {
                 this._swatchActive = true;
                 this._delegate.stylePropertyInlineSwatchActivated();
             });
         }
 
-        if (typeof this._delegate.stylePropertyInlineSwatchDeactivated === "function") {
+        if (this._delegate && typeof this._delegate.stylePropertyInlineSwatchDeactivated === "function") {
             swatch.addEventListener(WI.InlineSwatch.Event.Deactivated, () => {
                 this._swatchActive = false;
                 this._delegate.stylePropertyInlineSwatchDeactivated();
@@ -675,15 +674,11 @@ WI.SpreadsheetStyleProperty = class SpreadsheetStyleProperty extends WI.Object
 
     _handleNameChange()
     {
-        console.assert(this._property.ownerStyle.locked, `Modified property was unlocked (${this._property.name})`);
-
         this._property.name = this._nameElement.textContent.trim();
     }
 
     _handleValueChange()
     {
-        console.assert(this._property.ownerStyle.locked, `Modified property was unlocked (${this._property.name})`);
-
         this._property.rawValue = this._valueElement.textContent.trim();
     }
 

@@ -36,7 +36,7 @@ namespace WebKit {
 void NavigationActionData::encode(IPC::Encoder& encoder) const
 {
     encoder.encodeEnum(navigationType);
-    encoder.encodeEnum(modifiers);
+    encoder << modifiers;
     encoder.encodeEnum(mouseButton);
     encoder.encodeEnum(syntheticClickType);
     encoder << userGestureTokenIdentifier;
@@ -53,6 +53,7 @@ void NavigationActionData::encode(IPC::Encoder& encoder) const
     encoder.encodeEnum(lockHistory);
     encoder.encodeEnum(lockBackForwardList);
     encoder << clientRedirectSourceForHistory;
+    encoder << adClickAttribution;
 }
 
 Optional<NavigationActionData> NavigationActionData::decode(IPC::Decoder& decoder)
@@ -61,10 +62,10 @@ Optional<NavigationActionData> NavigationActionData::decode(IPC::Decoder& decode
     if (!decoder.decodeEnum(navigationType))
         return WTF::nullopt;
     
-    WebEvent::Modifiers modifiers;
-    if (!decoder.decodeEnum(modifiers))
+    OptionSet<WebEvent::Modifier> modifiers;
+    if (!decoder.decode(modifiers))
         return WTF::nullopt;
-    
+
     WebMouseEvent::Button mouseButton;
     if (!decoder.decodeEnum(mouseButton))
         return WTF::nullopt;
@@ -139,10 +140,15 @@ Optional<NavigationActionData> NavigationActionData::decode(IPC::Decoder& decode
     if (!clientRedirectSourceForHistory)
         return WTF::nullopt;
 
-    return {{ WTFMove(navigationType), WTFMove(modifiers), WTFMove(mouseButton), WTFMove(syntheticClickType), WTFMove(*userGestureTokenIdentifier),
+    Optional<Optional<WebCore::AdClickAttribution>> adClickAttribution;
+    decoder >> adClickAttribution;
+    if (!adClickAttribution)
+        return WTF::nullopt;
+
+    return {{ WTFMove(navigationType), modifiers, WTFMove(mouseButton), WTFMove(syntheticClickType), WTFMove(*userGestureTokenIdentifier),
         WTFMove(*canHandleRequest), WTFMove(shouldOpenExternalURLsPolicy), WTFMove(*downloadAttribute), WTFMove(clickLocationInRootViewCoordinates),
         WTFMove(*isRedirect), *treatAsSameOriginNavigation, *hasOpenedFrames, *openedByDOMWithOpener, WTFMove(*requesterOrigin),
-        WTFMove(*targetBackForwardItemIdentifier), lockHistory, lockBackForwardList, WTFMove(*clientRedirectSourceForHistory) }};
+        WTFMove(*targetBackForwardItemIdentifier), lockHistory, lockBackForwardList, WTFMove(*clientRedirectSourceForHistory), WTFMove(*adClickAttribution) }};
 }
 
 } // namespace WebKit

@@ -145,8 +145,8 @@ public:
     void setAriaReflectionEnabled(bool isEnabled) { m_ariaReflectionEnabled = isEnabled; }
     bool ariaReflectionEnabled() const { return m_ariaReflectionEnabled; }
 
-    void setResourceLoadStatisticsDebugMode(bool isEnabled) { m_resourceLoadStatisticsDebugMode = isEnabled; }
-    bool resourceLoadStatisticsDebugMode() const { return m_resourceLoadStatisticsDebugMode; }
+    void setItpDebugModeEnabled(bool isEnabled) { m_itpDebugMode = isEnabled; }
+    bool itpDebugModeEnabled() const { return m_itpDebugMode; }
 
     void setRestrictedHTTPResponseAccess(bool isEnabled) { m_isRestrictedHTTPResponseAccess = isEnabled; }
     bool restrictedHTTPResponseAccess() const { return m_isRestrictedHTTPResponseAccess; }
@@ -338,6 +338,12 @@ public:
     bool systemPreviewEnabled() const { return m_systemPreviewEnabled; }
 #endif
 
+    void setCSSLogicalEnabled(bool isEnabled) { m_CSSLogicalEnabled = isEnabled; }
+    bool cssLogicalEnabled() const { return m_CSSLogicalEnabled; }
+
+    bool adClickAttributionEnabled() const { return m_adClickAttributionEnabled; }
+    void setAdClickAttributionEnabled(bool isEnabled) { m_adClickAttributionEnabled = isEnabled; }
+
     WEBCORE_EXPORT static RuntimeEnabledFeatures& sharedFeatures();
 
 private:
@@ -375,7 +381,7 @@ private:
     bool m_webVREnabled { false };
     bool m_accessibilityObjectModelEnabled { false };
     bool m_ariaReflectionEnabled { true };
-    bool m_resourceLoadStatisticsDebugMode { false };
+    bool m_itpDebugMode { false };
     bool m_isRestrictedHTTPResponseAccess { true };
     bool m_crossOriginResourcePolicyEnabled { true };
     bool m_isWebGLCompressedTextureASTCSupportEnabled { false };
@@ -510,6 +516,10 @@ private:
 #endif
 
     bool m_undoManagerAPIEnabled { false };
+
+    bool m_CSSLogicalEnabled { false };
+
+    bool m_adClickAttributionEnabled { false };
 
     friend class WTF::NeverDestroyed<RuntimeEnabledFeatures>;
 };

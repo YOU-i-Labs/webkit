@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,7 +43,6 @@
 #include "WebDocumentLoader.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
-#include "WebPolicyAction.h"
 #include "WebProcess.h"
 #include "WebsitePoliciesData.h"
 #include <JavaScriptCore/APICast.h>
@@ -211,12 +210,13 @@ void WebFrame::invalidate()
     m_coreFrame = 0;
 }
 
-uint64_t WebFrame::setUpPolicyListener(WebCore::FramePolicyFunction&& policyFunction, ForNavigationAction forNavigationAction)
+uint64_t WebFrame::setUpPolicyListener(WebCore::PolicyCheckIdentifier identifier, WebCore::FramePolicyFunction&& policyFunction, ForNavigationAction forNavigationAction)
 {
     // FIXME: <rdar://5634381> We need to support multiple active policy listeners.
 
     invalidatePolicyListener();
 
+    m_policyIdentifier = identifier;
     m_policyListenerID = generateListenerID();
     m_policyFunction = WTFMove(policyFunction);
     m_policyFunctionForNavigationAction = forNavigationAction;
@@ -233,6 +233,7 @@ uint64_t WebFrame::setUpWillSubmitFormListener(CompletionHandler<void()>&& compl
 
 void WebFrame::continueWillSubmitForm(uint64_t listenerID)
 {
+    Ref<WebFrame> protectedThis(*this);
     if (auto completionHandler = m_willSubmitFormCompletionHandlers.take(listenerID))
         completionHandler();
     invalidatePolicyListener();
@@ -245,8 +246,10 @@ void WebFrame::invalidatePolicyListener()
 
     m_policyDownloadID = { };
     m_policyListenerID = 0;
+    auto identifier = m_policyIdentifier;
+    m_policyIdentifier = WTF::nullopt;
     if (auto function = std::exchange(m_policyFunction, nullptr))
-        function(PolicyAction::Ignore);
+        function(PolicyAction::Ignore, *identifier);
     m_policyFunctionForNavigationAction = ForNavigationAction::No;
 
     auto willSubmitFormCompletionHandlers = WTFMove(m_willSubmitFormCompletionHandlers);
@@ -254,29 +257,13 @@ void WebFrame::invalidatePolicyListener()
         completionHandler();
 }
 
-static WebCore::PolicyAction toPolicyAction(WebPolicyAction policyAction)
+void WebFrame::didReceivePolicyDecision(uint64_t listenerID, WebCore::PolicyCheckIdentifier identifier, PolicyAction action, uint64_t navigationID, DownloadID downloadID, Optional<WebsitePoliciesData>&& websitePolicies)
 {
-    switch (policyAction) {
-    case WebPolicyAction::Use:
-        return WebCore::PolicyAction::Use;
-    case WebPolicyAction::Ignore:
-        return WebCore::PolicyAction::Ignore;
-    case WebPolicyAction::Download:
-        return WebCore::PolicyAction::Download;
-    case WebPolicyAction::Suspend:
-        break;
-    }
-    ASSERT_NOT_REACHED();
-    return WebCore::PolicyAction::Ignore;
-}
-
-void WebFrame::didReceivePolicyDecision(uint64_t listenerID, WebPolicyAction action, uint64_t navigationID, DownloadID downloadID, Optional<WebsitePoliciesData>&& websitePolicies)
-{
-    if (!m_coreFrame || !m_policyListenerID || listenerID != m_policyListenerID || !m_policyFunction) {
-        if (action == WebPolicyAction::Suspend)
-            page()->send(Messages::WebPageProxy::DidFailToSuspendAfterProcessSwap());
+    if (!m_coreFrame || !m_policyListenerID || listenerID != m_policyListenerID || !m_policyFunction)
         return;
-    }
+
+    ASSERT(identifier == m_policyIdentifier);
+    m_policyIdentifier = WTF::nullopt;
 
     FramePolicyFunction function = WTFMove(m_policyFunction);
     bool forNavigationAction = m_policyFunctionForNavigationAction == ForNavigationAction::Yes;
@@ -292,16 +279,7 @@ void WebFrame::didReceivePolicyDecision(uint64_t listenerID, WebPolicyAction act
             documentLoader->setNavigationID(navigationID);
     }
 
-    bool shouldSuspend = false;
-    if (action == WebPolicyAction::Suspend) {
-        shouldSuspend = true;
-        action = WebPolicyAction::Ignore;
-    }
-
-    function(toPolicyAction(action));
-
-    if (shouldSuspend)
-        page()->suspendForProcessSwap();
+    function(action, identifier);
 }
 
 void WebFrame::startDownload(const WebCore::ResourceRequest& request, const String& suggestedName)
@@ -486,9 +464,13 @@ String WebFrame::innerText() const
 WebFrame* WebFrame::parentFrame() const
 {
     if (!m_coreFrame || !m_coreFrame->ownerElement())
-        return 0;
+        return nullptr;
 
-    return WebFrame::fromCoreFrame(*m_coreFrame->ownerElement()->document().frame());
+    auto* frame = m_coreFrame->ownerElement()->document().frame();
+    if (!frame)
+        return nullptr;
+
+    return WebFrame::fromCoreFrame(*frame);
 }
 
 Ref<API::Array> WebFrame::childFrames()

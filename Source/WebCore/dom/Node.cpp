@@ -332,7 +332,9 @@ Node::Node(Document& document, ConstructionType type)
 Node::~Node()
 {
     ASSERT(isMainThread());
-    ASSERT(!m_refCount);
+    // We set m_refCount to 1 before calling delete to avoid double destruction through use of Ref<T>/RefPtr<T>.
+    // This is a security mitigation in case of programmer errorm (caught by a debug assertion).
+    ASSERT(m_refCount == 1);
     ASSERT(m_deletionHasBegun);
     ASSERT(!m_adoptionIsRequired);
 
@@ -660,7 +662,7 @@ void Node::normalize()
         while (Node* nextSibling = node->nextSibling()) {
             if (nextSibling->nodeType() != TEXT_NODE)
                 break;
-            RefPtr<Text> nextText = downcast<Text>(nextSibling);
+            Ref<Text> nextText = downcast<Text>(*nextSibling);
 
             // Remove empty text nodes.
             if (!nextText->length()) {
@@ -671,7 +673,7 @@ void Node::normalize()
             // Both non-empty text nodes. Merge them.
             unsigned offset = text->length();
             text->appendData(nextText->data());
-            document().textNodesMerged(nextText.get(), offset);
+            document().textNodesMerged(nextText, offset);
             nextText->remove();
         }
 
@@ -1008,21 +1010,15 @@ bool Node::isDescendantOf(const Node& other) const
 
 bool Node::isDescendantOrShadowDescendantOf(const Node* other) const
 {
-    if (!other) 
-        return false;
-    if (isDescendantOf(*other))
-        return true;
-    const Node* shadowAncestorNode = deprecatedShadowAncestorNode();
-    if (!shadowAncestorNode)
-        return false;
-    return shadowAncestorNode == other || shadowAncestorNode->isDescendantOf(*other);
+    // FIXME: This element's shadow tree's host could be inside another shadow tree.
+    // This function doesn't handle that case correctly. Maybe share code with
+    // the containsIncludingShadowDOM function?
+    return other && (isDescendantOf(*other) || other->contains(shadowHost()));
 }
 
 bool Node::contains(const Node* node) const
 {
-    if (!node)
-        return false;
-    return this == node || node->isDescendantOf(*this);
+    return this == node || (node && node->isDescendantOf(*this));
 }
 
 bool Node::containsIncludingShadowDOM(const Node* node) const
@@ -1030,19 +1026,6 @@ bool Node::containsIncludingShadowDOM(const Node* node) const
     for (; node; node = node->parentOrShadowHostNode()) {
         if (node == this)
             return true;
-    }
-    return false;
-}
-
-bool Node::containsIncludingHostElements(const Node* node) const
-{
-    while (node) {
-        if (node == this)
-            return true;
-        if (node->isDocumentFragment() && static_cast<const DocumentFragment*>(node)->isTemplateContent())
-            node = static_cast<const TemplateContentDocumentFragment*>(node)->host();
-        else
-            node = node->parentOrShadowHostNode();
     }
     return false;
 }
@@ -1137,14 +1120,6 @@ Element* Node::shadowHost() const
     if (ShadowRoot* root = containingShadowRoot())
         return root->host();
     return nullptr;
-}
-
-Node* Node::deprecatedShadowAncestorNode() const
-{
-    if (ShadowRoot* root = containingShadowRoot())
-        return root->host();
-
-    return const_cast<Node*>(this);
 }
 
 ShadowRoot* Node::containingShadowRoot() const
@@ -1379,7 +1354,7 @@ bool Node::isEqualNode(Node* other) const
         auto& otherElement = downcast<Element>(*other);
         if (thisElement.tagQName() != otherElement.tagQName())
             return false;
-        if (!thisElement.hasEquivalentAttributes(&otherElement))
+        if (!thisElement.hasEquivalentAttributes(otherElement))
             return false;
         break;
         }
@@ -2537,6 +2512,7 @@ void Node::removedLastRef()
 #ifndef NDEBUG
     m_deletionHasBegun = true;
 #endif
+    m_refCount = 1; // Avoid double destruction through use of RefPtr<T>. (This is a security mitigation in case of programmer error. It will ASSERT in debug builds.)
     delete this;
 }
 

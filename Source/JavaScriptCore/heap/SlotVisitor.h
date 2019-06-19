@@ -86,7 +86,7 @@ public:
     const VM& vm() const;
     Heap* heap() const;
 
-    void append(ConservativeRoots&);
+    void append(const ConservativeRoots&);
     
     template<typename T, typename Traits> void append(const WriteBarrierBase<T, Traits>&);
     template<typename T, typename Traits> void appendHidden(const WriteBarrierBase<T, Traits>&);
@@ -259,8 +259,6 @@ private:
     MarkingConstraint* m_currentConstraint { nullptr };
     MarkingConstraintSolver* m_currentSolver { nullptr };
     
-    // Put padding here to mitigate false sharing between multiple SlotVisitors.
-    char padding[64];
 public:
 #if !ASSERT_DISABLED
     bool m_isCheckingForDefaultMarkViolation;

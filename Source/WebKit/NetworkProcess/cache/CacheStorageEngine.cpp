@@ -48,11 +48,11 @@ using namespace NetworkCache;
 
 String Engine::cachesRootPath(const WebCore::ClientOrigin& origin)
 {
-    if (!shouldPersist())
+    if (!shouldPersist() || !m_salt)
         return { };
 
     Key key(origin.topOrigin.toString(), origin.clientOrigin.toString(), { }, { }, salt());
-    return WebCore::FileSystem::pathByAppendingComponent(rootPath(), key.hashAsString());
+    return FileSystem::pathByAppendingComponent(rootPath(), key.hashAsString());
 }
 
 Engine::~Engine()
@@ -80,12 +80,9 @@ void Engine::from(NetworkProcess& networkProcess, PAL::SessionID sessionID, Func
         return;
     }
 
-    if (sessionID.isEphemeral())
-        sessionID = PAL::SessionID::legacyPrivateSessionID();
-
     networkProcess.cacheStorageParameters(sessionID, [networkProcess = makeRef(networkProcess), sessionID, callback = WTFMove(callback)] (auto&& rootPath, auto quota) mutable {
         callback(networkProcess->ensureCacheEngine(sessionID, [&] {
-            return adoptRef(*new Engine { String { rootPath }, quota });
+            return adoptRef(*new Engine { sessionID, networkProcess.get(), String { rootPath }, quota });
         }));
     });
 }
@@ -188,8 +185,10 @@ void Engine::clearCachesForOrigin(NetworkProcess& networkProcess, PAL::SessionID
     });
 }
 
-Engine::Engine(String&& rootPath, uint64_t quota)
-    : m_rootPath(WTFMove(rootPath))
+Engine::Engine(PAL::SessionID sessionID, NetworkProcess& process, String&& rootPath, uint64_t quota)
+    : m_sessionID(sessionID)
+    , m_networkProcess(makeWeakPtr(process))
+    , m_rootPath(WTFMove(rootPath))
     , m_quota(quota)
 {
     if (!m_rootPath.isNull())
@@ -292,9 +291,9 @@ void Engine::initialize(CompletionCallback&& callback)
     if (!shouldComputeSalt)
         return;
 
-    String saltPath = WebCore::FileSystem::pathByAppendingComponent(m_rootPath, "salt"_s);
+    String saltPath = FileSystem::pathByAppendingComponent(m_rootPath, "salt"_s);
     m_ioQueue->dispatch([this, weakThis = makeWeakPtr(this), saltPath = WTFMove(saltPath)] () mutable {
-        WebCore::FileSystem::makeAllDirectories(m_rootPath);
+        FileSystem::makeAllDirectories(m_rootPath);
         RunLoop::main().dispatch([this, weakThis = WTFMove(weakThis), salt = readOrMakeSalt(saltPath)]() mutable {
             if (!weakThis)
                 return;
@@ -311,6 +310,11 @@ void Engine::initialize(CompletionCallback&& callback)
 void Engine::readCachesFromDisk(const WebCore::ClientOrigin& origin, CachesCallback&& callback)
 {
     initialize([this, origin, callback = WTFMove(callback)](Optional<Error>&& error) mutable {
+        if (error) {
+            callback(makeUnexpected(error.value()));
+            return;
+        }
+
         auto& caches = m_caches.ensure(origin, [&origin, this] {
             auto path = cachesRootPath(origin);
             return Caches::create(*this, WebCore::ClientOrigin { origin }, WTFMove(path), m_quota);
@@ -318,11 +322,6 @@ void Engine::readCachesFromDisk(const WebCore::ClientOrigin& origin, CachesCallb
 
         if (caches->isInitialized()) {
             callback(std::reference_wrapper<Caches> { *caches });
-            return;
-        }
-
-        if (error) {
-            callback(makeUnexpected(error.value()));
             return;
         }
 
@@ -384,9 +383,9 @@ void Engine::writeFile(const String& filename, NetworkCache::Data&& data, WebCor
     m_pendingWriteCallbacks.add(++m_pendingCallbacksCounter, WTFMove(callback));
     m_ioQueue->dispatch([this, weakThis = makeWeakPtr(this), identifier = m_pendingCallbacksCounter, data = WTFMove(data), filename = filename.isolatedCopy()]() mutable {
 
-        String directoryPath = WebCore::FileSystem::directoryName(filename);
-        if (!WebCore::FileSystem::fileExists(directoryPath))
-            WebCore::FileSystem::makeAllDirectories(directoryPath);
+        String directoryPath = FileSystem::directoryName(filename);
+        if (!FileSystem::fileExists(directoryPath))
+            FileSystem::makeAllDirectories(directoryPath);
 
         auto channel = IOChannel::open(filename, IOChannel::Type::Create);
         channel->write(0, data, nullptr, [this, weakThis = WTFMove(weakThis), identifier](int error) mutable {
@@ -446,7 +445,7 @@ void Engine::removeFile(const String& filename)
         return;
 
     m_ioQueue->dispatch([filename = filename.isolatedCopy()]() mutable {
-        WebCore::FileSystem::deleteFile(filename);
+        FileSystem::deleteFile(filename);
     });
 }
 
@@ -488,8 +487,8 @@ void Engine::fetchEntries(bool shouldComputeSize, WTF::CompletionHandler<void(Ve
     }
 
     auto taskCounter = ReadOriginsTaskCounter::create(WTFMove(completionHandler));
-    for (auto& folderPath : WebCore::FileSystem::listDirectory(m_rootPath, "*")) {
-        if (!WebCore::FileSystem::fileIsDirectory(folderPath, WebCore::FileSystem::ShouldFollowSymbolicLinks::No))
+    for (auto& folderPath : FileSystem::listDirectory(m_rootPath, "*")) {
+        if (!FileSystem::fileIsDirectory(folderPath, FileSystem::ShouldFollowSymbolicLinks::No))
             continue;
         Caches::retrieveOriginFromDirectory(folderPath, *m_ioQueue, [protectedThis = makeRef(*this), shouldComputeSize, taskCounter = taskCounter.copyRef()] (auto&& origin) mutable {
             ASSERT(RunLoop::isMain());
@@ -532,8 +531,8 @@ void Engine::clearAllCachesFromDisk(CompletionHandler<void()>&& completionHandle
     ASSERT(RunLoop::isMain());
 
     m_ioQueue->dispatch([path = m_rootPath.isolatedCopy(), completionHandler = WTFMove(completionHandler)]() mutable {
-        for (auto& filename : WebCore::FileSystem::listDirectory(path, "*")) {
-            if (WebCore::FileSystem::fileIsDirectory(filename, WebCore::FileSystem::ShouldFollowSymbolicLinks::No))
+        for (auto& filename : FileSystem::listDirectory(path, "*")) {
+            if (FileSystem::fileIsDirectory(filename, FileSystem::ShouldFollowSymbolicLinks::No))
                 deleteDirectoryRecursively(filename);
         }
         RunLoop::main().dispatch(WTFMove(completionHandler));
@@ -563,8 +562,8 @@ void Engine::clearCachesForOriginFromDisk(const WebCore::SecurityOriginData& ori
 
     auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
 
-    for (auto& folderPath : WebCore::FileSystem::listDirectory(m_rootPath, "*")) {
-        if (!WebCore::FileSystem::fileIsDirectory(folderPath, WebCore::FileSystem::ShouldFollowSymbolicLinks::No))
+    for (auto& folderPath : FileSystem::listDirectory(m_rootPath, "*")) {
+        if (!FileSystem::fileIsDirectory(folderPath, FileSystem::ShouldFollowSymbolicLinks::No))
             continue;
         Caches::retrieveOriginFromDirectory(folderPath, *m_ioQueue, [this, protectedThis = makeRef(*this), origin, callbackAggregator = callbackAggregator.copyRef(), folderPath] (Optional<WebCore::ClientOrigin>&& folderOrigin) mutable {
             if (!folderOrigin)
@@ -649,6 +648,15 @@ String Engine::representation()
     }
     builder.append("]}");
     return builder.toString();
+}
+
+void Engine::requestSpace(const WebCore::ClientOrigin& origin, uint64_t quota, uint64_t currentSize, uint64_t spaceRequired, RequestSpaceCallback&& callback)
+{
+    if (!m_networkProcess) {
+        callback({ });
+        return;
+    }
+    m_networkProcess->requestCacheStorageSpace(m_sessionID, origin, quota, currentSize, spaceRequired, WTFMove(callback));
 }
 
 } // namespace CacheStorage

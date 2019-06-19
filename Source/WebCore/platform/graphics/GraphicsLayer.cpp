@@ -78,7 +78,7 @@ bool GraphicsLayer::supportsLayerType(Type type)
     switch (type) {
     case Type::Normal:
     case Type::PageTiledBacking:
-    case Type::Scrolling:
+    case Type::ScrollContainer:
         return true;
     case Type::Shape:
         return false;
@@ -112,6 +112,7 @@ bool GraphicsLayer::supportsContentsTiling()
 
 // Singleton client used for layers on which clearClient has been called.
 class EmptyGraphicsLayerClient : public GraphicsLayerClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     static EmptyGraphicsLayerClient& singleton();
 };
@@ -835,7 +836,7 @@ void GraphicsLayer::dumpProperties(TextStream& ts, LayerTreeAsTextBehavior behav
     if (m_preserves3D)
         ts << indent << "(preserves3D " << m_preserves3D << ")\n";
 
-    if (m_drawsContent && client().shouldDumpPropertyForLayer(this, "drawsContent"))
+    if (m_drawsContent && client().shouldDumpPropertyForLayer(this, "drawsContent", behavior))
         ts << indent << "(drawsContent " << m_drawsContent << ")\n";
 
     if (!m_contentsVisible)
@@ -849,7 +850,7 @@ void GraphicsLayer::dumpProperties(TextStream& ts, LayerTreeAsTextBehavior behav
         ts << indent << "(client " << static_cast<void*>(m_client) << ")\n";
     }
 
-    if (m_backgroundColor.isValid() && client().shouldDumpPropertyForLayer(this, "backgroundColor"))
+    if (m_backgroundColor.isValid() && client().shouldDumpPropertyForLayer(this, "backgroundColor", behavior))
         ts << indent << "(backgroundColor " << m_backgroundColor.nameForRenderTreeAsText() << ")\n";
 
     if (behavior & LayerTreeAsTextIncludeAcceleratesDrawing && m_acceleratesDrawing)
@@ -903,7 +904,7 @@ void GraphicsLayer::dumpProperties(TextStream& ts, LayerTreeAsTextBehavior behav
         ts << ")\n";
     }
 
-    if (behavior & LayerTreeAsTextIncludeRepaintRects && repaintRectMap().contains(this) && !repaintRectMap().get(this).isEmpty() && client().shouldDumpPropertyForLayer(this, "repaintRects")) {
+    if (behavior & LayerTreeAsTextIncludeRepaintRects && repaintRectMap().contains(this) && !repaintRectMap().get(this).isEmpty() && client().shouldDumpPropertyForLayer(this, "repaintRects", behavior)) {
         ts << indent << "(repaint rects\n";
         for (size_t i = 0; i < repaintRectMap().get(this).size(); ++i) {
             if (repaintRectMap().get(this)[i].isEmpty())

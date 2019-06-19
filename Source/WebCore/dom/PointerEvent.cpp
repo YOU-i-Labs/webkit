@@ -26,7 +26,27 @@
 #include "config.h"
 #include "PointerEvent.h"
 
+#if ENABLE(POINTER_EVENTS)
+
 namespace WebCore {
+
+const String& PointerEvent::mousePointerType()
+{
+    static NeverDestroyed<const String> mouseType(MAKE_STATIC_STRING_IMPL("mouse"));
+    return mouseType;
+}
+
+const String& PointerEvent::penPointerType()
+{
+    static NeverDestroyed<const String> penType(MAKE_STATIC_STRING_IMPL("pen"));
+    return penType;
+}
+
+const String& PointerEvent::touchPointerType()
+{
+    static NeverDestroyed<const String> touchType(MAKE_STATIC_STRING_IMPL("touch"));
+    return touchType;
+}
 
 PointerEvent::PointerEvent() = default;
 
@@ -54,3 +74,4 @@ EventInterface PointerEvent::eventInterface() const
 
 } // namespace WebCore
 
+#endif // ENABLE(POINTER_EVENTS)

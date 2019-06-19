@@ -50,6 +50,7 @@ enum EUpdateLayout { DoNotUpdateLayout = false, UpdateLayout = true };
 enum AdjustPixelValuesForComputedStyle { AdjustPixelValues, DoNotAdjustPixelValues };
 
 class ComputedStyleExtractor {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     ComputedStyleExtractor(Node*, bool allowVisitedStyle = false, PseudoId = PseudoId::None);
     ComputedStyleExtractor(Element*, bool allowVisitedStyle = false, PseudoId = PseudoId::None);
@@ -92,7 +93,8 @@ private:
     Ref<CSSPrimitiveValue> currentColorOrValidColor(const RenderStyle*, const Color&) const;
 
     Ref<CSSValueList> getCSSPropertyValuesForShorthandProperties(const StylePropertyShorthand&);
-    RefPtr<CSSValueList> getCSSPropertyValuesForSidesShorthand(const StylePropertyShorthand&);
+    RefPtr<CSSValueList> getCSSPropertyValuesFor2SidesShorthand(const StylePropertyShorthand&);
+    RefPtr<CSSValueList> getCSSPropertyValuesFor4SidesShorthand(const StylePropertyShorthand&);
     Ref<CSSValueList> getBackgroundShorthandValue();
     Ref<CSSValueList> getCSSPropertyValuesForGridShorthand(const StylePropertyShorthand&);
 

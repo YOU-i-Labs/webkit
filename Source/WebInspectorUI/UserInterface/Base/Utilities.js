@@ -118,6 +118,39 @@ Object.defineProperty(Map.prototype, "take",
     }
 });
 
+Object.defineProperty(Set.prototype, "equals",
+{
+    value(other)
+    {
+        return this.size === other.size && this.isSubsetOf(other);
+    }
+});
+
+Object.defineProperty(Set.prototype, "difference",
+{
+    value(other)
+    {
+        if (other === this)
+            return new Set;
+
+        let result = new Set;
+        for (let item of this) {
+            if (!other.has(item))
+                result.add(item);
+        }
+
+        return result;
+    }
+});
+
+Object.defineProperty(Set.prototype, "firstValue",
+{
+    get()
+    {
+        return this.values().next().value;
+    }
+});
+
 Object.defineProperty(Set.prototype, "intersects",
 {
     value(other)
@@ -486,6 +519,67 @@ Object.defineProperty(Array, "shallowEqual",
         }
 
         return true;
+    }
+});
+
+Object.defineProperty(Array, "diffArrays",
+{
+    value(initialArray, currentArray, onEach)
+    {
+        let initialSet = new Set(initialArray);
+        let currentSet = new Set(currentArray);
+        let indexInitial = 0;
+        let indexCurrent = 0;
+        let deltaInitial = 0;
+        let deltaCurrent = 0;
+
+        let i = 0;
+        while (true) {
+            if (indexInitial >= initialArray.length || indexCurrent >= currentArray.length)
+                break;
+
+            let initial = initialArray[indexInitial];
+            let current = currentArray[indexCurrent];
+
+            if (initial === current)
+                onEach(current, 0);
+            else if (currentSet.has(initial)) {
+                if (initialSet.has(current)) {
+                    // Moved.
+                    onEach(current, 0);
+                } else {
+                    // Added.
+                    onEach(current, 1);
+                    --i;
+                    ++deltaCurrent;
+                }
+            } else {
+                // Removed.
+                onEach(initial, -1);
+                if (!initialSet.has(current)) {
+                    // Added.
+                    onEach(current, 1);
+                } else {
+                    --i;
+                    ++deltaInitial;
+                }
+            }
+
+            ++i;
+            indexInitial = i + deltaInitial;
+            indexCurrent = i + deltaCurrent;
+        }
+
+        for (let i = indexInitial; i < initialArray.length; ++i) {
+            // Removed.
+            onEach(initialArray[i], -1);
+        }
+
+        for (let i = indexCurrent; i < currentArray.length; ++i) {
+            // Added.
+            onEach(currentArray[i], 1);
+        }
+
     }
 });
 
@@ -1095,11 +1189,11 @@ Object.defineProperty(Number, "secondsToString",
 {
     value(seconds, higherResolution)
     {
-        let ms = seconds * 1000;
-        if (!ms)
-            return WI.UIString("%.0fms").format(0);
-
         const epsilon = 0.0001;
+
+        let ms = seconds * 1000;
+        if (ms < epsilon)
+            return WI.UIString("%.0fms").format(0);
 
         if (Math.abs(ms) < (10 + epsilon)) {
             if (higherResolution)
@@ -1395,6 +1489,12 @@ Object.defineProperty(Array.prototype, "binaryIndexOf",
 {
     value(value, comparator)
     {
+        function defaultComparator(a, b)
+        {
+            return a - b;
+        }
+        comparator = comparator || defaultComparator;
+
         var index = this.lowerBound(value, comparator);
         return index < this.length && comparator(value, this[index]) === 0 ? index : -1;
     }
@@ -1707,11 +1807,4 @@ function blobAsText(blob, callback)
     let fileReader = new FileReader;
     fileReader.addEventListener("loadend", () => { callback(fileReader.result); });
     fileReader.readAsText(blob);
-}
-
-if (!window.handlePromiseException) {
-    window.handlePromiseException = function handlePromiseException(error)
-    {
-        console.error("Uncaught exception in Promise", error);
-    };
 }

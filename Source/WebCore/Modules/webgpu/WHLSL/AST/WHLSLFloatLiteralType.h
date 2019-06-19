@@ -53,7 +53,9 @@ public:
 
     bool isFloatLiteralType() const override { return true; }
 
-    TypeReference& preferredType() { return static_cast<TypeReference&>(m_preferredType); }
+    float value() const { return m_value; }
+
+    TypeReference& preferredType() { return m_preferredType; }
 
     bool canResolve(const Type&) const override;
     unsigned conversionCost(const UnnamedType&) const override;

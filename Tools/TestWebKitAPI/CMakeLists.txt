@@ -147,12 +147,6 @@ set(TestWTF_SOURCES
     ${TESTWEBKITAPI_DIR}/Tests/WTF/Optional.cpp
     ${TESTWEBKITAPI_DIR}/Tests/WTF/OptionSet.cpp
     ${TESTWEBKITAPI_DIR}/Tests/WTF/ParkingLot.cpp
-    ${TESTWEBKITAPI_DIR}/Tests/WTF/Poisoned.cpp
-    ${TESTWEBKITAPI_DIR}/Tests/WTF/PoisonedRef.cpp
-    ${TESTWEBKITAPI_DIR}/Tests/WTF/PoisonedRefPtr.cpp
-    ${TESTWEBKITAPI_DIR}/Tests/WTF/PoisonedUniquePtr.cpp
-    ${TESTWEBKITAPI_DIR}/Tests/WTF/PoisonedUniquePtrForNonTriviallyDestructibleArrays.cpp
-    ${TESTWEBKITAPI_DIR}/Tests/WTF/PoisonedUniquePtrForTriviallyDestructibleArrays.cpp
     ${TESTWEBKITAPI_DIR}/Tests/WTF/PriorityQueue.cpp
     ${TESTWEBKITAPI_DIR}/Tests/WTF/RedBlackTree.cpp
     ${TESTWEBKITAPI_DIR}/Tests/WTF/Ref.cpp
@@ -188,7 +182,14 @@ set(TestWTF_SOURCES
     ${TESTWEBKITAPI_DIR}/Tests/WTF/WorkerPool.cpp
 )
 
-# FIXME: Tests/WTF/RunLoop.cpp is missing because it doesn't work for Windows.
+# FIXME: Make these work on Windows too.
+if (NOT WIN32)
+    list(APPEND TestWTF_SOURCES
+        ${TESTWEBKITAPI_DIR}/Tests/WTF/FileSystem.cpp
+        ${TESTWEBKITAPI_DIR}/Tests/WTF/RunLoop.cpp
+    )
+endif ()
+
 # FIXME: Platform-specific sources in Tests/WTF are not included in TestWTF_SOURCES.
 
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()

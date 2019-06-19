@@ -212,7 +212,7 @@ private:
 
     WebCore::GraphicsLayerFactory* graphicsLayerFactory() const final;
     void attachRootGraphicsLayer(WebCore::Frame&, WebCore::GraphicsLayer*) final;
-    void attachViewOverlayGraphicsLayer(WebCore::Frame&, WebCore::GraphicsLayer*) final;
+    void attachViewOverlayGraphicsLayer(WebCore::GraphicsLayer*) final;
     void setNeedsOneShotDrawingSynchronization() final;
     void scheduleCompositingLayerFlush() final;
     bool adjustLayerFlushThrottling(WebCore::LayerFlushThrottleState::Flags) final;
@@ -275,6 +275,7 @@ private:
     void elementDidFocus(WebCore::Element&) final;
     void elementDidBlur(WebCore::Element&) final;
     void elementDidRefocus(WebCore::Element&) final;
+    void focusedElementDidChangeInputMode(WebCore::Element&, WebCore::InputMode) final;
 
     void makeFirstResponder() final;
     void assistiveTechnologyMakeFirstResponder() final;

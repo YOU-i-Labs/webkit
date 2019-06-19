@@ -219,12 +219,18 @@ bool LibWebRTCMediaEndpoint::addTrack(LibWebRTCRtpSenderBackend& sender, MediaSt
     switch (track.privateTrack().type()) {
     case RealtimeMediaSource::Type::Audio: {
         auto audioSource = RealtimeOutgoingAudioSource::create(track.privateTrack());
+#if !RELEASE_LOG_DISABLED
+        audioSource->setLogger(m_logger.copyRef());
+#endif
         rtcTrack = m_peerConnectionFactory.CreateAudioTrack(track.id().utf8().data(), audioSource.ptr());
         source = WTFMove(audioSource);
         break;
     }
     case RealtimeMediaSource::Type::Video: {
         auto videoSource = RealtimeOutgoingVideoSource::create(track.privateTrack());
+#if !RELEASE_LOG_DISABLED
+        videoSource->setLogger(m_logger.copyRef());
+#endif
         rtcTrack = m_peerConnectionFactory.CreateVideoTrack(track.id().utf8().data(), videoSource.ptr());
         source = WTFMove(videoSource);
         break;
@@ -407,21 +413,24 @@ void LibWebRTCMediaEndpoint::addRemoteTrack(rtc::scoped_refptr<webrtc::RtpReceiv
     fireTrackEvent(receiver.releaseNonNull(), track, rtcStreams, nullptr);
 }
 
-void LibWebRTCMediaEndpoint::fireTrackEvent(Ref<RTCRtpReceiver>&& receiver, Ref<MediaStreamTrack>&& track, const std::vector<rtc::scoped_refptr<webrtc::MediaStreamInterface>>& rtcStreams, RefPtr<RTCRtpTransceiver>&& transceiver)
+void LibWebRTCMediaEndpoint::fireTrackEvent(Ref<RTCRtpReceiver>&& receiver, MediaStreamTrack& track, const std::vector<rtc::scoped_refptr<webrtc::MediaStreamInterface>>& rtcStreams, RefPtr<RTCRtpTransceiver>&& transceiver)
 {
     Vector<RefPtr<MediaStream>> streams;
     for (auto& rtcStream : rtcStreams) {
         auto& mediaStream = mediaStreamFromRTCStream(*rtcStream.get());
         streams.append(&mediaStream);
-        mediaStream.addTrackFromPlatform(track.get());
+        mediaStream.addTrackFromPlatform(track);
     }
     auto streamIds = WTF::map(streams, [](auto& stream) -> String {
         return stream->id();
     });
-    m_remoteStreamsFromRemoteTrack.add(track.ptr(), WTFMove(streamIds));
+    m_remoteStreamsFromRemoteTrack.add(&track, WTFMove(streamIds));
 
     m_peerConnectionBackend.connection().fireEvent(RTCTrackEvent::create(eventNames().trackEvent,
-        Event::CanBubble::No, Event::IsCancelable::No, WTFMove(receiver), WTFMove(track), WTFMove(streams), WTFMove(transceiver)));
+        Event::CanBubble::No, Event::IsCancelable::No, WTFMove(receiver), &track, WTFMove(streams), WTFMove(transceiver)));
+
+    // FIXME: As per spec, we should set muted to 'false' when starting to receive the content from network.
+    track.source().setMuted(false);
 }
 
 static inline void setExistingReceiverSourceTrack(RealtimeMediaSource& existingSource, webrtc::RtpReceiverInterface& rtcReceiver)
@@ -445,7 +454,7 @@ static inline void setExistingReceiverSourceTrack(RealtimeMediaSource& existingS
     }
 }
 
-static inline RefPtr<RealtimeMediaSource> sourceFromNewReceiver(webrtc::RtpReceiverInterface& rtcReceiver)
+RefPtr<RealtimeMediaSource> LibWebRTCMediaEndpoint::sourceFromNewReceiver(webrtc::RtpReceiverInterface& rtcReceiver)
 {
     auto rtcTrack = rtcReceiver.track();
     switch (rtcReceiver.media_type()) {
@@ -453,11 +462,19 @@ static inline RefPtr<RealtimeMediaSource> sourceFromNewReceiver(webrtc::RtpRecei
         return nullptr;
     case cricket::MEDIA_TYPE_AUDIO: {
         rtc::scoped_refptr<webrtc::AudioTrackInterface> audioTrack = static_cast<webrtc::AudioTrackInterface*>(rtcTrack.get());
-        return RealtimeIncomingAudioSource::create(WTFMove(audioTrack), fromStdString(rtcTrack->id()));
+        auto audioSource = RealtimeIncomingAudioSource::create(WTFMove(audioTrack), fromStdString(rtcTrack->id()));
+#if !RELEASE_LOG_DISABLED
+        audioSource->setLogger(m_logger.copyRef());
+#endif
+        return audioSource;
     }
     case cricket::MEDIA_TYPE_VIDEO: {
         rtc::scoped_refptr<webrtc::VideoTrackInterface> videoTrack = static_cast<webrtc::VideoTrackInterface*>(rtcTrack.get());
-        return RealtimeIncomingVideoSource::create(WTFMove(videoTrack), fromStdString(rtcTrack->id()));
+        auto videoSource =  RealtimeIncomingVideoSource::create(WTFMove(videoTrack), fromStdString(rtcTrack->id()));
+#if !RELEASE_LOG_DISABLED
+        videoSource->setLogger(m_logger.copyRef());
+#endif
+        return videoSource;
     }
     }
 

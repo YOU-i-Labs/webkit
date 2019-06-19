@@ -47,6 +47,7 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/Ref.h>
 #include <wtf/UniqueRef.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(COCOA)
@@ -86,6 +87,7 @@ class ChromeClient;
 class Color;
 class ContextMenuClient;
 class ContextMenuController;
+class CookieJar;
 class DOMRect;
 class DOMRectList;
 class DatabaseProvider;
@@ -120,6 +122,7 @@ class PlugInClient;
 class PluginData;
 class PluginInfoProvider;
 class PluginViewBase;
+class PointerCaptureController;
 class PointerLockController;
 class ProgressTracker;
 class ProgressTrackerClient;
@@ -165,7 +168,7 @@ enum class DidWrap : bool;
 enum class RouteSharingPolicy : uint8_t;
 enum class ShouldTreatAsContinuingLoad : bool;
 
-class Page : public Supplementable<Page> {
+class Page : public Supplementable<Page>, public CanMakeWeakPtr<Page> {
     WTF_MAKE_NONCOPYABLE(Page);
     WTF_MAKE_FAST_ALLOCATED;
     friend class SettingsBase;
@@ -242,6 +245,9 @@ public:
 #endif
     UserInputBridge& userInputBridge() const { return *m_userInputBridge; }
     InspectorController& inspectorController() const { return *m_inspectorController; }
+#if ENABLE(POINTER_EVENTS)
+    PointerCaptureController& pointerCaptureController() const { return *m_pointerCaptureController; }
+#endif
 #if ENABLE(POINTER_LOCK)
     PointerLockController& pointerLockController() const { return *m_pointerLockController; }
 #endif
@@ -346,6 +352,9 @@ public:
     const FloatBoxExtent& obscuredInsets() const { return m_obscuredInsets; }
     void setObscuredInsets(const FloatBoxExtent& obscuredInsets) { m_obscuredInsets = obscuredInsets; }
 
+    const FloatBoxExtent& contentInsets() const { return m_contentInsets; }
+    void setContentInsets(const FloatBoxExtent& insets) { m_contentInsets = insets; }
+
     const FloatBoxExtent& unobscuredSafeAreaInsets() const { return m_unobscuredSafeAreaInsets; }
     WEBCORE_EXPORT void setUnobscuredSafeAreaInsets(const FloatBoxExtent&);
 
@@ -404,11 +413,14 @@ public:
 
     WheelEventDeltaFilter* wheelEventDeltaFilter() { return m_recentWheelEventDeltaFilter.get(); }
     PageOverlayController& pageOverlayController() { return *m_pageOverlayController; }
+    
+    void installedPageOverlaysChanged();
 
 #if PLATFORM(MAC)
 #if ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION)
     ServicesOverlayController& servicesOverlayController() { return *m_servicesOverlayController; }
 #endif // ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION)
+
     ScrollLatchingState* latchingState();
     void pushNewLatchingState();
     void popLatchingState();
@@ -510,10 +522,8 @@ public:
     WEBCORE_EXPORT void removeLayoutMilestones(OptionSet<LayoutMilestone>);
     OptionSet<LayoutMilestone> requestedLayoutMilestones() const { return m_requestedLayoutMilestones; }
 
-#if ENABLE(RUBBER_BANDING)
-    WEBCORE_EXPORT void addHeaderWithHeight(int);
-    WEBCORE_EXPORT void addFooterWithHeight(int);
-#endif
+    WEBCORE_EXPORT void setHeaderHeight(int);
+    WEBCORE_EXPORT void setFooterHeight(int);
 
     int headerHeight() const { return m_headerHeight; }
     int footerHeight() const { return m_footerHeight; }
@@ -574,6 +584,7 @@ public:
     DatabaseProvider& databaseProvider() { return m_databaseProvider; }
     CacheStorageProvider& cacheStorageProvider() { return m_cacheStorageProvider; }
     SocketProvider& socketProvider() { return m_socketProvider; }
+    CookieJar& cookieJar() { return m_cookieJar.get(); }
 
     StorageNamespaceProvider& storageNamespaceProvider() { return m_storageNamespaceProvider.get(); }
     void setStorageNamespaceProvider(Ref<StorageNamespaceProvider>&&);
@@ -741,6 +752,9 @@ private:
 #endif
     const std::unique_ptr<UserInputBridge> m_userInputBridge;
     const std::unique_ptr<InspectorController> m_inspectorController;
+#if ENABLE(POINTER_EVENTS)
+    const std::unique_ptr<PointerCaptureController> m_pointerCaptureController;
+#endif
 #if ENABLE(POINTER_LOCK)
     const std::unique_ptr<PointerLockController> m_pointerLockController;
 #endif
@@ -789,6 +803,7 @@ private:
 
     float m_topContentInset { 0 };
     FloatBoxExtent m_obscuredInsets;
+    FloatBoxExtent m_contentInsets;
     FloatBoxExtent m_unobscuredSafeAreaInsets;
     FloatBoxExtent m_fullscreenInsets;
     Seconds m_fullscreenAutoHideDuration { 0_s };
@@ -873,6 +888,7 @@ private:
     unsigned m_forbidPromptsDepth { 0 };
 
     Ref<SocketProvider> m_socketProvider;
+    Ref<CookieJar> m_cookieJar;
     Ref<ApplicationCacheStorage> m_applicationCacheStorage;
     Ref<CacheStorageProvider> m_cacheStorageProvider;
     Ref<DatabaseProvider> m_databaseProvider;

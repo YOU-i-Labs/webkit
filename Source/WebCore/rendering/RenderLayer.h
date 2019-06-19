@@ -202,9 +202,10 @@ private:
         // Things that trigger HasDescendantNeedingBackingOrHierarchyTraversal
         NeedsGeometryUpdate                                 = 1 << 6, // This layer needs a geometry update.
         NeedsConfigurationUpdate                            = 1 << 7, // This layer needs a configuration update (updating its internal compositing hierarchy).
-        NeedsLayerConnection                                = 1 << 8, // This layer needs hookup with its parents or children.
-        ChildrenNeedGeometryUpdate                          = 1 << 9, // This layer's composited children needs a geometry update.
-        DescendantsNeedBackingAndHierarchyTraversal         = 1 << 10, // Something changed that forces us to traverse all descendant layers in updateBackingAndHierarchy.
+        NeedsScrollingTreeUpdate                            = 1 << 8, // Something changed that requires this layer's scrolling tree node to be updated.
+        NeedsLayerConnection                                = 1 << 9, // This layer needs hookup with its parents or children.
+        ChildrenNeedGeometryUpdate                          = 1 << 10, // This layer's composited children need a geometry update.
+        DescendantsNeedBackingAndHierarchyTraversal         = 1 << 11, // Something changed that forces us to traverse all descendant layers in updateBackingAndHierarchy.
     };
 
     static constexpr OptionSet<Compositing> computeCompositingRequirementsFlags()
@@ -223,6 +224,7 @@ private:
             Compositing::NeedsLayerConnection,
             Compositing::NeedsGeometryUpdate,
             Compositing::NeedsConfigurationUpdate,
+            Compositing::NeedsScrollingTreeUpdate,
             Compositing::ChildrenNeedGeometryUpdate,
             Compositing::DescendantsNeedBackingAndHierarchyTraversal,
         };
@@ -242,6 +244,7 @@ public:
     bool needsCompositingLayerConnection() const { return m_compositingDirtyBits.contains(Compositing::NeedsLayerConnection); }
     bool needsCompositingGeometryUpdate() const { return m_compositingDirtyBits.contains(Compositing::NeedsGeometryUpdate); }
     bool needsCompositingConfigurationUpdate() const { return m_compositingDirtyBits.contains(Compositing::NeedsConfigurationUpdate); }
+    bool needsScrollingTreeUpdate() const { return m_compositingDirtyBits.contains(Compositing::NeedsScrollingTreeUpdate); }
     bool childrenNeedCompositingGeometryUpdate() const { return m_compositingDirtyBits.contains(Compositing::ChildrenNeedGeometryUpdate); }
     bool descendantsNeedUpdateBackingAndHierarchyTraversal() const { return m_compositingDirtyBits.contains(Compositing::DescendantsNeedBackingAndHierarchyTraversal); }
 
@@ -269,6 +272,7 @@ public:
     void setNeedsCompositingLayerConnection() { setBackingAndHierarchyTraversalDirtyBit<Compositing::NeedsLayerConnection>(); }
     void setNeedsCompositingGeometryUpdate() { setBackingAndHierarchyTraversalDirtyBit<Compositing::NeedsGeometryUpdate>(); }
     void setNeedsCompositingConfigurationUpdate() { setBackingAndHierarchyTraversalDirtyBit<Compositing::NeedsConfigurationUpdate>(); }
+    void setNeedsScrollingTreeUpdate() { setBackingAndHierarchyTraversalDirtyBit<Compositing::NeedsScrollingTreeUpdate>(); }
     void setChildrenNeedCompositingGeometryUpdate() { setBackingAndHierarchyTraversalDirtyBit<Compositing::ChildrenNeedGeometryUpdate>(); }
     void setDescendantsNeedUpdateBackingAndHierarchyTraversal() { setBackingAndHierarchyTraversalDirtyBit<Compositing::DescendantsNeedBackingAndHierarchyTraversal>(); }
 
@@ -393,6 +397,9 @@ public:
 
     LayoutRect rect() const { return LayoutRect(location(), size()); }
 
+    IntSize visibleSize() const override;
+    IntSize contentsSize() const override;
+
     int scrollWidth() const;
     int scrollHeight() const;
 
@@ -438,9 +445,16 @@ public:
     ScrollableArea* enclosingScrollableArea() const override;
     bool isScrollableOrRubberbandable() override;
     bool hasScrollableOrRubberbandableAncestor() override;
+    bool useDarkAppearance() const final;
 #if ENABLE(CSS_SCROLL_SNAP)
     void updateSnapOffsets() override;
 #endif
+
+    void setIsUserScroll(bool isUserScroll) override { m_inUserScroll = isUserScroll; }
+    bool isInUserScroll() const { return m_inUserScroll; }
+
+    bool requiresScrollPositionReconciliation() const { return m_requiresScrollPositionReconciliation; }
+    void setRequiresScrollPositionReconciliation(bool requiresReconciliation = true) { m_requiresScrollPositionReconciliation = requiresReconciliation; }
 
 #if PLATFORM(IOS_FAMILY)
 #if ENABLE(IOS_TOUCH_EVENTS)
@@ -450,12 +464,6 @@ public:
     void didStartScroll() override;
     void didEndScroll() override;
     void didUpdateScroll() override;
-    void setIsUserScroll(bool isUserScroll) override { m_inUserScroll = isUserScroll; }
-
-    bool isInUserScroll() const { return m_inUserScroll; }
-
-    bool requiresScrollBoundsOriginUpdate() const { return m_requiresScrollBoundsOriginUpdate; }
-    void setRequiresScrollBoundsOriginUpdate(bool requiresUpdate = true) { m_requiresScrollBoundsOriginUpdate = requiresUpdate; }
 #endif
 
     // Returns true when the layer could do touch scrolling, but doesn't look at whether there is actually scrollable overflow.
@@ -792,7 +800,6 @@ public:
     RenderLayerBacking* ensureBacking();
     void clearBacking(bool layerBeingDestroyed = false);
 
-    GraphicsLayer* layerForScrolling() const override;
     GraphicsLayer* layerForHorizontalScrollbar() const override;
     GraphicsLayer* layerForVerticalScrollbar() const override;
     GraphicsLayer* layerForScrollCorner() const override;
@@ -1026,8 +1033,6 @@ private:
     void setScrollOffset(const ScrollOffset&) override;
 
     IntRect visibleContentRectInternal(VisibleContentRectIncludesScrollbars, VisibleContentRectBehavior) const override;
-    IntSize visibleSize() const override;
-    IntSize contentsSize() const override;
     IntSize overhangAmount() const override;
     IntPoint lastKnownMousePosition() const override;
     bool isHandlingWheelEvent() const override;
@@ -1188,14 +1193,14 @@ private:
     unsigned m_viewportConstrainedNotCompositedReason : 2;
 
 #if PLATFORM(IOS_FAMILY)
-    bool m_adjustForIOSCaretWhenScrolling : 1;
 #if ENABLE(IOS_TOUCH_EVENTS)
     bool m_registeredAsTouchEventListenerForScrolling : 1;
 #endif
-    bool m_inUserScroll : 1;
-    bool m_requiresScrollBoundsOriginUpdate : 1;
+    bool m_adjustForIOSCaretWhenScrolling : 1;
 #endif
 
+    bool m_inUserScroll : 1;
+    bool m_requiresScrollPositionReconciliation : 1;
     bool m_containsDirtyOverlayScrollbars : 1;
     bool m_updatingMarqueePosition : 1;
 
