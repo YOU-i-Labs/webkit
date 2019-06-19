@@ -71,8 +71,10 @@
 
 namespace JSC {
 
+#if defined(__ORBIS__)
 #define DEFINE_POISON(poisonID) uintptr_t POISON_KEY_NAME(poisonID);
 FOR_EACH_JSC_POISON(DEFINE_POISON)
+#endif
 
 #define OFFLINE_ASM_OFFSETOF(clazz, field) (static_cast<unsigned>(OBJECT_OFFSETOF(clazz, field)))
 
