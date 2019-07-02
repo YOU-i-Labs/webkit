@@ -29,14 +29,14 @@
 #include "config.h"
 #include <wtf/FileSystem.h>
 
-#include <dirent.h>
+// #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <fnmatch.h>
-#include <libgen.h>
+// #include <fnmatch.h>
+// #include <libgen.h>
 #include <stdio.h>
 #include <sys/stat.h>
-#include <sys/statvfs.h>
+// #include <sys/statvfs.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <wtf/EnumTraits.h>
@@ -48,6 +48,196 @@
 namespace WTF {
 
 namespace FileSystemImpl {
+
+#if defined(__ORBIS__)
+
+
+bool fileExists(const String& path)
+{
+    return false;
+}
+
+bool deleteFile(const String& path)
+{
+    return false;
+}
+
+PlatformFileHandle openFile(const String& path, FileOpenMode mode)
+{
+    return 0;
+}
+
+void closeFile(PlatformFileHandle& handle)
+{
+}
+
+long long seekFile(PlatformFileHandle handle, long long offset, FileSeekOrigin origin)
+{
+    return 0;
+}
+
+bool truncateFile(PlatformFileHandle handle, long long offset)
+{
+    return false;
+}
+
+int writeToFile(PlatformFileHandle handle, const char* data, int length)
+{
+    return -1;
+}
+
+int readFromFile(PlatformFileHandle handle, char* data, int length)
+{
+    return -1;
+}
+
+#if USE(FILE_LOCK)
+bool lockFile(PlatformFileHandle handle, OptionSet<FileLockMode> lockMode)
+{
+    return false;
+}
+
+bool unlockFile(PlatformFileHandle handle)
+{
+    return false;
+}
+#endif
+
+#if !PLATFORM(MAC)
+bool deleteEmptyDirectory(const String& path)
+{
+    return false;
+}
+#endif
+
+bool getFileSize(const String& path, long long& result)
+{
+return false;
+}
+
+bool getFileSize(PlatformFileHandle handle, long long& result)
+{
+    return false;
+}
+
+Optional<WallTime> getFileCreationTime(const String& path)
+{
+    UNUSED_PARAM(path);
+    return WTF::nullopt;
+}
+
+Optional<WallTime> getFileModificationTime(const String& path)
+{
+    return WallTime::fromRawSeconds(0);
+}
+
+static FileMetadata::Type toFileMetataType(struct stat fileInfo)
+{
+    return FileMetadata::Type::File;
+}
+
+static Optional<FileMetadata> fileMetadataUsingFunction(const String& path, int (*statFunc)(const char*, struct stat*))
+{
+    return WTF::nullopt;
+}
+
+Optional<FileMetadata> fileMetadata(const String& path)
+{
+    return WTF::nullopt;
+}
+
+Optional<FileMetadata> fileMetadataFollowingSymlinks(const String& path)
+{
+    return WTF::nullopt;
+}
+
+bool createSymbolicLink(const String& targetPath, const String& symbolicLinkPath)
+{
+    return false;
+}
+
+String pathByAppendingComponent(const String& path, const String& component)
+{
+    if (path.endsWith('/'))
+        return path + component;
+    return path + "/" + component;
+}
+
+String pathByAppendingComponents(StringView path, const Vector<StringView>& components)
+{
+    StringBuilder builder;
+    builder.append(path);
+    for (auto& component : components) {
+        builder.append('/');
+        builder.append(component);
+    }
+    return builder.toString();
+}
+
+bool makeAllDirectories(const String& path)
+{
+    return false;
+}
+
+String pathGetFileName(const String& path)
+{
+    return path.substring(path.reverseFind('/') + 1);
+}
+
+String directoryName(const String& path)
+{
+   return "";
+}
+
+Vector<String> listDirectory(const String& path, const String& filter)
+{
+    Vector<String> entries;
+    return entries;
+}
+
+String stringFromFileSystemRepresentation(const char* path)
+{
+    return "";
+}
+
+CString fileSystemRepresentation(const String& path)
+{
+    return path.utf8();
+}
+
+bool moveFile(const String& oldPath, const String& newPath)
+{
+    return true;
+}
+
+bool getVolumeFreeSpace(const String& path, uint64_t& freeSpace)
+{
+    return false;
+}
+
+String openTemporaryFile(const String& prefix, PlatformFileHandle& handle)
+{
+
+    return String();
+}
+
+bool hardLinkOrCopyFile(const String& source, const String& destination)
+{
+    return false;
+}
+
+Optional<int32_t> getFileDeviceId(const CString& fsFile)
+{
+    return 0;
+}
+
+String realPath(const String& filePath)
+{
+    return "";
+}
+
+
+#else
 
 bool fileExists(const String& path)
 {
@@ -491,6 +681,8 @@ String realPath(const String& filePath)
     const char* result = realpath(fsRep.data(), resolvedName);
     return result ? String::fromUTF8(result) : filePath;
 }
+
+#endif
 
 } // namespace FileSystemImpl
 } // namespace WTF

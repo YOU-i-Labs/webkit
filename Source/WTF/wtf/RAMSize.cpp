@@ -59,6 +59,8 @@ static size_t computeRAMSize()
     struct sysinfo si;
     sysinfo(&si);
     return si.totalram * si.mem_unit;
+#elif defined(__ORBIS__)
+    return 512 * MB;
 #else
 #error "Missing a platform specific way of determining the available RAM"
 #endif // OS(LINUX)
