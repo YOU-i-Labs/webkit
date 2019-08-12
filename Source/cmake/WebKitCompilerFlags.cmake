@@ -89,6 +89,10 @@ endmacro()
 
 if (COMPILER_IS_GCC_OR_CLANG)
     WEBKIT_APPEND_GLOBAL_COMPILER_FLAGS(-fno-strict-aliasing)
+    
+    if (WEBOS4)
+        WEBKIT_APPEND_GLOBAL_COMPILER_FLAGS(-mcpu=cortex-a9 -mfloat-abi=softfp -mfpu=vfp -mtls-dialect=gnu)
+    endif ()
 
     # clang-cl.exe impersonates cl.exe so some clang arguments like -fno-rtti are
     # represented using cl.exe's options and should not be passed as flags, so
