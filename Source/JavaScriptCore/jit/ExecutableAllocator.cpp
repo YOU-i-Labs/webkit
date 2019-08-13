@@ -88,6 +88,8 @@ namespace JSC {
 
 #if defined(FIXED_EXECUTABLE_MEMORY_POOL_SIZE_IN_MB) && FIXED_EXECUTABLE_MEMORY_POOL_SIZE_IN_MB > 0
 static const size_t fixedExecutableMemoryPoolSize = FIXED_EXECUTABLE_MEMORY_POOL_SIZE_IN_MB * 1024 * 1024;
+#elif defined(__ORBIS__)
+static const size_t fixedExecutableMemoryPoolSize = 64 * 1024 * 1024;
 #elif CPU(ARM)
 static const size_t fixedExecutableMemoryPoolSize = 16 * 1024 * 1024;
 #elif CPU(ARM64)

@@ -31,23 +31,39 @@
 #include <mutex>
 #include <thread>
 
+#if defined(__ORBIS__)
+#include <pthread.h>
+#include <pthread_np.h>
+#endif
+
 // A fast replacement for std::mutex.
 
 namespace bmalloc {
 
 class Mutex {
 public:
-    constexpr Mutex() = default;
+#if defined(__ORBIS__)
+    Mutex();
+    ~Mutex();
+#else
+    Mutex() = default;
+#endif
 
     void lock();
+#if !defined(__ORBIS__)
     bool try_lock();
+#endif
     void unlock();
 
 private:
+#if defined(__ORBIS__)
+    pthread_mutex_t m_mutex { PTHREAD_MUTEX_INITIALIZER };
+#else
     BEXPORT void lockSlowCase();
 
     std::atomic<bool> m_flag { false };
     std::atomic<bool> m_isSpinning { false };
+#endif
 };
 
 static inline void sleep(
@@ -71,6 +87,28 @@ static inline void waitUntilFalse(
     }
 }
 
+#if defined(__ORBIS__)
+inline Mutex::Mutex()
+{
+    pthread_mutex_init(&m_mutex, nullptr);
+    //pthread_mutex_setname_np(&m_mutex, "SceNKBMalloc");
+}
+
+inline Mutex::~Mutex()
+{
+    pthread_mutex_destroy(&m_mutex);
+}
+
+inline void Mutex::lock()
+{
+    pthread_mutex_lock(&m_mutex);
+}
+
+inline void Mutex::unlock()
+{
+    pthread_mutex_unlock(&m_mutex);
+}
+#else
 inline bool Mutex::try_lock()
 {
     return !m_flag.exchange(true, std::memory_order_acquire);
@@ -86,5 +124,6 @@ inline void Mutex::unlock()
 {
     m_flag.store(false, std::memory_order_release);
 }
+#endif
 
 } // namespace bmalloc

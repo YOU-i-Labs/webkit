@@ -190,6 +190,11 @@ public:
     mach_port_t machThread() { return m_platformThread; }
 #endif
 
+#if defined(__ORBIS__)
+    void initializeExtendedStackSize(const char* name);
+    size_t extendedStackSize() { return m_extendedStackSize; }
+#endif
+
     struct NewThreadContext;
     static void entryPoint(NewThreadContext*);
 protected:
@@ -295,6 +300,10 @@ protected:
 #endif
     void* m_savedStackPointerAtVMEntry { nullptr };
     void* m_savedLastStackTop;
+
+#if defined(__ORBIS__)
+    size_t m_extendedStackSize { 0 };
+#endif
 public:
     void* m_apiData { nullptr };
 };

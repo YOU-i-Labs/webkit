@@ -66,6 +66,10 @@
 
 #endif
 
+#if defined(__ORBIS__)
+#include <WTFString.h>
+#endif
+
 namespace WTF {
 
 static Lock globalSuspendLock;
@@ -210,6 +214,12 @@ bool Thread::establishHandle(NewThreadContext* context)
 #if HAVE(QOS_CLASSES)
     pthread_attr_set_qos_class_np(&attr, adjustedQOSClass(QOS_CLASS_USER_INITIATED), 0);
 #endif
+
+#if defined(__ORBIS__)
+    if (extendedStackSize())
+        pthread_attr_setstacksize(&attr, extendedStackSize());
+#endif
+
     int error = pthread_create(&threadHandle, &attr, wtfThreadEntryPoint, context);
     pthread_attr_destroy(&attr);
     if (error) {
@@ -223,7 +233,19 @@ bool Thread::establishHandle(NewThreadContext* context)
 void Thread::initializeCurrentThreadInternal(const char* threadName)
 {
 #if HAVE(PTHREAD_SETNAME_NP)
+#if defined(__ORBIS__)
+    String name(threadName);
+    size_t size = name.reverseFind('.');
+    if (size != notFound)
+        name = name.substring(size + 1);
+    name = "SceNK" + name;
+    constexpr const size_t kThreadNameLimit = 32 - 1;
+    if (name.length() > kThreadNameLimit)
+        name = name.left(kThreadNameLimit);
+    pthread_setname_np(name.utf8().data());
+#else
     pthread_setname_np(normalizeThreadName(threadName));
+#endif
 #elif OS(LINUX)
     prctl(PR_SET_NAME, normalizeThreadName(threadName));
 #else

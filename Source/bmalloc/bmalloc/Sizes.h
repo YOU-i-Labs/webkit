@@ -46,7 +46,13 @@ namespace Sizes {
     static const size_t alignment = 8;
     static const size_t alignmentMask = alignment - 1ul;
 
+#if defined(__ORBIS__)
+    // [SUPER-1377]
+    // Since using IsoHeap consumes much VMEM space, we use a small chunk size.
+    static const size_t chunkSize = 128 * kB;
+#else
     static const size_t chunkSize = 1 * MB;
+#endif
     static const size_t chunkMask = ~(chunkSize - 1ul);
 
     static const size_t smallLineSize = 256;

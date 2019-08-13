@@ -109,6 +109,14 @@ void Thread::initializeInThread()
 #endif
 }
 
+#if defined(__ORBIS__)
+void Thread::initializeExtendedStackSize(const char* name)
+{
+    if (name && !strcmp(name, "WebCore: Worker"))
+        m_extendedStackSize = 512 * 1024;
+}
+#endif
+
 void Thread::entryPoint(NewThreadContext* newThreadContext)
 {
     Function<void()> function;
@@ -140,6 +148,9 @@ Ref<Thread> Thread::create(const char* name, Function<void()>&& entryPoint)
 {
     WTF::initializeThreading();
     Ref<Thread> thread = adoptRef(*new Thread());
+#if defined(__ORBIS__)
+    thread->initializeExtendedStackSize(name);
+#endif
     Ref<NewThreadContext> context = adoptRef(*new NewThreadContext { name, WTFMove(entryPoint), thread.copyRef() });
     // Increment the context ref on behalf of the created thread. We do not just use a unique_ptr and leak it to the created thread because both the creator and created thread has a need to keep the context alive:
     // 1. the created thread needs to keep it alive because Thread::create() can exit before the created thread has a chance to use the context.

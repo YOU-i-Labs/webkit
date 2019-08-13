@@ -209,6 +209,11 @@ private:
 #if PLATFORM(COCOA)
     dispatch_queue_t m_dispatchQueue { nullptr };
 #endif
+
+#if defined(__ORBIS__)
+    void memoryMeasurementTimerFired();
+    RunLoop::Timer<MemoryPressureHandler> m_memoryMeasurementTimer;
+#endif
 };
 
 extern WTFLogChannel LogMemoryPressure;
