@@ -408,7 +408,8 @@ static void recomputeDependentOptions()
     Options::useFTLJIT() = false;
 #endif
     
-#if !CPU(X86_64) && !CPU(ARM64)
+#if (!CPU(X86_64) && !CPU(ARM64)) || defined(__ORBIS__)
+    // For ORBIS thread suspend/resume has not yet been implemented which is required for concurrent gc.
     Options::useConcurrentGC() = false;
 #endif
     
