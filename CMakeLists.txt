@@ -10,14 +10,13 @@
 
 cmake_minimum_required(VERSION 3.3)
 
-project(WebKit)
-
-
 include("cmake/HunterGate.cmake")
 HunterGate(
     URL "https://github.com/ruslo/hunter/archive/v0.20.50.tar.gz"
     SHA1 "f119fdbbab3638472840464abb68b440ce5883da"
 )
+
+project(WebKit)
 
 if (NOT CMAKE_BUILD_TYPE)
     message(WARNING "No CMAKE_BUILD_TYPE value specified, defaulting to RelWithDebInfo.")
