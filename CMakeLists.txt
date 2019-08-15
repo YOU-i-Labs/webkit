@@ -199,7 +199,15 @@ option(SHOULD_INSTALL_JS_SHELL "generate an installation rule to install the bui
 #------------------------------------------------------------------------------
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+if (ORBIS)
+    # Currently there is an issue where if the archive and runtime output dirs 
+    # are different for orbis the import libraries associated with the shared library
+    # are not located poprely when installing. They are expected in the lib dir but 
+    # are output to the bin dir.
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+else()
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+endif()
 
 # -----------------------------------------------------------------------------
 # Common configuration

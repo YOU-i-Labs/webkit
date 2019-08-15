@@ -1300,14 +1300,6 @@ install(
     INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
 
-if(ORBIS AND ${JavaScriptCore_LIBRARY_TYPE} STREQUAL "SHARED")
-    install(FILES 
-        ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/Release/libJavaScriptCore_stub.a
-        ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/Release/libJavaScriptCore_stub_weak.a
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    )
-endif()
-
 install(
     DIRECTORY ${DERIVED_SOURCES_DIR}/ForwardingHeaders/
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
