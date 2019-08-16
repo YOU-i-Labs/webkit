@@ -28,7 +28,7 @@
 #if ENABLE(INDEXED_DATABASE)
 
 #include "SecurityOriginData.h"
-#include <pal/SessionID.h>
+#include <wtf/Ref.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
@@ -44,8 +44,6 @@ public:
     {
     }
 
-    WEBCORE_EXPORT IDBDatabaseIdentifier(const String& databaseName, const PAL::SessionID&, SecurityOriginData&& openingOrigin, SecurityOriginData&& mainFrameOrigin);
-
     IDBDatabaseIdentifier isolatedCopy() const;
 
     bool isHashTableDeletedValue() const
@@ -56,15 +54,16 @@ public:
     unsigned hash() const
     {
         unsigned nameHash = StringHash::hash(m_databaseName);
-        unsigned sessionIDHash = WTF::SessionIDHash::hash(m_sessionID);
         unsigned openingProtocolHash = StringHash::hash(m_openingOrigin.protocol);
         unsigned openingHostHash = StringHash::hash(m_openingOrigin.host);
         unsigned mainFrameProtocolHash = StringHash::hash(m_mainFrameOrigin.protocol);
         unsigned mainFrameHostHash = StringHash::hash(m_mainFrameOrigin.host);
         
-        unsigned hashCodes[8] = { nameHash, sessionIDHash, openingProtocolHash, openingHostHash, m_openingOrigin.port.valueOr(0), mainFrameProtocolHash, mainFrameHostHash, m_mainFrameOrigin.port.valueOr(0) };
+        unsigned hashCodes[7] = { nameHash, openingProtocolHash, openingHostHash, m_openingOrigin.port.value_or(0), mainFrameProtocolHash, mainFrameHostHash, m_mainFrameOrigin.port.value_or(0) };
         return StringHasher::hashMemory<sizeof(hashCodes)>(hashCodes);
     }
+
+    IDBDatabaseIdentifier(const String& databaseName, const SecurityOrigin& openingOrigin, const SecurityOrigin& mainFrameOrigin);
 
     bool isValid() const
     {
@@ -85,13 +84,12 @@ public:
     }
 
     const String& databaseName() const { return m_databaseName; }
-    const PAL::SessionID& sessionID() const { return m_sessionID; }
 
     String databaseDirectoryRelativeToRoot(const String& rootDirectory) const;
     static String databaseDirectoryRelativeToRoot(const SecurityOriginData& topLevelOrigin, const SecurityOriginData& openingOrigin, const String& rootDirectory);
 
     template<class Encoder> void encode(Encoder&) const;
-    template<class Decoder> static Optional<IDBDatabaseIdentifier> decode(Decoder&);
+    template<class Decoder> static bool decode(Decoder&, IDBDatabaseIdentifier&);
 
 #if !LOG_DISABLED
     String debugString() const;
@@ -104,7 +102,6 @@ public:
 
 private:
     String m_databaseName;
-    PAL::SessionID m_sessionID;
     SecurityOriginData m_openingOrigin;
     SecurityOriginData m_mainFrameOrigin;
 };
@@ -124,38 +121,22 @@ struct IDBDatabaseIdentifierHashTraits : WTF::SimpleClassHashTraits<IDBDatabaseI
 template<class Encoder>
 void IDBDatabaseIdentifier::encode(Encoder& encoder) const
 {
-    encoder << m_databaseName << m_sessionID << m_openingOrigin << m_mainFrameOrigin;
+    encoder << m_databaseName << m_openingOrigin << m_mainFrameOrigin;
 }
 
 template<class Decoder>
-Optional<IDBDatabaseIdentifier> IDBDatabaseIdentifier::decode(Decoder& decoder)
+bool IDBDatabaseIdentifier::decode(Decoder& decoder, IDBDatabaseIdentifier& identifier)
 {
-    Optional<String> databaseName;
-    decoder >> databaseName;
-    if (!databaseName)
-        return WTF::nullopt;
+    if (!decoder.decode(identifier.m_databaseName))
+        return false;
 
-    Optional<PAL::SessionID> sessionID;
-    decoder >> sessionID;
-    if (!sessionID)
-        return WTF::nullopt;
-    
-    Optional<SecurityOriginData> openingOrigin;
-    decoder >> openingOrigin;
-    if (!openingOrigin)
-        return WTF::nullopt;
+    if (!decoder.decode(identifier.m_openingOrigin))
+        return false;
 
-    Optional<SecurityOriginData> mainFrameOrigin;
-    decoder >> mainFrameOrigin;
-    if (!mainFrameOrigin)
-        return WTF::nullopt;
+    if (!decoder.decode(identifier.m_mainFrameOrigin))
+        return false;
 
-    IDBDatabaseIdentifier identifier;
-    identifier.m_databaseName = WTFMove(*databaseName); // FIXME: When decoding from IPC, databaseName can be null, and the non-empty constructor asserts that this is not the case.
-    identifier.m_sessionID = WTFMove(*sessionID);
-    identifier.m_openingOrigin = WTFMove(*openingOrigin);
-    identifier.m_mainFrameOrigin = WTFMove(*mainFrameOrigin);
-    return WTFMove(identifier);
+    return true;
 }
 
 } // namespace WebCore

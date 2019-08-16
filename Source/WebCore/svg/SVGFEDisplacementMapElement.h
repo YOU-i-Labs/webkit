@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2006 Oliver Hunt <oliver@nerget.com>
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -37,13 +36,13 @@ struct SVGPropertyTraits<ChannelSelectorType> {
         case CHANNEL_UNKNOWN:
             return emptyString();
         case CHANNEL_R:
-            return "R"_s;
+            return ASCIILiteral("R");
         case CHANNEL_G:
-            return "G"_s;
+            return ASCIILiteral("G");
         case CHANNEL_B:
-            return "B"_s;
+            return ASCIILiteral("B");
         case CHANNEL_A:
-            return "A"_s;
+            return ASCIILiteral("A");
         }
 
         ASSERT_NOT_REACHED();
@@ -65,45 +64,26 @@ struct SVGPropertyTraits<ChannelSelectorType> {
 };
 
 class SVGFEDisplacementMapElement final : public SVGFilterPrimitiveStandardAttributes {
-    WTF_MAKE_ISO_ALLOCATED(SVGFEDisplacementMapElement);
 public:
     static Ref<SVGFEDisplacementMapElement> create(const QualifiedName&, Document&);
 
     static ChannelSelectorType stringToChannel(const String&);
-
-    String in1() const { return m_in1.currentValue(attributeOwnerProxy()); }
-    String in2() const { return m_in2.currentValue(attributeOwnerProxy()); }
-    ChannelSelectorType xChannelSelector() const { return m_xChannelSelector.currentValue(attributeOwnerProxy()); }
-    ChannelSelectorType yChannelSelector() const { return m_yChannelSelector.currentValue(attributeOwnerProxy()); }
-    float scale() const { return m_scale.currentValue(attributeOwnerProxy()); }
-
-    RefPtr<SVGAnimatedString> in1Animated() { return m_in1.animatedProperty(attributeOwnerProxy()); }
-    RefPtr<SVGAnimatedString> in2Animated() { return m_in2.animatedProperty(attributeOwnerProxy()); }
-    RefPtr<SVGAnimatedEnumeration> xChannelSelectorAnimated() { return m_xChannelSelector.animatedProperty(attributeOwnerProxy()); }
-    RefPtr<SVGAnimatedEnumeration> yChannelSelectorAnimated() { return m_yChannelSelector.animatedProperty(attributeOwnerProxy()); }
-    RefPtr<SVGAnimatedNumber> scaleAnimated() { return m_scale.animatedProperty(attributeOwnerProxy()); }
-
+    
 private:
     SVGFEDisplacementMapElement(const QualifiedName& tagName, Document&);
-
-    using AttributeOwnerProxy = SVGAttributeOwnerProxyImpl<SVGFEDisplacementMapElement, SVGFilterPrimitiveStandardAttributes>;
-    static AttributeOwnerProxy::AttributeRegistry& attributeRegistry() { return AttributeOwnerProxy::attributeRegistry(); }
-    static bool isKnownAttribute(const QualifiedName& attributeName) { return AttributeOwnerProxy::isKnownAttribute(attributeName); }
-    static void registerAttributes();
-
-    const SVGAttributeOwnerProxy& attributeOwnerProxy() const final { return m_attributeOwnerProxy; }
+    
     void parseAttribute(const QualifiedName&, const AtomicString&) override;
-    void svgAttributeChanged(const QualifiedName&) override;
-
     bool setFilterEffectAttribute(FilterEffect*, const QualifiedName& attrName) override;
+    void svgAttributeChanged(const QualifiedName&) override;
     RefPtr<FilterEffect> build(SVGFilterBuilder*, Filter&) override;
 
-    AttributeOwnerProxy m_attributeOwnerProxy { *this };
-    SVGAnimatedStringAttribute m_in1;
-    SVGAnimatedStringAttribute m_in2;
-    SVGAnimatedEnumerationAttribute<ChannelSelectorType> m_xChannelSelector { CHANNEL_A };
-    SVGAnimatedEnumerationAttribute<ChannelSelectorType> m_yChannelSelector { CHANNEL_A };
-    SVGAnimatedNumberAttribute m_scale;
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGFEDisplacementMapElement)
+        DECLARE_ANIMATED_STRING(In1, in1)
+        DECLARE_ANIMATED_STRING(In2, in2)
+        DECLARE_ANIMATED_ENUMERATION(XChannelSelector, xChannelSelector, ChannelSelectorType)
+        DECLARE_ANIMATED_ENUMERATION(YChannelSelector, yChannelSelector, ChannelSelectorType)
+        DECLARE_ANIMATED_NUMBER(Scale, scale)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

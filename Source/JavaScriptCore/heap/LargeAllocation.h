@@ -58,8 +58,6 @@ public:
         return bitwise_cast<uintptr_t>(cell) & halfAlignment;
     }
     
-    Subspace* subspace() const { return m_subspace; }
-    
     void lastChanceToFinalize();
     
     Heap* heap() const { return m_weakSet.heap(); }
@@ -78,7 +76,7 @@ public:
     ALWAYS_INLINE bool isMarked() { return m_isMarked.load(std::memory_order_relaxed); }
     ALWAYS_INLINE bool isMarked(HeapCell*) { return isMarked(); }
     ALWAYS_INLINE bool isMarked(HeapCell*, Dependency) { return isMarked(); }
-    ALWAYS_INLINE bool isMarked(HeapVersion, HeapCell*) { return isMarked(); }
+    ALWAYS_INLINE bool isMarkedConcurrently(HeapVersion, HeapCell*) { return isMarked(); }
     bool isLive() { return isMarked() || isNewlyAllocated(); }
     
     bool hasValidCell() const { return m_hasValidCell; }
@@ -110,9 +108,9 @@ public:
         return aboveLowerBound(rawPtr) && belowUpperBound(rawPtr);
     }
     
-    const CellAttributes& attributes() const { return m_attributes; }
+    const AllocatorAttributes& attributes() const { return m_attributes; }
     
-    Dependency aboutToMark(HeapVersion) { return Dependency(); }
+    Dependency aboutToMark(HeapVersion) { return nullDependency(); }
     
     ALWAYS_INLINE bool testAndSetMarked()
     {
@@ -152,7 +150,7 @@ private:
     bool m_isNewlyAllocated;
     bool m_hasValidCell;
     Atomic<bool> m_isMarked;
-    CellAttributes m_attributes;
+    AllocatorAttributes m_attributes;
     Subspace* m_subspace;
     WeakSet m_weakSet;
 };

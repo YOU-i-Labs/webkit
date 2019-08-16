@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -39,6 +39,7 @@
 #include "KeyboardEvent.h"
 #include "PlatformLocale.h"
 #include <limits>
+#include <wtf/CurrentTime.h>
 #include <wtf/DateMath.h>
 #include <wtf/MathExtras.h>
 #include <wtf/text/StringView.h>
@@ -57,22 +58,19 @@ double BaseDateAndTimeInputType::valueAsDate() const
 
 ExceptionOr<void> BaseDateAndTimeInputType::setValueAsDate(double value) const
 {
-    ASSERT(element());
-    element()->setValue(serializeWithMilliseconds(value));
+    element().setValue(serializeWithMilliseconds(value));
     return { };
 }
 
 double BaseDateAndTimeInputType::valueAsDouble() const
 {
-    ASSERT(element());
-    const Decimal value = parseToNumber(element()->value(), Decimal::nan());
+    const Decimal value = parseToNumber(element().value(), Decimal::nan());
     return value.isFinite() ? value.toDouble() : DateComponents::invalidMilliseconds();
 }
 
 ExceptionOr<void> BaseDateAndTimeInputType::setValueAsDecimal(const Decimal& newValue, TextFieldEventBehavior eventBehavior) const
 {
-    ASSERT(element());
-    element()->setValue(serialize(newValue), eventBehavior);
+    element().setValue(serialize(newValue), eventBehavior);
     return { };
 }
 
@@ -83,13 +81,12 @@ bool BaseDateAndTimeInputType::typeMismatchFor(const String& value) const
 
 bool BaseDateAndTimeInputType::typeMismatch() const
 {
-    ASSERT(element());
-    return typeMismatchFor(element()->value());
+    return typeMismatchFor(element().value());
 }
 
 Decimal BaseDateAndTimeInputType::defaultValueForStepUp() const
 {
-    double ms = WallTime::now().secondsSinceEpoch().milliseconds();
+    double ms = currentTimeMS();
     int offset = calculateLocalTimeOffset(ms).offset / msPerMinute;
     return Decimal::fromDouble(ms + (offset * msPerMinute));
 }
@@ -99,13 +96,9 @@ bool BaseDateAndTimeInputType::isSteppable() const
     return true;
 }
 
-void BaseDateAndTimeInputType::attributeChanged(const QualifiedName& name)
+void BaseDateAndTimeInputType::minOrMaxAttributeChanged()
 {
-    if (name == maxAttr || name == minAttr) {
-        if (auto* element = this->element())
-            element->invalidateStyleForSubtree();
-    }
-    InputType::attributeChanged(name);
+    element().invalidateStyleForSubtree();
 }
 
 Decimal BaseDateAndTimeInputType::parseToNumber(const String& source, const Decimal& defaultValue) const
@@ -140,9 +133,8 @@ String BaseDateAndTimeInputType::serialize(const Decimal& value) const
 
 String BaseDateAndTimeInputType::serializeWithComponents(const DateComponents& date) const
 {
-    ASSERT(element());
     Decimal step;
-    if (!element()->getAllowedValueStep(&step))
+    if (!element().getAllowedValueStep(&step))
         return date.toString();
     if (step.remainder(msecPerMinute).isZero())
         return date.toString(DateComponents::None);
@@ -162,15 +154,13 @@ String BaseDateAndTimeInputType::localizeValue(const String& proposedValue) cons
     if (!parseToDateComponents(proposedValue, &date))
         return proposedValue;
 
-    ASSERT(element());
-    String localized = element()->locale().formatDateTime(date);
+    String localized = element().locale().formatDateTime(date);
     return localized.isEmpty() ? proposedValue : localized;
 }
 
 String BaseDateAndTimeInputType::visibleValue() const
 {
-    ASSERT(element());
-    return localizeValue(element()->value());
+    return localizeValue(element().value());
 }
 
 String BaseDateAndTimeInputType::sanitizeValue(const String& proposedValue) const
@@ -190,15 +180,13 @@ bool BaseDateAndTimeInputType::shouldRespectListAttribute()
 
 bool BaseDateAndTimeInputType::valueMissing(const String& value) const
 {
-    ASSERT(element());
-    return element()->isRequired() && value.isEmpty();
+    return element().isRequired() && value.isEmpty();
 }
 
-#if PLATFORM(IOS_FAMILY)
-bool BaseDateAndTimeInputType::isKeyboardFocusable(KeyboardEvent*) const
+#if PLATFORM(IOS)
+bool BaseDateAndTimeInputType::isKeyboardFocusable(KeyboardEvent&) const
 {
-    ASSERT(element());
-    return !element()->isReadOnly() && element()->isTextFormControlFocusable();
+    return !element().isReadOnly() && element().isTextFormControlFocusable();
 }
 #endif
 

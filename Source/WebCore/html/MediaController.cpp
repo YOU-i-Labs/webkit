@@ -28,15 +28,16 @@
 #if ENABLE(VIDEO)
 #include "MediaController.h"
 
+#include "Clock.h"
 #include "EventNames.h"
+#include "ExceptionCode.h"
 #include "HTMLMediaElement.h"
 #include "TimeRanges.h"
-#include <pal/system/Clock.h>
-#include <wtf/NeverDestroyed.h>
+#include <wtf/CurrentTime.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/AtomicString.h>
 
-namespace WebCore {
+using namespace WebCore;
 
 Ref<MediaController> MediaController::create(ScriptExecutionContext& context)
 {
@@ -54,13 +55,15 @@ MediaController::MediaController(ScriptExecutionContext& context)
     , m_asyncEventTimer(*this, &MediaController::asyncEventTimerFired)
     , m_clearPositionTimer(*this, &MediaController::clearPositionTimerFired)
     , m_closedCaptionsVisible(false)
-    , m_clock(PAL::Clock::create())
+    , m_clock(Clock::create())
     , m_scriptExecutionContext(context)
     , m_timeupdateTimer(*this, &MediaController::scheduleTimeupdateEvent)
 {
 }
 
-MediaController::~MediaController() = default;
+MediaController::~MediaController()
+{
+}
 
 void MediaController::addMediaElement(HTMLMediaElement& element)
 {
@@ -253,7 +256,7 @@ ExceptionOr<void> MediaController::setVolume(double level)
     // If the new value is outside the range 0.0 to 1.0 inclusive, then, on setting, an 
     // IndexSizeError exception must be raised instead.
     if (!(level >= 0 && level <= 1))
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     // The volume attribute, on setting, if the new value is in the range 0.0 to 1.0 inclusive,
     // must set the MediaController's media controller volume multiplier to the new value
@@ -313,7 +316,7 @@ const AtomicString& MediaController::playbackState() const
         return playbackStateEnded();
     default:
         ASSERT_NOT_REACHED();
-        return nullAtom();
+        return nullAtom;
     }
 }
 
@@ -338,7 +341,7 @@ static AtomicString eventNameForReadyState(MediaControllerInterface::ReadyState 
         return eventNames().canplaythroughEvent;
     default:
         ASSERT_NOT_REACHED();
-        return nullAtom();
+        return nullAtom;
     }
 }
 
@@ -532,7 +535,7 @@ bool MediaController::hasEnded() const
 
 void MediaController::scheduleEvent(const AtomicString& eventName)
 {
-    m_pendingEvents.append(Event::create(eventName, Event::CanBubble::No, Event::IsCancelable::Yes));
+    m_pendingEvents.append(Event::create(eventName, false, true));
     if (!m_asyncEventTimer.isActive())
         m_asyncEventTimer.startOneShot(0_s);
 }
@@ -681,7 +684,5 @@ void MediaController::scheduleTimeupdateEvent()
     scheduleEvent(eventNames().timeupdateEvent);
     m_previousTimeupdateTime = now;
 }
-
-} // namespace WebCore
 
 #endif

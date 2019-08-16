@@ -27,8 +27,7 @@
  */
 
 [
-    ImplementationLacksVTable,
-    EnabledAtRuntime=WebSQL,
+    ImplementationLacksVTable
 ] interface SQLError {
     readonly attribute unsigned long code;
     readonly attribute DOMString message;

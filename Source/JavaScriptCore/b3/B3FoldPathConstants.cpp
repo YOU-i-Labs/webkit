@@ -41,9 +41,7 @@ namespace JSC { namespace B3 {
 
 namespace {
 
-namespace B3FoldPathConstantsInternal {
-static const bool verbose = false;
-}
+const bool verbose = false;
 
 class FoldPathConstants {
 public:
@@ -57,7 +55,7 @@ public:
     {
         bool changed = false;
 
-        if (B3FoldPathConstantsInternal::verbose)
+        if (verbose)
             dataLog("B3 before folding path constants: \n", m_proc, "\n");
         
         // Find all of the values that are the subject of a branch or switch. For any successor
@@ -82,7 +80,7 @@ public:
                     ASSERT_UNUSED(otherOverride, otherOverride.block != override.block);
             }
 
-            if (B3FoldPathConstantsInternal::verbose)
+            if (verbose)
                 dataLog("Overriding ", *value, " from ", *from, ": ", override, "\n");
             
             forValue.append(override);
@@ -105,11 +103,11 @@ public:
                 SwitchValue* switchValue = branch->as<SwitchValue>();
 
                 HashMap<BasicBlock*, unsigned> targetUses;
-                for (SwitchCase switchCase : switchValue->cases(block))
+                for (const SwitchCase& switchCase : switchValue->cases(block))
                     targetUses.add(switchCase.targetBlock(), 0).iterator->value++;
                 targetUses.add(switchValue->fallThrough(block), 0).iterator->value++;
 
-                for (SwitchCase switchCase : switchValue->cases(block)) {
+                for (const SwitchCase& switchCase : switchValue->cases(block)) {
                     if (targetUses.find(switchCase.targetBlock())->value != 1)
                         continue;
 
@@ -151,7 +149,7 @@ public:
                     result = override;
             }
 
-            if (B3FoldPathConstantsInternal::verbose)
+            if (verbose)
                 dataLog("In block ", *block, " getting override for ", *value, ": ", result, "\n");
 
             return result;

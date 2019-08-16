@@ -28,7 +28,6 @@ struct DisplayState;
 struct Config;
 class Surface;
 class ImageSibling;
-class Thread;
 }
 
 namespace gl
@@ -48,7 +47,7 @@ class DisplayImpl : public EGLImplFactory
 {
   public:
     DisplayImpl(const egl::DisplayState &state);
-    ~DisplayImpl() override;
+    virtual ~DisplayImpl();
 
     virtual egl::Error initialize(egl::Display *display) = 0;
     virtual void terminate() = 0;
@@ -58,7 +57,7 @@ class DisplayImpl : public EGLImplFactory
     virtual egl::ConfigSet generateConfigs() = 0;
 
     virtual bool testDeviceLost() = 0;
-    virtual egl::Error restoreLostDevice(const egl::Display *display) = 0;
+    virtual egl::Error restoreLostDevice() = 0;
 
     virtual bool isValidNativeWindow(EGLNativeWindowType window) const = 0;
     virtual egl::Error validateClientBuffer(const egl::Config *configuration,
@@ -70,8 +69,10 @@ class DisplayImpl : public EGLImplFactory
 
     virtual egl::Error getDevice(DeviceImpl **device) = 0;
 
-    virtual egl::Error waitClient(const gl::Context *context) const = 0;
-    virtual egl::Error waitNative(const gl::Context *context, EGLint engine) const = 0;
+    virtual egl::Error waitClient() const = 0;
+    virtual egl::Error waitNative(EGLint engine,
+                                  egl::Surface *drawSurface,
+                                  egl::Surface *readSurface) const = 0;
     virtual gl::Version getMaxSupportedESVersion() const           = 0;
     const egl::Caps &getCaps() const;
 

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "CSSParser.h"
 #include "CSSRule.h"
 #include "StyleProperties.h"
 #include "StyleRule.h"

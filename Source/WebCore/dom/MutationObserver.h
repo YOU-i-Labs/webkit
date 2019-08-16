@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,10 +31,8 @@
 #pragma once
 
 #include "ExceptionOr.h"
-#include "GCReachableRef.h"
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
-#include <wtf/IsoMalloc.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -49,8 +46,7 @@ class Node;
 using MutationObserverOptions = unsigned char;
 using MutationRecordDeliveryOptions = unsigned char;
 
-class MutationObserver final : public RefCounted<MutationObserver> {
-    WTF_MAKE_ISO_ALLOCATED(MutationObserver);
+class MutationObserver : public RefCounted<MutationObserver> {
     friend class MutationObserverMicrotask;
 public:
     enum MutationType {
@@ -77,21 +73,16 @@ public:
 
     struct Init {
         bool childList;
-        Optional<bool> attributes;
-        Optional<bool> characterData;
+        std::optional<bool> attributes;
+        std::optional<bool> characterData;
         bool subtree;
-        Optional<bool> attributeOldValue;
-        Optional<bool> characterDataOldValue;
-        Optional<Vector<String>> attributeFilter;
+        std::optional<bool> attributeOldValue;
+        std::optional<bool> characterDataOldValue;
+        std::optional<Vector<String>> attributeFilter;
     };
 
     ExceptionOr<void> observe(Node&, const Init&);
-    
-    struct TakenRecords {
-        Vector<Ref<MutationRecord>> records;
-        HashSet<GCReachableRef<Node>> pendingTargets;
-    };
-    TakenRecords takeRecords();
+    Vector<Ref<MutationRecord>> takeRecords();
     void disconnect();
 
     void observationStarted(MutationObserverRegistration&);
@@ -101,8 +92,6 @@ public:
     bool canDeliver();
 
     HashSet<Node*> observedNodes() const;
-
-    MutationCallback& callback() const { return m_callback.get(); }
 
     static void enqueueSlotChangeEvent(HTMLSlotElement&);
 
@@ -115,7 +104,6 @@ private:
 
     Ref<MutationCallback> m_callback;
     Vector<Ref<MutationRecord>> m_records;
-    HashSet<GCReachableRef<Node>> m_pendingTargets;
     HashSet<MutationObserverRegistration*> m_registrations;
     unsigned m_priority;
 };

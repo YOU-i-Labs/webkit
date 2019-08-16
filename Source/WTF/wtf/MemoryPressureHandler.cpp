@@ -24,20 +24,18 @@
  */
 
 #include "config.h"
-#include <wtf/MemoryPressureHandler.h>
+#include "MemoryPressureHandler.h"
 
 #include <wtf/MemoryFootprint.h>
-#include <wtf/NeverDestroyed.h>
-#include <wtf/RAMSize.h>
 
 #define LOG_CHANNEL_PREFIX Log
 
 namespace WTF {
 
 #if RELEASE_LOG_DISABLED
-WTFLogChannel LogMemoryPressure = { WTFLogChannelOn, "MemoryPressure", WTFLogLevelError };
+WTFLogChannel LogMemoryPressure = { WTFLogChannelOn, "MemoryPressure" };
 #else
-WTFLogChannel LogMemoryPressure = { WTFLogChannelOn, "MemoryPressure", WTFLogLevelError, LOG_CHANNEL_WEBKIT_SUBSYSTEM, OS_LOG_DEFAULT };
+WTFLogChannel LogMemoryPressure = { WTFLogChannelOn, "MemoryPressure", LOG_CHANNEL_WEBKIT_SUBSYSTEM, OS_LOG_DEFAULT };
 #endif
 
 WTF_EXPORT_PRIVATE bool MemoryPressureHandler::ReliefLogger::s_loggingEnabled = false;
@@ -55,9 +53,6 @@ MemoryPressureHandler::MemoryPressureHandler()
     : m_windowsMeasurementTimer(RunLoop::main(), this, &MemoryPressureHandler::windowsMeasurementTimerFired)
 #endif
 {
-#if PLATFORM(COCOA)
-    setDispatchQueue(dispatch_get_main_queue());
-#endif
 }
 
 void MemoryPressureHandler::setShouldUsePeriodicMemoryMonitor(bool use)
@@ -70,7 +65,7 @@ void MemoryPressureHandler::setShouldUsePeriodicMemoryMonitor(bool use)
 
     if (use) {
         m_measurementTimer = std::make_unique<RunLoop::Timer<MemoryPressureHandler>>(RunLoop::main(), this, &MemoryPressureHandler::measurementTimerFired);
-        m_measurementTimer->startRepeating(30_s);
+        m_measurementTimer->startRepeating(30);
     } else
         m_measurementTimer = nullptr;
 }
@@ -86,52 +81,31 @@ static const char* toString(MemoryUsagePolicy policy)
 }
 #endif
 
-static size_t thresholdForMemoryKillWithProcessState(WebsamProcessState processState, unsigned tabCount)
+static size_t thresholdForMemoryKillWithProcessState(WebsamProcessState processState)
 {
-    size_t baseThreshold = 2 * GB;
 #if CPU(X86_64) || CPU(ARM64)
     if (processState == WebsamProcessState::Active)
-        baseThreshold = 4 * GB;
-    if (tabCount > 1)
-        baseThreshold += std::min(tabCount - 1, 4u) * 1 * GB;
+        return 4 * GB;
+    return 2 * GB;
 #else
-    if ((tabCount > 1) || (processState == WebsamProcessState::Active))
-        baseThreshold = 3 * GB;
+    UNUSED_PARAM(processState);
+    return 3 * GB;
 #endif
-    return std::min(baseThreshold, static_cast<size_t>(ramSize() * 0.9));
-}
-
-void MemoryPressureHandler::setPageCount(unsigned pageCount)
-{
-    if (singleton().m_pageCount == pageCount)
-        return;
-    singleton().m_pageCount = pageCount;
 }
 
 size_t MemoryPressureHandler::thresholdForMemoryKill()
 {
-    return thresholdForMemoryKillWithProcessState(m_processState, m_pageCount);
+    return thresholdForMemoryKillWithProcessState(m_processState);
 }
 
 static size_t thresholdForPolicy(MemoryUsagePolicy policy)
 {
-    const size_t baseThresholdForPolicy = std::min(3 * GB, ramSize());
-
-#if PLATFORM(IOS_FAMILY)
-    const double conservativeThresholdFraction = 0.5;
-    const double strictThresholdFraction = 0.65;
-#else
-    const double conservativeThresholdFraction = 0.33;
-    const double strictThresholdFraction = 0.5;
-#endif
-
     switch (policy) {
-    case MemoryUsagePolicy::Unrestricted:
-        return 0;
     case MemoryUsagePolicy::Conservative:
-        return baseThresholdForPolicy * conservativeThresholdFraction;
+        return 1 * GB;
     case MemoryUsagePolicy::Strict:
-        return baseThresholdForPolicy * strictThresholdFraction;
+        return 1.5 * GB;
+    case MemoryUsagePolicy::Unrestricted:
     default:
         ASSERT_NOT_REACHED();
         return 0;
@@ -147,26 +121,21 @@ static MemoryUsagePolicy policyForFootprint(size_t footprint)
     return MemoryUsagePolicy::Unrestricted;
 }
 
-MemoryUsagePolicy MemoryPressureHandler::currentMemoryUsagePolicy()
-{
-    return policyForFootprint(memoryFootprint());
-}
-
 void MemoryPressureHandler::shrinkOrDie()
 {
     RELEASE_LOG(MemoryPressure, "Process is above the memory kill threshold. Trying to shrink down.");
     releaseMemory(Critical::Yes, Synchronous::Yes);
 
-    size_t footprint = memoryFootprint();
-    RELEASE_LOG(MemoryPressure, "New memory footprint: %zu MB", footprint / MB);
+    auto footprint = memoryFootprint();
+    RELEASE_ASSERT(footprint);
+    RELEASE_LOG(MemoryPressure, "New memory footprint: %lu MB", footprint.value() / MB);
 
-    if (footprint < thresholdForMemoryKill()) {
+    if (footprint.value() < thresholdForMemoryKill()) {
         RELEASE_LOG(MemoryPressure, "Shrank below memory kill threshold. Process gets to live.");
-        setMemoryUsagePolicyBasedOnFootprint(footprint);
+        setMemoryUsagePolicyBasedOnFootprint(footprint.value());
         return;
     }
 
-    WTFLogAlways("Unable to shrink memory footprint of process (%zu MB) below the kill thresold (%zu MB). Killed\n", footprint / MB, thresholdForMemoryKill() / MB);
     RELEASE_ASSERT(m_memoryKillCallback);
     m_memoryKillCallback();
 }
@@ -184,14 +153,17 @@ void MemoryPressureHandler::setMemoryUsagePolicyBasedOnFootprint(size_t footprin
 
 void MemoryPressureHandler::measurementTimerFired()
 {
-    size_t footprint = memoryFootprint();
-    RELEASE_LOG(MemoryPressure, "Current memory footprint: %zu MB", footprint / MB);
-    if (footprint >= thresholdForMemoryKill()) {
+    auto footprint = memoryFootprint();
+    if (!footprint)
+        return;
+
+    RELEASE_LOG(MemoryPressure, "Current memory footprint: %lu MB", footprint.value() / MB);
+    if (footprint.value() >= thresholdForMemoryKill()) {
         shrinkOrDie();
         return;
     }
 
-    setMemoryUsagePolicyBasedOnFootprint(footprint);
+    setMemoryUsagePolicyBasedOnFootprint(footprint.value());
 
     switch (m_memoryUsagePolicy) {
     case MemoryUsagePolicy::Unrestricted:
@@ -204,7 +176,7 @@ void MemoryPressureHandler::measurementTimerFired()
         break;
     }
 
-    if (processState() == WebsamProcessState::Active && footprint > thresholdForMemoryKillWithProcessState(WebsamProcessState::Inactive, m_pageCount))
+    if (processState() == WebsamProcessState::Active && footprint.value() > thresholdForMemoryKillWithProcessState(WebsamProcessState::Inactive))
         doesExceedInactiveLimitWhileActive();
     else
         doesNotExceedInactiveLimitWhileActive();
@@ -297,19 +269,17 @@ void MemoryPressureHandler::ReliefLogger::logMemoryUsageChange()
         m_initialMemory->physical, currentMemory->physical, physicalDiff);
 }
 
-#if !OS(WINDOWS)
-void MemoryPressureHandler::platformInitialize() { }
+#if !PLATFORM(COCOA) && !OS(LINUX) && !OS(WINDOWS)
+void MemoryPressureHandler::install() { }
+void MemoryPressureHandler::uninstall() { }
+void MemoryPressureHandler::holdOff(unsigned) { }
+void MemoryPressureHandler::respondToMemoryPressure(Critical, Synchronous) { }
+void MemoryPressureHandler::platformReleaseMemory(Critical) { }
+std::optional<MemoryPressureHandler::ReliefLogger::MemoryUsage> MemoryPressureHandler::ReliefLogger::platformMemoryUsage() { return std::nullopt; }
 #endif
 
-#if PLATFORM(COCOA)
-void MemoryPressureHandler::setDispatchQueue(dispatch_queue_t queue)
-{
-    RELEASE_ASSERT(!m_installed);
-    dispatch_retain(queue);
-    if (m_dispatchQueue)
-        dispatch_release(m_dispatchQueue);
-    m_dispatchQueue = queue;
-}
+#if !OS(WINDOWS)
+void MemoryPressureHandler::platformInitialize() { }
 #endif
 
 } // namespace WebCore

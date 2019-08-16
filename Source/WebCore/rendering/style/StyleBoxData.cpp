@@ -42,9 +42,9 @@ StyleBoxData::StyleBoxData()
     , m_maxHeight(RenderStyle::initialMaxSize())
     , m_zIndex(0)
     , m_hasAutoZIndex(true)
-    , m_boxSizing(static_cast<unsigned>(BoxSizing::ContentBox))
+    , m_boxSizing(CONTENT_BOX)
 #if ENABLE(CSS_BOX_DECORATION_BREAK)
-    , m_boxDecorationBreak(static_cast<unsigned>(BoxDecorationBreak::Slice))
+    , m_boxDecorationBreak(DSLICE)
 #endif
 {
 }

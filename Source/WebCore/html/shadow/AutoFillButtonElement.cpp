@@ -31,11 +31,8 @@
 #include "HTMLNames.h"
 #include "MouseEvent.h"
 #include "TextFieldInputType.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(AutoFillButtonElement);
 
 using namespace HTMLNames;
 

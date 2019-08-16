@@ -43,11 +43,23 @@ Pattern::Pattern(Ref<Image>&& image, bool repeatX, bool repeatY)
 {
 }
 
-Pattern::~Pattern() = default;
+Pattern::~Pattern()
+{
+    platformDestroy();
+}
 
 void Pattern::setPatternSpaceTransform(const AffineTransform& patternSpaceTransformation)
 {
     m_patternSpaceTransformation = patternSpaceTransformation;
+    setPlatformPatternSpaceTransform();
+}
+
+void Pattern::platformDestroy()
+{
+}
+
+void Pattern::setPlatformPatternSpaceTransform()
+{
 }
 
 }

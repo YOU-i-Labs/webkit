@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ScopeBar = class ScopeBar extends WI.NavigationItem
+WebInspector.ScopeBar = class ScopeBar extends WebInspector.NavigationItem
 {
     constructor(identifier, items, defaultItem, shouldGroupNonExclusiveItems)
     {
@@ -89,19 +89,6 @@ WI.ScopeBar = class ScopeBar extends WI.NavigationItem
         return this._items.some((item) => item.selected && item !== this._defaultItem);
     }
 
-    resetToDefault()
-    {
-        let selectedItems = this.selectedItems;
-        if (selectedItems.length === 1 && selectedItems[0] === this._defaultItem)
-            return;
-
-        for (let item of this._items)
-            item.selected = false;
-        this._defaultItem.selected = true;
-
-        this.dispatchEventToListeners(WI.ScopeBar.Event.SelectionChanged);
-    }
-
     // Private
 
     _populate()
@@ -119,26 +106,24 @@ WI.ScopeBar = class ScopeBar extends WI.NavigationItem
                 else
                     nonExclusiveItems.push(item);
 
-                item.addEventListener(WI.ScopeBarItem.Event.SelectionChanged, this._itemSelectionDidChange, this);
+                item.addEventListener(WebInspector.ScopeBarItem.Event.SelectionChanged, this._itemSelectionDidChange, this);
             }
 
-            this._multipleItem = new WI.MultipleScopeBarItem(nonExclusiveItems);
+            this._multipleItem = new WebInspector.MultipleScopeBarItem(nonExclusiveItems);
             this._element.appendChild(this._multipleItem.element);
         } else {
             for (var item of this._items) {
                 this._itemsById.set(item.id, item);
                 this._element.appendChild(item.element);
 
-                item.addEventListener(WI.ScopeBarItem.Event.SelectionChanged, this._itemSelectionDidChange, this);
+                item.addEventListener(WebInspector.ScopeBarItem.Event.SelectionChanged, this._itemSelectionDidChange, this);
             }
         }
 
-        if (this._defaultItem) {
-            if (!this.selectedItems.length)
-                this._defaultItem.selected = true;
+        if (!this.selectedItems.length && this._defaultItem)
+            this._defaultItem.selected = true;
 
-            this._element.classList.toggle("default-item-selected", this._defaultItem.selected);
-        }
+        this._element.classList.toggle("default-item-selected", this._defaultItem.selected);
     }
 
     _itemSelectionDidChange(event)
@@ -154,7 +139,7 @@ WI.ScopeBar = class ScopeBar extends WI.NavigationItem
                     item.selected = false;
             }
         } else {
-            let replacesCurrentSelection = this._shouldGroupNonExclusiveItems || !event.data.extendSelection;
+            var replacesCurrentSelection = this._shouldGroupNonExclusiveItems || !event.data.withModifier;
             for (var i = 0; i < this._items.length; ++i) {
                 item = this._items[i];
                 if (item.exclusive && item !== sender && sender.selected)
@@ -164,17 +149,15 @@ WI.ScopeBar = class ScopeBar extends WI.NavigationItem
             }
         }
 
-        if (this._defaultItem) {
-            if (!this.selectedItems.length)
-                this._defaultItem.selected = true;
+        // If nothing is selected anymore, select the default item.
+        if (!this.selectedItems.length && this._defaultItem)
+            this._defaultItem.selected = true;
 
-            this._element.classList.toggle("default-item-selected", this._defaultItem.selected);
-        }
-
-        this.dispatchEventToListeners(WI.ScopeBar.Event.SelectionChanged);
+        this._element.classList.toggle("default-item-selected", this._defaultItem.selected);
+        this.dispatchEventToListeners(WebInspector.ScopeBar.Event.SelectionChanged);
     }
 };
 
-WI.ScopeBar.Event = {
+WebInspector.ScopeBar.Event = {
     SelectionChanged: "scopebar-selection-did-change"
 };

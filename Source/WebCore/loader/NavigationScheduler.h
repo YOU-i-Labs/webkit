@@ -41,9 +41,25 @@ class FormSubmission;
 class Frame;
 class ScheduledNavigation;
 class SecurityOrigin;
+class URL;
 
-enum class NewLoadInProgress : bool { No, Yes };
-    
+class NavigationDisabler {
+public:
+    NavigationDisabler()
+    {
+        s_navigationDisableCount++;
+    }
+    ~NavigationDisabler()
+    {
+        ASSERT(s_navigationDisableCount);
+        s_navigationDisableCount--;
+    }
+    static bool isNavigationAllowed() { return !s_navigationDisableCount; }
+
+private:
+    static unsigned s_navigationDisableCount;
+};
+
 class NavigationScheduler {
 public:
     explicit NavigationScheduler(Frame&);
@@ -61,7 +77,7 @@ public:
 
     void startTimer();
 
-    void cancel(NewLoadInProgress = NewLoadInProgress::No);
+    void cancel(bool newLoadInProgress = false);
     void clear();
 
 private:

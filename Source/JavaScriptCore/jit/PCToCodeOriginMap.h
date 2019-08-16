@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,9 +28,12 @@
 #if ENABLE(JIT)
 
 #include "CodeOrigin.h"
+#include "DFGCommon.h"
 #include "MacroAssembler.h"
 #include "VM.h"
+#include <wtf/Bag.h>
 #include <wtf/Optional.h>
+#include <wtf/RedBlackTree.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
@@ -74,14 +77,13 @@ private:
     bool m_shouldBuildMapping;
 };
 
-// FIXME: <rdar://problem/39436658>
 class PCToCodeOriginMap {
     WTF_MAKE_NONCOPYABLE(PCToCodeOriginMap);
 public:
     PCToCodeOriginMap(PCToCodeOriginMapBuilder&&, LinkBuffer&);
     ~PCToCodeOriginMap();
 
-    Optional<CodeOrigin> findPC(void* pc) const;
+    std::optional<CodeOrigin> findPC(void* pc) const;
 
     double memorySize();
 

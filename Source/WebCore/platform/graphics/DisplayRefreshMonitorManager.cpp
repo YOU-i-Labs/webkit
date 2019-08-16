@@ -30,11 +30,13 @@
 
 #include "DisplayRefreshMonitor.h"
 #include "DisplayRefreshMonitorClient.h"
-#include "Logging.h"
+#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
-DisplayRefreshMonitorManager::~DisplayRefreshMonitorManager() = default;
+DisplayRefreshMonitorManager::~DisplayRefreshMonitorManager()
+{
+}
 
 DisplayRefreshMonitorManager& DisplayRefreshMonitorManager::sharedManager()
 {
@@ -56,7 +58,6 @@ DisplayRefreshMonitor* DisplayRefreshMonitorManager::createMonitorForClient(Disp
     if (!monitor)
         return nullptr;
 
-    LOG(RequestAnimationFrame, "DisplayRefreshMonitorManager::createMonitorForClient() - created monitor %p", monitor.get());
     monitor->addClient(client);
     DisplayRefreshMonitor* result = monitor.get();
     m_monitors.append(WTFMove(monitor));
@@ -106,7 +107,6 @@ void DisplayRefreshMonitorManager::displayDidRefresh(DisplayRefreshMonitor& moni
 {
     if (!monitor.shouldBeTerminated())
         return;
-    LOG(RequestAnimationFrame, "DisplayRefreshMonitorManager::displayDidRefresh() - destroying monitor %p", &monitor);
 
     size_t monitorIndex = m_monitors.find(&monitor);
     if (monitorIndex != notFound)
@@ -123,14 +123,6 @@ void DisplayRefreshMonitorManager::windowScreenDidChange(PlatformDisplayID displ
     registerClient(client);
     if (client.isScheduled())
         scheduleAnimation(client);
-}
-
-void DisplayRefreshMonitorManager::displayWasUpdated(PlatformDisplayID displayID)
-{
-    for (const auto& monitor : m_monitors) {
-        if (displayID == monitor->displayID() && monitor->hasRequestedRefreshCallback())
-            monitor->displayLinkFired();
-    }
 }
 
 }

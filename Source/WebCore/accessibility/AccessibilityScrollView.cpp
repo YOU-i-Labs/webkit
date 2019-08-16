@@ -65,10 +65,10 @@ AccessibilityObject* AccessibilityScrollView::scrollBar(AccessibilityOrientation
     
     switch (orientation) {
     // ARIA 1.1 Elements with the role scrollbar have an implicit aria-orientation value of vertical.
-    case AccessibilityOrientation::Undefined:
-    case AccessibilityOrientation::Vertical:
+    case AccessibilityOrientationUndefined:
+    case AccessibilityOrientationVertical:
         return m_verticalScrollbar ? m_verticalScrollbar.get() : nullptr;
-    case AccessibilityOrientation::Horizontal:
+    case AccessibilityOrientationHorizontal:
         return m_horizontalScrollbar ? m_horizontalScrollbar.get() : nullptr;
     }
     
@@ -180,8 +180,11 @@ void AccessibilityScrollView::addChildren()
     ASSERT(!m_haveChildren);
     m_haveChildren = true;
     
-    addChild(webAreaObject());
-    updateScrollbars();    
+    AccessibilityObject* webArea = webAreaObject();
+    if (webArea && !webArea->accessibilityIsIgnored())
+        m_children.append(webArea);
+    
+    updateScrollbars();
 }
 
 AccessibilityObject* AccessibilityScrollView::webAreaObject() const

@@ -32,6 +32,7 @@
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
+#include <wtf/Noncopyable.h>
 
 namespace JSC {
 
@@ -47,7 +48,7 @@ public:
 
     ~Worklist();
     
-    static Ref<Worklist> create(CString&& tierName, unsigned numberOfThreads, int relativePriority = 0);
+    static Ref<Worklist> create(CString worklistName, unsigned numberOfThreads, int relativePriority = 0);
     
     void enqueue(Ref<Plan>&&);
     
@@ -79,12 +80,10 @@ public:
     void removeNonCompilingPlansForVM(VM&);
     
     void dump(PrintStream&) const;
-    unsigned setNumberOfThreads(unsigned, int);
     
 private:
-    Worklist(CString&& tierName);
+    Worklist(CString worklistName);
     void finishCreation(unsigned numberOfThreads, int);
-    void createNewThread(const AbstractLocker&, int);
     
     class ThreadBody;
     friend class ThreadBody;
@@ -115,23 +114,20 @@ private:
     Lock m_suspensionLock;
     
     Box<Lock> m_lock;
-    Ref<AutomaticThreadCondition> m_planEnqueued;
+    RefPtr<AutomaticThreadCondition> m_planEnqueued;
     Condition m_planCompiled;
     
     Vector<std::unique_ptr<ThreadData>> m_threads;
     unsigned m_numberOfActiveThreads;
 };
 
-JS_EXPORT_PRIVATE unsigned setNumberOfDFGCompilerThreads(unsigned);
-JS_EXPORT_PRIVATE unsigned setNumberOfFTLCompilerThreads(unsigned);
-
 // For DFGMode compilations.
-JS_EXPORT_PRIVATE Worklist& ensureGlobalDFGWorklist();
-JS_EXPORT_PRIVATE Worklist* existingGlobalDFGWorklistOrNull();
+Worklist& ensureGlobalDFGWorklist();
+Worklist* existingGlobalDFGWorklistOrNull();
 
 // For FTLMode and FTLForOSREntryMode compilations.
-JS_EXPORT_PRIVATE Worklist& ensureGlobalFTLWorklist();
-JS_EXPORT_PRIVATE Worklist* existingGlobalFTLWorklistOrNull();
+Worklist& ensureGlobalFTLWorklist();
+Worklist* existingGlobalFTLWorklistOrNull();
 
 Worklist& ensureGlobalWorklistFor(CompilationMode);
 

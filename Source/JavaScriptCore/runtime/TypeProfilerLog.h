@@ -30,6 +30,7 @@
 
 #include "JSCJSValue.h"
 #include "Structure.h"
+#include "TypeProfiler.h"
 
 namespace JSC {
 
@@ -39,7 +40,6 @@ class TypeProfilerLog {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     struct LogEntry {
-        WTF_MAKE_STRUCT_FAST_ALLOCATED;
     public:
         friend class LLIntOffsetsExtractor;
 
@@ -53,10 +53,15 @@ public:
     };
 
 
-    TypeProfilerLog(VM&);
+    TypeProfilerLog()
+        : m_logStartPtr(0)
+    {
+        initializeLog();
+    }
+
     ~TypeProfilerLog();
 
-    JS_EXPORT_PRIVATE void processLogEntries(VM&, const String&);
+    JS_EXPORT_PRIVATE void processLogEntries(const String&);
     LogEntry* logEndPtr() const { return m_logEndPtr; }
 
     void visit(SlotVisitor&);
@@ -67,7 +72,8 @@ public:
 private:
     friend class LLIntOffsetsExtractor;
 
-    VM& m_vm;
+    void initializeLog();
+
     unsigned m_logSize;
     LogEntry* m_logStartPtr;
     LogEntry* m_currentLogEntryPtr;

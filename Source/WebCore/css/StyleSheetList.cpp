@@ -25,7 +25,6 @@
 #include "Document.h"
 #include "HTMLNames.h"
 #include "HTMLStyleElement.h"
-#include "ShadowRoot.h"
 #include "StyleScope.h"
 #include <wtf/text/WTFString.h>
 
@@ -33,46 +32,26 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-StyleSheetList::StyleSheetList(Document& document)
-    : m_document(&document)
+StyleSheetList::StyleSheetList(Document* document)
+    : m_document(document)
 {
 }
 
-StyleSheetList::StyleSheetList(ShadowRoot& shadowRoot)
-    : m_shadowRoot(&shadowRoot)
+StyleSheetList::~StyleSheetList()
 {
 }
-
-StyleSheetList::~StyleSheetList() = default;
 
 inline const Vector<RefPtr<StyleSheet>>& StyleSheetList::styleSheets() const
 {
-    if (m_document)
-        return m_document->styleScope().styleSheetsForStyleSheetList();
-    if (m_shadowRoot)
-        return m_shadowRoot->styleScope().styleSheetsForStyleSheetList();
-    return m_detachedStyleSheets;
+    if (!m_document)
+        return m_detachedStyleSheets;
+    return m_document->styleScope().styleSheetsForStyleSheetList();
 }
 
-Node* StyleSheetList::ownerNode() const
+void StyleSheetList::detachFromDocument()
 {
-    if (m_document)
-        return m_document;
-    return m_shadowRoot;
-}
-
-void StyleSheetList::detach()
-{
-    if (m_document) {
-        ASSERT(!m_shadowRoot);
-        m_detachedStyleSheets = m_document->styleScope().styleSheetsForStyleSheetList();
-        m_document = nullptr;
-    } else if (m_shadowRoot) {
-        ASSERT(!m_document);
-        m_detachedStyleSheets = m_shadowRoot->styleScope().styleSheetsForStyleSheetList();
-        m_shadowRoot = nullptr;
-    } else
-        ASSERT_NOT_REACHED();
+    m_detachedStyleSheets = m_document->styleScope().styleSheetsForStyleSheetList();
+    m_document = nullptr;
 }
 
 unsigned StyleSheetList::length() const
@@ -88,7 +67,6 @@ StyleSheet* StyleSheetList::item(unsigned index)
 
 CSSStyleSheet* StyleSheetList::namedItem(const AtomicString& name) const
 {
-    // Support the named getter on document for backwards compatibility.
     if (!m_document)
         return nullptr;
 

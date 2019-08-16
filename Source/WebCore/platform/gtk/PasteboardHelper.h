@@ -26,9 +26,10 @@
 #define PasteboardHelper_h
 
 #include "GRefPtrGtk.h"
-#include <wtf/Function.h>
+#include <functional>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
+#include <wtf/glib/GRefPtr.h>
 
 namespace WebCore {
 
@@ -46,7 +47,7 @@ public:
     void fillSelectionData(const SelectionData&, unsigned, GtkSelectionData*);
     void fillSelectionData(GtkSelectionData*, unsigned, SelectionData&);
     Vector<GdkAtom> dropAtomsForContext(GtkWidget*, GdkDragContext*);
-    void writeClipboardContents(GtkClipboard*, const SelectionData&, WTF::Function<void()>&& primarySelectionCleared = nullptr);
+    void writeClipboardContents(GtkClipboard*, const SelectionData&, std::function<void()>&& primarySelectionCleared = nullptr);
     void getClipboardContents(GtkClipboard*, SelectionData&);
 
     enum PasteboardTargetType { TargetTypeMarkup, TargetTypeText, TargetTypeImage, TargetTypeURIList, TargetTypeNetscapeURL, TargetTypeSmartPaste, TargetTypeUnknown };

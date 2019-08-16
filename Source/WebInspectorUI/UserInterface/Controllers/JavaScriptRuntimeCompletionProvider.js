@@ -23,25 +23,25 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-Object.defineProperty(WI, "javaScriptRuntimeCompletionProvider",
+Object.defineProperty(WebInspector, "javaScriptRuntimeCompletionProvider",
 {
     get: function()
     {
-        if (!WI.JavaScriptRuntimeCompletionProvider._instance)
-            WI.JavaScriptRuntimeCompletionProvider._instance = new WI.JavaScriptRuntimeCompletionProvider;
-        return WI.JavaScriptRuntimeCompletionProvider._instance;
+        if (!WebInspector.JavaScriptRuntimeCompletionProvider._instance)
+            WebInspector.JavaScriptRuntimeCompletionProvider._instance = new WebInspector.JavaScriptRuntimeCompletionProvider;
+        return WebInspector.JavaScriptRuntimeCompletionProvider._instance;
     }
 });
 
-WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvider extends WI.Object
+WebInspector.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvider extends WebInspector.Object
 {
     constructor()
     {
         super();
 
-        console.assert(!WI.JavaScriptRuntimeCompletionProvider._instance);
+        console.assert(!WebInspector.JavaScriptRuntimeCompletionProvider._instance);
 
-        WI.debuggerManager.addEventListener(WI.DebuggerManager.Event.ActiveCallFrameDidChange, this._clearLastProperties, this);
+        WebInspector.debuggerManager.addEventListener(WebInspector.DebuggerManager.Event.ActiveCallFrameDidChange, this._clearLastProperties, this);
     }
 
     // Protected
@@ -99,19 +99,19 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
         this._lastBase = base;
         this._lastPropertyNames = null;
 
-        var activeCallFrame = WI.debuggerManager.activeCallFrame;
+        var activeCallFrame = WebInspector.debuggerManager.activeCallFrame;
         if (!base && activeCallFrame && !this._alwaysEvaluateInWindowContext)
             activeCallFrame.collectScopeChainVariableNames(receivedPropertyNames.bind(this));
         else {
             let options = {objectGroup: "completion", includeCommandLineAPI: true, doNotPauseOnExceptionsAndMuteConsole: true, returnByValue: false, generatePreview: false, saveResult: false};
-            WI.runtimeManager.evaluateInInspectedWindow(base, options, evaluated.bind(this));
+            WebInspector.runtimeManager.evaluateInInspectedWindow(base, options, evaluated.bind(this));
         }
 
         function updateLastPropertyNames(propertyNames)
         {
             if (this._clearLastPropertiesTimeout)
                 clearTimeout(this._clearLastPropertiesTimeout);
-            this._clearLastPropertiesTimeout = setTimeout(this._clearLastProperties.bind(this), WI.JavaScriptLogViewController.CachedPropertiesDuration);
+            this._clearLastPropertiesTimeout = setTimeout(this._clearLastProperties.bind(this), WebInspector.JavaScriptLogViewController.CachedPropertiesDuration);
 
             this._lastPropertyNames = propertyNames || {};
         }
@@ -119,7 +119,7 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
         function evaluated(result, wasThrown)
         {
             if (wasThrown || !result || result.type === "undefined" || (result.type === "object" && result.subtype === "null")) {
-                WI.runtimeManager.activeExecutionContext.target.RuntimeAgent.releaseObjectGroup("completion");
+                WebInspector.runtimeManager.activeExecutionContext.target.RuntimeAgent.releaseObjectGroup("completion");
 
                 updateLastPropertyNames.call(this, {});
                 completionController.updateCompletions(defaultCompletions);
@@ -144,7 +144,9 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
                             for (var i = 0; i < names.length; ++i)
                                 resultSet[names[i]] = true;
                         }
-                    } catch { }
+                    } catch (e) {
+                        // Ignore
+                    }
                 }
 
                 if (arrayLength)
@@ -173,7 +175,9 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
                         var names = Object.getOwnPropertyNames(o);
                         for (var i = 0; i < names.length; ++i)
                             resultSet[names[i]] = true;
-                    } catch (e) { }
+                    } catch (e) {
+                        // Ignore
+                    }
                 }
 
                 return resultSet;
@@ -184,8 +188,8 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
             else if (result.type === "object" || result.type === "function")
                 result.callFunctionJSON(inspectedPage_evalResult_getCompletions, undefined, receivedPropertyNames.bind(this));
             else if (result.type === "string" || result.type === "number" || result.type === "boolean" || result.type === "symbol") {
-                let options = {objectGroup: "completion", includeCommandLineAPI: false, doNotPauseOnExceptionsAndMuteConsole: true, returnByValue: true, generatePreview: false, saveResult: false};
-                WI.runtimeManager.evaluateInInspectedWindow("(" + inspectedPage_evalResult_getCompletions + ")(\"" + result.type + "\")", options, receivedPropertyNamesFromEvaluate.bind(this));
+                let options = {objectGroup: "completion", includeCommandLineAPI: false, doNotPauseOnExceptionsAndMuteConsole: true, returnByValue: false, generatePreview: false, saveResult: false};
+                WebInspector.runtimeManager.evaluateInInspectedWindow("(" + inspectedPage_evalResult_getCompletions + ")(\"" + result.type + "\")", options, receivedPropertyNamesFromEvaluate.bind(this));
             } else
                 console.error("Unknown result type: " + result.type);
         }
@@ -215,20 +219,20 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
 
             updateLastPropertyNames.call(this, propertyNames);
 
-            WI.runtimeManager.activeExecutionContext.target.RuntimeAgent.releaseObjectGroup("completion");
+            WebInspector.runtimeManager.activeExecutionContext.target.RuntimeAgent.releaseObjectGroup("completion");
 
             if (!base) {
-                let commandLineAPI = WI.JavaScriptRuntimeCompletionProvider._commandLineAPI.slice(0);
-                if (WI.debuggerManager.paused) {
-                    let targetData = WI.debuggerManager.dataForTarget(WI.runtimeManager.activeExecutionContext.target);
-                    if (targetData.pauseReason === WI.DebuggerManager.PauseReason.Exception)
+                var commandLineAPI = ["$", "$$", "$x", "dir", "dirxml", "keys", "values", "profile", "profileEnd", "monitorEvents", "unmonitorEvents", "inspect", "copy", "clear", "getEventListeners", "$0", "$_"];
+                if (WebInspector.debuggerManager.paused) {
+                    let targetData = WebInspector.debuggerManager.dataForTarget(WebInspector.runtimeManager.activeExecutionContext.target);
+                    if (targetData.pauseReason === WebInspector.DebuggerManager.PauseReason.Exception)
                         commandLineAPI.push("$exception");
                 }
-                for (let name of commandLineAPI)
-                    propertyNames[name] = true;
+                for (var i = 0; i < commandLineAPI.length; ++i)
+                    propertyNames[commandLineAPI[i]] = true;
 
                 // FIXME: Due to caching, sometimes old $n values show up as completion results even though they are not available. We should clear that proactively.
-                for (var i = 1; i <= WI.ConsoleCommandResultMessage.maximumSavedResultIndex; ++i)
+                for (var i = 1; i <= WebInspector.ConsoleCommandResultMessage.maximumSavedResultIndex; ++i)
                     propertyNames["$" + i] = true;
             }
 
@@ -278,7 +282,7 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
                     return -1;
 
                 // Not numbers, sort as strings.
-                return a.extendedLocaleCompare(b);
+                return a.localeCompare(b);
             }
 
             completions.sort(compare);
@@ -301,25 +305,3 @@ WI.JavaScriptRuntimeCompletionProvider = class JavaScriptRuntimeCompletionProvid
         this._lastPropertyNames = null;
     }
 };
-
-WI.JavaScriptRuntimeCompletionProvider._commandLineAPI = [
-    "$",
-    "$$",
-    "$0",
-    "$_",
-    "$x",
-    "clear",
-    "copy",
-    "dir",
-    "dirxml",
-    "getEventListeners",
-    "inspect",
-    "keys",
-    "monitorEvents",
-    "profile",
-    "profileEnd",
-    "queryObjects",
-    "table",
-    "unmonitorEvents",
-    "values",
-];

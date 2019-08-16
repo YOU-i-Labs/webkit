@@ -36,13 +36,15 @@ AnimationEvent::AnimationEvent(const AtomicString& type, const Init& initializer
 }
 
 AnimationEvent::AnimationEvent(const AtomicString& type, const String& animationName, double elapsedTime)
-    : Event(type, CanBubble::Yes, IsCancelable::No)
+    : Event(type, true, false)
     , m_animationName(animationName)
     , m_elapsedTime(elapsedTime)
 {
 }
 
-AnimationEvent::~AnimationEvent() = default;
+AnimationEvent::~AnimationEvent()
+{
+}
 
 const String& AnimationEvent::animationName() const
 {

@@ -26,15 +26,14 @@
 
 #pragma once
 
-#include <wtf/URL.h>
+#include "URL.h"
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class ResourceError;
 
-WEBCORE_EXPORT extern const char* const errorDomainWebKitInternal; // Used for errors that won't be exposed to clients.
-WEBCORE_EXPORT extern const char* const errorDomainWebKitServiceWorker; // Used for errors that happen when loading a resource from a service worker.
+extern const char* const errorDomainWebKitInternal; // Used for errors that won't be exposed to clients.
 
 class ResourceErrorBase {
 public:
@@ -45,7 +44,7 @@ public:
     const URL& failingURL() const { lazyInit(); return m_failingURL; }
     const String& localizedDescription() const { lazyInit(); return m_localizedDescription; }
 
-    enum class Type : uint8_t {
+    enum class Type {
         Null,
         General,
         AccessControl,
@@ -61,7 +60,7 @@ public:
 
     static bool compare(const ResourceError&, const ResourceError&);
 
-    WEBCORE_EXPORT void setType(Type);
+    void setType(Type);
     Type type() const { return m_type; }
 
 protected:

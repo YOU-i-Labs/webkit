@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,22 +25,25 @@
 
 #pragma once
 
-#include "JSDestructibleObject.h"
+#include "JSObject.h"
 #include "StackFrame.h"
 #include <wtf/Vector.h>
 
 namespace JSC {
     
-class Exception final : public JSDestructibleObject {
+class Exception : public JSNonFinalObject {
 public:
-    typedef JSDestructibleObject Base;
-    static const unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;
+    typedef JSNonFinalObject Base;
+    static const unsigned StructureFlags = StructureIsImmortal | Base::StructureFlags;
 
     enum StackCaptureAction {
         CaptureStack,
         DoNotCaptureStack
     };
     JS_EXPORT_PRIVATE static Exception* create(VM&, JSValue thrownValue, StackCaptureAction = CaptureStack);
+
+    static const bool needsDestruction = true;
+    static void destroy(JSCell*);
 
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue prototype);
 
@@ -64,7 +67,6 @@ public:
 private:
     Exception(VM&);
     void finishCreation(VM&, JSValue thrownValue, StackCaptureAction);
-    static void destroy(JSCell*);
 
     WriteBarrier<Unknown> m_value;
     Vector<StackFrame> m_stack;

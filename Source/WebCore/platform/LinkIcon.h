@@ -26,9 +26,8 @@
 #pragma once
 
 #include "LinkIconType.h"
-#include <wtf/HashMap.h>
+#include "URL.h"
 #include <wtf/Optional.h>
-#include <wtf/URL.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -37,8 +36,7 @@ struct LinkIcon {
     URL url;
     LinkIconType type;
     String mimeType;
-    Optional<unsigned> size;
-    Vector<std::pair<String, String>> attributes;
+    std::optional<unsigned> size;
 
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static bool decode(Decoder&, LinkIcon&);
@@ -47,7 +45,7 @@ struct LinkIcon {
 template<class Encoder>
 void LinkIcon::encode(Encoder& encoder) const
 {
-    encoder << url << mimeType << size << attributes;
+    encoder << url << mimeType << size;
     encoder.encodeEnum(type);
 }
 
@@ -61,9 +59,6 @@ bool LinkIcon::decode(Decoder& decoder, LinkIcon& result)
         return false;
 
     if (!decoder.decode(result.size))
-        return false;
-
-    if (!decoder.decode(result.attributes))
         return false;
 
     if (!decoder.decodeEnum(result.type))

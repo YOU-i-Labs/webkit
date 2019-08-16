@@ -53,7 +53,9 @@ MemoryIndex::MemoryIndex(const IDBIndexInfo& info, MemoryObjectStore& objectStor
 {
 }
 
-MemoryIndex::~MemoryIndex() = default;
+MemoryIndex::~MemoryIndex()
+{
+}
 
 void MemoryIndex::cursorDidBecomeClean(MemoryIndexCursor& cursor)
 {
@@ -77,13 +79,17 @@ void MemoryIndex::objectStoreCleared()
 
 void MemoryIndex::notifyCursorsOfValueChange(const IDBKeyData& indexKey, const IDBKeyData& primaryKey)
 {
-    for (auto* cursor : copyToVector(m_cleanCursors))
+    Vector<MemoryIndexCursor*> cursors;
+    copyToVector(m_cleanCursors, cursors);
+    for (auto* cursor : cursors)
         cursor->indexValueChanged(indexKey, primaryKey);
 }
 
 void MemoryIndex::notifyCursorsOfAllRecordsChanged()
 {
-    for (auto* cursor : copyToVector(m_cleanCursors))
+    Vector<MemoryIndexCursor*> cursors;
+    copyToVector(m_cleanCursors, cursors);
+    for (auto* cursor : cursors)
         cursor->indexRecordsAllChanged();
 
     ASSERT(m_cleanCursors.isEmpty());
@@ -152,7 +158,7 @@ uint64_t MemoryIndex::countForKeyRange(const IDBKeyRangeData& inRange)
     return count;
 }
 
-void MemoryIndex::getAllRecords(const IDBKeyRangeData& keyRangeData, Optional<uint32_t> count, IndexedDB::GetAllType type, IDBGetAllResult& result) const
+void MemoryIndex::getAllRecords(const IDBKeyRangeData& keyRangeData, std::optional<uint32_t> count, IndexedDB::GetAllType type, IDBGetAllResult& result) const
 {
     LOG(IndexedDB, "MemoryIndex::getAllRecords");
 
@@ -212,7 +218,7 @@ IDBError MemoryIndex::putIndexKey(const IDBKeyData& valueKey, const IndexKey& in
     if (m_info.unique()) {
         for (auto& key : keys) {
             if (m_records->contains(key))
-                return IDBError(ConstraintError);
+                return IDBError(IDBDatabaseException::ConstraintError);
         }
     }
 
@@ -222,7 +228,7 @@ IDBError MemoryIndex::putIndexKey(const IDBKeyData& valueKey, const IndexKey& in
         notifyCursorsOfValueChange(key, valueKey);
     }
 
-    return IDBError { };
+    return { };
 }
 
 void MemoryIndex::removeRecord(const IDBKeyData& valueKey, const IndexKey& indexKey)

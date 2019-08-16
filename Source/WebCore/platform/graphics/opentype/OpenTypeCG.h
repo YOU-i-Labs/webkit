@@ -30,7 +30,7 @@
 #include <CoreText/CoreText.h>
 
 #if PLATFORM(WIN)
-#include <pal/spi/win/CoreTextSPIWin.h>
+#include "CoreTextSPIWin.h"
 #endif
 
 namespace WebCore {

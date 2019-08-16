@@ -17,11 +17,8 @@
  *  Boston, MA 02110-1301, USA.
  */
 
-#pragma once
-
-#include <wtf/Platform.h>
-
-#if USE(SOUP)
+#ifndef GUniquePtrSoup_h
+#define GUniquePtrSoup_h
 
 #include <libsoup/soup.h>
 #include <wtf/glib/GUniquePtr.h>
@@ -35,4 +32,4 @@ WTF_DEFINE_GPTR_DELETER(SoupBuffer, soup_buffer_free)
 
 } // namespace WTF
 
-#endif // USE(SOUP)
+#endif

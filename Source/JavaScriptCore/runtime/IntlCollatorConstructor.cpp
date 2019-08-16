@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Andy VanWagoner (andy@vanwagoner.family)
+ * Copyright (C) 2015 Andy VanWagoner (thetalecrafter@gmail.com)
  * Copyright (C) 2015 Sukolsak Sakshuwong (sukolsak@gmail.com)
  * Copyright (C) 2016 Apple Inc. All Rights Reserved.
  *
@@ -49,9 +49,6 @@ static EncodedJSValue JSC_HOST_CALL IntlCollatorConstructorFuncSupportedLocalesO
 
 namespace JSC {
 
-static EncodedJSValue JSC_HOST_CALL callIntlCollator(ExecState*);
-static EncodedJSValue JSC_HOST_CALL constructIntlCollator(ExecState*);
-
 const ClassInfo IntlCollatorConstructor::s_info = { "Function", &InternalFunction::s_info, &collatorConstructorTable, nullptr, CREATE_METHOD_TABLE(IntlCollatorConstructor) };
 
 /* Source for IntlCollatorConstructor.lut.h
@@ -69,20 +66,19 @@ IntlCollatorConstructor* IntlCollatorConstructor::create(VM& vm, Structure* stru
 
 Structure* IntlCollatorConstructor::createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
 {
-    return Structure::create(vm, globalObject, prototype, TypeInfo(InternalFunctionType, StructureFlags), info());
+    return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
 }
 
 IntlCollatorConstructor::IntlCollatorConstructor(VM& vm, Structure* structure)
-    : InternalFunction(vm, structure, callIntlCollator, constructIntlCollator)
+    : InternalFunction(vm, structure)
 {
 }
 
 void IntlCollatorConstructor::finishCreation(VM& vm, IntlCollatorPrototype* collatorPrototype, Structure* collatorStructure)
 {
-    Base::finishCreation(vm, "Collator"_s);
-    putDirectWithoutTransition(vm, vm.propertyNames->prototype, collatorPrototype, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
-    putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(0), PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum);
-    collatorPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, this, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    Base::finishCreation(vm, ASCIILiteral("Collator"));
+    putDirectWithoutTransition(vm, vm.propertyNames->prototype, collatorPrototype, DontEnum | DontDelete | ReadOnly);
+    putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(0), ReadOnly | DontEnum | DontDelete);
     m_collatorStructure.set(vm, this, collatorStructure);
 }
 
@@ -127,6 +123,18 @@ static EncodedJSValue JSC_HOST_CALL callIntlCollator(ExecState* state)
     return JSValue::encode(collator);
 }
 
+ConstructType IntlCollatorConstructor::getConstructData(JSCell*, ConstructData& constructData)
+{
+    constructData.native.function = constructIntlCollator;
+    return ConstructType::Host;
+}
+
+CallType IntlCollatorConstructor::getCallData(JSCell*, CallData& callData)
+{
+    callData.native.function = callIntlCollator;
+    return CallType::Host;
+}
+
 EncodedJSValue JSC_HOST_CALL IntlCollatorConstructorFuncSupportedLocalesOf(ExecState* state)
 {
     VM& vm = state->vm();
@@ -140,8 +148,9 @@ EncodedJSValue JSC_HOST_CALL IntlCollatorConstructorFuncSupportedLocalesOf(ExecS
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
     // 3. Return SupportedLocales(%Collator%.[[availableLocales]], requestedLocales, options).
-    JSGlobalObject* globalObject = state->jsCallee()->globalObject(vm);
-    RELEASE_AND_RETURN(scope, JSValue::encode(supportedLocales(*state, globalObject->intlCollatorAvailableLocales(), requestedLocales, state->argument(1))));
+    JSGlobalObject* globalObject = state->jsCallee()->globalObject();
+    scope.release();
+    return JSValue::encode(supportedLocales(*state, globalObject->intlCollatorAvailableLocales(), requestedLocales, state->argument(1)));
 }
 
 void IntlCollatorConstructor::visitChildren(JSCell* cell, SlotVisitor& visitor)

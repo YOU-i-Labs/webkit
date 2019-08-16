@@ -103,7 +103,7 @@ Invalidator::CheckDescendants Invalidator::invalidateIfNeeded(Element& element, 
     if (m_hasShadowPseudoElementRulesInAuthorSheet) {
         // FIXME: This could do actual rule matching too.
         if (element.shadowRoot())
-            element.invalidateStyleForSubtreeInternal();
+            element.invalidateStyleForSubtree();
     }
 
     bool shouldCheckForSlots = !m_ruleSet.slottedPseudoElementRules().isEmpty() && !m_didInvalidateHostChildren;
@@ -111,7 +111,7 @@ Invalidator::CheckDescendants Invalidator::invalidateIfNeeded(Element& element, 
         auto* containingShadowRoot = element.containingShadowRoot();
         if (containingShadowRoot && containingShadowRoot->host()) {
             for (auto& possiblySlotted : childrenOfType<Element>(*containingShadowRoot->host()))
-                possiblySlotted.invalidateStyleInternal();
+                possiblySlotted.invalidateStyle();
         }
         // No need to do this again.
         m_didInvalidateHostChildren = true;
@@ -124,7 +124,7 @@ Invalidator::CheckDescendants Invalidator::invalidateIfNeeded(Element& element, 
         ruleCollector.matchAuthorRules(false);
 
         if (ruleCollector.hasMatchedRules())
-            element.invalidateStyleInternal();
+            element.invalidateStyle();
         return CheckDescendants::Yes;
     }
     case Style::Validity::ElementInvalid:
@@ -143,11 +143,7 @@ void Invalidator::invalidateStyleForTree(Element& root, SelectorFilter* filter)
 {
     if (invalidateIfNeeded(root, filter) == CheckDescendants::No)
         return;
-    invalidateStyleForDescendants(root, filter);
-}
 
-void Invalidator::invalidateStyleForDescendants(Element& root, SelectorFilter* filter)
-{
     Vector<Element*, 20> parentStack;
     Element* previousElement = &root;
     auto descendants = descendantsOfType<Element>(root);
@@ -158,7 +154,7 @@ void Invalidator::invalidateStyleForDescendants(Element& root, SelectorFilter* f
             if (parent == previousElement) {
                 parentStack.append(parent);
                 if (filter)
-                    filter->pushParentInitializingIfNeeded(*parent);
+                    filter->pushParent(parent);
             } else {
                 while (parentStack.last() != parent) {
                     parentStack.removeLast();
@@ -193,7 +189,7 @@ void Invalidator::invalidateStyle(ShadowRoot& shadowRoot)
     ASSERT(!m_dirtiesAllStyle);
 
     if (!m_ruleSet.hostPseudoClassRules().isEmpty() && shadowRoot.host())
-        shadowRoot.host()->invalidateStyleInternal();
+        shadowRoot.host()->invalidateStyle();
 
     for (auto& child : childrenOfType<Element>(shadowRoot)) {
         SelectorFilter filter;
@@ -207,59 +203,6 @@ void Invalidator::invalidateStyle(Element& element)
 
     // Don't use SelectorFilter as the rule sets here tend to be small and the filter would have setup cost deep in the tree.
     invalidateStyleForTree(element, nullptr);
-}
-
-void Invalidator::invalidateStyleWithMatchElement(Element& element, MatchElement matchElement)
-{
-    switch (matchElement) {
-    case MatchElement::Subject: {
-        invalidateIfNeeded(element, nullptr);
-        break;
-    }
-    case MatchElement::Parent: {
-        auto children = childrenOfType<Element>(element);
-        for (auto& child : children)
-            invalidateIfNeeded(child, nullptr);
-        break;
-    }
-    case MatchElement::Ancestor: {
-        SelectorFilter filter;
-        invalidateStyleForDescendants(element, &filter);
-        break;
-    }
-    case MatchElement::DirectSibling:
-        if (auto* sibling = element.nextElementSibling())
-            invalidateIfNeeded(*sibling, nullptr);
-        break;
-    case MatchElement::IndirectSibling:
-        for (auto* sibling = element.nextElementSibling(); sibling; sibling = sibling->nextElementSibling())
-            invalidateIfNeeded(*sibling, nullptr);
-        break;
-    case MatchElement::AnySibling: {
-        auto parentChildren = childrenOfType<Element>(*element.parentNode());
-        for (auto& parentChild : parentChildren)
-            invalidateIfNeeded(parentChild, nullptr);
-        break;
-    }
-    case MatchElement::ParentSibling:
-        for (auto* sibling = element.nextElementSibling(); sibling; sibling = sibling->nextElementSibling()) {
-            auto siblingChildren = childrenOfType<Element>(*sibling);
-            for (auto& siblingChild : siblingChildren)
-                invalidateIfNeeded(siblingChild, nullptr);
-        }
-        break;
-    case MatchElement::AncestorSibling: {
-        SelectorFilter filter;
-        for (auto* sibling = element.nextElementSibling(); sibling; sibling = sibling->nextElementSibling()) {
-            filter.popParentsUntil(element.parentElement());
-            invalidateStyleForDescendants(*sibling, &filter);
-        }
-        break;
-    }
-    case MatchElement::Host:
-        // FIXME: Handle this here as well.
-        break;
-    }
 }
 
 }

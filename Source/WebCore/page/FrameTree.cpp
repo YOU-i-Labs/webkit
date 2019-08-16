@@ -22,16 +22,16 @@
 #include "FrameTree.h"
 
 #include "Document.h"
-#include "Frame.h"
 #include "FrameView.h"
 #include "HTMLFrameOwnerElement.h"
+#include "MainFrame.h"
 #include "Page.h"
 #include "PageGroup.h"
 #include <stdarg.h>
+#include <wtf/StringExtras.h>
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
-#include <wtf/text/StringConcatenateNumbers.h>
 
 namespace WebCore {
 
@@ -48,19 +48,32 @@ void FrameTree::setName(const AtomicString& name)
         m_uniqueName = name;
         return;
     }
-    m_uniqueName = nullAtom(); // Remove our old frame name so it's not considered in uniqueChildName.
+    m_uniqueName = nullAtom; // Remove our old frame name so it's not considered in uniqueChildName.
     m_uniqueName = parent()->tree().uniqueChildName(name);
 }
 
 void FrameTree::clearName()
 {
-    m_name = nullAtom();
-    m_uniqueName = nullAtom();
+    m_name = nullAtom;
+    m_uniqueName = nullAtom;
 }
 
 Frame* FrameTree::parent() const 
 { 
     return m_parent;
+}
+
+unsigned FrameTree::indexInParent() const
+{
+    if (!m_parent)
+        return 0;
+    unsigned index = 0;
+    for (Frame* frame = m_parent->tree().firstChild(); frame; frame = frame->tree().nextSibling()) {
+        if (&frame->tree() == this)
+            return index;
+        ++index;
+    }
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 void FrameTree::appendChild(Frame& child)
@@ -99,18 +112,46 @@ AtomicString FrameTree::uniqueChildName(const AtomicString& requestedName) const
     if (!requestedName.isEmpty() && !child(requestedName) && !equalIgnoringASCIICase(requestedName, "_blank"))
         return requestedName;
 
-    // The "name" attribute was not unique or absent. Generate a name based on a counter on the main frame that gets reset
-    // on navigation. The name uses HTML comment syntax to avoid collisions with author names.
-    return generateUniqueName();
-}
+    // The "name" attribute was not unique or absent. Generate a name based on the
+    // new frame's location in the frame tree. The name uses HTML comment syntax to
+    // avoid collisions with author names.
 
-AtomicString FrameTree::generateUniqueName() const
-{
-    auto& top = this->top();
-    if (&top.tree() != this)
-        return top.tree().generateUniqueName();
+    // An example path for the third child of the second child of the root frame:
+    // <!--framePath //<!--frame1-->/<!--frame2-->-->
 
-    return makeString("<!--frame", ++m_frameIDGenerator, "-->");
+    const char framePathPrefix[] = "<!--framePath ";
+    const int framePathPrefixLength = 14;
+    const int framePathSuffixLength = 3;
+
+    // Find the nearest parent that has a frame with a path in it.
+    Vector<Frame*, 16> chain;
+    Frame* frame;
+    for (frame = &m_thisFrame; frame; frame = frame->tree().parent()) {
+        if (frame->tree().uniqueName().startsWith(framePathPrefix))
+            break;
+        chain.append(frame);
+    }
+    StringBuilder name;
+    name.append(framePathPrefix);
+    if (frame) {
+        name.append(frame->tree().uniqueName().string().substring(framePathPrefixLength,
+            frame->tree().uniqueName().length() - framePathPrefixLength - framePathSuffixLength));
+    }
+    for (int i = chain.size() - 1; i >= 0; --i) {
+        frame = chain[i];
+        name.append('/');
+        if (frame->tree().parent()) {
+            name.appendLiteral("<!--frame");
+            name.appendNumber(frame->tree().indexInParent());
+            name.appendLiteral("-->");
+        }
+    }
+
+    name.appendLiteral("/<!--frame");
+    name.appendNumber(childCount());
+    name.appendLiteral("-->-->");
+
+    return name.toAtomicString();
 }
 
 static bool inScope(Frame& frame, TreeScope& scope)
@@ -208,19 +249,7 @@ Frame* FrameTree::child(const AtomicString& name) const
     return nullptr;
 }
 
-// FrameTree::find() only returns frames in pages that are related to the active
-// page by an opener <-> openee relationship.
-static bool isFrameFamiliarWith(Frame& frameA, Frame& frameB)
-{
-    if (frameA.page() == frameB.page())
-        return true;
-
-    auto* frameAOpener = frameA.mainFrame().loader().opener();
-    auto* frameBOpener = frameB.mainFrame().loader().opener();
-    return (frameAOpener && frameAOpener->page() == frameB.page()) || (frameBOpener && frameBOpener->page() == frameA.page()) || (frameAOpener && frameBOpener && frameAOpener->page() == frameBOpener->page());
-}
-
-Frame* FrameTree::find(const AtomicString& name, Frame& activeFrame) const
+Frame* FrameTree::find(const AtomicString& name) const
 {
     // FIXME: _current is not part of the HTML specification.
     if (equalIgnoringASCIICase(name, "_self") || name == "_current" || name.isEmpty())
@@ -257,8 +286,8 @@ Frame* FrameTree::find(const AtomicString& name, Frame& activeFrame) const
     for (auto* otherPage : page->group().pages()) {
         if (otherPage == page)
             continue;
-        for (auto* frame = &otherPage->mainFrame(); frame; frame = frame->tree().traverseNext()) {
-            if (frame->tree().uniqueName() == name && isFrameFamiliarWith(activeFrame, *frame))
+        for (Frame* frame = &otherPage->mainFrame(); frame; frame = frame->tree().traverseNext()) {
+            if (frame->tree().uniqueName() == name)
                 return frame;
         }
     }

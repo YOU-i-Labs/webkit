@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,21 +33,25 @@
 #include "LowLevelInterpreter.h"
 #include "JSCInlines.h"
 
-#if LLINT_TRACING
+#if LLINT_SLOW_PATH_TRACING
 #include "Exception.h"
 #endif
 
 namespace JSC { namespace LLInt {
 
+Instruction* returnToThrowForThrownException(ExecState* exec)
+{
+    UNUSED_PARAM(exec);
+    return LLInt::exceptionInstructions();
+}
+
 Instruction* returnToThrow(ExecState* exec)
 {
     UNUSED_PARAM(exec);
-#if LLINT_TRACING
-    if (UNLIKELY(Options::traceLLIntSlowPath())) {
-        VM* vm = &exec->vm();
-        auto scope = DECLARE_CATCH_SCOPE(*vm);
-        dataLog("Throwing exception ", JSValue(scope.exception()), " (returnToThrow).\n");
-    }
+#if LLINT_SLOW_PATH_TRACING
+    VM* vm = &exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(*vm);
+    dataLog("Throwing exception ", JSValue(scope.exception()), " (returnToThrow).\n");
 #endif
     return LLInt::exceptionInstructions();
 }
@@ -55,14 +59,12 @@ Instruction* returnToThrow(ExecState* exec)
 void* callToThrow(ExecState* exec)
 {
     UNUSED_PARAM(exec);
-#if LLINT_TRACING
-    if (UNLIKELY(Options::traceLLIntSlowPath())) {
-        VM* vm = &exec->vm();
-        auto scope = DECLARE_CATCH_SCOPE(*vm);
-        dataLog("Throwing exception ", JSValue(scope.exception()), " (callToThrow).\n");
-    }
+#if LLINT_SLOW_PATH_TRACING
+    VM* vm = &exec->vm();
+    auto scope = DECLARE_THROW_SCOPE(*vm);
+    dataLog("Throwing exception ", JSValue(scope.exception()), " (callToThrow).\n");
 #endif
-    return LLInt::getCodePtr<ExceptionHandlerPtrTag>(llint_throw_during_call_trampoline).executableAddress();
+    return LLInt::getCodePtr(llint_throw_during_call_trampoline);
 }
 
 } } // namespace JSC::LLInt

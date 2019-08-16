@@ -43,7 +43,7 @@
 
 namespace WebCore {
 
-class DOMException;
+class DOMError;
 class DOMStringList;
 class IDBCursor;
 class IDBCursorInfo;
@@ -76,7 +76,7 @@ public:
     Ref<DOMStringList> objectStoreNames() const;
     IDBTransactionMode mode() const { return m_info.mode(); }
     IDBDatabase* db();
-    DOMException* error() const;
+    DOMError* error() const;
     ExceptionOr<Ref<IDBObjectStore>> objectStore(const String& name);
     ExceptionOr<void> abort();
 
@@ -85,7 +85,7 @@ public:
     void refEventTarget() final { ThreadSafeRefCounted::ref(); }
     void derefEventTarget() final { ThreadSafeRefCounted::deref(); }
     using EventTarget::dispatchEvent;
-    void dispatchEvent(Event&) final;
+    bool dispatchEvent(Event&) final;
 
     using ThreadSafeRefCounted<IDBTransaction>::ref;
     using ThreadSafeRefCounted<IDBTransaction>::deref;
@@ -115,8 +115,8 @@ public:
 
     Ref<IDBRequest> requestPutOrAdd(JSC::ExecState&, IDBObjectStore&, IDBKey*, SerializedScriptValue&, IndexedDB::ObjectStoreOverwriteMode);
     Ref<IDBRequest> requestGetRecord(JSC::ExecState&, IDBObjectStore&, const IDBGetRecordData&);
-    Ref<IDBRequest> requestGetAllObjectStoreRecords(JSC::ExecState&, IDBObjectStore&, const IDBKeyRangeData&, IndexedDB::GetAllType, Optional<uint32_t> count);
-    Ref<IDBRequest> requestGetAllIndexRecords(JSC::ExecState&, IDBIndex&, const IDBKeyRangeData&, IndexedDB::GetAllType, Optional<uint32_t> count);
+    Ref<IDBRequest> requestGetAllObjectStoreRecords(JSC::ExecState&, IDBObjectStore&, const IDBKeyRangeData&, IndexedDB::GetAllType, std::optional<uint32_t> count);
+    Ref<IDBRequest> requestGetAllIndexRecords(JSC::ExecState&, IDBIndex&, const IDBKeyRangeData&, IndexedDB::GetAllType, std::optional<uint32_t> count);
     Ref<IDBRequest> requestDeleteRecord(JSC::ExecState&, IDBObjectStore&, const IDBKeyRangeData&);
     Ref<IDBRequest> requestClearObjectStore(JSC::ExecState&, IDBObjectStore&);
     Ref<IDBRequest> requestCount(JSC::ExecState&, IDBObjectStore&, const IDBKeyRangeData&);
@@ -133,7 +133,7 @@ public:
     void addRequest(IDBRequest&);
     void removeRequest(IDBRequest&);
 
-    void abortDueToFailedRequest(DOMException&);
+    void abortDueToFailedRequest(DOMError&);
 
     void activate();
     void deactivate();
@@ -162,7 +162,7 @@ private:
     void finishAbortOrCommit();
     void abortInProgressOperations(const IDBError&);
 
-    void scheduleOperation(Ref<IDBClient::TransactionOperation>&&);
+    void scheduleOperation(RefPtr<IDBClient::TransactionOperation>&&);
     void pendingOperationTimerFired();
     void completedOperationTimerFired();
 
@@ -235,7 +235,7 @@ private:
     bool m_startedOnServer { false };
 
     IDBError m_idbError;
-    RefPtr<DOMException> m_domError;
+    RefPtr<DOMError> m_domError;
 
     Timer m_pendingOperationTimer;
     Timer m_completedOperationTimer;

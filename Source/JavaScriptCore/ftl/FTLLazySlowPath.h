@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,37 +59,35 @@ public:
     typedef SharedTask<GeneratorFunction> Generator;
 
     template<typename Functor>
-    static Ref<Generator> createGenerator(const Functor& functor)
+    static RefPtr<Generator> createGenerator(const Functor& functor)
     {
         return createSharedTask<GeneratorFunction>(functor);
     }
-
-    LazySlowPath() = default;
-
-    ~LazySlowPath();
-
-    void initialize(
-        CodeLocationJump<JSInternalPtrTag> patchableJump, CodeLocationLabel<JSInternalPtrTag> done,
-        CodeLocationLabel<ExceptionHandlerPtrTag> exceptionTarget, const RegisterSet& usedRegisters,
+    
+    LazySlowPath(
+        CodeLocationJump patchableJump, CodeLocationLabel done,
+        CodeLocationLabel exceptionTarget, const RegisterSet& usedRegisters,
         CallSiteIndex, RefPtr<Generator>
         );
 
-    CodeLocationJump<JSInternalPtrTag> patchableJump() const { return m_patchableJump; }
-    CodeLocationLabel<JSInternalPtrTag> done() const { return m_done; }
+    ~LazySlowPath();
+
+    CodeLocationJump patchableJump() const { return m_patchableJump; }
+    CodeLocationLabel done() const { return m_done; }
     const RegisterSet& usedRegisters() const { return m_usedRegisters; }
     CallSiteIndex callSiteIndex() const { return m_callSiteIndex; }
 
     void generate(CodeBlock*);
 
-    MacroAssemblerCodeRef<JITStubRoutinePtrTag> stub() const { return m_stub; }
+    MacroAssemblerCodeRef stub() const { return m_stub; }
 
 private:
-    CodeLocationJump<JSInternalPtrTag> m_patchableJump;
-    CodeLocationLabel<JSInternalPtrTag> m_done;
-    CodeLocationLabel<ExceptionHandlerPtrTag> m_exceptionTarget;
+    CodeLocationJump m_patchableJump;
+    CodeLocationLabel m_done;
+    CodeLocationLabel m_exceptionTarget;
     RegisterSet m_usedRegisters;
     CallSiteIndex m_callSiteIndex;
-    MacroAssemblerCodeRef<JITStubRoutinePtrTag> m_stub;
+    MacroAssemblerCodeRef m_stub;
     RefPtr<Generator> m_generator;
 };
 

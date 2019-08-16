@@ -97,7 +97,9 @@ void RenderThemeWidget::clearCache()
     widgetMap().clear();
 }
 
-RenderThemeWidget::~RenderThemeWidget() = default;
+RenderThemeWidget::~RenderThemeWidget()
+{
+}
 
 RenderThemeScrollbar::RenderThemeScrollbar(GtkOrientation orientation, Mode mode, VerticalPosition verticalPosition)
 {
@@ -182,7 +184,7 @@ RenderThemeToggleButton::RenderThemeToggleButton(Type toggleType)
 
 RenderThemeButton::RenderThemeButton(Default isDefault)
 {
-    RenderThemeGadget::Info info = { RenderThemeGadget::Type::Button, "button", { "text-button" } };
+    RenderThemeGadget::Info info = { RenderThemeGadget::Type::Generic, "button", { "text-button" } };
     if (isDefault == Default::Yes)
         info.classList.append("default");
     m_button = RenderThemeGadget::create(info);

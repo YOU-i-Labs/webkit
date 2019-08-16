@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.FindBanner = class FindBanner extends WI.NavigationItem
+WebInspector.FindBanner = class FindBanner extends WebInspector.NavigationItem
 {
     constructor(delegate, className, fixed = false)
     {
@@ -53,39 +53,44 @@ WI.FindBanner = class FindBanner extends WI.NavigationItem
         this._previousResultButton = document.createElement("button");
         this._previousResultButton.classList.add("segmented", "previous-result");
         this._previousResultButton.disabled = true;
-        this._previousResultButton.title = WI.UIString("Find Previous (%s)").format(WI.findPreviousKeyboardShortcut.displayName);
         this._previousResultButton.addEventListener("click", this._previousResultButtonClicked.bind(this));
         this.element.appendChild(this._previousResultButton);
 
         let previousResultButtonGlyphElement = document.createElement("div");
-        previousResultButtonGlyphElement.classList.add(WI.FindBanner.SegmentGlyphStyleClassName);
+        previousResultButtonGlyphElement.classList.add(WebInspector.FindBanner.SegmentGlyphStyleClassName);
         this._previousResultButton.appendChild(previousResultButtonGlyphElement);
 
         this._nextResultButton = document.createElement("button");
         this._nextResultButton.classList.add("segmented", "next-result");
         this._nextResultButton.disabled = true;
-        this._nextResultButton.title = WI.UIString("Find Next (%s)").format(WI.findNextKeyboardShortcut.displayName);
         this._nextResultButton.addEventListener("click", this._nextResultButtonClicked.bind(this));
         this.element.appendChild(this._nextResultButton);
 
         let nextResultButtonGlyphElement = document.createElement("div");
-        nextResultButtonGlyphElement.classList.add(WI.FindBanner.SegmentGlyphStyleClassName);
+        nextResultButtonGlyphElement.classList.add(WebInspector.FindBanner.SegmentGlyphStyleClassName);
         this._nextResultButton.appendChild(nextResultButtonGlyphElement);
 
         if (fixed)
-            this._clearAndBlurKeyboardShortcut = new WI.KeyboardShortcut(null, WI.KeyboardShortcut.Key.Escape, this._clearAndBlur.bind(this), this.element);
+            this._clearAndBlurKeyboardShortcut = new WebInspector.KeyboardShortcut(null, WebInspector.KeyboardShortcut.Key.Escape, this._clearAndBlur.bind(this), this.element);
         else {
             let doneButtonElement = document.createElement("button");
-            doneButtonElement.textContent = WI.UIString("Done");
+            doneButtonElement.textContent = WebInspector.UIString("Done");
             doneButtonElement.addEventListener("click", this._doneButtonClicked.bind(this));
             this.element.appendChild(doneButtonElement);
-            this._hideKeyboardShortcut = new WI.KeyboardShortcut(null, WI.KeyboardShortcut.Key.Escape, this.hide.bind(this), this.element);
+            this._hideKeyboardShortcut = new WebInspector.KeyboardShortcut(null, WebInspector.KeyboardShortcut.Key.Escape, this.hide.bind(this), this.element);
         }
 
         this._numberOfResults = null;
         this._searchBackwards = false;
         this._searchKeyPressed = false;
         this._previousSearchValue = "";
+
+        this._populateFindKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl, "E", this._populateSearchQueryFromSelection.bind(this));
+        this._populateFindKeyboardShortcut.implicitlyPreventsDefault = false;
+        this._findNextKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl, "G", this._nextResultButtonClicked.bind(this));
+        this._findPreviousKeyboardShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.Shift | WebInspector.KeyboardShortcut.Modifier.CommandOrControl, "G", this._previousResultButtonClicked.bind(this));
+
+        this.disableKeyboardShortcuts();
     }
 
     // Public
@@ -104,16 +109,16 @@ WI.FindBanner = class FindBanner extends WI.NavigationItem
 
         this._numberOfResults = numberOfResults;
 
-        this._previousResultButton.disabled = this._nextResultButton.disabled = numberOfResults <= 0;
+        this._previousResultButton.disabled = this._nextResultButton.disabled = (numberOfResults <= 0);
 
         if (numberOfResults === null)
             this._resultCountLabel.textContent = "";
         else if (numberOfResults <= 0)
-            this._resultCountLabel.textContent = WI.UIString("Not found");
+            this._resultCountLabel.textContent = WebInspector.UIString("Not found");
         else if (numberOfResults === 1)
-            this._resultCountLabel.textContent = WI.UIString("1 match");
+            this._resultCountLabel.textContent = WebInspector.UIString("1 match");
         else if (numberOfResults > 1)
-            this._resultCountLabel.textContent = WI.UIString("%d matches").format(numberOfResults);
+            this._resultCountLabel.textContent = WebInspector.UIString("%d matches").format(numberOfResults);
     }
 
     get targetElement()
@@ -125,19 +130,19 @@ WI.FindBanner = class FindBanner extends WI.NavigationItem
     {
         function delayedWork()
         {
-            oldTargetElement.classList.remove(WI.FindBanner.NoTransitionStyleClassName);
-            this.element.classList.remove(WI.FindBanner.NoTransitionStyleClassName);
+            oldTargetElement.classList.remove(WebInspector.FindBanner.NoTransitionStyleClassName);
+            this.element.classList.remove(WebInspector.FindBanner.NoTransitionStyleClassName);
         }
 
         if (this._targetElement) {
             var oldTargetElement = this._targetElement;
 
-            this._targetElement.classList.add(WI.FindBanner.NoTransitionStyleClassName);
-            this._targetElement.classList.remove(WI.FindBanner.SupportsFindBannerStyleClassName);
-            this._targetElement.classList.remove(WI.FindBanner.ShowingFindBannerStyleClassName);
+            this._targetElement.classList.add(WebInspector.FindBanner.NoTransitionStyleClassName);
+            this._targetElement.classList.remove(WebInspector.FindBanner.SupportsFindBannerStyleClassName);
+            this._targetElement.classList.remove(WebInspector.FindBanner.ShowingFindBannerStyleClassName);
 
-            this.element.classList.add(WI.FindBanner.NoTransitionStyleClassName);
-            this.element.classList.remove(WI.FindBanner.ShowingStyleClassName);
+            this.element.classList.add(WebInspector.FindBanner.NoTransitionStyleClassName);
+            this.element.classList.remove(WebInspector.FindBanner.ShowingStyleClassName);
 
             // Delay so we can remove the no transition style class after the other style changes are committed.
             setTimeout(delayedWork.bind(this), 0);
@@ -146,12 +151,12 @@ WI.FindBanner = class FindBanner extends WI.NavigationItem
         this._targetElement = element || null;
 
         if (this._targetElement)
-            this._targetElement.classList.add(WI.FindBanner.SupportsFindBannerStyleClassName);
+            this._targetElement.classList.add(WebInspector.FindBanner.SupportsFindBannerStyleClassName);
     }
 
     get showing()
     {
-        return this.element.classList.contains(WI.FindBanner.ShowingStyleClassName);
+        return this.element.classList.contains(WebInspector.FindBanner.ShowingStyleClassName);
     }
 
     focus()
@@ -191,8 +196,8 @@ WI.FindBanner = class FindBanner extends WI.NavigationItem
 
         function delayedWork()
         {
-            this._targetElement.classList.add(WI.FindBanner.ShowingFindBannerStyleClassName);
-            this.element.classList.add(WI.FindBanner.ShowingStyleClassName);
+            this._targetElement.classList.add(WebInspector.FindBanner.ShowingFindBannerStyleClassName);
+            this.element.classList.add(WebInspector.FindBanner.ShowingStyleClassName);
 
             this._inputField.select();
         }
@@ -201,7 +206,7 @@ WI.FindBanner = class FindBanner extends WI.NavigationItem
         // the document. Adding the class right away will prevent the animation from working the first time.
         setTimeout(delayedWork.bind(this), 0);
 
-        this.dispatchEventToListeners(WI.FindBanner.Event.DidShow);
+        this.dispatchEventToListeners(WebInspector.FindBanner.Event.DidShow);
     }
 
     hide()
@@ -212,10 +217,24 @@ WI.FindBanner = class FindBanner extends WI.NavigationItem
 
         this._inputField.blur();
 
-        this._targetElement.classList.remove(WI.FindBanner.ShowingFindBannerStyleClassName);
-        this.element.classList.remove(WI.FindBanner.ShowingStyleClassName);
+        this._targetElement.classList.remove(WebInspector.FindBanner.ShowingFindBannerStyleClassName);
+        this.element.classList.remove(WebInspector.FindBanner.ShowingStyleClassName);
 
-        this.dispatchEventToListeners(WI.FindBanner.Event.DidHide);
+        this.dispatchEventToListeners(WebInspector.FindBanner.Event.DidHide);
+    }
+
+    enableKeyboardShortcuts()
+    {
+        this._populateFindKeyboardShortcut.disabled = false;
+        this._findNextKeyboardShortcut.disabled = false;
+        this._findPreviousKeyboardShortcut.disabled = false;
+    }
+
+    disableKeyboardShortcuts()
+    {
+        this._populateFindKeyboardShortcut.disabled = true;
+        this._findNextKeyboardShortcut.disabled = true;
+        this._findPreviousKeyboardShortcut.disabled = true;
     }
 
     // Private
@@ -260,6 +279,19 @@ WI.FindBanner = class FindBanner extends WI.NavigationItem
         this._previousSearchValue = this.searchQuery;
     }
 
+    _populateSearchQueryFromSelection(event)
+    {
+        if (this._delegate && typeof this._delegate.findBannerSearchQueryForSelection === "function") {
+            var query = this._delegate.findBannerSearchQueryForSelection(this);
+            if (query) {
+                this.searchQuery = query;
+
+                if (this._delegate && typeof this._delegate.findBannerPerformSearch === "function")
+                    this._delegate.findBannerPerformSearch(this, this.searchQuery);
+            }
+        }
+    }
+
     _previousResultButtonClicked(event)
     {
         if (this._delegate && typeof this._delegate.findBannerRevealPreviousResult === "function")
@@ -278,13 +310,13 @@ WI.FindBanner = class FindBanner extends WI.NavigationItem
     }
 };
 
-WI.FindBanner.SupportsFindBannerStyleClassName = "supports-find-banner";
-WI.FindBanner.ShowingFindBannerStyleClassName = "showing-find-banner";
-WI.FindBanner.NoTransitionStyleClassName = "no-find-banner-transition";
-WI.FindBanner.ShowingStyleClassName = "showing";
-WI.FindBanner.SegmentGlyphStyleClassName = "glyph";
+WebInspector.FindBanner.SupportsFindBannerStyleClassName = "supports-find-banner";
+WebInspector.FindBanner.ShowingFindBannerStyleClassName = "showing-find-banner";
+WebInspector.FindBanner.NoTransitionStyleClassName = "no-find-banner-transition";
+WebInspector.FindBanner.ShowingStyleClassName = "showing";
+WebInspector.FindBanner.SegmentGlyphStyleClassName = "glyph";
 
-WI.FindBanner.Event = {
+WebInspector.FindBanner.Event = {
     DidShow: "find-banner-did-show",
     DidHide: "find-banner-did-hide"
 };

@@ -27,13 +27,11 @@
 #pragma once
 
 #include "Glyph.h"
-#include <wtf/Forward.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
-#include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
 
 #if !ENABLE(OPENTYPE_MATH) && USE(HARFBUZZ)
-#include "HbUniquePtr.h"
 #include <hb-ot.h>
 #endif
 
@@ -135,7 +133,13 @@ private:
 #if ENABLE(OPENTYPE_MATH)
     RefPtr<SharedBuffer> m_mathBuffer;
 #elif USE(HARFBUZZ)
-    HbUniquePtr<hb_font_t> m_mathFont;
+    struct HbFontDeleter {
+        void operator()(hb_font_t* font)
+        {
+            hb_font_destroy(font);
+        }
+    };
+    std::unique_ptr<hb_font_t, HbFontDeleter> m_mathFont;
 #endif
 };
 

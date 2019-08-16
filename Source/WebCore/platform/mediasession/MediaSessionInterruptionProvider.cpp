@@ -35,7 +35,9 @@ MediaSessionInterruptionProvider::MediaSessionInterruptionProvider(MediaSessionI
 {
 }
 
-MediaSessionInterruptionProvider::~MediaSessionInterruptionProvider() = default;
+MediaSessionInterruptionProvider::~MediaSessionInterruptionProvider()
+{
+}
 
 } // namespace WebCore
 

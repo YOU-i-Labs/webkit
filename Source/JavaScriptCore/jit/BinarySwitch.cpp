@@ -33,9 +33,7 @@
 
 namespace JSC {
 
-namespace BinarySwitchInternal {
 static const bool verbose = false;
-}
 
 static unsigned globalCounter; // We use a different seed every time we are invoked.
 
@@ -49,7 +47,7 @@ BinarySwitch::BinarySwitch(GPRReg value, const Vector<int64_t>& cases, Type type
     if (cases.isEmpty())
         return;
 
-    if (BinarySwitchInternal::verbose)
+    if (verbose)
         dataLog("Original cases: ", listDump(cases), "\n");
     
     for (unsigned i = 0; i < cases.size(); ++i)
@@ -57,7 +55,7 @@ BinarySwitch::BinarySwitch(GPRReg value, const Vector<int64_t>& cases, Type type
     
     std::sort(m_cases.begin(), m_cases.end());
 
-    if (BinarySwitchInternal::verbose)
+    if (verbose)
         dataLog("Sorted cases: ", listDump(m_cases), "\n");
     
     for (unsigned i = 1; i < m_cases.size(); ++i)
@@ -137,34 +135,13 @@ bool BinarySwitch::advance(MacroAssembler& jit)
     }
 }
 
-class RandomNumberGenerator {
-public:
-    using result_type = uint32_t;
-
-    RandomNumberGenerator(WeakRandom& weakRandom)
-        : m_weakRandom(weakRandom)
-    {
-    }
-
-    uint32_t operator()()
-    {
-        return m_weakRandom.getUint32();
-    }
-
-    static constexpr uint32_t min() { return std::numeric_limits<uint32_t>::min(); }
-    static constexpr uint32_t max() { return std::numeric_limits<uint32_t>::max(); }
-
-private:
-    WeakRandom& m_weakRandom;
-};
-
 void BinarySwitch::build(unsigned start, bool hardStart, unsigned end)
 {
-    if (BinarySwitchInternal::verbose)
+    if (verbose)
         dataLog("Building with start = ", start, ", hardStart = ", hardStart, ", end = ", end, "\n");
 
     auto append = [&] (const BranchCode& code) {
-        if (BinarySwitchInternal::verbose)
+        if (verbose)
             dataLog("==> ", code, "\n");
         m_branches.append(code);
     };
@@ -182,7 +159,7 @@ void BinarySwitch::build(unsigned start, bool hardStart, unsigned end)
     const unsigned leafThreshold = 3;
     
     if (size <= leafThreshold) {
-        if (BinarySwitchInternal::verbose)
+        if (verbose)
             dataLog("It's a leaf.\n");
         
         // It turns out that for exactly three cases or less, it's better to just compare each
@@ -209,16 +186,20 @@ void BinarySwitch::build(unsigned start, bool hardStart, unsigned end)
             }
         }
 
-        if (BinarySwitchInternal::verbose)
+        if (verbose)
             dataLog("allConsecutive = ", allConsecutive, "\n");
         
         Vector<unsigned, 3> localCaseIndices;
         for (unsigned i = 0; i < size; ++i)
             localCaseIndices.append(start + i);
         
-        std::shuffle(
+        std::random_shuffle(
             localCaseIndices.begin(), localCaseIndices.end(),
-            RandomNumberGenerator(m_weakRandom));
+            [this] (unsigned n) {
+                // We use modulo to get a random number in the range we want fully knowing that
+                // this introduces a tiny amount of bias, but we're fine with such tiny bias.
+                return m_weakRandom.getUint32() % n;
+            });
         
         for (unsigned i = 0; i < size - 1; ++i) {
             append(BranchCode(NotEqualToPush, localCaseIndices[i]));
@@ -233,7 +214,7 @@ void BinarySwitch::build(unsigned start, bool hardStart, unsigned end)
         return;
     }
 
-    if (BinarySwitchInternal::verbose)
+    if (verbose)
         dataLog("It's not a leaf.\n");
         
     // There are two different strategies we could consider here:
@@ -333,7 +314,7 @@ void BinarySwitch::build(unsigned start, bool hardStart, unsigned end)
         
     unsigned medianIndex = (start + end) / 2;
 
-    if (BinarySwitchInternal::verbose)
+    if (verbose)
         dataLog("medianIndex = ", medianIndex, "\n");
 
     // We want medianIndex to point to the thing we will do a less-than compare against. We want
@@ -366,7 +347,7 @@ void BinarySwitch::build(unsigned start, bool hardStart, unsigned end)
     RELEASE_ASSERT(medianIndex > start);
     RELEASE_ASSERT(medianIndex + 1 < end);
         
-    if (BinarySwitchInternal::verbose)
+    if (verbose)
         dataLog("fixed medianIndex = ", medianIndex, "\n");
 
     append(BranchCode(LessThanToPush, medianIndex));

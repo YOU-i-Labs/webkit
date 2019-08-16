@@ -25,8 +25,10 @@
 #pragma once
 
 #include "CSSPropertyNames.h"
+#include "StyleInheritedData.h"
 #include <wtf/Vector.h>
 #include <wtf/HashSet.h>
+#include <wtf/RefPtr.h>
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
@@ -52,14 +54,12 @@ public:
     const RenderStyle* style() const { return m_style.get(); }
     void setStyle(std::unique_ptr<RenderStyle> style) { m_style = WTFMove(style); }
 
-    TimingFunction* timingFunction() const { return m_timingFunction.get(); }
-    void setTimingFunction(const RefPtr<TimingFunction>& timingFunction) { m_timingFunction = timingFunction; }
-    
+    TimingFunction* timingFunction(const AtomicString& name) const;
+
 private:
     double m_key;
     HashSet<CSSPropertyID> m_properties; // The properties specified in this keyframe.
     std::unique_ptr<RenderStyle> m_style;
-    RefPtr<TimingFunction> m_timingFunction;
 };
 
 class KeyframeList {
@@ -67,13 +67,14 @@ public:
     explicit KeyframeList(const AtomicString& animationName)
         : m_animationName(animationName)
     {
+        insert(KeyframeValue(0, 0));
+        insert(KeyframeValue(1, 0));
     }
     ~KeyframeList();
         
-    KeyframeList& operator=(KeyframeList&&) = default;
     bool operator==(const KeyframeList& o) const;
     bool operator!=(const KeyframeList& o) const { return !(*this == o); }
-
+    
     const AtomicString& animationName() const { return m_animationName; }
     
     void insert(KeyframeValue&&);

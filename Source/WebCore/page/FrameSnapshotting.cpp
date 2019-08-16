@@ -63,7 +63,7 @@ struct ScopedFramePaintingState {
 
     const Frame& frame;
     const Node* node;
-    const OptionSet<PaintBehavior> paintBehavior;
+    const PaintBehavior paintBehavior;
     const Color backgroundColor;
 };
 
@@ -90,15 +90,15 @@ std::unique_ptr<ImageBuffer> snapshotFrameRectWithClip(Frame& frame, const IntRe
 
     ScopedFramePaintingState state(frame, nullptr);
 
-    auto paintBehavior = state.paintBehavior;
+    PaintBehavior paintBehavior = state.paintBehavior;
     if (options & SnapshotOptionsForceBlackText)
-        paintBehavior.add(PaintBehavior::ForceBlackText);
+        paintBehavior |= PaintBehaviorForceBlackText;
     if (options & SnapshotOptionsPaintSelectionOnly)
-        paintBehavior.add(PaintBehavior::SelectionOnly);
+        paintBehavior |= PaintBehaviorSelectionOnly;
     if (options & SnapshotOptionsPaintSelectionAndBackgroundsOnly)
-        paintBehavior.add(PaintBehavior::SelectionAndBackgroundsOnly);
+        paintBehavior |= PaintBehaviorSelectionAndBackgroundsOnly;
     if (options & SnapshotOptionsPaintEverythingExcludingSelection)
-        paintBehavior.add(PaintBehavior::ExcludeSelection);
+        paintBehavior |= PaintBehaviorExcludeSelection;
 
     // Other paint behaviors are set by paintContentsForSnapshot.
     frame.view()->setPaintBehavior(paintBehavior);

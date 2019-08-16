@@ -147,15 +147,9 @@ private:
 
 template<> struct SVGPropertyTraits<SVGLengthValue> {
     static SVGLengthValue initialValue() { return { }; }
-    static Optional<SVGLengthValue> parse(const QualifiedName& attrName, const String& string)
-    {
-        SVGLengthValue length;
-        length.setValueAsString(string, SVGLengthValue::lengthModeForAnimatedLengthAttribute(attrName)).hasException();
-        return length;
-    }
-    static String toString(const SVGLengthValue& length) { return length.valueAsString(); }
+    static String toString(const SVGLengthValue& type) { return type.valueAsString(); }
 };
 
-WTF::TextStream& operator<<(WTF::TextStream&, const SVGLengthValue&);
+TextStream& operator<<(TextStream&, const SVGLengthValue&);
 
 } // namespace WebCore

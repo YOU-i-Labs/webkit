@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2011, 2012 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -51,7 +51,6 @@ inline auto HTMLCollection::rootTypeFromCollectionType(CollectionType type) -> R
     case ByClass:
     case ByTag:
     case ByHTMLTag:
-    case FieldSetElements:
     case NodeChildren:
     case TableTBodies:
     case TSectionRows:
@@ -101,7 +100,6 @@ static NodeListInvalidationType invalidationTypeExcludingIdAndNameAttributes(Col
     case DocumentNamedItems:
     case DocumentAllNamedItems:
         return InvalidateOnIdNameAttrChange;
-    case FieldSetElements:
     case FormControls:
         return InvalidateForFormControls;
     }
@@ -110,10 +108,10 @@ static NodeListInvalidationType invalidationTypeExcludingIdAndNameAttributes(Col
 }
 
 HTMLCollection::HTMLCollection(ContainerNode& ownerNode, CollectionType type)
-    : m_collectionType(type)
+    : m_ownerNode(ownerNode)
+    , m_collectionType(type)
     , m_invalidationType(invalidationTypeExcludingIdAndNameAttributes(type))
     , m_rootType(rootTypeFromCollectionType(type))
-    , m_ownerNode(ownerNode)
 {
     ASSERT(m_rootType == static_cast<unsigned>(rootTypeFromCollectionType(type)));
     ASSERT(m_invalidationType == static_cast<unsigned>(invalidationTypeExcludingIdAndNameAttributes(type)));
@@ -150,10 +148,7 @@ void HTMLCollection::invalidateNamedElementCache(Document& document) const
 {
     ASSERT(hasNamedElementCache());
     document.collectionWillClearIdNameMap(*this);
-    {
-        auto locker = holdLock(m_namedElementCacheAssignmentLock);
-        m_namedElementCache = nullptr;
-    }
+    m_namedElementCache = nullptr;
 }
 
 Element* HTMLCollection::namedItemSlow(const AtomicString& name) const

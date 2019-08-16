@@ -66,7 +66,7 @@ public:
     RefPtr<ScriptElement> takeScriptToProcess(TextPosition& scriptStartPosition);
 
     std::unique_ptr<CustomElementConstructionData> takeCustomElementConstructionData() { return WTFMove(m_customElementToConstruct); }
-    void didCreateCustomOrFallbackElement(Ref<Element>&&, CustomElementConstructionData&);
+    void didCreateCustomOrCallbackElement(Ref<Element>&&, CustomElementConstructionData&);
 
     // Done, close any open tags, etc.
     void finished();
@@ -104,7 +104,7 @@ private:
 
     bool isParsingFragmentOrTemplateContents() const;
 
-#if ENABLE(TELEPHONE_NUMBER_DETECTION) && PLATFORM(IOS_FAMILY)
+#if ENABLE(TELEPHONE_NUMBER_DETECTION) && PLATFORM(IOS)
     void insertPhoneNumberLink(const String&);
     void linkifyPhoneNumbers(const String&);
 #endif

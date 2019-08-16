@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 /* Returns 1 if failures were encountered.  Else, returns 0. */
-int testExecutionTimeLimit(void);
+int testExecutionTimeLimit();
 
 #ifdef __cplusplus
 } /* extern "C" */

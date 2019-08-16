@@ -14,6 +14,7 @@
 #include <map>
 
 #include "compiler/translator/IntermNode.h"
+#include "compiler/translator/VariableInfo.h"
 
 namespace sh
 {

@@ -103,20 +103,17 @@ inline void debugFail(CodeBlock* codeBlock, OpcodeID opcodeID, CapabilityLevel r
         dataLog("DFG rejecting opcode in ", *codeBlock, " because of opcode ", opcodeNames[opcodeID], "\n");
 }
 
-CapabilityLevel capabilityLevel(OpcodeID opcodeID, CodeBlock* codeBlock, const Instruction* pc)
+CapabilityLevel capabilityLevel(OpcodeID opcodeID, CodeBlock* codeBlock, Instruction* pc)
 {
     UNUSED_PARAM(codeBlock); // This function does some bytecode parsing. Ordinarily bytecode parsing requires the owning CodeBlock. It's sort of strange that we don't use it here right now.
     UNUSED_PARAM(pc);
     
     switch (opcodeID) {
-    case op_wide:
-        RELEASE_ASSERT_NOT_REACHED();
     case op_enter:
     case op_to_this:
     case op_argument_count:
     case op_check_tdz:
     case op_create_this:
-    case op_bitnot:
     case op_bitand:
     case op_bitor:
     case op_bitxor:
@@ -138,12 +135,10 @@ CapabilityLevel capabilityLevel(OpcodeID opcodeID, CodeBlock* codeBlock, const I
     case op_profile_control_flow:
     case op_mov:
     case op_overrides_has_instance:
-    case op_identity_with_profile:
     case op_instanceof:
     case op_instanceof_custom:
     case op_is_empty:
     case op_is_undefined:
-    case op_is_undefined_or_null:
     case op_is_boolean:
     case op_is_number:
     case op_is_object:
@@ -155,8 +150,6 @@ CapabilityLevel capabilityLevel(OpcodeID opcodeID, CodeBlock* codeBlock, const I
     case op_lesseq:
     case op_greater:
     case op_greatereq:
-    case op_below:
-    case op_beloweq:
     case op_eq:
     case op_eq_null:
     case op_stricteq:
@@ -168,9 +161,11 @@ CapabilityLevel capabilityLevel(OpcodeID opcodeID, CodeBlock* codeBlock, const I
     case op_put_by_val_direct:
     case op_try_get_by_id:
     case op_get_by_id:
+    case op_get_by_id_proto_load:
+    case op_get_by_id_unset:
     case op_get_by_id_with_this:
-    case op_get_by_id_direct:
     case op_get_by_val_with_this:
+    case op_get_array_length:
     case op_put_by_id:
     case op_put_by_id_with_this:
     case op_put_by_val_with_this:
@@ -196,12 +191,6 @@ CapabilityLevel capabilityLevel(OpcodeID opcodeID, CodeBlock* codeBlock, const I
     case op_jnlesseq:
     case op_jngreater:
     case op_jngreatereq:
-    case op_jeq:
-    case op_jneq:
-    case op_jstricteq:
-    case op_jnstricteq:
-    case op_jbelow:
-    case op_jbeloweq:
     case op_loop_hint:
     case op_check_traps:
     case op_nop:
@@ -234,11 +223,9 @@ CapabilityLevel capabilityLevel(OpcodeID opcodeID, CodeBlock* codeBlock, const I
     case op_typeof:
     case op_to_number:
     case op_to_string:
-    case op_to_object:
     case op_switch_imm:
     case op_switch_char:
-    case op_in_by_val:
-    case op_in_by_id:
+    case op_in:
     case op_get_scope:
     case op_get_from_scope:
     case op_get_enumerable_length:
@@ -254,13 +241,10 @@ CapabilityLevel capabilityLevel(OpcodeID opcodeID, CodeBlock* codeBlock, const I
     case op_new_func_exp:
     case op_new_generator_func:
     case op_new_generator_func_exp:
-    case op_new_async_generator_func:
-    case op_new_async_generator_func_exp:
     case op_new_async_func:
     case op_new_async_func_exp:
     case op_set_function_name:
     case op_create_lexical_environment:
-    case op_push_with_scope:
     case op_get_parent_scope:
     case op_catch:
     case op_create_rest:
@@ -272,48 +256,33 @@ CapabilityLevel capabilityLevel(OpcodeID opcodeID, CodeBlock* codeBlock, const I
     case op_resolve_scope_for_hoisting_func_decl_in_eval:
     case op_new_regexp:
     case op_unreachable:
-    case op_super_sampler_begin:
-    case op_super_sampler_end:
         return CanCompileAndInline;
 
     case op_switch_string: // Don't inline because we don't want to copy string tables in the concurrent JIT.
     case op_call_eval:
         return CanCompile;
 
-    case op_yield:
-    case llint_program_prologue:
-    case llint_eval_prologue:
-    case llint_module_program_prologue:
-    case llint_function_for_call_prologue:
-    case llint_function_for_construct_prologue:
-    case llint_function_for_call_arity_check:
-    case llint_function_for_construct_arity_check:
-    case llint_generic_return_point:
-    case llint_throw_from_slow_path_trampoline:
-    case llint_throw_during_call_trampoline:
-    case llint_native_call_trampoline:
-    case llint_native_construct_trampoline:
-    case llint_internal_function_call_trampoline:
-    case llint_internal_function_construct_trampoline:
-    case handleUncaughtException:
+    default:
         return CannotCompile;
     }
-    return CannotCompile;
 }
 
 CapabilityLevel capabilityLevel(CodeBlock* codeBlock)
 {
+    Instruction* instructionsBegin = codeBlock->instructions().begin();
+    unsigned instructionCount = codeBlock->instructions().size();
     CapabilityLevel result = CanCompileAndInline;
     
-    for (const auto& instruction : codeBlock->instructions()) {
-        switch (instruction->opcodeID()) {
+    for (unsigned bytecodeOffset = 0; bytecodeOffset < instructionCount; ) {
+        switch (Interpreter::getOpcodeID(instructionsBegin[bytecodeOffset].u.opcode)) {
 #define DEFINE_OP(opcode, length) \
         case opcode: { \
-            CapabilityLevel newResult = leastUpperBound(result, capabilityLevel(opcode, codeBlock, instruction.ptr())); \
+            CapabilityLevel newResult = leastUpperBound(result, capabilityLevel(opcode, codeBlock, instructionsBegin + bytecodeOffset)); \
             if (newResult != result) { \
                 debugFail(codeBlock, opcode, newResult); \
                 result = newResult; \
             } \
+            bytecodeOffset += length; \
             break; \
         }
             FOR_EACH_OPCODE_ID(DEFINE_OP)

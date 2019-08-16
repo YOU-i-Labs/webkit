@@ -42,7 +42,7 @@ class VTTRegionList;
 
 class TextTrackClient {
 public:
-    virtual ~TextTrackClient() = default;
+    virtual ~TextTrackClient() { }
     virtual void textTrackKindChanged(TextTrack&) = 0;
     virtual void textTrackModeChanged(TextTrack&) = 0;
     virtual void textTrackAddCues(TextTrack&, const TextTrackCueList&) = 0;
@@ -144,17 +144,10 @@ public:
     using RefCounted<TrackBase>::ref;
     using RefCounted<TrackBase>::deref;
 
-    const Optional<Vector<String>>& styleSheets() const { return m_styleSheets; }
-
 protected:
     TextTrack(ScriptExecutionContext*, TextTrackClient*, const AtomicString& kind, const AtomicString& id, const AtomicString& label, const AtomicString& language, TextTrackType);
 
-#if !RELEASE_LOG_DISABLED
-    const char* logClassName() const override { return "TextTrack"; }
-#endif
-
     RefPtr<TextTrackCueList> m_cues;
-    Optional<Vector<String>> m_styleSheets;
 
 private:
     bool enabled() const override;
@@ -172,8 +165,8 @@ private:
     TextTrackClient* m_client;
     TextTrackType m_trackType;
     ReadinessState m_readinessState { NotLoaded };
-    Optional<int> m_trackIndex;
-    Optional<int> m_renderedTrackIndex;
+    std::optional<int> m_trackIndex;
+    std::optional<int> m_renderedTrackIndex;
     bool m_hasBeenConfigured { false };
 };
 

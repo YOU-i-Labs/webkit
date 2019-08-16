@@ -27,11 +27,12 @@
 #pragma once
 
 #include "CSSImageGeneratorValue.h"
+#include "CSSPrimitiveValue.h"
 #include "CachedImageClient.h"
 #include "CachedResourceHandle.h"
 #include "FilterOperations.h"
 #include "Image.h"
-#include <wtf/Function.h>
+#include "ImageObserver.h"
 
 namespace WebCore {
 
@@ -58,11 +59,11 @@ public:
     FloatSize fixedSize(const RenderElement*);
 
     bool isPending() const;
-    bool knownToBeOpaque(const RenderElement&) const;
+    bool knownToBeOpaque(const RenderElement*) const;
 
     void loadSubimages(CachedResourceLoader&, const ResourceLoaderOptions&);
 
-    bool traverseSubresources(const WTF::Function<bool (const CachedResource&)>& handler) const;
+    bool traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const;
 
     bool equals(const CSSFilterImageValue&) const;
 
@@ -94,7 +95,7 @@ private:
         {
         }
 
-        virtual ~FilterSubimageObserverProxy() = default;
+        virtual ~FilterSubimageObserverProxy() { }
         void imageChanged(CachedImage*, const IntRect* = nullptr) final;
         void setReady(bool ready) { m_ready = ready; }
     private:

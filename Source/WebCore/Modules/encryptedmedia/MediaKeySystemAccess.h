@@ -32,7 +32,6 @@
 
 #include "GenericTaskQueue.h"
 #include "JSDOMPromiseDeferred.h"
-#include "MediaKeySystemConfiguration.h"
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 
@@ -40,6 +39,8 @@ namespace WebCore {
 
 class CDM;
 class MediaKeys;
+
+struct MediaKeySystemConfiguration;
 
 class MediaKeySystemAccess : public RefCounted<MediaKeySystemAccess> {
 public:

@@ -28,7 +28,6 @@
 #include "CachedImageClient.h"
 #include "CachedResourceHandle.h"
 #include "CSSImageGeneratorValue.h"
-#include <wtf/Function.h>
 
 namespace WebCore {
 
@@ -52,7 +51,7 @@ public:
 
     void loadSubimages(CachedResourceLoader&, const ResourceLoaderOptions&);
 
-    bool traverseSubresources(const WTF::Function<bool (const CachedResource&)>& handler) const;
+    bool traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const;
 
     RefPtr<CSSCrossfadeValue> blend(const CSSCrossfadeValue&, double) const;
 

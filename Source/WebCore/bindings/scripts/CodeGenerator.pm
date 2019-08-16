@@ -72,7 +72,7 @@ my %stringTypeHash = (
     "USVString" => 1,
 );
 
-my %bufferSourceTypes = (
+my %typedArrayTypes = (
     "ArrayBuffer" => 1,
     "ArrayBufferView" => 1,
     "DataView" => 1,
@@ -120,7 +120,6 @@ my $idlFiles;
 my $cachedInterfaces = {};
 my $cachedExternalDictionaries = {};
 my $cachedExternalEnumerations = {};
-my $cachedTypes = {};
 
 sub assert
 {
@@ -370,20 +369,6 @@ sub ParseInterface
     die("Could NOT find interface definition for $interfaceName in $filename");
 }
 
-sub ParseType
-{
-    my ($object, $typeString) = @_;
-
-    return $cachedTypes->{$typeString} if exists($cachedTypes->{$typeString});
-
-    my $parser = IDLParser->new(1);
-    my $type = $parser->ParseType($typeString, $idlAttributes);
-
-    $cachedTypes->{$typeString} = $type;
-
-    return $type;
-}
-
 # Helpers for all CodeGenerator***.pm modules
 
 sub IsNumericType
@@ -603,6 +588,45 @@ sub GetDictionaryImplementationNameOverride
     return $dictionaryTypeImplementationNameOverrides{$type->name};
 }
 
+sub IsNonPointerType
+{
+    my ($object, $type) = @_;
+
+    assert("Not a type") if ref($type) ne "IDLType";
+
+    return 1 if $object->IsPrimitiveType($type);
+    return 0;
+}
+
+sub IsTypedArrayType
+{
+    my ($object, $type) = @_;
+
+    assert("Not a type") if ref($type) ne "IDLType";
+
+    return 1 if $typedArrayTypes{$type->name};
+    return 0;
+}
+
+sub IsRefPtrType
+{
+    my ($object, $type) = @_;
+
+    assert("Not a type") if ref($type) ne "IDLType";
+
+    return 0 if $object->IsPrimitiveType($type);
+    return 0 if $object->IsDictionaryType($type);
+    return 0 if $object->IsEnumType($type);
+    return 0 if $object->IsSequenceOrFrozenArrayType($type);
+    return 0 if $object->IsRecordType($type);
+    return 0 if $object->IsStringType($type);
+    return 0 if $type->isUnion;
+    return 0 if $type->name eq "any";
+    return 0 if $type->name eq "object";
+
+    return 1;
+}
+
 sub IsSVGAnimatedTypeName
 {
     my ($object, $typeName) = @_;
@@ -664,16 +688,6 @@ sub IsRecordType
     return $type->name eq "record";
 }
 
-sub IsBufferSourceType
-{
-    my ($object, $type) = @_;
-
-    assert("Not a type") if ref($type) ne "IDLType";
-
-    return 1 if $bufferSourceTypes{$type->name};
-    return 0;
-}
-
 sub IsPromiseType
 {
     my ($object, $type) = @_;
@@ -693,9 +707,6 @@ sub WK_ucfirst
     my $ret = ucfirst($param);
     $ret =~ s/Xml/XML/ if $ret =~ /^Xml[^a-z]/;
     $ret =~ s/Svg/SVG/ if $ret =~ /^Svg/;
-    $ret =~ s/Srgb/SRGB/ if $ret =~ /^Srgb/;
-    $ret =~ s/Cenc/cenc/ if $ret =~ /^Cenc/;
-    $ret =~ s/Cbcs/cbcs/ if $ret =~ /^Cbcs/;
 
     return $ret;
 }
@@ -883,12 +894,12 @@ sub IsBuiltinType
     return 1 if $object->IsSequenceOrFrozenArrayType($type);
     return 1 if $object->IsRecordType($type);
     return 1 if $object->IsStringType($type);
-    return 1 if $object->IsBufferSourceType($type);
+    return 1 if $object->IsTypedArrayType($type);
     return 1 if $type->isUnion;
+    return 1 if $type->name eq "BufferSource";
     return 1 if $type->name eq "EventListener";
     return 1 if $type->name eq "JSON";
     return 1 if $type->name eq "Promise";
-    return 1 if $type->name eq "ScheduledAction";
     return 1 if $type->name eq "SerializedScriptValue";
     return 1 if $type->name eq "XPathNSResolver";
     return 1 if $type->name eq "any";
@@ -922,22 +933,9 @@ sub IsWrapperType
     return 0;
 }
 
-sub InheritsSerializable
-{
-    my ($object, $interface) = @_;
-
-    my $anyParentIsSerializable = 0;
-    $object->ForAllParents($interface, sub {
-        my $parentInterface = shift;
-        $anyParentIsSerializable = 1 if $parentInterface->serializable;
-    }, 0);
-
-    return $anyParentIsSerializable;
-}
-
 sub IsSerializableAttribute
 {
-    my ($object, $interface, $attribute) = @_;
+    my ($object, $currentInterface, $attribute) = @_;
 
     # https://heycam.github.io/webidl/#dfn-serializable-type
 
@@ -952,12 +950,9 @@ sub IsSerializableAttribute
         die "Serializer for non-primitive types is not currently supported\n";
     }
 
-    return 0 if !$object->IsInterfaceType($type);
-
-    my $interfaceForAttribute = $object->GetInterfaceForAttribute($interface, $attribute);
-    if ($interfaceForAttribute) {
-        return 1 if $interfaceForAttribute->serializable;
-        return $object->InheritsSerializable($interfaceForAttribute);
+    my $interface = GetInterfaceForAttribute($object, $currentInterface, $attribute);
+    if ($interface && $interface->serializable) {
+        die "Serializer for non-primitive types is not currently supported\n";
     }
 
     return 0;
@@ -1002,7 +997,6 @@ sub ComputeIsCallbackInterface
     assert("Not a type") if ref($type) ne "IDLType";
 
     return 0 unless $object->IsInterfaceType($type);
-    return 0 if $type->name eq "WindowProxy";
 
     my $typeName = $type->name;
     my $idlFile = $object->IDLFileForInterface($typeName) or assert("Could NOT find IDL file for interface \"$typeName\"!\n");
@@ -1040,7 +1034,6 @@ sub ComputeIsCallbackFunction
     assert("Not a type") if ref($type) ne "IDLType";
 
     return 0 unless $object->IsInterfaceType($type);
-    return 0 if $type->name eq "WindowProxy";
 
     my $typeName = $type->name;
     my $idlFile = $object->IDLFileForInterface($typeName) or assert("Could NOT find IDL file for interface \"$typeName\"!\n");

@@ -21,6 +21,7 @@
 
 #include "FloatSize.h"
 #include "Image.h"
+#include "IntSize.h"
 #include <wtf/HashMap.h>
 #include <wtf/RefPtr.h>
 
@@ -42,7 +43,7 @@ public:
 
     void removeClientFromCache(const CachedImageClient*);
 
-    void setContainerContextForClient(const CachedImageClient&, const LayoutSize&, float, const URL&);
+    void setContainerSizeForRenderer(const CachedImageClient*, const LayoutSize&, float);
     FloatSize imageSizeForRenderer(const RenderObject*) const;
 
     Image* imageForRenderer(const RenderObject*) const;

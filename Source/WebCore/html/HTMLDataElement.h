@@ -30,7 +30,6 @@
 namespace WebCore {
 
 class HTMLDataElement final : public HTMLElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLDataElement);
 public:
     static Ref<HTMLDataElement> create(const QualifiedName&, Document&);
 

@@ -1,6 +1,5 @@
 /*
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -32,6 +31,7 @@ public:
     using Base = SVGListProperty<SVGPathSegListValues>;
     using AnimatedListPropertyTearOff = SVGAnimatedListPropertyTearOff<SVGPathSegListValues>;
     using ListItemType = SVGPropertyTraits<SVGPathSegListValues>::ListItemType;
+    using PtrListItemType = RefPtr<SVGPathSeg>;
 
     static Ref<SVGPathSegList> create(AnimatedListPropertyTearOff& animatedProperty, SVGPropertyRole role, SVGPathSegRole pathSegRole, SVGPathSegListValues& values, ListWrapperCache& wrappers)
     {
@@ -71,25 +71,38 @@ public:
     // SVGList API
     ExceptionOr<void> clear();
 
-    ExceptionOr<RefPtr<SVGPathSeg>> initialize(Ref<SVGPathSeg>&& newItem)
+    ExceptionOr<PtrListItemType> initialize(PtrListItemType newItem)
     {
-        return Base::initializeValues(WTFMove(newItem));
+        // Not specified, but FF/Opera do it this way, and it's just sane.
+        if (!newItem)
+            return Exception { SVGException::SVG_WRONG_TYPE_ERR };
+
+        clearContextAndRoles();
+        return Base::initializeValues(newItem);
     }
 
-    ExceptionOr<RefPtr<SVGPathSeg>> getItem(unsigned index);
+    ExceptionOr<PtrListItemType> getItem(unsigned index);
 
-    ExceptionOr<RefPtr<SVGPathSeg>> insertItemBefore(Ref<SVGPathSeg>&& newItem, unsigned index)
+    ExceptionOr<PtrListItemType> insertItemBefore(PtrListItemType newItem, unsigned index)
     {
-        return Base::insertItemBeforeValues(WTFMove(newItem), index);
+        // Not specified, but FF/Opera do it this way, and it's just sane.
+        if (!newItem)
+            return Exception { SVGException::SVG_WRONG_TYPE_ERR };
+
+        return Base::insertItemBeforeValues(newItem, index);
     }
 
-    ExceptionOr<RefPtr<SVGPathSeg>> replaceItem(Ref<SVGPathSeg>&&, unsigned index);
+    ExceptionOr<PtrListItemType> replaceItem(PtrListItemType, unsigned index);
 
-    ExceptionOr<RefPtr<SVGPathSeg>> removeItem(unsigned index);
+    ExceptionOr<PtrListItemType> removeItem(unsigned index);
 
-    ExceptionOr<RefPtr<SVGPathSeg>> appendItem(Ref<SVGPathSeg>&& newItem)
+    ExceptionOr<PtrListItemType> appendItem(PtrListItemType newItem)
     {
-        return Base::appendItemValues(WTFMove(newItem));
+        // Not specified, but FF/Opera do it this way, and it's just sane.
+        if (!newItem)
+            return Exception { SVGException::SVG_WRONG_TYPE_ERR };
+
+        return Base::appendItemValues(newItem);
     }
 
 private:
@@ -100,7 +113,16 @@ private:
     {
     }
 
+    virtual ~SVGPathSegList()
+    {
+        if (m_animatedProperty)
+            m_animatedProperty->propertyWillBeDeleted(*this);
+    }
+
     SVGPathElement* contextElement() const;
+
+    void clearContextAndRoles();
+
     using Base::m_role;
 
     bool isReadOnly() const final

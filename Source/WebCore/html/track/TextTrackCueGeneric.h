@@ -43,7 +43,7 @@ public:
     }
 
     ExceptionOr<void> setLine(double) final;
-    ExceptionOr<void> setPosition(const LineAndPositionSetting&) final;
+    ExceptionOr<void> setPosition(double) final;
 
     bool useDefaultPosition() const { return m_useDefaultPosition; }
 
@@ -66,8 +66,6 @@ public:
     void setHighlightColor(const Color& color) { m_highlightColor = color; }
 
     void setFontSize(int, const IntSize&, bool important) final;
-
-    String toJSONString() const;
 
 private:
     TextTrackCueGeneric(ScriptExecutionContext&, const MediaTime& start, const MediaTime& end, const String&);
@@ -94,18 +92,4 @@ private:
 
 } // namespace WebCore
 
-namespace WTF {
-
-template<typename Type>
-struct LogArgument;
-
-template <>
-struct LogArgument<WebCore::TextTrackCueGeneric> {
-    static String toString(const WebCore::TextTrackCueGeneric& cue)
-    {
-        return cue.toJSONString();
-    }
-};
-
-}
 #endif

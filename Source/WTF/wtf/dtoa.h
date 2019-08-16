@@ -18,7 +18,8 @@
  *
  */
 
-#pragma once
+#ifndef WTF_dtoa_h
+#define WTF_dtoa_h
 
 #include <unicode/utypes.h>
 #include <wtf/ASCIICType.h>
@@ -81,3 +82,5 @@ using WTF::numberToString;
 using WTF::numberToFixedPrecisionString;
 using WTF::numberToFixedWidthString;
 using WTF::parseDouble;
+
+#endif // WTF_dtoa_h

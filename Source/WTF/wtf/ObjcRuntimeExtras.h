@@ -22,14 +22,18 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef WTF_ObjcRuntimeExtras_h
+#define WTF_ObjcRuntimeExtras_h
+
+// FIXME: This file's name and function names refer to Objective-C as Objc with a lowercase C,
+// but it should be ObjC with an uppercase C.
 
 #include <objc/message.h>
 
 #ifdef __cplusplus
 
 template<typename ReturnType, typename... ArgumentTypes>
-inline ReturnType wtfObjCMsgSend(id target, SEL selector, ArgumentTypes... arguments)
+inline ReturnType wtfObjcMsgSend(id target, SEL selector, ArgumentTypes... arguments)
 {
     return reinterpret_cast<ReturnType (*)(id, SEL, ArgumentTypes...)>(objc_msgSend)(target, selector, arguments...);
 }
@@ -41,3 +45,5 @@ inline ReturnType wtfCallIMP(IMP implementation, id target, SEL selector, Argume
 }
 
 #endif // __cplusplus
+
+#endif // WTF_ObjcRuntimeExtras_h

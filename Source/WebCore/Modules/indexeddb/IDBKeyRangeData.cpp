@@ -119,7 +119,7 @@ String IDBKeyRangeData::loggingString() const
     auto result = makeString(lowerOpen ? "( " : "[ ", lowerKey.loggingString(), ", ", upperKey.loggingString(), upperOpen ? " )" : " ]");
     if (result.length() > 400) {
         result.truncate(397);
-        result.append("..."_s);
+        result.append(WTF::ASCIILiteral("..."));
     }
 
     return result;

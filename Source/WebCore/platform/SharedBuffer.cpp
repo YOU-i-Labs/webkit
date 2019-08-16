@@ -29,7 +29,11 @@
 #include "SharedBuffer.h"
 
 #include <algorithm>
-#include <wtf/unicode/UTF8Conversion.h>
+#include <wtf/unicode/UTF8.h>
+
+#if USE(SOUP)
+#include "GUniquePtrSoup.h"
+#endif
 
 namespace WebCore {
 
@@ -43,7 +47,7 @@ SharedBuffer::SharedBuffer(const unsigned char* data, size_t size)
     append(reinterpret_cast<const char*>(data), size);
 }
 
-SharedBuffer::SharedBuffer(FileSystem::MappedFileData&& fileData)
+SharedBuffer::SharedBuffer(MappedFileData&& fileData)
     : m_size(fileData.size())
 {
     m_segments.append({0, DataSegment::create(WTFMove(fileData))});
@@ -57,7 +61,7 @@ SharedBuffer::SharedBuffer(Vector<char>&& data)
 RefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String& filePath)
 {
     bool mappingSuccess;
-    FileSystem::MappedFileData mappedFileData(filePath, mappingSuccess);
+    MappedFileData mappedFileData(filePath, mappingSuccess);
 
     if (!mappingSuccess)
         return SharedBuffer::createFromReadingFile(filePath);
@@ -68,12 +72,6 @@ RefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String& filePa
 Ref<SharedBuffer> SharedBuffer::create(Vector<char>&& vector)
 {
     return adoptRef(*new SharedBuffer(WTFMove(vector)));
-}
-
-// FIXME: Move the whole class from Vector<char> to Vector<uint8_t> and make this efficient, replacing the Vector<char> version above.
-Ref<SharedBuffer> SharedBuffer::create(Vector<uint8_t>&& vector)
-{
-    return adoptRef(*new SharedBuffer { vector.data(), vector.size() });
 }
 
 void SharedBuffer::combineIntoOneSegment() const
@@ -119,9 +117,9 @@ SharedBufferDataView SharedBuffer::getSomeData(size_t position) const
 
 RefPtr<ArrayBuffer> SharedBuffer::tryCreateArrayBuffer() const
 {
-    auto arrayBuffer = ArrayBuffer::tryCreateUninitialized(static_cast<unsigned>(size()), sizeof(char));
+    RefPtr<ArrayBuffer> arrayBuffer = ArrayBuffer::createUninitialized(static_cast<unsigned>(size()), sizeof(char));
     if (!arrayBuffer) {
-        WTFLogAlways("SharedBuffer::tryCreateArrayBuffer Unable to create buffer. Requested size was %zu x %lu\n", size(), sizeof(char));
+        WTFLogAlways("SharedBuffer::tryCreateArrayBuffer Unable to create buffer. Requested size was %d x %lu\n", size(), sizeof(char));
         return nullptr;
     }
 
@@ -208,10 +206,7 @@ const char* SharedBuffer::DataSegment::data() const
 #if USE(SOUP)
         [](const GUniquePtr<SoupBuffer>& data) { return data->data; },
 #endif
-#if USE(GLIB)
-        [](const GRefPtr<GBytes>& data) { return reinterpret_cast<const char*>(g_bytes_get_data(data.get(), nullptr)); },
-#endif
-        [](const FileSystem::MappedFileData& data) { return reinterpret_cast<const char*>(data.data()); }
+        [](const MappedFileData& data) { return reinterpret_cast<const char*>(data.data()); }
     );
     return WTF::visit(visitor, m_immutableData);
 }
@@ -221,55 +216,6 @@ void SharedBuffer::hintMemoryNotNeededSoon() const
 {
 }
 #endif
-
-bool SharedBuffer::operator==(const SharedBuffer& other) const
-{
-    if (this == &other)
-        return true;
-
-    if (m_size != other.m_size)
-        return false;
-
-    auto thisIterator = begin();
-    size_t thisOffset = 0;
-    auto otherIterator = other.begin();
-    size_t otherOffset = 0;
-
-    while (thisIterator != end() && otherIterator != other.end()) {
-        auto& thisSegment = thisIterator->segment.get();
-        auto& otherSegment = otherIterator->segment.get();
-
-        if (&thisSegment == &otherSegment && !thisOffset && !otherOffset) {
-            ++thisIterator;
-            ++otherIterator;
-            continue;
-        }
-
-        ASSERT(thisOffset < thisSegment.size());
-        ASSERT(otherOffset < otherSegment.size());
-
-        size_t thisRemaining = thisSegment.size() - thisOffset;
-        size_t otherRemaining = otherSegment.size() - otherOffset;
-        size_t remaining = std::min(thisRemaining, otherRemaining);
-
-        if (memcmp(thisSegment.data() + thisOffset, otherSegment.data() + otherOffset, remaining))
-            return false;
-
-        thisOffset += remaining;
-        otherOffset += remaining;
-
-        if (thisOffset == thisSegment.size()) {
-            ++thisIterator;
-            thisOffset = 0;
-        }
-
-        if (otherOffset == otherSegment.size()) {
-            ++otherIterator;
-            otherOffset = 0;
-        }
-    }
-    return true;
-}
 
 size_t SharedBuffer::DataSegment::size() const
 {
@@ -281,10 +227,7 @@ size_t SharedBuffer::DataSegment::size() const
 #if USE(SOUP)
         [](const GUniquePtr<SoupBuffer>& data) { return static_cast<size_t>(data->length); },
 #endif
-#if USE(GLIB)
-        [](const GRefPtr<GBytes>& data) { return g_bytes_get_size(data.get()); },
-#endif
-        [](const FileSystem::MappedFileData& data) { return data.size(); }
+        [](const MappedFileData& data) { return data.size(); }
     );
     return WTF::visit(visitor, m_immutableData);
 }

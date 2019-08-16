@@ -34,11 +34,10 @@
 namespace WebCore {
 
 class MathMLTokenElement : public MathMLPresentationElement {
-    WTF_MAKE_ISO_ALLOCATED(MathMLTokenElement);
 public:
     static Ref<MathMLTokenElement> create(const QualifiedName& tagName, Document&);
 
-    static Optional<UChar32> convertToSingleCodePoint(StringView);
+    static std::optional<UChar32> convertToSingleCodePoint(StringView);
 
 protected:
     MathMLTokenElement(const QualifiedName& tagName, Document&);

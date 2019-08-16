@@ -43,9 +43,7 @@ namespace JSC { namespace DFG {
 
 namespace {
 
-namespace DFGStoreBarrierInsertionPhaseInternal {
-static const bool verbose = false;
-}
+bool verbose = false;
 
 enum class PhaseMode {
     // Does only a local analysis for store barrier insertion and assumes that pointers live
@@ -77,7 +75,7 @@ public:
     
     bool run()
     {
-        if (DFGStoreBarrierInsertionPhaseInternal::verbose) {
+        if (verbose) {
             dataLog("Starting store barrier insertion:\n");
             m_graph.dump();
         }
@@ -169,7 +167,7 @@ public:
 private:
     bool handleBlock(BasicBlock* block)
     {
-        if (DFGStoreBarrierInsertionPhaseInternal::verbose) {
+        if (verbose) {
             dataLog("Dealing with block ", pointerDump(block), "\n");
             if (reallyInsertBarriers())
                 dataLog("    Really inserting barriers.\n");
@@ -208,7 +206,7 @@ private:
         for (m_nodeIndex = 0; m_nodeIndex < block->size(); ++m_nodeIndex) {
             m_node = block->at(m_nodeIndex);
             
-            if (DFGStoreBarrierInsertionPhaseInternal::verbose) {
+            if (verbose) {
                 dataLog(
                     "    ", m_currentEpoch, ": Looking at node ", m_node, " with children: ");
                 CommaPrinter comma;
@@ -250,16 +248,9 @@ private:
             case ArrayPush: {
                 switch (m_node->arrayMode().type()) {
                 case Array::Contiguous:
-                case Array::ArrayStorage: {
-                    unsigned elementOffset = 2;
-                    unsigned elementCount = m_node->numChildren() - elementOffset;
-                    Edge& arrayEdge = m_graph.varArgChild(m_node, 1);
-                    for (unsigned i = 0; i < elementCount; ++i) {
-                        Edge& element = m_graph.varArgChild(m_node, i + elementOffset);
-                        considerBarrier(arrayEdge, element);
-                    }
+                case Array::ArrayStorage:
+                    considerBarrier(m_node->child1(), m_node->child2());
                     break;
-                }
                 default:
                     break;
                 }
@@ -325,10 +316,9 @@ private:
             case NewArrayBuffer:
             case NewTypedArray:
             case NewRegexp:
-            case NewStringObject:
-            case NewSymbol:
             case MaterializeNewObject:
             case MaterializeCreateActivation:
+            case NewStringObject:
             case MakeRope:
             case CreateActivation:
             case CreateDirectArguments:
@@ -336,7 +326,6 @@ private:
             case CreateClonedArguments:
             case NewFunction:
             case NewGeneratorFunction:
-            case NewAsyncGeneratorFunction:
             case NewAsyncFunction:
             case AllocatePropertyStorage:
             case ReallocatePropertyStorage:
@@ -358,7 +347,7 @@ private:
                 break;
             }
             
-            if (DFGStoreBarrierInsertionPhaseInternal::verbose) {
+            if (verbose) {
                 dataLog(
                     "    ", m_currentEpoch, ": Done with node ", m_node, " (", m_node->epoch(),
                     ") with children: ");
@@ -390,7 +379,7 @@ private:
     
     void considerBarrier(Edge base, Edge child)
     {
-        if (DFGStoreBarrierInsertionPhaseInternal::verbose)
+        if (verbose)
             dataLog("        Considering adding barrier ", base, " => ", child, "\n");
         
         // We don't need a store barrier if the child is guaranteed to not be a cell.
@@ -399,7 +388,7 @@ private:
             // Don't try too hard because it's too expensive to run AI.
             if (child->hasConstant()) {
                 if (!child->asJSValue().isCell()) {
-                    if (DFGStoreBarrierInsertionPhaseInternal::verbose)
+                    if (verbose)
                         dataLog("            Rejecting because of constant type.\n");
                     return;
                 }
@@ -410,7 +399,7 @@ private:
                 case NodeResultInt32:
                 case NodeResultInt52:
                 case NodeResultBoolean:
-                    if (DFGStoreBarrierInsertionPhaseInternal::verbose)
+                    if (verbose)
                         dataLog("            Rejecting because of result type.\n");
                     return;
                 default:
@@ -424,7 +413,7 @@ private:
             // Go into rage mode to eliminate any chance of a barrier with a non-cell child. We
             // can afford to keep around AI in Global mode.
             if (!m_interpreter->needsTypeCheck(child, ~SpecCell)) {
-                if (DFGStoreBarrierInsertionPhaseInternal::verbose)
+                if (verbose)
                     dataLog("            Rejecting because of AI type.\n");
                 return;
             }
@@ -436,7 +425,7 @@ private:
     
     void considerBarrier(Edge base)
     {
-        if (DFGStoreBarrierInsertionPhaseInternal::verbose)
+        if (verbose)
             dataLog("        Considering adding barrier on ", base, "\n");
         
         // We don't need a store barrier if the epoch of the base is identical to the current
@@ -444,12 +433,12 @@ private:
         // be in newgen, or we just ran a barrier on it so it's guaranteed to be remembered
         // already.
         if (base->epoch() == m_currentEpoch) {
-            if (DFGStoreBarrierInsertionPhaseInternal::verbose)
+            if (verbose)
                 dataLog("            Rejecting because it's in the current epoch.\n");
             return;
         }
         
-        if (DFGStoreBarrierInsertionPhaseInternal::verbose)
+        if (verbose)
             dataLog("            Inserting barrier.\n");
         insertBarrier(m_nodeIndex + 1, base);
     }
@@ -468,7 +457,7 @@ private:
         // FIXME: We could support StoreBarrier(UntypedUse:). That would be sort of cool.
         // But right now we don't need it.
 
-        DFG_ASSERT(m_graph, m_node, isCell(base.useKind()), m_node->op(), base.useKind());
+        DFG_ASSERT(m_graph, m_node, isCell(base.useKind()));
         
         // Barriers are always inserted after the node that they service. Therefore, we always know
         // that the thing is a cell now.

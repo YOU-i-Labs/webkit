@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,6 @@
 #pragma once
 
 #include "JSObject.h"
-#include <wtf/CompactPointerTuple.h>
 #include <wtf/HashMap.h>
 
 namespace JSC {
@@ -35,24 +34,23 @@ class TrackedReferences;
 
 class PropertyCondition {
 public:
-    enum Kind : uint8_t {
+    enum Kind {
         Presence,
         Absence,
         AbsenceOfSetEffect,
-        Equivalence, // An adaptive watchpoint on this will be a pair of watchpoints, and when the structure transitions, we will set the replacement watchpoint on the new structure.
-        HasPrototype
+        Equivalence // An adaptive watchpoint on this will be a pair of watchpoints, and when the structure transitions, we will set the replacement watchpoint on the new structure.
     };
-
-    using Header = CompactPointerTuple<UniquedStringImpl*, Kind>;
     
     PropertyCondition()
-        : m_header(nullptr, Presence)
+        : m_uid(nullptr)
+        , m_kind(Presence)
     {
         memset(&u, 0, sizeof(u));
     }
     
     PropertyCondition(WTF::HashTableDeletedValueType)
-        : m_header(nullptr, Absence)
+        : m_uid(nullptr)
+        , m_kind(Absence)
     {
         memset(&u, 0, sizeof(u));
     }
@@ -60,7 +58,8 @@ public:
     static PropertyCondition presenceWithoutBarrier(UniquedStringImpl* uid, PropertyOffset offset, unsigned attributes)
     {
         PropertyCondition result;
-        result.m_header = Header(uid, Presence);
+        result.m_uid = uid;
+        result.m_kind = Presence;
         result.u.presence.offset = offset;
         result.u.presence.attributes = attributes;
         return result;
@@ -76,8 +75,9 @@ public:
     static PropertyCondition absenceWithoutBarrier(UniquedStringImpl* uid, JSObject* prototype)
     {
         PropertyCondition result;
-        result.m_header = Header(uid, Absence);
-        result.u.prototype.prototype = prototype;
+        result.m_uid = uid;
+        result.m_kind = Absence;
+        result.u.absence.prototype = prototype;
         return result;
     }
     
@@ -93,8 +93,9 @@ public:
         UniquedStringImpl* uid, JSObject* prototype)
     {
         PropertyCondition result;
-        result.m_header = Header(uid, AbsenceOfSetEffect);
-        result.u.prototype.prototype = prototype;
+        result.m_uid = uid;
+        result.m_kind = AbsenceOfSetEffect;
+        result.u.absence.prototype = prototype;
         return result;
     }
     
@@ -110,7 +111,8 @@ public:
         UniquedStringImpl* uid, JSValue value)
     {
         PropertyCondition result;
-        result.m_header = Header(uid, Equivalence);
+        result.m_uid = uid;
+        result.m_kind = Equivalence;
         result.u.equivalence.value = JSValue::encode(value);
         return result;
     }
@@ -123,51 +125,32 @@ public:
         return equivalenceWithoutBarrier(uid, value);
     }
     
-    static PropertyCondition hasPrototypeWithoutBarrier(JSObject* prototype)
-    {
-        PropertyCondition result;
-        result.m_header = Header(nullptr, HasPrototype);
-        result.u.prototype.prototype = prototype;
-        return result;
-    }
+    explicit operator bool() const { return m_uid || m_kind != Presence; }
     
-    static PropertyCondition hasPrototype(VM& vm, JSCell* owner, JSObject* prototype)
-    {
-        if (owner)
-            vm.heap.writeBarrier(owner);
-        return hasPrototypeWithoutBarrier(prototype);
-    }
+    Kind kind() const { return m_kind; }
+    UniquedStringImpl* uid() const { return m_uid; }
     
-    explicit operator bool() const { return m_header.pointer() || m_header.type() != Presence; }
-    
-    Kind kind() const { return m_header.type(); }
-    UniquedStringImpl* uid() const { return m_header.pointer(); }
-    
-    bool hasOffset() const { return !!*this && m_header.type() == Presence; };
+    bool hasOffset() const { return !!*this && m_kind == Presence; };
     PropertyOffset offset() const
     {
         ASSERT(hasOffset());
         return u.presence.offset;
     }
-    bool hasAttributes() const { return !!*this && m_header.type() == Presence; };
+    bool hasAttributes() const { return !!*this && m_kind == Presence; };
     unsigned attributes() const
     {
         ASSERT(hasAttributes());
         return u.presence.attributes;
     }
     
-    bool hasPrototype() const
-    {
-        return !!*this
-            && (m_header.type() == Absence || m_header.type() == AbsenceOfSetEffect || m_header.type() == HasPrototype);
-    }
+    bool hasPrototype() const { return !!*this && (m_kind == Absence || m_kind == AbsenceOfSetEffect); }
     JSObject* prototype() const
     {
         ASSERT(hasPrototype());
-        return u.prototype.prototype;
+        return u.absence.prototype;
     }
     
-    bool hasRequiredValue() const { return !!*this && m_header.type() == Equivalence; }
+    bool hasRequiredValue() const { return !!*this && m_kind == Equivalence; }
     JSValue requiredValue() const
     {
         ASSERT(hasRequiredValue());
@@ -179,16 +162,15 @@ public:
     
     unsigned hash() const
     {
-        unsigned result = WTF::PtrHash<UniquedStringImpl*>::hash(m_header.pointer()) + static_cast<unsigned>(m_header.type());
-        switch (m_header.type()) {
+        unsigned result = WTF::PtrHash<UniquedStringImpl*>::hash(m_uid) + static_cast<unsigned>(m_kind);
+        switch (m_kind) {
         case Presence:
             result ^= u.presence.offset;
             result ^= u.presence.attributes;
             break;
         case Absence:
         case AbsenceOfSetEffect:
-        case HasPrototype:
-            result ^= WTF::PtrHash<JSObject*>::hash(u.prototype.prototype);
+            result ^= WTF::PtrHash<JSObject*>::hash(u.absence.prototype);
             break;
         case Equivalence:
             result ^= EncodedJSValueHash::hash(u.equivalence.value);
@@ -199,18 +181,17 @@ public:
     
     bool operator==(const PropertyCondition& other) const
     {
-        if (m_header.pointer() != other.m_header.pointer())
+        if (m_uid != other.m_uid)
             return false;
-        if (m_header.type() != other.m_header.type())
+        if (m_kind != other.m_kind)
             return false;
-        switch (m_header.type()) {
+        switch (m_kind) {
         case Presence:
             return u.presence.offset == other.u.presence.offset
                 && u.presence.attributes == other.u.presence.attributes;
         case Absence:
         case AbsenceOfSetEffect:
-        case HasPrototype:
-            return u.prototype.prototype == other.u.prototype.prototype;
+            return u.absence.prototype == other.u.absence.prototype;
         case Equivalence:
             return u.equivalence.value == other.u.equivalence.value;
         }
@@ -220,7 +201,7 @@ public:
     
     bool isHashTableDeletedValue() const
     {
-        return !m_header.pointer() && m_header.type() == Absence;
+        return !m_uid && m_kind == Absence;
     }
     
     // Two conditions are compatible if they are identical or if they speak of different uids. If
@@ -293,7 +274,7 @@ public:
     }
     bool watchingRequiresReplacementWatchpoint() const
     {
-        return !!*this && m_header.type() == Equivalence;
+        return !!*this && m_kind == Equivalence;
     }
     
     // This means that the objects involved in this are still live.
@@ -310,7 +291,8 @@ public:
 private:
     bool isWatchableWhenValid(Structure*, WatchabilityEffort) const;
 
-    Header m_header;
+    UniquedStringImpl* m_uid;
+    Kind m_kind;
     union {
         struct {
             PropertyOffset offset;
@@ -318,7 +300,7 @@ private:
         } presence;
         struct {
             JSObject* prototype;
-        } prototype;
+        } absence;
         struct {
             EncodedJSValue value;
         } equivalence;

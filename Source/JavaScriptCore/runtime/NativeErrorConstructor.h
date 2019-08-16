@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ *  Copyright (C) 2008 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -29,15 +29,9 @@ class ErrorInstance;
 class FunctionPrototype;
 class NativeErrorPrototype;
 
-class NativeErrorConstructor final : public InternalFunction {
+class NativeErrorConstructor : public InternalFunction {
 public:
     typedef InternalFunction Base;
-
-    template<typename CellType>
-    static IsoSubspace* subspaceFor(VM& vm)
-    {
-        return &vm.nativeErrorConstructorSpace;
-    }
 
     static NativeErrorConstructor* create(VM& vm, JSGlobalObject* globalObject, Structure* structure, Structure* prototypeStructure, const String& name)
     {
@@ -50,7 +44,7 @@ public:
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(vm, globalObject, prototype, TypeInfo(InternalFunctionType, StructureFlags), info());
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
     }
 
     Structure* errorStructure() { return m_errorStructure.get(); }
@@ -60,6 +54,8 @@ protected:
 
 private:
     NativeErrorConstructor(VM&, Structure*);
+    static ConstructType getConstructData(JSCell*, ConstructData&);
+    static CallType getCallData(JSCell*, CallData&);
     static void visitChildren(JSCell*, SlotVisitor&);
 
     WriteBarrier<Structure> m_errorStructure;

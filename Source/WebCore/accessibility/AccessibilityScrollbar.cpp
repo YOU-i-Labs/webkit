@@ -67,14 +67,14 @@ AccessibilityOrientation AccessibilityScrollbar::orientation() const
 {
     // ARIA 1.1 Elements with the role scrollbar have an implicit aria-orientation value of vertical.
     if (!m_scrollbar)
-        return AccessibilityOrientation::Vertical;
+        return AccessibilityOrientationVertical;
 
     if (m_scrollbar->orientation() == HorizontalScrollbar)
-        return AccessibilityOrientation::Horizontal;
+        return AccessibilityOrientationHorizontal;
     if (m_scrollbar->orientation() == VerticalScrollbar)
-        return AccessibilityOrientation::Vertical;
+        return AccessibilityOrientationVertical;
 
-    return AccessibilityOrientation::Vertical;
+    return AccessibilityOrientationVertical;
 }
 
 bool AccessibilityScrollbar::isEnabled() const
@@ -98,8 +98,6 @@ void AccessibilityScrollbar::setValue(float value)
         return;
     
     float newValue = value * m_scrollbar->maximum();
-    if (dispatchAccessibleSetValueEvent(String::number(newValue)))
-        return;
     m_scrollbar->scrollableArea().scrollToOffsetWithoutAnimation(m_scrollbar->orientation(), newValue);
 }
     

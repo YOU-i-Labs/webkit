@@ -28,49 +28,45 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef CalculationValue_h
+#define CalculationValue_h
 
 #include "Length.h"
+#include "LengthFunctions.h"
 #include <memory>
-#include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
-#include <wtf/Vector.h>
-
-namespace WTF {
-class TextStream;
-}
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-// Don't change these values; parsing uses them.
-enum class CalcOperator : uint8_t {
-    Add = '+',
-    Subtract = '-',
-    Multiply = '*',
-    Divide = '/',
-    Min = 0,
-    Max = 1,
+class TextStream;
+
+enum CalcOperator {
+    CalcAdd = '+',
+    CalcSubtract = '-',
+    CalcMultiply = '*',
+    CalcDivide = '/'
 };
 
-enum class CalcExpressionNodeType : uint8_t {
-    Undefined,
-    Number,
-    Length,
-    Operation,
-    BlendLength,
+enum CalcExpressionNodeType {
+    CalcExpressionNodeUndefined,
+    CalcExpressionNodeNumber,
+    CalcExpressionNodeLength,
+    CalcExpressionNodeBinaryOperation,
+    CalcExpressionNodeBlendLength,
 };
 
 class CalcExpressionNode {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    explicit CalcExpressionNode(CalcExpressionNodeType = CalcExpressionNodeType::Undefined);
-    virtual ~CalcExpressionNode() = default;
+    explicit CalcExpressionNode(CalcExpressionNodeType = CalcExpressionNodeUndefined);
+    virtual ~CalcExpressionNode() { }
 
     CalcExpressionNodeType type() const { return m_type; }
 
     virtual float evaluate(float maxValue) const = 0;
     virtual bool operator==(const CalcExpressionNode&) const = 0;
-    virtual void dump(WTF::TextStream&) const = 0;
+    virtual void dump(TextStream&) const = 0;
 
 private:
     CalcExpressionNodeType m_type;
@@ -85,7 +81,7 @@ public:
 private:
     float evaluate(float) const override;
     bool operator==(const CalcExpressionNode&) const override;
-    void dump(WTF::TextStream&) const override;
+    void dump(TextStream&) const override;
 
     float m_value;
 };
@@ -99,25 +95,26 @@ public:
 private:
     float evaluate(float maxValue) const override;
     bool operator==(const CalcExpressionNode&) const override;
-    void dump(WTF::TextStream&) const override;
+    void dump(TextStream&) const override;
 
     Length m_length;
 };
 
-class CalcExpressionOperation final : public CalcExpressionNode {
+class CalcExpressionBinaryOperation final : public CalcExpressionNode {
 public:
-    CalcExpressionOperation(Vector<std::unique_ptr<CalcExpressionNode>>&& children, CalcOperator);
+    CalcExpressionBinaryOperation(std::unique_ptr<CalcExpressionNode> leftSide, std::unique_ptr<CalcExpressionNode> rightSide, CalcOperator);
 
+    const CalcExpressionNode& leftSide() const { return *m_leftSide; }
+    const CalcExpressionNode& rightSide() const { return *m_rightSide; }
     CalcOperator getOperator() const { return m_operator; }
-
-    const Vector<std::unique_ptr<CalcExpressionNode>>& children() const { return m_children; }
 
 private:
     float evaluate(float maxValue) const override;
     bool operator==(const CalcExpressionNode&) const override;
-    void dump(WTF::TextStream&) const override;
+    void dump(TextStream&) const override;
 
-    Vector<std::unique_ptr<CalcExpressionNode>> m_children;
+    std::unique_ptr<CalcExpressionNode> m_leftSide;
+    std::unique_ptr<CalcExpressionNode> m_rightSide;
     CalcOperator m_operator;
 };
 
@@ -132,7 +129,7 @@ public:
 private:
     float evaluate(float maxValue) const override;
     bool operator==(const CalcExpressionNode&) const override;
-    void dump(WTF::TextStream&) const override;
+    void dump(TextStream&) const override;
 
     Length m_from;
     Length m_to;
@@ -171,7 +168,7 @@ inline bool operator==(const CalculationValue& a, const CalculationValue& b)
 }
 
 inline CalcExpressionNumber::CalcExpressionNumber(float value)
-    : CalcExpressionNode(CalcExpressionNodeType::Number)
+    : CalcExpressionNode(CalcExpressionNodeNumber)
     , m_value(value)
 {
 }
@@ -183,12 +180,12 @@ inline bool operator==(const CalcExpressionNumber& a, const CalcExpressionNumber
 
 inline const CalcExpressionNumber& toCalcExpressionNumber(const CalcExpressionNode& value)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(value.type() == CalcExpressionNodeType::Number);
+    ASSERT_WITH_SECURITY_IMPLICATION(value.type() == CalcExpressionNodeNumber);
     return static_cast<const CalcExpressionNumber&>(value);
 }
 
 inline CalcExpressionLength::CalcExpressionLength(Length length)
-    : CalcExpressionNode(CalcExpressionNodeType::Length)
+    : CalcExpressionNode(CalcExpressionNodeLength)
     , m_length(length)
 {
 }
@@ -200,23 +197,35 @@ inline bool operator==(const CalcExpressionLength& a, const CalcExpressionLength
 
 inline const CalcExpressionLength& toCalcExpressionLength(const CalcExpressionNode& value)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(value.type() == CalcExpressionNodeType::Length);
+    ASSERT_WITH_SECURITY_IMPLICATION(value.type() == CalcExpressionNodeLength);
     return static_cast<const CalcExpressionLength&>(value);
 }
 
-inline CalcExpressionOperation::CalcExpressionOperation(Vector<std::unique_ptr<CalcExpressionNode>>&& children, CalcOperator op)
-    : CalcExpressionNode(CalcExpressionNodeType::Operation)
-    , m_children(WTFMove(children))
+inline CalcExpressionBinaryOperation::CalcExpressionBinaryOperation(std::unique_ptr<CalcExpressionNode> leftSide, std::unique_ptr<CalcExpressionNode> rightSide, CalcOperator op)
+    : CalcExpressionNode(CalcExpressionNodeBinaryOperation)
+    , m_leftSide(WTFMove(leftSide))
+    , m_rightSide(WTFMove(rightSide))
     , m_operator(op)
 {
 }
 
-bool operator==(const CalcExpressionOperation&, const CalcExpressionOperation&);
-
-inline const CalcExpressionOperation& toCalcExpressionOperation(const CalcExpressionNode& value)
+inline bool operator==(const CalcExpressionBinaryOperation& a, const CalcExpressionBinaryOperation& b)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(value.type() == CalcExpressionNodeType::Operation);
-    return static_cast<const CalcExpressionOperation&>(value);
+    return a.getOperator() == b.getOperator() && a.leftSide() == b.leftSide() && a.rightSide() == b.rightSide();
+}
+
+inline const CalcExpressionBinaryOperation& toCalcExpressionBinaryOperation(const CalcExpressionNode& value)
+{
+    ASSERT_WITH_SECURITY_IMPLICATION(value.type() == CalcExpressionNodeBinaryOperation);
+    return static_cast<const CalcExpressionBinaryOperation&>(value);
+}
+
+inline CalcExpressionBlendLength::CalcExpressionBlendLength(Length from, Length to, float progress)
+    : CalcExpressionNode(CalcExpressionNodeBlendLength)
+    , m_from(from)
+    , m_to(to)
+    , m_progress(progress)
+{
 }
 
 inline bool operator==(const CalcExpressionBlendLength& a, const CalcExpressionBlendLength& b)
@@ -226,12 +235,14 @@ inline bool operator==(const CalcExpressionBlendLength& a, const CalcExpressionB
 
 inline const CalcExpressionBlendLength& toCalcExpressionBlendLength(const CalcExpressionNode& value)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(value.type() == CalcExpressionNodeType::BlendLength);
+    ASSERT_WITH_SECURITY_IMPLICATION(value.type() == CalcExpressionNodeBlendLength);
     return static_cast<const CalcExpressionBlendLength&>(value);
 }
 
-WTF::TextStream& operator<<(WTF::TextStream&, const CalculationValue&);
-WTF::TextStream& operator<<(WTF::TextStream&, const CalcExpressionNode&);
-WTF::TextStream& operator<<(WTF::TextStream&, CalcOperator);
+TextStream& operator<<(TextStream&, const CalculationValue&);
+TextStream& operator<<(TextStream&, const CalcExpressionNode&);
+TextStream& operator<<(TextStream&, CalcOperator);
 
 } // namespace WebCore
+
+#endif // CalculationValue_h

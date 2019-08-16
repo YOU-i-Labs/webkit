@@ -67,16 +67,6 @@ public:
         m_y *= sy;
     }
 
-    LayoutPoint scaled(float s) const
-    {
-        return { m_x * s, m_y * s };
-    }
-
-    LayoutPoint scaled(float sx, float sy) const
-    {
-        return { m_x * sx, m_y * sy };
-    }
-
     LayoutPoint constrainedBetween(const LayoutPoint& min, const LayoutPoint& max) const;
 
     LayoutPoint expandedTo(const LayoutPoint& other) const
@@ -230,7 +220,7 @@ inline FloatSize snapSizeToDevicePixel(const LayoutSize& size, const LayoutPoint
     return FloatSize(snap(size.width(), location.x()), snap(size.height(), location.y()));
 }
 
-WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const LayoutPoint&);
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, const LayoutPoint&);
 
 } // namespace WebCore
 

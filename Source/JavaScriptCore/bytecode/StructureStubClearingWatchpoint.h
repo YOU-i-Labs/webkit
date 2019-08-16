@@ -30,7 +30,6 @@
 
 #if ENABLE(JIT)
 
-#include <wtf/Bag.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/Noncopyable.h>
 
@@ -46,18 +45,28 @@ class StructureStubClearingWatchpoint : public Watchpoint {
 public:
     StructureStubClearingWatchpoint(
         const ObjectPropertyCondition& key,
-        WatchpointsOnStructureStubInfo& holder)
+        WatchpointsOnStructureStubInfo& holder,
+        std::unique_ptr<StructureStubClearingWatchpoint> next)
         : m_key(key)
         , m_holder(holder)
+        , m_next(WTFMove(next))
     {
     }
+    
+    virtual ~StructureStubClearingWatchpoint();
+    
+    static StructureStubClearingWatchpoint* push(
+        const ObjectPropertyCondition& key,
+        WatchpointsOnStructureStubInfo& holder,
+        std::unique_ptr<StructureStubClearingWatchpoint>& head);
 
 protected:
-    void fireInternal(VM&, const FireDetail&) override;
+    void fireInternal(const FireDetail&) override;
 
 private:
     ObjectPropertyCondition m_key;
     WatchpointsOnStructureStubInfo& m_holder;
+    std::unique_ptr<StructureStubClearingWatchpoint> m_next;
 };
 
 class WatchpointsOnStructureStubInfo {
@@ -69,6 +78,8 @@ public:
         , m_stubInfo(stubInfo)
     {
     }
+    
+    ~WatchpointsOnStructureStubInfo();
     
     StructureStubClearingWatchpoint* addWatchpoint(const ObjectPropertyCondition& key);
     
@@ -82,7 +93,7 @@ public:
 private:
     CodeBlock* m_codeBlock;
     StructureStubInfo* m_stubInfo;
-    Bag<StructureStubClearingWatchpoint> m_watchpoints;
+    std::unique_ptr<StructureStubClearingWatchpoint> m_head;
 };
 
 } // namespace JSC

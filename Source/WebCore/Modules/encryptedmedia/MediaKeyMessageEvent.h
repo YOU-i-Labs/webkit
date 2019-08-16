@@ -33,7 +33,7 @@
 #include "Event.h"
 #include "MediaKeyMessageEventInit.h"
 #include "MediaKeyMessageType.h"
-#include <JavaScriptCore/ArrayBuffer.h>
+#include <runtime/ArrayBuffer.h>
 
 namespace WebCore {
 

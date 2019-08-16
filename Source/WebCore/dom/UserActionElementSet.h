@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,8 +28,7 @@
 #pragma once
 
 #include <wtf/HashMap.h>
-#include <wtf/OptionSet.h>
-#include <wtf/Ref.h>
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
@@ -37,34 +36,33 @@ class Element;
 
 class UserActionElementSet {
 public:
-    bool isActive(const Element& element) { return hasFlag(element, Flag::IsActive); }
-    bool isFocused(const Element& element) { return hasFlag(element, Flag::IsFocused); }
-    bool isHovered(const Element& element) { return hasFlag(element, Flag::IsHovered); }
-    bool inActiveChain(const Element& element) { return hasFlag(element, Flag::InActiveChain); }
+    bool isFocused(const Element* element) { return hasFlags(element, IsFocusedFlag); }
+    bool isActive(const Element* element) { return hasFlags(element, IsActiveFlag); }
+    bool isInActiveChain(const Element* element) { return hasFlags(element, InActiveChainFlag); }
+    bool isHovered(const Element* element) { return hasFlags(element, IsHoveredFlag); }
+    void setFocused(Element* element, bool enable) { setFlags(element, enable, IsFocusedFlag); }
+    void setActive(Element* element, bool enable) { setFlags(element, enable, IsActiveFlag); }
+    void setInActiveChain(Element* element, bool enable) { setFlags(element, enable, InActiveChainFlag); }
+    void setHovered(Element* element, bool enable) { setFlags(element, enable, IsHoveredFlag); }
 
-    void setActive(Element& element, bool enable) { setFlags(element, enable, Flag::IsActive); }
-    void setFocused(Element& element, bool enable) { setFlags(element, enable, Flag::IsFocused); }
-    void setHovered(Element& element, bool enable) { setFlags(element, enable, Flag::IsHovered); }
-    void setInActiveChain(Element& element, bool enable) { setFlags(element, enable, Flag::InActiveChain); }
-
-    void clearActiveAndHovered(Element& element) { clearFlags(element, { Flag::IsActive, Flag::InActiveChain, Flag::IsHovered }); }
-
-    void clear();
+    void didDetach(Element*);
+    void documentDidRemoveLastRef();
 
 private:
-    enum class Flag {
-        IsActive = 1 << 0,
-        InActiveChain = 1 << 1,
-        IsHovered = 1 << 2,
-        IsFocused = 1 << 3
+    enum ElementFlags {
+        IsActiveFlag      = 1 ,
+        InActiveChainFlag = 1 << 1,
+        IsHoveredFlag     = 1 << 2,
+        IsFocusedFlag     = 1 << 3
     };
 
-    void setFlags(Element& element, bool enable, OptionSet<Flag> flags) { enable ? setFlags(element, flags) : clearFlags(element, flags); }
-    void setFlags(Element&, OptionSet<Flag>);
-    void clearFlags(Element&, OptionSet<Flag>);
-    bool hasFlag(const Element&, Flag) const;
+    void setFlags(Element* element, bool enable, unsigned flags) { enable ? setFlags(element, flags) : clearFlags(element, flags); }
+    void setFlags(Element*, unsigned);
+    void clearFlags(Element*, unsigned);
+    bool hasFlags(const Element*, unsigned flags) const;
 
-    HashMap<RefPtr<Element>, OptionSet<Flag>> m_elements;
+    typedef HashMap<RefPtr<Element>, unsigned> ElementFlagMap;
+    ElementFlagMap m_elements;
 };
 
 } // namespace WebCore

@@ -22,7 +22,7 @@
 #include "config.h"
 #include "ClipStack.h"
 
-#include "TextureMapperGLHeaders.h"
+#include "GraphicsContext3D.h"
 
 namespace WebCore {
 
@@ -62,29 +62,29 @@ void ClipStack::setStencilIndex(int stencilIndex)
     clipStateDirty = true;
 }
 
-void ClipStack::apply()
+void ClipStack::apply(GraphicsContext3D& context)
 {
     if (clipState.scissorBox.isEmpty())
         return;
 
-    glScissor(clipState.scissorBox.x(),
+    context.scissor(clipState.scissorBox.x(),
         (yAxisMode == YAxisMode::Inverted) ? size.height() - clipState.scissorBox.maxY() : clipState.scissorBox.y(),
         clipState.scissorBox.width(), clipState.scissorBox.height());
-    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
-    glStencilFunc(GL_EQUAL, clipState.stencilIndex - 1, clipState.stencilIndex - 1);
+    context.stencilOp(GraphicsContext3D::KEEP, GraphicsContext3D::KEEP, GraphicsContext3D::KEEP);
+    context.stencilFunc(GraphicsContext3D::EQUAL, clipState.stencilIndex - 1, clipState.stencilIndex - 1);
     if (clipState.stencilIndex == 1)
-        glDisable(GL_STENCIL_TEST);
+        context.disable(GraphicsContext3D::STENCIL_TEST);
     else
-        glEnable(GL_STENCIL_TEST);
+        context.enable(GraphicsContext3D::STENCIL_TEST);
 }
 
-void ClipStack::applyIfNeeded()
+void ClipStack::applyIfNeeded(GraphicsContext3D& context)
 {
     if (!clipStateDirty)
         return;
 
     clipStateDirty = false;
-    apply();
+    apply(context);
 }
 
 } // namespace WebCore

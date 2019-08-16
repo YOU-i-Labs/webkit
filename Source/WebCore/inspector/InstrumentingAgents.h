@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include <JavaScriptCore/InspectorEnvironment.h>
+#include <inspector/InspectorEnvironment.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RefCounted.h>
@@ -55,6 +55,7 @@ class InspectorWorkerAgent;
 class InspectorMemoryAgent;
 class InspectorNetworkAgent;
 class InspectorPageAgent;
+class InspectorReplayAgent;
 class InspectorTimelineAgent;
 class Page;
 class PageDebuggerAgent;
@@ -72,7 +73,7 @@ public:
     {
         return adoptRef(*new InstrumentingAgents(environment));
     }
-    ~InstrumentingAgents() = default;
+    ~InstrumentingAgents() { }
     void reset();
 
     Inspector::InspectorEnvironment& inspectorEnvironment() const { return m_environment; }
@@ -109,6 +110,11 @@ public:
 
     InspectorDOMStorageAgent* inspectorDOMStorageAgent() const { return m_inspectorDOMStorageAgent; }
     void setInspectorDOMStorageAgent(InspectorDOMStorageAgent* agent) { m_inspectorDOMStorageAgent = agent; }
+
+#if ENABLE(WEB_REPLAY)
+    InspectorReplayAgent* inspectorReplayAgent() const { return m_inspectorReplayAgent; }
+    void setInspectorReplayAgent(InspectorReplayAgent* agent) { m_inspectorReplayAgent = agent; }
+#endif
 
 #if ENABLE(RESOURCE_USAGE)
     InspectorMemoryAgent* inspectorMemoryAgent() const { return m_inspectorMemoryAgent; }
@@ -156,6 +162,9 @@ private:
     InspectorTimelineAgent* m_inspectorTimelineAgent { nullptr };
     InspectorTimelineAgent* m_persistentInspectorTimelineAgent { nullptr };
     InspectorDOMStorageAgent* m_inspectorDOMStorageAgent { nullptr };
+#if ENABLE(WEB_REPLAY)
+    InspectorReplayAgent* m_inspectorReplayAgent { nullptr };
+#endif
 #if ENABLE(RESOURCE_USAGE)
     InspectorMemoryAgent* m_inspectorMemoryAgent { nullptr };
 #endif

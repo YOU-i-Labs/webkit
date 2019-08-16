@@ -67,8 +67,7 @@ public:
 
     // Methods operating on all cached resources
     void removeClientFromCache(RenderElement&, bool markForInvalidation = true) const;
-    // Returns true if the resource-to-be-destroyed is one of our resources.
-    bool resourceDestroyed(RenderSVGResourceContainer&);
+    void resourceDestroyed(RenderSVGResourceContainer&);
 
 #if ENABLE(TREE_DEBUGGING)
     void dump(const RenderObject*);
@@ -98,8 +97,6 @@ private:
     bool setFill(RenderSVGResourceContainer*);
     bool setStroke(RenderSVGResourceContainer*);
     bool setLinkedResource(RenderSVGResourceContainer*);
-    
-    bool isEmpty() const { return !m_clipperFilterMaskerData && !m_markerData && !m_fillStrokeData && !m_linkedResource; }
 
     // From SVG 1.1 2nd Edition
     // clipper: 'container elements' and 'graphics elements'
@@ -109,10 +106,16 @@ private:
     struct ClipperFilterMaskerData {
         WTF_MAKE_FAST_ALLOCATED;
     public:
-        ClipperFilterMaskerData() = default;
-        RenderSVGResourceClipper* clipper { nullptr };
-        RenderSVGResourceFilter* filter { nullptr };
-        RenderSVGResourceMasker* masker { nullptr };
+        ClipperFilterMaskerData()
+            : clipper(0)
+            , filter(0)
+            , masker(0)
+        {
+        }
+
+        RenderSVGResourceClipper* clipper;
+        RenderSVGResourceFilter* filter;
+        RenderSVGResourceMasker* masker;
     };
 
     // From SVG 1.1 2nd Edition
@@ -120,10 +123,16 @@ private:
     struct MarkerData {
         WTF_MAKE_FAST_ALLOCATED;
     public:
-        MarkerData() = default;
-        RenderSVGResourceMarker* markerStart { nullptr };
-        RenderSVGResourceMarker* markerMid { nullptr };
-        RenderSVGResourceMarker* markerEnd { nullptr };
+        MarkerData()
+            : markerStart(0)
+            , markerMid(0)
+            , markerEnd(0)
+        {
+        }
+
+        RenderSVGResourceMarker* markerStart;
+        RenderSVGResourceMarker* markerMid;
+        RenderSVGResourceMarker* markerEnd;
     };
 
     // From SVG 1.1 2nd Edition
@@ -133,15 +142,20 @@ private:
     struct FillStrokeData {
         WTF_MAKE_FAST_ALLOCATED;
     public:
-        FillStrokeData() = default;
-        RenderSVGResourceContainer* fill { nullptr };
-        RenderSVGResourceContainer* stroke { nullptr };
+        FillStrokeData()
+            : fill(0)
+            , stroke(0)
+        {
+        }
+
+        RenderSVGResourceContainer* fill;
+        RenderSVGResourceContainer* stroke;
     };
 
     std::unique_ptr<ClipperFilterMaskerData> m_clipperFilterMaskerData;
     std::unique_ptr<MarkerData> m_markerData;
     std::unique_ptr<FillStrokeData> m_fillStrokeData;
-    RenderSVGResourceContainer* m_linkedResource { nullptr };
+    RenderSVGResourceContainer* m_linkedResource;
 };
 
 } // namespace WebCore

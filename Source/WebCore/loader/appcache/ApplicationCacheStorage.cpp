@@ -36,8 +36,10 @@
 #include "SQLiteTransaction.h"
 #include "SecurityOrigin.h"
 #include "SecurityOriginData.h"
+#include "URL.h"
+#include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/URL.h>
+#include <wtf/StringExtras.h>
 #include <wtf/UUID.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
@@ -84,10 +86,15 @@ private:
 
 static unsigned urlHostHash(const URL& url)
 {
-    StringView host = url.host();
-    if (host.is8Bit())
-        return AlreadyHashed::avoidDeletedValue(StringHasher::computeHashAndMaskTop8Bits(host.characters8(), host.length()));
-    return AlreadyHashed::avoidDeletedValue(StringHasher::computeHashAndMaskTop8Bits(host.characters16(), host.length()));
+    unsigned hostStart = url.hostStart();
+    unsigned hostEnd = url.hostEnd();
+
+    const String& urlString = url.string();
+
+    if (urlString.is8Bit())
+        return AlreadyHashed::avoidDeletedValue(StringHasher::computeHashAndMaskTop8Bits(urlString.characters8() + hostStart, hostEnd - hostStart));
+    
+    return AlreadyHashed::avoidDeletedValue(StringHasher::computeHashAndMaskTop8Bits(urlString.characters16() + hostStart, hostEnd - hostStart));
 }
 
 ApplicationCacheGroup* ApplicationCacheStorage::loadCacheGroup(const URL& manifestURL)
@@ -218,7 +225,7 @@ ApplicationCacheGroup* ApplicationCacheStorage::cacheGroupForURL(const URL& url)
     
     int result;
     while ((result = statement.step()) == SQLITE_ROW) {
-        URL manifestURL = URL({ }, statement.getColumnText(1));
+        URL manifestURL = URL(ParsedURLString, statement.getColumnText(1));
 
         if (m_cachesInMemory.contains(manifestURL))
             continue;
@@ -285,7 +292,7 @@ ApplicationCacheGroup* ApplicationCacheStorage::fallbackCacheGroupForURL(const U
     
     int result;
     while ((result = statement.step()) == SQLITE_ROW) {
-        URL manifestURL = URL({ }, statement.getColumnText(1));
+        URL manifestURL = URL(ParsedURLString, statement.getColumnText(1));
 
         if (m_cachesInMemory.contains(manifestURL))
             continue;
@@ -351,6 +358,11 @@ void ApplicationCacheStorage::cacheGroupMadeObsolete(ApplicationCacheGroup& grou
     m_cacheHostSet.remove(urlHostHash(group.manifestURL()));
 }
 
+const String& ApplicationCacheStorage::cacheDirectory() const
+{
+    return m_cacheDirectory;
+}
+
 void ApplicationCacheStorage::setMaximumSize(int64_t size)
 {
     m_maximumSize = size;
@@ -370,7 +382,7 @@ int64_t ApplicationCacheStorage::spaceNeeded(int64_t cacheToSave)
 {
     int64_t spaceNeeded = 0;
     long long fileSize = 0;
-    if (!FileSystem::getFileSize(m_cacheFile, fileSize))
+    if (!getFileSize(m_cacheFile, fileSize))
         return 0;
 
     int64_t currentSize = fileSize + flatFileAreaSize();
@@ -420,7 +432,7 @@ bool ApplicationCacheStorage::calculateQuotaForOrigin(const SecurityOrigin& orig
     if (statement.prepare() != SQLITE_OK)
         return false;
 
-    statement.bindText(1, origin.data().databaseIdentifier());
+    statement.bindText(1, SecurityOriginData::fromSecurityOrigin(origin).databaseIdentifier());
     int result = statement.step();
 
     // Return the quota, or if it was null the default.
@@ -448,7 +460,7 @@ bool ApplicationCacheStorage::calculateUsageForOrigin(const SecurityOrigin* orig
     if (statement.prepare() != SQLITE_OK)
         return false;
 
-    statement.bindText(1, origin->data().databaseIdentifier());
+    statement.bindText(1, SecurityOriginData::fromSecurityOrigin(*origin).databaseIdentifier());
     int result = statement.step();
 
     if (result == SQLITE_ROW) {
@@ -491,7 +503,7 @@ bool ApplicationCacheStorage::calculateRemainingSizeForOriginExcludingCache(cons
     if (statement.prepare() != SQLITE_OK)
         return false;
 
-    statement.bindText(1, origin.data().databaseIdentifier());
+    statement.bindText(1, SecurityOriginData::fromSecurityOrigin(origin).databaseIdentifier());
     if (excludingCacheIdentifier != 0)
         statement.bindInt64(2, excludingCacheIdentifier);
     int result = statement.step();
@@ -527,7 +539,7 @@ bool ApplicationCacheStorage::storeUpdatedQuotaForOrigin(const SecurityOrigin* o
         return false;
 
     updateStatement.bindInt64(1, quota);
-    updateStatement.bindText(2, origin->data().databaseIdentifier());
+    updateStatement.bindText(2, SecurityOriginData::fromSecurityOrigin(*origin).databaseIdentifier());
 
     return executeStatement(updateStatement);
 }
@@ -589,11 +601,11 @@ void ApplicationCacheStorage::openDatabase(bool createIfDoesNotExist)
     if (m_cacheDirectory.isNull())
         return;
 
-    m_cacheFile = FileSystem::pathByAppendingComponent(m_cacheDirectory, "ApplicationCache.db");
-    if (!createIfDoesNotExist && !FileSystem::fileExists(m_cacheFile))
+    m_cacheFile = pathByAppendingComponent(m_cacheDirectory, "ApplicationCache.db");
+    if (!createIfDoesNotExist && !fileExists(m_cacheFile))
         return;
 
-    FileSystem::makeAllDirectories(m_cacheDirectory);
+    makeAllDirectories(m_cacheDirectory);
     m_database.open(m_cacheFile);
     
     if (!m_database.isOpen())
@@ -676,7 +688,7 @@ bool ApplicationCacheStorage::store(ApplicationCacheGroup* group, GroupStorageID
 
     statement.bindInt64(1, urlHostHash(group->manifestURL()));
     statement.bindText(2, group->manifestURL());
-    statement.bindText(3, group->origin().data().databaseIdentifier());
+    statement.bindText(3, SecurityOriginData::fromSecurityOrigin(group->origin()).databaseIdentifier());
 
     if (!executeStatement(statement))
         return false;
@@ -788,17 +800,17 @@ bool ApplicationCacheStorage::store(ApplicationCacheResource* resource, unsigned
 
     String fullPath;
     if (!resource->path().isEmpty())
-        dataStatement.bindText(2, FileSystem::pathGetFileName(resource->path()));
+        dataStatement.bindText(2, pathGetFileName(resource->path()));
     else if (shouldStoreResourceAsFlatFile(resource)) {
         // First, check to see if creating the flat file would violate the maximum total quota. We don't need
         // to check the per-origin quota here, as it was already checked in storeNewestCache().
-        if (m_database.totalSize() + flatFileAreaSize() + static_cast<int64_t>(resource->data().size()) > m_maximumSize) {
+        if (m_database.totalSize() + flatFileAreaSize() + resource->data().size() > m_maximumSize) {
             m_isMaximumSizeReached = true;
             return false;
         }
         
-        String flatFileDirectory = FileSystem::pathByAppendingComponent(m_cacheDirectory, m_flatFileSubdirectoryName);
-        FileSystem::makeAllDirectories(flatFileDirectory);
+        String flatFileDirectory = pathByAppendingComponent(m_cacheDirectory, m_flatFileSubdirectoryName);
+        makeAllDirectories(flatFileDirectory);
 
         String extension;
         
@@ -811,7 +823,7 @@ bool ApplicationCacheStorage::store(ApplicationCacheResource* resource, unsigned
         if (!writeDataToUniqueFileInDirectory(resource->data(), flatFileDirectory, path, extension))
             return false;
         
-        fullPath = FileSystem::pathByAppendingComponent(flatFileDirectory, path);
+        fullPath = pathByAppendingComponent(flatFileDirectory, path);
         resource->setPath(fullPath);
         dataStatement.bindText(2, path);
     } else {
@@ -822,7 +834,7 @@ bool ApplicationCacheStorage::store(ApplicationCacheResource* resource, unsigned
     if (!dataStatement.executeCommand()) {
         // Clean up the file which we may have written to:
         if (!fullPath.isEmpty())
-            FileSystem::deleteFile(fullPath);
+            deleteFile(fullPath);
 
         return false;
     }
@@ -947,7 +959,7 @@ bool ApplicationCacheStorage::ensureOriginRecord(const SecurityOrigin* origin)
     if (insertOriginStatement.prepare() != SQLITE_OK)
         return false;
 
-    insertOriginStatement.bindText(1, origin->data().databaseIdentifier());
+    insertOriginStatement.bindText(1, SecurityOriginData::fromSecurityOrigin(*origin).databaseIdentifier());
     insertOriginStatement.bindInt64(2, m_defaultOriginQuota);
     if (!executeStatement(insertOriginStatement))
         return false;
@@ -1105,11 +1117,11 @@ RefPtr<ApplicationCache> ApplicationCacheStorage::loadCache(unsigned storageID)
 
     auto cache = ApplicationCache::create();
 
-    String flatFileDirectory = FileSystem::pathByAppendingComponent(m_cacheDirectory, m_flatFileSubdirectoryName);
+    String flatFileDirectory = pathByAppendingComponent(m_cacheDirectory, m_flatFileSubdirectoryName);
 
     int result;
     while ((result = cacheStatement.step()) == SQLITE_ROW) {
-        URL url({ }, cacheStatement.getColumnText(0));
+        URL url(ParsedURLString, cacheStatement.getColumnText(0));
         
         int httpStatusCode = cacheStatement.getColumnInt(1);
 
@@ -1125,8 +1137,8 @@ RefPtr<ApplicationCache> ApplicationCacheStorage::loadCache(unsigned storageID)
         if (path.isEmpty())
             size = data->size();
         else {
-            path = FileSystem::pathByAppendingComponent(flatFileDirectory, path);
-            FileSystem::getFileSize(path, size);
+            path = pathByAppendingComponent(flatFileDirectory, path);
+            getFileSize(path, size);
         }
         
         String mimeType = cacheStatement.getColumnText(3);
@@ -1162,7 +1174,7 @@ RefPtr<ApplicationCache> ApplicationCacheStorage::loadCache(unsigned storageID)
     
     Vector<URL> whitelist;
     while ((result = whitelistStatement.step()) == SQLITE_ROW) 
-        whitelist.append(URL({ }, whitelistStatement.getColumnText(0)));
+        whitelist.append(URL(ParsedURLString, whitelistStatement.getColumnText(0)));
 
     if (result != SQLITE_DONE)
         LOG_ERROR("Could not load cache online whitelist, error \"%s\"", m_database.lastErrorMsg());
@@ -1192,7 +1204,7 @@ RefPtr<ApplicationCache> ApplicationCacheStorage::loadCache(unsigned storageID)
     
     FallbackURLVector fallbackURLs;
     while ((result = fallbackStatement.step()) == SQLITE_ROW) 
-        fallbackURLs.append(std::make_pair(URL({ }, fallbackStatement.getColumnText(0)), URL({ }, fallbackStatement.getColumnText(1))));
+        fallbackURLs.append(std::make_pair(URL(ParsedURLString, fallbackStatement.getColumnText(0)), URL(ParsedURLString, fallbackStatement.getColumnText(1))));
 
     if (result != SQLITE_DONE)
         LOG_ERROR("Could not load fallback URLs, error \"%s\"", m_database.lastErrorMsg());
@@ -1274,8 +1286,8 @@ void ApplicationCacheStorage::deleteTables()
     
 bool ApplicationCacheStorage::shouldStoreResourceAsFlatFile(ApplicationCacheResource* resource)
 {
-    auto& type = resource->response().mimeType();
-    return startsWithLettersIgnoringASCIICase(type, "audio/") || startsWithLettersIgnoringASCIICase(type, "video/");
+    return resource->response().mimeType().startsWith("audio/", false) 
+        || resource->response().mimeType().startsWith("video/", false);
 }
     
 bool ApplicationCacheStorage::writeDataToUniqueFileInDirectory(SharedBuffer& data, const String& directory, String& path, const String& fileExtension)
@@ -1283,49 +1295,77 @@ bool ApplicationCacheStorage::writeDataToUniqueFileInDirectory(SharedBuffer& dat
     String fullPath;
     
     do {
-        path = FileSystem::encodeForFileName(createCanonicalUUIDString()) + fileExtension;
+        path = encodeForFileName(createCanonicalUUIDString()) + fileExtension;
         // Guard against the above function being called on a platform which does not implement
         // createCanonicalUUIDString().
         ASSERT(!path.isEmpty());
         if (path.isEmpty())
             return false;
         
-        fullPath = FileSystem::pathByAppendingComponent(directory, path);
-    } while (FileSystem::directoryName(fullPath) != directory || FileSystem::fileExists(fullPath));
+        fullPath = pathByAppendingComponent(directory, path);
+    } while (directoryName(fullPath) != directory || fileExists(fullPath));
     
-    FileSystem::PlatformFileHandle handle = FileSystem::openFile(fullPath, FileSystem::FileOpenMode::Write);
+    PlatformFileHandle handle = openFile(fullPath, OpenForWrite);
     if (!handle)
         return false;
     
-    int64_t writtenBytes = FileSystem::writeToFile(handle, data.data(), data.size());
-    FileSystem::closeFile(handle);
+    int64_t writtenBytes = writeToFile(handle, data.data(), data.size());
+    closeFile(handle);
     
     if (writtenBytes != static_cast<int64_t>(data.size())) {
-        FileSystem::deleteFile(fullPath);
+        deleteFile(fullPath);
         return false;
     }
     
     return true;
 }
 
-Optional<Vector<URL>> ApplicationCacheStorage::manifestURLs()
+bool ApplicationCacheStorage::getManifestURLs(Vector<URL>* urls)
 {
     SQLiteTransactionInProgressAutoCounter transactionCounter;
 
+    ASSERT(urls);
     openDatabase(false);
     if (!m_database.isOpen())
-        return WTF::nullopt;
+        return false;
 
     SQLiteStatement selectURLs(m_database, "SELECT manifestURL FROM CacheGroups");
 
     if (selectURLs.prepare() != SQLITE_OK)
-        return WTF::nullopt;
+        return false;
 
-    Vector<URL> urls;
     while (selectURLs.step() == SQLITE_ROW)
-        urls.append(URL({ }, selectURLs.getColumnText(0)));
+        urls->append(URL(ParsedURLString, selectURLs.getColumnText(0)));
 
-    return WTFMove(urls);
+    return true;
+}
+
+bool ApplicationCacheStorage::cacheGroupSize(const String& manifestURL, int64_t* size)
+{
+    SQLiteTransactionInProgressAutoCounter transactionCounter;
+
+    ASSERT(size);
+    openDatabase(false);
+    if (!m_database.isOpen())
+        return false;
+
+    SQLiteStatement statement(m_database, "SELECT sum(Caches.size) FROM Caches INNER JOIN CacheGroups ON Caches.cacheGroup=CacheGroups.id WHERE CacheGroups.manifestURL=?");
+    if (statement.prepare() != SQLITE_OK)
+        return false;
+
+    statement.bindText(1, manifestURL);
+
+    int result = statement.step();
+    if (result == SQLITE_DONE)
+        return false;
+
+    if (result != SQLITE_ROW) {
+        LOG_ERROR("Could not get the size of the cache group, error \"%s\"", m_database.lastErrorMsg());
+        return false;
+    }
+
+    *size = statement.getColumnInt64(0);
+    return true;
 }
 
 bool ApplicationCacheStorage::deleteCacheGroupRecord(const String& manifestURL)
@@ -1365,7 +1405,8 @@ bool ApplicationCacheStorage::deleteCacheGroup(const String& manifestURL)
     SQLiteTransaction deleteTransaction(m_database);
 
     // Check to see if the group is in memory.
-    if (auto* group = m_cachesInMemory.get(manifestURL))
+    auto* group = m_cachesInMemory.get(manifestURL);
+    if (group)
         cacheGroupMadeObsolete(*group);
     else {
         // The cache group is not in memory, so remove it from the disk.
@@ -1426,15 +1467,15 @@ void ApplicationCacheStorage::checkForDeletedResources()
         if (path.isEmpty())
             continue;
         
-        String flatFileDirectory = FileSystem::pathByAppendingComponent(m_cacheDirectory, m_flatFileSubdirectoryName);
-        String fullPath = FileSystem::pathByAppendingComponent(flatFileDirectory, path);
+        String flatFileDirectory = pathByAppendingComponent(m_cacheDirectory, m_flatFileSubdirectoryName);
+        String fullPath = pathByAppendingComponent(flatFileDirectory, path);
         
         // Don't exit the flatFileDirectory! This should only happen if the "path" entry contains a directory 
         // component, but protect against it regardless.
-        if (FileSystem::directoryName(fullPath) != flatFileDirectory)
+        if (directoryName(fullPath) != flatFileDirectory)
             continue;
         
-        FileSystem::deleteFile(fullPath);
+        deleteFile(fullPath);
     } while (selectPaths.step() == SQLITE_ROW);
     
     executeSQLCommand("DELETE FROM DeletedCacheResources");
@@ -1454,12 +1495,12 @@ long long ApplicationCacheStorage::flatFileAreaSize()
     }
 
     long long totalSize = 0;
-    String flatFileDirectory = FileSystem::pathByAppendingComponent(m_cacheDirectory, m_flatFileSubdirectoryName);
+    String flatFileDirectory = pathByAppendingComponent(m_cacheDirectory, m_flatFileSubdirectoryName);
     while (selectPaths.step() == SQLITE_ROW) {
         String path = selectPaths.getColumnText(0);
-        String fullPath = FileSystem::pathByAppendingComponent(flatFileDirectory, path);
+        String fullPath = pathByAppendingComponent(flatFileDirectory, path);
         long long pathSize = 0;
-        if (!FileSystem::getFileSize(fullPath, pathSize))
+        if (!getFileSize(fullPath, pathSize))
             continue;
         totalSize += pathSize;
     }
@@ -1467,19 +1508,15 @@ long long ApplicationCacheStorage::flatFileAreaSize()
     return totalSize;
 }
 
-Vector<Ref<SecurityOrigin>> ApplicationCacheStorage::originsWithCache()
+void ApplicationCacheStorage::getOriginsWithCache(HashSet<RefPtr<SecurityOrigin>>& origins)
 {
-    auto urls = manifestURLs();
-    if (!urls)
-        return { };
+    Vector<URL> urls;
+    getManifestURLs(&urls);
 
     // Multiple manifest URLs might share the same SecurityOrigin, so we might be creating extra, wasted origins here.
     // The current schema doesn't allow for a more efficient way of building this list.
-    Vector<Ref<SecurityOrigin>> origins;
-    origins.reserveInitialCapacity(urls->size());
-    for (auto& url : *urls)
-        origins.uncheckedAppend(SecurityOrigin::create(url));
-    return origins;
+    for (auto& url : urls)
+        origins.add(SecurityOrigin::create(url));
 }
 
 void ApplicationCacheStorage::deleteAllEntries()
@@ -1490,24 +1527,26 @@ void ApplicationCacheStorage::deleteAllEntries()
 
 void ApplicationCacheStorage::deleteAllCaches()
 {
-    auto origins = originsWithCache();
+    HashSet<RefPtr<SecurityOrigin>> origins;
+
+    getOriginsWithCache(origins);
     for (auto& origin : origins)
-        deleteCacheForOrigin(origin);
+        deleteCacheForOrigin(*origin);
 
     vacuumDatabaseFile();
 }
 
 void ApplicationCacheStorage::deleteCacheForOrigin(const SecurityOrigin& securityOrigin)
 {
-    auto urls = manifestURLs();
-    if (!urls) {
+    Vector<URL> urls;
+    if (!getManifestURLs(&urls)) {
         LOG_ERROR("Failed to retrieve ApplicationCache manifest URLs");
         return;
     }
 
     URL originURL(URL(), securityOrigin.toString());
 
-    for (const auto& url : *urls) {
+    for (const auto& url : urls) {
         if (!protocolHostAndPortAreEqual(url, originURL))
             continue;
 
@@ -1528,7 +1567,15 @@ int64_t ApplicationCacheStorage::diskUsageForOrigin(const SecurityOrigin& securi
 ApplicationCacheStorage::ApplicationCacheStorage(const String& cacheDirectory, const String& flatFileSubdirectoryName)
     : m_cacheDirectory(cacheDirectory)
     , m_flatFileSubdirectoryName(flatFileSubdirectoryName)
+    , m_maximumSize(ApplicationCacheStorage::noQuota())
+    , m_isMaximumSizeReached(false)
+    , m_defaultOriginQuota(ApplicationCacheStorage::noQuota())
 {
 }
 
-} // namespace WebCore
+Ref<ApplicationCacheStorage> ApplicationCacheStorage::create(const String& cacheDirectory, const String& flatFileSubdirectoryName)
+{
+    return adoptRef(*new ApplicationCacheStorage(cacheDirectory, flatFileSubdirectoryName));
+}
+
+}

@@ -30,7 +30,7 @@
 
 #include "AudioBuffer.h"
 #include "AudioBufferCallback.h"
-#include <JavaScriptCore/ArrayBuffer.h>
+#include <runtime/ArrayBuffer.h>
 #include <wtf/MainThread.h>
 
 namespace WebCore {
@@ -39,9 +39,7 @@ AsyncAudioDecoder::AsyncAudioDecoder()
 {
     // Start worker thread.
     LockHolder lock(m_threadCreationMutex);
-    m_thread = Thread::create("Audio Decoder", [this] {
-        runLoop();
-    });
+    m_thread = Thread::create(AsyncAudioDecoder::threadEntry, this, "Audio Decoder");
 }
 
 AsyncAudioDecoder::~AsyncAudioDecoder()
@@ -50,6 +48,7 @@ AsyncAudioDecoder::~AsyncAudioDecoder()
     
     // Stop thread.
     m_thread->waitForCompletion();
+    m_thread = nullptr;
 }
 
 void AsyncAudioDecoder::decodeAsync(Ref<ArrayBuffer>&& audioData, float sampleRate, RefPtr<AudioBufferCallback>&& successCallback, RefPtr<AudioBufferCallback>&& errorCallback)
@@ -58,6 +57,14 @@ void AsyncAudioDecoder::decodeAsync(Ref<ArrayBuffer>&& audioData, float sampleRa
 
     auto decodingTask = std::make_unique<DecodingTask>(WTFMove(audioData), sampleRate, WTFMove(successCallback), WTFMove(errorCallback));
     m_queue.append(WTFMove(decodingTask)); // note that ownership of the task is effectively taken by the queue.
+}
+
+// Asynchronously decode in this thread.
+void AsyncAudioDecoder::threadEntry(void* threadData)
+{
+    ASSERT(threadData);
+    AsyncAudioDecoder* decoder = reinterpret_cast<AsyncAudioDecoder*>(threadData);
+    decoder->runLoop();
 }
 
 void AsyncAudioDecoder::runLoop()

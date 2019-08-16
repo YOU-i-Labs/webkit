@@ -20,7 +20,7 @@
 [
     JSGenerateToNativeObject,
 ] interface HTMLOptGroupElement : HTMLElement {
-    [CEReactions=NotNeeded, Reflect] attribute boolean disabled;
-    [CEReactions=NotNeeded, Reflect] attribute DOMString label;
+    [Reflect] attribute boolean disabled;
+    [Reflect] attribute DOMString label;
 };
 

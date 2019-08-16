@@ -32,13 +32,10 @@
 #include "RenderLayerBacking.h"
 #include "RenderView.h"
 #include "SecurityOrigin.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderWidget);
 
 static HashMap<const Widget*, RenderWidget*>& widgetRendererMap()
 {
@@ -84,13 +81,14 @@ static void moveWidgetToParentSoon(Widget& child, FrameView* parent)
 
 RenderWidget::RenderWidget(HTMLFrameOwnerElement& element, RenderStyle&& style)
     : RenderReplaced(element, WTFMove(style))
+    , m_weakPtrFactory(this)
 {
     setInline(false);
 }
 
 void RenderWidget::willBeDestroyed()
 {
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     if (hasLayer())
         layer()->willBeDestroyed();
 #endif
@@ -131,7 +129,7 @@ bool RenderWidget::setWidgetGeometry(const LayoutRect& frame)
 
     m_clipRect = clipRect;
 
-    auto weakThis = makeWeakPtr(*this);
+    WeakPtr<RenderWidget> weakThis = createWeakPtr();
     // These calls *may* cause this renderer to disappear from underneath...
     if (boundsChanged)
         m_widget->setFrameRect(newFrameRect);
@@ -181,13 +179,13 @@ void RenderWidget::setWidget(RefPtr<Widget>&& widget)
         // widget immediately, but we have to have really been fully constructed.
         if (hasInitializedStyle()) {
             if (!needsLayout()) {
-                auto weakThis = makeWeakPtr(*this);
+                WeakPtr<RenderWidget> weakThis = createWeakPtr();
                 updateWidgetGeometry();
                 if (!weakThis)
                     return;
             }
 
-            if (style().visibility() != Visibility::Visible)
+            if (style().visibility() != VISIBLE)
                 m_widget->hide();
             else {
                 m_widget->show();
@@ -210,7 +208,7 @@ void RenderWidget::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
 {
     RenderReplaced::styleDidChange(diff, oldStyle);
     if (m_widget) {
-        if (style().visibility() != Visibility::Visible)
+        if (style().visibility() != VISIBLE)
             m_widget->hide();
         else
             m_widget->show();
@@ -230,13 +228,6 @@ void RenderWidget::paintContents(PaintInfo& paintInfo, const LayoutPoint& paintO
     // Tell the widget to paint now. This is the only time the widget is allowed
     // to paint itself. That way it will composite properly with z-indexed layers.
     LayoutRect paintRect = paintInfo.rect;
-
-    OptionSet<PaintBehavior> oldBehavior = PaintBehavior::Normal;
-    if (is<FrameView>(*m_widget) && (paintInfo.paintBehavior & PaintBehavior::TileFirstPaint)) {
-        FrameView& frameView = downcast<FrameView>(*m_widget);
-        oldBehavior = frameView.paintBehavior();
-        frameView.setPaintBehavior(oldBehavior | PaintBehavior::TileFirstPaint);
-    }
 
     IntPoint widgetLocation = m_widget->frameRect().location();
     IntSize widgetPaintOffset = contentPaintOffset - widgetLocation;
@@ -259,8 +250,6 @@ void RenderWidget::paintContents(PaintInfo& paintInfo, const LayoutPoint& paintO
             ASSERT(!paintInfo.overlapTestRequests->contains(this) || (paintInfo.overlapTestRequests->get(this) == m_widget->frameRect()));
             paintInfo.overlapTestRequests->set(this, m_widget->frameRect());
         }
-        if (paintInfo.paintBehavior & PaintBehavior::TileFirstPaint)
-            frameView.setPaintBehavior(oldBehavior);
     }
 }
 
@@ -271,18 +260,18 @@ void RenderWidget::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 
     LayoutPoint adjustedPaintOffset = paintOffset + location();
 
-    if (hasVisibleBoxDecorations() && (paintInfo.phase == PaintPhase::Foreground || paintInfo.phase == PaintPhase::Selection))
+    if (hasVisibleBoxDecorations() && (paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseSelection))
         paintBoxDecorations(paintInfo, adjustedPaintOffset);
 
-    if (paintInfo.phase == PaintPhase::Mask) {
+    if (paintInfo.phase == PaintPhaseMask) {
         paintMask(paintInfo, adjustedPaintOffset);
         return;
     }
 
-    if ((paintInfo.phase == PaintPhase::Outline || paintInfo.phase == PaintPhase::SelfOutline) && hasOutline())
+    if ((paintInfo.phase == PaintPhaseOutline || paintInfo.phase == PaintPhaseSelfOutline) && hasOutline())
         paintOutline(paintInfo, LayoutRect(adjustedPaintOffset, size()));
 
-    if (paintInfo.phase != PaintPhase::Foreground)
+    if (paintInfo.phase != PaintPhaseForeground)
         return;
 
     if (style().hasBorderRadius()) {
@@ -325,7 +314,7 @@ RenderWidget::ChildWidgetState RenderWidget::updateWidgetPosition()
     if (!m_widget)
         return ChildWidgetState::Destroyed;
 
-    auto weakThis = makeWeakPtr(*this);
+    WeakPtr<RenderWidget> weakThis = createWeakPtr();
     bool widgetSizeChanged = updateWidgetGeometry();
     if (!weakThis || !m_widget)
         return ChildWidgetState::Destroyed;
@@ -336,7 +325,7 @@ RenderWidget::ChildWidgetState RenderWidget::updateWidgetPosition()
         FrameView& frameView = downcast<FrameView>(*m_widget);
         // Check the frame's page to make sure that the frame isn't in the process of being destroyed.
         if ((widgetSizeChanged || frameView.needsLayout()) && frameView.frame().page() && frameView.frame().document())
-            frameView.layoutContext().layout();
+            frameView.layout();
     }
     return ChildWidgetState::Valid;
 }
@@ -374,8 +363,8 @@ bool RenderWidget::nodeAtPoint(const HitTestRequest& request, HitTestResult& res
 
         bool isInsideChildFrame = childRoot.hitTest(newHitTestRequest, newHitTestLocation, childFrameResult);
 
-        if (request.resultIsElementList())
-            result.append(childFrameResult, request);
+        if (newHitTestLocation.isRectBasedTest())
+            result.append(childFrameResult);
         else if (isInsideChildFrame)
             result = childFrameResult;
 

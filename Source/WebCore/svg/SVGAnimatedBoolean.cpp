@@ -1,6 +1,5 @@
 /*
  * Copyright (C) Research In Motion Limited 2011. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -32,12 +31,14 @@ SVGAnimatedBooleanAnimator::SVGAnimatedBooleanAnimator(SVGAnimationElement* anim
 
 std::unique_ptr<SVGAnimatedType> SVGAnimatedBooleanAnimator::constructFromString(const String& string)
 {
-    return SVGAnimatedType::create(SVGPropertyTraits<bool>::fromString(string));
+    auto animatedType = SVGAnimatedType::createBoolean(std::make_unique<bool>());
+    animatedType->boolean() = (string == "true"); // wat?
+    return animatedType;
 }
 
 std::unique_ptr<SVGAnimatedType> SVGAnimatedBooleanAnimator::startAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
 {
-    return constructFromBaseValue<SVGAnimatedBoolean>(animatedTypes);
+    return SVGAnimatedType::createBoolean(constructFromBaseValue<SVGAnimatedBoolean>(animatedTypes));
 }
 
 void SVGAnimatedBooleanAnimator::stopAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
@@ -47,7 +48,7 @@ void SVGAnimatedBooleanAnimator::stopAnimValAnimation(const SVGElementAnimatedPr
 
 void SVGAnimatedBooleanAnimator::resetAnimValToBaseVal(const SVGElementAnimatedPropertyList& animatedTypes, SVGAnimatedType& type)
 {
-    resetFromBaseValue<SVGAnimatedBoolean>(animatedTypes, type);
+    resetFromBaseValue<SVGAnimatedBoolean>(animatedTypes, type, &SVGAnimatedType::boolean);
 }
 
 void SVGAnimatedBooleanAnimator::animValWillChange(const SVGElementAnimatedPropertyList& animatedTypes)
@@ -70,9 +71,9 @@ void SVGAnimatedBooleanAnimator::calculateAnimatedValue(float percentage, unsign
     ASSERT(m_animationElement);
     ASSERT(m_contextElement);
 
-    const auto fromBoolean = (m_animationElement->animationMode() == ToAnimation ? animated : from)->as<bool>();
-    const auto toBoolean = to->as<bool>();
-    auto& animatedBoolean = animated->as<bool>();
+    bool fromBoolean = m_animationElement->animationMode() == ToAnimation ? animated->boolean() : from->boolean();
+    bool toBoolean = to->boolean();
+    bool& animatedBoolean = animated->boolean();
 
     m_animationElement->animateDiscreteType<bool>(percentage, fromBoolean, toBoolean, animatedBoolean);
 }

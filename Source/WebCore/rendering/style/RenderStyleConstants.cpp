@@ -26,84 +26,60 @@
 #include "config.h"
 #include "RenderStyleConstants.h"
 
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 
-TextStream& operator<<(TextStream& ts, Visibility visibility)
-{
-    switch (visibility) {
-    case Visibility::Visible: ts << "visible"; break;
-    case Visibility::Hidden: ts << "hidden"; break;
-    case Visibility::Collapse: ts << "collapse"; break;
-    }
-    
-    return ts;
-}
-
-TextStream& operator<<(TextStream& ts, ImageRendering imageRendering)
-{
-    switch (imageRendering) {
-    case ImageRendering::Auto: ts << "auto"; break;
-    case ImageRendering::OptimizeSpeed: ts << "optimizeSpeed"; break;
-    case ImageRendering::OptimizeQuality: ts << "optimizeQuality"; break;
-    case ImageRendering::CrispEdges: ts << "crispEdges"; break;
-    case ImageRendering::Pixelated: ts << "pixelated"; break;
-    }
-    
-    return ts;
-}
-
-TextStream& operator<<(TextStream& ts, FillSizeType sizeType)
+TextStream& operator<<(TextStream& ts, EFillSizeType sizeType)
 {
     switch (sizeType) {
-    case FillSizeType::Contain: ts << "contain"; break;
-    case FillSizeType::Cover: ts << "cover"; break;
-    case FillSizeType::Size: ts << "size-length"; break;
-    case FillSizeType::None: ts << "size-none"; break;
+    case Contain: ts << "contain"; break;
+    case Cover: ts << "cover"; break;
+    case SizeLength: ts << "size-length"; break;
+    case SizeNone: ts << "size-none"; break;
     }
     
     return ts;
 }
 
-TextStream& operator<<(TextStream& ts, FillAttachment attachment)
+TextStream& operator<<(TextStream& ts, EFillAttachment attachment)
 {
     switch (attachment) {
-    case FillAttachment::ScrollBackground: ts << "scroll"; break;
-    case FillAttachment::LocalBackground: ts << "local"; break;
-    case FillAttachment::FixedBackground: ts << "fixed"; break;
+    case ScrollBackgroundAttachment: ts << "scroll"; break;
+    case LocalBackgroundAttachment: ts << "local"; break;
+    case FixedBackgroundAttachment: ts << "fixed"; break;
     }
     return ts;
 }
 
-TextStream& operator<<(TextStream& ts, FillBox fill)
+TextStream& operator<<(TextStream& ts, EFillBox fill)
 {
     switch (fill) {
-    case FillBox::Border: ts << "border"; break;
-    case FillBox::Padding: ts << "padding"; break;
-    case FillBox::Content: ts << "content"; break;
-    case FillBox::Text: ts << "text"; break;
+    case BorderFillBox: ts << "border"; break;
+    case PaddingFillBox: ts << "padding"; break;
+    case ContentFillBox: ts << "content"; break;
+    case TextFillBox: ts << "text"; break;
     }
     return ts;
 }
 
-TextStream& operator<<(TextStream& ts, FillRepeat repeat)
+TextStream& operator<<(TextStream& ts, EFillRepeat repeat)
 {
     switch (repeat) {
-    case FillRepeat::Repeat: ts << "repeat"; break;
-    case FillRepeat::NoRepeat: ts << "no-repeat"; break;
-    case FillRepeat::Round: ts << "round"; break;
-    case FillRepeat::Space: ts << "space"; break;
+    case RepeatFill: ts << "repeat"; break;
+    case NoRepeatFill: ts << "no-repeat"; break;
+    case RoundFill: ts << "round"; break;
+    case SpaceFill: ts << "space"; break;
     }
 
     return ts;
 }
 
-TextStream& operator<<(TextStream& ts, MaskSourceType maskSource)
+TextStream& operator<<(TextStream& ts, EMaskSourceType maskSource)
 {
     switch (maskSource) {
-    case MaskSourceType::Alpha: ts << "alpha"; break;
-    case MaskSourceType::Luminance: ts << "luminance"; break;
+    case MaskAlpha: ts << "alpha"; break;
+    case MaskLuminance: ts << "luminance"; break;
     }
 
     return ts;
@@ -122,7 +98,7 @@ TextStream& operator<<(TextStream& ts, Edge edge)
 
 bool alwaysPageBreak(BreakBetween between)
 {
-    return between >= BreakBetween::Page;
+    return between >= PageBreakBetween;
 }
 
 const float defaultMiterLimit = 4;

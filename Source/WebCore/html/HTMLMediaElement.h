@@ -28,20 +28,17 @@
 #if ENABLE(VIDEO)
 
 #include "ActiveDOMObject.h"
-#include "ApplicationStateChangeListener.h"
 #include "AutoplayEvent.h"
-#include "DeferrableTask.h"
 #include "GenericEventQueue.h"
+#include "GenericTaskQueue.h"
 #include "HTMLElement.h"
 #include "HTMLMediaElementEnums.h"
 #include "MediaCanStartListener.h"
 #include "MediaControllerInterface.h"
 #include "MediaElementSession.h"
-#include "MediaPlayer.h"
 #include "MediaProducer.h"
+#include "UserInterfaceLayoutDirection.h"
 #include "VisibilityChangeClient.h"
-#include <wtf/Function.h>
-#include <wtf/LoggerHelper.h>
 #include <wtf/WeakPtr.h>
 
 #if ENABLE(VIDEO_TRACK)
@@ -58,17 +55,9 @@
 #include "AudioSession.h"
 #endif
 
-#if ENABLE(ENCRYPTED_MEDIA)
-#include "CDMClient.h"
-#endif
-
 #ifndef NDEBUG
 #include <wtf/StringPrintStream.h>
 #endif
-
-namespace PAL {
-class SleepDisabler;
-}
 
 namespace WebCore {
 
@@ -76,26 +65,25 @@ class AudioSourceProvider;
 class AudioTrackList;
 class AudioTrackPrivate;
 class Blob;
-class DOMException;
-class DOMWrapperWorld;
+class DOMError;
 class DeferredPromise;
+class SleepDisabler;
 class Event;
 class HTMLSourceElement;
 class HTMLTrackElement;
 class InbandTextTrackPrivate;
-class JSDOMGlobalObject;
 class MediaController;
 class MediaControls;
 class MediaControlsHost;
 class MediaElementAudioSourceNode;
 class MediaError;
 class MediaKeys;
+class MediaPlayer;
 class MediaResourceLoader;
 class MediaSession;
 class MediaSource;
 class MediaStream;
 class RenderMedia;
-class ScriptController;
 class ScriptExecutionContext;
 class SourceBuffer;
 class TextTrackList;
@@ -113,7 +101,7 @@ using CueInterval = CueIntervalTree::IntervalType;
 using CueList = Vector<CueInterval>;
 #endif
 
-using MediaProvider = Optional<Variant<
+using MediaProvider = std::optional<Variant<
 #if ENABLE(MEDIA_STREAM)
     RefPtr<MediaStream>,
 #endif
@@ -126,13 +114,12 @@ class HTMLMediaElement
     : public HTMLElement
     , public ActiveDOMObject
     , public MediaControllerInterface
-    , public CanMakeWeakPtr<HTMLMediaElement>
+    , public MediaPlayerSupportsTypeClient
     , public PlatformMediaSessionClient
     , private MediaCanStartListener
     , private MediaPlayerClient
     , private MediaProducer
     , private VisibilityChangeClient
-    , private ApplicationStateChangeListener
 #if ENABLE(VIDEO_TRACK)
     , private AudioTrackClient
     , private TextTrackClient
@@ -141,16 +128,10 @@ class HTMLMediaElement
 #if USE(AUDIO_SESSION) && PLATFORM(MAC)
     , private AudioSession::MutedStateObserver
 #endif
-#if ENABLE(ENCRYPTED_MEDIA)
-    , private CDMClient
-#endif
-#if !RELEASE_LOG_DISABLED
-    , private LoggerHelper
-#endif
 {
-    WTF_MAKE_ISO_ALLOCATED(HTMLMediaElement);
 public:
-    RefPtr<MediaPlayer> player() const { return m_player; }
+    WeakPtr<HTMLMediaElement> createWeakPtr() { return m_weakFactory.createWeakPtr(); }
+    MediaPlayer* player() const { return m_player.get(); }
 
     virtual bool isVideo() const { return false; }
     bool hasVideo() const override { return false; }
@@ -158,11 +139,9 @@ public:
 
     static HashSet<HTMLMediaElement*>& allMediaElements();
 
-    WEBCORE_EXPORT static RefPtr<HTMLMediaElement> bestMediaElementForShowingPlaybackControlsManager(MediaElementSession::PlaybackControlsPurpose);
+    static HTMLMediaElement* bestMediaElementForShowingPlaybackControlsManager(MediaElementSession::PlaybackControlsPurpose);
 
-    static bool isRunningDestructor();
-
-    WEBCORE_EXPORT void rewind(double timeDelta);
+    void rewind(double timeDelta);
     WEBCORE_EXPORT void returnToRealtime() override;
 
     // Eventually overloaded in HTMLVideoElement
@@ -174,35 +153,32 @@ public:
 
     bool doesHaveAttribute(const AtomicString&, AtomicString* value = nullptr) const override;
 
+    WEBCORE_EXPORT PlatformMedia platformMedia() const;
     PlatformLayer* platformLayer() const;
     bool isVideoLayerInline();
     void setPreparedToReturnVideoLayerToInline(bool);
-    void waitForPreparedForInlineThen(WTF::Function<void()>&& completionHandler = [] { });
-#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
-    void setVideoFullscreenLayer(PlatformLayer*, WTF::Function<void()>&& completionHandler = [] { });
-#ifdef __OBJC__
+    void waitForPreparedForInlineThen(std::function<void()> completionHandler = [] { });
+#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+    void setVideoFullscreenLayer(PlatformLayer*, std::function<void()> completionHandler = [] { });
     PlatformLayer* videoFullscreenLayer() const { return m_videoFullscreenLayer.get(); }
-#endif
     void setVideoFullscreenFrame(FloatRect);
     void setVideoFullscreenGravity(MediaPlayerEnums::VideoGravity);
     MediaPlayerEnums::VideoGravity videoFullscreenGravity() const { return m_videoFullscreenGravity; }
 #endif
 
-    void scheduleCheckPlaybackTargetCompatability();
-    void checkPlaybackTargetCompatablity();
+    using HTMLMediaElementEnums::DelayedActionType;
+    void scheduleDelayedAction(DelayedActionType);
     void scheduleResolvePendingPlayPromises();
-    void scheduleRejectPendingPlayPromises(Ref<DOMException>&&);
-    using PlayPromiseVector = Vector<DOMPromiseDeferred<void>>;
-    void rejectPendingPlayPromises(PlayPromiseVector&&, Ref<DOMException>&&);
-    void resolvePendingPlayPromises(PlayPromiseVector&&);
+    void rejectPendingPlayPromises(DOMError&);
+    void resolvePendingPlayPromises();
     void scheduleNotifyAboutPlaying();
-    void notifyAboutPlaying(PlayPromiseVector&&);
+    void notifyAboutPlaying();
     
     MediaPlayerEnums::MovieLoadType movieLoadType() const;
     
     bool inActiveDocument() const { return m_inActiveDocument; }
 
-    Document* hostingDocument() const final { return &document(); }
+    const Document* hostingDocument() const override { return &document(); }
 
 // DOM API
 // error state
@@ -234,8 +210,7 @@ public:
 
 // playback state
     WEBCORE_EXPORT double currentTime() const override;
-    WEBCORE_EXPORT void setCurrentTime(double) override;
-    void setCurrentTimeWithTolerance(double, double toleranceBefore, double toleranceAfter);
+    void setCurrentTime(double) override;
     double currentTimeForBindings() const { return currentTime(); }
     WEBCORE_EXPORT ExceptionOr<void> setCurrentTimeForBindings(double);
     WEBCORE_EXPORT double getStartDate() const;
@@ -269,8 +244,7 @@ public:
 
     WEBCORE_EXPORT void play() override;
     WEBCORE_EXPORT void pause() override;
-    void setShouldBufferData(bool);
-    WEBCORE_EXPORT bool shouldBufferData() const { return m_shouldBufferData; }
+    void setShouldBufferData(bool) override;
     WEBCORE_EXPORT void fastSeek(double);
     double minFastReverseRate() const;
     double maxFastForwardRate() const;
@@ -282,7 +256,7 @@ public:
     WEBCORE_EXPORT bool webkitClosedCaptionsVisible() const;
     WEBCORE_EXPORT void setWebkitClosedCaptionsVisible(bool);
 
-    bool elementIsHidden() const { return m_elementIsHidden; }
+    bool elementIsHidden() const override { return m_elementIsHidden; }
 
 #if ENABLE(MEDIA_STATISTICS)
 // Statistics
@@ -314,7 +288,7 @@ public:
     WEBCORE_EXPORT bool controls() const;
     WEBCORE_EXPORT void setControls(bool);
     WEBCORE_EXPORT double volume() const override;
-    WEBCORE_EXPORT ExceptionOr<void> setVolume(double) override;
+    ExceptionOr<void> setVolume(double) override;
     WEBCORE_EXPORT bool muted() const override;
     WEBCORE_EXPORT void setMuted(bool) override;
 
@@ -335,21 +309,18 @@ public:
 #if ENABLE(VIDEO_TRACK)
     ExceptionOr<TextTrack&> addTextTrack(const String& kind, const String& label, const String& language);
 
-    AudioTrackList& ensureAudioTracks();
-    TextTrackList& ensureTextTracks();
-    VideoTrackList& ensureVideoTracks();
-    AudioTrackList* audioTracks() const { return m_audioTracks.get(); }
-    TextTrackList* textTracks() const { return m_textTracks.get(); }
-    VideoTrackList* videoTracks() const { return m_videoTracks.get(); }
+    AudioTrackList& audioTracks();
+    TextTrackList& textTracks();
+    VideoTrackList& videoTracks();
 
     CueList currentlyActiveCues() const { return m_currentlyActiveCues; }
 
     void addAudioTrack(Ref<AudioTrack>&&);
     void addTextTrack(Ref<TextTrack>&&);
     void addVideoTrack(Ref<VideoTrack>&&);
-    void removeAudioTrack(Ref<AudioTrack>&&);
-    void removeTextTrack(Ref<TextTrack>&&, bool scheduleEvent = true);
-    void removeVideoTrack(Ref<VideoTrack>&&);
+    void removeAudioTrack(AudioTrack&);
+    void removeTextTrack(TextTrack&, bool scheduleEvent = true);
+    void removeVideoTrack(VideoTrack&);
     void forgetResourceSpecificTracks();
     void closeCaptionTracksChanged();
     void notifyMediaPlayerOfTextTrackChanges();
@@ -370,7 +341,6 @@ public:
 
     struct TrackGroup;
     void configureTextTrackGroupForLanguage(const TrackGroup&) const;
-    void scheduleConfigureTextTracks();
     void configureTextTracks();
     void configureTextTrackGroup(const TrackGroup&);
 
@@ -408,16 +378,12 @@ public:
     bool removeEventListener(const AtomicString& eventType, EventListener&, const ListenerOptions&) override;
 
     void wirelessRoutesAvailableDidChange() override;
+    bool canPlayToWirelessPlaybackTarget() const override;
+    bool isPlayingToWirelessPlaybackTarget() const override;
     void setWirelessPlaybackTarget(Ref<MediaPlaybackTarget>&&) override;
     void setShouldPlayToPlaybackTarget(bool) override;
 #endif
-    bool isPlayingToWirelessPlaybackTarget() const override { return m_isPlayingToWirelessTarget; };
     bool webkitCurrentPlaybackTargetIsWireless() const;
-
-    void setPlayingOnSecondScreen(bool value);
-    bool isPlayingOnSecondScreen() const override { return m_playingOnSecondScreen; }
-
-    bool isPlayingToExternalTarget() const { return isPlayingToWirelessPlaybackTarget() || isPlayingOnSecondScreen(); }
 
     // EventTarget function.
     // Both Node (via HTMLElement) and ActiveDOMObject define this method, which
@@ -427,8 +393,6 @@ public:
     using HTMLElement::scriptExecutionContext;
 
     bool hasSingleSecurityOrigin() const { return !m_player || m_player->hasSingleSecurityOrigin(); }
-    bool didPassCORSAccessCheck() const { return m_player && m_player->didPassCORSAccessCheck(); }
-    bool wouldTaintOrigin(const SecurityOrigin& origin) const { return m_player && m_player->wouldTaintOrigin(origin); }
     
     WEBCORE_EXPORT bool isFullscreen() const override;
     bool isStandardFullscreen() const;
@@ -441,7 +405,6 @@ public:
     void enterFullscreen(VideoFullscreenMode);
     void enterFullscreen() override;
     WEBCORE_EXPORT void exitFullscreen();
-    WEBCORE_EXPORT void setVideoFullscreenStandby(bool);
 
     bool hasClosedCaptions() const override;
     bool closedCaptionsVisible() const override;
@@ -458,7 +421,7 @@ public:
     WEBCORE_EXPORT static void setMediaCacheDirectory(const String&);
     WEBCORE_EXPORT static const String& mediaCacheDirectory();
     WEBCORE_EXPORT static HashSet<RefPtr<SecurityOrigin>> originsInMediaCache(const String&);
-    WEBCORE_EXPORT static void clearMediaCache(const String&, WallTime modifiedSince = { });
+    WEBCORE_EXPORT static void clearMediaCache(const String&, std::chrono::system_clock::time_point modifiedSince = { });
     WEBCORE_EXPORT static void clearMediaCacheForOrigins(const String&, const HashSet<RefPtr<SecurityOrigin>>&);
     static void resetMediaEngines();
 
@@ -507,7 +470,9 @@ public:
     uint64_t elementID() const { return m_elementID; }
 #endif
 
+#if ENABLE(MEDIA_SOURCE)
     RefPtr<VideoPlaybackQuality> getVideoPlaybackQuality();
+#endif
 
     MediaPlayerEnums::Preload preloadValue() const { return m_preload; }
     MediaElementSession& mediaSession() const { return *m_mediaSession; }
@@ -547,35 +512,18 @@ public:
     bool isTemporarilyAllowingInlinePlaybackAfterFullscreen() const {return m_temporarilyAllowingInlinePlaybackAfterFullscreen; }
 
     void isVisibleInViewportChanged();
-    void updateRateChangeRestrictions();
 
     WEBCORE_EXPORT const MediaResourceLoader* lastMediaResourceLoaderForTesting() const;
 
 #if ENABLE(MEDIA_STREAM)
     void mediaStreamCaptureStarted() { resumeAutoplaying(); }
-    bool hasMediaStreamSrcObject() const { return m_mediaProvider && WTF::holds_alternative<RefPtr<MediaStream>>(*m_mediaProvider); }
+    bool hasMediaStreamSrcObject() const { return !!m_mediaStreamSrcObject; }
 #endif
 
     bool supportsSeeking() const override;
 
-#if !RELEASE_LOG_DISABLED
-    const Logger& logger() const final { return *m_logger.get(); }
-    const void* logIdentifier() const final { return reinterpret_cast<const void*>(m_logIdentifier); }
-    WTFLogChannel& logChannel() const final;
-#endif
-
-    bool willLog(WTFLogLevel) const;
-
-    bool isSuspended() const final;
-
-    WEBCORE_EXPORT void didBecomeFullscreenElement() override;
-    WEBCORE_EXPORT void willExitFullscreen();
-
-    enum class AutoplayEventPlaybackState { None, PreventedAutoplay, StartedWithUserGesture, StartedWithoutUserGesture };
-
 protected:
     HTMLMediaElement(const QualifiedName&, Document&, bool createdByParser);
-    virtual void finishInitialization();
     virtual ~HTMLMediaElement();
 
     void parseAttribute(const QualifiedName&, const AtomicString&) override;
@@ -613,16 +561,19 @@ protected:
 private:
     void createMediaPlayer();
 
+    bool alwaysCreateUserAgentShadowRoot() const override { return true; }
+
     bool supportsFocus() const override;
     bool isMouseFocusable() const override;
     bool rendererIsNeeded(const RenderStyle&) override;
     bool childShouldCreateRenderer(const Node&) const override;
-    InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) override;
-    void didFinishInsertingNode() override;
-    void removedFromAncestor(RemovalType, ContainerNode&) override;
+    InsertionNotificationRequest insertedInto(ContainerNode&) override;
+    void finishedInsertingSubtree() override;
+    void removedFrom(ContainerNode&) override;
     void didRecalcStyle(Style::Change) override;
 
     void willBecomeFullscreenElement() override;
+    void didBecomeFullscreenElement() override;
     void willStopBeingFullscreenElement() override;
 
     // ActiveDOMObject API.
@@ -662,8 +613,6 @@ private:
     void mediaPlayerRenderingModeChanged(MediaPlayer*) override;
     bool mediaPlayerAcceleratedCompositingEnabled() override;
     void mediaPlayerEngineUpdated(MediaPlayer*) override;
-
-    void scheduleMediaEngineWasUpdated();
     void mediaEngineWasUpdated();
 
     void mediaPlayerFirstVideoFrameAvailable(MediaPlayer*) override;
@@ -674,24 +623,13 @@ private:
     bool mediaPlayerKeyNeeded(MediaPlayer*, Uint8Array*) override;
     String mediaPlayerMediaKeysStorageDirectory() const override;
 #endif
-
-#if ENABLE(ENCRYPTED_MEDIA)
-    void mediaPlayerInitializationDataEncountered(const String&, RefPtr<ArrayBuffer>&&) final;
-    void mediaPlayerWaitingForKeyChanged() final;
-
-    void attemptToDecrypt();
-    void attemptToResumePlaybackIfNecessary();
-
-    // CDMClient
-    void cdmClientAttemptToResumePlaybackIfNecessary() final;
-#endif
     
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     void mediaPlayerCurrentPlaybackTargetIsWirelessChanged(MediaPlayer*) override;
     void enqueuePlaybackTargetAvailabilityChangedEvent();
 
     using EventTarget::dispatchEvent;
-    void dispatchEvent(Event&) override;
+    bool dispatchEvent(Event&) override;
 #endif
 
 #if ENABLE(MEDIA_SESSION)
@@ -700,6 +638,9 @@ private:
 
     String mediaPlayerReferrer() const override;
     String mediaPlayerUserAgent() const override;
+
+    bool mediaPlayerNeedsSiteSpecificHacks() const override;
+    String mediaPlayerDocumentHost() const override;
 
     void mediaPlayerEnterFullscreen() override;
     void mediaPlayerExitFullscreen() override;
@@ -725,12 +666,13 @@ private:
 
     void mediaPlayerActiveSourceBuffersChanged(const MediaPlayer*) override;
 
+    bool mediaPlayerShouldWaitForResponseToAuthenticationChallenge(const AuthenticationChallenge&) override;
     void mediaPlayerHandlePlaybackCommand(PlatformMediaSession::RemoteControlCommandType command) override { didReceiveRemoteControlCommand(command, nullptr); }
     String sourceApplicationIdentifier() const override;
     String mediaPlayerSourceApplicationIdentifier() const override { return sourceApplicationIdentifier(); }
     Vector<String> mediaPlayerPreferredAudioCharacteristics() const override;
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     String mediaPlayerNetworkInterfaceName() const override;
     bool mediaPlayerGetRawCookies(const URL&, Vector<Cookie>&) const override;
 #endif
@@ -740,9 +682,7 @@ private:
 
     double mediaPlayerRequestedPlaybackRate() const final;
     VideoFullscreenMode mediaPlayerFullscreenMode() const final { return fullscreenMode(); }
-    bool mediaPlayerIsVideoFullscreenStandby() const final { return m_videoFullscreenStandby; }
     bool mediaPlayerShouldDisableSleep() const final { return shouldDisableSleep() == SleepType::Display; }
-    bool mediaPlayerShouldCheckHardwareSupport() const final;
     const Vector<ContentType>& mediaContentTypesRequiringHardwareSupport() const final;
 
 #if USE(GSTREAMER)
@@ -757,8 +697,6 @@ private:
     void startPlaybackProgressTimer();
     void startProgressEventTimer();
     void stopPeriodicTimers();
-    void cancelPendingTasks();
-    void closeTaskQueues();
 
     void seek(const MediaTime&);
     void seekInternal(const MediaTime&);
@@ -776,7 +714,7 @@ private:
     void scheduleNextSourceChild();
     void loadNextSourceChild();
     void userCancelledLoad();
-    void clearMediaPlayer();
+    void clearMediaPlayer(DelayedActionType flags);
     bool havePotentialSourceChild();
     void noneSupported();
     void cancelPendingEventsAndCallbacks();
@@ -795,11 +733,10 @@ private:
     };
     void markCaptionAndSubtitleTracksAsUnconfigured(ReconfigureMode);
     void captionPreferencesChanged() override;
-    CaptionUserPreferences::CaptionDisplayMode captionDisplayMode();
 #endif
 
     // These "internal" functions do not check user gesture restrictions.
-    void playInternal();
+    bool playInternal();
     void pauseInternal();
 
     void prepareForLoad();
@@ -809,9 +746,9 @@ private:
     void beginProcessingMediaPlayerCallback() { ++m_processingMediaPlayerCallback; }
     void endProcessingMediaPlayerCallback() { ASSERT(m_processingMediaPlayerCallback); --m_processingMediaPlayerCallback; }
 
-    void scheduleUpdatePlayState();
-    void updatePlayState();
+    enum class UpdateState { Asynchronously, Synchronously };
 
+    void updatePlayState(UpdateState updateState = UpdateState::Synchronously);
     void updateVolume();
     void setPlaying(bool);
     bool potentiallyPlaying() const;
@@ -822,7 +759,8 @@ private:
     void dispatchPlayPauseEventsIfNeedsQuirks();
     SuccessOr<MediaPlaybackDenialReason> canTransitionFromAutoplayToPlay() const;
 
-    void setAutoplayEventPlaybackState(AutoplayEventPlaybackState);
+    enum class PlaybackWithoutUserGesture { None, Started, Prevented };
+    void setPlaybackWithoutUserGesture(PlaybackWithoutUserGesture);
     void userDidInterfereWithAutoplay();
     void handleAutoplayEvent(AutoplayEvent);
 
@@ -865,7 +803,7 @@ private:
     SleepType shouldDisableSleep() const;
 
 #if ENABLE(MEDIA_CONTROLS_SCRIPT)
-    void didAddUserAgentShadowRoot(ShadowRoot&) override;
+    void didAddUserAgentShadowRoot(ShadowRoot*) override;
     DOMWrapperWorld& ensureIsolatedWorld();
     bool ensureMediaControlsInjectedScript();
 #endif
@@ -878,7 +816,6 @@ private:
     void suspendPlayback() override;
     void resumeAutoplaying() override;
     void mayResumePlayback(bool shouldResume) override;
-    uint64_t mediaSessionUniqueIdentifier() const final;
     String mediaSessionTitle() const override;
     double mediaSessionDuration() const override { return duration(); }
     double mediaSessionCurrentTime() const override { return currentTime(); }
@@ -888,6 +825,7 @@ private:
     bool shouldOverrideBackgroundLoadingRestriction() const override;
     bool canProduceAudio() const final;
     bool processingUserGestureForMedia() const final;
+    bool isSuspended() const final;
 
     void pageMutedStateDidChange() override;
 
@@ -903,15 +841,11 @@ private:
     void updateCaptionContainer();
     void ensureMediaControlsShadowRoot();
 
-    using JSSetupFunction = WTF::Function<bool(JSDOMGlobalObject&, JSC::ExecState&, ScriptController&, DOMWrapperWorld&)>;
-    bool setupAndCallJS(const JSSetupFunction&);
-
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     void prepareForDocumentSuspension() final;
     void resumeFromDocumentSuspension() final;
 
-    void scheduleUpdateMediaState();
-    void updateMediaState();
+    void updateMediaState(UpdateState updateState = UpdateState::Synchronously);
     bool hasPlaybackTargetAvailabilityListeners() const { return m_hasPlaybackTargetAvailabilityListeners; }
 #endif
 
@@ -920,7 +854,7 @@ private:
 
     void pauseAfterDetachedTask();
     void updatePlaybackControlsManager();
-    void schedulePlaybackControlsManagerUpdate();
+    void scheduleUpdatePlaybackControlsManager();
     void playbackControlsManagerBehaviorRestrictionsTimerFired();
 
     void updateRenderer();
@@ -933,40 +867,24 @@ private:
     void handleSeekToPlaybackPosition(double);
     void seekToPlaybackPositionEndedTimerFired();
 
-    void applicationWillResignActive() final;
-    void applicationDidBecomeActive() final;
-
-    void setInActiveDocument(bool);
-
-#if !RELEASE_LOG_DISABLED
-    const char* logClassName() const final { return "HTMLMediaElement"; }
-
-    const void* mediaPlayerLogIdentifier() final { return logIdentifier(); }
-    const Logger& mediaPlayerLogger() final { return logger(); }
-#endif
-
+    WeakPtrFactory<HTMLMediaElement> m_weakFactory;
+    Timer m_pendingActionTimer;
     Timer m_progressEventTimer;
     Timer m_playbackProgressTimer;
     Timer m_scanTimer;
     Timer m_playbackControlsManagerBehaviorRestrictionsTimer;
     Timer m_seekToPlaybackPositionEndedTimer;
-    DeferrableTask<Timer> m_configureTextTracksTask;
-    DeferrableTask<Timer> m_checkPlaybackTargetCompatablityTask;
-    DeferrableTask<Timer> m_updateMediaStateTask;
-    DeferrableTask<Timer> m_mediaEngineUpdatedTask;
-    DeferrableTask<Timer> m_updatePlayStateTask;
-    DeferrableTask<Timer> m_resumeTaskQueue;
-    DeferrableTask<Timer> m_seekTaskQueue;
-    DeferrableTask<Timer> m_playbackControlsManagerBehaviorRestrictionsQueue;
+    GenericTaskQueue<Timer> m_seekTaskQueue;
+    GenericTaskQueue<Timer> m_shadowDOMTaskQueue;
     GenericTaskQueue<Timer> m_promiseTaskQueue;
     GenericTaskQueue<Timer> m_pauseAfterDetachedTaskQueue;
+    GenericTaskQueue<Timer> m_updatePlaybackControlsManagerQueue;
+    GenericTaskQueue<Timer> m_playbackControlsManagerBehaviorRestrictionsQueue;
     GenericTaskQueue<Timer> m_resourceSelectionTaskQueue;
-    GenericTaskQueue<Timer> m_visibilityChangeTaskQueue;
-    GenericTaskQueue<Timer> m_fullscreenTaskQueue;
     RefPtr<TimeRanges> m_playedTimeRanges;
     GenericEventQueue m_asyncEventQueue;
 
-    PlayPromiseVector m_pendingPlayPromises;
+    Vector<DOMPromiseDeferred<void>> m_pendingPlayPromises;
 
     double m_requestedPlaybackRate { 1 };
     double m_reportedPlaybackRate { 1 };
@@ -999,7 +917,7 @@ private:
     bool m_volumeInitialized { false };
     MediaTime m_lastSeekTime;
     
-    MonotonicTime m_previousProgressTime { MonotonicTime::infinity() };
+    double m_previousProgressTime { std::numeric_limits<double>::max() };
     double m_playbackStartedTime { 0 };
 
     // The last time a timeupdate event was sent (based on monotonic clock).
@@ -1012,16 +930,15 @@ private:
     enum LoadState { WaitingForSource, LoadingFromSrcAttr, LoadingFromSourceElement };
     LoadState m_loadState { WaitingForSource };
     RefPtr<HTMLSourceElement> m_currentSourceNode;
-    RefPtr<HTMLSourceElement> m_nextChildNodeToConsider;
+    RefPtr<Node> m_nextChildNodeToConsider;
 
     VideoFullscreenMode m_videoFullscreenMode { VideoFullscreenModeNone };
-    bool m_videoFullscreenStandby { false };
     bool m_preparedForInline;
-    WTF::Function<void()> m_preparedForInlineCompletionHandler;
+    std::function<void()> m_preparedForInlineCompletionHandler;
 
     bool m_temporarilyAllowingInlinePlaybackAfterFullscreen { false };
 
-#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+#if PLATFORM(IOS) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
     RetainPtr<PlatformLayer> m_videoFullscreenLayer;
     FloatRect m_videoFullscreenFrame;
     MediaPlayerEnums::VideoGravity m_videoFullscreenGravity { MediaPlayer::VideoGravityResizeAspect };
@@ -1050,8 +967,8 @@ private:
 #endif
 
     mutable MediaTime m_cachedTime;
-    mutable MonotonicTime m_clockTimeAtLastCachedTimeUpdate;
-    mutable MonotonicTime m_minimumClockTimeToUpdateCachedTime;
+    mutable double m_clockTimeAtLastCachedTimeUpdate { 0 };
+    mutable double m_minimumClockTimeToUpdateCachedTime { 0 };
 
     MediaTime m_fragmentStartTime;
     MediaTime m_fragmentEndTime;
@@ -1093,9 +1010,7 @@ private:
     bool m_completelyLoaded : 1;
     bool m_havePreparedToPlay : 1;
     bool m_parsingInProgress : 1;
-    bool m_shouldBufferData : 1;
     bool m_elementIsHidden : 1;
-    bool m_elementWasRemovedFromDOM : 1;
     bool m_creatingControls : 1;
     bool m_receivedLayoutSizeChanged : 1;
     bool m_hasEverNotifiedAboutPlaying : 1;
@@ -1109,19 +1024,19 @@ private:
 #endif
 
     bool m_isScrubbingRemotely : 1;
-    bool m_waitingToEnterFullscreen : 1;
 
 #if ENABLE(VIDEO_TRACK)
     bool m_tracksAreReady : 1;
     bool m_haveVisibleTextTrack : 1;
     bool m_processingPreferenceChange : 1;
 
-    AutoplayEventPlaybackState m_autoplayEventPlaybackState { AutoplayEventPlaybackState::None };
+    PlaybackWithoutUserGesture m_playbackWithoutUserGesture { PlaybackWithoutUserGesture::None };
+    std::optional<MediaTime> m_playbackWithoutUserGestureStartedTime;
 
     String m_subtitleTrackLanguage;
     MediaTime m_lastTextTrackUpdateTime { -1, 1 };
 
-    Optional<CaptionUserPreferences::CaptionDisplayMode> m_captionDisplayMode;
+    CaptionUserPreferences::CaptionDisplayMode m_captionDisplayMode { CaptionUserPreferences::Automatic };
 
     RefPtr<AudioTrackList> m_audioTracks;
     RefPtr<TextTrackList> m_textTracks;
@@ -1147,7 +1062,7 @@ private:
     friend class MediaController;
     RefPtr<MediaController> m_mediaController;
 
-    std::unique_ptr<PAL::SleepDisabler> m_sleepDisabler;
+    std::unique_ptr<SleepDisabler> m_sleepDisabler;
 
     WeakPtr<const MediaResourceLoader> m_lastMediaResourceLoaderForTesting;
 
@@ -1159,20 +1074,9 @@ private:
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     RefPtr<WebKitMediaKeys> m_webKitMediaKeys;
 #endif
-#if ENABLE(ENCRYPTED_MEDIA)
-    RefPtr<MediaKeys> m_mediaKeys;
-    bool m_attachingMediaKeys { false };
-    bool m_playbackBlockedWaitingForKey { false };
-    GenericTaskQueue<Timer> m_encryptedMediaQueue;
-#endif
 
     std::unique_ptr<MediaElementSession> m_mediaSession;
     size_t m_reportedExtraMemoryCost { 0 };
-
-#if !RELEASE_LOG_DISABLED
-    RefPtr<Logger> m_logger;
-    uint64_t m_logIdentifier;
-#endif
 
 #if ENABLE(MEDIA_CONTROLS_SCRIPT)
     friend class MediaControlsHost;
@@ -1189,47 +1093,26 @@ private:
     MediaProducer::MediaStateFlags m_mediaState { MediaProducer::IsNotPlaying };
     bool m_hasPlaybackTargetAvailabilityListeners { false };
     bool m_failedToPlayToWirelessTarget { false };
-#endif
-
     bool m_isPlayingToWirelessTarget { false };
-    bool m_playingOnSecondScreen { false };
+#endif
 };
-
-String convertEnumerationToString(HTMLMediaElement::AutoplayEventPlaybackState);
-
-} // namespace WebCore
-
-namespace WTF {
-
-template <>
-struct LogArgument<WebCore::HTMLMediaElement::AutoplayEventPlaybackState> {
-    static String toString(const WebCore::HTMLMediaElement::AutoplayEventPlaybackState reason)
-    {
-        return convertEnumerationToString(reason);
-    }
-};
-    
-} // namespace WTF
 
 #if ENABLE(VIDEO_TRACK) && !defined(NDEBUG)
-namespace WTF {
 
 // Template specialization required by PodIntervalTree in debug mode.
-template <> struct ValueToString<WebCore::TextTrackCue*> {
-    static String string(WebCore::TextTrackCue* const& cue)
+template <> struct ValueToString<TextTrackCue*> {
+    static String string(TextTrackCue* const& cue)
     {
         String text;
         if (cue->isRenderable())
-            text = WebCore::toVTTCue(cue)->text();
+            text = toVTTCue(cue)->text();
         return String::format("%p id=%s interval=%s-->%s cue=%s)", cue, cue->id().utf8().data(), toString(cue->startTime()).utf8().data(), toString(cue->endTime()).utf8().data(), text.utf8().data());
     }
 };
 
-} // namespace WTF
 #endif
 
 #ifndef NDEBUG
-namespace WTF {
 
 template<> struct ValueToString<MediaTime> {
     static String string(const MediaTime& time)
@@ -1238,8 +1121,9 @@ template<> struct ValueToString<MediaTime> {
     }
 };
 
-} // namespace WTF
 #endif
+
+} // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::HTMLMediaElement)
     static bool isType(const WebCore::Element& element) { return element.isMediaElement(); }

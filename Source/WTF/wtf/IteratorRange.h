@@ -23,7 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef WTF_IteratorRange_h
+#define WTF_IteratorRange_h
 
 namespace WTF {
 
@@ -50,31 +51,6 @@ IteratorRange<Iterator> makeIteratorRange(Iterator&& begin, Iterator&& end)
     return IteratorRange<Iterator>(std::forward<Iterator>(begin), std::forward<Iterator>(end));
 }
 
-template<typename Container, typename Iterator>
-class SizedIteratorRange {
-public:
-    SizedIteratorRange(const Container& container, Iterator begin, Iterator end)
-        : m_container(container)
-        , m_begin(WTFMove(begin))
-        , m_end(WTFMove(end))
-    {
-    }
-
-    auto size() const -> decltype(std::declval<Container>().size()) { return m_container.size(); }
-    bool isEmpty() const { return m_container.isEmpty(); }
-    Iterator begin() const { return m_begin; }
-    Iterator end() const { return m_end; }
-
-private:
-    const Container& m_container;
-    Iterator m_begin;
-    Iterator m_end;
-};
-
-template<typename Container, typename Iterator>
-SizedIteratorRange<Container, Iterator> makeSizedIteratorRange(const Container& container, Iterator&& begin, Iterator&& end)
-{
-    return SizedIteratorRange<Container, Iterator>(container, std::forward<Iterator>(begin), std::forward<Iterator>(end));
-}
-
 } // namespace WTF
+
+#endif // WTF_IteratorRange_h

@@ -64,6 +64,8 @@ public:
             return adoptRef(*new ThreadPrivate());
         }
 
+        static void workerThread(void*);
+
     private:
         RefPtr<Thread> m_thread;
         bool m_running { false };

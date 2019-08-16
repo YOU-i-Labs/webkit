@@ -23,13 +23,14 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef Atomics_h
+#define Atomics_h
 
 #include <atomic>
 #include <wtf/StdLibExtras.h>
 
 #if OS(WINDOWS)
-#if !COMPILER(GCC_COMPATIBLE)
+#if !COMPILER(GCC_OR_CLANG)
 extern "C" void _ReadWriteBarrier(void);
 #pragma intrinsic(_ReadWriteBarrier)
 #endif
@@ -241,7 +242,7 @@ inline T atomicExchange(T* location, T newValue, std::memory_order order = std::
 // to do things like register allocation and code motion over pure operations.
 inline void compilerFence()
 {
-#if OS(WINDOWS) && !COMPILER(GCC_COMPATIBLE)
+#if OS(WINDOWS) && !COMPILER(GCC_OR_CLANG)
     _ReadWriteBarrier();
 #else
     asm volatile("" ::: "memory");
@@ -296,6 +297,18 @@ inline void x86_cpuid()
 #if OS(WINDOWS)
     int info[4];
     __cpuid(info, 0);
+#elif CPU(X86)
+    // GCC 4.9 on x86 in PIC mode can't use %ebx, so we have to save and restore it manually.
+    // But since we don't care about what cpuid returns (we use it as a serializing instruction),
+    // we can simply throw away what cpuid put in %ebx.
+    intptr_t a = 0, c, d;
+    asm volatile(
+        "pushl %%ebx\n\t"
+        "cpuid\n\t"
+        "popl %%ebx\n\t"
+        : "+a"(a), "=c"(c), "=d"(d)
+        :
+        : "memory");
 #else
     intptr_t a = 0, b, c, d;
     asm volatile(
@@ -326,104 +339,113 @@ inline void crossModifyingCodeFence() { std::atomic_thread_fence(std::memory_ord
 
 #endif
 
-typedef unsigned InternalDependencyType;
+typedef unsigned Dependency;
 
-inline InternalDependencyType opaqueMixture()
+ALWAYS_INLINE Dependency nullDependency()
 {
     return 0;
 }
 
-template<typename... Arguments, typename T>
-inline InternalDependencyType opaqueMixture(T value, Arguments... arguments)
+template <typename T, typename std::enable_if<sizeof(T) == 8>::type* = nullptr>
+ALWAYS_INLINE Dependency dependency(T value)
 {
-    union {
-        InternalDependencyType copy;
-        T value;
-    } u;
-    u.copy = 0;
-    u.value = value;
-    return opaqueMixture(arguments...) + u.copy;
+    unsigned dependency;
+    uint64_t copy = bitwise_cast<uint64_t>(value);
+#if CPU(ARM64)
+    // Create a magical zero value through inline assembly, whose computation
+    // isn't visible to the optimizer. This zero is then usable as an offset in
+    // further address computations: adding zero does nothing, but the compiler
+    // doesn't know it. It's magical because it creates an address dependency
+    // from the load of `location` to the uses of the dependency, which triggers
+    // the ARM ISA's address dependency rule, a.k.a. the mythical C++ consume
+    // ordering. This forces weak memory order CPUs to observe `location` and
+    // dependent loads in their store order without the reader using a barrier
+    // or an acquire load.
+    asm("eor %w[dependency], %w[in], %w[in]"
+        : [dependency] "=r"(dependency)
+        : [in] "r"(copy));
+#elif CPU(ARM)
+    asm("eor %[dependency], %[in], %[in]"
+        : [dependency] "=r"(dependency)
+        : [in] "r"(copy));
+#else
+    // No dependency is needed for this architecture.
+    loadLoadFence();
+    dependency = 0;
+    UNUSED_PARAM(copy);
+#endif
+    return dependency;
 }
 
-class Dependency {
-public:
-    Dependency()
-        : m_value(0)
-    {
-    }
-    
-    // On TSO architectures, this is a load-load fence and the value it returns is not meaningful (it's
-    // zero). The load-load fence is usually just a compiler fence. On ARM, this is a self-xor that
-    // produces zero, but it's concealed from the compiler. The CPU understands this dummy op to be a
-    // phantom dependency.
-    template<typename... Arguments>
-    static Dependency fence(Arguments... arguments)
-    {
-        InternalDependencyType input = opaqueMixture(arguments...);
-        InternalDependencyType output;
+// FIXME: This code is almost identical to the other dependency() overload.
+// https://bugs.webkit.org/show_bug.cgi?id=169405
+template <typename T, typename std::enable_if<sizeof(T) == 4>::type* = nullptr>
+ALWAYS_INLINE Dependency dependency(T value)
+{
+    unsigned dependency;
+    uint32_t copy = bitwise_cast<uint32_t>(value);
 #if CPU(ARM64)
-        // Create a magical zero value through inline assembly, whose computation
-        // isn't visible to the optimizer. This zero is then usable as an offset in
-        // further address computations: adding zero does nothing, but the compiler
-        // doesn't know it. It's magical because it creates an address dependency
-        // from the load of `location` to the uses of the dependency, which triggers
-        // the ARM ISA's address dependency rule, a.k.a. the mythical C++ consume
-        // ordering. This forces weak memory order CPUs to observe `location` and
-        // dependent loads in their store order without the reader using a barrier
-        // or an acquire load.
-        asm("eor %w[out], %w[in], %w[in]"
-            : [out] "=r"(output)
-            : [in] "r"(input));
+    asm("eor %w[dependency], %w[in], %w[in]"
+        : [dependency] "=r"(dependency)
+        : [in] "r"(copy));
 #elif CPU(ARM)
-        asm("eor %[out], %[in], %[in]"
-            : [out] "=r"(output)
-            : [in] "r"(input));
+    asm("eor %[dependency], %[in], %[in]"
+        : [dependency] "=r"(dependency)
+        : [in] "r"(copy));
 #else
-        // No dependency is needed for this architecture.
-        loadLoadFence();
-        output = 0;
-        UNUSED_PARAM(input);
+    loadLoadFence();
+    dependency = 0;
+    UNUSED_PARAM(copy);
 #endif
-        Dependency result;
-        result.m_value = output;
-        return result;
-    }
-    
-    // On TSO architectures, this just returns the pointer you pass it. On ARM, this produces a new
-    // pointer that is dependent on this dependency and the input pointer.
-    template<typename T>
-    T* consume(T* pointer)
-    {
-#if CPU(ARM64) || CPU(ARM)
-        return bitwise_cast<T*>(bitwise_cast<char*>(pointer) + m_value);
-#else
-        UNUSED_PARAM(m_value);
-        return pointer;
-#endif
-    }
-    
-private:
-    InternalDependencyType m_value;
-};
+    return dependency;
+}
 
-template<typename InputType, typename ValueType>
-struct InputAndValue {
-    InputAndValue() { }
+template <typename T, typename std::enable_if<sizeof(T) == 2>::type* = nullptr>
+ALWAYS_INLINE Dependency dependency(T value)
+{
+    return dependency(static_cast<uint32_t>(value));
+}
+
+template <typename T, typename std::enable_if<sizeof(T) == 1>::type* = nullptr>
+ALWAYS_INLINE Dependency dependency(T value)
+{
+    return dependency(static_cast<uint32_t>(value));
+}
+
+template<typename T>
+struct DependencyWith {
+public:
+    DependencyWith()
+        : dependency(nullDependency())
+        , value()
+    {
+    }
     
-    InputAndValue(InputType input, ValueType value)
-        : input(input)
+    DependencyWith(Dependency dependency, const T& value)
+        : dependency(dependency)
         , value(value)
     {
     }
     
-    InputType input;
-    ValueType value;
+    Dependency dependency;
+    T value;
 };
-
-template<typename InputType, typename ValueType>
-InputAndValue<InputType, ValueType> inputAndValue(InputType input, ValueType value)
+    
+template<typename T>
+inline DependencyWith<T> dependencyWith(Dependency dependency, const T& value)
 {
-    return InputAndValue<InputType, ValueType>(input, value);
+    return DependencyWith<T>(dependency, value);
+}
+
+template<typename T>
+inline T* consume(T* pointer, Dependency dependency)
+{
+#if CPU(ARM64) || CPU(ARM)
+    return bitwise_cast<T*>(bitwise_cast<char*>(pointer) + dependency);
+#else
+    UNUSED_PARAM(dependency);
+    return pointer;
+#endif
 }
 
 template<typename T, typename Func>
@@ -447,7 +469,11 @@ ALWAYS_INLINE T& ensurePointer(Atomic<T*>& pointer, const Func& func)
 
 using WTF::Atomic;
 using WTF::Dependency;
-using WTF::InputAndValue;
-using WTF::inputAndValue;
+using WTF::DependencyWith;
+using WTF::consume;
+using WTF::dependency;
+using WTF::dependencyWith;
 using WTF::ensurePointer;
-using WTF::opaqueMixture;
+using WTF::nullDependency;
+
+#endif // Atomics_h

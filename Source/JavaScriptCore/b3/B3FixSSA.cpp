@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,9 +48,7 @@ namespace JSC { namespace B3 {
 
 namespace {
 
-namespace B3FixSSAInternal {
-static const bool verbose = false;
-}
+const bool verbose = false;
 
 void killDeadVariables(Procedure& proc)
 {
@@ -159,7 +157,7 @@ void fixSSAGlobally(Procedure& proc)
                     return nullptr;
                 
                 Value* phi = proc.add<Value>(Phi, variable->type(), block->at(0)->origin());
-                if (B3FixSSAInternal::verbose) {
+                if (verbose) {
                     dataLog(
                         "Adding Phi for ", pointerDump(variable), " at ", *block, ": ",
                         deepDump(proc, phi), "\n");
@@ -172,7 +170,6 @@ void fixSSAGlobally(Procedure& proc)
     TimingScope timingScope("fixSSA: convert");
     InsertionSet insertionSet(proc);
     IndexSparseSet<KeyValuePair<unsigned, Value*>> mapping(proc.variables().size());
-    IndexSet<Value*> valuesToDelete;
     for (BasicBlock* block : proc.blocksInPreOrder()) {
         mapping.clear();
         
@@ -208,7 +205,6 @@ void fixSSAGlobally(Procedure& proc)
                 Variable* variable = variableValue->variable();
 
                 value->replaceWithIdentity(ensureMapping(variable, valueIndex, value->origin()));
-                valuesToDelete.add(value);
                 break;
             }
                 
@@ -235,34 +231,21 @@ void fixSSAGlobally(Procedure& proc)
                 Variable* variable = calcVarToVariable[calcVar->index()];
 
                 Value* mappedValue = ensureMapping(variable, upsilonInsertionPoint, upsilonOrigin);
-                if (B3FixSSAInternal::verbose) {
+                if (verbose) {
                     dataLog(
                         "Mapped value for ", *variable, " with successor Phi ", *phi,
                         " at end of ", *block, ": ", pointerDump(mappedValue), "\n");
                 }
                 
                 insertionSet.insert<UpsilonValue>(
-                    upsilonInsertionPoint, upsilonOrigin, mappedValue->foldIdentity(), phi);
+                    upsilonInsertionPoint, upsilonOrigin, mappedValue, phi);
             }
         }
 
         insertionSet.execute(block);
     }
-    
-    // This is isn't strictly necessary, but it leaves the IR nice and tidy, which is particularly
-    // useful for phases that do size estimates.
-    for (BasicBlock* block : proc) {
-        block->values().removeAllMatching(
-            [&] (Value* value) -> bool {
-                if (!valuesToDelete.contains(value) && value->opcode() != Nop)
-                    return false;
-                
-                proc.deleteValue(value);
-                return true;
-            });
-    }
 
-    if (B3FixSSAInternal::verbose) {
+    if (verbose) {
         dataLog("B3 after SSA conversion:\n");
         dataLog(proc);
     }
@@ -283,7 +266,7 @@ void demoteValues(Procedure& proc, const IndexSet<Value*>& values)
             phiMap.add(value, proc.addVariable(value->type()));
     }
 
-    if (B3FixSSAInternal::verbose) {
+    if (verbose) {
         dataLog("Demoting values as follows:\n");
         dataLog("   map = ");
         CommaPrinter comma;
@@ -300,17 +283,6 @@ void demoteValues(Procedure& proc, const IndexSet<Value*>& values)
     // Change accesses to the values to accesses to the stack slots.
     InsertionSet insertionSet(proc);
     for (BasicBlock* block : proc) {
-        if (block->numPredecessors()) {
-            // Deal with terminals that produce values (i.e. patchpoint terminals, like the ones we
-            // generate for the allocation fast path).
-            Value* value = block->predecessor(0)->last();
-            Variable* variable = map.get(value);
-            if (variable) {
-                RELEASE_ASSERT(block->numPredecessors() == 1); // Critical edges better be broken.
-                insertionSet.insert<VariableValue>(0, Set, value->origin(), variable, value);
-            }
-        }
-        
         for (unsigned valueIndex = 0; valueIndex < block->size(); ++valueIndex) {
             Value* value = block->at(valueIndex);
 
@@ -338,10 +310,8 @@ void demoteValues(Procedure& proc, const IndexSet<Value*>& values)
             }
 
             if (Variable* variable = map.get(value)) {
-                if (valueIndex + 1 < block->size()) {
-                    insertionSet.insert<VariableValue>(
-                        valueIndex + 1, Set, value->origin(), variable, value);
-                }
+                insertionSet.insert<VariableValue>(
+                    valueIndex + 1, Set, value->origin(), variable, value);
             }
         }
         insertionSet.execute(block);
@@ -352,9 +322,6 @@ bool fixSSA(Procedure& proc)
 {
     PhaseScope phaseScope(proc, "fixSSA");
 
-    if (proc.variables().isEmpty())
-        return false;
-    
     // Lots of variables have trivial local liveness. We can allocate those without any
     // trouble.
     fixSSALocally(proc);
@@ -367,6 +334,7 @@ bool fixSSA(Procedure& proc)
     if (proc.variables().isEmpty())
         return false;
     
+    // We know that we have variables to optimize, so do that now.
     breakCriticalEdges(proc);
 
     fixSSAGlobally(proc);

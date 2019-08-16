@@ -31,7 +31,6 @@ namespace Inspector {
 
 class JSGlobalObjectScriptDebugServer final : public ScriptDebugServer {
     WTF_MAKE_NONCOPYABLE(JSGlobalObjectScriptDebugServer);
-    WTF_MAKE_FAST_ALLOCATED;
 public:
     JSGlobalObjectScriptDebugServer(JSC::JSGlobalObject&);
     virtual ~JSGlobalObjectScriptDebugServer() { }

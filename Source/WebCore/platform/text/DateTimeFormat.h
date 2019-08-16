@@ -96,7 +96,7 @@ public:
 
     class TokenHandler {
     public:
-        virtual ~TokenHandler() = default;
+        virtual ~TokenHandler() { }
         virtual void visitField(FieldType, int numberOfPatternCharacters) = 0;
         virtual void visitLiteral(const String&) = 0;
     };

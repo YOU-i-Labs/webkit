@@ -9,16 +9,18 @@
 #ifndef LIBANGLE_VERSION_H_
 #define LIBANGLE_VERSION_H_
 
+#include <angle_gl.h>
+
 namespace gl
 {
 
 struct Version
 {
     constexpr Version();
-    constexpr Version(unsigned int major, unsigned int minor);
+    constexpr Version(GLuint major, GLuint minor);
 
-    unsigned int major;
-    unsigned int minor;
+    GLuint major;
+    GLuint minor;
 };
 
 bool operator==(const Version &a, const Version &b);

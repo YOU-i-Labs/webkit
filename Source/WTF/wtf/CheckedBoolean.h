@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef CheckedBoolean_h
+#define CheckedBoolean_h
 
 #include <wtf/Assertions.h>
 
@@ -65,3 +66,5 @@ private:
     mutable bool m_checked;
 #endif
 };
+
+#endif

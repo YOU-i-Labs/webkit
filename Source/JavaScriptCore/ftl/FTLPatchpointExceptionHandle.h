@@ -29,7 +29,6 @@
 
 #if ENABLE(FTL_JIT)
 
-#include "CallFrame.h"
 #include "DFGNodeOrigin.h"
 #include "ExitKind.h"
 #include "HandlerInfo.h"
@@ -51,7 +50,7 @@ struct OSRExitHandle;
 
 class PatchpointExceptionHandle : public ThreadSafeRefCounted<PatchpointExceptionHandle> {
 public:
-    static Ref<PatchpointExceptionHandle> create(
+    static RefPtr<PatchpointExceptionHandle> create(
         State&, OSRExitDescriptor*, DFG::NodeOrigin, unsigned offset, const HandlerInfo&);
 
     static RefPtr<PatchpointExceptionHandle> defaultHandle(State&);
@@ -89,7 +88,7 @@ private:
     PatchpointExceptionHandle(
         State&, OSRExitDescriptor*, DFG::NodeOrigin, unsigned offset, const HandlerInfo&);
 
-    Ref<OSRExitHandle> createHandle(ExitKind, const B3::StackmapGenerationParams&);
+    RefPtr<OSRExitHandle> createHandle(ExitKind, const B3::StackmapGenerationParams&);
 
     State& m_state;
     OSRExitDescriptor* m_descriptor;

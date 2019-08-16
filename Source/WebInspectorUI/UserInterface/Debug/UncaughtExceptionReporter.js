@@ -50,21 +50,10 @@ function unblockEventHandlers() {
         document.removeEventListener(name, stopEventPropagation, true);
 }
 
-function urlLastPathComponent(url) {
-    if (!url)
-        return "";
-
-    let slashIndex = url.lastIndexOf("/");
-    if (slashIndex === -1)
-        return url;
-
-    return url.slice(slashIndex + 1);
-}
-
 function handleError(error) {
     handleUncaughtExceptionRecord({
         message: error.message,
-        url: urlLastPathComponent(error.sourceURL),
+        url: parseURL(error.sourceURL).lastPathComponent,
         lineNumber: error.line,
         columnNumber: error.column,
         stack: error.stack,
@@ -75,7 +64,7 @@ function handleError(error) {
 function handleUncaughtException(event) {
     handleUncaughtExceptionRecord({
         message: event.message,
-        url: urlLastPathComponent(event.filename),
+        url: parseURL(event.filename).lastPathComponent,
         lineNumber: event.lineno,
         columnNumber: event.colno,
         stack: typeof event.error === "object" && event.error !== null ? event.error.stack : null,
@@ -83,10 +72,8 @@ function handleUncaughtException(event) {
 }
 
 function handleUncaughtExceptionRecord(exceptionRecord) {
-    try {
-        if (!WI.settings.enableUncaughtExceptionReporter.value)
-            return;
-    } catch { }
+    if (!WebInspector.settings.enableUncaughtExceptionReporter.value)
+        return;
 
     if (!window.__uncaughtExceptions)
         window.__uncaughtExceptions = [];
@@ -100,7 +87,7 @@ function handleUncaughtExceptionRecord(exceptionRecord) {
     if (!loadCompleted || isFirstException)
         window.__uncaughtExceptions.push(exceptionRecord);
 
-    // If WI.contentLoaded throws an uncaught exception, then these
+    // If WebInspector.contentLoaded throws an uncaught exception, then these
     // listeners will not work correctly because the UI is not fully loaded.
     // Prevent any event handlers from running in an inconsistent state.
     if (isFirstException)
@@ -110,7 +97,7 @@ function handleUncaughtExceptionRecord(exceptionRecord) {
         // Signal that loading is done even though we can't guarantee that
         // evaluating code on the inspector page will do anything useful.
         // Without this, the frontend host may never show the window.
-        if (window.InspectorFrontendHost)
+        if (InspectorFrontendHost)
             InspectorFrontendHost.loaded();
 
         // Don't tell InspectorFrontendAPI that loading is done, since it can
@@ -128,9 +115,7 @@ function dismissErrorSheet() {
     window.__uncaughtExceptions = [];
 
     // Do this last in case WebInspector's internal state is corrupted.
-    try {
-        WI.updateWindowTitle();
-    } catch { }
+    WebInspector.updateWindowTitle();
 
     // FIXME (151959): tell the frontend host to hide a draggable title bar.
 }
@@ -142,7 +127,7 @@ function createErrorSheet() {
         document.write("<body></body></html>");
 
     // FIXME (151959): tell the frontend host to show a draggable title bar.
-    if (window.InspectorFrontendHost)
+    if (InspectorFrontendHost)
         InspectorFrontendHost.inspectedURLChanged("Internal Error");
 
     // Only allow one sheet element at a time.
@@ -196,8 +181,8 @@ function createErrorSheet() {
 
     let inspectedPageURL = null;
     try {
-        inspectedPageURL = WI.networkManager.mainFrame.url;
-    } catch { }
+        inspectedPageURL = WebInspector.frameResourceManager.mainFrame.url;
+    } catch (e) { }
 
     let topLevelItems = [
         `Inspected URL:        ${inspectedPageURL || "(unknown)"}`,
@@ -207,10 +192,10 @@ function createErrorSheet() {
 
     function stringifyAndTruncateObject(object) {
         let string = JSON.stringify(object);
-        return string.length > 500 ? string.substr(0, 500) + ellipsis : string;
+        return string.length > 500 ? string.substr(0, 500) + "…" : string;
     }
 
-    if (window.InspectorBackend && InspectorBackend.currentDispatchState) {
+    if (InspectorBackend && InspectorBackend.currentDispatchState) {
         let state = InspectorBackend.currentDispatchState;
         if (state.event) {
             topLevelItems.push("Dispatch Source:      Protocol Event");
@@ -272,7 +257,7 @@ Document any additional information that might be useful in resolving the proble
         <a href="${prefilledBugReportLink}" target="_blank">click to file a pre-populated
         bug with this information</a>. It is possible that someone else broke it by accident.</dd>
         <dt>Oops, can I try again?</dt>
-        <dd><a href="javascript:InspectorFrontendHost.reopen()">Click to reload the Inspector</a>
+        <dd><a href="javascript:window.location.reload()">Click to reload the Inspector</a>
         again after making local changes.</dd>
         ${dismissOptionHTML}
     </dl>

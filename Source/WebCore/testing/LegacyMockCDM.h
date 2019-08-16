@@ -31,11 +31,11 @@
 
 namespace WebCore {
 
-class LegacyCDM;
+class CDM;
 
-class LegacyMockCDM : public CDMPrivateInterface {
+class MockCDM : public CDMPrivateInterface {
 public:
-    explicit LegacyMockCDM(LegacyCDM* cdm)
+    explicit MockCDM(CDM* cdm)
         : m_cdm(cdm)
     { }
 
@@ -43,13 +43,13 @@ public:
     static bool supportsKeySystem(const String&);
     static bool supportsKeySystemAndMimeType(const String& keySystem, const String& mimeType);
 
-    virtual ~LegacyMockCDM() = default;
+    virtual ~MockCDM() { }
 
     bool supportsMIMEType(const String& mimeType) override;
-    std::unique_ptr<LegacyCDMSession> createSession(LegacyCDMSessionClient*) override;
+    std::unique_ptr<CDMSession> createSession(CDMSessionClient*) override;
 
 protected:
-    LegacyCDM* m_cdm;
+    CDM* m_cdm;
 };
 
 } // namespace WebCore

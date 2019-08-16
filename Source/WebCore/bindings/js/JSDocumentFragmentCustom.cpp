@@ -26,11 +26,12 @@
 #include "config.h"
 #include "JSDocumentFragment.h"
 
+#include "ExceptionCode.h"
 #include "JSShadowRoot.h"
 
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 
 JSValue toJSNewlyCreated(ExecState*, JSDOMGlobalObject* globalObject, Ref<DocumentFragment>&& impl)
 {

@@ -58,7 +58,6 @@ namespace WebCore {
 // Editing style properties must be preserved during editing operation.
 // e.g. when a user inserts a new paragraph, all properties listed here must be copied to the new paragraph.
 static const CSSPropertyID editingProperties[] = {
-    CSSPropertyCaretColor,
     CSSPropertyColor,
     CSSPropertyFontFamily,
     CSSPropertyFontSize,
@@ -143,16 +142,16 @@ template<typename T>
 int identifierForStyleProperty(T& style, CSSPropertyID propertyID)
 {
     RefPtr<CSSValue> value = extractPropertyValue(style, propertyID);
-    if (propertyID == CSSPropertyFontStyle && is<CSSFontStyleValue>(value) && downcast<CSSFontStyleValue>(value.get())->isItalicOrOblique())
+    if (propertyID == CSSPropertyFontStyle && is<CSSFontStyleValue>(value.get()) && downcast<CSSFontStyleValue>(value.get())->isItalic())
         return CSSValueItalic;
-    if (!is<CSSPrimitiveValue>(value))
+    if (!is<CSSPrimitiveValue>(value.get()))
         return 0;
     return downcast<CSSPrimitiveValue>(*value).valueID();
 }
 
 template<typename T> Ref<MutableStyleProperties> getPropertiesNotIn(StyleProperties& styleWithRedundantProperties, T& baseStyle);
 enum LegacyFontSizeMode { AlwaysUseLegacyFontSize, UseLegacyFontSizeOnlyIfPixelValuesMatch };
-static int legacyFontSizeFromCSSValue(Document&, CSSPrimitiveValue*, bool shouldUseFixedFontDefaultSize, LegacyFontSizeMode);
+static int legacyFontSizeFromCSSValue(Document*, CSSPrimitiveValue*, bool shouldUseFixedFontDefaultSize, LegacyFontSizeMode);
 static bool hasTransparentBackgroundColor(StyleProperties*);
 static RefPtr<CSSValue> backgroundColorInEffect(Node*);
 
@@ -160,8 +159,8 @@ class HTMLElementEquivalent {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     HTMLElementEquivalent(CSSPropertyID, CSSValueID primitiveValue, const QualifiedName& tagName);
-    virtual ~HTMLElementEquivalent() = default;
 
+    virtual ~HTMLElementEquivalent() { }
     virtual bool matches(const Element& element) const { return !m_tagName || element.hasTagName(*m_tagName); }
     virtual bool hasAttribute() const { return false; }
     virtual bool propertyExistsInStyle(const EditingStyle& style) const { return style.m_mutableStyle && style.m_mutableStyle->getPropertyCSSValue(m_propertyID); }
@@ -198,7 +197,7 @@ HTMLElementEquivalent::HTMLElementEquivalent(CSSPropertyID id, CSSValueID primit
 bool HTMLElementEquivalent::valueIsPresentInStyle(Element& element, const EditingStyle& style) const
 {
     RefPtr<CSSValue> value = style.m_mutableStyle->getPropertyCSSValue(m_propertyID);
-    return matches(element) && is<CSSPrimitiveValue>(value) && downcast<CSSPrimitiveValue>(*value).valueID() == m_primitiveValue->valueID();
+    return matches(element) && is<CSSPrimitiveValue>(value.get()) && downcast<CSSPrimitiveValue>(*value).valueID() == m_primitiveValue->valueID();
 }
 
 void HTMLElementEquivalent::addToStyle(Element*, EditingStyle* style) const
@@ -237,7 +236,7 @@ public:
         RefPtr<CSSValue> styleValue = style.m_mutableStyle->getPropertyCSSValue(CSSPropertyWebkitTextDecorationsInEffect);
         if (!styleValue)
             styleValue = style.m_mutableStyle->getPropertyCSSValue(CSSPropertyTextDecoration);
-        return is<CSSValueList>(styleValue) && downcast<CSSValueList>(*styleValue).hasValue(m_primitiveValue.get());
+        return is<CSSValueList>(styleValue.get()) && downcast<CSSValueList>(*styleValue).hasValue(m_primitiveValue.get());
     }
 
 private:
@@ -380,7 +379,9 @@ EditingStyle::EditingStyle(CSSPropertyID propertyID, CSSValueID value)
     extractFontSizeDelta();
 }
 
-EditingStyle::~EditingStyle() = default;
+EditingStyle::~EditingStyle()
+{
+}
 
 static Color cssValueToColor(CSSValue* colorValue)
 {
@@ -398,12 +399,6 @@ template<typename T>
 static inline Color textColorFromStyle(T& style)
 {
     return cssValueToColor(extractPropertyValue(style, CSSPropertyColor).get());
-}
-
-template<typename T>
-static inline Color caretColorFromStyle(T& style)
-{
-    return cssValueToColor(extractPropertyValue(style, CSSPropertyCaretColor).get());
 }
 
 template<typename T>
@@ -461,10 +456,8 @@ void EditingStyle::init(Node* node, PropertiesToInclude propertiesToInclude)
     if (propertiesToInclude == EditingPropertiesInEffect) {
         if (RefPtr<CSSValue> value = backgroundColorInEffect(node))
             m_mutableStyle->setProperty(CSSPropertyBackgroundColor, value->cssText());
-        if (RefPtr<CSSValue> value = computedStyleAtPosition.propertyValue(CSSPropertyWebkitTextDecorationsInEffect)) {
+        if (RefPtr<CSSValue> value = computedStyleAtPosition.propertyValue(CSSPropertyWebkitTextDecorationsInEffect))
             m_mutableStyle->setProperty(CSSPropertyTextDecoration, value->cssText());
-            m_mutableStyle->removeProperty(CSSPropertyWebkitTextDecorationsInEffect);
-        }
     }
 
     if (node && node->computedStyle()) {
@@ -510,7 +503,7 @@ void EditingStyle::extractFontSizeDelta()
 
     // Get the adjustment amount out of the style.
     RefPtr<CSSValue> value = m_mutableStyle->getPropertyCSSValue(CSSPropertyWebkitFontSizeDelta);
-    if (!is<CSSPrimitiveValue>(value))
+    if (!is<CSSPrimitiveValue>(value.get()))
         return;
 
     CSSPrimitiveValue& primitiveValue = downcast<CSSPrimitiveValue>(*value);
@@ -558,22 +551,22 @@ bool EditingStyle::textDirection(WritingDirection& writingDirection) const
         return false;
 
     RefPtr<CSSValue> unicodeBidi = m_mutableStyle->getPropertyCSSValue(CSSPropertyUnicodeBidi);
-    if (!is<CSSPrimitiveValue>(unicodeBidi))
+    if (!is<CSSPrimitiveValue>(unicodeBidi.get()))
         return false;
 
     CSSValueID unicodeBidiValue = downcast<CSSPrimitiveValue>(*unicodeBidi).valueID();
     if (unicodeBidiValue == CSSValueEmbed) {
         RefPtr<CSSValue> direction = m_mutableStyle->getPropertyCSSValue(CSSPropertyDirection);
-        if (!is<CSSPrimitiveValue>(direction))
+        if (!is<CSSPrimitiveValue>(direction.get()))
             return false;
 
-        writingDirection = downcast<CSSPrimitiveValue>(*direction).valueID() == CSSValueLtr ? WritingDirection::LeftToRight : WritingDirection::RightToLeft;
+        writingDirection = downcast<CSSPrimitiveValue>(*direction).valueID() == CSSValueLtr ? LeftToRightWritingDirection : RightToLeftWritingDirection;
 
         return true;
     }
 
     if (unicodeBidiValue == CSSValueNormal) {
-        writingDirection = WritingDirection::Natural;
+        writingDirection = NaturalWritingDirection;
         return true;
     }
 
@@ -589,9 +582,9 @@ void EditingStyle::setStyle(RefPtr<MutableStyleProperties>&& style)
     extractFontSizeDelta();
 }
 
-void EditingStyle::overrideWithStyle(const StyleProperties& style)
+void EditingStyle::overrideWithStyle(const StyleProperties* style)
 {
-    return mergeStyle(&style, OverrideValues);
+    return mergeStyle(style, OverrideValues);
 }
 
 static void applyTextDecorationChangeToValueList(CSSValueList& valueList, TextDecorationChange change, Ref<CSSPrimitiveValue>&& value)
@@ -714,7 +707,7 @@ void EditingStyle::removeStyleConflictingWithStyleOfNode(Node& node)
         return;
 
     RefPtr<MutableStyleProperties> parentStyle = copyPropertiesFromComputedStyle(node.parentNode(), EditingPropertiesInEffect);
-    auto nodeStyle = EditingStyle::create(&node, EditingPropertiesInEffect);
+    RefPtr<EditingStyle> nodeStyle = EditingStyle::create(&node, EditingPropertiesInEffect);
     nodeStyle->removeEquivalentProperties(*parentStyle);
 
     MutableStyleProperties* style = nodeStyle->style();
@@ -807,14 +800,16 @@ TriState EditingStyle::triStateOfStyle(const VisibleSelection& selection) const
 static RefPtr<CSSValueList> textDecorationValueList(const StyleProperties& properties)
 {
     RefPtr<CSSValue> value = properties.getPropertyCSSValue(CSSPropertyTextDecoration);
-    if (!is<CSSValueList>(value))
+    if (!is<CSSValueList>(value.get()))
         return nullptr;
     return downcast<CSSValueList>(value.get());
 }
 
-bool EditingStyle::conflictsWithInlineStyleOfElement(StyledElement& element, RefPtr<MutableStyleProperties>* newInlineStylePtr, EditingStyle* extractedStyle) const
+bool EditingStyle::conflictsWithInlineStyleOfElement(StyledElement* element, RefPtr<MutableStyleProperties>* newInlineStylePtr, EditingStyle* extractedStyle) const
 {
-    const StyleProperties* inlineStyle = element.inlineStyle();
+    ASSERT(element);
+
+    const StyleProperties* inlineStyle = element->inlineStyle();
     if (!inlineStyle)
         return false;
     bool conflicts = false;
@@ -828,8 +823,8 @@ bool EditingStyle::conflictsWithInlineStyleOfElement(StyledElement& element, Ref
     bool shouldRemoveStrikeThrough = strikeThroughChange() == TextDecorationChange::Remove;
     if (shouldRemoveUnderline || shouldRemoveStrikeThrough) {
         if (RefPtr<CSSValueList> valueList = textDecorationValueList(*inlineStyle)) {
-            auto newValueList = valueList->copy();
-            auto extractedValueList = CSSValueList::createSpaceSeparated();
+            RefPtr<CSSValueList> newValueList = valueList->copy();
+            RefPtr<CSSValueList> extractedValueList = CSSValueList::createSpaceSeparated();
 
             Ref<CSSPrimitiveValue> underline = CSSValuePool::singleton().createIdentifierValue(CSSValueUnderline);
             if (shouldRemoveUnderline && valueList->hasValue(underline.ptr())) {
@@ -850,7 +845,7 @@ bool EditingStyle::conflictsWithInlineStyleOfElement(StyledElement& element, Ref
             if (extractedValueList->length()) {
                 conflicts = true;
                 if (newValueList->length())
-                    newInlineStyle->setProperty(CSSPropertyTextDecoration, WTFMove(newValueList));
+                    newInlineStyle->setProperty(CSSPropertyTextDecoration, newValueList);
                 else
                     newInlineStyle->removeProperty(CSSPropertyTextDecoration);
 
@@ -867,7 +862,7 @@ bool EditingStyle::conflictsWithInlineStyleOfElement(StyledElement& element, Ref
         CSSPropertyID propertyID = m_mutableStyle->propertyAt(i).id();
 
         // We don't override whitespace property of a tab span because that would collapse the tab into a space.
-        if (propertyID == CSSPropertyWhiteSpace && isTabSpanNode(&element))
+        if (propertyID == CSSPropertyWhiteSpace && isTabSpanNode(element))
             continue;
 
         if (propertyID == CSSPropertyWebkitTextDecorationsInEffect && inlineStyle->getPropertyCSSValue(CSSPropertyTextDecoration)) {
@@ -903,71 +898,81 @@ bool EditingStyle::conflictsWithInlineStyleOfElement(StyledElement& element, Ref
     return conflicts;
 }
 
-static const Vector<const HTMLElementEquivalent*>& htmlElementEquivalents()
+static const Vector<std::unique_ptr<HTMLElementEquivalent>>& htmlElementEquivalents()
 {
-    static const auto equivalents = makeNeverDestroyed(Vector<const HTMLElementEquivalent*> {
-        new HTMLElementEquivalent(CSSPropertyFontWeight, CSSValueBold, HTMLNames::bTag),
-        new HTMLElementEquivalent(CSSPropertyFontWeight, CSSValueBold, HTMLNames::strongTag),
-        new HTMLElementEquivalent(CSSPropertyVerticalAlign, CSSValueSub, HTMLNames::subTag),
-        new HTMLElementEquivalent(CSSPropertyVerticalAlign, CSSValueSuper, HTMLNames::supTag),
-        new HTMLElementEquivalent(CSSPropertyFontStyle, CSSValueItalic, HTMLNames::iTag),
-        new HTMLElementEquivalent(CSSPropertyFontStyle, CSSValueItalic, HTMLNames::emTag),
+    static NeverDestroyed<Vector<std::unique_ptr<HTMLElementEquivalent>>> HTMLElementEquivalents;
 
-        new HTMLTextDecorationEquivalent(CSSValueUnderline, HTMLNames::uTag),
-        new HTMLTextDecorationEquivalent(CSSValueLineThrough, HTMLNames::sTag),
-        new HTMLTextDecorationEquivalent(CSSValueLineThrough, HTMLNames::strikeTag),
-    });
-    return equivalents;
+    if (!HTMLElementEquivalents.get().size()) {
+        HTMLElementEquivalents.get().append(std::make_unique<HTMLElementEquivalent>(CSSPropertyFontWeight, CSSValueBold, HTMLNames::bTag));
+        HTMLElementEquivalents.get().append(std::make_unique<HTMLElementEquivalent>(CSSPropertyFontWeight, CSSValueBold, HTMLNames::strongTag));
+        HTMLElementEquivalents.get().append(std::make_unique<HTMLElementEquivalent>(CSSPropertyVerticalAlign, CSSValueSub, HTMLNames::subTag));
+        HTMLElementEquivalents.get().append(std::make_unique<HTMLElementEquivalent>(CSSPropertyVerticalAlign, CSSValueSuper, HTMLNames::supTag));
+        HTMLElementEquivalents.get().append(std::make_unique<HTMLElementEquivalent>(CSSPropertyFontStyle, CSSValueItalic, HTMLNames::iTag));
+        HTMLElementEquivalents.get().append(std::make_unique<HTMLElementEquivalent>(CSSPropertyFontStyle, CSSValueItalic, HTMLNames::emTag));
+
+        HTMLElementEquivalents.get().append(std::make_unique<HTMLTextDecorationEquivalent>(CSSValueUnderline, HTMLNames::uTag));
+        HTMLElementEquivalents.get().append(std::make_unique<HTMLTextDecorationEquivalent>(CSSValueLineThrough, HTMLNames::sTag));
+        HTMLElementEquivalents.get().append(std::make_unique<HTMLTextDecorationEquivalent>(CSSValueLineThrough, HTMLNames::strikeTag));
+    }
+
+    return HTMLElementEquivalents;
 }
 
 
-bool EditingStyle::conflictsWithImplicitStyleOfElement(HTMLElement& element, EditingStyle* extractedStyle, ShouldExtractMatchingStyle shouldExtractMatchingStyle) const
+bool EditingStyle::conflictsWithImplicitStyleOfElement(HTMLElement* element, EditingStyle* extractedStyle, ShouldExtractMatchingStyle shouldExtractMatchingStyle) const
 {
     if (isEmpty())
         return false;
 
-    for (auto& equivalent : htmlElementEquivalents()) {
-        if (equivalent->matches(element) && equivalent->propertyExistsInStyle(*this)
-            && (shouldExtractMatchingStyle == ExtractMatchingStyle || !equivalent->valueIsPresentInStyle(element, *this))) {
+    const Vector<std::unique_ptr<HTMLElementEquivalent>>& HTMLElementEquivalents = htmlElementEquivalents();
+    for (auto& equivalent : HTMLElementEquivalents) {
+        if (equivalent->matches(*element) && equivalent->propertyExistsInStyle(*this)
+            && (shouldExtractMatchingStyle == ExtractMatchingStyle || !equivalent->valueIsPresentInStyle(*element, *this))) {
             if (extractedStyle)
-                equivalent->addToStyle(&element, extractedStyle);
+                equivalent->addToStyle(element, extractedStyle);
             return true;
         }
     }
     return false;
 }
 
-static const Vector<const HTMLAttributeEquivalent*>& htmlAttributeEquivalents()
+static const Vector<std::unique_ptr<HTMLAttributeEquivalent>>& htmlAttributeEquivalents()
 {
-    static const auto equivalents = makeNeverDestroyed(Vector<const HTMLAttributeEquivalent*> {
+    static NeverDestroyed<Vector<std::unique_ptr<HTMLAttributeEquivalent>>> HTMLAttributeEquivalents;
+
+    if (!HTMLAttributeEquivalents.get().size()) {
         // elementIsStyledSpanOrHTMLEquivalent depends on the fact each HTMLAttriuteEquivalent matches exactly one attribute
         // of exactly one element except dirAttr.
-        new HTMLAttributeEquivalent(CSSPropertyColor, HTMLNames::fontTag, HTMLNames::colorAttr),
-        new HTMLAttributeEquivalent(CSSPropertyFontFamily, HTMLNames::fontTag, HTMLNames::faceAttr),
-        new HTMLFontSizeEquivalent,
+        HTMLAttributeEquivalents.get().append(std::make_unique<HTMLAttributeEquivalent>(CSSPropertyColor, HTMLNames::fontTag, HTMLNames::colorAttr));
+        HTMLAttributeEquivalents.get().append(std::make_unique<HTMLAttributeEquivalent>(CSSPropertyFontFamily, HTMLNames::fontTag, HTMLNames::faceAttr));
+        HTMLAttributeEquivalents.get().append(std::make_unique<HTMLFontSizeEquivalent>());
 
-        new HTMLAttributeEquivalent(CSSPropertyDirection, HTMLNames::dirAttr),
-        new HTMLAttributeEquivalent(CSSPropertyUnicodeBidi, HTMLNames::dirAttr),
-    });
-    return equivalents;
+        HTMLAttributeEquivalents.get().append(std::make_unique<HTMLAttributeEquivalent>(CSSPropertyDirection, HTMLNames::dirAttr));
+        HTMLAttributeEquivalents.get().append(std::make_unique<HTMLAttributeEquivalent>(CSSPropertyUnicodeBidi, HTMLNames::dirAttr));
+    }
+
+    return HTMLAttributeEquivalents;
 }
 
-bool EditingStyle::conflictsWithImplicitStyleOfAttributes(HTMLElement& element) const
+bool EditingStyle::conflictsWithImplicitStyleOfAttributes(HTMLElement* element) const
 {
+    ASSERT(element);
     if (isEmpty())
         return false;
 
-    for (auto& equivalent : htmlAttributeEquivalents()) {
-        if (equivalent->matches(element) && equivalent->propertyExistsInStyle(*this) && !equivalent->valueIsPresentInStyle(element, *this))
+    const Vector<std::unique_ptr<HTMLAttributeEquivalent>>& HTMLAttributeEquivalents = htmlAttributeEquivalents();
+    for (auto& equivalent : HTMLAttributeEquivalents) {
+        if (equivalent->matches(*element) && equivalent->propertyExistsInStyle(*this) && !equivalent->valueIsPresentInStyle(*element, *this))
             return true;
     }
 
     return false;
 }
 
-bool EditingStyle::extractConflictingImplicitStyleOfAttributes(HTMLElement& element, ShouldPreserveWritingDirection shouldPreserveWritingDirection,
+bool EditingStyle::extractConflictingImplicitStyleOfAttributes(HTMLElement* element, ShouldPreserveWritingDirection shouldPreserveWritingDirection,
     EditingStyle* extractedStyle, Vector<QualifiedName>& conflictingAttributes, ShouldExtractMatchingStyle shouldExtractMatchingStyle) const
 {
+    ASSERT(element);
     // HTMLAttributeEquivalent::addToStyle doesn't support unicode-bidi and direction properties
     ASSERT(!extractedStyle || shouldPreserveWritingDirection == PreserveWritingDirection);
     if (!m_mutableStyle)
@@ -979,12 +984,12 @@ bool EditingStyle::extractConflictingImplicitStyleOfAttributes(HTMLElement& elem
         if (shouldPreserveWritingDirection == PreserveWritingDirection && equivalent->attributeName() == HTMLNames::dirAttr)
             continue;
 
-        if (!equivalent->matches(element) || !equivalent->propertyExistsInStyle(*this)
-            || (shouldExtractMatchingStyle == DoNotExtractMatchingStyle && equivalent->valueIsPresentInStyle(element, *this)))
+        if (!equivalent->matches(*element) || !equivalent->propertyExistsInStyle(*this)
+            || (shouldExtractMatchingStyle == DoNotExtractMatchingStyle && equivalent->valueIsPresentInStyle(*element, *this)))
             continue;
 
         if (extractedStyle)
-            equivalent->addToStyle(&element, extractedStyle);
+            equivalent->addToStyle(element, extractedStyle);
         conflictingAttributes.append(equivalent->attributeName());
         removed = true;
     }
@@ -992,11 +997,11 @@ bool EditingStyle::extractConflictingImplicitStyleOfAttributes(HTMLElement& elem
     return removed;
 }
 
-bool EditingStyle::styleIsPresentInComputedStyleOfNode(Node& node) const
+bool EditingStyle::styleIsPresentInComputedStyleOfNode(Node* node) const
 {
     if (isEmpty())
         return true;
-    ComputedStyleExtractor computedStyle(&node);
+    ComputedStyleExtractor computedStyle(node);
 
     bool shouldAddUnderline = underlineChange() == TextDecorationChange::Add;
     bool shouldAddLineThrough = strikeThroughChange() == TextDecorationChange::Add;
@@ -1018,37 +1023,37 @@ bool EditingStyle::styleIsPresentInComputedStyleOfNode(Node& node) const
     return !m_mutableStyle || getPropertiesNotIn(*m_mutableStyle, computedStyle)->isEmpty();
 }
 
-bool EditingStyle::elementIsStyledSpanOrHTMLEquivalent(const HTMLElement& element)
+bool EditingStyle::elementIsStyledSpanOrHTMLEquivalent(const HTMLElement* element)
 {
     bool elementIsSpanOrElementEquivalent = false;
-    if (element.hasTagName(HTMLNames::spanTag))
+    if (element->hasTagName(HTMLNames::spanTag))
         elementIsSpanOrElementEquivalent = true;
     else {
         for (auto& equivalent : htmlElementEquivalents()) {
-            if (equivalent->matches(element)) {
+            if (equivalent->matches(*element)) {
                 elementIsSpanOrElementEquivalent = true;
                 break;
             }
         }
     }
 
-    if (!element.hasAttributes())
+    if (!element->hasAttributes())
         return elementIsSpanOrElementEquivalent; // span, b, etc... without any attributes
 
     unsigned matchedAttributes = 0;
     for (auto& equivalent : htmlAttributeEquivalents()) {
-        if (equivalent->matches(element) && equivalent->attributeName() != HTMLNames::dirAttr)
+        if (equivalent->matches(*element) && equivalent->attributeName() != HTMLNames::dirAttr)
             matchedAttributes++;
     }
 
     if (!elementIsSpanOrElementEquivalent && !matchedAttributes)
         return false; // element is not a span, a html element equivalent, or font element.
     
-    if (element.attributeWithoutSynchronization(HTMLNames::classAttr) == AppleStyleSpanClass)
+    if (element->attributeWithoutSynchronization(HTMLNames::classAttr) == AppleStyleSpanClass)
         matchedAttributes++;
 
-    if (element.hasAttribute(HTMLNames::styleAttr)) {
-        if (const StyleProperties* style = element.inlineStyle()) {
+    if (element->hasAttribute(HTMLNames::styleAttr)) {
+        if (const StyleProperties* style = element->inlineStyle()) {
             unsigned propertyCount = style->propertyCount();
             for (unsigned i = 0; i < propertyCount; ++i) {
                 if (!isEditingProperty(style->propertyAt(i).id()))
@@ -1059,8 +1064,8 @@ bool EditingStyle::elementIsStyledSpanOrHTMLEquivalent(const HTMLElement& elemen
     }
 
     // font with color attribute, span with style attribute, etc...
-    ASSERT(matchedAttributes <= element.attributeCount());
-    return matchedAttributes >= element.attributeCount();
+    ASSERT(matchedAttributes <= element->attributeCount());
+    return matchedAttributes >= element->attributeCount();
 }
 
 void EditingStyle::prepareToApplyAt(const Position& position, ShouldPreserveWritingDirection shouldPreserveWritingDirection)
@@ -1071,7 +1076,7 @@ void EditingStyle::prepareToApplyAt(const Position& position, ShouldPreserveWrit
     // ReplaceSelectionCommand::handleStyleSpans() requires that this function only removes the editing style.
     // If this function was modified in the future to delete all redundant properties, then add a boolean value to indicate
     // which one of editingStyleAtPosition or computedStyle is called.
-    auto editingStyleAtPosition = EditingStyle::create(position, EditingPropertiesInEffect);
+    RefPtr<EditingStyle> editingStyleAtPosition = EditingStyle::create(position, EditingPropertiesInEffect);
     StyleProperties* styleAtPosition = editingStyleAtPosition->m_mutableStyle.get();
 
     RefPtr<CSSValue> unicodeBidi;
@@ -1086,19 +1091,16 @@ void EditingStyle::prepareToApplyAt(const Position& position, ShouldPreserveWrit
     if (textAlignResolvingStartAndEnd(*m_mutableStyle) == textAlignResolvingStartAndEnd(*styleAtPosition))
         m_mutableStyle->removeProperty(CSSPropertyTextAlign);
 
-    if (equalIgnoringSemanticColor(textColorFromStyle(*m_mutableStyle), textColorFromStyle(*styleAtPosition)))
+    if (textColorFromStyle(*m_mutableStyle) == textColorFromStyle(*styleAtPosition))
         m_mutableStyle->removeProperty(CSSPropertyColor);
-
-    if (equalIgnoringSemanticColor(caretColorFromStyle(*m_mutableStyle), caretColorFromStyle(*styleAtPosition)))
-        m_mutableStyle->removeProperty(CSSPropertyCaretColor);
 
     if (hasTransparentBackgroundColor(m_mutableStyle.get())
         || cssValueToColor(m_mutableStyle->getPropertyCSSValue(CSSPropertyBackgroundColor).get()) == rgbaBackgroundColorInEffect(position.containerNode()))
         m_mutableStyle->removeProperty(CSSPropertyBackgroundColor);
 
-    if (is<CSSPrimitiveValue>(unicodeBidi)) {
+    if (is<CSSPrimitiveValue>(unicodeBidi.get())) {
         m_mutableStyle->setProperty(CSSPropertyUnicodeBidi, static_cast<CSSValueID>(downcast<CSSPrimitiveValue>(*unicodeBidi).valueID()));
-        if (is<CSSPrimitiveValue>(direction))
+        if (is<CSSPrimitiveValue>(direction.get()))
             m_mutableStyle->setProperty(CSSPropertyDirection, static_cast<CSSValueID>(downcast<CSSPrimitiveValue>(*direction).valueID()));
     }
 }
@@ -1112,33 +1114,34 @@ void EditingStyle::mergeTypingStyle(Document& document)
     mergeStyle(typingStyle->style(), OverrideValues);
 }
 
-void EditingStyle::mergeInlineStyleOfElement(StyledElement& element, CSSPropertyOverrideMode mode, PropertiesToInclude propertiesToInclude)
+void EditingStyle::mergeInlineStyleOfElement(StyledElement* element, CSSPropertyOverrideMode mode, PropertiesToInclude propertiesToInclude)
 {
-    if (!element.inlineStyle())
+    ASSERT(element);
+    if (!element->inlineStyle())
         return;
 
     switch (propertiesToInclude) {
     case AllProperties:
-        mergeStyle(element.inlineStyle(), mode);
+        mergeStyle(element->inlineStyle(), mode);
         return;
     case OnlyEditingInheritableProperties:
-        mergeStyle(copyEditingProperties(element.inlineStyle(), OnlyInheritableEditingProperties).ptr(), mode);
+        mergeStyle(copyEditingProperties(element->inlineStyle(), OnlyInheritableEditingProperties).ptr(), mode);
         return;
     case EditingPropertiesInEffect:
-        mergeStyle(copyEditingProperties(element.inlineStyle(), AllEditingProperties).ptr(), mode);
+        mergeStyle(copyEditingProperties(element->inlineStyle(), AllEditingProperties).ptr(), mode);
         return;
     }
 }
 
-static inline bool elementMatchesAndPropertyIsNotInInlineStyleDecl(const HTMLElementEquivalent& equivalent, const StyledElement& element,
+static inline bool elementMatchesAndPropertyIsNotInInlineStyleDecl(const HTMLElementEquivalent* equivalent, const StyledElement& element,
     EditingStyle::CSSPropertyOverrideMode mode, EditingStyle& style)
 {
-    if (!equivalent.matches(element))
+    if (!equivalent->matches(element))
         return false;
-    if (mode != EditingStyle::OverrideValues && equivalent.propertyExistsInStyle(style))
+    if (mode != EditingStyle::OverrideValues && equivalent->propertyExistsInStyle(style))
         return false;
 
-    return !element.inlineStyle() || !equivalent.propertyExistsInStyle(EditingStyle::create(element.inlineStyle()).get());
+    return !element.inlineStyle() || !equivalent->propertyExistsInStyle(EditingStyle::create(element.inlineStyle()).get());
 }
 
 static RefPtr<MutableStyleProperties> extractEditingProperties(const StyleProperties* style, EditingStyle::PropertiesToInclude propertiesToInclude)
@@ -1158,7 +1161,7 @@ static RefPtr<MutableStyleProperties> extractEditingProperties(const StyleProper
 
 void EditingStyle::mergeInlineAndImplicitStyleOfElement(StyledElement& element, CSSPropertyOverrideMode mode, PropertiesToInclude propertiesToInclude)
 {
-    auto styleFromRules = EditingStyle::create();
+    RefPtr<EditingStyle> styleFromRules = EditingStyle::create();
     styleFromRules->mergeStyleFromRulesForSerialization(element);
 
     if (element.inlineStyle())
@@ -1168,27 +1171,27 @@ void EditingStyle::mergeInlineAndImplicitStyleOfElement(StyledElement& element, 
     mergeStyle(styleFromRules->m_mutableStyle.get(), mode);
 
     for (auto& equivalent : htmlElementEquivalents()) {
-        if (elementMatchesAndPropertyIsNotInInlineStyleDecl(*equivalent, element, mode, *this))
+        if (elementMatchesAndPropertyIsNotInInlineStyleDecl(equivalent.get(), element, mode, *this))
             equivalent->addToStyle(&element, this);
     }
 
     for (auto& equivalent : htmlAttributeEquivalents()) {
         if (equivalent->attributeName() == HTMLNames::dirAttr)
             continue; // We don't want to include directionality
-        if (elementMatchesAndPropertyIsNotInInlineStyleDecl(*equivalent, element, mode, *this))
+        if (elementMatchesAndPropertyIsNotInInlineStyleDecl(equivalent.get(), element, mode, *this))
             equivalent->addToStyle(&element, this);
     }
 }
 
-Ref<EditingStyle> EditingStyle::wrappingStyleForSerialization(Node& context, bool shouldAnnotate)
+Ref<EditingStyle> EditingStyle::wrappingStyleForSerialization(Node* context, bool shouldAnnotate)
 {
     if (shouldAnnotate) {
-        auto wrappingStyle = EditingStyle::create(&context, EditingStyle::EditingPropertiesInEffect);
+        auto wrappingStyle = EditingStyle::create(context, EditingStyle::EditingPropertiesInEffect);
 
         // Styles that Mail blockquotes contribute should only be placed on the Mail blockquote,
         // to help us differentiate those styles from ones that the user has applied.
         // This helps us get the color of content pasted into blockquotes right.
-        wrappingStyle->removeStyleAddedByNode(enclosingNodeOfType(firstPositionInOrBeforeNode(&context), isMailBlockquote, CanCrossEditingBoundary));
+        wrappingStyle->removeStyleAddedByNode(enclosingNodeOfType(firstPositionInOrBeforeNode(context), isMailBlockquote, CanCrossEditingBoundary));
 
         // Call collapseTextDecorationProperties first or otherwise it'll copy the value over from in-effect to text-decorations.
         wrappingStyle->collapseTextDecorationProperties();
@@ -1199,9 +1202,11 @@ Ref<EditingStyle> EditingStyle::wrappingStyleForSerialization(Node& context, boo
     auto wrappingStyle = EditingStyle::create();
 
     // When not annotating for interchange, we only preserve inline style declarations.
-    for (Node* node = &context; node && !node->isDocumentNode(); node = node->parentNode()) {
-        if (is<StyledElement>(*node) && !isMailBlockquote(node))
-            wrappingStyle->mergeInlineAndImplicitStyleOfElement(downcast<StyledElement>(*node), EditingStyle::DoNotOverrideValues, EditingStyle::EditingPropertiesInEffect);
+    for (Node* node = context; node && !node->isDocumentNode(); node = node->parentNode()) {
+        if (is<StyledElement>(*node) && !isMailBlockquote(node)) {
+            wrappingStyle->mergeInlineAndImplicitStyleOfElement(downcast<StyledElement>(*node), EditingStyle::DoNotOverrideValues,
+                EditingStyle::EditingPropertiesInEffect);
+        }
     }
 
     return wrappingStyle;
@@ -1271,7 +1276,7 @@ static Ref<MutableStyleProperties> styleFromMatchedRulesForElement(Element& elem
 void EditingStyle::mergeStyleFromRules(StyledElement& element)
 {
     RefPtr<MutableStyleProperties> styleFromMatchedRules = styleFromMatchedRulesForElement(element,
-        StyleResolver::AuthorCSSRules);
+        StyleResolver::AuthorCSSRules | StyleResolver::CrossOriginCSSRules);
     // Styles from the inline style declaration, held in the variable "style", take precedence 
     // over those from matched rules.
     if (m_mutableStyle)
@@ -1288,7 +1293,7 @@ void EditingStyle::mergeStyleFromRulesForSerialization(StyledElement& element)
     // The property value, if it's a percentage, may not reflect the actual computed value.  
     // For example: style="height: 1%; overflow: visible;" in quirksmode
     // FIXME: There are others like this, see <rdar://problem/5195123> Slashdot copy/paste fidelity problem
-    auto fromComputedStyle = MutableStyleProperties::create();
+    RefPtr<MutableStyleProperties> fromComputedStyle = MutableStyleProperties::create();
     ComputedStyleExtractor computedStyle(&element);
 
     {
@@ -1304,7 +1309,7 @@ void EditingStyle::mergeStyleFromRulesForSerialization(StyledElement& element)
             }
         }
     }
-    m_mutableStyle->mergeAndOverrideOnConflict(fromComputedStyle.get());
+    m_mutableStyle->mergeAndOverrideOnConflict(*fromComputedStyle);
 }
 
 static void removePropertiesInStyle(MutableStyleProperties* styleToRemovePropertiesFrom, MutableStyleProperties* style)
@@ -1327,8 +1332,8 @@ void EditingStyle::removeStyleFromRulesAndContext(StyledElement& element, Node* 
     if (styleFromMatchedRules && !styleFromMatchedRules->isEmpty())
         m_mutableStyle = getPropertiesNotIn(*m_mutableStyle, *styleFromMatchedRules);
 
-    // 2. Remove style present in context and not overridden by matched rules.
-    auto computedStyle = EditingStyle::create(context, EditingPropertiesInEffect);
+    // 2. Remove style present in context and not overriden by matched rules.
+    RefPtr<EditingStyle> computedStyle = EditingStyle::create(context, EditingPropertiesInEffect);
     if (computedStyle->m_mutableStyle) {
         if (!computedStyle->m_mutableStyle->getPropertyCSSValue(CSSPropertyBackgroundColor))
             computedStyle->m_mutableStyle->setProperty(CSSPropertyBackgroundColor, CSSValueTransparent);
@@ -1337,7 +1342,7 @@ void EditingStyle::removeStyleFromRulesAndContext(StyledElement& element, Node* 
         m_mutableStyle = getPropertiesNotIn(*m_mutableStyle, *computedStyle->m_mutableStyle);
     }
 
-    // 3. If this element is a span and has display: inline or float: none, remove them unless they are overridden by rules.
+    // 3. If this element is a span and has display: inline or float: none, remove them unless they are overriden by rules.
     // These rules are added by serialization code to wrap text nodes.
     if (isStyleSpanOrSpanWithOnlyStyleAttribute(element)) {
         if (!styleFromMatchedRules->getPropertyCSSValue(CSSPropertyDisplay) && identifierForStyleProperty(*m_mutableStyle, CSSPropertyDisplay) == CSSValueInline)
@@ -1378,13 +1383,6 @@ void EditingStyle::forceInline()
     m_mutableStyle->setProperty(CSSPropertyDisplay, CSSValueInline, propertyIsImportant);
 }
 
-void EditingStyle::addDisplayContents()
-{
-    if (!m_mutableStyle)
-        m_mutableStyle = MutableStyleProperties::create();
-    m_mutableStyle->setProperty(CSSPropertyDisplay, CSSValueContents);
-}
-
 bool EditingStyle::convertPositionStyle()
 {
     if (!m_mutableStyle)
@@ -1414,18 +1412,13 @@ bool EditingStyle::isFloating()
     return v && !v->equals(*noneValue);
 }
 
-int EditingStyle::legacyFontSize(Document& document) const
+int EditingStyle::legacyFontSize(Document* document) const
 {
     RefPtr<CSSValue> cssValue = m_mutableStyle->getPropertyCSSValue(CSSPropertyFontSize);
-    if (!is<CSSPrimitiveValue>(cssValue))
+    if (!is<CSSPrimitiveValue>(cssValue.get()))
         return 0;
     return legacyFontSizeFromCSSValue(document, downcast<CSSPrimitiveValue>(cssValue.get()),
         m_shouldUseFixedDefaultFontSize, AlwaysUseLegacyFontSize);
-}
-
-bool EditingStyle::hasStyle(CSSPropertyID propertyID, const String& value)
-{
-    return EditingStyle::create(propertyID, value)->triStateOfStyle(this) != FalseTriState;
 }
 
 RefPtr<EditingStyle> EditingStyle::styleAtSelectionStart(const VisibleSelection& selection, bool shouldUseBackgroundColorInEffect)
@@ -1454,10 +1447,9 @@ RefPtr<EditingStyle> EditingStyle::styleAtSelectionStart(const VisibleSelection&
     // Also, if the selection is a range, ignore the background color at the start of selection,
     // and find the background color of the common ancestor.
     if (shouldUseBackgroundColorInEffect && (selection.isRange() || hasTransparentBackgroundColor(style->m_mutableStyle.get()))) {
-        if (auto range = selection.toNormalizedRange()) {
-            if (auto value = backgroundColorInEffect(range->commonAncestorContainer()))
-                style->setProperty(CSSPropertyBackgroundColor, value->cssText());
-        }
+        RefPtr<Range> range(selection.toNormalizedRange());
+        if (auto value = backgroundColorInEffect(range->commonAncestorContainer()))
+            style->setProperty(CSSPropertyBackgroundColor, value->cssText());
     }
 
     return WTFMove(style);
@@ -1468,13 +1460,13 @@ WritingDirection EditingStyle::textDirectionForSelection(const VisibleSelection&
     hasNestedOrMultipleEmbeddings = true;
 
     if (selection.isNone())
-        return WritingDirection::Natural;
+        return NaturalWritingDirection;
 
     Position position = selection.start().downstream();
 
     Node* node = position.deprecatedNode();
     if (!node)
-        return WritingDirection::Natural;
+        return NaturalWritingDirection;
 
     Position end;
     if (selection.isRange()) {
@@ -1486,12 +1478,12 @@ WritingDirection EditingStyle::textDirectionForSelection(const VisibleSelection&
                 continue;
 
             RefPtr<CSSValue> unicodeBidi = ComputedStyleExtractor(n).propertyValue(CSSPropertyUnicodeBidi);
-            if (!is<CSSPrimitiveValue>(unicodeBidi))
+            if (!is<CSSPrimitiveValue>(unicodeBidi.get()))
                 continue;
 
             CSSValueID unicodeBidiValue = downcast<CSSPrimitiveValue>(*unicodeBidi).valueID();
             if (unicodeBidiValue == CSSValueEmbed || unicodeBidiValue == CSSValueBidiOverride)
-                return WritingDirection::Natural;
+                return NaturalWritingDirection;
         }
     }
 
@@ -1507,7 +1499,7 @@ WritingDirection EditingStyle::textDirectionForSelection(const VisibleSelection&
     // The selection is either a caret with no typing attributes or a range in which no embedding is added, so just use the start position
     // to decide.
     Node* block = enclosingBlock(node);
-    auto foundDirection = WritingDirection::Natural;
+    WritingDirection foundDirection = NaturalWritingDirection;
 
     for (; node != block; node = node->parentNode()) {
         if (!node->isStyledElement())
@@ -1515,7 +1507,7 @@ WritingDirection EditingStyle::textDirectionForSelection(const VisibleSelection&
 
         ComputedStyleExtractor computedStyle(node);
         RefPtr<CSSValue> unicodeBidi = computedStyle.propertyValue(CSSPropertyUnicodeBidi);
-        if (!is<CSSPrimitiveValue>(unicodeBidi))
+        if (!is<CSSPrimitiveValue>(unicodeBidi.get()))
             continue;
 
         CSSValueID unicodeBidiValue = downcast<CSSPrimitiveValue>(*unicodeBidi).valueID();
@@ -1523,58 +1515,28 @@ WritingDirection EditingStyle::textDirectionForSelection(const VisibleSelection&
             continue;
 
         if (unicodeBidiValue == CSSValueBidiOverride)
-            return WritingDirection::Natural;
+            return NaturalWritingDirection;
 
         ASSERT(unicodeBidiValue == CSSValueEmbed);
         RefPtr<CSSValue> direction = computedStyle.propertyValue(CSSPropertyDirection);
-        if (!is<CSSPrimitiveValue>(direction))
+        if (!is<CSSPrimitiveValue>(direction.get()))
             continue;
 
         CSSValueID directionValue = downcast<CSSPrimitiveValue>(*direction).valueID();
         if (directionValue != CSSValueLtr && directionValue != CSSValueRtl)
             continue;
 
-        if (foundDirection != WritingDirection::Natural)
-            return WritingDirection::Natural;
+        if (foundDirection != NaturalWritingDirection)
+            return NaturalWritingDirection;
 
         // In the range case, make sure that the embedding element persists until the end of the range.
         if (selection.isRange() && !end.deprecatedNode()->isDescendantOf(*node))
-            return WritingDirection::Natural;
+            return NaturalWritingDirection;
         
-        foundDirection = directionValue == CSSValueLtr ? WritingDirection::LeftToRight : WritingDirection::RightToLeft;
+        foundDirection = directionValue == CSSValueLtr ? LeftToRightWritingDirection : RightToLeftWritingDirection;
     }
     hasNestedOrMultipleEmbeddings = false;
     return foundDirection;
-}
-
-Ref<EditingStyle> EditingStyle::inverseTransformColorIfNeeded(Element& element)
-{
-    auto* renderer = element.renderer();
-    if (!m_mutableStyle || !renderer || !renderer->style().hasAppleColorFilter())
-        return *this;
-
-    bool hasColor = m_mutableStyle->getPropertyCSSValue(CSSPropertyColor);
-    bool hasBackgroundColor = m_mutableStyle->getPropertyCSSValue(CSSPropertyBackgroundColor);
-    if (!hasColor && !hasBackgroundColor)
-        return *this;
-
-    auto styleWithInvertedColors = copy();
-    ASSERT(styleWithInvertedColors->m_mutableStyle);
-
-    const auto& colorFilter = renderer->style().appleColorFilter();
-    auto invertedColor = [&](CSSPropertyID propertyID) {
-        Color newColor = cssValueToColor(extractPropertyValue(*m_mutableStyle, propertyID).get());
-        colorFilter.inverseTransformColor(newColor);
-        styleWithInvertedColors->m_mutableStyle->setProperty(propertyID, newColor.cssText());
-    };
-
-    if (hasColor)
-        invertedColor(CSSPropertyColor);
-
-    if (hasBackgroundColor)
-        invertedColor(CSSPropertyBackgroundColor);
-
-    return styleWithInvertedColors;
 }
 
 static void reconcileTextDecorationProperties(MutableStyleProperties* style)
@@ -1619,17 +1581,17 @@ StyleChange::StyleChange(EditingStyle* style, const Position& position)
     reconcileTextDecorationProperties(mutableStyle.get());
     bool shouldStyleWithCSS = document->frame()->editor().shouldStyleWithCSS();
     if (!shouldStyleWithCSS)
-        extractTextStyles(*document, *mutableStyle, computedStyle.useFixedFontDefaultSize());
+        extractTextStyles(document, *mutableStyle, computedStyle.useFixedFontDefaultSize());
 
     bool shouldAddUnderline = style->underlineChange() == TextDecorationChange::Add;
     bool shouldAddStrikeThrough = style->strikeThroughChange() == TextDecorationChange::Add;
     if (shouldAddUnderline || shouldAddStrikeThrough) {
         RefPtr<CSSValue> value = computedStyle.propertyValue(CSSPropertyWebkitTextDecorationsInEffect);
-        if (!is<CSSValueList>(value))
+        if (!is<CSSValueList>(value.get()))
             value = computedStyle.propertyValue(CSSPropertyTextDecoration);
 
         RefPtr<CSSValueList> valueList;
-        if (is<CSSValueList>(value))
+        if (is<CSSValueList>(value.get()))
             valueList = downcast<CSSValueList>(value.get());
 
         auto& cssValuePool = CSSValuePool::singleton();
@@ -1692,7 +1654,7 @@ static void setTextDecorationProperty(MutableStyleProperties& style, const CSSVa
     }
 }
 
-void StyleChange::extractTextStyles(Document& document, MutableStyleProperties& style, bool shouldUseFixedFontDefaultSize)
+void StyleChange::extractTextStyles(Document* document, MutableStyleProperties& style, bool shouldUseFixedFontDefaultSize)
 {
     if (identifierForStyleProperty(style, CSSPropertyFontWeight) == CSSValueBold) {
         style.removeProperty(CSSPropertyFontWeight);
@@ -1708,7 +1670,7 @@ void StyleChange::extractTextStyles(Document& document, MutableStyleProperties& 
     // Assuming reconcileTextDecorationProperties has been called, there should not be -webkit-text-decorations-in-effect
     // Furthermore, text-decoration: none has been trimmed so that text-decoration property is always a CSSValueList.
     RefPtr<CSSValue> textDecoration = style.getPropertyCSSValue(CSSPropertyTextDecoration);
-    if (is<CSSValueList>(textDecoration)) {
+    if (is<CSSValueList>(textDecoration.get())) {
         auto& cssValuePool = CSSValuePool::singleton();
         RefPtr<CSSPrimitiveValue> underline = cssValuePool.createIdentifierValue(CSSValueUnderline);
         RefPtr<CSSPrimitiveValue> lineThrough = cssValuePool.createIdentifierValue(CSSValueLineThrough);
@@ -1736,11 +1698,8 @@ void StyleChange::extractTextStyles(Document& document, MutableStyleProperties& 
     }
 
     if (style.getPropertyCSSValue(CSSPropertyColor)) {
-        auto color = textColorFromStyle(style);
-        if (color.isOpaque()) {
-            m_applyFontColor = color.serialized();
-            style.removeProperty(CSSPropertyColor);
-        }
+        m_applyFontColor = Color(textColorFromStyle(style)).serialized();
+        style.removeProperty(CSSPropertyColor);
     }
 
     m_applyFontFace = style.getPropertyValue(CSSPropertyFontFamily);
@@ -1762,7 +1721,7 @@ void StyleChange::extractTextStyles(Document& document, MutableStyleProperties& 
 static void diffTextDecorations(MutableStyleProperties& style, CSSPropertyID propertID, CSSValue* refTextDecoration)
 {
     RefPtr<CSSValue> textDecoration = style.getPropertyCSSValue(propertID);
-    if (!is<CSSValueList>(textDecoration) || !is<CSSValueList>(refTextDecoration))
+    if (!is<CSSValueList>(textDecoration.get()) || !is<CSSValueList>(refTextDecoration))
         return;
 
     RefPtr<CSSValueList> newTextDecoration = downcast<CSSValueList>(*textDecoration).copy();
@@ -1802,7 +1761,7 @@ static bool fontWeightIsBold(T& style)
 template<typename T>
 static Ref<MutableStyleProperties> extractPropertiesNotIn(StyleProperties& styleWithRedundantProperties, T& baseStyle)
 {
-    auto result = EditingStyle::create(&styleWithRedundantProperties);
+    RefPtr<EditingStyle> result = EditingStyle::create(&styleWithRedundantProperties);
     result->removeEquivalentProperties(baseStyle);
     ASSERT(result->style());
     Ref<MutableStyleProperties> mutableStyle = *result->style();
@@ -1814,17 +1773,14 @@ static Ref<MutableStyleProperties> extractPropertiesNotIn(StyleProperties& style
     if (extractPropertyValue(baseStyle, CSSPropertyFontWeight) && fontWeightIsBold(mutableStyle) == fontWeightIsBold(baseStyle))
         mutableStyle->removeProperty(CSSPropertyFontWeight);
 
-    if (extractPropertyValue(baseStyle, CSSPropertyColor) && equalIgnoringSemanticColor(textColorFromStyle(mutableStyle), textColorFromStyle(baseStyle)))
+    if (extractPropertyValue(baseStyle, CSSPropertyColor) && textColorFromStyle(mutableStyle) == textColorFromStyle(baseStyle))
         mutableStyle->removeProperty(CSSPropertyColor);
-
-    if (extractPropertyValue(baseStyle, CSSPropertyCaretColor) && equalIgnoringSemanticColor(caretColorFromStyle(mutableStyle), caretColorFromStyle(baseStyle)))
-        mutableStyle->removeProperty(CSSPropertyCaretColor);
 
     if (extractPropertyValue(baseStyle, CSSPropertyTextAlign)
         && textAlignResolvingStartAndEnd(mutableStyle) == textAlignResolvingStartAndEnd(baseStyle))
         mutableStyle->removeProperty(CSSPropertyTextAlign);
 
-    if (extractPropertyValue(baseStyle, CSSPropertyBackgroundColor) && equalIgnoringSemanticColor(backgroundColorFromStyle(mutableStyle), backgroundColorFromStyle(baseStyle)))
+    if (extractPropertyValue(baseStyle, CSSPropertyBackgroundColor) && backgroundColorFromStyle(mutableStyle) == backgroundColorFromStyle(baseStyle))
         mutableStyle->removeProperty(CSSPropertyBackgroundColor);
 
     return mutableStyle;
@@ -1841,14 +1797,16 @@ static bool isCSSValueLength(CSSPrimitiveValue* value)
     return value->isFontIndependentLength();
 }
 
-int legacyFontSizeFromCSSValue(Document& document, CSSPrimitiveValue* value, bool shouldUseFixedFontDefaultSize, LegacyFontSizeMode mode)
+int legacyFontSizeFromCSSValue(Document* document, CSSPrimitiveValue* value, bool shouldUseFixedFontDefaultSize, LegacyFontSizeMode mode)
 {
+    ASSERT(document); // FIXME: This method should take a Document&
+
     if (isCSSValueLength(value)) {
         int pixelFontSize = value->intValue(CSSPrimitiveValue::CSS_PX);
-        int legacyFontSize = Style::legacyFontSizeForPixelSize(pixelFontSize, shouldUseFixedFontDefaultSize, document);
+        int legacyFontSize = Style::legacyFontSizeForPixelSize(pixelFontSize, shouldUseFixedFontDefaultSize, *document);
         // Use legacy font size only if pixel value matches exactly to that of legacy font size.
         int cssPrimitiveEquivalent = legacyFontSize - 1 + CSSValueXSmall;
-        if (mode == AlwaysUseLegacyFontSize || Style::fontSizeForKeyword(cssPrimitiveEquivalent, shouldUseFixedFontDefaultSize, document) == pixelFontSize)
+        if (mode == AlwaysUseLegacyFontSize || Style::fontSizeForKeyword(cssPrimitiveEquivalent, shouldUseFixedFontDefaultSize, *document) == pixelFontSize)
             return legacyFontSize;
 
         return 0;

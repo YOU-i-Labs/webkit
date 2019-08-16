@@ -39,7 +39,7 @@ AbstractPC::AbstractPC(VM& vm, ExecState* exec)
     UNUSED_PARAM(exec);
     
 #if ENABLE(JIT)
-    if (VM::canUseJIT()) {
+    if (vm.canUseJIT()) {
         m_pointer = exec->returnPC().value();
         m_mode = JIT;
         return;

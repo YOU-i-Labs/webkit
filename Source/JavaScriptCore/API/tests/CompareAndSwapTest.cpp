@@ -26,7 +26,6 @@
 #include "config.h"
 #include "CompareAndSwapTest.h"
 
-#include <functional>
 #include <stdio.h>
 #include <wtf/Atomics.h>
 #include <wtf/Threading.h>

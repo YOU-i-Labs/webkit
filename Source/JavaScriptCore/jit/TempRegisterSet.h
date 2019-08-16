@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(ASSEMBLER)
+#if ENABLE(JIT)
 
 #include "FPRInfo.h"
 #include "GPRInfo.h"
@@ -205,7 +205,7 @@ private:
 
 } // namespace JSC
 
-#else // ENABLE(ASSEMBLER) -> so if JIT is disabled
+#else // ENABLE(JIT) -> so if JIT is disabled
 
 namespace JSC {
 
@@ -216,4 +216,4 @@ struct TempRegisterSet { };
 
 } // namespace JSC
 
-#endif // ENABLE(ASSEMBLER)
+#endif // ENABLE(JIT)

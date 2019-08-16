@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2017 Apple Inc.  All rights reserved.
+ * Copyright (C) 2003, 2006, 2007, 2013 Apple Inc.  All rights reserved.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
  * Copyright (C) 2011 University of Szeged. All rights reserved.
  *
@@ -32,19 +32,19 @@
 #pragma GCC diagnostic ignored "-Wmissing-format-attribute"
 
 #include "config.h"
-#include <wtf/Assertions.h>
+#include "Assertions.h"
 
+#include "Compiler.h"
 #include <mutex>
 #include <stdio.h>
 #include <string.h>
-#include <wtf/Compiler.h>
 #include <wtf/Lock.h>
 #include <wtf/Locker.h>
 #include <wtf/LoggingAccumulator.h>
 #include <wtf/PrintStream.h>
-#include <wtf/RetainPtr.h>
 #include <wtf/StackTrace.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/StringExtras.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
@@ -74,14 +74,19 @@
 #include <unistd.h>
 #endif
 
+#if HAVE(BACKTRACE)
+#include <execinfo.h>
+#endif
+
 extern "C" {
 
 static void logToStderr(const char* buffer)
 {
 #if USE(APPLE_SYSTEM_LOG)
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     asl_log(0, 0, ASL_LEVEL_NOTICE, "%s", buffer);
-    ALLOW_DEPRECATED_DECLARATIONS_END
+#pragma clang diagnostic pop
 #endif
     fputs(buffer, stderr);
 }
@@ -91,28 +96,37 @@ static void vprintf_stderr_common(const char* format, va_list args)
 {
 #if USE(CF) && !OS(WINDOWS)
     if (strstr(format, "%@")) {
-        auto cfFormat = adoptCF(CFStringCreateWithCString(nullptr, format, kCFStringEncodingUTF8));
+        CFStringRef cfFormat = CFStringCreateWithCString(NULL, format, kCFStringEncodingUTF8);
 
-        ALLOW_NONLITERAL_FORMAT_BEGIN
-        auto str = adoptCF(CFStringCreateWithFormatAndArguments(nullptr, nullptr, cfFormat.get(), args));
-        ALLOW_NONLITERAL_FORMAT_END
-        CFIndex length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(str.get()), kCFStringEncodingUTF8);
-        constexpr unsigned InitialBufferSize { 256 };
-        Vector<char, InitialBufferSize> buffer(length + 1);
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+#endif
+        CFStringRef str = CFStringCreateWithFormatAndArguments(NULL, NULL, cfFormat, args);
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
+        CFIndex length = CFStringGetMaximumSizeForEncoding(CFStringGetLength(str), kCFStringEncodingUTF8);
+        char* buffer = (char*)malloc(length + 1);
 
-        CFStringGetCString(str.get(), buffer.data(), length, kCFStringEncodingUTF8);
+        CFStringGetCString(str, buffer, length, kCFStringEncodingUTF8);
 
-        logToStderr(buffer.data());
+        logToStderr(buffer);
+
+        free(buffer);
+        CFRelease(str);
+        CFRelease(cfFormat);
         return;
     }
 
 #if USE(APPLE_SYSTEM_LOG)
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     va_list copyOfArgs;
     va_copy(copyOfArgs, args);
     asl_vlog(0, 0, ASL_LEVEL_NOTICE, format, copyOfArgs);
     va_end(copyOfArgs);
-    ALLOW_DEPRECATED_DECLARATIONS_END
+#pragma clang diagnostic pop
 #endif
 
     // Fall through to write to stderr in the same manner as other platforms.
@@ -120,13 +134,20 @@ static void vprintf_stderr_common(const char* format, va_list args)
 #elif HAVE(ISDEBUGGERPRESENT)
     if (IsDebuggerPresent()) {
         size_t size = 1024;
-        Vector<char> buffer(size);
+
         do {
-            buffer.grow(size);
-            if (vsnprintf(buffer.data(), size, format, args) != -1) {
-                OutputDebugStringA(buffer.data());
+            char* buffer = (char*)malloc(size);
+
+            if (buffer == NULL)
+                break;
+
+            if (vsnprintf(buffer, size, format, args) != -1) {
+                OutputDebugStringA(buffer);
+                free(buffer);
                 break;
             }
+
+            free(buffer);
             size *= 2;
         } while (size > 1024);
     }
@@ -134,18 +155,21 @@ static void vprintf_stderr_common(const char* format, va_list args)
     vfprintf(stderr, format, args);
 }
 
-ALLOW_NONLITERAL_FORMAT_BEGIN
+#if COMPILER(GCC_OR_CLANG)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-nonliteral"
+#endif
 
 static void vprintf_stderr_with_prefix(const char* prefix, const char* format, va_list args)
 {
     size_t prefixLength = strlen(prefix);
     size_t formatLength = strlen(format);
-    Vector<char> formatWithPrefix(prefixLength + formatLength + 1);
-    memcpy(formatWithPrefix.data(), prefix, prefixLength);
-    memcpy(formatWithPrefix.data() + prefixLength, format, formatLength);
+    auto formatWithPrefix = std::make_unique<char[]>(prefixLength + formatLength + 1);
+    memcpy(formatWithPrefix.get(), prefix, prefixLength);
+    memcpy(formatWithPrefix.get() + prefixLength, format, formatLength);
     formatWithPrefix[prefixLength + formatLength] = 0;
 
-    vprintf_stderr_common(formatWithPrefix.data(), args);
+    vprintf_stderr_common(formatWithPrefix.get(), args);
 }
 
 static void vprintf_stderr_with_trailing_newline(const char* format, va_list args)
@@ -156,15 +180,17 @@ static void vprintf_stderr_with_trailing_newline(const char* format, va_list arg
         return;
     }
 
-    Vector<char> formatWithNewline(formatLength + 2);
-    memcpy(formatWithNewline.data(), format, formatLength);
+    auto formatWithNewline = std::make_unique<char[]>(formatLength + 2);
+    memcpy(formatWithNewline.get(), format, formatLength);
     formatWithNewline[formatLength] = '\n';
     formatWithNewline[formatLength + 1] = 0;
 
-    vprintf_stderr_common(formatWithNewline.data(), args);
+    vprintf_stderr_common(formatWithNewline.get(), args);
 }
 
-ALLOW_NONLITERAL_FORMAT_END
+#if COMPILER(GCC_OR_CLANG)
+#pragma GCC diagnostic pop
+#endif
 
 WTF_ATTRIBUTE_PRINTF(1, 2)
 static void printf_stderr_common(const char* format, ...)
@@ -185,12 +211,6 @@ static void printCallSite(const char* file, int line, const char* function)
     // editor navigate to that line of code. It seems fine for other developers, too.
     printf_stderr_common("%s(%d) : %s\n", file, line, function);
 #endif
-}
-
-void WTFReportNotImplementedYet(const char* file, int line, const char* function)
-{
-    printf_stderr_common("NOT IMPLEMENTED YET\n");
-    printCallSite(file, line, function);
 }
 
 void WTFReportAssertionFailure(const char* file, int line, const char* function, const char* assertion)
@@ -227,6 +247,17 @@ public:
     }
 };
 
+void WTFGetBacktrace(void** stack, int* size)
+{
+#if HAVE(BACKTRACE)
+    *size = backtrace(stack, *size);
+#elif OS(WINDOWS)
+    *size = RtlCaptureStackBackTrace(0, *size, stack, 0);
+#else
+    *size = 0;
+#endif
+}
+
 void WTFReportBacktrace()
 {
     static const int framesToShow = 31;
@@ -245,21 +276,27 @@ void WTFPrintBacktrace(void** stack, int size)
     out.print(stackTrace);
 }
 
+static WTFCrashHookFunction globalHook = 0;
+
+void WTFSetCrashHook(WTFCrashHookFunction function)
+{
+    globalHook = function;
+}
+
 #if !defined(NDEBUG) || !OS(DARWIN)
 void WTFCrash()
 {
+    if (globalHook)
+        globalHook();
+
     WTFReportBacktrace();
-#if ASAN_ENABLED
-    __builtin_trap();
-#else
     *(int *)(uintptr_t)0xbbadbeef = 0;
     // More reliable, but doesn't say BBADBEEF.
-#if COMPILER(GCC_COMPATIBLE)
+#if COMPILER(GCC_OR_CLANG)
     __builtin_trap();
 #else
     ((void(*)())0)();
-#endif // COMPILER(GCC_COMPATIBLE)
-#endif // ASAN_ENABLED
+#endif
 }
 #else
 // We need to keep WTFCrash() around (even on non-debug OS(DARWIN) builds) as a workaround
@@ -274,6 +311,42 @@ void WTFCrash()
 void WTFCrashWithSecurityImplication()
 {
     CRASH();
+}
+
+#if HAVE(SIGNAL_H)
+static NO_RETURN void dumpBacktraceSignalHandler(int sig)
+{
+    WTFReportBacktrace();
+    exit(128 + sig);
+}
+
+static void installSignalHandlersForFatalErrors(void (*handler)(int))
+{
+    signal(SIGILL, handler); //    4: illegal instruction (not reset when caught).
+    signal(SIGTRAP, handler); //   5: trace trap (not reset when caught).
+    signal(SIGFPE, handler); //    8: floating point exception.
+    signal(SIGBUS, handler); //   10: bus error.
+    signal(SIGSEGV, handler); //  11: segmentation violation.
+    signal(SIGSYS, handler); //   12: bad argument to system call.
+    signal(SIGPIPE, handler); //  13: write on a pipe with no reader.
+    signal(SIGXCPU, handler); //  24: exceeded CPU time limit.
+    signal(SIGXFSZ, handler); //  25: exceeded file size limit.
+}
+
+static void resetSignalHandlersForFatalErrors()
+{
+    installSignalHandlersForFatalErrors(SIG_DFL);
+}
+#endif
+
+void WTFInstallReportBacktraceOnCrashHook()
+{
+#if HAVE(SIGNAL_H)
+    // Needed otherwise we are going to dump the stack trace twice
+    // in case we hit an assertion.
+    WTFSetCrashHook(&resetSignalHandlersForFatalErrors);
+    installSignalHandlersForFatalErrors(&dumpBacktraceSignalHandler);
+#endif
 }
 
 bool WTFIsDebuggerAttached()
@@ -352,34 +425,6 @@ static WTFLoggingAccumulator& loggingAccumulator()
     return *accumulator;
 }
 
-void WTFSetLogChannelLevel(WTFLogChannel* channel, WTFLogLevel level)
-{
-    channel->level = level;
-}
-
-bool WTFWillLogWithLevel(WTFLogChannel* channel, WTFLogLevel level)
-{
-    return channel->level >= level && channel->state != WTFLogChannelOff;
-}
-
-void WTFLogWithLevel(WTFLogChannel* channel, WTFLogLevel level, const char* format, ...)
-{
-    if (level != WTFLogLevelAlways && level > channel->level)
-        return;
-
-    if (channel->level != WTFLogLevelAlways && channel->state == WTFLogChannelOff)
-        return;
-
-    va_list args;
-    va_start(args, format);
-
-    ALLOW_NONLITERAL_FORMAT_BEGIN
-    WTFLog(channel, format, args);
-    ALLOW_NONLITERAL_FORMAT_END
-
-    va_end(args);
-}
-
 void WTFLog(WTFLogChannel* channel, const char* format, ...)
 {
     if (channel->state == WTFLogChannelOff)
@@ -398,9 +443,14 @@ void WTFLog(WTFLogChannel* channel, const char* format, ...)
     va_list args;
     va_start(args, format);
 
-    ALLOW_NONLITERAL_FORMAT_BEGIN
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+#endif
     String loggingString = String::format(format, args);
-    ALLOW_NONLITERAL_FORMAT_END
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
 
     va_end(args);
 
@@ -420,9 +470,14 @@ void WTFLogVerbose(const char* file, int line, const char* function, WTFLogChann
     va_list args;
     va_start(args, format);
 
-    ALLOW_NONLITERAL_FORMAT_BEGIN
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+#endif
     WTFLog(channel, format, args);
-    ALLOW_NONLITERAL_FORMAT_END
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
 
     va_end(args);
 
@@ -455,7 +510,7 @@ WTFLogChannel* WTFLogChannelByName(WTFLogChannel* channels[], size_t count, cons
 {
     for (size_t i = 0; i < count; ++i) {
         WTFLogChannel* channel = channels[i];
-        if (equalIgnoringASCIICase(name, channel->name))
+        if (!strcasecmp(name, channel->name))
             return channel;
     }
 
@@ -477,9 +532,12 @@ void WTFInitializeLogChannelStatesFromString(WTFLogChannel* channels[], size_t c
     }
 #endif
 
-    for (auto& logLevelComponent : String(logLevel).split(',')) {
-        Vector<String> componentInfo = logLevelComponent.split('=');
-        String component = componentInfo[0].stripWhiteSpace();
+    String logLevelString = logLevel;
+    Vector<String> components;
+    logLevelString.split(',', components);
+
+    for (size_t i = 0; i < components.size(); ++i) {
+        String component = components[i];
 
         WTFLogChannelState logChannelState = WTFLogChannelOn;
         if (component.startsWith('-')) {
@@ -492,163 +550,14 @@ void WTFInitializeLogChannelStatesFromString(WTFLogChannel* channels[], size_t c
             continue;
         }
 
-        WTFLogLevel logChannelLevel = WTFLogLevelError;
-        if (componentInfo.size() > 1) {
-            String level = componentInfo[1].stripWhiteSpace();
-            if (equalLettersIgnoringASCIICase(level, "error"))
-                logChannelLevel = WTFLogLevelError;
-            else if (equalLettersIgnoringASCIICase(level, "warning"))
-                logChannelLevel = WTFLogLevelWarning;
-            else if (equalLettersIgnoringASCIICase(level, "info"))
-                logChannelLevel = WTFLogLevelInfo;
-            else if (equalLettersIgnoringASCIICase(level, "debug"))
-                logChannelLevel = WTFLogLevelDebug;
-            else
-                WTFLogAlways("Unknown logging level: %s", level.utf8().data());
-        }
-
-        if (WTFLogChannel* channel = WTFLogChannelByName(channels, count, component.utf8().data())) {
+        if (WTFLogChannel* channel = WTFLogChannelByName(channels, count, component.utf8().data()))
             channel->state = logChannelState;
-            channel->level = logChannelLevel;
-        } else
+        else
             WTFLogAlways("Unknown logging channel: %s", component.utf8().data());
     }
 }
 
-#if !RELEASE_LOG_DISABLED
-void WTFReleaseLogStackTrace(WTFLogChannel* channel)
-{
-    auto stackTrace = WTF::StackTrace::captureStackTrace(30, 0);
-    if (stackTrace && stackTrace->stack()) {
-        auto stack = stackTrace->stack();
-        for (int frameNumber = 1; frameNumber < stackTrace->size(); ++frameNumber) {
-            auto stackFrame = stack[frameNumber];
-            auto demangled = WTF::StackTrace::demangle(stackFrame);
-            if (demangled && demangled->demangledName())
-                os_log(channel->osLogChannel, "%-3d %p %{public}s", frameNumber, stackFrame, demangled->demangledName());
-            else if (demangled && demangled->mangledName())
-                os_log(channel->osLogChannel, "%-3d %p %{public}s", frameNumber, stackFrame, demangled->mangledName());
-            else
-                os_log(channel->osLogChannel, "%-3d %p", frameNumber, stackFrame);
-        }
-    }
-}
-#endif
-
 } // extern "C"
-
-#if OS(DARWIN) && (CPU(X86_64) || CPU(ARM64))
-#if CPU(X86_64)
-
-#define CRASH_INST "int3"
-
-// This ordering was chosen to be consistent with JSC's JIT asserts. We probably shouldn't change this ordering
-// since it would make tooling crash reports much harder. If, for whatever reason, we decide to change the ordering
-// here we should update the abortWithuint64_t functions.
-#define CRASH_GPR0 "r11"
-#define CRASH_GPR1 "r10"
-#define CRASH_GPR2 "r9"
-#define CRASH_GPR3 "r8"
-#define CRASH_GPR4 "r15"
-#define CRASH_GPR5 "r14"
-#define CRASH_GPR6 "r13"
-
-#elif CPU(ARM64) // CPU(X86_64)
-
-#define CRASH_INST "brk #0"
-
-// See comment above on the ordering.
-#define CRASH_GPR0 "x16"
-#define CRASH_GPR1 "x17"
-#define CRASH_GPR2 "x18"
-#define CRASH_GPR3 "x19"
-#define CRASH_GPR4 "x20"
-#define CRASH_GPR5 "x21"
-#define CRASH_GPR6 "x22"
-
-#endif // CPU(ARM64)
-
-void WTFCrashWithInfo(int, const char*, const char*, int, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4, uint64_t misc5, uint64_t misc6)
-{
-    register uint64_t reasonGPR asm(CRASH_GPR0) = reason;
-    register uint64_t misc1GPR asm(CRASH_GPR1) = misc1;
-    register uint64_t misc2GPR asm(CRASH_GPR2) = misc2;
-    register uint64_t misc3GPR asm(CRASH_GPR3) = misc3;
-    register uint64_t misc4GPR asm(CRASH_GPR4) = misc4;
-    register uint64_t misc5GPR asm(CRASH_GPR5) = misc5;
-    register uint64_t misc6GPR asm(CRASH_GPR6) = misc6;
-    __asm__ volatile (CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR), "r"(misc3GPR), "r"(misc4GPR), "r"(misc5GPR), "r"(misc6GPR));
-    __builtin_unreachable();
-}
-
-void WTFCrashWithInfo(int, const char*, const char*, int, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4, uint64_t misc5)
-{
-    register uint64_t reasonGPR asm(CRASH_GPR0) = reason;
-    register uint64_t misc1GPR asm(CRASH_GPR1) = misc1;
-    register uint64_t misc2GPR asm(CRASH_GPR2) = misc2;
-    register uint64_t misc3GPR asm(CRASH_GPR3) = misc3;
-    register uint64_t misc4GPR asm(CRASH_GPR4) = misc4;
-    register uint64_t misc5GPR asm(CRASH_GPR5) = misc5;
-    __asm__ volatile (CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR), "r"(misc3GPR), "r"(misc4GPR), "r"(misc5GPR));
-    __builtin_unreachable();
-}
-
-void WTFCrashWithInfo(int, const char*, const char*, int, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4)
-{
-    register uint64_t reasonGPR asm(CRASH_GPR0) = reason;
-    register uint64_t misc1GPR asm(CRASH_GPR1) = misc1;
-    register uint64_t misc2GPR asm(CRASH_GPR2) = misc2;
-    register uint64_t misc3GPR asm(CRASH_GPR3) = misc3;
-    register uint64_t misc4GPR asm(CRASH_GPR4) = misc4;
-    __asm__ volatile (CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR), "r"(misc3GPR), "r"(misc4GPR));
-    __builtin_unreachable();
-}
-
-void WTFCrashWithInfo(int, const char*, const char*, int, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3)
-{
-    register uint64_t reasonGPR asm(CRASH_GPR0) = reason;
-    register uint64_t misc1GPR asm(CRASH_GPR1) = misc1;
-    register uint64_t misc2GPR asm(CRASH_GPR2) = misc2;
-    register uint64_t misc3GPR asm(CRASH_GPR3) = misc3;
-    __asm__ volatile (CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR), "r"(misc3GPR));
-    __builtin_unreachable();
-}
-
-void WTFCrashWithInfo(int, const char*, const char*, int, uint64_t reason, uint64_t misc1, uint64_t misc2)
-{
-    register uint64_t reasonGPR asm(CRASH_GPR0) = reason;
-    register uint64_t misc1GPR asm(CRASH_GPR1) = misc1;
-    register uint64_t misc2GPR asm(CRASH_GPR2) = misc2;
-    __asm__ volatile (CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR));
-    __builtin_unreachable();
-}
-
-void WTFCrashWithInfo(int, const char*, const char*, int, uint64_t reason, uint64_t misc1)
-{
-    register uint64_t reasonGPR asm(CRASH_GPR0) = reason;
-    register uint64_t misc1GPR asm(CRASH_GPR1) = misc1;
-    __asm__ volatile (CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR));
-    __builtin_unreachable();
-}
-
-void WTFCrashWithInfo(int, const char*, const char*, int, uint64_t reason)
-{
-    register uint64_t reasonGPR asm(CRASH_GPR0) = reason;
-    __asm__ volatile (CRASH_INST : : "r"(reasonGPR));
-    __builtin_unreachable();
-}
-
-#else
-
-void WTFCrashWithInfo(int, const char*, const char*, int, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t) { CRASH(); }
-void WTFCrashWithInfo(int, const char*, const char*, int, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t) { CRASH(); }
-void WTFCrashWithInfo(int, const char*, const char*, int, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t) { CRASH(); }
-void WTFCrashWithInfo(int, const char*, const char*, int, uint64_t, uint64_t, uint64_t, uint64_t) { CRASH(); }
-void WTFCrashWithInfo(int, const char*, const char*, int, uint64_t, uint64_t, uint64_t) { CRASH(); }
-void WTFCrashWithInfo(int, const char*, const char*, int, uint64_t, uint64_t) { CRASH(); }
-void WTFCrashWithInfo(int, const char*, const char*, int, uint64_t) { CRASH(); }
-
-#endif // OS(DARWIN) && (CPU(X64_64) || CPU(ARM64))
 
 namespace WTF {
 

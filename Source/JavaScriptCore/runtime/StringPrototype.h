@@ -29,13 +29,13 @@ class ObjectPrototype;
 class RegExp;
 class RegExpObject;
 
-class StringPrototype final : public StringObject {
+class StringPrototype : public StringObject {
 private:
     StringPrototype(VM&, Structure*);
 
 public:
     typedef StringObject Base;
-    static const unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;
+    static const unsigned StructureFlags = HasStaticPropertyTable | Base::StructureFlags;
 
     static StringPrototype* create(VM&, JSGlobalObject*, Structure*);
 
@@ -50,16 +50,16 @@ protected:
     void finishCreation(VM&, JSGlobalObject*, JSString*);
 };
 
-JSCell* JIT_OPERATION operationStringProtoFuncReplaceGeneric(
+EncodedJSValue JIT_OPERATION operationStringProtoFuncReplaceGeneric(
     ExecState*, EncodedJSValue thisValue, EncodedJSValue searchValue, EncodedJSValue replaceValue);
 
-JSCell* JIT_OPERATION operationStringProtoFuncReplaceRegExpEmptyStr(
+EncodedJSValue JIT_OPERATION operationStringProtoFuncReplaceRegExpEmptyStr(
     ExecState*, JSString* thisValue, RegExpObject* searchValue);
 
-JSCell* JIT_OPERATION operationStringProtoFuncReplaceRegExpString(
+EncodedJSValue JIT_OPERATION operationStringProtoFuncReplaceRegExpString(
     ExecState*, JSString* thisValue, RegExpObject* searchValue, JSString* replaceValue);
 
-void substituteBackreferences(StringBuilder& result, const String& replacement, StringView source, const int* ovector, RegExp*);
+String substituteBackreferences(const String& replacement, StringView source, const int* ovector, RegExp* reg);
 
 EncodedJSValue JSC_HOST_CALL stringProtoFuncRepeatCharacter(ExecState*);
 EncodedJSValue JSC_HOST_CALL stringProtoFuncSplitFast(ExecState*);

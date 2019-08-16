@@ -29,22 +29,9 @@
 
 #include "WasmFormat.h"
 
-#include <wtf/Optional.h>
-
 namespace JSC { namespace Wasm {
 
 struct ModuleInformation : public ThreadSafeRefCounted<ModuleInformation> {
-    ModuleInformation();
-    ModuleInformation(const ModuleInformation&) = delete;
-    ModuleInformation(ModuleInformation&&) = delete;
-
-    static Ref<ModuleInformation> create()
-    {
-        return adoptRef(*new ModuleInformation);
-    }
-
-    JS_EXPORT_PRIVATE ~ModuleInformation();
-    
     size_t functionIndexSpaceSize() const { return importFunctionSignatureIndices.size() + internalFunctionSignatureIndices.size(); }
     bool isImportedFunctionFromFunctionIndexSpace(size_t functionIndex) const
     {
@@ -61,10 +48,14 @@ struct ModuleInformation : public ThreadSafeRefCounted<ModuleInformation> {
     uint32_t importFunctionCount() const { return importFunctionSignatureIndices.size(); }
     uint32_t internalFunctionCount() const { return internalFunctionSignatureIndices.size(); }
 
-    // Currently, our wasm implementation allows only one memory and table.
-    // If we need to remove this limitation, we would have MemoryInformation and TableInformation in the Vectors.
-    uint32_t memoryCount() const { return memory ? 1 : 0; }
-    uint32_t tableCount() const { return tableInformation ? 1 : 0; }
+    ModuleInformation(Vector<uint8_t>&& sourceBytes)
+        : source(WTFMove(sourceBytes))
+    {
+    }
+
+    JS_EXPORT_PRIVATE ~ModuleInformation();
+
+    const Vector<uint8_t> source;
 
     Vector<Import> imports;
     Vector<SignatureIndex> importFunctionSignatureIndices;
@@ -73,17 +64,17 @@ struct ModuleInformation : public ThreadSafeRefCounted<ModuleInformation> {
 
     MemoryInformation memory;
 
-    Vector<FunctionData> functions;
+    Vector<FunctionLocationInBinary> functionLocationInBinary;
 
     Vector<Export> exports;
-    Optional<uint32_t> startFunctionIndexSpace;
+    std::optional<uint32_t> startFunctionIndexSpace;
     Vector<Segment::Ptr> data;
     Vector<Element> elements;
     TableInformation tableInformation;
     Vector<Global> globals;
     unsigned firstInternalGlobal { 0 };
     Vector<CustomSection> customSections;
-    Ref<NameSection> nameSection;
+    NameSection nameSection;
 };
 
     

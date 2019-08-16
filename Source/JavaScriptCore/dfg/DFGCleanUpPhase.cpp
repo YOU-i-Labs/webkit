@@ -64,12 +64,6 @@ public:
                     if (node->children.isEmpty())
                         kill = true;
                     break;
-                case CheckVarargs:
-                    kill = true;
-                    m_graph.doToChildren(node, [&] (Edge edge) {
-                        kill &= !edge;
-                    });
-                    break;
                 default:
                     break;
                 }

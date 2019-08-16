@@ -28,91 +28,35 @@
 
 #pragma once
 
+#include "CodeBlock.h"
 #include "Instruction.h"
 #include <wtf/Assertions.h>
 #include <wtf/Vector.h>
 #include <limits.h>
 
 namespace JSC {
+
     class BytecodeGenerator;
-    class Label;
-
-    class BoundLabel {
-    public:
-        BoundLabel()
-            : m_type(Offset)
-            , m_generator(nullptr)
-            , m_target(0)
-        { }
-
-        explicit BoundLabel(int target)
-            : m_type(Offset)
-            , m_generator(nullptr)
-            , m_target(target)
-        { }
-
-        BoundLabel(BytecodeGenerator* generator, Label* label)
-            : m_type(GeneratorForward)
-            , m_generator(generator)
-            , m_label(label)
-        { }
-
-        BoundLabel(BytecodeGenerator* generator, int offset)
-            : m_type(GeneratorBackward)
-            , m_generator(generator)
-            , m_target(offset)
-        { }
-
-        int target();
-        int saveTarget();
-        int commitTarget();
-
-        operator int() { return target(); }
-
-    private:
-        enum Type : uint8_t {
-            Offset,
-            GeneratorForward,
-            GeneratorBackward,
-        };
-
-        Type m_type;
-        int m_savedTarget { 0 };
-        BytecodeGenerator* m_generator;
-        union {
-            Label* m_label;
-            int m_target;
-        };
-    };
 
     class Label {
     WTF_MAKE_NONCOPYABLE(Label);
     public:
-        Label() = default;
-
-        void setLocation(BytecodeGenerator&, unsigned);
-
-        BoundLabel bind(BytecodeGenerator* generator)
+        explicit Label(BytecodeGenerator& generator)
+            : m_refCount(0)
+            , m_location(invalidLocation)
+            , m_generator(generator)
         {
-            m_bound = true;
-            if (!isForward())
-                return BoundLabel(generator, m_location);
-            return BoundLabel(generator, this);
         }
 
-        BoundLabel bind(unsigned offset)
-        {
-            m_bound = true;
-            if (!isForward())
-                return BoundLabel(m_location - offset);
-            m_unresolvedJumps.append(offset);
-            return BoundLabel();
-        }
+        void setLocation(unsigned);
 
-        BoundLabel bind()
+        int bind(int opcode, int offset) const
         {
-            ASSERT(!isForward());
-            return bind(0u);
+            if (m_location == invalidLocation) {
+                m_unresolvedJumps.append(std::make_pair(opcode, offset));
+                return 0;
+            }
+            return m_location - opcode;
         }
 
         void ref() { ++m_refCount; }
@@ -122,22 +66,23 @@ namespace JSC {
             ASSERT(m_refCount >= 0);
         }
         int refCount() const { return m_refCount; }
-        bool hasOneRef() const { return m_refCount == 1; }
 
         bool isForward() const { return m_location == invalidLocation; }
         
-        bool isBound() const { return m_bound; }
+        int bind()
+        {
+            ASSERT(!isForward());
+            return bind(0, 0);
+        }
 
     private:
-        friend class BoundLabel;
-
-        typedef Vector<int, 8> JumpVector;
+        typedef Vector<std::pair<int, int>, 8> JumpVector;
 
         static const unsigned invalidLocation = UINT_MAX;
 
-        int m_refCount { 0 };
-        unsigned m_location { invalidLocation };
-        mutable bool m_bound { false };
+        int m_refCount;
+        unsigned m_location;
+        BytecodeGenerator& m_generator;
         mutable JumpVector m_unresolvedJumps;
     };
 

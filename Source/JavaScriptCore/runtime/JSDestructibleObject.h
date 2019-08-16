@@ -38,12 +38,12 @@ public:
     static const bool needsDestruction = true;
     
     template<typename CellType>
-    static CompleteSubspace* subspaceFor(VM& vm)
+    static Subspace* subspaceFor(VM& vm)
     {
         return &vm.destructibleObjectSpace;
     }
 
-    const ClassInfo* classInfo() const { return m_classInfo.unpoisoned(); }
+    const ClassInfo* classInfo() const { return m_classInfo; }
     
     static ptrdiff_t classInfoOffset() { return OBJECT_OFFSETOF(JSDestructibleObject, m_classInfo); }
 
@@ -56,7 +56,7 @@ protected:
     }
 
 private:
-    PoisonedClassInfoPtr m_classInfo;
+    const ClassInfo* m_classInfo;
 };
 
 } // namespace JSC

@@ -23,34 +23,25 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.WorkerManager = class WorkerManager extends WI.Object
+WebInspector.WorkerManager = class WorkerManager extends WebInspector.Object
 {
     constructor()
     {
         super();
 
         this._connections = new Map;
-    }
 
-    // Target
-
-    initializeTarget(target)
-    {
-        if (target.WorkerAgent)
-            target.WorkerAgent.enable();
+        if (window.WorkerAgent)
+            WorkerAgent.enable();
     }
 
     // Public
 
     workerCreated(workerId, url)
     {
-        // Called from WI.WorkerObserver.
-
         let connection = new InspectorBackend.WorkerConnection(workerId);
-        let workerTarget = new WI.WorkerTarget(workerId, url, connection);
-        workerTarget.initialize();
-
-        WI.targetManager.addTarget(workerTarget);
+        let workerTarget = new WebInspector.WorkerTarget(workerId, url, connection);
+        WebInspector.targetManager.addTarget(workerTarget);
 
         this._connections.set(workerId, connection);
 
@@ -60,17 +51,13 @@ WI.WorkerManager = class WorkerManager extends WI.Object
 
     workerTerminated(workerId)
     {
-        // Called from WI.WorkerObserver.
-
         let connection = this._connections.take(workerId);
 
-        WI.targetManager.removeTarget(connection.target);
+        WebInspector.targetManager.removeTarget(connection.target);
     }
 
     dispatchMessageFromWorker(workerId, message)
     {
-        // Called from WI.WorkerObserver.
-
         let connection = this._connections.get(workerId);
 
         console.assert(connection);

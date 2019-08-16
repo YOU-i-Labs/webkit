@@ -37,23 +37,25 @@ namespace JSC { namespace Yarr {
 
 class RegularExpression::Private : public RefCounted<RegularExpression::Private> {
 public:
-    static Ref<Private> create(const String& pattern, TextCaseSensitivity caseSensitivity, MultilineMode multilineMode, UnicodeMode unicodeMode)
+    static Ref<Private> create(const String& pattern, TextCaseSensitivity caseSensitivity, MultilineMode multilineMode)
     {
-        return adoptRef(*new Private(pattern, caseSensitivity, multilineMode, unicodeMode));
+        return adoptRef(*new Private(pattern, caseSensitivity, multilineMode));
     }
 
-    int lastMatchLength { -1 };
+    int lastMatchLength;
 
     unsigned m_numSubpatterns;
     std::unique_ptr<JSC::Yarr::BytecodePattern> m_regExpByteCode;
 
 private:
-    Private(const String& pattern, TextCaseSensitivity caseSensitivity, MultilineMode multilineMode, UnicodeMode unicodeMode)
-        : m_regExpByteCode(compile(pattern, caseSensitivity, multilineMode, unicodeMode))
+    Private(const String& pattern, TextCaseSensitivity caseSensitivity, MultilineMode multilineMode)
+        : lastMatchLength(-1)
+        , m_regExpByteCode(compile(pattern, caseSensitivity, multilineMode))
+        , m_constructionError(nullptr)
     {
     }
 
-    std::unique_ptr<JSC::Yarr::BytecodePattern> compile(const String& patternString, TextCaseSensitivity caseSensitivity, MultilineMode multilineMode, UnicodeMode unicodeMode)
+    std::unique_ptr<JSC::Yarr::BytecodePattern> compile(const String& patternString, TextCaseSensitivity caseSensitivity, MultilineMode multilineMode)
     {
         RegExpFlags flags = NoFlags;
 
@@ -63,12 +65,9 @@ private:
         if (multilineMode == MultilineEnabled)
             flags = static_cast<RegExpFlags>(flags | FlagMultiline);
 
-        if (unicodeMode == UnicodeAwareMode)
-            flags = static_cast<RegExpFlags>(flags | FlagUnicode);
-
-        JSC::Yarr::YarrPattern pattern(patternString, flags, m_constructionErrorCode);
-        if (JSC::Yarr::hasError(m_constructionErrorCode)) {
-            LOG_ERROR("RegularExpression: YARR compile failed with '%s'", JSC::Yarr::errorMessage(m_constructionErrorCode));
+        JSC::Yarr::YarrPattern pattern(patternString, flags, &m_constructionError);
+        if (m_constructionError) {
+            LOG_ERROR("RegularExpression: YARR compile failed with '%s'", m_constructionError);
             return nullptr;
         }
 
@@ -78,11 +77,11 @@ private:
     }
 
     BumpPointerAllocator m_regexAllocator;
-    JSC::Yarr::ErrorCode m_constructionErrorCode { Yarr::ErrorCode::NoError };
+    const char* m_constructionError;
 };
 
-RegularExpression::RegularExpression(const String& pattern, TextCaseSensitivity caseSensitivity, MultilineMode multilineMode, UnicodeMode unicodeMode)
-    : d(Private::create(pattern, caseSensitivity, multilineMode, unicodeMode))
+RegularExpression::RegularExpression(const String& pattern, TextCaseSensitivity caseSensitivity, MultilineMode multilineMode)
+    : d(Private::create(pattern, caseSensitivity, multilineMode))
 {
 }
 
@@ -113,7 +112,7 @@ int RegularExpression::match(const String& str, int startFrom, int* matchLength)
     unsigned* offsetVector;
     Vector<unsigned, 32> nonReturnedOvector;
 
-    nonReturnedOvector.grow(offsetVectorSize);
+    nonReturnedOvector.resize(offsetVectorSize);
     offsetVector = nonReturnedOvector.data();
 
     ASSERT(offsetVector);

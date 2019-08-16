@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.MultipleScopeBarItem = class MultipleScopeBarItem extends WI.Object
+WebInspector.MultipleScopeBarItem = class MultipleScopeBarItem extends WebInspector.Object
 {
     constructor(scopeBarItems)
     {
@@ -34,13 +34,13 @@ WI.MultipleScopeBarItem = class MultipleScopeBarItem extends WI.Object
 
         this._titleElement = document.createElement("span");
         this._element.appendChild(this._titleElement);
-        this._element.addEventListener("mousedown", this._handleMouseDown.bind(this));
+        this._element.addEventListener("click", this._clicked.bind(this));
 
         this._selectElement = document.createElement("select");
         this._selectElement.addEventListener("change", this._selectElementSelectionChanged.bind(this));
         this._element.appendChild(this._selectElement);
 
-        this._element.appendChild(WI.ImageUtilities.useSVGSymbol("Images/UpDownArrows.svg", "arrows"));
+        this._element.appendChild(useSVGSymbol("Images/UpDownArrows.svg", "arrows"));
 
         this.scopeBarItems = scopeBarItems;
     }
@@ -91,7 +91,7 @@ WI.MultipleScopeBarItem = class MultipleScopeBarItem extends WI.Object
                 scopeBarItem.selected = false;
             }
 
-            scopeBarItem.addEventListener(WI.ScopeBarItem.Event.SelectionChanged, this._itemSelectionDidChange, this);
+            scopeBarItem.addEventListener(WebInspector.ScopeBarItem.Event.SelectionChanged, this._itemSelectionDidChange, this);
 
             this._selectElement.appendChild(createOption(scopeBarItem));
         }
@@ -137,9 +137,8 @@ WI.MultipleScopeBarItem = class MultipleScopeBarItem extends WI.Object
             this._selectedScopeBarItem.selected = true;
         }
 
-        this.dispatchEventToListeners(WI.ScopeBarItem.Event.SelectionChanged, {
-            extendSelection: WI.modifierKeys.metaKey && !WI.modifierKeys.ctrlKey && !WI.modifierKeys.altKey && !WI.modifierKeys.shiftKey,
-        });
+        var withModifier = WebInspector.modifierKeys.metaKey && !WebInspector.modifierKeys.ctrlKey && !WebInspector.modifierKeys.altKey && !WebInspector.modifierKeys.shiftKey;
+        this.dispatchEventToListeners(WebInspector.ScopeBarItem.Event.SelectionChanged, {withModifier});
 
         this._ignoreItemSelectedEvent = false;
     }
@@ -165,17 +164,12 @@ WI.MultipleScopeBarItem = class MultipleScopeBarItem extends WI.Object
 
     // Private
 
-    _handleMouseDown(event)
+    _clicked(event)
     {
-        // Only handle left mouse clicks.
-        if (event.button !== 0)
-            return;
-
         // Only support click to select when the item is not selected yet.
         // Clicking when selected will cause the menu it appear instead.
         if (this._element.classList.contains("selected"))
             return;
-
         this.selected = true;
     }
 

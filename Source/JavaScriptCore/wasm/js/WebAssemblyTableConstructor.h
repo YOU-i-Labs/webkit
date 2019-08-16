@@ -34,7 +34,7 @@ namespace JSC {
 
 class WebAssemblyTablePrototype;
 
-class WebAssemblyTableConstructor final : public InternalFunction {
+class WebAssemblyTableConstructor : public InternalFunction {
 public:
     typedef InternalFunction Base;
     static const unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;
@@ -49,6 +49,8 @@ protected:
 
 private:
     WebAssemblyTableConstructor(VM&, Structure*);
+    static ConstructType getConstructData(JSCell*, ConstructData&);
+    static CallType getCallData(JSCell*, CallData&);
 };
 
 } // namespace JSC

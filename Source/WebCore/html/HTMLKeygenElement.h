@@ -30,7 +30,6 @@ namespace WebCore {
 class HTMLSelectElement;
 
 class HTMLKeygenElement final : public HTMLFormControlElementWithState {
-    WTF_MAKE_ISO_ALLOCATED(HTMLKeygenElement);
 public:
     static Ref<HTMLKeygenElement> create(const QualifiedName&, Document&, HTMLFormElement*);
 
@@ -45,7 +44,7 @@ private:
 
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
 
-    bool appendFormData(DOMFormData&, bool) final;
+    bool appendFormData(FormDataList&, bool) final;
     const AtomicString& formControlType() const final;
     bool isOptionalFormControl() const final { return false; }
 

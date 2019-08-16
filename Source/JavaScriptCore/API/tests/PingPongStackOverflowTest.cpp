@@ -142,6 +142,7 @@ int testPingPongStackOverflow()
         "PingPongStackOverflowObject.__proto__ = undefined;" \
         "undefined instanceof PingPongStackOverflowObject;";
 
+    JSValueRef scriptResult = nullptr;
     JSValueRef exception = nullptr;
     JSStringRef script = JSStringCreateWithUTF8CString(scriptString);
 
@@ -160,11 +161,7 @@ int testPingPongStackOverflow()
     Options::maxPerThreadStackUsage() = stackSize + Options::softReservedZoneSize();
 
     exception = nullptr;
-    JSEvaluateScript(context, script, nullptr, nullptr, 1, &exception);
-
-    JSGlobalContextRelease(context);
-    context = nullptr;
-    JSStringRelease(script);
+    scriptResult = JSEvaluateScript(context, script, nullptr, nullptr, 1, &exception);
 
     if (!exception) {
         printf("FAIL: PingPongStackOverflowError not thrown in PingPongStackOverflow test\n");

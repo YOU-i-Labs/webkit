@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef JSRetainPtr_h
+#define JSRetainPtr_h
 
 #include <JavaScriptCore/JSContextRef.h>
 #include <JavaScriptCore/JSStringRef.h>
@@ -41,16 +42,17 @@ enum AdoptTag { Adopt };
 
 template<typename T> class JSRetainPtr {
 public:
-    JSRetainPtr() = default;
+    JSRetainPtr() : m_ptr(0) { }
     JSRetainPtr(T ptr) : m_ptr(ptr) { if (ptr) JSRetain(ptr); }
+    JSRetainPtr(AdoptTag, T ptr) : m_ptr(ptr) { }
     JSRetainPtr(const JSRetainPtr&);
-    JSRetainPtr(JSRetainPtr&&);
+    template<typename U> JSRetainPtr(const JSRetainPtr<U>&);
     ~JSRetainPtr();
     
     T get() const { return m_ptr; }
     
     void clear();
-    T leakRef() WARN_UNUSED_RETURN;
+    T leakRef();
 
     T operator->() const { return m_ptr; }
     
@@ -58,29 +60,17 @@ public:
     explicit operator bool() const { return m_ptr; }
 
     JSRetainPtr& operator=(const JSRetainPtr&);
-    JSRetainPtr& operator=(JSRetainPtr&&);
+    template<typename U> JSRetainPtr& operator=(const JSRetainPtr<U>&);
     JSRetainPtr& operator=(T);
+    template<typename U> JSRetainPtr& operator=(U*);
 
+    void adopt(T);
+    
     void swap(JSRetainPtr&);
 
-    friend JSRetainPtr<JSStringRef> adopt(JSStringRef);
-    friend JSRetainPtr<JSGlobalContextRef> adopt(JSGlobalContextRef);
-
-    // FIXME: Make this private once Apple's internal code is updated to not rely on it.
-    // https://bugs.webkit.org/show_bug.cgi?id=189644
-    JSRetainPtr(AdoptTag, T);
-
 private:
-    T m_ptr { nullptr };
+    T m_ptr;
 };
-
-JSRetainPtr<JSStringRef> adopt(JSStringRef);
-JSRetainPtr<JSGlobalContextRef> adopt(JSGlobalContextRef);
-
-template<typename T> inline JSRetainPtr<T>::JSRetainPtr(AdoptTag, T ptr)
-    : m_ptr(ptr)
-{
-}
 
 inline JSRetainPtr<JSStringRef> adopt(JSStringRef o)
 {
@@ -99,9 +89,11 @@ template<typename T> inline JSRetainPtr<T>::JSRetainPtr(const JSRetainPtr& o)
         JSRetain(m_ptr);
 }
 
-template<typename T> inline JSRetainPtr<T>::JSRetainPtr(JSRetainPtr&& o)
-    : m_ptr(o.leakRef())
+template<typename T> template<typename U> inline JSRetainPtr<T>::JSRetainPtr(const JSRetainPtr<U>& o)
+    : m_ptr(o.get())
 {
+    if (m_ptr)
+        JSRetain(m_ptr);
 }
 
 template<typename T> inline JSRetainPtr<T>::~JSRetainPtr()
@@ -112,23 +104,39 @@ template<typename T> inline JSRetainPtr<T>::~JSRetainPtr()
 
 template<typename T> inline void JSRetainPtr<T>::clear()
 {
-    if (T ptr = leakRef())
+    if (T ptr = m_ptr) {
+        m_ptr = 0;
         JSRelease(ptr);
+    }
 }
 
 template<typename T> inline T JSRetainPtr<T>::leakRef()
 {
-    return std::exchange(m_ptr, nullptr);
+    T ptr = m_ptr;
+    m_ptr = 0;
+    return ptr;
 }
 
 template<typename T> inline JSRetainPtr<T>& JSRetainPtr<T>::operator=(const JSRetainPtr<T>& o)
 {
-    return operator=(o.get());
+    T optr = o.get();
+    if (optr)
+        JSRetain(optr);
+    T ptr = m_ptr;
+    m_ptr = optr;
+    if (ptr)
+        JSRelease(ptr);
+    return *this;
 }
 
-template<typename T> inline JSRetainPtr<T>& JSRetainPtr<T>::operator=(JSRetainPtr&& o)
+template<typename T> template<typename U> inline JSRetainPtr<T>& JSRetainPtr<T>::operator=(const JSRetainPtr<U>& o)
 {
-    if (T ptr = std::exchange(m_ptr, o.leakRef()))
+    T optr = o.get();
+    if (optr)
+        JSRetain(optr);
+    T ptr = m_ptr;
+    m_ptr = optr;
+    if (ptr)
         JSRelease(ptr);
     return *this;
 }
@@ -137,7 +145,28 @@ template<typename T> inline JSRetainPtr<T>& JSRetainPtr<T>::operator=(T optr)
 {
     if (optr)
         JSRetain(optr);
-    if (T ptr = std::exchange(m_ptr, optr))
+    T ptr = m_ptr;
+    m_ptr = optr;
+    if (ptr)
+        JSRelease(ptr);
+    return *this;
+}
+
+template<typename T> inline void JSRetainPtr<T>::adopt(T optr)
+{
+    T ptr = m_ptr;
+    m_ptr = optr;
+    if (ptr)
+        JSRelease(ptr);
+}
+
+template<typename T> template<typename U> inline JSRetainPtr<T>& JSRetainPtr<T>::operator=(U* optr)
+{
+    if (optr)
+        JSRetain(optr);
+    T ptr = m_ptr;
+    m_ptr = optr;
+    if (ptr)
         JSRelease(ptr);
     return *this;
 }
@@ -181,3 +210,6 @@ template<typename T, typename U> inline bool operator!=(T* a, const JSRetainPtr<
 { 
     return a != b.get(); 
 }
+
+
+#endif // JSRetainPtr_h

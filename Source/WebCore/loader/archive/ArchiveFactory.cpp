@@ -61,12 +61,12 @@ static ArchiveMIMETypesMap createArchiveMIMETypesMap()
     ArchiveMIMETypesMap map;
 
 #if ENABLE(WEB_ARCHIVE) && USE(CF)
-    map.add("application/x-webarchive"_s, archiveFactoryCreate<LegacyWebArchive>);
+    map.add(ASCIILiteral { "application/x-webarchive" }, archiveFactoryCreate<LegacyWebArchive>);
 #endif
 
 #if ENABLE(MHTML)
-    map.add("multipart/related"_s, archiveFactoryCreate<MHTMLArchive>);
-    map.add("application/x-mimearchive"_s, archiveFactoryCreate<MHTMLArchive>);
+    map.add(ASCIILiteral { "multipart/related" }, archiveFactoryCreate<MHTMLArchive>);
+    map.add(ASCIILiteral { "application/x-mimearchive" }, archiveFactoryCreate<MHTMLArchive>);
 #endif
 
     return map;
@@ -78,7 +78,7 @@ static ArchiveMIMETypesMap& archiveMIMETypes()
     return map;
 }
 
-bool ArchiveFactory::isArchiveMIMEType(const String& mimeType)
+bool ArchiveFactory::isArchiveMimeType(const String& mimeType)
 {
     return !mimeType.isEmpty() && archiveMIMETypes().contains(mimeType);
 }
@@ -95,8 +95,9 @@ RefPtr<Archive> ArchiveFactory::create(const URL& url, SharedBuffer* data, const
     return function(url, *data);
 }
 
-void ArchiveFactory::registerKnownArchiveMIMETypes(HashSet<String, ASCIICaseInsensitiveHash>& mimeTypes)
+void ArchiveFactory::registerKnownArchiveMIMETypes()
 {
+    auto& mimeTypes = MIMETypeRegistry::getSupportedNonImageMIMETypes();
     for (auto& mimeType : archiveMIMETypes().keys())
         mimeTypes.add(mimeType);
 }

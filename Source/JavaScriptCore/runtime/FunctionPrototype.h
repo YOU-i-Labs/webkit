@@ -24,7 +24,7 @@
 
 namespace JSC {
 
-class FunctionPrototype final : public InternalFunction {
+class FunctionPrototype : public InternalFunction {
 public:
     typedef InternalFunction Base;
 
@@ -41,7 +41,7 @@ public:
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue proto)
     {
-        return Structure::create(vm, globalObject, proto, TypeInfo(InternalFunctionType, StructureFlags), info());
+        return Structure::create(vm, globalObject, proto, TypeInfo(ObjectType, StructureFlags), info());
     }
 
     DECLARE_INFO;
@@ -51,6 +51,7 @@ protected:
 
 private:
     FunctionPrototype(VM&, Structure*);
+    static CallType getCallData(JSCell*, CallData&);
 };
 
 } // namespace JSC

@@ -30,6 +30,8 @@
 
 #pragma once
 
+#if ENABLE(WEB_SOCKETS)
+
 #if USE(ZLIB)
 #include "WebSocketDeflater.h"
 #endif
@@ -103,3 +105,5 @@ private:
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_SOCKETS)

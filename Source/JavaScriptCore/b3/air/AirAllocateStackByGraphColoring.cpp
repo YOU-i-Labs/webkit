@@ -42,9 +42,7 @@ namespace JSC { namespace B3 { namespace Air {
 
 namespace {
 
-namespace AirAllocateStackByGraphColoringInternal {
-static const bool verbose = false;
-}
+const bool verbose = false;
 
 struct CoalescableMove {
     CoalescableMove()
@@ -155,7 +153,7 @@ void allocateStackByGraphColoring(Code& code)
         StackSlotLiveness::LocalCalc localCalc(liveness, block);
 
         auto interfere = [&] (unsigned instIndex) {
-            if (AirAllocateStackByGraphColoringInternal::verbose)
+            if (verbose)
                 dataLog("Interfering: ", WTF::pointerListDump(localCalc.live()), "\n");
 
             Inst* prevInst = block->get(instIndex);
@@ -187,7 +185,7 @@ void allocateStackByGraphColoring(Code& code)
         };
 
         for (unsigned instIndex = block->size(); instIndex--;) {
-            if (AirAllocateStackByGraphColoringInternal::verbose)
+            if (verbose)
                 dataLog("Analyzing: ", block->at(instIndex), "\n");
 
             // Kill dead stores. For simplicity we say that a store is killable if it has only late
@@ -234,7 +232,7 @@ void allocateStackByGraphColoring(Code& code)
             });
     }
 
-    if (AirAllocateStackByGraphColoringInternal::verbose) {
+    if (verbose) {
         for (StackSlot* slot : code.stackSlots())
             dataLog("Interference of ", pointerDump(slot), ": ", pointerListDump(interference[slot]), "\n");
     }

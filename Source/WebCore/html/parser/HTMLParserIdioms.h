@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -71,10 +71,10 @@ WEBCORE_EXPORT Expected<int, HTMLIntegerParsingError> parseHTMLInteger(StringVie
 WEBCORE_EXPORT Expected<unsigned, HTMLIntegerParsingError> parseHTMLNonNegativeInteger(StringView);
 
 // https://html.spec.whatwg.org/#valid-non-negative-integer
-Optional<int> parseValidHTMLNonNegativeInteger(StringView);
+std::optional<int> parseValidHTMLNonNegativeInteger(StringView);
 
 // https://html.spec.whatwg.org/#valid-floating-point-number
-Optional<double> parseValidHTMLFloatingPointNumber(StringView);
+std::optional<double> parseValidHTMLFloatingPointNumber(StringView);
 
 // https://html.spec.whatwg.org/multipage/infrastructure.html#rules-for-parsing-floating-point-number-values
 Vector<double> parseHTMLListOfOfFloatingPointNumberValues(StringView);
@@ -158,7 +158,7 @@ inline unsigned limitToOnlyHTMLNonNegative(unsigned value, unsigned defaultValue
 inline unsigned limitToOnlyHTMLNonNegative(StringView stringValue, unsigned defaultValue = 0)
 {
     ASSERT(defaultValue <= maxHTMLNonNegativeInteger);
-    unsigned value = parseHTMLNonNegativeInteger(stringValue).value_or(defaultValue);
+    unsigned value = parseHTMLNonNegativeInteger(stringValue).valueOr(defaultValue);
     ASSERT(value <= maxHTMLNonNegativeInteger);
     return value;
 }

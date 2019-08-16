@@ -32,28 +32,34 @@
 
 namespace JSC { namespace DOMJIT {
 
-class CallDOMGetterSnippet;
-
 class GetterSetter {
 public:
-    using CustomGetter = PropertySlot::GetValueFunc;
-    using CustomSetter = PutPropertySlot::PutValueFunc;
-    using SnippetCompiler = Ref<DOMJIT::CallDOMGetterSnippet>(*)();
+    typedef PropertySlot::GetValueFunc CustomGetter;
+    typedef PutPropertySlot::PutValueFunc CustomSetter;
 
-    constexpr GetterSetter(CustomGetter getter, SnippetCompiler compiler, SpeculatedType resultType)
+    GetterSetter(CustomGetter getter, CustomSetter setter, const ClassInfo* classInfo, SpeculatedType resultType)
         : m_getter(getter)
-        , m_compiler(compiler)
+        , m_setter(setter)
+        , m_thisClassInfo(classInfo)
         , m_resultType(resultType)
     {
     }
 
-    constexpr CustomGetter getter() const { return m_getter; }
-    constexpr SnippetCompiler compiler() const { return m_compiler; }
-    constexpr SpeculatedType resultType() const { return m_resultType; }
+    virtual ~GetterSetter() { }
+
+    CustomGetter getter() const { return m_getter; }
+    CustomSetter setter() const { return m_setter; }
+    const ClassInfo* thisClassInfo() const { return m_thisClassInfo; }
+    SpeculatedType resultType() const { return m_resultType; }
+
+#if ENABLE(JIT)
+    virtual Ref<CallDOMGetterSnippet> callDOMGetter() = 0;
+#endif
 
 private:
     CustomGetter m_getter;
-    SnippetCompiler m_compiler;
+    CustomSetter m_setter;
+    const ClassInfo* m_thisClassInfo;
     SpeculatedType m_resultType;
 };
 

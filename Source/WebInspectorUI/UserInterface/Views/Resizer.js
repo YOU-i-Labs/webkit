@@ -24,7 +24,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.Resizer = class Resizer extends WI.Object
+WebInspector.Resizer = class Resizer extends WebInspector.Object
 {
     constructor(ruleOrientation, delegate)
     {
@@ -37,9 +37,9 @@ WI.Resizer = class Resizer extends WI.Object
         this._element = document.createElement("div");
         this._element.classList.add("resizer");
 
-        if (this._orientation === WI.Resizer.RuleOrientation.Horizontal)
+        if (this._orientation === WebInspector.Resizer.RuleOrientation.Horizontal)
             this._element.classList.add("horizontal-rule");
-        else if (this._orientation === WI.Resizer.RuleOrientation.Vertical)
+        else if (this._orientation === WebInspector.Resizer.RuleOrientation.Vertical)
             this._element.classList.add("vertical-rule");
 
         this._element.addEventListener("mousedown", this._resizerMouseDown.bind(this), false);
@@ -68,12 +68,12 @@ WI.Resizer = class Resizer extends WI.Object
 
     _currentPosition()
     {
-        if (this._orientation === WI.Resizer.RuleOrientation.Vertical)
+        if (this._orientation === WebInspector.Resizer.RuleOrientation.Vertical)
             return event.pageX;
-        if (this._orientation === WI.Resizer.RuleOrientation.Horizontal)
+        if (this._orientation === WebInspector.Resizer.RuleOrientation.Horizontal)
             return event.pageY;
 
-        console.assert(false, "Unexpected Resizer orientation.", this._orientation);
+        console.assert(false, "Should not be reached!");
     }
 
     _resizerMouseDown(event)
@@ -92,10 +92,10 @@ WI.Resizer = class Resizer extends WI.Object
             return;
         }
 
-        if (this._orientation === WI.Resizer.RuleOrientation.Vertical)
+        if (this._orientation === WebInspector.Resizer.RuleOrientation.Vertical)
             document.body.style.cursor = "col-resize";
         else {
-            console.assert(this._orientation === WI.Resizer.RuleOrientation.Horizontal);
+            console.assert(this._orientation === WebInspector.Resizer.RuleOrientation.Horizontal);
             document.body.style.cursor = "row-resize";
         }
 
@@ -109,13 +109,13 @@ WI.Resizer = class Resizer extends WI.Object
         // Install a global "glass pane" which prevents cursor from changing during the drag interaction.
         // The cursor could change when hovering over links, text, or other elements with cursor cues.
         // FIXME: when Pointer Events support is available this could be implemented by drawing the cursor ourselves.
-        if (WI._elementDraggingGlassPane)
-            WI._elementDraggingGlassPane.remove();
+        if (WebInspector._elementDraggingGlassPane)
+            WebInspector._elementDraggingGlassPane.remove();
 
         var glassPaneElement = document.createElement("div");
         glassPaneElement.className = "glass-pane-for-drag";
         document.body.appendChild(glassPaneElement);
-        WI._elementDraggingGlassPane = glassPaneElement;
+        WebInspector._elementDraggingGlassPane = glassPaneElement;
     }
 
     _resizerMouseMoved(event)
@@ -134,9 +134,9 @@ WI.Resizer = class Resizer extends WI.Object
 
         document.body.style.removeProperty("cursor");
 
-        if (WI._elementDraggingGlassPane) {
-            WI._elementDraggingGlassPane.remove();
-            delete WI._elementDraggingGlassPane;
+        if (WebInspector._elementDraggingGlassPane) {
+            WebInspector._elementDraggingGlassPane.remove();
+            delete WebInspector._elementDraggingGlassPane;
         }
 
         document.removeEventListener("mousemove", this._resizerMouseMovedEventListener, false);
@@ -152,7 +152,7 @@ WI.Resizer = class Resizer extends WI.Object
     }
 };
 
-WI.Resizer.RuleOrientation = {
+WebInspector.Resizer.RuleOrientation = {
     Horizontal: Symbol("resizer-rule-orientation-horizontal"),
     Vertical: Symbol("resizer-rule-orientation-vertical"),
 };

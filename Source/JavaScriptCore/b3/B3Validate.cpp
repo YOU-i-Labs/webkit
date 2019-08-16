@@ -139,7 +139,6 @@ public:
                 VALIDATE(value->type() == Void, ("At ", *value));
                 break;
             case Identity:
-            case Opaque:
                 VALIDATE(!value->kind().hasExtraBits(), ("At ", *value));
                 VALIDATE(value->numChildren() == 1, ("At ", *value));
                 VALIDATE(value->type() == value->child(0)->type(), ("At ", *value));
@@ -432,8 +431,21 @@ public:
                 VALIDATE(!value->kind().hasExtraBits(), ("At ", *value));
                 if (value->type() == Void)
                     VALIDATE(value->as<PatchpointValue>()->resultConstraint == ValueRep::WarmAny, ("At ", *value));
-                else
+                else {
+                    switch (value->as<PatchpointValue>()->resultConstraint.kind()) {
+                    case ValueRep::WarmAny:
+                    case ValueRep::SomeRegister:
+                    case ValueRep::SomeEarlyRegister:
+                    case ValueRep::Register:
+                    case ValueRep::StackArgument:
+                        break;
+                    default:
+                        VALIDATE(false, ("At ", *value));
+                        break;
+                    }
+                    
                     validateStackmapConstraint(value, ConstrainedValue(value, value->as<PatchpointValue>()->resultConstraint), ConstraintRole::Def);
+                }
                 validateStackmap(value);
                 break;
             case CheckAdd:
@@ -460,7 +472,7 @@ public:
                 VALIDATE(value->child(0)->type() == Int32, ("At ", *value));
                 switch (value->as<WasmBoundsCheckValue>()->boundsType()) {
                 case WasmBoundsCheckValue::Type::Pinned:
-                    VALIDATE(m_procedure.code().isPinned(value->as<WasmBoundsCheckValue>()->bounds().pinnedSize), ("At ", *value));
+                    VALIDATE(m_procedure.code().isPinned(value->as<WasmBoundsCheckValue>()->bounds().pinned), ("At ", *value));
                     break;
                 case WasmBoundsCheckValue::Type::Maximum:
                     break;
@@ -536,14 +548,6 @@ public:
 
         for (Variable* variable : m_procedure.variables())
             VALIDATE(variable->type() != Void, ("At ", *variable));
-
-        for (BasicBlock* block : m_procedure) {
-            // We expect the predecessor list to be de-duplicated.
-            HashSet<BasicBlock*> predecessors;
-            for (BasicBlock* predecessor : block->predecessors())
-                predecessors.add(predecessor);
-            VALIDATE(block->numPredecessors() == predecessors.size(), ("At ", *block));
-        }
     }
 
 private:
@@ -564,24 +568,16 @@ private:
     {
         switch (value.rep().kind()) {
         case ValueRep::WarmAny:
+        case ValueRep::ColdAny:
+        case ValueRep::LateColdAny:
         case ValueRep::SomeRegister:
         case ValueRep::StackArgument:
-            break;
-        case ValueRep::LateColdAny:
-        case ValueRep::ColdAny:
-            VALIDATE(role == ConstraintRole::Use, ("At ", *context, ": ", value));
-            break;
-        case ValueRep::SomeRegisterWithClobber:
-            VALIDATE(role == ConstraintRole::Use, ("At ", *context, ": ", value));
-            VALIDATE(context->as<PatchpointValue>(), ("At ", *context));
             break;
         case ValueRep::SomeEarlyRegister:
             VALIDATE(role == ConstraintRole::Def, ("At ", *context, ": ", value));
             break;
         case ValueRep::Register:
         case ValueRep::LateRegister:
-            if (value.rep().kind() == ValueRep::LateRegister)
-                VALIDATE(role == ConstraintRole::Use, ("At ", *context, ": ", value));
             if (value.rep().reg().isGPR())
                 VALIDATE(isInt(value.value()->type()), ("At ", *context, ": ", value));
             else
@@ -614,7 +610,10 @@ private:
         if (!slotBase)
             return;
 
+        StackSlot* stack = slotBase->slot();
+
         VALIDATE(memory->offset() >= 0, ("At ", *value));
+        VALIDATE(memory->offset() + memory->accessByteSize() <= stack->byteSize(), ("At ", *value));
     }
     
     NO_RETURN_DUE_TO_CRASH void fail(

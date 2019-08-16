@@ -30,15 +30,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-InspectorBackend.globalSequenceId = 1;
-
 InspectorBackend.Connection = class InspectorBackendConnection
 {
     constructor()
     {
+        this._lastSequenceId = 1;
         this._pendingResponses = new Map;
         this._agents = {};
-        this._deferredCallbacks = [];
+        this._deferredScripts = [];
         this._target = null;
     }
 
@@ -64,7 +63,7 @@ InspectorBackend.Connection = class InspectorBackendConnection
 
     dispatch(message)
     {
-        let messageObject = typeof message === "string" ? JSON.parse(message) : message;
+        let messageObject = (typeof message === "string") ? JSON.parse(message) : message;
 
         if ("id" in messageObject)
             this._dispatchResponse(messageObject);
@@ -72,14 +71,14 @@ InspectorBackend.Connection = class InspectorBackendConnection
             this._dispatchEvent(messageObject);
     }
 
-    runAfterPendingDispatches(callback)
+    runAfterPendingDispatches(script)
     {
-        console.assert(typeof callback === "function");
+        console.assert(typeof script === "function");
 
         if (!this._pendingResponses.size)
-            callback.call(this);
+            script.call(this);
         else
-            this._deferredCallbacks.push(callback);
+            this._deferredScripts.push(script);
     }
 
     // Protected
@@ -96,20 +95,19 @@ InspectorBackend.Connection = class InspectorBackendConnection
         console.assert(this._pendingResponses.size >= 0);
 
         if (messageObject["error"]) {
-            // FIXME: Eliminate Target.exists
-            if (messageObject["error"].code !== -32000 && messageObject["error"].message !== "'Target' domain was not found")
+            if (messageObject["error"].code !== -32000)
                 console.error("Request with id = " + messageObject["id"] + " failed. " + JSON.stringify(messageObject["error"]));
         }
 
         let sequenceId = messageObject["id"];
-        console.assert(this._pendingResponses.has(sequenceId), sequenceId, this._target ? this._target.identifier : "(unknown)", this._pendingResponses);
+        console.assert(this._pendingResponses.has(sequenceId), sequenceId, this._pendingResponses);
 
         let responseData = this._pendingResponses.take(sequenceId) || {};
         let {request, command, callback, promise} = responseData;
 
-        let processingStartTimestamp = performance.now();
+        let processingStartTimestamp = timestamp();
         for (let tracer of InspectorBackend.activeTracers)
-            tracer.logWillHandleResponse(this, messageObject);
+            tracer.logWillHandleResponse(messageObject);
 
         InspectorBackend.currentDispatchState.request = request;
         InspectorBackend.currentDispatchState.response = messageObject;
@@ -124,13 +122,13 @@ InspectorBackend.Connection = class InspectorBackendConnection
         InspectorBackend.currentDispatchState.request = null;
         InspectorBackend.currentDispatchState.response = null;
 
-        let processingTime = (performance.now() - processingStartTimestamp).toFixed(3);
+        let processingTime = (timestamp() - processingStartTimestamp).toFixed(3);
         let roundTripTime = (processingStartTimestamp - responseData.sendRequestTimestamp).toFixed(3);
 
         for (let tracer of InspectorBackend.activeTracers)
-            tracer.logDidHandleResponse(this, messageObject, {rtt: roundTripTime, dispatch: processingTime});
+            tracer.logDidHandleResponse(messageObject, {rtt: roundTripTime, dispatch: processingTime});
 
-        if (this._deferredCallbacks.length && !this._pendingResponses.size)
+        if (this._deferredScripts.length && !this._pendingResponses.size)
             this._flushPendingScripts();
     }
 
@@ -147,7 +145,7 @@ InspectorBackend.Connection = class InspectorBackendConnection
         try {
             callback.apply(null, callbackArguments);
         } catch (e) {
-            WI.reportInternalError(e, {"cause": `An uncaught exception was thrown while dispatching response callback for command ${command.qualifiedName}.`});
+            WebInspector.reportInternalError(e, {"cause": `An uncaught exception was thrown while dispatching response callback for command ${command.qualifiedName}.`});
         }
     }
 
@@ -165,19 +163,19 @@ InspectorBackend.Connection = class InspectorBackendConnection
         let qualifiedName = messageObject["method"];
         let [domainName, eventName] = qualifiedName.split(".");
         if (!(domainName in this._agents)) {
-            console.error("Protocol Error: Attempted to dispatch method '" + eventName + "' for non-existing domain '" + domainName + "'", messageObject);
+            console.error("Protocol Error: Attempted to dispatch method '" + eventName + "' for non-existing domain '" + domainName + "'");
             return;
         }
 
         let agent = this._agents[domainName];
         if (!agent.active) {
-            console.error("Protocol Error: Attempted to dispatch method for domain '" + domainName + "' which exists but is not active.", messageObject);
+            console.error("Protocol Error: Attempted to dispatch method for domain '" + domainName + "' which exists but is not active.");
             return;
         }
 
         let event = agent.getEvent(eventName);
         if (!event) {
-            console.error("Protocol Error: Attempted to dispatch an unspecified method '" + qualifiedName + "'", messageObject);
+            console.error("Protocol Error: Attempted to dispatch an unspecified method '" + qualifiedName + "'");
             return;
         }
 
@@ -185,9 +183,9 @@ InspectorBackend.Connection = class InspectorBackendConnection
         if (messageObject["params"])
             eventArguments = event.parameterNames.map((name) => messageObject["params"][name]);
 
-        let processingStartTimestamp = performance.now();
+        let processingStartTimestamp = timestamp();
         for (let tracer of InspectorBackend.activeTracers)
-            tracer.logWillHandleEvent(this, messageObject);
+            tracer.logWillHandleEvent(messageObject);
 
         InspectorBackend.currentDispatchState.event = messageObject;
 
@@ -195,21 +193,21 @@ InspectorBackend.Connection = class InspectorBackendConnection
             agent.dispatchEvent(eventName, eventArguments);
         } catch (e) {
             for (let tracer of InspectorBackend.activeTracers)
-                tracer.logFrontendException(this, messageObject, e);
+                tracer.logFrontendException(messageObject, e);
 
-            WI.reportInternalError(e, {"cause": `An uncaught exception was thrown while handling event: ${qualifiedName}`});
+            WebInspector.reportInternalError(e, {"cause": `An uncaught exception was thrown while handling event: ${qualifiedName}`});
         }
 
         InspectorBackend.currentDispatchState.event = null;
 
-        let processingDuration = (performance.now() - processingStartTimestamp).toFixed(3);
+        let processingDuration = (timestamp() - processingStartTimestamp).toFixed(3);
         for (let tracer of InspectorBackend.activeTracers)
-            tracer.logDidHandleEvent(this, messageObject, {dispatch: processingDuration});
+            tracer.logDidHandleEvent(messageObject, {dispatch: processingDuration});
     }
 
     _sendCommandToBackendWithCallback(command, parameters, callback)
     {
-        let sequenceId = InspectorBackend.globalSequenceId++;
+        let sequenceId = this._lastSequenceId++;
 
         let messageObject = {
             "id": sequenceId,
@@ -222,7 +220,7 @@ InspectorBackend.Connection = class InspectorBackendConnection
         let responseData = {command, request: messageObject, callback};
 
         if (InspectorBackend.activeTracer)
-            responseData.sendRequestTimestamp = performance.now();
+            responseData.sendRequestTimestamp = timestamp();
 
         this._pendingResponses.set(sequenceId, responseData);
         this._sendMessageToBackend(messageObject);
@@ -230,7 +228,7 @@ InspectorBackend.Connection = class InspectorBackendConnection
 
     _sendCommandToBackendExpectingPromise(command, parameters)
     {
-        let sequenceId = InspectorBackend.globalSequenceId++;
+        let sequenceId = this._lastSequenceId++;
 
         let messageObject = {
             "id": sequenceId,
@@ -243,7 +241,7 @@ InspectorBackend.Connection = class InspectorBackendConnection
         let responseData = {command, request: messageObject};
 
         if (InspectorBackend.activeTracer)
-            responseData.sendRequestTimestamp = performance.now();
+            responseData.sendRequestTimestamp = timestamp();
 
         let responsePromise = new Promise(function(resolve, reject) {
             responseData.promise = {resolve, reject};
@@ -258,7 +256,7 @@ InspectorBackend.Connection = class InspectorBackendConnection
     _sendMessageToBackend(messageObject)
     {
         for (let tracer of InspectorBackend.activeTracers)
-            tracer.logFrontendRequest(this, messageObject);
+            tracer.logFrontendRequest(messageObject);
 
         this.sendMessageToBackend(JSON.stringify(messageObject));
     }
@@ -267,14 +265,14 @@ InspectorBackend.Connection = class InspectorBackendConnection
     {
         console.assert(this._pendingResponses.size === 0);
 
-        let scriptsToRun = this._deferredCallbacks;
-        this._deferredCallbacks = [];
+        let scriptsToRun = this._deferredScripts;
+        this._deferredScripts = [];
         for (let script of scriptsToRun)
             script.call(this);
     }
 };
 
-InspectorBackend.BackendConnection = class InspectorBackendBackendConnection extends InspectorBackend.Connection
+InspectorBackend.MainConnection = class InspectorBackendPageConnection extends InspectorBackend.Connection
 {
     constructor()
     {
@@ -297,11 +295,13 @@ InspectorBackend.WorkerConnection = class InspectorBackendWorkerConnection exten
 
         this._workerId = workerId;
 
-        for (let [domain, agent] of Object.entries(InspectorBackend._agents)) {
-            let clone = Object.create(agent);
+        const workerDomains = InspectorBackend.workerSupportedDomains;
+
+        for (let domain of workerDomains) {
+            let agent = InspectorBackend._agents[domain];
+            let clone = Object.create(InspectorBackend._agents[domain]);
             clone.connection = this;
-            if (agent.dispatcher)
-                clone.dispatcher = new agent.dispatcher.constructor;
+            clone.dispatcher = new agent.dispatcher.constructor;
             this._agents[domain] = clone;
         }
     }
@@ -312,27 +312,4 @@ InspectorBackend.WorkerConnection = class InspectorBackendWorkerConnection exten
     }
 };
 
-InspectorBackend.TargetConnection = class InspectorBackendTargetConnection extends InspectorBackend.Connection
-{
-    constructor(targetId)
-    {
-        super();
-
-        this._targetId = targetId;
-
-        for (let [domain, agent] of Object.entries(InspectorBackend._agents)) {
-            let clone = Object.create(agent);
-            clone.connection = this;
-            if (agent.dispatcher)
-                clone.dispatcher = new agent.dispatcher.constructor;
-            this._agents[domain] = clone;
-        }
-    }
-
-    sendMessageToBackend(message)
-    {
-        TargetAgent.sendMessageToTarget(this._targetId, message);
-    }
-};
-
-InspectorBackend.backendConnection = new InspectorBackend.BackendConnection;
+InspectorBackend.mainConnection = new InspectorBackend.MainConnection;

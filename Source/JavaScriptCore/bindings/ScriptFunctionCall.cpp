@@ -34,6 +34,7 @@
 
 #include "JSCInlines.h"
 #include "JSLock.h"
+#include "ScriptValue.h"
 #include <wtf/text/WTFString.h>
 
 using namespace JSC;
@@ -75,7 +76,7 @@ void ScriptCallArgumentHandler::appendArgument(unsigned int argument)
     m_arguments.append(jsNumber(argument));
 }
 
-void ScriptCallArgumentHandler::appendArgument(uint64_t argument)
+void ScriptCallArgumentHandler::appendArgument(unsigned long argument)
 {
     JSLockHolder lock(m_exec);
     m_arguments.append(jsNumber(argument));
@@ -115,7 +116,7 @@ JSValue ScriptFunctionCall::call(bool& hadException)
     }
 
     CallData callData;
-    CallType callType = getCallData(vm, function, callData);
+    CallType callType = getCallData(function, callData);
     if (callType == CallType::None)
         return { };
 

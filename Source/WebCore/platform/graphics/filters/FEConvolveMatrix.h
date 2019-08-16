@@ -20,10 +20,12 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#pragma once
+#ifndef FEConvolveMatrix_h
+#define FEConvolveMatrix_h
 
 #include "FilterEffect.h"
 #include "FloatPoint.h"
+#include "FloatSize.h"
 #include "Filter.h"
 #include <wtf/Vector.h>
 
@@ -42,35 +44,42 @@ public:
             float, float, const IntPoint&, EdgeModeType, const FloatPoint&,
             bool, const Vector<float>&);
 
-    IntSize kernelSize() const { return m_kernelSize; }
+    IntSize kernelSize() const;
     void setKernelSize(const IntSize&);
 
-    const Vector<float>& kernel() const { return m_kernelMatrix; }
+    const Vector<float>& kernel() const;
     void setKernel(const Vector<float>&);
 
-    float divisor() const { return m_divisor; }
+    float divisor() const;
     bool setDivisor(float);
 
-    float bias() const { return m_bias; }
+    float bias() const;
     bool setBias(float);
 
-    IntPoint targetOffset() const { return m_targetOffset; }
+    IntPoint targetOffset() const;
     bool setTargetOffset(const IntPoint&);
 
-    EdgeModeType edgeMode() const { return m_edgeMode; }
+    EdgeModeType edgeMode() const;
     bool setEdgeMode(EdgeModeType);
 
-    FloatPoint kernelUnitLength() const { return m_kernelUnitLength; }
+    FloatPoint kernelUnitLength() const;
     bool setKernelUnitLength(const FloatPoint&);
 
-    bool preserveAlpha() const { return m_preserveAlpha; }
+    bool preserveAlpha() const;
     bool setPreserveAlpha(bool);
+
+    void platformApplySoftware() override;
+    void dump() override;
+
+    void determineAbsolutePaintRect() override { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
+
+    TextStream& externalRepresentation(TextStream&, int indention) const override;
 
 private:
 
     struct PaintingData {
-        const Uint8ClampedArray& srcPixelArray;
-        Uint8ClampedArray& dstPixelArray;
+        Uint8ClampedArray* srcPixelArray;
+        Uint8ClampedArray* dstPixelArray;
         int width;
         int height;
         float bias;
@@ -79,14 +88,6 @@ private:
 
     FEConvolveMatrix(Filter&, const IntSize&, float, float,
             const IntPoint&, EdgeModeType, const FloatPoint&, bool, const Vector<float>&);
-
-    const char* filterName() const final { return "FEConvolveMatrix"; }
-
-    void determineAbsolutePaintRect() override { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
-
-    void platformApplySoftware() override;
-
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 
     template<bool preserveAlphaValues>
     ALWAYS_INLINE void fastSetInteriorPixels(PaintingData&, int clipRight, int clipBottom, int yStart, int yEnd);
@@ -115,3 +116,4 @@ private:
 
 } // namespace WebCore
 
+#endif // FEConvolveMatrix_h

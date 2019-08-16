@@ -30,13 +30,12 @@
 
 #if USE(LIBWEBRTC)
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #define WEBRTC_IOS
 #endif
 
-#if PLATFORM(COCOA)
+#if PLATFORM(MAC)
 #define WEBRTC_MAC
-#define ABSL_ALLOCATOR_NOTHROW 1
 #endif
 
 #define WEBRTC_POSIX 1

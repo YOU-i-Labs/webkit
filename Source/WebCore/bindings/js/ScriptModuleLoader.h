@@ -27,10 +27,10 @@
 
 #include "CachedModuleScriptLoader.h"
 #include "CachedModuleScriptLoaderClient.h"
-#include <JavaScriptCore/JSCJSValue.h>
+#include "URL.h"
+#include "URLHash.h"
+#include <runtime/JSCJSValue.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/URL.h>
-#include <wtf/URLHash.h>
 
 namespace JSC {
 
@@ -55,15 +55,13 @@ public:
 
     Document& document() { return m_document; }
 
-    JSC::Identifier resolve(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue moduleName, JSC::JSValue importerModuleKey, JSC::JSValue scriptFetcher);
-    JSC::JSInternalPromise* fetch(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue moduleKey, JSC::JSValue parameters, JSC::JSValue scriptFetcher);
+    JSC::JSInternalPromise* resolve(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue moduleName, JSC::JSValue importerModuleKey, JSC::JSValue scriptFetcher);
+    JSC::JSInternalPromise* fetch(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue moduleKey, JSC::JSValue scriptFetcher);
     JSC::JSValue evaluate(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue moduleKey, JSC::JSValue moduleRecord, JSC::JSValue scriptFetcher);
-    JSC::JSInternalPromise* importModule(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSString*, JSC::JSValue parameters, const JSC::SourceOrigin&);
-    JSC::JSObject* createImportMetaProperties(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue, JSC::JSModuleRecord*, JSC::JSValue);
+    JSC::JSInternalPromise* importModule(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSString*, const JSC::SourceOrigin&);
 
 private:
     void notifyFinished(CachedModuleScriptLoader&, RefPtr<DeferredPromise>) final;
-    URL moduleURL(JSC::ExecState&, JSC::JSValue);
 
     Document& m_document;
     HashMap<URL, URL> m_requestURLToResponseURLMap;

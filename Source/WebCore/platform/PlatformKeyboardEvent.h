@@ -36,7 +36,7 @@
 OBJC_CLASS NSEvent;
 #endif
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 OBJC_CLASS WebEvent;
 #endif
 
@@ -72,7 +72,7 @@ namespace WebCore {
 #if ENABLE(KEYBOARD_CODE_ATTRIBUTE)
         const String& code,
 #endif
-        const String& keyIdentifier, int windowsVirtualKeyCode, bool isAutoRepeat, bool isKeypad, bool isSystemKey, OptionSet<Modifier> modifiers, WallTime timestamp)
+        const String& keyIdentifier, int windowsVirtualKeyCode, bool isAutoRepeat, bool isKeypad, bool isSystemKey, OptionSet<Modifier> modifiers, double timestamp)
             : PlatformEvent(type, modifiers, timestamp)
             , m_text(text)
             , m_unmodifiedText(unmodifiedText)
@@ -135,16 +135,14 @@ namespace WebCore {
         bool isKeypad() const { return m_isKeypad; }
         bool isSystemKey() const { return m_isSystemKey; }
 
-        WEBCORE_EXPORT static bool currentCapsLockState();
-        WEBCORE_EXPORT static void getCurrentModifierState(bool& shiftKey, bool& ctrlKey, bool& altKey, bool& metaKey);
-        WEBCORE_EXPORT static void setCurrentModifierState(OptionSet<Modifier>);
-        WEBCORE_EXPORT static OptionSet<Modifier> currentStateOfModifierKeys();
+        static bool currentCapsLockState();
+        static void getCurrentModifierState(bool& shiftKey, bool& ctrlKey, bool& altKey, bool& metaKey);
 
 #if PLATFORM(COCOA)
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
         NSEvent* macEvent() const { return m_macEvent.get(); }
 #else
-        ::WebEvent *event() const { return m_Event.get(); }
+        WebEvent *event() const { return m_Event.get(); }
 #endif
 #endif
 
@@ -164,14 +162,6 @@ namespace WebCore {
         static int windowsKeyCodeForGdkKeyCode(unsigned);
         static String singleCharacterString(unsigned);
         static bool modifiersContainCapsLock(unsigned);
-#endif
-
-#if USE(LIBWPE)
-        static String keyValueForWPEKeyCode(unsigned);
-        static String keyCodeForHardwareKeyCode(unsigned);
-        static String keyIdentifierForWPEKeyCode(unsigned);
-        static int windowsKeyCodeForWPEKeyCode(unsigned);
-        static String singleCharacterString(unsigned);
 #endif
 
     protected:
@@ -198,19 +188,16 @@ namespace WebCore {
         bool m_isSystemKey;
 
 #if PLATFORM(COCOA)
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
         RetainPtr<NSEvent> m_macEvent;
 #else
-        RetainPtr<::WebEvent> m_Event;
+        RetainPtr<WebEvent> m_Event;
 #endif
 #endif
 #if PLATFORM(GTK)
         GdkEventKey* m_gdkEventKey;
         CompositionResults m_compositionResults;
 #endif
-        
-        // The modifier state is optional, since it is not needed in the UI process or in legacy WebKit.
-        static Optional<OptionSet<Modifier>> s_currentModifiers;
     };
     
 } // namespace WebCore

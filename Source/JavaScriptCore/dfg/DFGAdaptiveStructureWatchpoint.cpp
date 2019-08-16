@@ -43,17 +43,17 @@ AdaptiveStructureWatchpoint::AdaptiveStructureWatchpoint(
     RELEASE_ASSERT(!key.watchingRequiresReplacementWatchpoint());
 }
 
-void AdaptiveStructureWatchpoint::install(VM& vm)
+void AdaptiveStructureWatchpoint::install()
 {
     RELEASE_ASSERT(m_key.isWatchable());
     
-    m_key.object()->structure(vm)->addTransitionWatchpoint(this);
+    m_key.object()->structure()->addTransitionWatchpoint(this);
 }
 
-void AdaptiveStructureWatchpoint::fireInternal(VM& vm, const FireDetail& detail)
+void AdaptiveStructureWatchpoint::fireInternal(const FireDetail& detail)
 {
     if (m_key.isWatchable(PropertyCondition::EnsureWatchability)) {
-        install(vm);
+        install();
         return;
     }
     
@@ -61,11 +61,14 @@ void AdaptiveStructureWatchpoint::fireInternal(VM& vm, const FireDetail& detail)
         dataLog(
             "Firing watchpoint ", RawPointer(this), " (", m_key, ") on ", *m_codeBlock, "\n");
     }
-
-    auto lazyDetail = createLazyFireDetail("Adaptation of ", m_key, " failed: ", detail);
-
+    
+    StringPrintStream out;
+    out.print("Adaptation of ", m_key, " failed: ", detail);
+    
+    StringFireDetail stringDetail(out.toCString().data());
+    
     m_codeBlock->jettison(
-        Profiler::JettisonDueToUnprofiledWatchpoint, CountReoptimization, &lazyDetail);
+        Profiler::JettisonDueToUnprofiledWatchpoint, CountReoptimization, &stringDetail);
 }
 
 } } // namespace JSC::DFG

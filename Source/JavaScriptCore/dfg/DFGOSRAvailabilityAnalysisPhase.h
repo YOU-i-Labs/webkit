@@ -28,6 +28,7 @@
 #if ENABLE(DFG_JIT)
 
 #include "DFGBasicBlock.h"
+#include "DFGCommon.h"
 
 namespace JSC { namespace DFG {
 

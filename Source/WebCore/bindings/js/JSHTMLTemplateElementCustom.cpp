@@ -31,16 +31,24 @@
 #include "config.h"
 #include "JSHTMLTemplateElement.h"
 
+#include "HTMLTemplateElement.h"
 #include "JSDocumentFragment.h"
+#include <runtime/JSObject.h>
+#include <runtime/PrivateName.h>
 
-
-namespace WebCore {
 using namespace JSC;
 
-void JSHTMLTemplateElement::visitAdditionalChildren(JSC::SlotVisitor& visitor)
+namespace WebCore {
+
+JSValue JSHTMLTemplateElement::content(ExecState& state) const
 {
-    if (auto* content = wrapped().contentIfAvailable())
-        visitor.addOpaqueRoot(root(content));
+    JSLockHolder lock(&state);
+
+    auto wrapper = wrap(&state, globalObject(), wrapped().content());
+
+    PrivateName propertyName;
+    const_cast<JSHTMLTemplateElement*>(this)->putDirect(globalObject()->vm(), propertyName, wrapper);
+    return wrapper;
 }
 
 } // namespace WebCore

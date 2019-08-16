@@ -30,7 +30,6 @@
 
 #pragma once
 
-#include "ActiveDOMCallback.h"
 #include "CallbackResult.h"
 #include <wtf/ThreadSafeRefCounted.h>
 
@@ -38,10 +37,9 @@ namespace WebCore {
 
 class Database;
 
-class DatabaseCallback : public ThreadSafeRefCounted<DatabaseCallback>, public ActiveDOMCallback {
+class DatabaseCallback : public ThreadSafeRefCounted<DatabaseCallback> {
 public:
-    using ActiveDOMCallback::ActiveDOMCallback;
-
+    virtual ~DatabaseCallback() { }
     virtual CallbackResult<void> handleEvent(Database&) = 0;
 };
 

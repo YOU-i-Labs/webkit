@@ -23,9 +23,9 @@
 #include "Color.h"
 #include "Filter.h"
 #include "GraphicsContext.h"
+#include "TextStream.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/text/TextStream.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -54,7 +54,7 @@ void SourceAlpha::platformApplySoftware()
         return;
     GraphicsContext& filterContext = resultImage->context();
 
-    ImageBuffer* imageBuffer = inputEffect(0)->imageBufferResult();
+    ImageBuffer* imageBuffer = inputEffect(0)->asImageBuffer();
     if (!imageBuffer)
         return;
 
@@ -63,9 +63,14 @@ void SourceAlpha::platformApplySoftware()
     filterContext.drawImageBuffer(*imageBuffer, IntPoint(), CompositeDestinationIn);
 }
 
-TextStream& SourceAlpha::externalRepresentation(TextStream& ts, RepresentationType) const
+void SourceAlpha::dump()
 {
-    ts << indent << "[SourceAlpha]\n";
+}
+
+TextStream& SourceAlpha::externalRepresentation(TextStream& ts, int indent) const
+{
+    writeIndent(ts, indent);
+    ts << "[SourceAlpha]\n";
     return ts;
 }
 

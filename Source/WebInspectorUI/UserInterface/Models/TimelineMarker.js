@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TimelineMarker = class TimelineMarker extends WI.Object
+WebInspector.TimelineMarker = class TimelineMarker extends WebInspector.Object
 {
     constructor(time, type, details)
     {
@@ -54,7 +54,7 @@ WI.TimelineMarker = class TimelineMarker extends WI.Object
 
         this._time = x;
 
-        this.dispatchEventToListeners(WI.TimelineMarker.Event.TimeChanged);
+        this.dispatchEventToListeners(WebInspector.TimelineMarker.Event.TimeChanged);
     }
 
     get type()
@@ -68,11 +68,11 @@ WI.TimelineMarker = class TimelineMarker extends WI.Object
     }
 };
 
-WI.TimelineMarker.Event = {
+WebInspector.TimelineMarker.Event = {
     TimeChanged: "timeline-marker-time-changed"
 };
 
-WI.TimelineMarker.Type = {
+WebInspector.TimelineMarker.Type = {
     CurrentTime: "current-time",
     LoadEvent: "load-event",
     DOMContentEvent: "dom-content-event",

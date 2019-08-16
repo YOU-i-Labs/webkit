@@ -28,11 +28,7 @@
 #include "config.h"
 #include "RenderSVGRect.h"
 
-#include <wtf/IsoMallocInlines.h>
-
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGRect);
 
 RenderSVGRect::RenderSVGRect(SVGRectElement& element, RenderStyle&& style)
     : RenderSVGShape(element, WTFMove(style))
@@ -40,7 +36,9 @@ RenderSVGRect::RenderSVGRect(SVGRectElement& element, RenderStyle&& style)
 {
 }
 
-RenderSVGRect::~RenderSVGRect() = default;
+RenderSVGRect::~RenderSVGRect()
+{
+}
 
 SVGRectElement& RenderSVGRect::rectElement() const
 {
@@ -54,7 +52,6 @@ void RenderSVGRect::updateShapeFromElement()
     m_fillBoundingBox = FloatRect();
     m_innerStrokeRect = FloatRect();
     m_outerStrokeRect = FloatRect();
-    clearPath();
 
     SVGLengthContext lengthContext(&rectElement());
     FloatSize boundingBoxSize(lengthContext.valueForLength(style().width(), LengthModeWidth), lengthContext.valueForLength(style().height(), LengthModeHeight));
@@ -93,7 +90,7 @@ void RenderSVGRect::updateShapeFromElement()
 
 #if USE(CG)
     // CoreGraphics can inflate the stroke by 1px when drawing a rectangle with antialiasing disabled at non-integer coordinates, we need to compensate.
-    if (style().svgStyle().shapeRendering() == ShapeRendering::CrispEdges)
+    if (style().svgStyle().shapeRendering() == SR_CRISPEDGES)
         m_strokeBoundingBox.inflate(1);
 #endif
 }
@@ -134,14 +131,14 @@ void RenderSVGRect::strokeShape(GraphicsContext& context) const
     context.strokeRect(m_fillBoundingBox, strokeWidth());
 }
 
-bool RenderSVGRect::shapeDependentStrokeContains(const FloatPoint& point, PointCoordinateSpace pointCoordinateSpace)
+bool RenderSVGRect::shapeDependentStrokeContains(const FloatPoint& point)
 {
     // The optimized contains code below does not support non-smooth strokes so we need
     // to fall back to RenderSVGShape::shapeDependentStrokeContains in these cases.
     if (m_usePathFallback || !hasSmoothStroke()) {
         if (!hasPath())
             RenderSVGShape::updateShapeFromElement();
-        return RenderSVGShape::shapeDependentStrokeContains(point, pointCoordinateSpace);
+        return RenderSVGShape::shapeDependentStrokeContains(point);
     }
 
     return m_outerStrokeRect.contains(point, FloatRect::InsideOrOnStroke) && !m_innerStrokeRect.contains(point, FloatRect::InsideButNotOnStroke);

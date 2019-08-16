@@ -26,24 +26,18 @@
 #include "config.h"
 #include "CryptoAlgorithmECDSA.h"
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 #include "CryptoAlgorithmEcKeyParams.h"
-#include "CryptoAlgorithmEcdsaParams.h"
 #include "CryptoKeyEC.h"
-#include <JavaScriptCore/JSCJSValueInlines.h>
-#include <wtf/CrossThreadCopier.h>
+#include "ExceptionCode.h"
 
 namespace WebCore {
 
-namespace CryptoAlgorithmECDSAInternal {
 static const char* const ALG256 = "ES256";
 static const char* const ALG384 = "ES384";
-static const char* const ALG512 = "ES512";
 static const char* const P256 = "P-256";
 static const char* const P384 = "P-384";
-static const char* const P521 = "P-521";
-}
 
 Ref<CryptoAlgorithm> CryptoAlgorithmECDSA::create()
 {
@@ -55,30 +49,22 @@ CryptoAlgorithmIdentifier CryptoAlgorithmECDSA::identifier() const
     return s_identifier;
 }
 
-void CryptoAlgorithmECDSA::sign(const CryptoAlgorithmParameters& parameters, Ref<CryptoKey>&& key, Vector<uint8_t>&& data, VectorCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
+void CryptoAlgorithmECDSA::sign(std::unique_ptr<CryptoAlgorithmParameters>&& parameters, Ref<CryptoKey>&& key, Vector<uint8_t>&& data, VectorCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
 {
     if (key->type() != CryptoKeyType::Private) {
-        exceptionCallback(InvalidAccessError);
+        exceptionCallback(INVALID_ACCESS_ERR);
         return;
     }
-
-    dispatchOperationInWorkQueue(workQueue, context, WTFMove(callback), WTFMove(exceptionCallback),
-        [parameters = crossThreadCopy(downcast<CryptoAlgorithmEcdsaParams>(parameters)), key = WTFMove(key), data = WTFMove(data)] {
-            return platformSign(parameters, downcast<CryptoKeyEC>(key.get()), data);
-        });
+    platformSign(WTFMove(parameters), WTFMove(key), WTFMove(data), WTFMove(callback), WTFMove(exceptionCallback), context, workQueue);
 }
 
-void CryptoAlgorithmECDSA::verify(const CryptoAlgorithmParameters& parameters, Ref<CryptoKey>&& key, Vector<uint8_t>&& signature, Vector<uint8_t>&& data, BoolCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
+void CryptoAlgorithmECDSA::verify(std::unique_ptr<CryptoAlgorithmParameters>&& parameters, Ref<CryptoKey>&& key, Vector<uint8_t>&& signature, Vector<uint8_t>&& data, BoolCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
 {
     if (key->type() != CryptoKeyType::Public) {
-        exceptionCallback(InvalidAccessError);
+        exceptionCallback(INVALID_ACCESS_ERR);
         return;
     }
-
-    dispatchOperationInWorkQueue(workQueue, context, WTFMove(callback), WTFMove(exceptionCallback),
-        [parameters = crossThreadCopy(downcast<CryptoAlgorithmEcdsaParams>(parameters)), key = WTFMove(key), signature = WTFMove(signature), data = WTFMove(data)] {
-            return platformVerify(parameters, downcast<CryptoKeyEC>(key.get()), signature, data);
-        });
+    platformVerify(WTFMove(parameters), WTFMove(key), WTFMove(signature), WTFMove(data), WTFMove(callback), WTFMove(exceptionCallback), context, workQueue);
 }
 
 void CryptoAlgorithmECDSA::generateKey(const CryptoAlgorithmParameters& parameters, bool extractable, CryptoKeyUsageBitmap usages, KeyOrKeyPairCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext&)
@@ -86,7 +72,7 @@ void CryptoAlgorithmECDSA::generateKey(const CryptoAlgorithmParameters& paramete
     const auto& ecParameters = downcast<CryptoAlgorithmEcKeyParams>(parameters);
 
     if (usages & (CryptoKeyUsageEncrypt | CryptoKeyUsageDecrypt | CryptoKeyUsageDeriveKey | CryptoKeyUsageDeriveBits | CryptoKeyUsageWrapKey | CryptoKeyUsageUnwrapKey)) {
-        exceptionCallback(SyntaxError);
+        exceptionCallback(SYNTAX_ERR);
         return;
     }
 
@@ -102,18 +88,18 @@ void CryptoAlgorithmECDSA::generateKey(const CryptoAlgorithmParameters& paramete
     callback(WTFMove(pair));
 }
 
-void CryptoAlgorithmECDSA::importKey(CryptoKeyFormat format, KeyData&& data, const CryptoAlgorithmParameters& parameters, bool extractable, CryptoKeyUsageBitmap usages, KeyCallback&& callback, ExceptionCallback&& exceptionCallback)
+void CryptoAlgorithmECDSA::importKey(SubtleCrypto::KeyFormat format, KeyData&& data, const std::unique_ptr<CryptoAlgorithmParameters>&& parameters, bool extractable, CryptoKeyUsageBitmap usages, KeyCallback&& callback, ExceptionCallback&& exceptionCallback)
 {
-    using namespace CryptoAlgorithmECDSAInternal;
-    const auto& ecParameters = downcast<CryptoAlgorithmEcKeyParams>(parameters);
+    ASSERT(parameters);
+    const auto& ecParameters = downcast<CryptoAlgorithmEcKeyParams>(*parameters);
 
     RefPtr<CryptoKeyEC> result;
     switch (format) {
-    case CryptoKeyFormat::Jwk: {
+    case SubtleCrypto::KeyFormat::Jwk: {
         JsonWebKey key = WTFMove(WTF::get<JsonWebKey>(data));
 
         if (usages && ((!key.d.isNull() && (usages ^ CryptoKeyUsageSign)) || (key.d.isNull() && (usages ^ CryptoKeyUsageVerify)))) {
-            exceptionCallback(SyntaxError);
+            exceptionCallback(SYNTAX_ERR);
             return;
         }
         if (usages && !key.use.isNull() && key.use != "sig") {
@@ -126,8 +112,6 @@ void CryptoAlgorithmECDSA::importKey(CryptoKeyFormat format, KeyData&& data, con
             isMatched = key.alg.isNull() || key.alg == ALG256;
         if (key.crv == P384)
             isMatched = key.alg.isNull() || key.alg == ALG384;
-        if (key.crv == P521)
-            isMatched = key.alg.isNull() || key.alg == ALG512;
         if (!isMatched) {
             exceptionCallback(DataError);
             return;
@@ -136,23 +120,23 @@ void CryptoAlgorithmECDSA::importKey(CryptoKeyFormat format, KeyData&& data, con
         result = CryptoKeyEC::importJwk(ecParameters.identifier, ecParameters.namedCurve, WTFMove(key), extractable, usages);
         break;
     }
-    case CryptoKeyFormat::Raw:
+    case SubtleCrypto::KeyFormat::Raw:
         if (usages && (usages ^ CryptoKeyUsageVerify)) {
-            exceptionCallback(SyntaxError);
+            exceptionCallback(SYNTAX_ERR);
             return;
         }
         result = CryptoKeyEC::importRaw(ecParameters.identifier, ecParameters.namedCurve, WTFMove(WTF::get<Vector<uint8_t>>(data)), extractable, usages);
         break;
-    case CryptoKeyFormat::Spki:
+    case SubtleCrypto::KeyFormat::Spki:
         if (usages && (usages ^ CryptoKeyUsageVerify)) {
-            exceptionCallback(SyntaxError);
+            exceptionCallback(SYNTAX_ERR);
             return;
         }
         result = CryptoKeyEC::importSpki(ecParameters.identifier, ecParameters.namedCurve, WTFMove(WTF::get<Vector<uint8_t>>(data)), extractable, usages);
         break;
-    case CryptoKeyFormat::Pkcs8:
+    case SubtleCrypto::KeyFormat::Pkcs8:
         if (usages && (usages ^ CryptoKeyUsageSign)) {
-            exceptionCallback(SyntaxError);
+            exceptionCallback(SYNTAX_ERR);
             return;
         }
         result = CryptoKeyEC::importPkcs8(ecParameters.identifier, ecParameters.namedCurve, WTFMove(WTF::get<Vector<uint8_t>>(data)), extractable, usages);
@@ -166,7 +150,7 @@ void CryptoAlgorithmECDSA::importKey(CryptoKeyFormat format, KeyData&& data, con
     callback(*result);
 }
 
-void CryptoAlgorithmECDSA::exportKey(CryptoKeyFormat format, Ref<CryptoKey>&& key, KeyDataCallback&& callback, ExceptionCallback&& exceptionCallback)
+void CryptoAlgorithmECDSA::exportKey(SubtleCrypto::KeyFormat format, Ref<CryptoKey>&& key, KeyDataCallback&& callback, ExceptionCallback&& exceptionCallback)
 {
     const auto& ecKey = downcast<CryptoKeyEC>(key.get());
 
@@ -177,16 +161,10 @@ void CryptoAlgorithmECDSA::exportKey(CryptoKeyFormat format, Ref<CryptoKey>&& ke
 
     KeyData result;
     switch (format) {
-    case CryptoKeyFormat::Jwk: {
-        auto jwk = ecKey.exportJwk();
-        if (jwk.hasException()) {
-            exceptionCallback(jwk.releaseException().code());
-            return;
-        }
-        result = jwk.releaseReturnValue();
+    case SubtleCrypto::KeyFormat::Jwk:
+        result = ecKey.exportJwk();
         break;
-    }
-    case CryptoKeyFormat::Raw: {
+    case SubtleCrypto::KeyFormat::Raw: {
         auto raw = ecKey.exportRaw();
         if (raw.hasException()) {
             exceptionCallback(raw.releaseException().code());
@@ -195,7 +173,7 @@ void CryptoAlgorithmECDSA::exportKey(CryptoKeyFormat format, Ref<CryptoKey>&& ke
         result = raw.releaseReturnValue();
         break;
     }
-    case CryptoKeyFormat::Spki: {
+    case SubtleCrypto::KeyFormat::Spki: {
         auto spki = ecKey.exportSpki();
         if (spki.hasException()) {
             exceptionCallback(spki.releaseException().code());
@@ -204,7 +182,7 @@ void CryptoAlgorithmECDSA::exportKey(CryptoKeyFormat format, Ref<CryptoKey>&& ke
         result = spki.releaseReturnValue();
         break;
     }
-    case CryptoKeyFormat::Pkcs8: {
+    case SubtleCrypto::KeyFormat::Pkcs8: {
         auto pkcs8 = ecKey.exportPkcs8();
         if (pkcs8.hasException()) {
             exceptionCallback(pkcs8.releaseException().code());
@@ -220,4 +198,4 @@ void CryptoAlgorithmECDSA::exportKey(CryptoKeyFormat format, Ref<CryptoKey>&& ke
 
 } // namespace WebCore
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

@@ -46,8 +46,8 @@ class MediaSourcePrivate : public RefCounted<MediaSourcePrivate> {
 public:
     typedef Vector<String> CodecsArray;
 
-    MediaSourcePrivate() = default;
-    virtual ~MediaSourcePrivate() = default;
+    MediaSourcePrivate() { }
+    virtual ~MediaSourcePrivate() { }
 
     enum AddStatus { Ok, NotSupported, ReachedIdLimit };
     virtual AddStatus addSourceBuffer(const ContentType&, RefPtr<SourceBufferPrivate>&) = 0;

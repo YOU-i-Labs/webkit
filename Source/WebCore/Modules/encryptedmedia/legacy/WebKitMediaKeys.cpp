@@ -28,6 +28,7 @@
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
 
+#include "ExceptionCode.h"
 #include "HTMLMediaElement.h"
 #include "WebKitMediaKeySession.h"
 
@@ -38,17 +39,17 @@ ExceptionOr<Ref<WebKitMediaKeys>> WebKitMediaKeys::create(const String& keySyste
     // From <http://dvcs.w3.org/hg/html-media/raw-file/tip/encrypted-media/encrypted-media.html#dom-media-keys-constructor>:
     // The MediaKeys(keySystem) constructor must run the following steps:
 
-    // 1. If keySystem is null or an empty string, throw an InvalidAccessError exception and abort these steps.
+    // 1. If keySystem is null or an empty string, throw an INVALID_ACCESS_ERR exception and abort these steps.
     if (keySystem.isEmpty())
-        return Exception { InvalidAccessError };
+        return Exception { INVALID_ACCESS_ERR };
 
-    // 2. If keySystem is not one of the user agent's supported Key Systems, throw a NotSupportedError and abort these steps.
-    if (!LegacyCDM::supportsKeySystem(keySystem))
-        return Exception { NotSupportedError };
+    // 2. If keySystem is not one of the user agent's supported Key Systems, throw a NOT_SUPPORTED_ERR and abort these steps.
+    if (!CDM::supportsKeySystem(keySystem))
+        return Exception { NOT_SUPPORTED_ERR };
 
     // 3. Let cdm be the content decryption module corresponding to keySystem.
     // 4. Load cdm if necessary.
-    auto cdm = LegacyCDM::create(keySystem);
+    auto cdm = CDM::create(keySystem);
 
     // 5. Create a new MediaKeys object.
     // 5.1 Let the keySystem attribute be keySystem.
@@ -56,7 +57,7 @@ ExceptionOr<Ref<WebKitMediaKeys>> WebKitMediaKeys::create(const String& keySyste
     return adoptRef(*new WebKitMediaKeys(keySystem, WTFMove(cdm)));
 }
 
-WebKitMediaKeys::WebKitMediaKeys(const String& keySystem, std::unique_ptr<LegacyCDM>&& cdm)
+WebKitMediaKeys::WebKitMediaKeys(const String& keySystem, std::unique_ptr<CDM>&& cdm)
     : m_keySystem(keySystem)
     , m_cdm(WTFMove(cdm))
 {
@@ -79,18 +80,18 @@ ExceptionOr<Ref<WebKitMediaKeySession>> WebKitMediaKeys::createSession(ScriptExe
     // The createSession(type, initData) method must run the following steps:
     // Note: The contents of initData are container-specific Initialization Data.
 
-    // 1. If contentType is null or an empty string, throw an InvalidAccessError exception and abort these steps.
+    // 1. If contentType is null or an empty string, throw an INVALID_ACCESS_ERR exception and abort these steps.
     if (type.isEmpty())
-        return Exception { InvalidAccessError };
+        return Exception { INVALID_ACCESS_ERR };
 
-    // 2. If initData is an empty array, throw an InvalidAccessError exception and abort these steps.
+    // 2. If initData is an empty array, throw an INVALID_ACCESS_ERR exception and abort these steps.
     if (!initData->length())
-        return Exception { InvalidAccessError };
+        return Exception { INVALID_ACCESS_ERR };
 
     // 3. If type contains a MIME type that is not supported or is not supported by the keySystem, throw
-    // a NotSupportedError exception and abort these steps.
+    // a NOT_SUPPORTED_ERR exception and abort these steps.
     if (!m_cdm->supportsMIMEType(type))
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
     // 4. Create a new MediaKeySession object.
     // 4.1 Let the keySystem attribute be keySystem.
@@ -110,7 +111,7 @@ bool WebKitMediaKeys::isTypeSupported(const String& keySystem, const String& mim
 {
     // 1. If keySystem contains an unrecognized or unsupported Key System, return false and abort these steps.
     // Key system string comparison is case-sensitive.
-    if (keySystem.isEmpty() || !LegacyCDM::supportsKeySystem(keySystem))
+    if (keySystem.isEmpty() || !CDM::supportsKeySystem(keySystem))
         return false;
 
     // 2. If type is null or an empty string, return true and abort these steps.
@@ -119,7 +120,7 @@ bool WebKitMediaKeys::isTypeSupported(const String& keySystem, const String& mim
 
     // 3. If the Key System specified by keySystem does not support decrypting the container and/or codec
     // specified by type, return false and abort these steps.
-    if (!LegacyCDM::keySystemSupportsMimeType(keySystem, mimeType))
+    if (!CDM::keySystemSupportsMimeType(keySystem, mimeType))
         return false;
 
     // 4. Return true;
@@ -131,13 +132,13 @@ void WebKitMediaKeys::setMediaElement(HTMLMediaElement* element)
     if (m_mediaElement && m_mediaElement->player())
         m_mediaElement->player()->setCDMSession(nullptr);
 
-    m_mediaElement = makeWeakPtr(element);
+    m_mediaElement = element;
 
     if (m_mediaElement && m_mediaElement->player() && !m_sessions.isEmpty())
         m_mediaElement->player()->setCDMSession(m_sessions.last()->session());
 }
 
-RefPtr<MediaPlayer> WebKitMediaKeys::cdmMediaPlayer(const LegacyCDM*) const
+MediaPlayer* WebKitMediaKeys::cdmMediaPlayer(const CDM*) const
 {
     if (!m_mediaElement)
         return nullptr;

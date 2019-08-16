@@ -260,6 +260,11 @@ int ScrollbarThemeComposite::trackLength(Scrollbar& scrollbar)
     return (scrollbar.orientation() == HorizontalScrollbar) ? constrainedTrackRect.width() : constrainedTrackRect.height();
 }
 
+void ScrollbarThemeComposite::paintScrollCorner(ScrollView*, GraphicsContext& context, const IntRect& cornerRect)
+{
+    context.fillRect(cornerRect, Color::white);
+}
+
 IntRect ScrollbarThemeComposite::thumbRect(Scrollbar& scrollbar)
 {
     if (!hasThumb(scrollbar))

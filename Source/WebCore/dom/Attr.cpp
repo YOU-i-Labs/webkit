@@ -25,17 +25,17 @@
 
 #include "AttributeChangeInvalidation.h"
 #include "Event.h"
+#include "ExceptionCode.h"
+#include "NoEventDispatchAssertion.h"
 #include "ScopedEventQueue.h"
 #include "StyleProperties.h"
 #include "StyledElement.h"
 #include "TextNodeTraversal.h"
 #include "XMLNSNames.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/text/AtomicString.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(Attr);
 
 using namespace HTMLNames;
 
@@ -75,10 +75,10 @@ ExceptionOr<void> Attr::setPrefix(const AtomicString& prefix)
     if (result.hasException())
         return result.releaseException();
 
-    if ((prefix == xmlnsAtom() && namespaceURI() != XMLNSNames::xmlnsNamespaceURI) || qualifiedName() == xmlnsAtom())
-        return Exception { NamespaceError };
+    if ((prefix == xmlnsAtom && namespaceURI() != XMLNSNames::xmlnsNamespaceURI) || qualifiedName() == xmlnsAtom)
+        return Exception { NAMESPACE_ERR };
 
-    const AtomicString& newPrefix = prefix.isEmpty() ? nullAtom() : prefix;
+    const AtomicString& newPrefix = prefix.isEmpty() ? nullAtom : prefix;
     if (m_element)
         elementAttribute().setPrefix(newPrefix);
     m_name.setPrefix(newPrefix);
@@ -107,8 +107,7 @@ Ref<Node> Attr::cloneNodeInternal(Document& targetDocument, CloningOperation)
 
 CSSStyleDeclaration* Attr::style()
 {
-    // This is not part of the DOM API, and therefore not available to webpages. However, WebKit SPI
-    // lets clients use this via the Objective-C and JavaScript bindings.
+    // This function only exists to support the Obj-C bindings.
     if (!is<StyledElement>(m_element))
         return nullptr;
     m_style = MutableStyleProperties::create();
@@ -143,7 +142,7 @@ void Attr::attachToElement(Element& element)
 {
     ASSERT(!m_element);
     m_element = &element;
-    m_standaloneValue = nullAtom();
+    m_standaloneValue = nullAtom;
     setTreeScopeRecursively(element.treeScope());
 }
 

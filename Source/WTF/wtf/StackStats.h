@@ -23,10 +23,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef StackStats_h
+#define StackStats_h
 
+#include "ExportMacros.h"
 #include <mutex>
-#include <wtf/ExportMacros.h>
+#include <wtf/Lock.h>
 
 
 // Define this flag to enable Stack stats collection. This feature is useful
@@ -119,7 +121,7 @@ public:
 
 private:
     // CheckPoint management:
-    static Lock s_sharedMutex;
+    static StaticLock s_sharedMutex;
     static CheckPoint* s_topCheckPoint;
     static LayoutCheckPoint* s_firstLayoutCheckPoint;
     static LayoutCheckPoint* s_topLayoutCheckPoint;
@@ -142,3 +144,5 @@ private:
 } // namespace WTF
 
 using WTF::StackStats;
+
+#endif // StackStats_h

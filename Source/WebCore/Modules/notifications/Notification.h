@@ -35,10 +35,11 @@
 
 #include "ActiveDOMObject.h"
 #include "EventTarget.h"
+#include "ExceptionOr.h"
 #include "NotificationDirection.h"
 #include "NotificationPermission.h"
 #include "Timer.h"
-#include <wtf/URL.h>
+#include "URL.h"
 #include "WritingMode.h"
 
 namespace WebCore {
@@ -73,7 +74,7 @@ public:
     const String& tag() const { return m_tag; }
     const URL& icon() const { return m_icon; }
 
-    TextDirection direction() const { return m_direction == Direction::Rtl ? TextDirection::RTL : TextDirection::LTR; }
+    TextDirection direction() const { return m_direction == Direction::Rtl ? RTL : LTR; }
 
     WEBCORE_EXPORT void dispatchClickEvent();
     WEBCORE_EXPORT void dispatchCloseEvent();

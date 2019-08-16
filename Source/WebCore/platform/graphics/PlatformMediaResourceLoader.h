@@ -27,7 +27,6 @@
 
 #if ENABLE(VIDEO)
 
-#include <wtf/CompletionHandler.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/RefCounted.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -41,16 +40,19 @@ class ResourceResponse;
 
 class PlatformMediaResourceClient {
 public:
-    virtual ~PlatformMediaResourceClient() = default;
+    virtual ~PlatformMediaResourceClient() { }
 
     virtual void responseReceived(PlatformMediaResource&, const ResourceResponse&) { }
-    virtual void redirectReceived(PlatformMediaResource&, ResourceRequest&& request, const ResourceResponse&, CompletionHandler<void(ResourceRequest&&)>&& completionHandler) { completionHandler(WTFMove(request)); }
+    virtual void redirectReceived(PlatformMediaResource&, ResourceRequest&, const ResourceResponse&) { }
     virtual bool shouldCacheResponse(PlatformMediaResource&, const ResourceResponse&) { return true; }
     virtual void dataSent(PlatformMediaResource&, unsigned long long, unsigned long long) { }
     virtual void dataReceived(PlatformMediaResource&, const char*, int) { }
     virtual void accessControlCheckFailed(PlatformMediaResource&, const ResourceError&) { }
     virtual void loadFailed(PlatformMediaResource&, const ResourceError&) { }
     virtual void loadFinished(PlatformMediaResource&) { }
+#if USE(SOUP)
+    virtual char* getOrCreateReadBuffer(PlatformMediaResource&, size_t /*requestedSize*/, size_t& /*actualSize*/) { return nullptr; };
+#endif
 };
 
 class PlatformMediaResourceLoader : public ThreadSafeRefCounted<PlatformMediaResourceLoader> {
@@ -62,25 +64,24 @@ public:
     };
     typedef unsigned LoadOptions;
 
-    virtual ~PlatformMediaResourceLoader() = default;
+    virtual ~PlatformMediaResourceLoader() { }
 
     virtual RefPtr<PlatformMediaResource> requestResource(ResourceRequest&&, LoadOptions) = 0;
 
 protected:
-    PlatformMediaResourceLoader() = default;
+    PlatformMediaResourceLoader() { }
 };
 
-class PlatformMediaResource : public ThreadSafeRefCounted<PlatformMediaResource> {
+class PlatformMediaResource : public RefCounted<PlatformMediaResource> {
     WTF_MAKE_NONCOPYABLE(PlatformMediaResource); WTF_MAKE_FAST_ALLOCATED;
 public:
-    PlatformMediaResource() = default;
-    virtual ~PlatformMediaResource() = default;
+    PlatformMediaResource() { }
+    virtual ~PlatformMediaResource() { }
     virtual void stop() { }
     virtual void setDefersLoading(bool) { }
     virtual bool didPassAccessControlCheck() const { return false; }
 
     void setClient(std::unique_ptr<PlatformMediaResourceClient>&& client) { m_client = WTFMove(client); }
-    PlatformMediaResourceClient* client() { return m_client.get(); }
 
 protected:
     std::unique_ptr<PlatformMediaResourceClient> m_client;

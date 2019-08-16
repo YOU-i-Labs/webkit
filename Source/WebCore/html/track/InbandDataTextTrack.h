@@ -44,10 +44,6 @@ private:
 
     void addDataCue(const MediaTime& start, const MediaTime& end, const void*, unsigned) final;
 
-#if !RELEASE_LOG_DISABLED
-    const char* logClassName() const final { return "DataCue"; }
-#endif
-
 #if ENABLE(DATACUE_VALUE)
     void addDataCue(const MediaTime& start, const MediaTime& end, Ref<SerializedPlatformRepresentation>&&, const String&) final;
     void updateDataCue(const MediaTime& start, const MediaTime& end, SerializedPlatformRepresentation&) final;

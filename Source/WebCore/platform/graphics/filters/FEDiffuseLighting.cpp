@@ -23,7 +23,7 @@
 #include "FEDiffuseLighting.h"
 
 #include "LightSource.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 
@@ -37,7 +37,40 @@ Ref<FEDiffuseLighting> FEDiffuseLighting::create(Filter& filter, const Color& li
     return adoptRef(*new FEDiffuseLighting(filter, lightingColor, surfaceScale, diffuseConstant, kernelUnitLengthX, kernelUnitLengthY, WTFMove(lightSource)));
 }
 
-FEDiffuseLighting::~FEDiffuseLighting() = default;
+FEDiffuseLighting::~FEDiffuseLighting()
+{
+}
+
+const Color& FEDiffuseLighting::lightingColor() const
+{
+    return m_lightingColor;
+}
+
+bool FEDiffuseLighting::setLightingColor(const Color& lightingColor)
+{
+    if (m_lightingColor == lightingColor)
+        return false;
+    m_lightingColor = lightingColor;
+    return true;
+}
+
+float FEDiffuseLighting::surfaceScale() const 
+{
+    return m_surfaceScale;
+}
+
+bool FEDiffuseLighting::setSurfaceScale(float surfaceScale)
+{
+    if (m_surfaceScale == surfaceScale)
+        return false;
+    m_surfaceScale = surfaceScale;
+    return true;
+}
+
+float FEDiffuseLighting::diffuseConstant() const
+{
+    return m_diffuseConstant;
+}
 
 bool FEDiffuseLighting::setDiffuseConstant(float diffuseConstant)
 {
@@ -47,16 +80,50 @@ bool FEDiffuseLighting::setDiffuseConstant(float diffuseConstant)
     return true;
 }
 
-TextStream& FEDiffuseLighting::externalRepresentation(TextStream& ts, RepresentationType representation) const
+float FEDiffuseLighting::kernelUnitLengthX() const
 {
-    ts << indent << "[feDiffuseLighting";
-    FilterEffect::externalRepresentation(ts, representation);
+    return m_kernelUnitLengthX;
+}
+
+bool FEDiffuseLighting::setKernelUnitLengthX(float kernelUnitLengthX)
+{
+    if (m_kernelUnitLengthX == kernelUnitLengthX)
+        return false;
+    m_kernelUnitLengthX = kernelUnitLengthX;
+    return true;
+}
+
+float FEDiffuseLighting::kernelUnitLengthY() const
+{
+    return m_kernelUnitLengthY;
+}
+
+bool FEDiffuseLighting::setKernelUnitLengthY(float kernelUnitLengthY)
+{
+    if (m_kernelUnitLengthY == kernelUnitLengthY)
+        return false;
+    m_kernelUnitLengthY = kernelUnitLengthY;
+    return true;
+}
+
+const LightSource& FEDiffuseLighting::lightSource() const
+{
+    return m_lightSource.get();
+}
+
+void FEDiffuseLighting::dump()
+{
+}
+
+TextStream& FEDiffuseLighting::externalRepresentation(TextStream& ts, int indent) const
+{
+    writeIndent(ts, indent);
+    ts << "[feDiffuseLighting";
+    FilterEffect::externalRepresentation(ts);
     ts << " surfaceScale=\"" << m_surfaceScale << "\" "
        << "diffuseConstant=\"" << m_diffuseConstant << "\" "
        << "kernelUnitLength=\"" << m_kernelUnitLengthX << ", " << m_kernelUnitLengthY << "\"]\n";
-
-    TextStream::IndentScope indentScope(ts);
-    inputEffect(0)->externalRepresentation(ts, representation);
+    inputEffect(0)->externalRepresentation(ts, indent + 1);
     return ts;
 }
 

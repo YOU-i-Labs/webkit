@@ -23,11 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.DOMDetailsSidebarPanel = class DOMDetailsSidebarPanel extends WI.DetailsSidebarPanel
+WebInspector.DOMDetailsSidebarPanel = class DOMDetailsSidebarPanel extends WebInspector.DetailsSidebarPanel
 {
-    constructor(identifier, displayName, dontCreateNavigationItem)
+    constructor(identifier, displayName, singularDisplayName, element, dontCreateNavigationItem)
     {
-        super(identifier, displayName, dontCreateNavigationItem);
+        super(identifier, displayName, singularDisplayName, element, dontCreateNavigationItem);
 
         this.element.addEventListener("click", this._mouseWasClicked.bind(this), true);
 
@@ -44,9 +44,9 @@ WI.DOMDetailsSidebarPanel = class DOMDetailsSidebarPanel extends WI.DetailsSideb
 
         var nodeToInspect = null;
 
-        // Iterate over the objects to find a WI.DOMNode to inspect.
+        // Iterate over the objects to find a WebInspector.DOMNode to inspect.
         for (var i = 0; i < objects.length; ++i) {
-            if (objects[i] instanceof WI.DOMNode) {
+            if (objects[i] instanceof WebInspector.DOMNode) {
                 nodeToInspect = objects[i];
                 break;
             }
@@ -102,7 +102,7 @@ WI.DOMDetailsSidebarPanel = class DOMDetailsSidebarPanel extends WI.DetailsSideb
     _mouseWasClicked(event)
     {
         if (this._domNode && this._domNode.ownerDocument) {
-            var mainResource = WI.networkManager.resourceForURL(this._domNode.ownerDocument.documentURL);
+            var mainResource = WebInspector.frameResourceManager.resourceForURL(this._domNode.ownerDocument.documentURL);
             if (mainResource)
                 var parentFrame = mainResource.parentFrame;
         }
@@ -111,6 +111,6 @@ WI.DOMDetailsSidebarPanel = class DOMDetailsSidebarPanel extends WI.DetailsSideb
             ignoreNetworkTab: true,
             ignoreSearchTab: true,
         };
-        WI.handlePossibleLinkClick(event, parentFrame, options);
+        WebInspector.handlePossibleLinkClick(event, parentFrame, options);
     }
 };

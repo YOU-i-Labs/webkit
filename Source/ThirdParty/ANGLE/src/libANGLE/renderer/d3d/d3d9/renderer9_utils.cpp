@@ -135,22 +135,21 @@ D3DTEXTUREADDRESS ConvertTextureWrap(GLenum wrap)
     return d3dWrap;
 }
 
-D3DCULL ConvertCullMode(gl::CullFaceMode cullFace, GLenum frontFace)
+D3DCULL ConvertCullMode(GLenum cullFace, GLenum frontFace)
 {
     D3DCULL cull = D3DCULL_CCW;
     switch (cullFace)
     {
-        case gl::CullFaceMode::Front:
-            cull = (frontFace == GL_CCW ? D3DCULL_CW : D3DCULL_CCW);
-            break;
-        case gl::CullFaceMode::Back:
-            cull = (frontFace == GL_CCW ? D3DCULL_CCW : D3DCULL_CW);
-            break;
-        case gl::CullFaceMode::FrontAndBack:
-            cull = D3DCULL_NONE;  // culling will be handled during draw
-            break;
-        default:
-            UNREACHABLE();
+      case GL_FRONT:
+        cull = (frontFace == GL_CCW ? D3DCULL_CW : D3DCULL_CCW);
+        break;
+      case GL_BACK:
+        cull = (frontFace == GL_CCW ? D3DCULL_CCW : D3DCULL_CW);
+        break;
+      case GL_FRONT_AND_BACK:
+        cull = D3DCULL_NONE; // culling will be handled during draw
+        break;
+      default: UNREACHABLE();
     }
 
     return cull;
@@ -310,7 +309,7 @@ GLsizei GetSamplesCount(D3DMULTISAMPLE_TYPE type)
 bool IsFormatChannelEquivalent(D3DFORMAT d3dformat, GLenum format)
 {
     GLenum internalFormat  = d3d9::GetD3DFormatInfo(d3dformat).info().glInternalFormat;
-    GLenum convertedFormat = gl::GetSizedInternalFormatInfo(internalFormat).format;
+    GLenum convertedFormat = gl::GetInternalFormatInfo(internalFormat).format;
     return convertedFormat == format;
 }
 
@@ -320,7 +319,7 @@ static gl::TextureCaps GenerateTextureFormatCaps(GLenum internalFormat, IDirect3
     gl::TextureCaps textureCaps;
 
     const d3d9::TextureFormat &d3dFormatInfo = d3d9::GetTextureFormatInfo(internalFormat);
-    const gl::InternalFormat &formatInfo     = gl::GetSizedInternalFormatInfo(internalFormat);
+    const gl::InternalFormat &formatInfo = gl::GetInternalFormatInfo(internalFormat);
 
     if (d3dFormatInfo.texFormat != D3DFMT_UNKNOWN)
     {
@@ -351,8 +350,7 @@ static gl::TextureCaps GenerateTextureFormatCaps(GLenum internalFormat, IDirect3
         {
             D3DMULTISAMPLE_TYPE multisampleType = D3DMULTISAMPLE_TYPE(i);
 
-            HRESULT result = d3d9->CheckDeviceMultiSampleType(
-                adapter, deviceType, d3dFormatInfo.renderFormat, TRUE, multisampleType, nullptr);
+            HRESULT result = d3d9->CheckDeviceMultiSampleType(adapter, deviceType, d3dFormatInfo.renderFormat, TRUE, multisampleType, NULL);
             if (SUCCEEDED(result))
             {
                 textureCaps.sampleCounts.insert(i);
@@ -383,17 +381,18 @@ void GenerateCaps(IDirect3D9 *d3d9,
     d3d9->GetAdapterDisplayMode(adapter, &currentDisplayMode);
 
     GLuint maxSamples = 0;
-    for (GLenum internalFormat : gl::GetAllSizedInternalFormats())
+    const gl::FormatSet &allFormats = gl::GetAllSizedInternalFormats();
+    for (gl::FormatSet::const_iterator internalFormat = allFormats.begin(); internalFormat != allFormats.end(); ++internalFormat)
     {
-        gl::TextureCaps textureCaps = GenerateTextureFormatCaps(internalFormat, d3d9, deviceType,
-                                                                adapter, currentDisplayMode.Format);
-        textureCapsMap->insert(internalFormat, textureCaps);
+        gl::TextureCaps textureCaps = GenerateTextureFormatCaps(*internalFormat, d3d9, deviceType, adapter,
+                                                                currentDisplayMode.Format);
+        textureCapsMap->insert(*internalFormat, textureCaps);
 
         maxSamples = std::max(maxSamples, textureCaps.getMaxSamples());
 
-        if (gl::GetSizedInternalFormatInfo(internalFormat).compressed)
+        if (gl::GetInternalFormatInfo(*internalFormat).compressed)
         {
-            caps->compressedTextureFormats.push_back(internalFormat);
+            caps->compressedTextureFormats.push_back(*internalFormat);
         }
     }
 
@@ -568,21 +567,18 @@ void GenerateCaps(IDirect3D9 *d3d9,
     extensions->maxTextureAnisotropy = static_cast<GLfloat>(deviceCaps.MaxAnisotropy);
 
     // Check occlusion query support by trying to create one
-    IDirect3DQuery9 *occlusionQuery = nullptr;
+    IDirect3DQuery9 *occlusionQuery = NULL;
     extensions->occlusionQueryBoolean = SUCCEEDED(device->CreateQuery(D3DQUERYTYPE_OCCLUSION, &occlusionQuery)) && occlusionQuery;
     SafeRelease(occlusionQuery);
 
     // Check event query support by trying to create one
-    IDirect3DQuery9 *eventQuery = nullptr;
+    IDirect3DQuery9 *eventQuery = NULL;
     extensions->fence = SUCCEEDED(device->CreateQuery(D3DQUERYTYPE_EVENT, &eventQuery)) && eventQuery;
     SafeRelease(eventQuery);
 
+    extensions->timerQuery = false; // Unimplemented
     extensions->disjointTimerQuery     = false;
     extensions->robustness = true;
-    // It seems that only DirectX 10 and higher enforce the well-defined behavior of always
-    // returning zero values when out-of-bounds reads. See
-    // https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_robustness.txt
-    extensions->robustBufferAccessBehavior = false;
     extensions->blendMinMax = true;
     extensions->framebufferBlit = true;
     extensions->framebufferMultisample = true;

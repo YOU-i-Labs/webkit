@@ -47,7 +47,7 @@ public:
     static Ref<DatabaseThread> create() { return adoptRef(*new DatabaseThread); }
     ~DatabaseThread();
 
-    void start();
+    bool start();
     void requestTermination(DatabaseTaskSynchronizer* cleanupSync);
     bool terminationRequested(DatabaseTaskSynchronizer* = nullptr) const;
 
@@ -58,13 +58,14 @@ public:
 
     void recordDatabaseOpen(Database&);
     void recordDatabaseClosed(Database&);
-    Thread* getThread() { return m_thread.get(); }
+    ThreadIdentifier getThreadID() { return m_thread ? m_thread->id() : 0; }
 
     SQLTransactionCoordinator* transactionCoordinator() { return m_transactionCoordinator.get(); }
 
 private:
     DatabaseThread();
 
+    static void databaseThreadStart(void*);
     void databaseThread();
 
     Lock m_threadCreationMutex;

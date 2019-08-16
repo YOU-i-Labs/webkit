@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include <functional>
 #include <wtf/Atomics.h>
 #include <wtf/Lock.h>
 #include <wtf/MainThread.h>
@@ -35,17 +34,10 @@ public:
         return adoptRef(*new MainThreadNotifier());
     }
 
-    ~MainThreadNotifier()
-    {
-        ASSERT(!m_isValid.load());
-    }
-
     template<typename F>
-    void notify(T notificationType, F&& callbackFunctor)
+    void notify(T notificationType, const F& callbackFunctor)
     {
         ASSERT(m_isValid.load());
-        // Assert that there is only one bit on at a time.
-        ASSERT(!(static_cast<int>(notificationType) & (static_cast<int>(notificationType) - 1)));
         if (isMainThread()) {
             removePendingNotification(notificationType);
             callbackFunctor();
@@ -55,7 +47,7 @@ public:
         if (!addPendingNotification(notificationType))
             return;
 
-        RunLoop::main().dispatch([this, protectedThis = makeRef(*this), notificationType, callback = WTF::Function<void()>(WTFMove(callbackFunctor))] {
+        RunLoop::main().dispatch([this, protectedThis = makeRef(*this), notificationType, callback = std::function<void()>(callbackFunctor)] {
             if (!m_isValid.load())
                 return;
             if (removePendingNotification(notificationType))

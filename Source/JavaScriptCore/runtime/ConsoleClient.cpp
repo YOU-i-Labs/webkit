@@ -26,11 +26,11 @@
 #include "config.h"
 #include "ConsoleClient.h"
 
-#include "CatchScope.h"
 #include "JSCInlines.h"
 #include "ScriptArguments.h"
 #include "ScriptCallStack.h"
 #include "ScriptCallStackFactory.h"
+#include "ScriptValue.h"
 #include <wtf/Assertions.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
@@ -163,11 +163,9 @@ void ConsoleClient::printConsoleMessageWithArguments(MessageSource source, Messa
 
     appendMessagePrefix(builder, source, type, level);
     for (size_t i = 0; i < arguments->argumentCount(); ++i) {
+        String argAsString = arguments->argumentAt(i).toString(arguments->globalState());
         builder.append(' ');
-        auto* state = arguments->globalState();
-        auto scope = DECLARE_CATCH_SCOPE(state->vm());
-        builder.append(arguments->argumentAt(i).toWTFString(state));
-        scope.clearException();
+        builder.append(argAsString);
     }
 
     WTFLogAlways("%s", builder.toString().utf8().data());
@@ -177,7 +175,7 @@ void ConsoleClient::printConsoleMessageWithArguments(MessageSource source, Messa
             const ScriptCallFrame& callFrame = callStack->at(i);
             String functionName = String(callFrame.functionName());
             if (functionName.isEmpty())
-                functionName = "(unknown)"_s;
+                functionName = ASCIILiteral("(unknown)");
 
             StringBuilder callFrameBuilder;
             callFrameBuilder.appendNumber(i);
@@ -207,7 +205,7 @@ void ConsoleClient::logWithLevel(ExecState* exec, Ref<ScriptArguments>&& argumen
 
 void ConsoleClient::clear(ExecState* exec)
 {
-    internalMessageWithTypeAndLevel(MessageType::Clear, MessageLevel::Log, exec, ScriptArguments::create(*exec, { }), ArgumentNotRequired);
+    internalMessageWithTypeAndLevel(MessageType::Clear, MessageLevel::Log, exec, ScriptArguments::createEmpty(exec), ArgumentNotRequired);
 }
 
 void ConsoleClient::dir(ExecState* exec, Ref<ScriptArguments>&& arguments)

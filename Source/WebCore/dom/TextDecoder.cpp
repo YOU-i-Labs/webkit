@@ -25,6 +25,7 @@
 #include "config.h"
 #include "TextDecoder.h"
 
+#include "ExceptionCode.h"
 #include "HTMLParserIdioms.h"
 
 namespace WebCore {
@@ -87,12 +88,16 @@ String TextDecoder::prependBOMIfNecessary(const String& decoded)
 
 static size_t codeUnitByteSize(const TextEncoding& encoding)
 {
-    return encoding.isByteBasedEncoding() ? 1 : 2;
+    if (encoding.isByteBasedEncoding())
+        return 1;
+    if (encoding == UTF32BigEndianEncoding() || encoding == UTF32LittleEndianEncoding())
+        return 4;
+    return 2;
 }
 
-ExceptionOr<String> TextDecoder::decode(Optional<BufferSource::VariantType> input, DecodeOptions options)
+ExceptionOr<String> TextDecoder::decode(std::optional<BufferSource::VariantType> input, DecodeOptions options)
 {
-    Optional<BufferSource> inputBuffer;
+    std::optional<BufferSource> inputBuffer;
     const uint8_t* data = nullptr;
     size_t length = 0;
     if (input) {

@@ -77,10 +77,8 @@ FrontendTestHarness = class FrontendTestHarness extends TestHarness
         this.evaluateInPage(`TestPage.debugLog(unescape("${escape(stringifiedMessage)}"));`);
     }
 
-    evaluateInPage(expression, callback, options={})
+    evaluateInPage(expression, callback)
     {
-        let remoteObjectOnly = !!options.remoteObjectOnly;
-
         // If we load this page outside of the inspector, or hit an early error when loading
         // the test frontend, then defer evaluating the commands (indefinitely in the former case).
         if (this._originalConsole && !window.RuntimeAgent) {
@@ -88,25 +86,7 @@ FrontendTestHarness = class FrontendTestHarness extends TestHarness
             return;
         }
 
-        // Return primitive values directly, otherwise return a WI.RemoteObject instance.
-        function translateResult(result) {
-            let remoteObject = WI.RemoteObject.fromPayload(result);
-            return (!remoteObjectOnly && remoteObject.hasValue()) ? remoteObject.value : remoteObject;
-        }
-
-        let response = RuntimeAgent.evaluate.invoke({expression, objectGroup: "test", includeCommandLineAPI: false});
-        if (callback && typeof callback === "function") {
-            response = response.then(({result, wasThrown}) => callback(null, translateResult(result), wasThrown));
-            response = response.catch((error) => callback(error, null, false));
-        } else {
-            // Turn a thrown Error result into a promise rejection.
-            return response.then(({result, wasThrown}) => {
-                result = translateResult(result);
-                if (result && wasThrown)
-                    return Promise.reject(new Error(result.description));
-                return Promise.resolve(result);
-            });
-        }
+        RuntimeAgent.evaluate.invoke({expression, objectGroup: "test", includeCommandLineAPI: false}, callback);
     }
 
     debug()
@@ -140,7 +120,7 @@ FrontendTestHarness = class FrontendTestHarness extends TestHarness
             this.completeTest();
     }
 
-    reloadPage(options = {})
+    reloadPage(options={})
     {
         console.assert(!this._testPageIsReloading);
         console.assert(!this._testPageReloadedOnce);
@@ -148,56 +128,16 @@ FrontendTestHarness = class FrontendTestHarness extends TestHarness
         this._testPageIsReloading = true;
 
         let {ignoreCache, revalidateAllResources} = options;
-        ignoreCache = !!ignoreCache;
+        let shouldIgnoreCache = !!ignoreCache;
         revalidateAllResources = !!revalidateAllResources;
 
-        return PageAgent.reload.invoke({ignoreCache, revalidateAllResources})
+        return PageAgent.reload.invoke({shouldIgnoreCache, revalidateAllResources})
             .then(() => {
                 this._shouldResendResults = true;
                 this._testPageReloadedOnce = true;
 
                 return Promise.resolve(null);
             });
-    }
-
-    redirectRequestAnimationFrame()
-    {
-        console.assert(!this._originalRequestAnimationFrame);
-        if (this._originalRequestAnimationFrame)
-            return;
-
-        this._originalRequestAnimationFrame = window.requestAnimationFrame;
-        this._requestAnimationFrameCallbacks = new Map;
-        this._nextRequestIdentifier = 1;
-
-        window.requestAnimationFrame = (callback) => {
-            let requestIdentifier = this._nextRequestIdentifier++;
-            this._requestAnimationFrameCallbacks.set(requestIdentifier, callback);
-            if (this._requestAnimationFrameTimer)
-                return requestIdentifier;
-
-            let dispatchCallbacks = () => {
-                let callbacks = this._requestAnimationFrameCallbacks;
-                this._requestAnimationFrameCallbacks = new Map;
-                this._requestAnimationFrameTimer = undefined;
-                let timestamp = window.performance.now();
-                for (let callback of callbacks.values())
-                    callback(timestamp);
-            };
-
-            this._requestAnimationFrameTimer = setTimeout(dispatchCallbacks, 0);
-            return requestIdentifier;
-        };
-
-        window.cancelAnimationFrame = (requestIdentifier) => {
-            if (!this._requestAnimationFrameCallbacks.delete(requestIdentifier))
-                return;
-
-            if (!this._requestAnimationFrameCallbacks.size) {
-                clearTimeout(this._requestAnimationFrameTimer);
-                this._requestAnimationFrameTimer = undefined;
-            }
-        };
     }
 
     redirectConsoleToTestOutput()

@@ -26,6 +26,7 @@
 #pragma once
 
 #include "JSCJSValue.h"
+#include <wtf/HashMap.h>
 #include <wtf/PrintStream.h>
 
 namespace JSC { namespace Profiler {

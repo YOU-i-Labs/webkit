@@ -26,7 +26,7 @@
 
 #pragma once
 
-#include <JavaScriptCore/InspectorAgentBase.h>
+#include <inspector/InspectorAgentBase.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {

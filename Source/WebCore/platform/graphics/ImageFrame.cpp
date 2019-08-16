@@ -53,6 +53,14 @@ ImageFrame& ImageFrame::operator=(const ImageFrame& other)
     m_decodingStatus = other.m_decodingStatus;
     m_size = other.m_size;
 
+#if !USE(CG)
+    if (other.backingStore())
+        initialize(*other.backingStore());
+    else
+        m_backingStore = nullptr;
+    m_disposalMethod = other.m_disposalMethod;
+#endif
+
     m_nativeImage = other.m_nativeImage;
     m_subsamplingLevel = other.m_subsamplingLevel;
     m_decodingOptions = other.m_decodingOptions;
@@ -69,7 +77,7 @@ void ImageFrame::setDecodingStatus(DecodingStatus decodingStatus)
     m_decodingStatus = decodingStatus;
 }
 
-DecodingStatus ImageFrame::decodingStatus() const
+ImageFrame::DecodingStatus ImageFrame::decodingStatus() const
 {
     ASSERT(m_decodingStatus != DecodingStatus::Decoding);
     return m_decodingStatus;
@@ -77,6 +85,11 @@ DecodingStatus ImageFrame::decodingStatus() const
 
 unsigned ImageFrame::clearImage()
 {
+#if !USE(CG)
+    if (hasBackingStore())
+        m_backingStore = nullptr;
+#endif
+
     if (!hasNativeImage())
         return 0;
 
@@ -84,7 +97,7 @@ unsigned ImageFrame::clearImage()
 
     clearNativeImageSubimages(m_nativeImage);
     m_nativeImage = nullptr;
-    m_decodingOptions = DecodingOptions();
+    m_decodingOptions = { };
 
     return frameBytes;
 }
@@ -96,22 +109,46 @@ unsigned ImageFrame::clear()
     return frameBytes;
 }
 
+#if !USE(CG)
+bool ImageFrame::initialize(const ImageBackingStore& backingStore)
+{
+    if (&backingStore == this->backingStore())
+        return true;
+
+    m_backingStore = ImageBackingStore::create(backingStore);
+    return m_backingStore != nullptr;
+}
+
+bool ImageFrame::initialize(const IntSize& size, bool premultiplyAlpha)
+{
+    if (size.isEmpty())
+        return false;
+
+    m_backingStore = ImageBackingStore::create(size, premultiplyAlpha);
+    return m_backingStore != nullptr;
+}
+#endif
+
 IntSize ImageFrame::size() const
 {
+#if !USE(CG)
+    if (hasBackingStore())
+        return backingStore()->size();
+#endif
     return m_size;
 }
     
-bool ImageFrame::hasNativeImage(const Optional<SubsamplingLevel>& subsamplingLevel) const
+bool ImageFrame::hasNativeImage(const std::optional<SubsamplingLevel>& subsamplingLevel) const
 {
     return m_nativeImage && (!subsamplingLevel || *subsamplingLevel >= m_subsamplingLevel);
 }
 
-bool ImageFrame::hasFullSizeNativeImage(const Optional<SubsamplingLevel>& subsamplingLevel) const
+bool ImageFrame::hasFullSizeNativeImage(const std::optional<SubsamplingLevel>& subsamplingLevel) const
 {
     return hasNativeImage(subsamplingLevel) && (m_decodingOptions.isSynchronous() || m_decodingOptions.hasFullSize());
 }
 
-bool ImageFrame::hasDecodedNativeImageCompatibleWithOptions(const Optional<SubsamplingLevel>& subsamplingLevel, const DecodingOptions& decodingOptions) const
+bool ImageFrame::hasDecodedNativeImageCompatibleWithOptions(const std::optional<SubsamplingLevel>& subsamplingLevel, const DecodingOptions& decodingOptions) const
 {
     return hasNativeImage(subsamplingLevel) && m_decodingOptions.isAsynchronousCompatibleWith(decodingOptions);
 }

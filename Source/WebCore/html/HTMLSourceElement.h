@@ -33,7 +33,6 @@ namespace WebCore {
 class MediaQuerySet;
 
 class HTMLSourceElement final : public HTMLElement, private ActiveDOMObject {
-    WTF_MAKE_ISO_ALLOCATED(HTMLSourceElement);
 public:
     static Ref<HTMLSourceElement> create(Document&);
     static Ref<HTMLSourceElement> create(const QualifiedName&, Document&);
@@ -41,13 +40,13 @@ public:
     void scheduleErrorEvent();
     void cancelPendingErrorEvent();
 
-    const MediaQuerySet* parsedMediaAttribute(Document&) const;
+    const MediaQuerySet* parsedMediaAttribute() const;
 
 private:
     HTMLSourceElement(const QualifiedName&, Document&);
     
-    InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) final;
-    void removedFromAncestor(RemovalType, ContainerNode&) final;
+    InsertionNotificationRequest insertedInto(ContainerNode&) final;
+    void removedFrom(ContainerNode&) final;
     bool isURLAttribute(const Attribute&) const final;
 
     // ActiveDOMObject.
@@ -63,7 +62,7 @@ private:
 
     Timer m_errorEventTimer;
     bool m_shouldRescheduleErrorEventOnResume { false };
-    mutable Optional<RefPtr<const MediaQuerySet>> m_cachedParsedMediaAttribute;
+    mutable std::optional<RefPtr<const MediaQuerySet>> m_cachedParsedMediaAttribute;
 };
 
 } // namespace WebCore

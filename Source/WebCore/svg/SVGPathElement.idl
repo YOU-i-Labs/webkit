@@ -24,7 +24,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-interface SVGPathElement : SVGGeometryElement {
+interface SVGPathElement : SVGGraphicsElement {
+    readonly attribute SVGAnimatedNumber pathLength;
+
+    unrestricted float getTotalLength();
+    [NewObject] SVGPoint getPointAtLength(optional unrestricted float distance = NaN);
     unsigned long getPathSegAtLength(optional unrestricted float distance = NaN);
 
     SVGPathSegClosePath createSVGPathSegClosePath();

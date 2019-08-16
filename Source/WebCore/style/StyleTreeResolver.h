@@ -25,13 +25,16 @@
 
 #pragma once
 
+#include "RenderStyleConstants.h"
+#include "RenderTreePosition.h"
 #include "SelectorChecker.h"
 #include "SelectorFilter.h"
 #include "StyleChange.h"
 #include "StyleSharingResolver.h"
 #include "StyleUpdate.h"
+#include "StyleValidity.h"
 #include <wtf/Function.h>
-#include <wtf/Ref.h>
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
@@ -51,15 +54,13 @@ public:
 
     std::unique_ptr<Update> resolve();
 
+    static ElementUpdate createAnimatedElementUpdate(std::unique_ptr<RenderStyle>, Element&, Change parentChange);
+
 private:
     std::unique_ptr<RenderStyle> styleForElement(Element&, const RenderStyle& inheritedStyle);
 
     void resolveComposedTree();
-
-    ElementUpdates resolveElement(Element&);
-
-    ElementUpdate createAnimatedElementUpdate(std::unique_ptr<RenderStyle>, Element&, Change);
-    ElementUpdate resolvePseudoStyle(Element&, const ElementUpdate&, PseudoId);
+    ElementUpdate resolveElement(Element&);
 
     struct Scope : RefCounted<Scope> {
         StyleResolver& styleResolver;
@@ -70,18 +71,17 @@ private:
 
         Scope(Document&);
         Scope(ShadowRoot&, Scope& enclosingScope);
-        ~Scope();
     };
 
     struct Parent {
         Element* element;
         const RenderStyle& style;
         Change change { NoChange };
-        DescendantsToResolve descendantsToResolve { DescendantsToResolve::None };
         bool didPushScope { false };
+        bool elementNeedingStyleRecalcAffectsNextSiblingElementStyle { false };
 
         Parent(Document&);
-        Parent(Element&, const RenderStyle&, Change, DescendantsToResolve);
+        Parent(Element&, const RenderStyle&, Change);
     };
 
     Scope& scope() { return m_scopeStack.last(); }
@@ -91,7 +91,7 @@ private:
     void pushEnclosingScope();
     void popScope();
 
-    void pushParent(Element&, const RenderStyle&, Change, DescendantsToResolve);
+    void pushParent(Element&, const RenderStyle&, Change);
     void popParent();
     void popParentsToDepth(unsigned depth);
 
@@ -112,11 +112,8 @@ bool postResolutionCallbacksAreSuspended();
 
 class PostResolutionCallbackDisabler {
 public:
-    enum class DrainCallbacks { Yes, No };
-    explicit PostResolutionCallbackDisabler(Document&, DrainCallbacks = DrainCallbacks::Yes);
+    explicit PostResolutionCallbackDisabler(Document&);
     ~PostResolutionCallbackDisabler();
-private:
-    DrainCallbacks m_drainCallbacks;
 };
 
 }

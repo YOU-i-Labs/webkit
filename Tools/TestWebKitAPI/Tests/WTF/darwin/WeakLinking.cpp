@@ -30,13 +30,21 @@
 #include <sys/unistd.h>
 #include <wtf/darwin/WeakLinking.h>
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 101000
 asm(".linker_option \"-lTestWTFAlwaysMissing-iOS-v2\"");
+#else
+asm(".linker_option \"-lTestWTFAlwaysMissing-iOS\"");
+#endif
 
 #else
 
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101200
 asm(".linker_option \"-lTestWTFAlwaysMissing-macOS-v2\"");
+#else
+asm(".linker_option \"-lTestWTFAlwaysMissing-macOS\"");
+#endif
 
 #endif
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,21 +27,19 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "CallLinkInfo.h"
-#include "JSCPoison.h"
-#include "JSCast.h"
+#include "JSCell.h"
 #include "PromiseDeferredTimer.h"
 #include "Structure.h"
+#include "UnconditionalFinalizer.h"
 #include "WasmCallee.h"
 #include "WasmFormat.h"
 #include "WasmModule.h"
 #include <wtf/Bag.h>
-#include <wtf/PoisonedUniquePtr.h>
-#include <wtf/Ref.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
 
+class JSWebAssemblyModule;
 class JSWebAssemblyMemory;
 
 namespace Wasm {
@@ -53,35 +51,49 @@ public:
     typedef JSCell Base;
     static const unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;
 
-    static JSWebAssemblyCodeBlock* create(VM&, Ref<Wasm::CodeBlock>, const Wasm::ModuleInformation&);
+    static JSWebAssemblyCodeBlock* create(VM&, Ref<Wasm::CodeBlock>, JSWebAssemblyModule*);
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
         return Structure::create(vm, globalObject, prototype, TypeInfo(CellType, StructureFlags), info());
     }
 
     template<typename CellType>
-    static IsoSubspace* subspaceFor(VM& vm)
+    static Subspace* subspaceFor(VM& vm)
     {
         return &vm.webAssemblyCodeBlockSpace;
     }
 
-    Wasm::CodeBlock& codeBlock() { return m_codeBlock.get(); }
-    
-    MacroAssemblerCodePtr<WasmEntryPtrTag> wasmToEmbedderStub(size_t importFunctionNum) { return m_wasmToJSExitStubs[importFunctionNum].code(); }
+    unsigned functionImportCount() const { return m_codeBlock->functionImportCount(); }
+    JSWebAssemblyModule* module() const { return m_module.get(); }
 
-    void finishCreation(VM&);
+    bool isSafeToRun(JSWebAssemblyMemory*) const;
 
-    void clearJSCallICs(VM&);
+    void finishCreation(VM&, JSWebAssemblyModule*);
 
-    bool runnable() const { return !m_errorMessage; }
+    // These two callee getters are only valid once the callees have been populated.
 
-    String errorMessage()
+    Wasm::Callee& jsEntrypointCalleeFromFunctionIndexSpace(unsigned functionIndexSpace)
     {
-        ASSERT(!runnable());
-        return m_errorMessage;
+        return m_codeBlock->jsEntrypointCalleeFromFunctionIndexSpace(functionIndexSpace);
+    }
+    Wasm::WasmEntrypointLoadLocation wasmEntrypointLoadLocationFromFunctionIndexSpace(unsigned functionIndexSpace)
+    {
+        return m_codeBlock->wasmEntrypointLoadLocationFromFunctionIndexSpace(functionIndexSpace);
     }
 
-    void finalizeUnconditionally(VM&);
+    Wasm::WasmEntrypointLoadLocation wasmToJsCallStubForImport(unsigned importIndex)
+    {
+        return &importWasmToJSStub(importIndex);
+    }
+
+    static ptrdiff_t offsetOfImportWasmToJSStub(unsigned importIndex)
+    {
+        return offsetOfImportStubs() + sizeof(void*) * importIndex;
+    }
+
+    Wasm::CodeBlock& codeBlock() { return m_codeBlock.get(); }
+
+    void clearJSCallICs(VM&);
 
 private:
     JSWebAssemblyCodeBlock(VM&, Ref<Wasm::CodeBlock>&&, const Wasm::ModuleInformation&);
@@ -90,10 +102,30 @@ private:
     static void destroy(JSCell*);
     static void visitChildren(JSCell*, SlotVisitor&);
 
-    PoisonedRef<JSWebAssemblyCodeBlockPoison, Wasm::CodeBlock> m_codeBlock;
-    Vector<MacroAssemblerCodeRef<WasmEntryPtrTag>> m_wasmToJSExitStubs;
+    static size_t offsetOfImportStubs()
+    {
+        return WTF::roundUpToMultipleOf<sizeof(void*)>(sizeof(JSWebAssemblyCodeBlock));
+    }
+
+    static size_t allocationSize(Checked<size_t> functionImportCount)
+    {
+        return (offsetOfImportStubs() + sizeof(void*) * functionImportCount).unsafeGet();
+    }
+
+    void*& importWasmToJSStub(unsigned importIndex)
+    {
+        return *bitwise_cast<void**>(bitwise_cast<char*>(this) + offsetOfImportWasmToJSStub(importIndex));
+    }
+
+    class UnconditionalFinalizer : public JSC::UnconditionalFinalizer {
+        void finalizeUnconditionally() override;
+    };
+
+    Ref<Wasm::CodeBlock> m_codeBlock;
+    WriteBarrier<JSWebAssemblyModule> m_module;
+    Vector<MacroAssemblerCodeRef> m_wasmToJSExitStubs;
+    UnconditionalFinalizer m_unconditionalFinalizer;
     Bag<CallLinkInfo> m_callLinkInfos;
-    String m_errorMessage;
 };
 
 } // namespace JSC

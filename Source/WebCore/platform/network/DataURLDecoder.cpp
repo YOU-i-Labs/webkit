@@ -29,10 +29,9 @@
 #include "DecodeEscapeSequences.h"
 #include "HTTPParsers.h"
 #include "SharedBuffer.h"
-#include "TextEncoding.h"
+#include "URL.h"
 #include <wtf/MainThread.h>
 #include <wtf/RunLoop.h>
-#include <wtf/URL.h>
 #include <wtf/WorkQueue.h>
 #include <wtf/text/Base64.h>
 
@@ -45,56 +44,22 @@ static WorkQueue& decodeQueue()
     return queue;
 }
 
-static Result parseMediaType(const String& mediaType)
-{
-    auto mimeType = extractMIMETypeFromMediaType(mediaType);
-    auto charset = extractCharsetFromMediaType(mediaType);
-
-    // https://tools.ietf.org/html/rfc2397
-    // If <mediatype> is omitted, it defaults to text/plain;charset=US-ASCII. As a shorthand,
-    // "text/plain" can be omitted but the charset parameter supplied.
-    if (mimeType.isEmpty()) {
-        mimeType = "text/plain"_s;
-        if (charset.isEmpty())
-            charset = "US-ASCII"_s;
-    }
-    return { mimeType, charset, !mediaType.isEmpty() ? mediaType : "text/plain;charset=US-ASCII", nullptr };
-}
-
 struct DecodeTask {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    DecodeTask(const String& urlString, const ScheduleContext& scheduleContext, DecodeCompletionHandler&& completionHandler)
+    DecodeTask(const String& urlString, StringView&& encodedData, bool isBase64, const ScheduleContext& scheduleContext, DecodeCompletionHandler&& completionHandler, Result&& result)
         : urlString(urlString.isolatedCopy())
+        , encodedData(WTFMove(encodedData))
+        , isBase64(isBase64)
         , scheduleContext(scheduleContext)
         , completionHandler(WTFMove(completionHandler))
+        , result(WTFMove(result))
     {
-    }
-
-    bool process()
-    {
-        if (urlString.find(',') == notFound)
-            return false;
-        const char dataString[] = "data:";
-        const char base64String[] = ";base64";
-
-        ASSERT(urlString.startsWith(dataString));
-
-        size_t headerEnd = urlString.find(',', strlen(dataString));
-        size_t encodedDataStart = headerEnd == notFound ? headerEnd : headerEnd + 1;
-
-        encodedData = StringView(urlString).substring(encodedDataStart);
-        auto header = StringView(urlString).substring(strlen(dataString), headerEnd - strlen(dataString));
-        isBase64 = header.endsWithIgnoringASCIICase(StringView(base64String));
-        auto mediaType = (isBase64 ? header.substring(0, header.length() - strlen(base64String)) : header).toString();
-        result = parseMediaType(mediaType);
-
-        return true;
     }
 
     const String urlString;
-    StringView encodedData;
-    bool isBase64 { false };
+    const StringView encodedData;
+    const bool isBase64;
     const ScheduleContext scheduleContext;
     const DecodeCompletionHandler completionHandler;
 
@@ -147,12 +112,45 @@ private:
 
 #endif // HAVE(RUNLOOP_TIMER)
 
+static Result parseMediaType(const String& mediaType)
+{
+    auto mimeType = extractMIMETypeFromMediaType(mediaType);
+    auto charset = extractCharsetFromMediaType(mediaType);
+
+    // https://tools.ietf.org/html/rfc2397
+    // If <mediatype> is omitted, it defaults to text/plain;charset=US-ASCII. As a shorthand,
+    // "text/plain" can be omitted but the charset parameter supplied.
+    if (mimeType.isEmpty()) {
+        mimeType = ASCIILiteral("text/plain");
+        if (charset.isEmpty())
+            charset = ASCIILiteral("US-ASCII");
+    }
+    return { mimeType, charset, !mediaType.isEmpty() ? mediaType : "text/plain;charset=US-ASCII", nullptr };
+}
+
 static std::unique_ptr<DecodeTask> createDecodeTask(const URL& url, const ScheduleContext& scheduleContext, DecodeCompletionHandler&& completionHandler)
 {
+    const char dataString[] = "data:";
+    const char base64String[] = ";base64";
+
+    auto urlString = url.string();
+    ASSERT(urlString.startsWith(dataString));
+
+    size_t headerEnd = urlString.find(',', strlen(dataString));
+    size_t encodedDataStart = headerEnd == notFound ? headerEnd : headerEnd + 1;
+
+    auto encodedData = StringView(urlString).substring(encodedDataStart);
+    auto header = StringView(urlString).substring(strlen(dataString), headerEnd - strlen(dataString));
+    bool isBase64 = header.endsWithIgnoringASCIICase(StringView(base64String));
+    auto mediaType = (isBase64 ? header.substring(0, header.length() - strlen(base64String)) : header).toString();
+
     return std::make_unique<DecodeTask>(
-        url.string(),
+        urlString,
+        WTFMove(encodedData),
+        isBase64,
         scheduleContext,
-        WTFMove(completionHandler)
+        WTFMove(completionHandler),
+        parseMediaType(mediaType)
     );
 }
 
@@ -185,12 +183,10 @@ void decode(const URL& url, const ScheduleContext& scheduleContext, DecodeComple
     ASSERT(url.protocolIsData());
 
     decodeQueue().dispatch([decodeTask = createDecodeTask(url, scheduleContext, WTFMove(completionHandler))]() mutable {
-        if (decodeTask->process()) {
-            if (decodeTask->isBase64)
-                decodeBase64(*decodeTask);
-            else
-                decodeEscaped(*decodeTask);
-        }
+        if (decodeTask->isBase64)
+            decodeBase64(*decodeTask);
+        else
+            decodeEscaped(*decodeTask);
 
 #if HAVE(RUNLOOP_TIMER)
         DecodingResultDispatcher::dispatch(WTFMove(decodeTask));

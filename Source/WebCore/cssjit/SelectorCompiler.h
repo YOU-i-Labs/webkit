@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,15 +27,44 @@
 
 #if ENABLE(CSS_SELECTOR_JIT)
 
-#include "CompiledSelector.h"
 #include "SelectorChecker.h"
+#include <JavaScriptCore/MacroAssemblerCodeRef.h>
 
 #define CSS_SELECTOR_JIT_PROFILING 0
+
+namespace JSC {
+class MacroAssemblerCodeRef;
+class VM;
+}
 
 namespace WebCore {
 
 class CSSSelector;
 class Element;
+class RenderStyle;
+
+class SelectorCompilationStatus {
+public:
+    enum Status {
+        NotCompiled,
+        CannotCompile,
+        SimpleSelectorChecker,
+        SelectorCheckerWithCheckingContext
+    };
+
+    SelectorCompilationStatus()
+        : m_status(NotCompiled)
+    { }
+
+    SelectorCompilationStatus(Status status)
+        : m_status(status)
+    { }
+
+    operator Status() const { return m_status; }
+
+private:
+    Status m_status;
+};
 
 namespace SelectorCompiler {
 
@@ -53,30 +82,30 @@ typedef unsigned (*QuerySelectorSimpleSelectorChecker)(const Element*);
 typedef unsigned (*RuleCollectorSelectorCheckerWithCheckingContext)(const Element*, SelectorChecker::CheckingContext*, unsigned*);
 typedef unsigned (*QuerySelectorSelectorCheckerWithCheckingContext)(const Element*, const SelectorChecker::CheckingContext*);
 
-SelectorCompilationStatus compileSelector(const CSSSelector*, SelectorContext, JSC::MacroAssemblerCodeRef<CSSSelectorPtrTag>& outputCodeRef);
+SelectorCompilationStatus compileSelector(const CSSSelector*, JSC::VM*, SelectorContext, JSC::MacroAssemblerCodeRef& outputCodeRef);
 
 inline RuleCollectorSimpleSelectorChecker ruleCollectorSimpleSelectorCheckerFunction(void* executableAddress, SelectorCompilationStatus compilationStatus)
 {
     ASSERT_UNUSED(compilationStatus, compilationStatus == SelectorCompilationStatus::SimpleSelectorChecker);
-    return WTF::untagCFunctionPtr<RuleCollectorSimpleSelectorChecker, CSSSelectorPtrTag>(executableAddress);
+    return reinterpret_cast<RuleCollectorSimpleSelectorChecker>(executableAddress);
 }
 
 inline QuerySelectorSimpleSelectorChecker querySelectorSimpleSelectorCheckerFunction(void* executableAddress, SelectorCompilationStatus compilationStatus)
 {
     ASSERT_UNUSED(compilationStatus, compilationStatus == SelectorCompilationStatus::SimpleSelectorChecker);
-    return WTF::untagCFunctionPtr<QuerySelectorSimpleSelectorChecker, CSSSelectorPtrTag>(executableAddress);
+    return reinterpret_cast<QuerySelectorSimpleSelectorChecker>(executableAddress);
 }
 
 inline RuleCollectorSelectorCheckerWithCheckingContext ruleCollectorSelectorCheckerFunctionWithCheckingContext(void* executableAddress, SelectorCompilationStatus compilationStatus)
 {
     ASSERT_UNUSED(compilationStatus, compilationStatus == SelectorCompilationStatus::SelectorCheckerWithCheckingContext);
-    return WTF::untagCFunctionPtr<RuleCollectorSelectorCheckerWithCheckingContext, CSSSelectorPtrTag>(executableAddress);
+    return reinterpret_cast<RuleCollectorSelectorCheckerWithCheckingContext>(executableAddress);
 }
 
 inline QuerySelectorSelectorCheckerWithCheckingContext querySelectorSelectorCheckerFunctionWithCheckingContext(void* executableAddress, SelectorCompilationStatus compilationStatus)
 {
     ASSERT_UNUSED(compilationStatus, compilationStatus == SelectorCompilationStatus::SelectorCheckerWithCheckingContext);
-    return WTF::untagCFunctionPtr<QuerySelectorSelectorCheckerWithCheckingContext, CSSSelectorPtrTag>(executableAddress);
+    return reinterpret_cast<QuerySelectorSelectorCheckerWithCheckingContext>(executableAddress);
 }
 
 } // namespace SelectorCompiler

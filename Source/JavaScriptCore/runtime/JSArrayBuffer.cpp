@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,6 @@
 #include "JSCInlines.h"
 #include "TypeError.h"
 #include "TypedArrayController.h"
-#include <wtf/Gigacage.h>
 
 namespace JSC {
 
@@ -46,8 +45,8 @@ void JSArrayBuffer::finishCreation(VM& vm, JSGlobalObject* globalObject)
 {
     Base::finishCreation(vm);
     // This probably causes GCs in the various VMs to overcount the impact of the array buffer.
-    vm.heap.addReference(this, impl());
-    vm.m_typedArrayController->registerWrapper(globalObject, impl(), this);
+    vm.heap.addReference(this, m_impl);
+    vm.m_typedArrayController->registerWrapper(globalObject, m_impl, this);
 }
 
 JSArrayBuffer* JSArrayBuffer::create(
@@ -64,25 +63,25 @@ Structure* JSArrayBuffer::createStructure(
     VM& vm, JSGlobalObject* globalObject, JSValue prototype)
 {
     return Structure::create(
-        vm, globalObject, prototype, TypeInfo(ArrayBufferType, StructureFlags), info(),
+        vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info(),
         NonArray);
 }
 
 bool JSArrayBuffer::isShared() const
 {
-    return impl()->isShared();
+    return m_impl->isShared();
 }
 
 ArrayBufferSharingMode JSArrayBuffer::sharingMode() const
 {
-    return impl()->sharingMode();
+    return m_impl->sharingMode();
 }
 
-size_t JSArrayBuffer::estimatedSize(JSCell* cell, VM& vm)
+size_t JSArrayBuffer::estimatedSize(JSCell* cell)
 {
     JSArrayBuffer* thisObject = jsCast<JSArrayBuffer*>(cell);
     size_t bufferEstimatedSize = thisObject->impl()->gcSizeEstimateInBytes();
-    return Base::estimatedSize(cell, vm) + bufferEstimatedSize;
+    return Base::estimatedSize(cell) + bufferEstimatedSize;
 }
 
 } // namespace JSC

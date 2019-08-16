@@ -27,16 +27,13 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.Color = class Color
+WebInspector.Color = class Color
 {
     constructor(format, components)
     {
         this.format = format;
 
-        if (components.length === 3)
-            components.push(1);
-
-        if (format === WI.Color.Format.HSL || format === WI.Color.Format.HSLA)
+        if (format === WebInspector.Color.Format.HSL || format === WebInspector.Color.Format.HSLA)
             this._hsla = components;
         else
             this._rgba = components;
@@ -51,42 +48,42 @@ WI.Color = class Color
         let value = colorString.toLowerCase().replace(/%|\s+/g, "");
         let transparentKeywords = ["transparent", "rgba(0,0,0,0)", "hsla(0,0,0,0)"];
         if (transparentKeywords.includes(value)) {
-            let color = new WI.Color(WI.Color.Format.Keyword, [0, 0, 0, 0]);
+            let color = new WebInspector.Color(WebInspector.Color.Format.Keyword, [0, 0, 0, 0]);
             color.keyword = "transparent";
             color.original = colorString;
             return color;
         }
 
         // Simple - #hex, rgb(), keyword, hsl()
-        let simple = /^(?:#(?<hex>[0-9a-f]{3,8})|rgb\((?<rgb>[^)]+)\)|(?<keyword>\w+)|hsl\((?<hsl>[^)]+)\))$/i;
+        let simple = /^(?:#([0-9a-f]{3,8})|rgb\(([^)]+)\)|(\w+)|hsl\(([^)]+)\))$/i;
         let match = colorString.match(simple);
         if (match) {
-            if (match.groups.hex) {
-                let hex = match.groups.hex.toUpperCase();
+            if (match[1]) { // hex
+                let hex = match[1].toUpperCase();
                 let len = hex.length;
                 if (len === 3) {
-                    return new WI.Color(WI.Color.Format.ShortHEX, [
+                    return new WebInspector.Color(WebInspector.Color.Format.ShortHEX, [
                         parseInt(hex.charAt(0) + hex.charAt(0), 16),
                         parseInt(hex.charAt(1) + hex.charAt(1), 16),
                         parseInt(hex.charAt(2) + hex.charAt(2), 16),
                         1
                     ]);
                 } else if (len === 6) {
-                    return new WI.Color(WI.Color.Format.HEX, [
+                    return new WebInspector.Color(WebInspector.Color.Format.HEX, [
                         parseInt(hex.substring(0, 2), 16),
                         parseInt(hex.substring(2, 4), 16),
                         parseInt(hex.substring(4, 6), 16),
                         1
                     ]);
                 } else if (len === 4) {
-                    return new WI.Color(WI.Color.Format.ShortHEXAlpha, [
+                    return new WebInspector.Color(WebInspector.Color.Format.ShortHEXAlpha, [
                         parseInt(hex.charAt(0) + hex.charAt(0), 16),
                         parseInt(hex.charAt(1) + hex.charAt(1), 16),
                         parseInt(hex.charAt(2) + hex.charAt(2), 16),
                         parseInt(hex.charAt(3) + hex.charAt(3), 16) / 255
                     ]);
                 } else if (len === 8) {
-                    return new WI.Color(WI.Color.Format.HEXAlpha, [
+                    return new WebInspector.Color(WebInspector.Color.Format.HEXAlpha, [
                         parseInt(hex.substring(0, 2), 16),
                         parseInt(hex.substring(2, 4), 16),
                         parseInt(hex.substring(4, 6), 16),
@@ -94,29 +91,29 @@ WI.Color = class Color
                     ]);
                 } else
                     return null;
-            } else if (match.groups.rgb) {
-                let rgb = match.groups.rgb.split(/\s*,\s*/);
+            } else if (match[2]) { // rgb
+                let rgb = match[2].split(/\s*,\s*/);
                 if (rgb.length !== 3)
                     return null;
-                return new WI.Color(WI.Color.Format.RGB, [
+                return new WebInspector.Color(WebInspector.Color.Format.RGB, [
                     parseInt(rgb[0]),
                     parseInt(rgb[1]),
                     parseInt(rgb[2]),
                     1
                 ]);
-            } else if (match.groups.keyword) {
-                let keyword = match.groups.keyword.toLowerCase();
-                if (!WI.Color.Keywords.hasOwnProperty(keyword))
+            } else if (match[3]) { // keyword
+                let keyword = match[3].toLowerCase();
+                if (!WebInspector.Color.Keywords.hasOwnProperty(keyword))
                     return null;
-                let color = new WI.Color(WI.Color.Format.Keyword, WI.Color.Keywords[keyword].concat(1));
+                let color = new WebInspector.Color(WebInspector.Color.Format.Keyword, WebInspector.Color.Keywords[keyword].concat(1));
                 color.keyword = keyword;
                 color.original = colorString;
                 return color;
-            } else if (match.groups.hsl) {
-                let hsl = match.groups.hsl.replace(/%/g, "").split(/\s*,\s*/);
+            } else if (match[4]) { // hsl
+                let hsl = match[4].replace(/%/g, "").split(/\s*,\s*/);
                 if (hsl.length !== 3)
                     return null;
-                return new WI.Color(WI.Color.Format.HSL, [
+                return new WebInspector.Color(WebInspector.Color.Format.HSL, [
                     parseInt(hsl[0]),
                     parseInt(hsl[1]),
                     parseInt(hsl[2]),
@@ -126,24 +123,24 @@ WI.Color = class Color
         }
 
         // Advanced - rgba(), hsla()
-        let advanced = /^(?:rgba\((?<rgba>[^)]+)\)|hsla\((?<hsla>[^)]+)\))$/i;
+        let advanced = /^(?:rgba\(([^)]+)\)|hsla\(([^)]+)\))$/i;
         match = colorString.match(advanced);
         if (match) {
-            if (match.groups.rgba) {
-                let rgba = match.groups.rgba.split(/\s*,\s*/);
+            if (match[1]) { // rgba
+                let rgba = match[1].split(/\s*,\s*/);
                 if (rgba.length !== 4)
                     return null;
-                return new WI.Color(WI.Color.Format.RGBA, [
+                return new WebInspector.Color(WebInspector.Color.Format.RGBA, [
                     parseInt(rgba[0]),
                     parseInt(rgba[1]),
                     parseInt(rgba[2]),
                     Number.constrain(parseFloat(rgba[3]), 0, 1)
                 ]);
-            } else if (match.groups.hsla) {
-                let hsla = match.groups.hsla.replace(/%/g, "").split(/\s*,\s*/);
+            } else if (match[2]) { // hsla
+                let hsla = match[2].replace(/%/g, "").split(/\s*,\s*/);
                 if (hsla.length !== 4)
                     return null;
-                return new WI.Color(WI.Color.Format.HSLA, [
+                return new WebInspector.Color(WebInspector.Color.Format.HSLA, [
                     parseInt(hsla[0]),
                     parseInt(hsla[1]),
                     parseInt(hsla[2]),
@@ -155,19 +152,19 @@ WI.Color = class Color
         return null;
     }
 
-    static rgb2hsl(r, g, b)
+    static rgb2hsv(r, g, b)
     {
-        r = WI.Color._eightBitChannel(r) / 255;
-        g = WI.Color._eightBitChannel(g) / 255;
-        b = WI.Color._eightBitChannel(b) / 255;
+        r /= 255;
+        g /= 255;
+        b /= 255;
 
-        let min = Math.min(r, g, b);
-        let max = Math.max(r, g, b);
+        let min = Math.min(Math.min(r, g), b);
+        let max = Math.max(Math.max(r, g), b);
         let delta = max - min;
 
-        let h = 0;
-        let s = 0;
-        let l = (max + min) / 2;
+        let h;
+        let s;
+        let v = max;
 
         if (delta === 0)
             h = 0;
@@ -182,85 +179,52 @@ WI.Color = class Color
             h += 360;
 
         // Saturation
-        if (delta === 0)
+        if (max === 0)
             s = 0;
         else
-            s = delta / (1 - Math.abs((2 * l) - 1));
+            s = 1 - (min / max);
 
-        return [
-            h,
-            s * 100,
-            l * 100,
-        ];
+        return [h, s, v];
     }
 
-    static hsl2rgb(h, s, l)
+    static hsv2rgb(h, s, v)
     {
-        h = Number.constrain(h, 0, 360) % 360;
-        s = Number.constrain(s, 0, 100) / 100;
-        l = Number.constrain(l, 0, 100) / 100;
+        if (s === 0)
+            return [v, v, v];
 
-        let c = (1 - Math.abs((2 * l) - 1)) * s;
-        let x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-        let m = l - (c / 2);
+        h /= 60;
+        let i = Math.floor(h);
+        let data = [
+            v * (1 - s),
+            v * (1 - s * (h - i)),
+            v * (1 - s * (1 - (h - i)))
+        ];
+        let rgb;
 
-        let r = 0;
-        let g = 0;
-        let b = 0;
-
-        if (h < 60) {
-            r = c;
-            g = x;
-        } else if (h < 120) {
-            r = x;
-            g = c;
-        } else if (h < 180) {
-            g = c;
-            b = x;
-        } else if (h < 240) {
-            g = x;
-            b = c;
-        } else if (h < 300) {
-            r = x;
-            b = c;
-        } else if (h < 360) {
-            r = c;
-            b = x;
+        switch (i) {
+        case 0:
+            rgb = [v, data[2], data[0]];
+            break;
+        case 1:
+            rgb = [data[1], v, data[0]];
+            break;
+        case 2:
+            rgb = [data[0], v, data[2]];
+            break;
+        case 3:
+            rgb = [data[0], data[1], v];
+            break;
+        case 4:
+            rgb = [data[2], data[0], v];
+            break;
+        default:
+            rgb = [v, data[0], data[1]];
+            break;
         }
 
-        return [
-            (r + m) * 255,
-            (g + m) * 255,
-            (b + m) * 255,
-        ];
+        return rgb;
     }
 
-    static cmyk2rgb(c, m, y, k)
-    {
-        c = Number.constrain(c, 0, 1);
-        m = Number.constrain(m, 0, 1);
-        y = Number.constrain(y, 0, 1);
-        k = Number.constrain(k, 0, 1);
-        return [
-            255 * (1 - c) * (1 - k),
-            255 * (1 - m) * (1 - k),
-            255 * (1 - y) * (1 - k),
-        ];
-    }
-
-    static normalized2rgb(r, g, b)
-    {
-        return [
-            WI.Color._eightBitChannel(r * 255),
-            WI.Color._eightBitChannel(g * 255),
-            WI.Color._eightBitChannel(b * 255)
-        ];
-    }
-
-    static _eightBitChannel(value)
-    {
-        return Number.constrain(Math.round(value), 0, 255);
-    }
 
     // Public
 
@@ -269,33 +233,33 @@ WI.Color = class Color
         format = format || this.format;
 
         switch (format) {
-        case WI.Color.Format.Original:
-        case WI.Color.Format.HEX:
-        case WI.Color.Format.HEXAlpha:
-            return this.simple ? WI.Color.Format.RGB : WI.Color.Format.RGBA;
+        case WebInspector.Color.Format.Original:
+        case WebInspector.Color.Format.HEX:
+        case WebInspector.Color.Format.HEXAlpha:
+            return this.simple ? WebInspector.Color.Format.RGB : WebInspector.Color.Format.RGBA;
 
-        case WI.Color.Format.RGB:
-        case WI.Color.Format.RGBA:
-            return this.simple ? WI.Color.Format.HSL : WI.Color.Format.HSLA;
+        case WebInspector.Color.Format.RGB:
+        case WebInspector.Color.Format.RGBA:
+            return this.simple ? WebInspector.Color.Format.HSL : WebInspector.Color.Format.HSLA;
 
-        case WI.Color.Format.HSL:
-        case WI.Color.Format.HSLA:
+        case WebInspector.Color.Format.HSL:
+        case WebInspector.Color.Format.HSLA:
             if (this.isKeyword())
-                return WI.Color.Format.Keyword;
+                return WebInspector.Color.Format.Keyword;
             if (this.simple)
-                return this.canBeSerializedAsShortHEX() ? WI.Color.Format.ShortHEX : WI.Color.Format.HEX;
-            return this.canBeSerializedAsShortHEX() ? WI.Color.Format.ShortHEXAlpha : WI.Color.Format.HEXAlpha;
+                return this.canBeSerializedAsShortHEX() ? WebInspector.Color.Format.ShortHEX : WebInspector.Color.Format.HEX;
+            return this.canBeSerializedAsShortHEX() ? WebInspector.Color.Format.ShortHEXAlpha : WebInspector.Color.Format.HEXAlpha;
 
-        case WI.Color.Format.ShortHEX:
-            return WI.Color.Format.HEX;
+        case WebInspector.Color.Format.ShortHEX:
+            return WebInspector.Color.Format.HEX;
 
-        case WI.Color.Format.ShortHEXAlpha:
-            return WI.Color.Format.HEXAlpha;
+        case WebInspector.Color.Format.ShortHEXAlpha:
+            return WebInspector.Color.Format.HEXAlpha;
 
-        case WI.Color.Format.Keyword:
+        case WebInspector.Color.Format.Keyword:
             if (this.simple)
-                return this.canBeSerializedAsShortHEX() ? WI.Color.Format.ShortHEX : WI.Color.Format.HEX;
-            return this.canBeSerializedAsShortHEX() ? WI.Color.Format.ShortHEXAlpha : WI.Color.Format.HEXAlpha;
+                return this.canBeSerializedAsShortHEX() ? WebInspector.Color.Format.ShortHEX : WebInspector.Color.Format.HEX;
+            return this.canBeSerializedAsShortHEX() ? WebInspector.Color.Format.ShortHEXAlpha : WebInspector.Color.Format.HEXAlpha;
 
         default:
             console.error("Unknown color format.");
@@ -344,17 +308,17 @@ WI.Color = class Color
     copy()
     {
         switch (this.format) {
-        case WI.Color.Format.RGB:
-        case WI.Color.Format.HEX:
-        case WI.Color.Format.ShortHEX:
-        case WI.Color.Format.HEXAlpha:
-        case WI.Color.Format.ShortHEXAlpha:
-        case WI.Color.Format.Keyword:
-        case WI.Color.Format.RGBA:
-            return new WI.Color(this.format, this.rgba);
-        case WI.Color.Format.HSL:
-        case WI.Color.Format.HSLA:
-            return new WI.Color(this.format, this.hsla);
+        case WebInspector.Color.Format.RGB:
+        case WebInspector.Color.Format.HEX:
+        case WebInspector.Color.Format.ShortHEX:
+        case WebInspector.Color.Format.HEXAlpha:
+        case WebInspector.Color.Format.ShortHEXAlpha:
+        case WebInspector.Color.Format.Keyword:
+        case WebInspector.Color.Format.RGBA:
+            return new WebInspector.Color(this.format, this.rgba);
+        case WebInspector.Color.Format.HSL:
+        case WebInspector.Color.Format.HSLA:
+            return new WebInspector.Color(this.format, this.hsla);
         }
     }
 
@@ -364,30 +328,29 @@ WI.Color = class Color
             format = this.format;
 
         switch (format) {
-        case WI.Color.Format.Original:
+        case WebInspector.Color.Format.Original:
             return this._toOriginalString();
-        case WI.Color.Format.RGB:
+        case WebInspector.Color.Format.RGB:
             return this._toRGBString();
-        case WI.Color.Format.RGBA:
+        case WebInspector.Color.Format.RGBA:
             return this._toRGBAString();
-        case WI.Color.Format.HSL:
+        case WebInspector.Color.Format.HSL:
             return this._toHSLString();
-        case WI.Color.Format.HSLA:
+        case WebInspector.Color.Format.HSLA:
             return this._toHSLAString();
-        case WI.Color.Format.HEX:
+        case WebInspector.Color.Format.HEX:
             return this._toHEXString();
-        case WI.Color.Format.ShortHEX:
+        case WebInspector.Color.Format.ShortHEX:
             return this._toShortHEXString();
-        case WI.Color.Format.HEXAlpha:
+        case WebInspector.Color.Format.HEXAlpha:
             return this._toHEXAlphaString();
-        case WI.Color.Format.ShortHEXAlpha:
+        case WebInspector.Color.Format.ShortHEXAlpha:
             return this._toShortHEXAlphaString();
-        case WI.Color.Format.Keyword:
+        case WebInspector.Color.Format.Keyword:
             return this._toKeywordString();
         }
 
-        console.error("Invalid color format: " + format);
-        return "";
+        throw "invalid color format";
     }
 
     isKeyword()
@@ -398,8 +361,8 @@ WI.Color = class Color
         if (!this.simple)
             return Array.shallowEqual(this._rgba, [0, 0, 0, 0]) || Array.shallowEqual(this._hsla, [0, 0, 0, 0]);
 
-        let rgb = (this._rgba && this._rgba.slice(0, 3)) || WI.Color.hsl2rgb(...this._hsla);
-        return Object.keys(WI.Color.Keywords).some(key => Array.shallowEqual(WI.Color.Keywords[key], rgb));
+        let rgb = (this._rgba && this._rgba.slice(0, 3)) || this._hslToRGB(this._hsla);
+        return Object.keys(WebInspector.Color.Keywords).some(key => Array.shallowEqual(WebInspector.Color.Keywords[key], rgb));
     }
 
     canBeSerializedAsShortHEX()
@@ -446,7 +409,7 @@ WI.Color = class Color
             return this._toRGBAString();
         }
 
-        let keywords = WI.Color.Keywords;
+        let keywords = WebInspector.Color.Keywords;
         for (let keyword in keywords) {
             if (!keywords.hasOwnProperty(keyword))
                 continue;
@@ -518,18 +481,16 @@ WI.Color = class Color
         if (!this.simple)
             return this._toRGBAString();
 
-        let r = WI.Color._eightBitChannel(Math.round(this.rgba[0]));
-        let g = WI.Color._eightBitChannel(Math.round(this.rgba[1]));
-        let b = WI.Color._eightBitChannel(Math.round(this.rgba[2]));
-        return `rgb(${r}, ${g}, ${b})`;
+        let rgba = this.rgba.slice(0, -1);
+        rgba = rgba.map((value) => value.maxDecimals(2));
+        return "rgb(" + rgba.join(", ") + ")";
     }
 
     _toRGBAString()
     {
-        let r = WI.Color._eightBitChannel(Math.round(this.rgba[0]));
-        let g = WI.Color._eightBitChannel(Math.round(this.rgba[1]));
-        let b = WI.Color._eightBitChannel(Math.round(this.rgba[2]));
-        return `rgba(${r}, ${g}, ${b}, ${this.alpha})`;
+        let rgba = this.rgba;
+        rgba = rgba.map((value) => value.maxDecimals(2));
+        return "rgba(" + rgba.join(", ") + ")";
     }
 
     _toHSLString()
@@ -537,44 +498,108 @@ WI.Color = class Color
         if (!this.simple)
             return this._toHSLAString();
 
-        let h = this.hsla[0].maxDecimals(2);
-        let s = this.hsla[1].maxDecimals(2);
-        let l = this.hsla[2].maxDecimals(2);
-        return `hsl(${h}, ${s}%, ${l}%)`;
+        let hsla = this.hsla;
+        hsla = hsla.map((value) => value.maxDecimals(2));
+        return "hsl(" + hsla[0] + ", " + hsla[1] + "%, " + hsla[2] + "%)";
     }
 
     _toHSLAString()
     {
-        let h = this.hsla[0].maxDecimals(2);
-        let s = this.hsla[1].maxDecimals(2);
-        let l = this.hsla[2].maxDecimals(2);
-        return `hsla(${h}, ${s}%, ${l}%, ${this.alpha})`;
+        let hsla = this.hsla;
+        hsla = hsla.map((value) => value.maxDecimals(2));
+        return "hsla(" + hsla[0] + ", " + hsla[1] + "%, " + hsla[2] + "%, " + hsla[3] + ")";
+    }
+
+    _componentToNumber(value)
+    {
+        return Number.constrain(value, 0, 255);
     }
 
     _componentToHexValue(value)
     {
-        let hex = WI.Color._eightBitChannel(value).toString(16);
+        let hex = this._componentToNumber(value).toString(16);
         if (hex.length === 1)
             hex = "0" + hex;
         return hex;
     }
 
+    _rgbToHSL(rgb)
+    {
+        let r = this._componentToNumber(rgb[0]) / 255;
+        let g = this._componentToNumber(rgb[1]) / 255;
+        let b = this._componentToNumber(rgb[2]) / 255;
+        let max = Math.max(r, g, b);
+        let min = Math.min(r, g, b);
+        let diff = max - min;
+        let add = max + min;
+
+        let h;
+        let s;
+        let l = 0.5 * add;
+
+        if (min === max)
+            h = 0;
+        else if (r === max)
+            h = ((60 * (g - b) / diff) + 360) % 360;
+        else if (g === max)
+            h = (60 * (b - r) / diff) + 120;
+        else
+            h = (60 * (r - g) / diff) + 240;
+
+        if (l === 0)
+            s = 0;
+        else if (l === 1)
+            s = 1;
+        else if (l <= 0.5)
+            s = diff / add;
+        else
+            s = diff / (2 - add);
+
+        return [
+            Math.round(h),
+            Math.round(s * 100),
+            Math.round(l * 100)
+        ];
+    }
+
+    _hslToRGB(hsl)
+    {
+        let h = parseFloat(hsl[0]) / 360;
+        let s = parseFloat(hsl[1]) / 100;
+        let l = parseFloat(hsl[2]) / 100;
+
+        h *= 6;
+        let sArray = [
+            l += s *= l < .5 ? l : 1 - l,
+            l - h % 1 * s * 2,
+            l -= s *= 2,
+            l,
+            l + h % 1 * s,
+            l + s
+        ];
+        return [
+            Math.round(sArray[ ~~h      % 6 ] * 255),
+            Math.round(sArray[ (h | 16) % 6 ] * 255),
+            Math.round(sArray[ (h | 8)  % 6 ] * 255)
+        ];
+    }
+
     _rgbaToHSLA(rgba)
     {
-        let hsla = WI.Color.rgb2hsl(...rgba);
-        hsla.push(rgba[3]);
-        return hsla;
+        let hsl = this._rgbToHSL(rgba);
+        hsl.push(rgba[3]);
+        return hsl;
     }
 
     _hslaToRGBA(hsla)
     {
-        let rgba = WI.Color.hsl2rgb(...hsla);
+        let rgba = this._hslToRGB(hsla);
         rgba.push(hsla[3]);
         return rgba;
     }
 };
 
-WI.Color.Format = {
+WebInspector.Color.Format = {
     Original: "color-format-original",
     Keyword: "color-format-keyword",
     HEX: "color-format-hex",
@@ -587,14 +612,7 @@ WI.Color.Format = {
     HSLA: "color-format-hsla"
 };
 
-WI.Color.FunctionNames = new Set([
-    "rgb",
-    "rgba",
-    "hsl",
-    "hsla",
-]);
-
-WI.Color.Keywords = {
+WebInspector.Color.Keywords = {
     "aliceblue": [240, 248, 255],
     "antiquewhite": [250, 235, 215],
     "aquamarine": [127, 255, 212],

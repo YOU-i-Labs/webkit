@@ -23,11 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.CSSMedia = class CSSMedia
+WebInspector.CSSMedia = class CSSMedia extends WebInspector.Object
 {
     constructor(type, text, sourceCodeLocation)
     {
-        console.assert(!sourceCodeLocation || sourceCodeLocation instanceof WI.SourceCodeLocation);
+        super();
+
+        console.assert(!sourceCodeLocation || sourceCodeLocation instanceof WebInspector.SourceCodeLocation);
 
         this._type = type || null;
         this._text = text || "";
@@ -41,7 +43,7 @@ WI.CSSMedia = class CSSMedia
     get sourceCodeLocation() { return this._sourceCodeLocation; }
 };
 
-WI.CSSMedia.Type = {
+WebInspector.CSSMedia.Type = {
     MediaRule: "css-media-type-media-rule",
     ImportRule: "css-media-type-import-rule",
     LinkedStyleSheet: "css-media-type-linked-stylesheet",

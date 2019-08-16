@@ -27,6 +27,7 @@
 
 #include "JSCJSValue.h"
 #include "ProfilerOrigin.h"
+#include <wtf/HashMap.h>
 #include <wtf/PrintStream.h>
 #include <wtf/Vector.h>
 

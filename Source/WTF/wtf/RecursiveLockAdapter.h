@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include <wtf/Lock.h>
 #include <wtf/Threading.h>
 
 namespace WTF {
@@ -33,12 +32,14 @@ namespace WTF {
 template<typename LockType>
 class RecursiveLockAdapter {
 public:
-    RecursiveLockAdapter() = default;
-
+    RecursiveLockAdapter()
+    {
+    }
+    
     void lock()
     {
-        Thread& me = Thread::current();
-        if (&me == m_owner) {
+        ThreadIdentifier me = currentThread();
+        if (me == m_owner) {
             m_recursionCount++;
             return;
         }
@@ -46,7 +47,7 @@ public:
         m_lock.lock();
         ASSERT(!m_owner);
         ASSERT(!m_recursionCount);
-        m_owner = &me;
+        m_owner = me;
         m_recursionCount = 1;
     }
     
@@ -54,14 +55,14 @@ public:
     {
         if (--m_recursionCount)
             return;
-        m_owner = nullptr;
+        m_owner = 0;
         m_lock.unlock();
     }
     
     bool tryLock()
     {
-        Thread& me = Thread::current();
-        if (&me == m_owner) {
+        ThreadIdentifier me = currentThread();
+        if (me == m_owner) {
             m_recursionCount++;
             return true;
         }
@@ -71,7 +72,7 @@ public:
         
         ASSERT(!m_owner);
         ASSERT(!m_recursionCount);
-        m_owner = &me;
+        m_owner = me;
         m_recursionCount = 1;
         return true;
     }
@@ -82,13 +83,11 @@ public:
     }
     
 private:
-    Thread* m_owner { nullptr }; // Use Thread* instead of RefPtr<Thread> since m_owner thread is always alive while m_onwer is set.
+    ThreadIdentifier m_owner { 0 };
     unsigned m_recursionCount { 0 };
     LockType m_lock;
 };
 
-using RecursiveLock = RecursiveLockAdapter<Lock>;
-
 } // namespace WTF
 
-using WTF::RecursiveLock;
+

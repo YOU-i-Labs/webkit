@@ -19,7 +19,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#pragma once
+#ifndef FESpecularLighting_h
+#define FESpecularLighting_h
 
 #include "FELighting.h"
 
@@ -30,13 +31,29 @@ public:
     static Ref<FESpecularLighting> create(Filter&, const Color&, float, float, float, float, float, Ref<LightSource>&&);
     virtual ~FESpecularLighting();
 
-    float specularConstant() const { return m_specularConstant; }
+    const Color& lightingColor() const;
+    bool setLightingColor(const Color&);
+
+    float surfaceScale() const;
+    bool setSurfaceScale(float);
+
+    float specularConstant() const;
     bool setSpecularConstant(float);
 
-    float specularExponent() const { return m_specularExponent; }
+    float specularExponent() const;
     bool setSpecularExponent(float);
 
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
+    float kernelUnitLengthX() const;
+    bool setKernelUnitLengthX(float);
+
+    float kernelUnitLengthY() const;
+    bool setKernelUnitLengthY(float);
+
+    const LightSource& lightSource() const;
+
+    void dump() override;
+
+    TextStream& externalRepresentation(TextStream&, int indention) const override;
 
 private:
     FESpecularLighting(Filter&, const Color&, float, float, float, float, float, Ref<LightSource>&&);
@@ -44,3 +61,4 @@ private:
 
 } // namespace WebCore
 
+#endif // FESpecularLighting_h

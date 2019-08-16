@@ -23,7 +23,7 @@
 * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode extends WI.DataGridNode
+WebInspector.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode extends WebInspector.DataGridNode
 {
     constructor(node, tree, edge, base)
     {
@@ -32,9 +32,9 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
 
         super(node, hasChildren);
 
-        console.assert(node instanceof WI.HeapSnapshotNodeProxy);
-        console.assert(!edge || edge instanceof WI.HeapSnapshotEdgeProxy);
-        console.assert(!base || base instanceof WI.HeapSnapshotInstanceDataGridNode);
+        console.assert(node instanceof WebInspector.HeapSnapshotNodeProxy);
+        console.assert(!edge || edge instanceof WebInspector.HeapSnapshotEdgeProxy);
+        console.assert(!base || base instanceof WebInspector.HeapSnapshotInstanceDataGridNode);
 
         this._node = node;
         this._tree = tree;
@@ -54,22 +54,22 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
     {
         let heapObjectIdentifier = node.id;
         let shouldRevealConsole = true;
-        let text = WI.UIString("Heap Snapshot Object (%s)").format("@" + heapObjectIdentifier);
+        let text = WebInspector.UIString("Heap Snapshot Object (%s)").format("@" + heapObjectIdentifier);
 
         node.shortestGCRootPath((gcRootPath) => {
             if (gcRootPath.length) {
                 gcRootPath = gcRootPath.slice().reverse();
                 let windowIndex = gcRootPath.findIndex((x) => {
-                    return x instanceof WI.HeapSnapshotNodeProxy && x.className === "Window";
+                    return x instanceof WebInspector.HeapSnapshotNodeProxy && x.className === "Window";
                 });
 
-                let heapSnapshotRootPath = WI.HeapSnapshotRootPath.emptyPath();
+                let heapSnapshotRootPath = WebInspector.HeapSnapshotRootPath.emptyPath();
                 for (let i = windowIndex === -1 ? 0 : windowIndex; i < gcRootPath.length; ++i) {
                     let component = gcRootPath[i];
-                    if (component instanceof WI.HeapSnapshotNodeProxy) {
+                    if (component instanceof WebInspector.HeapSnapshotNodeProxy) {
                         if (component.className === "Window")
                             heapSnapshotRootPath = heapSnapshotRootPath.appendGlobalScopeName(component, "window");
-                    } else if (component instanceof WI.HeapSnapshotEdgeProxy)
+                    } else if (component instanceof WebInspector.HeapSnapshotEdgeProxy)
                         heapSnapshotRootPath = heapSnapshotRootPath.appendEdge(component);
                 }
 
@@ -79,13 +79,13 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
 
             if (node.className === "string") {
                 HeapAgent.getPreview(heapObjectIdentifier, function(error, string, functionDetails, objectPreviewPayload) {
-                    let remoteObject = error ? WI.RemoteObject.fromPrimitiveValue(undefined) : WI.RemoteObject.fromPrimitiveValue(string);
-                    WI.consoleLogViewController.appendImmediateExecutionWithResult(text, remoteObject, shouldRevealConsole);
+                    let remoteObject = error ? WebInspector.RemoteObject.fromPrimitiveValue(undefined) : WebInspector.RemoteObject.fromPrimitiveValue(string);
+                    WebInspector.consoleLogViewController.appendImmediateExecutionWithResult(text, remoteObject, shouldRevealConsole);
                 });
             } else {
-                HeapAgent.getRemoteObject(heapObjectIdentifier, WI.RuntimeManager.ConsoleObjectGroup, function(error, remoteObjectPayload) {
-                    let remoteObject = error ? WI.RemoteObject.fromPrimitiveValue(undefined) : WI.RemoteObject.fromPayload(remoteObjectPayload, WI.assumingMainTarget());
-                    WI.consoleLogViewController.appendImmediateExecutionWithResult(text, remoteObject, shouldRevealConsole);
+                HeapAgent.getRemoteObject(heapObjectIdentifier, WebInspector.RuntimeManager.ConsoleObjectGroup, function(error, remoteObjectPayload) {
+                    let remoteObject = error ? WebInspector.RemoteObject.fromPrimitiveValue(undefined) : WebInspector.RemoteObject.fromPayload(remoteObjectPayload, WebInspector.assumingMainTarget());
+                    WebInspector.consoleLogViewController.appendImmediateExecutionWithResult(text, remoteObject, shouldRevealConsole);
                 });
             }
         });
@@ -102,7 +102,7 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
             return "";
 
         if (!this._propertyName)
-            this._propertyName = WI.HeapSnapshotRootPath.pathComponentForIndividualEdge(this._edge);
+            this._propertyName = WebInspector.HeapSnapshotRootPath.pathComponentForIndividualEdge(this._edge);
         return this._propertyName;
     }
 
@@ -151,7 +151,7 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
             containerElement.addEventListener("contextmenu", this._contextMenuHandler.bind(this));
 
             let iconElement = containerElement.appendChild(document.createElement("img"));
-            iconElement.classList.add("icon", WI.HeapSnapshotClusterContentView.iconStyleClassNameForClassName(className, internal));
+            iconElement.classList.add("icon", WebInspector.HeapSnapshotClusterContentView.iconStyleClassNameForClassName(className, internal));
 
             if (this._edge) {
                 let nameElement = containerElement.appendChild(document.createElement("span"));
@@ -165,7 +165,7 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
             let idElement = containerElement.appendChild(document.createElement("span"));
             idElement.classList.add("object-id");
             idElement.textContent = "@" + id;
-            idElement.addEventListener("click", WI.HeapSnapshotInstanceDataGridNode.logHeapSnapshotNode.bind(null, this._node));
+            idElement.addEventListener("click", WebInspector.HeapSnapshotInstanceDataGridNode.logHeapSnapshotNode.bind(null, this._node));
             idElement.addEventListener("mouseover", this._mouseoverHandler.bind(this));
 
             let spacerElement = containerElement.appendChild(document.createElement("span"));
@@ -218,7 +218,7 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
         this.removeEventListener("populate", this._populate, this);
 
         function propertyName(edge) {
-            return edge ? WI.HeapSnapshotRootPath.pathComponentForIndividualEdge(edge) : "";
+            return edge ? WebInspector.HeapSnapshotRootPath.pathComponentForIndividualEdge(edge) : "";
         }
 
         this._node.retainedNodes((instances, edges) => {
@@ -238,16 +238,16 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
                 if (instance.__edge && instance.__edge.isPrivateSymbol())
                     continue;
 
-                this.appendChild(new WI.HeapSnapshotInstanceDataGridNode(instance, this._tree, instance.__edge, this._base || this));
+                this.appendChild(new WebInspector.HeapSnapshotInstanceDataGridNode(instance, this._tree, instance.__edge, this._base || this));
             }
         });
     }
 
     _contextMenuHandler(event)
     {
-        let contextMenu = WI.ContextMenu.createFromEvent(event);
+        let contextMenu = WebInspector.ContextMenu.createFromEvent(event);
         contextMenu.appendSeparator();
-        contextMenu.appendItem(WI.UIString("Log Value"), WI.HeapSnapshotInstanceDataGridNode.logHeapSnapshotNode.bind(null, this._node));
+        contextMenu.appendItem(WebInspector.UIString("Log Value"), WebInspector.HeapSnapshotInstanceDataGridNode.logHeapSnapshotNode.bind(null, this._node));
     }
 
     _populateError(containerElement)
@@ -257,7 +257,7 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
 
         let previewErrorElement = containerElement.appendChild(document.createElement("span"));
         previewErrorElement.classList.add("preview-error");
-        previewErrorElement.textContent = WI.UIString("No preview available");
+        previewErrorElement.textContent = WebInspector.UIString("No preview available");
     }
 
     _populateWindowPreview(containerElement)
@@ -272,15 +272,15 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
                 return this.location.href;
             }
 
-            let remoteObject = WI.RemoteObject.fromPayload(remoteObjectPayload, WI.assumingMainTarget());
+            let remoteObject = WebInspector.RemoteObject.fromPayload(remoteObjectPayload, WebInspector.assumingMainTarget());
             remoteObject.callFunctionJSON(inspectedPage_window_getLocationHref, undefined, (href) => {
                 remoteObject.release();
 
                 if (!href)
                     this._populateError(containerElement);
                 else {
-                    let primitiveRemoteObject = WI.RemoteObject.fromPrimitiveValue(href);
-                    containerElement.appendChild(WI.FormattedValue.createElementForRemoteObject(primitiveRemoteObject));
+                    let primitiveRemoteObject = WebInspector.RemoteObject.fromPrimitiveValue(href);
+                    containerElement.appendChild(WebInspector.FormattedValue.createElementForRemoteObject(primitiveRemoteObject));
                 }
             });
         });
@@ -295,8 +295,8 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
             }
 
             if (string) {
-                let primitiveRemoteObject = WI.RemoteObject.fromPrimitiveValue(string);
-                containerElement.appendChild(WI.FormattedValue.createElementForRemoteObject(primitiveRemoteObject));
+                let primitiveRemoteObject = WebInspector.RemoteObject.fromPrimitiveValue(string);
+                containerElement.appendChild(WebInspector.FormattedValue.createElementForRemoteObject(primitiveRemoteObject));
                 return;
             }
 
@@ -304,13 +304,13 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
                 let {location, name, displayName} = functionDetails;
                 let functionNameElement = containerElement.appendChild(document.createElement("span"));
                 functionNameElement.classList.add("function-name");
-                functionNameElement.textContent = name || displayName || WI.UIString("(anonymous function)");
-                let sourceCode = WI.debuggerManager.scriptForIdentifier(location.scriptId, WI.assumingMainTarget());
+                functionNameElement.textContent = name || displayName || WebInspector.UIString("(anonymous function)");
+                let sourceCode = WebInspector.debuggerManager.scriptForIdentifier(location.scriptId, WebInspector.assumingMainTarget());
                 if (sourceCode) {
                     let locationElement = containerElement.appendChild(document.createElement("span"));
                     locationElement.classList.add("location");
                     let sourceCodeLocation = sourceCode.createSourceCodeLocation(location.lineNumber, location.columnNumber);
-                    sourceCodeLocation.populateLiveDisplayLocationString(locationElement, "textContent", WI.SourceCodeLocation.ColumnStyle.Hidden, WI.SourceCodeLocation.NameStyle.Short);
+                    sourceCodeLocation.populateLiveDisplayLocationString(locationElement, "textContent", WebInspector.SourceCodeLocation.ColumnStyle.Hidden, WebInspector.SourceCodeLocation.NameStyle.Short);
 
                     const options = {
                         dontFloat: true,
@@ -318,15 +318,15 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
                         ignoreNetworkTab: true,
                         ignoreSearchTab: true,
                     };
-                    let goToArrowButtonLink = WI.createSourceCodeLocationLink(sourceCodeLocation, options);
+                    let goToArrowButtonLink = WebInspector.createSourceCodeLocationLink(sourceCodeLocation, options);
                     containerElement.appendChild(goToArrowButtonLink);
                 }
                 return;
             }
 
             if (objectPreviewPayload) {
-                let objectPreview = WI.ObjectPreview.fromPayload(objectPreviewPayload);
-                let previewElement = WI.FormattedValue.createObjectPreviewOrFormattedValueForObjectPreview(objectPreview);
+                let objectPreview = WebInspector.ObjectPreview.fromPayload(objectPreviewPayload);
+                let previewElement = WebInspector.FormattedValue.createObjectPreviewOrFormattedValueForObjectPreview(objectPreview);
                 containerElement.appendChild(previewElement);
                 return;
             }
@@ -335,7 +335,7 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
 
     _mouseoverHandler(event)
     {
-        let targetFrame = WI.Rect.rectFromClientRect(event.target.getBoundingClientRect());
+        let targetFrame = WebInspector.Rect.rectFromClientRect(event.target.getBoundingClientRect());
         if (!targetFrame.size.width && !targetFrame.size.height)
             return;
 
@@ -352,11 +352,11 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
             let idElement = document.createElement("span");
             idElement.classList.add("object-id");
             idElement.textContent = "@" + node.id;
-            idElement.addEventListener("click", WI.HeapSnapshotInstanceDataGridNode.logHeapSnapshotNode.bind(null, node));
+            idElement.addEventListener("click", WebInspector.HeapSnapshotInstanceDataGridNode.logHeapSnapshotNode.bind(null, node));
 
             let title = popoverContentElement.appendChild(document.createElement("div"));
             title.classList.add("title");
-            let localizedString = WI.UIString("Shortest property path to %s").format("@@@");
+            let localizedString = WebInspector.UIString("Shortest property path to %s").format("@@@");
             let [before, after] = localizedString.split(/\s*@@@\s*/);
             title.append(before + " ", idElement, " " + after);
         }
@@ -369,13 +369,13 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
 
             path = path.slice().reverse();
             let windowIndex = path.findIndex((x) => {
-                return x instanceof WI.HeapSnapshotNodeProxy && x.className === "Window";
+                return x instanceof WebInspector.HeapSnapshotNodeProxy && x.className === "Window";
             });
 
             let edge = null;
             for (let i = windowIndex === -1 ? 0 : windowIndex; i < path.length; ++i) {
                 let component = path[i];
-                if (component instanceof WI.HeapSnapshotEdgeProxy) {
+                if (component instanceof WebInspector.HeapSnapshotEdgeProxy) {
                     edge = component;
                     continue;
                 }
@@ -410,7 +410,7 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
             containerElement.classList.add("node");
 
             let iconElement = containerElement.appendChild(document.createElement("img"));
-            iconElement.classList.add("icon", WI.HeapSnapshotClusterContentView.iconStyleClassNameForClassName(node.className, node.internal));
+            iconElement.classList.add("icon", WebInspector.HeapSnapshotClusterContentView.iconStyleClassNameForClassName(node.className, node.internal));
 
             let classNameElement = containerElement.appendChild(document.createElement("span"));
             classNameElement.textContent = sanitizeClassName(node.className) + " ";
@@ -418,7 +418,7 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
             let idElement = containerElement.appendChild(document.createElement("span"));
             idElement.classList.add("object-id");
             idElement.textContent = "@" + node.id;
-            idElement.addEventListener("click", WI.HeapSnapshotInstanceDataGridNode.logHeapSnapshotNode.bind(null, node));
+            idElement.addEventListener("click", WebInspector.HeapSnapshotInstanceDataGridNode.logHeapSnapshotNode.bind(null, node));
 
             // Extra.
             if (node.className === "Function") {
@@ -428,7 +428,7 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
                 HeapAgent.getPreview(node.id, function(error, string, functionDetails, objectPreviewPayload) {
                     if (functionDetails) {
                         let location = functionDetails.location;
-                        let sourceCode = WI.debuggerManager.scriptForIdentifier(location.scriptId, WI.assumingMainTarget());
+                        let sourceCode = WebInspector.debuggerManager.scriptForIdentifier(location.scriptId, WebInspector.assumingMainTarget());
                         if (sourceCode) {
                             let sourceCodeLocation = sourceCode.createSourceCodeLocation(location.lineNumber, location.columnNumber);
 
@@ -438,7 +438,7 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
                                 ignoreNetworkTab: true,
                                 ignoreSearchTab: true,
                             };
-                            let goToArrowButtonLink = WI.createSourceCodeLocationLink(sourceCodeLocation, options);
+                            let goToArrowButtonLink = WebInspector.createSourceCodeLocationLink(sourceCodeLocation, options);
                             containerElement.replaceChild(goToArrowButtonLink, goToArrowPlaceHolderElement);
                         }
                     }
@@ -448,20 +448,20 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
 
         function sanitizeClassName(className) {
             if (className.endsWith("LexicalEnvironment"))
-                return WI.UIString("Scope");
+                return WebInspector.UIString("Scope");
             return className;
         }
 
         function stringifyEdge(edge) {
             switch (edge.type) {
-            case WI.HeapSnapshotEdgeProxy.EdgeType.Property:
-            case WI.HeapSnapshotEdgeProxy.EdgeType.Variable:
+            case WebInspector.HeapSnapshotEdgeProxy.EdgeType.Property:
+            case WebInspector.HeapSnapshotEdgeProxy.EdgeType.Variable:
                 if (/^(?![0-9])\w+$/.test(edge.data))
                     return edge.data;
                 return "[" + doubleQuotedString(edge.data) + "]";
-            case WI.HeapSnapshotEdgeProxy.EdgeType.Index:
+            case WebInspector.HeapSnapshotEdgeProxy.EdgeType.Index:
                 return "[" + edge.data + "]";
-            case WI.HeapSnapshotEdgeProxy.EdgeType.Internal:
+            case WebInspector.HeapSnapshotEdgeProxy.EdgeType.Internal:
             default:
                 return null;
             }
@@ -476,13 +476,13 @@ WI.HeapSnapshotInstanceDataGridNode = class HeapSnapshotInstanceDataGridNode ext
                 appendPath(path);
             } else if (this._node.gcRoot) {
                 let textElement = popoverContentElement.appendChild(document.createElement("div"));
-                textElement.textContent = WI.UIString("This object is a root");
+                textElement.textContent = WebInspector.UIString("This object is a root");
             } else {
                 let emptyElement = popoverContentElement.appendChild(document.createElement("div"));
-                emptyElement.textContent = WI.UIString("This object is referenced by internal objects");
+                emptyElement.textContent = WebInspector.UIString("This object is referenced by internal objects");
             }
 
-            this._tree.popover.presentNewContentWithFrame(popoverContentElement, targetFrame.pad(2), [WI.RectEdge.MAX_Y, WI.RectEdge.MIN_Y, WI.RectEdge.MAX_X]);
+            this._tree.popover.presentNewContentWithFrame(popoverContentElement, targetFrame.pad(2), [WebInspector.RectEdge.MAX_Y, WebInspector.RectEdge.MIN_Y, WebInspector.RectEdge.MAX_X]);
         });
     }
 };

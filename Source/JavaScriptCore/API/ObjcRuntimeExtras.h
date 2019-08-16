@@ -23,28 +23,22 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#import <memory>
 #import <objc/Protocol.h>
 #import <objc/runtime.h>
 #import <wtf/HashSet.h>
-#import <wtf/SystemFree.h>
 #import <wtf/Vector.h>
-#import <wtf/text/CString.h>
-
-template<typename T, typename U>
-inline std::unique_ptr<T, WTF::SystemFree<T>> adoptSystem(U value)
-{
-    return std::unique_ptr<T, WTF::SystemFree<T>>(value);
-}
 
 inline bool protocolImplementsProtocol(Protocol *candidate, Protocol *target)
 {
     unsigned protocolProtocolsCount;
-    auto protocolProtocols = adoptSystem<__unsafe_unretained Protocol*[]>(protocol_copyProtocolList(candidate, &protocolProtocolsCount));
+    Protocol ** protocolProtocols = protocol_copyProtocolList(candidate, &protocolProtocolsCount);
     for (unsigned i = 0; i < protocolProtocolsCount; ++i) {
-        if (protocol_isEqual(protocolProtocols[i], target))
+        if (protocol_isEqual(protocolProtocols[i], target)) {
+            free(protocolProtocols);
             return true;
+        }
     }
+    free(protocolProtocols);
     return false;
 }
 
@@ -53,15 +47,14 @@ inline void forEachProtocolImplementingProtocol(Class cls, Protocol *target, voi
     ASSERT(cls);
     ASSERT(target);
 
-    Vector<Protocol*> worklist;
+    Vector<Protocol *> worklist;
     HashSet<void*> visited;
 
     // Initially fill the worklist with the Class's protocols.
-    {
-        unsigned protocolsCount;
-        auto protocols = adoptSystem<__unsafe_unretained Protocol*[]>(class_copyProtocolList(cls, &protocolsCount));
-        worklist.append(protocols.get(), protocolsCount);
-    }
+    unsigned protocolsCount;
+    Protocol ** protocols = class_copyProtocolList(cls, &protocolsCount);
+    worklist.append(protocols, protocolsCount);
+    free(protocols);
 
     bool stop = false;
     while (!worklist.isEmpty()) {
@@ -69,7 +62,7 @@ inline void forEachProtocolImplementingProtocol(Class cls, Protocol *target, voi
         worklist.removeLast();
 
         // Are we encountering this Protocol for the first time?
-        if (!visited.add((__bridge void*)protocol).isNewEntry)
+        if (!visited.add(protocol).isNewEntry)
             continue;
 
         // If it implements the protocol, make the callback.
@@ -80,36 +73,37 @@ inline void forEachProtocolImplementingProtocol(Class cls, Protocol *target, voi
         }
 
         // Add incorporated protocols to the worklist.
-        {
-            unsigned protocolsCount;
-            auto protocols = adoptSystem<__unsafe_unretained Protocol*[]>(protocol_copyProtocolList(protocol, &protocolsCount));
-            worklist.append(protocols.get(), protocolsCount);
-        }
+        protocols = protocol_copyProtocolList(protocol, &protocolsCount);
+        worklist.append(protocols, protocolsCount);
+        free(protocols);
     }
 }
 
 inline void forEachMethodInClass(Class cls, void (^callback)(Method))
 {
     unsigned count;
-    auto methods = adoptSystem<Method[]>(class_copyMethodList(cls, &count));
+    Method* methods = class_copyMethodList(cls, &count);
     for (unsigned i = 0; i < count; ++i)
         callback(methods[i]);
+    free(methods);
 }
 
 inline void forEachMethodInProtocol(Protocol *protocol, BOOL isRequiredMethod, BOOL isInstanceMethod, void (^callback)(SEL, const char*))
 {
     unsigned count;
-    auto methods = adoptSystem<objc_method_description[]>(protocol_copyMethodDescriptionList(protocol, isRequiredMethod, isInstanceMethod, &count));
+    struct objc_method_description* methods = protocol_copyMethodDescriptionList(protocol, isRequiredMethod, isInstanceMethod, &count);
     for (unsigned i = 0; i < count; ++i)
         callback(methods[i].name, methods[i].types);
+    free(methods);
 }
 
 inline void forEachPropertyInProtocol(Protocol *protocol, void (^callback)(objc_property_t))
 {
     unsigned count;
-    auto properties = adoptSystem<objc_property_t[]>(protocol_copyPropertyList(protocol, &count));
+    objc_property_t* properties = protocol_copyPropertyList(protocol, &count);
     for (unsigned i = 0; i < count; ++i)
         callback(properties[i]);
+    free(properties);
 }
 
 template<char open, char close>
@@ -130,14 +124,13 @@ void skipPair(const char*& position)
 class StringRange {
     WTF_MAKE_NONCOPYABLE(StringRange);
 public:
-    StringRange(const char* begin, const char* end)
-        : m_string(begin, end - begin)
-    { }
-    operator const char*() const { return m_string.data(); }
-    const char* get() const { return m_string.data(); }
+    StringRange(const char* begin, const char* end) : m_ptr(strndup(begin, end - begin)) { }
+    ~StringRange() { free(m_ptr); }
+    operator const char*() const { return m_ptr; }
+    const char* get() const { return m_ptr; }
 
 private:
-    CString m_string;
+    char* m_ptr;
 };
 
 class StructBuffer {
@@ -147,13 +140,16 @@ public:
     {
         NSUInteger size, alignment;
         NSGetSizeAndAlignment(encodedType, &size, &alignment);
-        m_buffer = fastAlignedMalloc(alignment, size);
+        --alignment;
+        m_allocation = static_cast<char*>(malloc(size + alignment));
+        m_buffer = reinterpret_cast<char*>((reinterpret_cast<intptr_t>(m_allocation) + alignment) & ~alignment);
     }
 
-    ~StructBuffer() { fastAlignedFree(m_buffer); }
+    ~StructBuffer() { free(m_allocation); }
     operator void*() const { return m_buffer; }
 
 private:
+    void* m_allocation;
     void* m_buffer;
 };
 

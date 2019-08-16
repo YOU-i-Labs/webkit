@@ -25,7 +25,8 @@
 
 #pragma once
 
-#include "ActiveDOMCallback.h"
+#if ENABLE(WEB_TIMING)
+
 #include "CallbackResult.h"
 #include <wtf/RefCounted.h>
 
@@ -34,13 +35,12 @@ namespace WebCore {
 class PerformanceObserver;
 class PerformanceObserverEntryList;
 
-class PerformanceObserverCallback : public RefCounted<PerformanceObserverCallback>, public ActiveDOMCallback {
+class PerformanceObserverCallback : public RefCounted<PerformanceObserverCallback> {
 public:
-    using ActiveDOMCallback::ActiveDOMCallback;
-
-    virtual bool hasCallback() const = 0;
-
+    virtual ~PerformanceObserverCallback() { }
     virtual CallbackResult<void> handleEvent(PerformanceObserverEntryList&, PerformanceObserver&) = 0;
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_TIMING)

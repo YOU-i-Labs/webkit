@@ -45,11 +45,14 @@ namespace WebCore {
         virtual void didReceiveData(const char*, int /*dataLength*/) { }
         virtual void didFinishLoading(unsigned long /*identifier*/) { }
         virtual void didFail(const ResourceError&) { }
+
+#if ENABLE(WEB_TIMING)
         virtual void didFinishTiming(const ResourceTiming&) { }
+#endif
 
     protected:
-        ThreadableLoaderClient() = default;
-        virtual ~ThreadableLoaderClient() = default;
+        ThreadableLoaderClient() { }
+        virtual ~ThreadableLoaderClient() { }
     };
 
 } // namespace WebCore

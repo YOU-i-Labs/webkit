@@ -27,14 +27,14 @@
 
 #if ENABLE(VIDEO)
 
-#include <JavaScriptCore/JSCInlines.h>
+#include <runtime/JSCInlines.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
 
 class SerializedPlatformRepresentation : public RefCounted<SerializedPlatformRepresentation> {
 public:
-    virtual ~SerializedPlatformRepresentation() = default;
+    virtual ~SerializedPlatformRepresentation() { }
 
     virtual JSC::JSValue deserialize(JSC::ExecState*) const = 0;
     virtual RefPtr<JSC::ArrayBuffer> data() const = 0;
@@ -46,7 +46,7 @@ public:
     virtual PlatformType platformType() const = 0;
 
 protected:
-    SerializedPlatformRepresentation() = default;
+    SerializedPlatformRepresentation() { }
 };
 
 } // namespace WebCore

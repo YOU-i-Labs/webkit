@@ -36,12 +36,8 @@
 ] interface InspectorFrontendHost {
     void loaded();
     void closeWindow();
-    void reopen();
     void bringToFront();
     void inspectedURLChanged(DOMString newURL);
-
-    readonly attribute boolean supportsShowCertificate;
-    boolean showCertificate(DOMString serializedCertificate);
 
     void setZoomFactor(unrestricted float zoom);
     float zoomFactor();
@@ -72,23 +68,12 @@
     DOMString platform();
     DOMString port();
 
-    void showContextMenu(Event event, sequence<ContextMenuItem> items);
-    void dispatchEventAsContextMenuEvent(Event event);
+    [Custom] void showContextMenu(MouseEvent event, any items);
+    void dispatchEventAsContextMenuEvent(Event? event);
     void sendMessageToBackend(DOMString message);
     void unbufferedLog(DOMString message);
 
     boolean isUnderTest();
 
     void beep();
-    void inspectInspector();
-    boolean isBeingInspected();
-};
-
-dictionary ContextMenuItem {
-    DOMString type;
-    DOMString label;
-    long id;
-    boolean enabled;
-    boolean checked;
-    sequence<ContextMenuItem> subItems;
 };

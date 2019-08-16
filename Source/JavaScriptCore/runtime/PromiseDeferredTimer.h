@@ -27,9 +27,11 @@
 
 #include "JSRunLoopTimer.h"
 #include "Strong.h"
+#include "WriteBarrier.h"
 
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
+#include <wtf/SharedTask.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
@@ -44,15 +46,13 @@ public:
 
     PromiseDeferredTimer(VM&);
 
-    void doWork(VM&) override;
+    void doWork() override;
 
-    void addPendingPromise(VM&, JSPromiseDeferred*, Vector<Strong<JSCell>>&& dependencies);
-    JS_EXPORT_PRIVATE bool hasPendingPromise(JSPromiseDeferred* ticket);
-    JS_EXPORT_PRIVATE bool hasDependancyInPendingPromise(JSPromiseDeferred* ticket, JSCell* dependency);
+    void addPendingPromise(JSPromiseDeferred*, Vector<Strong<JSCell>>&& dependencies);
     // JSPromiseDeferred should handle canceling when the promise is resolved or rejected.
     bool cancelPendingPromise(JSPromiseDeferred*);
 
-    using Task = Function<void()>;
+    typedef std::function<void()> Task;
     void scheduleWorkSoon(JSPromiseDeferred*, Task&&);
 
     void stopRunningTasks() { m_runTasks = false; }

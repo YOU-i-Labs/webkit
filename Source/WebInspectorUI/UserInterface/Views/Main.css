@@ -27,12 +27,8 @@
     box-sizing: border-box;
 }
 
-:root {
-    supported-color-schemes: light dark;
-}
-
 body {
-    font-family: -webkit-system-font, sans-serif;
+    font-family: -apple-system, sans-serif;
     font-size: 11px;
 
     position: absolute;
@@ -53,7 +49,7 @@ body {
 
     -webkit-font-smoothing: subpixel-antialiased;
 
-    background-color: var(--background-color-content);
+    background-color: white;
 }
 
 body.docked.bottom {
@@ -135,9 +131,8 @@ input[type=range]::-webkit-slider-runnable-track {
     bottom: 0;
 
     display: flex;
-    flex-direction: column;
 
-    background-color: var(--background-color-content);
+    background-color: white;
 
     /* The position and z-index are needed to make negative z-index work in the DOM tree. */
     z-index: 0;
@@ -154,12 +149,58 @@ body.docked:matches(.right, .left) #navigation-sidebar.collapsed > .resizer {
 
 #content {
     display: flex;
-    height: 100%; /* This reduces paint areas when typing in the console. http://webkit.org/b/145324 */
+    flex-direction: column;
     flex: 1;
+
+    height: 100%; /* This reduces paint areas when typing in the console. http://webkit.org/b/145324 */
 }
 
 #tab-browser {
     flex: 1;
+}
+
+#split-content-browser {
+    border-top: 1px solid var(--border-color);
+}
+
+#split-content-browser > .navigation-bar {
+    cursor: row-resize;
+
+    background-color: var(--panel-background-color);
+}
+
+#split-content-browser > .navigation-bar :matches(.find-banner, .find-banner + .divider) {
+    display: none;
+}
+
+#split-content-browser > .navigation-bar .item {
+    height: 100%;
+}
+
+#split-content-browser > .navigation-bar .item:not(.flexible-space) {
+    cursor: default;
+}
+
+#split-content-browser .hierarchical-path-component.log-icon .icon {
+    margin-left: 6px;
+    margin-right: 6px;
+    opacity: 0.7;
+}
+
+#split-content-browser .hierarchical-path-component.log-icon .title {
+    color: hsla(0, 0%, 0%, 0.75);
+}
+
+#split-content-browser .hierarchical-path-component.log-icon select {
+    display: none;
+}
+
+#split-content-browser > .navigation-bar > :matches(.hierarchical-path, .log-scope-bar) {
+    pointer-events: none;
+}
+
+#split-content-browser > .navigation-bar > .log-scope-bar > li {
+    pointer-events: all;
 }
 
 #details-sidebar {
@@ -169,55 +210,47 @@ body.docked:matches(.right, .left) #navigation-sidebar.collapsed > .resizer {
 
 .message-text-view {
     display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
+    z-index: var(--z-index-popover);
+
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: var(--z-index-popover);
-    min-height: -webkit-min-content;
+
+    padding-left: 20%;
+    padding-right: 20%;
+
+    justify-content: center;
+    align-items: center;
+
+    line-height: 20px;
     white-space: pre-wrap;
     text-align: center;
-    font-size: 13px;
-    color: var(--text-color-gray-medium);
-}
 
-.message-text-view > .message {
-    display: inline-block;
-    padding: 15px;
-    font-size: var(--message-text-view-font-size);
-}
+    font-size: 18px;
+    font-weight: bold;
 
-.message-text-view > .message + button {
-    margin-bottom: 15px;
-}
-
-.message-text-view .navigation-item-help {
-    display: block;
-    line-height: 22px;
-}
-
-.message-text-view .navigation-item-help .navigation-bar {
-    display: inline-flex;
-    height: 20px;
-    padding: 0 4px;
-    border-bottom: none;
-    vertical-align: -3px;
-}
-
-.message-text-view .navigation-item-help .navigation-bar > .item {
-    height: 100%;
-    padding: 0 4px;
-    font-size: 11px;
-    border-radius: 4px;
-    border: solid 1px var(--border-color);
+    color: hsl(0, 0%, 74%);
+    background-color: white;
 }
 
 .message-text-view.error {
-    color: var(--error-text-color);
+    color: hsl(0, 86%, 47%);
+}
+
+.message-text-view.error::before {
+    display: inline-block;
+
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    margin-right: 4px;
+    vertical-align: bottom;
+
+    background-image: url(../Images/Error.svg);
+    background-size: 100% 100%;
+    content: "";
 }
 
 .resource-link {
@@ -281,15 +314,11 @@ body[dir=rtl] .go-to-link:not(.dont-float) {
     background-image: url(../Images/GoToArrow.svg#active);
 }
 
-body[dir=rtl] .go-to-arrow {
-    transform: scaleX(-1);
-}
-
-:focus .selected .go-to-arrow {
+:matches(:focus, .force-focus) .selected .go-to-arrow {
     background-image: url(../Images/GoToArrow.svg#selected);
 }
 
-:focus .selected .go-to-arrow:active {
+:matches(:focus, .force-focus) .selected .go-to-arrow:active {
     background-image: url(../Images/GoToArrow.svg#selected-active);
 }
 
@@ -337,9 +366,10 @@ body[dir=rtl] .go-to-arrow {
     z-index: var(--z-index-highlight);
 
     box-shadow: inset hsl(50, 91%, 76%) 0 -1px 0, hsl(52, 56%, 60%) 0 1px 1px, hsla(0, 0%, 0%, 0.33) 0 1px 2px 1px;
+    text-shadow: white 0 0 2px;
 
-    background-color: hsl(54, 93%, 70%);
-    color: black !important;
+    background: linear-gradient(to bottom, hsl(54, 93%, 70%), hsl(50, 84%, 67%));
+    border-radius: 7px;
 
     padding: 2px 4px;
     margin-top: -2px;
@@ -378,36 +408,11 @@ body[dir=rtl] .go-to-arrow {
     }
 }
 
-:matches(img, canvas).show-grid {
+img.show-grid {
     background-image: linear-gradient(315deg, transparent 75%, hsl(0, 0%, 95%) 75%),
                       linear-gradient(45deg, transparent 75%, hsl(0, 0%, 95%) 75%),
                       linear-gradient(315deg, hsl(0, 0%, 95%) 25%, transparent 25%),
                       linear-gradient(45deg, hsl(0, 0%, 95%) 25%, transparent 25%);
     background-size: 20px 20px;
     background-position: 10px 10px, 10px 0px, 0 0, 0 10px;
-}
-
-@media (prefers-color-scheme: dark) {
-    .go-to-arrow {
-        filter: invert();
-    }
-
-    :focus .selected .go-to-arrow {
-        filter: unset;
-    }
-
-    .resource-link,
-    .go-to-link {
-        color: var(--text-color-secondary);
-    }
-
-    .expand-list-button {
-        color: inherit;
-    }
-
-    :matches(img, canvas).show-grid {
-        background-color: white;
-        --checkerboard-dark-square: hsl(0, 0%, 80%);
-        background-image: linear-gradient(315deg, transparent 75%, var(--checkerboard-dark-square) 75%), linear-gradient(45deg, transparent 75%, var(--checkerboard-dark-square) 75%), linear-gradient(315deg, var(--checkerboard-dark-square) 25%, transparent 25%), linear-gradient(45deg, var(--checkerboard-dark-square) 25%, transparent 25%);
-    }
 }

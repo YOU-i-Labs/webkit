@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitDOMElement.html" title="WebKitDOMElement">
 <link rel="next" href="WebKitDOMKeyboardEvent.html" title="WebKitDOMKeyboardEvent">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.25.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -342,10 +342,6 @@
 <a name="webkit-dom-event-stop-propagation"></a><h3>webkit_dom_event_stop_propagation ()</h3>
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_event_stop_propagation (<em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_stop_propagation</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-stop-propagation.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -367,10 +363,6 @@ webkit_dom_event_stop_propagation (<em class="parameter"><code><a class="link" h
 <a name="webkit-dom-event-prevent-default"></a><h3>webkit_dom_event_prevent_default ()</h3>
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_event_prevent_default (<em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_prevent_default</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-prevent-default.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -395,10 +387,6 @@ webkit_dom_event_init_event (<em class="parameter"><code><a class="link" href="W
                              <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *eventTypeArg</code></em>,
                              <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> canBubbleArg</code></em>,
                              <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> cancelableArg</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_init_event</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-init-event.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -437,10 +425,6 @@ webkit_dom_event_init_event (<em class="parameter"><code><a class="link" href="W
 <a name="webkit-dom-event-get-event-type"></a><h3>webkit_dom_event_get_event_type ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_event_get_event_type (<em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_get_event_type</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-get-event-type.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -466,10 +450,6 @@ webkit_dom_event_get_event_type (<em class="parameter"><code><a class="link" hre
 <a name="webkit-dom-event-get-target"></a><h3>webkit_dom_event_get_target ()</h3>
 <pre class="programlisting"><span class="returnvalue">WebKitDOMEventTarget</span> *
 webkit_dom_event_get_target (<em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_get_target</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-get-target.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -487,7 +467,7 @@ webkit_dom_event_get_target (<em class="parameter"><code><a class="link" href="W
 </div>
 <div class="refsect3">
 <a name="webkit-dom-event-get-target.returns"></a><h4>Returns</h4>
-<p>A <span class="type">WebKitDOMEventTarget</span>. </p>
+<p> A <span class="type">WebKitDOMEventTarget</span>. </p>
 <p><span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
 </div>
 </div>
@@ -496,10 +476,6 @@ webkit_dom_event_get_target (<em class="parameter"><code><a class="link" href="W
 <a name="webkit-dom-event-get-current-target"></a><h3>webkit_dom_event_get_current_target ()</h3>
 <pre class="programlisting"><span class="returnvalue">WebKitDOMEventTarget</span> *
 webkit_dom_event_get_current_target (<em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_get_current_target</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-get-current-target.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -517,7 +493,7 @@ webkit_dom_event_get_current_target (<em class="parameter"><code><a class="link"
 </div>
 <div class="refsect3">
 <a name="webkit-dom-event-get-current-target.returns"></a><h4>Returns</h4>
-<p>A <span class="type">WebKitDOMEventTarget</span>. </p>
+<p> A <span class="type">WebKitDOMEventTarget</span>. </p>
 <p><span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
 </div>
 </div>
@@ -526,10 +502,6 @@ webkit_dom_event_get_current_target (<em class="parameter"><code><a class="link"
 <a name="webkit-dom-event-get-event-phase"></a><h3>webkit_dom_event_get_event_phase ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gushort"><span class="returnvalue">gushort</span></a>
 webkit_dom_event_get_event_phase (<em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_get_event_phase</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-get-event-phase.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -555,10 +527,6 @@ webkit_dom_event_get_event_phase (<em class="parameter"><code><a class="link" hr
 <a name="webkit-dom-event-get-bubbles"></a><h3>webkit_dom_event_get_bubbles ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
 webkit_dom_event_get_bubbles (<em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_get_bubbles</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-get-bubbles.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -584,10 +552,6 @@ webkit_dom_event_get_bubbles (<em class="parameter"><code><a class="link" href="
 <a name="webkit-dom-event-get-cancelable"></a><h3>webkit_dom_event_get_cancelable ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
 webkit_dom_event_get_cancelable (<em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_get_cancelable</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-get-cancelable.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -613,10 +577,6 @@ webkit_dom_event_get_cancelable (<em class="parameter"><code><a class="link" hre
 <a name="webkit-dom-event-get-time-stamp"></a><h3>webkit_dom_event_get_time_stamp ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#guint32"><span class="returnvalue">guint32</span></a>
 webkit_dom_event_get_time_stamp (<em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_get_time_stamp</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-get-time-stamp.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -642,10 +602,6 @@ webkit_dom_event_get_time_stamp (<em class="parameter"><code><a class="link" hre
 <a name="webkit-dom-event-get-src-element"></a><h3>webkit_dom_event_get_src_element ()</h3>
 <pre class="programlisting"><span class="returnvalue">WebKitDOMEventTarget</span> *
 webkit_dom_event_get_src_element (<em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_get_src_element</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-get-src-element.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -663,7 +619,7 @@ webkit_dom_event_get_src_element (<em class="parameter"><code><a class="link" hr
 </div>
 <div class="refsect3">
 <a name="webkit-dom-event-get-src-element.returns"></a><h4>Returns</h4>
-<p>A <span class="type">WebKitDOMEventTarget</span>. </p>
+<p> A <span class="type">WebKitDOMEventTarget</span>. </p>
 <p><span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
 </div>
 </div>
@@ -672,10 +628,6 @@ webkit_dom_event_get_src_element (<em class="parameter"><code><a class="link" hr
 <a name="webkit-dom-event-get-return-value"></a><h3>webkit_dom_event_get_return_value ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
 webkit_dom_event_get_return_value (<em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_get_return_value</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-get-return-value.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -702,10 +654,6 @@ webkit_dom_event_get_return_value (<em class="parameter"><code><a class="link" h
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_event_set_return_value (<em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *self</code></em>,
                                    <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> value</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_set_return_value</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-set-return-value.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -734,10 +682,6 @@ webkit_dom_event_set_return_value (<em class="parameter"><code><a class="link" h
 <a name="webkit-dom-event-get-cancel-bubble"></a><h3>webkit_dom_event_get_cancel_bubble ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
 webkit_dom_event_get_cancel_bubble (<em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_get_cancel_bubble</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-get-cancel-bubble.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -764,10 +708,6 @@ webkit_dom_event_get_cancel_bubble (<em class="parameter"><code><a class="link" 
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_event_set_cancel_bubble (<em class="parameter"><code><a class="link" href="WebKitDOMEvent.html" title="WebKitDOMEvent"><span class="type">WebKitDOMEvent</span></a> *self</code></em>,
                                     <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> value</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_event_set_cancel_bubble</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-event-set-cancel-bubble.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -797,207 +737,126 @@ webkit_dom_event_set_cancel_bubble (<em class="parameter"><code><a class="link" 
 <div class="refsect2">
 <a name="WebKitDOMEvent-struct"></a><h3>struct WebKitDOMEvent</h3>
 <pre class="programlisting">struct WebKitDOMEvent;</pre>
-<div class="warning"><p><code class="literal">WebKitDOMEvent</code> is deprecated and should not be used in newly-written code.</p></div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-NONE:CAPS"></a><h3>WEBKIT_DOM_EVENT_NONE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_NONE 0
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_NONE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-CAPTURING-PHASE:CAPS"></a><h3>WEBKIT_DOM_EVENT_CAPTURING_PHASE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_CAPTURING_PHASE 1
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_CAPTURING_PHASE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-AT-TARGET:CAPS"></a><h3>WEBKIT_DOM_EVENT_AT_TARGET</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_AT_TARGET 2
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_AT_TARGET</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-BUBBLING-PHASE:CAPS"></a><h3>WEBKIT_DOM_EVENT_BUBBLING_PHASE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_BUBBLING_PHASE 3
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_BUBBLING_PHASE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-MOUSEDOWN:CAPS"></a><h3>WEBKIT_DOM_EVENT_MOUSEDOWN</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_MOUSEDOWN 1
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_MOUSEDOWN</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-MOUSEUP:CAPS"></a><h3>WEBKIT_DOM_EVENT_MOUSEUP</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_MOUSEUP 2
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_MOUSEUP</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-MOUSEOVER:CAPS"></a><h3>WEBKIT_DOM_EVENT_MOUSEOVER</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_MOUSEOVER 4
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_MOUSEOVER</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-MOUSEOUT:CAPS"></a><h3>WEBKIT_DOM_EVENT_MOUSEOUT</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_MOUSEOUT 8
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_MOUSEOUT</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-MOUSEMOVE:CAPS"></a><h3>WEBKIT_DOM_EVENT_MOUSEMOVE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_MOUSEMOVE 16
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_MOUSEMOVE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-MOUSEDRAG:CAPS"></a><h3>WEBKIT_DOM_EVENT_MOUSEDRAG</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_MOUSEDRAG 32
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_MOUSEDRAG</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-CLICK:CAPS"></a><h3>WEBKIT_DOM_EVENT_CLICK</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_CLICK 64
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_CLICK</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-DBLCLICK:CAPS"></a><h3>WEBKIT_DOM_EVENT_DBLCLICK</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_DBLCLICK 128
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_DBLCLICK</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-KEYDOWN:CAPS"></a><h3>WEBKIT_DOM_EVENT_KEYDOWN</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_KEYDOWN 256
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_KEYDOWN</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-KEYUP:CAPS"></a><h3>WEBKIT_DOM_EVENT_KEYUP</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_KEYUP 512
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_KEYUP</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-KEYPRESS:CAPS"></a><h3>WEBKIT_DOM_EVENT_KEYPRESS</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_KEYPRESS 1024
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_KEYPRESS</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-DRAGDROP:CAPS"></a><h3>WEBKIT_DOM_EVENT_DRAGDROP</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_DRAGDROP 2048
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_DRAGDROP</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-FOCUS:CAPS"></a><h3>WEBKIT_DOM_EVENT_FOCUS</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_FOCUS 4096
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_FOCUS</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-BLUR:CAPS"></a><h3>WEBKIT_DOM_EVENT_BLUR</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_BLUR 8192
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_BLUR</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-SELECT:CAPS"></a><h3>WEBKIT_DOM_EVENT_SELECT</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_SELECT 16384
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_SELECT</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-EVENT-CHANGE:CAPS"></a><h3>WEBKIT_DOM_EVENT_CHANGE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_EVENT_CHANGE 32768
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_EVENT_CHANGE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 </div>
 <div class="refsect1">
@@ -1081,6 +940,6 @@ webkit_dom_event_set_cancel_bubble (<em class="parameter"><code><a class="link" 
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.25.1</div>
 </body>
 </html>

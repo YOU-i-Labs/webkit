@@ -31,6 +31,8 @@
 #include "config.h"
 #include "PerformanceTiming.h"
 
+#if ENABLE(WEB_TIMING)
+
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "DocumentTiming.h"
@@ -40,11 +42,12 @@
 #include "NetworkLoadMetrics.h"
 #include "Performance.h"
 #include "ResourceResponse.h"
+#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
-PerformanceTiming::PerformanceTiming(DOMWindow* window)
-    : DOMWindowProperty(window)
+PerformanceTiming::PerformanceTiming(Frame* frame)
+    : DOMWindowProperty(frame)
 {
 }
 
@@ -296,20 +299,18 @@ unsigned long long PerformanceTiming::loadEventEnd() const
 
 DocumentLoader* PerformanceTiming::documentLoader() const
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return nullptr;
 
-    return frame->loader().documentLoader();
+    return m_frame->loader().documentLoader();
 }
 
 const DocumentTiming* PerformanceTiming::documentTiming() const
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return nullptr;
 
-    Document* document = frame->document();
+    Document* document = m_frame->document();
     if (!document)
         return nullptr;
 
@@ -353,3 +354,5 @@ unsigned long long PerformanceTiming::monotonicTimeToIntegerMilliseconds(Monoton
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_TIMING)

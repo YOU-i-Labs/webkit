@@ -34,26 +34,13 @@ public:
     String valueAsString() const;
 };
 
-template<>
-struct SVGPropertyTraits<SVGLengthListValues> {
-    static SVGLengthListValues initialValue() { return { }; }
-    static SVGLengthListValues fromString(const String& string, SVGLengthMode lengthMode)
-    {
-        SVGLengthListValues list;
-        list.parse(string, lengthMode);
-        return list;
-    }
-    static Optional<SVGLengthListValues> parse(const QualifiedName& attrName, const String& string)
-    {
-        SVGLengthListValues list;
-        list.parse(string, SVGLengthValue::lengthModeForAnimatedLengthAttribute(attrName));
-        return list;
-    }
-    static String toString(const SVGLengthListValues& type) { return type.valueAsString(); }
-
+template<> struct SVGPropertyTraits<SVGLengthListValues> {
     using ListItemType = SVGLengthValue;
     using ListItemTearOff = SVGLength;
     using ListPropertyTearOff = SVGLengthList;
+
+    static SVGLengthListValues initialValue() { return  { }; }
+    static String toString(const SVGLengthListValues& type) { return type.valueAsString(); }
 };
 
 } // namespace WebCore

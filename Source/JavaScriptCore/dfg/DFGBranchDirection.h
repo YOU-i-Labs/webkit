@@ -29,7 +29,7 @@
 
 namespace JSC { namespace DFG {
 
-enum BranchDirection : uint8_t {
+enum BranchDirection {
     // This is not a branch and so there is no branch direction, or
     // the branch direction has yet to be set.
     InvalidBranchDirection,

@@ -43,7 +43,7 @@ Ref<RTCDTMFToneChangeEvent> RTCDTMFToneChangeEvent::create(const AtomicString& t
 }
 
 RTCDTMFToneChangeEvent::RTCDTMFToneChangeEvent(const String& tone)
-    : Event(eventNames().tonechangeEvent, CanBubble::No, IsCancelable::No)
+    : Event(eventNames().tonechangeEvent, false, false)
     , m_tone(tone)
 {
 }
@@ -54,7 +54,9 @@ RTCDTMFToneChangeEvent::RTCDTMFToneChangeEvent(const AtomicString& type, const I
 {
 }
 
-RTCDTMFToneChangeEvent::~RTCDTMFToneChangeEvent() = default;
+RTCDTMFToneChangeEvent::~RTCDTMFToneChangeEvent()
+{
+}
 
 const String& RTCDTMFToneChangeEvent::tone() const
 {

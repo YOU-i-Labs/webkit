@@ -32,11 +32,10 @@ namespace WebCore {
 class TextFieldInputType;
 
 class AutoFillButtonElement final : public HTMLDivElement {
-    WTF_MAKE_ISO_ALLOCATED(AutoFillButtonElement);
 public:
     class AutoFillButtonOwner {
     public:
-        virtual ~AutoFillButtonOwner() = default;
+        virtual ~AutoFillButtonOwner() { }
         virtual void autoFillButtonElementWasClicked() = 0;
     };
 

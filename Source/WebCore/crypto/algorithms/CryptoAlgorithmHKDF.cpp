@@ -26,12 +26,11 @@
 #include "config.h"
 #include "CryptoAlgorithmHKDF.h"
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
-#include "CryptoAlgorithmHkdfParams.h"
+#include "CryptoAlgorithmParameters.h"
 #include "CryptoKeyRaw.h"
-#include <JavaScriptCore/JSCJSValueInlines.h>
-#include <wtf/CrossThreadCopier.h>
+#include "ExceptionCode.h"
 
 namespace WebCore {
 
@@ -45,35 +44,31 @@ CryptoAlgorithmIdentifier CryptoAlgorithmHKDF::identifier() const
     return s_identifier;
 }
 
-void CryptoAlgorithmHKDF::deriveBits(const CryptoAlgorithmParameters& parameters, Ref<CryptoKey>&& baseKey, size_t length, VectorCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
+void CryptoAlgorithmHKDF::deriveBits(std::unique_ptr<CryptoAlgorithmParameters>&& parameters, Ref<CryptoKey>&& baseKey, size_t length, VectorCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
 {
     if (!length || length % 8) {
         exceptionCallback(OperationError);
         return;
     }
-
-    dispatchOperationInWorkQueue(workQueue, context, WTFMove(callback), WTFMove(exceptionCallback),
-        [parameters = crossThreadCopy(downcast<CryptoAlgorithmHkdfParams>(parameters)), baseKey = WTFMove(baseKey), length] {
-            return platformDeriveBits(parameters, downcast<CryptoKeyRaw>(baseKey.get()), length);
-        });
+    platformDeriveBits(WTFMove(parameters), WTFMove(baseKey), length, WTFMove(callback), WTFMove(exceptionCallback), context, workQueue);
 }
 
-void CryptoAlgorithmHKDF::importKey(CryptoKeyFormat format, KeyData&& data, const CryptoAlgorithmParameters& parameters, bool extractable, CryptoKeyUsageBitmap usages, KeyCallback&& callback, ExceptionCallback&& exceptionCallback)
+void CryptoAlgorithmHKDF::importKey(SubtleCrypto::KeyFormat format, KeyData&& data, const std::unique_ptr<CryptoAlgorithmParameters>&& parameters, bool extractable, CryptoKeyUsageBitmap usages, KeyCallback&& callback, ExceptionCallback&& exceptionCallback)
 {
-    if (format != CryptoKeyFormat::Raw) {
-        exceptionCallback(NotSupportedError);
+    if (format != SubtleCrypto::KeyFormat::Raw) {
+        exceptionCallback(NOT_SUPPORTED_ERR);
         return;
     }
     if (usages & (CryptoKeyUsageEncrypt | CryptoKeyUsageDecrypt | CryptoKeyUsageSign | CryptoKeyUsageVerify | CryptoKeyUsageWrapKey | CryptoKeyUsageUnwrapKey)) {
-        exceptionCallback(SyntaxError);
+        exceptionCallback(SYNTAX_ERR);
         return;
     }
     if (extractable) {
-        exceptionCallback(SyntaxError);
+        exceptionCallback(SYNTAX_ERR);
         return;
     }
 
-    callback(CryptoKeyRaw::create(parameters.identifier, WTFMove(WTF::get<Vector<uint8_t>>(data)), usages));
+    callback(CryptoKeyRaw::create(parameters->identifier, WTFMove(WTF::get<Vector<uint8_t>>(data)), usages));
 }
 
 ExceptionOr<size_t> CryptoAlgorithmHKDF::getKeyLength(const CryptoAlgorithmParameters&)
@@ -83,4 +78,4 @@ ExceptionOr<size_t> CryptoAlgorithmHKDF::getKeyLength(const CryptoAlgorithmParam
     
 } // namespace WebCore
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

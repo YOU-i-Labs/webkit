@@ -29,8 +29,7 @@
 #if ENABLE(ASYNC_SCROLLING)
 
 #include "ScrollingStateTree.h"
-#include "ScrollingTreeFrameScrollingNode.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 
@@ -42,7 +41,9 @@ ScrollingTreeNode::ScrollingTreeNode(ScrollingTree& scrollingTree, ScrollingNode
 {
 }
 
-ScrollingTreeNode::~ScrollingTreeNode() = default;
+ScrollingTreeNode::~ScrollingTreeNode()
+{
+}
 
 void ScrollingTreeNode::appendChild(Ref<ScrollingTreeNode>&& childNode)
 {
@@ -75,15 +76,6 @@ void ScrollingTreeNode::dumpProperties(TextStream& ts, ScrollingStateTreeAsTextB
 {
     if (behavior & ScrollingStateTreeAsTextBehaviorIncludeNodeIDs)
         ts.dumpProperty("nodeID", scrollingNodeID());
-}
-
-ScrollingTreeFrameScrollingNode* ScrollingTreeNode::enclosingFrameNodeIncludingSelf()
-{
-    auto* node = this;
-    while (node && !node->isFrameScrollingNode())
-        node = node->parent();
-
-    return downcast<ScrollingTreeFrameScrollingNode>(node);
 }
 
 void ScrollingTreeNode::dump(TextStream& ts, ScrollingStateTreeAsTextBehavior behavior) const

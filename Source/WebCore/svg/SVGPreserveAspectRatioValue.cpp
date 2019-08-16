@@ -23,6 +23,7 @@
 #include "SVGPreserveAspectRatioValue.h"
 
 #include "AffineTransform.h"
+#include "ExceptionCode.h"
 #include "FloatRect.h"
 #include "SVGParserUtilities.h"
 #include <wtf/text/StringView.h>
@@ -35,15 +36,10 @@ SVGPreserveAspectRatioValue::SVGPreserveAspectRatioValue()
 {
 }
 
-SVGPreserveAspectRatioValue::SVGPreserveAspectRatioValue(const String& value)
-{
-    parse(value);
-}
-
 ExceptionOr<void> SVGPreserveAspectRatioValue::setAlign(unsigned short align)
 {
     if (align == SVG_PRESERVEASPECTRATIO_UNKNOWN || align > SVG_PRESERVEASPECTRATIO_XMAXYMAX)
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
     m_align = static_cast<SVGPreserveAspectRatioType>(align);
     return { };
@@ -52,7 +48,7 @@ ExceptionOr<void> SVGPreserveAspectRatioValue::setAlign(unsigned short align)
 ExceptionOr<void> SVGPreserveAspectRatioValue::setMeetOrSlice(unsigned short meetOrSlice)
 {
     if (meetOrSlice == SVG_MEETORSLICE_UNKNOWN || meetOrSlice > SVG_MEETORSLICE_SLICE)
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
     m_meetOrSlice = static_cast<SVGMeetOrSliceType>(meetOrSlice);
     return { };
@@ -180,7 +176,7 @@ bool SVGPreserveAspectRatioValue::parseInternal(const UChar*& currParam, const U
     return true;
 }
 
-void SVGPreserveAspectRatioValue::transformRect(FloatRect& destRect, FloatRect& srcRect) const
+void SVGPreserveAspectRatioValue::transformRect(FloatRect& destRect, FloatRect& srcRect)
 {
     if (m_align == SVG_PRESERVEASPECTRATIO_NONE)
         return;

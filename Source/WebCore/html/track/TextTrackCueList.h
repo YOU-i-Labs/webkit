@@ -46,8 +46,6 @@ public:
     void remove(TextTrackCue&);
     void updateCueIndex(TextTrackCue&);
 
-    void clear();
-
     TextTrackCueList& activeCues();
 
 private:

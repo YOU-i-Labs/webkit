@@ -41,10 +41,9 @@ class RenderBlockFlow;
 
 namespace SimpleLineLayout {
 
-class RunResolver;
-
 bool canUseFor(const RenderBlockFlow&);
 AvoidanceReasonFlags canUseForWithReason(const RenderBlockFlow&, IncludeReasons);
+
 
 struct Run {
 #if COMPILER(MSVC)
@@ -80,9 +79,7 @@ class Layout {
 public:
     using RunVector = Vector<Run, 10>;
     using SimpleLineStruts = Vector<SimpleLineStrut, 4>;
-    static std::unique_ptr<Layout> create(const RunVector&, unsigned lineCount, const RenderBlockFlow&);
-
-    ~Layout();
+    static std::unique_ptr<Layout> create(const RunVector&, unsigned lineCount);
 
     unsigned lineCount() const { return m_lineCount; }
 
@@ -94,17 +91,13 @@ public:
     bool hasLineStruts() const { return !m_lineStruts.isEmpty(); }
     void setLineStruts(SimpleLineStruts&& lineStruts) { m_lineStruts = lineStruts; }
     const SimpleLineStruts& struts() const { return m_lineStruts; }
-    const RunResolver& runResolver() const;
-
 private:
-    Layout(const RunVector&, unsigned lineCount, const RenderBlockFlow&);
+    Layout(const RunVector&, unsigned lineCount);
 
     unsigned m_lineCount;
     unsigned m_runCount;
     bool m_isPaginated { false };
     SimpleLineStruts m_lineStruts;
-    const RenderBlockFlow& m_blockFlowRenderer;
-    mutable std::unique_ptr<RunResolver> m_runResolver;
     Run m_runs[0];
 };
 

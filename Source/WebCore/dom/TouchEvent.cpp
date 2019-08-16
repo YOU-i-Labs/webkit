@@ -31,14 +31,24 @@
 #include "TouchEvent.h"
 
 #include "EventDispatcher.h"
+#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
-TouchEvent::TouchEvent() = default;
+TouchEvent::TouchEvent()
+{
+}
 
-TouchEvent::TouchEvent(TouchList* touches, TouchList* targetTouches, TouchList* changedTouches, const AtomicString& type,
-    RefPtr<WindowProxy>&& view, const IntPoint& globalLocation, OptionSet<Modifier> modifiers)
-    : MouseRelatedEvent(type, IsCancelable::Yes, MonotonicTime::now(), WTFMove(view), globalLocation, modifiers)
+TouchEvent::TouchEvent(TouchList* touches, TouchList* targetTouches,
+        TouchList* changedTouches, const AtomicString& type, 
+        DOMWindow* view, int screenX, int screenY, int pageX, int pageY,
+        bool ctrlKey, bool altKey, bool shiftKey, bool metaKey)
+    : MouseRelatedEvent(type, true, true, currentTime(), view, 0, IntPoint(screenX, screenY),
+                        IntPoint(pageX, pageY),
+#if ENABLE(POINTER_LOCK)
+                        IntPoint(0, 0),
+#endif
+                        ctrlKey, altKey, shiftKey, metaKey)
     , m_touches(touches)
     , m_targetTouches(targetTouches)
     , m_changedTouches(changedTouches)
@@ -53,23 +63,28 @@ TouchEvent::TouchEvent(const AtomicString& type, const Init& initializer, IsTrus
 {
 }
 
-TouchEvent::~TouchEvent() = default;
+TouchEvent::~TouchEvent()
+{
+}
 
 void TouchEvent::initTouchEvent(TouchList* touches, TouchList* targetTouches,
         TouchList* changedTouches, const AtomicString& type, 
-        RefPtr<WindowProxy>&& view, int screenX, int screenY, int clientX, int clientY,
+        DOMWindow* view, int screenX, int screenY, int clientX, int clientY,
         bool ctrlKey, bool altKey, bool shiftKey, bool metaKey)
 {
-    if (isBeingDispatched())
+    if (dispatched())
         return;
 
-    initUIEvent(type, true, true, WTFMove(view), 0);
+    initUIEvent(type, true, true, view, 0);
 
     m_touches = touches;
     m_targetTouches = targetTouches;
     m_changedTouches = changedTouches;
     m_screenLocation = IntPoint(screenX, screenY);
-    setModifierKeys(ctrlKey, altKey, shiftKey, metaKey);
+    m_ctrlKey = ctrlKey;
+    m_altKey = altKey;
+    m_shiftKey = shiftKey;
+    m_metaKey = metaKey;
     initCoordinates(IntPoint(clientX, clientY));
 }
 

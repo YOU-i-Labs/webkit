@@ -25,7 +25,7 @@
  */
 
 #include "config.h"
-#include <wtf/RunLoop.h>
+#include "RunLoop.h"
 
 #include <glib.h>
 #include <wtf/MainThread.h>
@@ -120,7 +120,7 @@ void RunLoop::stop()
 
 void RunLoop::wakeUp()
 {
-    g_source_set_ready_time(m_source.get(), 0);
+    g_source_set_ready_time(m_source.get(), g_get_monotonic_time());
 }
 
 class DispatchAfterContext {
@@ -142,10 +142,9 @@ private:
 
 void RunLoop::dispatchAfter(Seconds duration, Function<void()>&& function)
 {
-    GRefPtr<GSource> source = adoptGRef(g_source_new(&runLoopSourceFunctions, sizeof(GSource)));
+    GRefPtr<GSource> source = adoptGRef(g_timeout_source_new(duration.millisecondsAs<guint>()));
     g_source_set_priority(source.get(), RunLoopSourcePriority::RunLoopTimer);
     g_source_set_name(source.get(), "[WebKit] RunLoop dispatchAfter");
-    g_source_set_ready_time(source.get(), g_get_monotonic_time() + duration.microsecondsAs<gint64>());
 
     std::unique_ptr<DispatchAfterContext> context = std::make_unique<DispatchAfterContext>(WTFMove(function));
     g_source_set_callback(source.get(), [](gpointer userData) -> gboolean {
@@ -163,14 +162,8 @@ RunLoop::TimerBase::TimerBase(RunLoop& runLoop)
     g_source_set_priority(m_source.get(), RunLoopSourcePriority::RunLoopTimer);
     g_source_set_name(m_source.get(), "[WebKit] RunLoop::Timer work");
     g_source_set_callback(m_source.get(), [](gpointer userData) -> gboolean {
-        // fired() executes the user's callback. It may destroy timer,
-        // so we must check if the source is still active afterwards
-        // before it is safe to dereference timer again.
         RunLoop::TimerBase* timer = static_cast<RunLoop::TimerBase*>(userData);
-        GSource* source = timer->m_source.get();
         timer->fired();
-        if (g_source_is_destroyed(source))
-            return G_SOURCE_REMOVE;
         if (timer->m_isRepeating)
             timer->updateReadyTime();
         return G_SOURCE_CONTINUE;
@@ -206,9 +199,9 @@ void RunLoop::TimerBase::updateReadyTime()
     g_source_set_ready_time(m_source.get(), targetTime);
 }
 
-void RunLoop::TimerBase::start(Seconds fireInterval, bool repeat)
+void RunLoop::TimerBase::start(double fireInterval, bool repeat)
 {
-    m_fireInterval = fireInterval;
+    m_fireInterval = Seconds(fireInterval);
     m_isRepeating = repeat;
     updateReadyTime();
 }

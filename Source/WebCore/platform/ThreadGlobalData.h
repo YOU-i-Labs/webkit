@@ -27,12 +27,12 @@
 #ifndef ThreadGlobalData_h
 #define ThreadGlobalData_h
 
-#include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/Noncopyable.h>
 #include <wtf/text/StringHash.h>
 
-namespace JSC {
-class ExecState;
-}
+#include <wtf/ThreadSpecific.h>
+#include <wtf/Threading.h>
+using WTF::ThreadSpecific;
 
 namespace WebCore {
 
@@ -42,14 +42,10 @@ namespace WebCore {
     struct CachedResourceRequestInitiators;
     struct EventNames;
     struct ICUConverterWrapper;
+    struct TECConverterWrapper;
 
-#if USE(WEB_THREAD)
-    class ThreadGlobalData : public ThreadSafeRefCounted<ThreadGlobalData> {
-#else
     class ThreadGlobalData {
-#endif
         WTF_MAKE_NONCOPYABLE(ThreadGlobalData);
-        WTF_MAKE_FAST_ALLOCATED;
     public:
         WEBCORE_EXPORT ThreadGlobalData();
         WEBCORE_EXPORT ~ThreadGlobalData();
@@ -62,31 +58,34 @@ namespace WebCore {
 
         ICUConverterWrapper& cachedConverterICU() { return *m_cachedConverterICU; }
 
-        JSC::ExecState* currentState() const { return m_currentState; }
-        void setCurrentState(JSC::ExecState* state) { m_currentState = state; }
+#if PLATFORM(MAC)
+        TECConverterWrapper& cachedConverterTEC() { return *m_cachedConverterTEC; }
+#endif
 
 #if USE(WEB_THREAD)
         void setWebCoreThreadData();
 #endif
-
-        bool isInRemoveAllEventListeners() const { return m_isInRemoveAllEventListeners; }
-        void setIsInRemoveAllEventListeners(bool value) { m_isInRemoveAllEventListeners = value; }
 
     private:
         std::unique_ptr<CachedResourceRequestInitiators> m_cachedResourceRequestInitiators;
         std::unique_ptr<EventNames> m_eventNames;
         std::unique_ptr<ThreadTimers> m_threadTimers;
         std::unique_ptr<QualifiedNameCache> m_qualifiedNameCache;
-        JSC::ExecState* m_currentState { nullptr };
 
 #ifndef NDEBUG
         bool m_isMainThread;
 #endif
 
-        bool m_isInRemoveAllEventListeners { false };
-
         std::unique_ptr<ICUConverterWrapper> m_cachedConverterICU;
 
+#if PLATFORM(MAC)
+        std::unique_ptr<TECConverterWrapper> m_cachedConverterTEC;
+#endif
+
+        WEBCORE_EXPORT static ThreadSpecific<ThreadGlobalData>* staticData;
+#if USE(WEB_THREAD)
+        WEBCORE_EXPORT static ThreadGlobalData* sharedMainThreadStaticData;
+#endif
         WEBCORE_EXPORT friend ThreadGlobalData& threadGlobalData();
     };
 

@@ -21,6 +21,7 @@
 
 #include "RenderSVGResourceContainer.h"
 #include "SVGMarkerElement.h"
+#include <wtf/HashSet.h>
 
 namespace WebCore {
 
@@ -28,7 +29,6 @@ class AffineTransform;
 class RenderObject;
 
 class RenderSVGResourceMarker final : public RenderSVGResourceContainer {
-    WTF_MAKE_ISO_ALLOCATED(RenderSVGResourceMarker);
 public:
     RenderSVGResourceMarker(SVGMarkerElement&, RenderStyle&&);
     virtual ~RenderSVGResourceMarker();

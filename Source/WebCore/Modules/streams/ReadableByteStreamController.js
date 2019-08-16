@@ -25,16 +25,6 @@
 
 // @conditional=ENABLE(STREAMS_API)
 
-function initializeReadableByteStreamController(stream, underlyingByteSource, highWaterMark)
-{
-    "use strict";
-
-    if (arguments.length !== 4 && arguments[3] !== @isReadableStream)
-        @throwTypeError("ReadableByteStreamController constructor should not be called directly");
-
-    return @privateInitializeReadableByteStreamController.@call(this, stream, underlyingByteSource, highWaterMark);
-}
-
 function enqueue(chunk)
 {
     "use strict";
@@ -42,10 +32,10 @@ function enqueue(chunk)
     if (!@isReadableByteStreamController(this))
         throw @makeThisTypeError("ReadableByteStreamController", "enqueue");
 
-    if (@getByIdDirectPrivate(this, "closeRequested"))
+    if (this.@closeRequested)
         @throwTypeError("ReadableByteStreamController is requested to close");
 
-    if (@getByIdDirectPrivate(@getByIdDirectPrivate(this, "controlledReadableStream"), "state") !== @streamReadable)
+    if (this.@controlledReadableStream.@state !== @streamReadable)
         @throwTypeError("ReadableStream is not readable");
 
     if (!@isObject(chunk))
@@ -64,7 +54,7 @@ function error(error)
     if (!@isReadableByteStreamController(this))
         throw @makeThisTypeError("ReadableByteStreamController", "error");
 
-    if (@getByIdDirectPrivate(@getByIdDirectPrivate(this, "controlledReadableStream"), "state") !== @streamReadable)
+    if (this.@controlledReadableStream.@state !== @streamReadable)
         @throwTypeError("ReadableStream is not readable");
 
     @readableByteStreamControllerError(this, error);
@@ -77,16 +67,15 @@ function close()
     if (!@isReadableByteStreamController(this))
         throw @makeThisTypeError("ReadableByteStreamController", "close");
 
-    if (@getByIdDirectPrivate(this, "closeRequested"))
+    if (this.@closeRequested)
         @throwTypeError("Close has already been requested");
 
-    if (@getByIdDirectPrivate(@getByIdDirectPrivate(this, "controlledReadableStream"), "state") !== @streamReadable)
+    if (this.@controlledReadableStream.@state !== @streamReadable)
         @throwTypeError("ReadableStream is not readable");
 
     @readableByteStreamControllerClose(this);
 }
 
-@getter
 function byobRequest()
 {
     "use strict";
@@ -94,18 +83,17 @@ function byobRequest()
     if (!@isReadableByteStreamController(this))
         throw @makeGetterTypeError("ReadableByteStreamController", "byobRequest");
 
-    if (@getByIdDirectPrivate(this, "byobRequest") === @undefined && @getByIdDirectPrivate(this, "pendingPullIntos").length) {
-        const firstDescriptor = @getByIdDirectPrivate(this, "pendingPullIntos")[0];
+    if (this.@byobRequest === @undefined && this.@pendingPullIntos.length) {
+        const firstDescriptor = this.@pendingPullIntos[0];
         const view = new @Uint8Array(firstDescriptor.buffer,
             firstDescriptor.byteOffset + firstDescriptor.bytesFilled,
             firstDescriptor.byteLength - firstDescriptor.bytesFilled);
-        @putByIdDirectPrivate(this, "byobRequest", new @ReadableStreamBYOBRequest(this, view, @isReadableStream));
+        this.@byobRequest = new @ReadableStreamBYOBRequest(this, view);
     }
 
-    return @getByIdDirectPrivate(this, "byobRequest");
+    return this.@byobRequest;
 }
 
-@getter
 function desiredSize()
 {
     "use strict";

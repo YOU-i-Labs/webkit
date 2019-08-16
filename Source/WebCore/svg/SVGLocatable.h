@@ -32,7 +32,7 @@ class SVGMatrix;
 
 class SVGLocatable {
 public:
-    virtual ~SVGLocatable() = default;
+    virtual ~SVGLocatable() { }
 
     // 'SVGLocatable' functions
     virtual SVGElement* nearestViewportElement() const = 0;

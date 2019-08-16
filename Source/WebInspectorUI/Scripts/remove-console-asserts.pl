@@ -1,7 +1,6 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl -w
 
 use strict;
-use warnings;
 use Getopt::Long;
 use File::Copy qw/move/;
 use File::Temp qw/tempfile/;

@@ -34,6 +34,7 @@
 #include "DatabaseManager.h"
 #include "DatabaseManagerClient.h"
 #include "DatabaseThread.h"
+#include "ExceptionCode.h"
 #include "FileSystem.h"
 #include "Logging.h"
 #include "OriginLock.h"
@@ -42,7 +43,6 @@
 #include "SecurityOriginHash.h"
 #include "SQLiteFileSystem.h"
 #include "SQLiteStatement.h"
-#include "SQLiteTransaction.h"
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
@@ -50,7 +50,7 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #include "WebCoreThread.h"
 #endif
 
@@ -136,7 +136,7 @@ void DatabaseTracker::openTrackerDatabase(TrackerCreationAction createAction)
     }
 }
 
-ExceptionOr<void> DatabaseTracker::hasAdequateQuotaForOrigin(const SecurityOriginData& origin, unsigned long long estimatedSize)
+ExceptionOr<void> DatabaseTracker::hasAdequateQuotaForOrigin(const SecurityOriginData& origin, unsigned estimatedSize)
 {
     ASSERT(!m_databaseGuard.tryLock());
     auto usage = this->usage(origin);
@@ -145,14 +145,14 @@ ExceptionOr<void> DatabaseTracker::hasAdequateQuotaForOrigin(const SecurityOrigi
     auto requirement = usage + std::max<unsigned long long>(1, estimatedSize);
     if (requirement < usage) {
         // The estimated size is so big it causes an overflow; don't allow creation.
-        return Exception { SecurityError };
+        return Exception { SECURITY_ERR };
     }
     if (requirement > quotaNoLock(origin))
-        return Exception { QuotaExceededError };
+        return Exception { QUOTA_EXCEEDED_ERR };
     return { };
 }
 
-ExceptionOr<void> DatabaseTracker::canEstablishDatabase(DatabaseContext& context, const String& name, unsigned long long estimatedSize)
+ExceptionOr<void> DatabaseTracker::canEstablishDatabase(DatabaseContext& context, const String& name, unsigned estimatedSize)
 {
     LockHolder lockDatabase(m_databaseGuard);
 
@@ -160,7 +160,7 @@ ExceptionOr<void> DatabaseTracker::canEstablishDatabase(DatabaseContext& context
     auto origin = context.securityOrigin();
 
     if (isDeletingDatabaseOrOriginFor(origin, name))
-        return Exception { SecurityError };
+        return Exception { SECURITY_ERR };
 
     recordCreatingDatabase(origin, name);
 
@@ -186,7 +186,7 @@ ExceptionOr<void> DatabaseTracker::canEstablishDatabase(DatabaseContext& context
     // again. Hence, we don't call doneCreatingDatabase() yet in that case.
 
     auto exception = result.releaseException();
-    if (exception.code() != QuotaExceededError)
+    if (exception.code() != QUOTA_EXCEEDED_ERR)
         doneCreatingDatabase(origin, name);
 
     return WTFMove(exception);
@@ -200,7 +200,7 @@ ExceptionOr<void> DatabaseTracker::canEstablishDatabase(DatabaseContext& context
 // hasAdequateQuotaForOrigin() simple and correct (i.e. bug free), and just
 // re-use it. Also note that the path for opening a database involves IO, and
 // hence should not be a performance critical path anyway. 
-ExceptionOr<void> DatabaseTracker::retryCanEstablishDatabase(DatabaseContext& context, const String& name, unsigned long long estimatedSize)
+ExceptionOr<void> DatabaseTracker::retryCanEstablishDatabase(DatabaseContext& context, const String& name, unsigned estimatedSize)
 {
     LockHolder lockDatabase(m_databaseGuard);
 
@@ -217,7 +217,7 @@ ExceptionOr<void> DatabaseTracker::retryCanEstablishDatabase(DatabaseContext& co
         return { };
 
     auto exception = result.releaseException();
-    ASSERT(exception.code() == QuotaExceededError);
+    ASSERT(exception.code() == QUOTA_EXCEEDED_ERR);
     doneCreatingDatabase(origin, name);
 
     return WTFMove(exception);
@@ -472,11 +472,11 @@ DatabaseDetails DatabaseTracker::detailsForNameAndOrigin(const String& name, con
 
     String path = fullPathForDatabase(origin, name, false);
     if (path.isEmpty())
-        return DatabaseDetails(name, displayName, expectedUsage, 0, WTF::nullopt, WTF::nullopt);
+        return DatabaseDetails(name, displayName, expectedUsage, 0, 0, 0);
     return DatabaseDetails(name, displayName, expectedUsage, SQLiteFileSystem::getDatabaseFileSize(path), SQLiteFileSystem::databaseCreationTime(path), SQLiteFileSystem::databaseModificationTime(path));
 }
 
-void DatabaseTracker::setDatabaseDetails(const SecurityOriginData& origin, const String& name, const String& displayName, unsigned long long estimatedSize)
+void DatabaseTracker::setDatabaseDetails(const SecurityOriginData& origin, const String& name, const String& displayName, unsigned estimatedSize)
 {
     String originIdentifier = origin.databaseIdentifier();
     int64_t guid = 0;
@@ -649,9 +649,9 @@ unsigned long long DatabaseTracker::usage(const SecurityOriginData& origin)
 {
     String originPath = this->originPath(origin);
     unsigned long long diskUsage = 0;
-    for (auto& fileName : FileSystem::listDirectory(originPath, "*.db"_s)) {
+    for (auto& fileName : listDirectory(originPath, ASCIILiteral("*.db"))) {
         long long size;
-        FileSystem::getFileSize(fileName, size);
+        getFileSize(fileName, size);
         diskUsage += size;
     }
     return diskUsage;
@@ -773,7 +773,7 @@ void DatabaseTracker::deleteAllDatabasesImmediately()
         deleteOrigin(origin, DeletionMode::Immediate);
 }
 
-void DatabaseTracker::deleteDatabasesModifiedSince(WallTime time)
+void DatabaseTracker::deleteDatabasesModifiedSince(std::chrono::system_clock::time_point time)
 {
     for (auto& origin : origins()) {
         Vector<String> databaseNames = this->databaseNames(origin);
@@ -782,17 +782,12 @@ void DatabaseTracker::deleteDatabasesModifiedSince(WallTime time)
         for (const auto& databaseName : databaseNames) {
             auto fullPath = fullPathForDatabase(origin, databaseName, false);
 
-            // If the file doesn't exist, we previously deleted it but failed to remove the information
-            // from the tracker database. We want to delete all of the information associated with this
-            // database from the tracker database, so still add its name to databaseNamesToDelete.
-            if (FileSystem::fileExists(fullPath)) {
-                auto modificationTime = FileSystem::getFileModificationTime(fullPath);
-                if (!modificationTime)
-                    continue;
+            time_t modificationTime;
+            if (!getFileModificationTime(fullPath, modificationTime))
+                continue;
 
-                if (modificationTime.value() < time)
-                    continue;
-            }
+            if (modificationTime < std::chrono::system_clock::to_time_t(time))
+                continue;
 
             databaseNamesToDelete.uncheckedAppend(databaseName);
         }
@@ -823,9 +818,10 @@ bool DatabaseTracker::deleteOrigin(const SecurityOriginData& origin, DeletionMod
             return false;
 
         databaseNames = databaseNamesNoLock(origin);
-        if (databaseNames.isEmpty())
+        if (databaseNames.isEmpty()) {
             LOG_ERROR("Unable to retrieve list of database names for origin %s", origin.databaseIdentifier().utf8().data());
-
+            return false;
+        }
         if (!canDeleteOrigin(origin)) {
             LOG_ERROR("Tried to delete an origin (%s) while either creating database in it or already deleting it", origin.databaseIdentifier().utf8().data());
             ASSERT_NOT_REACHED();
@@ -835,45 +831,17 @@ bool DatabaseTracker::deleteOrigin(const SecurityOriginData& origin, DeletionMod
     }
 
     // We drop the lock here because holding locks during a call to deleteDatabaseFile will deadlock.
-    bool failedToDeleteAnyDatabaseFile = false;
     for (auto& name : databaseNames) {
-        if (FileSystem::fileExists(fullPathForDatabase(origin, name, false)) && !deleteDatabaseFile(origin, name, deletionMode)) {
+        if (!deleteDatabaseFile(origin, name, deletionMode)) {
             // Even if the file can't be deleted, we want to try and delete the rest, don't return early here.
             LOG_ERROR("Unable to delete file for database %s in origin %s", name.utf8().data(), origin.databaseIdentifier().utf8().data());
-            failedToDeleteAnyDatabaseFile = true;
         }
-    }
-
-    // If databaseNames is empty, delete everything in the directory containing the databases for this origin.
-    // This condition indicates that we previously tried to remove the origin but didn't get all of the way
-    // through the deletion process. Because we have lost track of the databases for this origin,
-    // we can assume that no other process is accessing them. This means it should be safe to delete them outright.
-    if (databaseNames.isEmpty()) {
-#if PLATFORM(COCOA)
-        RELEASE_LOG_ERROR(DatabaseTracker, "Unable to retrieve list of database names for origin");
-#endif
-        for (const auto& file : FileSystem::listDirectory(originPath(origin), "*")) {
-            if (!FileSystem::deleteFile(file))
-                failedToDeleteAnyDatabaseFile = true;
-        }
-    }
-
-    // If we failed to delete any database file, don't remove the origin from the tracker
-    // database because we didn't successfully remove all of its data.
-    if (failedToDeleteAnyDatabaseFile) {
-#if PLATFORM(COCOA)
-        RELEASE_LOG_ERROR(DatabaseTracker, "Failed to delete database for origin");
-#endif
-        return false;
     }
 
     {
         LockHolder lockDatabase(m_databaseGuard);
         deleteOriginLockFor(origin);
         doneDeletingOrigin(origin);
-
-        SQLiteTransaction transaction(m_database);
-        transaction.begin();
 
         SQLiteStatement statement(m_database, "DELETE FROM Databases WHERE origin=?");
         if (statement.prepare() != SQLITE_OK) {
@@ -900,8 +868,6 @@ bool DatabaseTracker::deleteOrigin(const SecurityOriginData& origin, DeletionMod
             LOG_ERROR("Unable to execute deletion of databases from origin %s from tracker", origin.databaseIdentifier().utf8().data());
             return false;
         }
-
-        transaction.commit();
 
         SQLiteFileSystem::deleteEmptyDatabaseDirectory(originPath(origin));
 
@@ -1066,7 +1032,7 @@ bool DatabaseTracker::deleteDatabase(const SecurityOriginData& origin, const Str
     }
 
     // We drop the lock here because holding locks during a call to deleteDatabaseFile will deadlock.
-    if (FileSystem::fileExists(fullPathForDatabase(origin, name, false)) && !deleteDatabaseFile(origin, name, DeletionMode::Default)) {
+    if (!deleteDatabaseFile(origin, name, DeletionMode::Default)) {
         LOG_ERROR("Unable to delete file for database %s in origin %s", name.utf8().data(), origin.databaseIdentifier().utf8().data());
         LockHolder lockDatabase(m_databaseGuard);
         doneDeletingDatabase(origin, name);
@@ -1136,7 +1102,7 @@ bool DatabaseTracker::deleteDatabaseFile(const SecurityOriginData& origin, const
     for (auto& database : deletedDatabases)
         database->markAsDeletedAndClose();
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     if (deletionMode == DeletionMode::Deferred) {
         // Other background processes may still be accessing this database. Deleting the database directly
         // would nuke the POSIX file locks, potentially causing Safari/WebApp to corrupt the new db if it's running in the background.
@@ -1155,7 +1121,7 @@ bool DatabaseTracker::deleteDatabaseFile(const SecurityOriginData& origin, const
     return SQLiteFileSystem::deleteDatabaseFile(fullPath);
 }
     
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 
 void DatabaseTracker::removeDeletedOpenedDatabases()
 {
@@ -1207,7 +1173,7 @@ void DatabaseTracker::removeDeletedOpenedDatabases()
                             continue;
                         
                         // If this database has been deleted or if its database file no longer matches the current version, this database is no longer valid and it should be marked as deleted.
-                        if (databaseFileName.isNull() || databaseFileName != FileSystem::pathGetFileName(db->fileName())) {
+                        if (databaseFileName.isNull() || databaseFileName != pathGetFileName(db->fileName())) {
                             deletedDatabases.append(db);
                             foundDeletedDatabase = true;
                         }
@@ -1238,7 +1204,7 @@ void DatabaseTracker::removeDeletedOpenedDatabases()
 static bool isZeroByteFile(const String& path)
 {
     long long size = 0;
-    return FileSystem::getFileSize(path, size) && !size;
+    return getFileSize(path, size) && !size;
 }
     
 bool DatabaseTracker::deleteDatabaseFileIfEmpty(const String& path)
@@ -1275,22 +1241,22 @@ bool DatabaseTracker::deleteDatabaseFileIfEmpty(const String& path)
     return SQLiteFileSystem::deleteDatabaseFile(path);
 }
 
-static Lock openDatabaseLock;
 Lock& DatabaseTracker::openDatabaseMutex()
 {
-    return openDatabaseLock;
+    static NeverDestroyed<Lock> mutex;
+    return mutex;
 }
 
 void DatabaseTracker::emptyDatabaseFilesRemovalTaskWillBeScheduled()
 {
     // Lock the database from opening any database until we are done with scanning the file system for
     // zero byte database files to remove.
-    openDatabaseLock.lock();
+    openDatabaseMutex().lock();
 }
 
 void DatabaseTracker::emptyDatabaseFilesRemovalTaskDidFinish()
 {
-    openDatabaseLock.unlock();
+    openDatabaseMutex().unlock();
 }
 
 #endif
@@ -1300,7 +1266,11 @@ void DatabaseTracker::setClient(DatabaseManagerClient* client)
     m_client = client;
 }
 
-static Lock notificationLock;
+static Lock& notificationMutex()
+{
+    static NeverDestroyed<Lock> mutex;
+    return mutex;
+}
 
 using NotificationQueue = Vector<std::pair<SecurityOriginData, String>>;
 
@@ -1312,7 +1282,7 @@ static NotificationQueue& notificationQueue()
 
 void DatabaseTracker::scheduleNotifyDatabaseChanged(const SecurityOriginData& origin, const String& name)
 {
-    auto locker = holdLock(notificationLock);
+    LockHolder locker(notificationMutex());
     notificationQueue().append(std::make_pair(origin.isolatedCopy(), name.isolatedCopy()));
     scheduleForNotification();
 }
@@ -1321,7 +1291,7 @@ static bool notificationScheduled = false;
 
 void DatabaseTracker::scheduleForNotification()
 {
-    ASSERT(!notificationLock.tryLock());
+    ASSERT(!notificationMutex().tryLock());
 
     if (!notificationScheduled) {
         callOnMainThread([] {
@@ -1339,7 +1309,7 @@ void DatabaseTracker::notifyDatabasesChanged()
 
     NotificationQueue notifications;
     {
-        auto locker = holdLock(notificationLock);
+        LockHolder locker(notificationMutex());
         notifications.swap(notificationQueue());
         notificationScheduled = false;
     }

@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,20 +20,22 @@
 
 #pragma once
 
-#include "SVGAnimatedPointList.h"
+#include "SVGAnimatedBoolean.h"
 #include "SVGExternalResourcesRequired.h"
-#include "SVGGeometryElement.h"
+#include "SVGGraphicsElement.h"
 #include "SVGNames.h"
+#include "SVGPointListValues.h"
 
 namespace WebCore {
 
-class SVGPolyElement : public SVGGeometryElement, public SVGExternalResourcesRequired {
-    WTF_MAKE_ISO_ALLOCATED(SVGPolyElement);
+class SVGPolyElement : public SVGGraphicsElement, public SVGExternalResourcesRequired {
 public:
     Ref<SVGPointList> points();
     Ref<SVGPointList> animatedPoints();
 
-    const SVGPointListValues& pointList() const { return m_points.value(); }
+    SVGPointListValues& pointList() const { return m_points.value; }
+
+    static const SVGPropertyInfo* pointsPropertyInfo();
 
     size_t approximateMemoryCost() const override;
 
@@ -42,20 +43,23 @@ protected:
     SVGPolyElement(const QualifiedName&, Document&);
 
 private:
-    using AttributeOwnerProxy = SVGAttributeOwnerProxyImpl<SVGPolyElement, SVGGeometryElement, SVGExternalResourcesRequired>;
-    static AttributeOwnerProxy::AttributeRegistry& attributeRegistry() { return AttributeOwnerProxy::attributeRegistry(); }
-    static bool isKnownAttribute(const QualifiedName& attributeName) { return AttributeOwnerProxy::isKnownAttribute(attributeName); }
-    static void registerAttributes();
+    bool isValid() const override { return SVGTests::isValid(); }
 
-    const SVGAttributeOwnerProxy& attributeOwnerProxy() const final { return m_attributeOwnerProxy; }
     void parseAttribute(const QualifiedName&, const AtomicString&) override; 
     void svgAttributeChanged(const QualifiedName&) override;
 
-    bool isValid() const override { return SVGTests::isValid(); }
     bool supportsMarkers() const override { return true; }
 
-    AttributeOwnerProxy m_attributeOwnerProxy { *this };
-    SVGAnimatedPointListAttribute m_points;
+    // Custom 'points' property
+    static void synchronizePoints(SVGElement* contextElement);
+    static Ref<SVGAnimatedProperty> lookupOrCreatePointsWrapper(SVGElement* contextElement);
+
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGPolyElement)
+        DECLARE_ANIMATED_BOOLEAN_OVERRIDE(ExternalResourcesRequired, externalResourcesRequired)
+    END_DECLARE_ANIMATED_PROPERTIES
+
+protected:
+    mutable SVGSynchronizableAnimatedProperty<SVGPointListValues> m_points;
 };
 
 } // namespace WebCore

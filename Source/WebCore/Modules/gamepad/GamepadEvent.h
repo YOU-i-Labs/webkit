@@ -35,7 +35,7 @@ namespace WebCore {
 
 class GamepadEvent : public Event {
 public:
-    ~GamepadEvent() = default;
+    ~GamepadEvent() { }
 
     static Ref<GamepadEvent> create(const AtomicString& eventType, Gamepad& gamepad)
     {

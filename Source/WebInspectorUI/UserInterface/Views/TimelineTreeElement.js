@@ -23,19 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TimelineTreeElement = class TimelineTreeElement extends WI.GeneralTreeElement
+WebInspector.TimelineTreeElement = class TimelineTreeElement extends WebInspector.GeneralTreeElement
 {
     constructor(timeline, placeholder)
     {
-        let displayName = WI.TimelineTabContentView.displayNameForTimelineType(timeline.type);
-        let iconClassName = WI.TimelineTabContentView.iconClassNameForTimelineType(timeline.type);
-        let genericClassName = WI.TimelineTabContentView.genericClassNameForTimelineType(timeline.type);
+        let displayName = WebInspector.TimelineTabContentView.displayNameForTimelineType(timeline.type);
+        let iconClassName = WebInspector.TimelineTabContentView.iconClassNameForTimelineType(timeline.type);
+        let genericClassName = WebInspector.TimelineTabContentView.genericClassNameForTimelineType(timeline.type);
 
         super([iconClassName, genericClassName], displayName, "", timeline);
 
         this._placeholder = placeholder || false;
         this.editing = this._placeholder;
-        this.tooltipHandledSeparately = true;
     }
 
     // Public
@@ -74,9 +73,9 @@ WI.TimelineTreeElement = class TimelineTreeElement extends WI.GeneralTreeElement
 
     _showCloseButton()
     {
-        let tooltip = WI.UIString("Close %s timeline view").format(this.mainTitle);
-        let button = new WI.TreeElementStatusButton(WI.ImageUtilities.useSVGSymbol("Images/CloseLarge.svg", "close-button", tooltip));
-        button.addEventListener(WI.TreeElementStatusButton.Event.Clicked, () => { this.deselect(); });
+        let tooltip = WebInspector.UIString("Close %s timeline view").format(this.mainTitle);
+        let button = new WebInspector.TreeElementStatusButton(useSVGSymbol("Images/CloseLarge.svg", "close-button", tooltip));
+        button.addEventListener(WebInspector.TreeElementStatusButton.Event.Clicked, () => { this.deselect(); });
 
         this.status = button.element;
     }
@@ -87,7 +86,7 @@ WI.TimelineTreeElement = class TimelineTreeElement extends WI.GeneralTreeElement
         checkboxElement.type = "checkbox";
         checkboxElement.checked = !this._placeholder;
 
-        let button = new WI.TreeElementStatusButton(checkboxElement);
+        let button = new WebInspector.TreeElementStatusButton(checkboxElement);
         checkboxElement.addEventListener("change", () => { this._dispatchEnabledDidChangeEvent(); });
 
         this.status = checkboxElement;
@@ -112,10 +111,10 @@ WI.TimelineTreeElement = class TimelineTreeElement extends WI.GeneralTreeElement
 
     _dispatchEnabledDidChangeEvent()
     {
-        this.dispatchEventToListeners(WI.TimelineTreeElement.Event.EnabledDidChange);
+        this.dispatchEventToListeners(WebInspector.TimelineTreeElement.Event.EnabledDidChange);
     }
 };
 
-WI.TimelineTreeElement.Event = {
+WebInspector.TimelineTreeElement.Event = {
     EnabledDidChange: "timeline-tree-element-enabled-did-change"
 };

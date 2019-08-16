@@ -27,18 +27,19 @@
 
 #if ENABLE(VIDEO) && USE(GSTREAMER) && ENABLE(VIDEO_TRACK)
 
+#include "GRefPtrGStreamer.h"
 #include "InbandTextTrackPrivate.h"
 
 namespace WebCore {
 
 class InbandMetadataTextTrackPrivateGStreamer : public InbandTextTrackPrivate {
 public:
-    static Ref<InbandMetadataTextTrackPrivateGStreamer> create(Kind kind, CueFormat cueFormat, const AtomicString& id = emptyAtom())
+    static Ref<InbandMetadataTextTrackPrivateGStreamer> create(Kind kind, CueFormat cueFormat, const AtomicString& id = emptyAtom)
     {
         return adoptRef(*new InbandMetadataTextTrackPrivateGStreamer(kind, cueFormat, id));
     }
 
-    ~InbandMetadataTextTrackPrivateGStreamer() = default;
+    ~InbandMetadataTextTrackPrivateGStreamer() { }
 
     Kind kind() const override { return m_kind; }
     AtomicString id() const override { return m_id; }

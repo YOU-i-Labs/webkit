@@ -32,15 +32,15 @@
 
 namespace WebCore {
 
-enum class ApplePayPaymentMethodType;
+enum class ApplePayPaymentMethodType { Debit, Credit, Prepaid, Store };
 
 struct ApplePayPaymentMethod {    
     using Type = ApplePayPaymentMethodType;
     
     String displayName;
     String network;
-    Optional<Type> type;
-    Optional<ApplePayPaymentPass> paymentPass;
+    std::optional<Type> type;
+    std::optional<ApplePayPaymentPass> paymentPass;
 };
 
 }

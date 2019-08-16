@@ -28,12 +28,9 @@
 #include "ContainerNode.h"
 #include "EditingBoundary.h"
 #include "TextAffinity.h"
+#include "TextFlags.h"
 #include <wtf/Assertions.h>
 #include <wtf/RefPtr.h>
-
-namespace WTF {
-class TextStream;
-}
 
 namespace WebCore {
 
@@ -45,6 +42,7 @@ class Range;
 class RenderElement;
 class RenderObject;
 class Text;
+class TextStream;
 
 enum PositionMoveType {
     CodePoint,       // Move by a single code point.
@@ -103,8 +101,6 @@ public:
         return offsetForPositionAfterAnchor();
     }
 
-    RefPtr<Node> firstNode() const;
-
     // These are convenience methods which are smart about whether the position is neighbor anchored or parent anchored
     Node* computeNodeBeforePosition() const;
     Node* computeNodeAfterPosition() const;
@@ -117,7 +113,6 @@ public:
     Node* deprecatedNode() const { return m_anchorNode.get(); }
 
     Document* document() const { return m_anchorNode ? &m_anchorNode->document() : nullptr; }
-    TreeScope* treeScope() const { return m_anchorNode ? &m_anchorNode->treeScope() : nullptr; }
     Element* rootEditableElement() const
     {
         Node* container = containerNode();
@@ -290,7 +285,7 @@ inline Position positionAfterNode(Node* anchorNode)
 
 inline int lastOffsetInNode(Node* node)
 {
-    return node->isCharacterDataNode() ? node->maxCharacterOffset() : static_cast<int>(node->countChildNodes());
+    return node->offsetInCharacters() ? node->maxCharacterOffset() : static_cast<int>(node->countChildNodes());
 }
 
 // firstPositionInNode and lastPositionInNode return parent-anchored positions, lastPositionInNode construction is O(n) due to countChildNodes()
@@ -310,7 +305,7 @@ inline Position lastPositionInNode(Node* anchorNode)
 
 inline int minOffsetForNode(Node* anchorNode, int offset)
 {
-    if (anchorNode->isCharacterDataNode())
+    if (anchorNode->offsetInCharacters())
         return std::min(offset, anchorNode->maxCharacterOffset());
 
     int newOffset = 0;
@@ -322,7 +317,7 @@ inline int minOffsetForNode(Node* anchorNode, int offset)
 
 inline bool offsetIsBeforeLastNodeOffset(int offset, Node* anchorNode)
 {
-    if (anchorNode->isCharacterDataNode())
+    if (anchorNode->offsetInCharacters())
         return offset < anchorNode->maxCharacterOffset();
 
     int currentOffset = 0;
@@ -333,9 +328,7 @@ inline bool offsetIsBeforeLastNodeOffset(int offset, Node* anchorNode)
     return offset < currentOffset;
 }
 
-RefPtr<Node> commonShadowIncludingAncestor(const Position&, const Position&);
-
-WTF::TextStream& operator<<(WTF::TextStream&, const Position&);
+TextStream& operator<<(TextStream&, const Position&);
 
 } // namespace WebCore
 

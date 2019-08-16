@@ -31,11 +31,8 @@
 #include "HTMLOListElement.h"
 #include "HTMLUListElement.h"
 #include "RenderListItem.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLLIElement);
 
 using namespace HTMLNames;
 
@@ -123,7 +120,7 @@ inline void HTMLLIElement::parseValue(const AtomicString& value)
     if (valueOK)
         downcast<RenderListItem>(*renderer()).setExplicitValue(requestedValue);
     else
-        downcast<RenderListItem>(*renderer()).setExplicitValue(WTF::nullopt);
+        downcast<RenderListItem>(*renderer()).clearExplicitValue();
 }
 
 }

@@ -25,16 +25,15 @@
 
 #pragma once
 
-#include "CallFrame.h"
 #include "JSCJSValue.h"
 #include <wtf/MathExtras.h>
 
 namespace JSC {
 
 // NB. Different platforms may have different requirements here. But 16 bytes is very common.
-constexpr unsigned stackAlignmentBytes() { return 16; }
+inline unsigned stackAlignmentBytes() { return 16; }
 
-constexpr unsigned stackAlignmentRegisters()
+inline unsigned stackAlignmentRegisters()
 {
     return stackAlignmentBytes() / sizeof(EncodedJSValue);
 }

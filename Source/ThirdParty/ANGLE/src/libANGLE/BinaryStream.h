@@ -46,16 +46,6 @@ class BinaryInputStream : angle::NonCopyable
         *outValue = readInt<IntT>();
     }
 
-    template <class IntT, class VectorElementT>
-    void readIntVector(std::vector<VectorElementT> *param)
-    {
-        unsigned int size = readInt<unsigned int>();
-        for (unsigned int index = 0; index < size; ++index)
-        {
-            param->push_back(readInt<IntT>());
-        }
-    }
-
     bool readBool()
     {
         int value = 0;
@@ -180,8 +170,9 @@ class BinaryInputStream : angle::NonCopyable
 class BinaryOutputStream : angle::NonCopyable
 {
   public:
-    BinaryOutputStream();
-    ~BinaryOutputStream();
+    BinaryOutputStream()
+    {
+    }
 
     // writeInt also handles bool types
     template <class IntT>
@@ -206,16 +197,6 @@ class BinaryOutputStream : angle::NonCopyable
         }
     }
 
-    template <class IntT>
-    void writeIntVector(std::vector<IntT> param)
-    {
-        writeInt(param.size());
-        for (IntT element : param)
-        {
-            writeIntOrNegOne(element);
-        }
-    }
-
     void writeString(const std::string &v)
     {
         writeInt(v.length());
@@ -234,7 +215,7 @@ class BinaryOutputStream : angle::NonCopyable
 
     const void* data() const
     {
-        return mData.size() ? &mData[0] : nullptr;
+        return mData.size() ? &mData[0] : NULL;
     }
 
   private:
@@ -249,13 +230,6 @@ class BinaryOutputStream : angle::NonCopyable
     }
 
 };
-
-inline BinaryOutputStream::BinaryOutputStream()
-{
 }
-
-inline BinaryOutputStream::~BinaryOutputStream() = default;
-
-}  // namespace gl
 
 #endif  // LIBANGLE_BINARYSTREAM_H_

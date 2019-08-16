@@ -39,8 +39,8 @@ public:
     WEBCORE_EXPORT static bool processingUserTypingGesture();
     WEBCORE_EXPORT static Node* focusedElementAtGestureStart();
 
-    WEBCORE_EXPORT explicit UserTypingGestureIndicator(Frame&);
-    WEBCORE_EXPORT ~UserTypingGestureIndicator();
+    explicit UserTypingGestureIndicator(Frame&);
+    ~UserTypingGestureIndicator();
 
 private:
     bool m_previousProcessingUserTypingGesture;

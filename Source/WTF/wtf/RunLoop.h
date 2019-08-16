@@ -25,7 +25,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef RunLoop_h
+#define RunLoop_h
 
 #include <wtf/Condition.h>
 #include <wtf/Deque.h>
@@ -34,7 +35,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Seconds.h>
-#include <wtf/ThreadingPrimitives.h>
+#include <wtf/Threading.h>
 
 #if USE(GLIB_EVENT_LOOP)
 #include <wtf/glib/GRefPtr.h>
@@ -61,7 +62,7 @@ public:
     WTF_EXPORT_PRIVATE void wakeUp();
 
 #if USE(COCOA_EVENT_LOOP)
-    WTF_EXPORT_PRIVATE void runForDuration(Seconds duration);
+    WTF_EXPORT_PRIVATE void runForDuration(double duration);
 #endif
 
 #if USE(GLIB_EVENT_LOOP)
@@ -78,14 +79,17 @@ public:
 #endif
 
     class TimerBase {
-        WTF_MAKE_FAST_ALLOCATED;
         friend class RunLoop;
     public:
         WTF_EXPORT_PRIVATE explicit TimerBase(RunLoop&);
         WTF_EXPORT_PRIVATE virtual ~TimerBase();
 
-        void startRepeating(Seconds repeatInterval) { startInternal(repeatInterval, true); }
-        void startOneShot(Seconds interval) { startInternal(interval, false); }
+        void startRepeating(double repeatInterval) { startInternal(repeatInterval, true); }
+        void startRepeating(std::chrono::milliseconds repeatInterval) { startRepeating(repeatInterval.count() * 0.001); }
+        void startRepeating(Seconds repeatInterval) { startRepeating(repeatInterval.value()); }
+        void startOneShot(double interval) { startInternal(interval, false); }
+        void startOneShot(std::chrono::milliseconds interval) { startOneShot(interval.count() * 0.001); }
+        void startOneShot(Seconds interval) { startOneShot(interval.value()); }
 
         WTF_EXPORT_PRIVATE void stop();
         WTF_EXPORT_PRIVATE bool isActive() const;
@@ -99,12 +103,12 @@ public:
 #endif
 
     private:
-        void startInternal(Seconds nextFireInterval, bool repeat)
+        void startInternal(double nextFireInterval, bool repeat)
         {
-            start(std::max(nextFireInterval, 0_s), repeat);
+            start(std::max(nextFireInterval, 0.0), repeat);
         }
 
-        WTF_EXPORT_PRIVATE void start(Seconds nextFireInterval, bool repeat);
+        WTF_EXPORT_PRIVATE void start(double nextFireInterval, bool repeat);
 
         Ref<RunLoop> m_runLoop;
 
@@ -158,7 +162,7 @@ private:
 
     void performWork();
 
-    Lock m_functionQueueLock;
+    Mutex m_functionQueueLock;
     Deque<Function<void()>> m_functionQueue;
 
 #if USE(WINDOWS_EVENT_LOOP)
@@ -211,3 +215,5 @@ private:
 } // namespace WTF
 
 using WTF::RunLoop;
+
+#endif // RunLoop_h

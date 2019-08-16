@@ -32,12 +32,14 @@ SVGAnimatedRectAnimator::SVGAnimatedRectAnimator(SVGAnimationElement* animationE
 
 std::unique_ptr<SVGAnimatedType> SVGAnimatedRectAnimator::constructFromString(const String& string)
 {
-    return SVGAnimatedType::create(SVGPropertyTraits<FloatRect>::fromString(string));
+    auto animatedType = SVGAnimatedType::createRect(std::make_unique<FloatRect>());
+    parseRect(string, animatedType->rect());
+    return animatedType;
 }
 
 std::unique_ptr<SVGAnimatedType> SVGAnimatedRectAnimator::startAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
 {
-    return constructFromBaseValue<SVGAnimatedRect>(animatedTypes);
+    return SVGAnimatedType::createRect(constructFromBaseValue<SVGAnimatedRect>(animatedTypes));
 }
 
 void SVGAnimatedRectAnimator::stopAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
@@ -47,7 +49,7 @@ void SVGAnimatedRectAnimator::stopAnimValAnimation(const SVGElementAnimatedPrope
 
 void SVGAnimatedRectAnimator::resetAnimValToBaseVal(const SVGElementAnimatedPropertyList& animatedTypes, SVGAnimatedType& type)
 {
-    resetFromBaseValue<SVGAnimatedRect>(animatedTypes, type);
+    resetFromBaseValue<SVGAnimatedRect>(animatedTypes, type, &SVGAnimatedType::rect);
 }
 
 void SVGAnimatedRectAnimator::animValWillChange(const SVGElementAnimatedPropertyList& animatedTypes)
@@ -65,7 +67,7 @@ void SVGAnimatedRectAnimator::addAnimatedTypes(SVGAnimatedType* from, SVGAnimate
     ASSERT(from->type() == AnimatedRect);
     ASSERT(from->type() == to->type());
 
-    to->as<FloatRect>() += from->as<FloatRect>();
+    to->rect() += from->rect();
 }
 
 void SVGAnimatedRectAnimator::calculateAnimatedValue(float percentage, unsigned repeatCount, SVGAnimatedType* from, SVGAnimatedType* to, SVGAnimatedType* toAtEndOfDuration, SVGAnimatedType* animated)
@@ -73,10 +75,10 @@ void SVGAnimatedRectAnimator::calculateAnimatedValue(float percentage, unsigned 
     ASSERT(m_animationElement);
     ASSERT(m_contextElement);
 
-    const auto& fromRect = (m_animationElement->animationMode() == ToAnimation ? animated : from)->as<FloatRect>();
-    const auto& toRect = to->as<FloatRect>();
-    const auto& toAtEndOfDurationRect = toAtEndOfDuration->as<FloatRect>();
-    auto& animatedRect = animated->as<FloatRect>();
+    const FloatRect& fromRect = m_animationElement->animationMode() == ToAnimation ? animated->rect() : from->rect();
+    const FloatRect& toRect = to->rect();
+    const FloatRect& toAtEndOfDurationRect = toAtEndOfDuration->rect();
+    FloatRect& animatedRect = animated->rect();
 
     float animatedX = animatedRect.x();
     float animatedY = animatedRect.y();

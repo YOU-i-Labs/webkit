@@ -31,10 +31,10 @@
 #include "config.h"
 #include "DOMEditor.h"
 
-#include "DOMException.h"
 #include "DOMPatchSupport.h"
 #include "Document.h"
 #include "Element.h"
+#include "ExceptionCodeDescription.h"
 #include "InspectorHistory.h"
 #include "Node.h"
 #include "Text.h"
@@ -47,7 +47,7 @@ class DOMEditor::RemoveChildAction final : public InspectorHistory::Action {
     WTF_MAKE_NONCOPYABLE(RemoveChildAction);
 public:
     RemoveChildAction(Node& parentNode, Node& node)
-        : InspectorHistory::Action()
+        : Action("RemoveChild")
         , m_parentNode(parentNode)
         , m_node(node)
     {
@@ -78,7 +78,7 @@ private:
 class DOMEditor::InsertBeforeAction final : public InspectorHistory::Action {
 public:
     InsertBeforeAction(Node& parentNode, Ref<Node>&& node, Node* anchorNode)
-        : InspectorHistory::Action()
+        : Action("InsertBefore")
         , m_parentNode(parentNode)
         , m_node(WTFMove(node))
         , m_anchorNode(anchorNode)
@@ -127,7 +127,7 @@ class DOMEditor::RemoveAttributeAction final : public InspectorHistory::Action {
     WTF_MAKE_NONCOPYABLE(RemoveAttributeAction);
 public:
     RemoveAttributeAction(Element& element, const String& name)
-        : InspectorHistory::Action()
+        : Action("RemoveAttribute")
         , m_element(element)
         , m_name(name)
     {
@@ -160,7 +160,7 @@ class DOMEditor::SetAttributeAction final : public InspectorHistory::Action {
     WTF_MAKE_NONCOPYABLE(SetAttributeAction);
 public:
     SetAttributeAction(Element& element, const AtomicString& name, const AtomicString& value)
-        : InspectorHistory::Action()
+        : Action("SetAttribute")
         , m_element(element)
         , m_name(name)
         , m_value(value)
@@ -197,7 +197,7 @@ private:
 class DOMEditor::SetOuterHTMLAction final : public InspectorHistory::Action {
 public:
     SetOuterHTMLAction(Node& node, const String& html)
-        : InspectorHistory::Action()
+        : Action("SetOuterHTML")
         , m_node(node)
         , m_nextSibling(node.nextSibling())
         , m_html(html)
@@ -212,7 +212,7 @@ public:
 private:
     ExceptionOr<void> perform() final
     {
-        m_oldHTML = serializeFragment(m_node.get(), SerializedNodes::SubtreeIncludingNode);
+        m_oldHTML = createMarkup(m_node.get());
         auto result = DOMPatchSupport { m_domEditor, m_node->document() }.patchNode(m_node, m_html);
         if (result.hasException())
             return result.releaseException();
@@ -239,50 +239,11 @@ private:
     DOMEditor m_domEditor { m_history };
 };
 
-class DOMEditor::InsertAdjacentHTMLAction final : public InspectorHistory::Action {
-    WTF_MAKE_NONCOPYABLE(InsertAdjacentHTMLAction);
-public:
-    InsertAdjacentHTMLAction(Element& element, const String& position, const String& html)
-        : InspectorHistory::Action()
-        , m_element(element)
-        , m_position(position)
-        , m_html(html)
-    {
-    }
-
-private:
-    ExceptionOr<void> perform() final
-    {
-        return redo();
-    }
-
-    ExceptionOr<void> undo() final
-    {
-        for (auto& addedNode : m_addedNodes)
-            addedNode->remove();
-        m_addedNodes.clear();
-        return { };
-    }
-
-    ExceptionOr<void> redo() final
-    {
-        auto result = m_element->insertAdjacentHTML(m_position, m_html, &m_addedNodes);
-        if (result.hasException())
-            return result.releaseException();
-        return { };
-    }
-
-    Ref<Element> m_element;
-    NodeVector m_addedNodes;
-    String m_position;
-    String m_html;
-};
-
 class DOMEditor::ReplaceWholeTextAction final : public InspectorHistory::Action {
     WTF_MAKE_NONCOPYABLE(ReplaceWholeTextAction);
 public:
     ReplaceWholeTextAction(Text& textNode, const String& text)
-        : InspectorHistory::Action()
+        : Action("ReplaceWholeText")
         , m_textNode(textNode)
         , m_text(text)
     {
@@ -316,7 +277,7 @@ class DOMEditor::ReplaceChildNodeAction final: public InspectorHistory::Action {
     WTF_MAKE_NONCOPYABLE(ReplaceChildNodeAction);
 public:
     ReplaceChildNodeAction(Node& parentNode, Ref<Node>&& newNode, Node& oldNode)
-        : InspectorHistory::Action()
+        : Action("ReplaceChildNode")
         , m_parentNode(parentNode)
         , m_newNode(WTFMove(newNode))
         , m_oldNode(oldNode)
@@ -348,7 +309,7 @@ class DOMEditor::SetNodeValueAction final : public InspectorHistory::Action {
     WTF_MAKE_NONCOPYABLE(SetNodeValueAction);
 public:
     SetNodeValueAction(Node& node, const String& value)
-        : InspectorHistory::Action()
+        : Action("SetNodeValue")
         , m_node(node)
         , m_value(value)
     {
@@ -381,7 +342,9 @@ DOMEditor::DOMEditor(InspectorHistory& history)
 {
 }
 
-DOMEditor::~DOMEditor() = default;
+DOMEditor::~DOMEditor()
+{
+}
 
 ExceptionOr<void> DOMEditor::insertBefore(Node& parentNode, Ref<Node>&& node, Node* anchorNode)
 {
@@ -413,11 +376,6 @@ ExceptionOr<void> DOMEditor::setOuterHTML(Node& node, const String& html, Node*&
     return result;
 }
 
-ExceptionOr<void> DOMEditor::insertAdjacentHTML(Element& element, const String& where, const String& html)
-{
-    return m_history.perform(std::make_unique<InsertAdjacentHTMLAction>(element, where, html));
-}
-
 ExceptionOr<void> DOMEditor::replaceWholeText(Text& textNode, const String& text)
 {
     return m_history.perform(std::make_unique<ReplaceWholeTextAction>(textNode, text));
@@ -437,7 +395,7 @@ static bool populateErrorString(ExceptionOr<void>&& result, ErrorString& errorSt
 {
     if (!result.hasException())
         return true;
-    errorString = DOMException::name(result.releaseException().code());
+    errorString = ExceptionCodeDescription { result.releaseException().code() }.name;
     return false;
 }
 
@@ -464,11 +422,6 @@ bool DOMEditor::removeAttribute(Element& element, const String& name, ErrorStrin
 bool DOMEditor::setOuterHTML(Node& node, const String& html, Node*& newNode, ErrorString& errorString)
 {
     return populateErrorString(setOuterHTML(node, html, newNode), errorString);
-}
-
-bool DOMEditor::insertAdjacentHTML(Element& element, const String& where, const String& html, ErrorString& errorString)
-{
-    return populateErrorString(insertAdjacentHTML(element, where, html), errorString);
 }
 
 bool DOMEditor::replaceWholeText(Text& textNode, const String& text, ErrorString& errorString)

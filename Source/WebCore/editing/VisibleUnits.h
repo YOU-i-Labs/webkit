@@ -26,6 +26,7 @@
 #pragma once
 
 #include "EditingBoundary.h"
+#include "TextFlags.h"
 #include "VisibleSelection.h"
 
 namespace WebCore {

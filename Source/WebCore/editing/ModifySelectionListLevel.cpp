@@ -185,17 +185,17 @@ void IncreaseSelectionListLevelCommand::doApply()
         // create a sublist for the preceding element and move nodes there
         RefPtr<Element> newParent;
         switch (m_listType) {
-        case Type::InheritedListType:
-            newParent = startListChild->parentElement();
-            if (newParent)
-                newParent = newParent->cloneElementWithoutChildren(document());
-            break;
-        case Type::OrderedList:
-            newParent = HTMLOListElement::create(document());
-            break;
-        case Type::UnorderedList:
-            newParent = HTMLUListElement::create(document());
-            break;
+            case InheritedListType:
+                newParent = startListChild->parentElement();
+                if (newParent)
+                    newParent = newParent->cloneElementWithoutChildren(document());
+                break;
+            case OrderedList:
+                newParent = HTMLOListElement::create(document());
+                break;
+            case UnorderedList:
+                newParent = HTMLUListElement::create(document());
+                break;
         }
         insertNodeBefore(*newParent, *startListChild);
         appendSiblingNodeRange(startListChild, endListChild, newParent.get());
@@ -221,17 +221,17 @@ RefPtr<Node> IncreaseSelectionListLevelCommand::increaseSelectionListLevel(Docum
 
 RefPtr<Node> IncreaseSelectionListLevelCommand::increaseSelectionListLevel(Document* document)
 {
-    return increaseSelectionListLevel(document, Type::InheritedListType);
+    return increaseSelectionListLevel(document, InheritedListType);
 }
 
 RefPtr<Node> IncreaseSelectionListLevelCommand::increaseSelectionListLevelOrdered(Document* document)
 {
-    return increaseSelectionListLevel(document, Type::OrderedList);
+    return increaseSelectionListLevel(document, OrderedList);
 }
 
 RefPtr<Node> IncreaseSelectionListLevelCommand::increaseSelectionListLevelUnordered(Document* document)
 {
-    return increaseSelectionListLevel(document, Type::UnorderedList);
+    return increaseSelectionListLevel(document, UnorderedList);
 }
 
 DecreaseSelectionListLevelCommand::DecreaseSelectionListLevelCommand(Document& document)

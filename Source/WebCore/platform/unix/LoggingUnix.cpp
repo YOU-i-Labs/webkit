@@ -31,7 +31,6 @@ namespace WebCore {
 
 String logLevelString()
 {
-#if !LOG_DISABLED
     char* logEnv = getenv("WEBKIT_DEBUG");
     if (!logEnv)
         return emptyString();
@@ -43,9 +42,6 @@ String logLevelString()
 
     // To disable logging notImplemented set the DISABLE_NI_WARNING environment variable to 1.
     return String("NotYetImplemented,") + logEnv;
-#else
-    return String();
-#endif
 }
 
 } // namespace WebCore

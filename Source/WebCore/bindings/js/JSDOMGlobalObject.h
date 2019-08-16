@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2017 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,28 +26,31 @@
 
 #pragma once
 
+#include "PlatformExportMacros.h"
 #include "WebCoreJSBuiltinInternals.h"
-#include <JavaScriptCore/HeapInlines.h>
-#include <JavaScriptCore/JSGlobalObject.h>
-#include <JavaScriptCore/LockDuringMarking.h>
+#include <heap/HeapInlines.h>
+#include <heap/LockDuringMarking.h>
+#include <runtime/JSGlobalObject.h>
+#include <runtime/StructureInlines.h>
 
 namespace WebCore {
 
 class DOMGuardedObject;
+class Document;
 class Event;
 class DOMWrapperWorld;
 class ScriptExecutionContext;
 
-using JSDOMStructureMap = HashMap<const JSC::ClassInfo*, JSC::WriteBarrier<JSC::Structure>>;
-using JSDOMConstructorMap = HashMap<const JSC::ClassInfo*, JSC::WriteBarrier<JSC::JSObject>>;
-using DOMGuardedObjectSet = HashSet<DOMGuardedObject*>;
+typedef HashMap<const JSC::ClassInfo*, JSC::WriteBarrier<JSC::Structure>> JSDOMStructureMap;
+typedef HashMap<const JSC::ClassInfo*, JSC::WriteBarrier<JSC::JSObject>> JSDOMConstructorMap;
+typedef HashSet<DOMGuardedObject*> DOMGuardedObjectSet;
 
 class WEBCORE_EXPORT JSDOMGlobalObject : public JSC::JSGlobalObject {
-    using Base = JSC::JSGlobalObject;
+    typedef JSC::JSGlobalObject Base;
 protected:
     struct JSDOMGlobalObjectData;
 
-    JSDOMGlobalObject(JSC::VM&, JSC::Structure*, Ref<DOMWrapperWorld>&&, const JSC::GlobalObjectMethodTable* = nullptr);
+    JSDOMGlobalObject(JSC::VM&, JSC::Structure*, Ref<DOMWrapperWorld>&&, const JSC::GlobalObjectMethodTable* = 0);
     static void destroy(JSC::JSCell*);
     void finishCreation(JSC::VM&);
     void finishCreation(JSC::VM&, JSC::JSObject*);
@@ -90,12 +93,11 @@ public:
     }
 
 protected:
-    static void promiseRejectionTracker(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSPromise*, JSC::JSPromiseRejectionOperation);
-
     JSDOMStructureMap m_structures;
     JSDOMConstructorMap m_constructors;
     DOMGuardedObjectSet m_guardedObjects;
 
+    Event* m_currentEvent;
     Ref<DOMWrapperWorld> m_world;
     uint8_t m_worldIsNormal;
     Lock m_gcLock;
@@ -103,8 +105,6 @@ protected:
 private:
     void addBuiltinGlobals(JSC::VM&);
     friend void JSBuiltinInternalFunctions::initialize(JSDOMGlobalObject&);
-
-    Event* m_currentEvent { nullptr };
 
     JSBuiltinInternalFunctions m_builtinInternalFunctions;
 };
@@ -123,8 +123,10 @@ inline JSC::JSObject* getDOMConstructor(JSC::VM& vm, const JSDOMGlobalObject& gl
     return constructor;
 }
 
-WEBCORE_EXPORT JSDOMGlobalObject& callerGlobalObject(JSC::ExecState&);
+JSDOMGlobalObject* toJSDOMGlobalObject(Document*, JSC::ExecState*);
+JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext*, JSC::ExecState*);
 
-JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext&, DOMWrapperWorld&);
+JSDOMGlobalObject* toJSDOMGlobalObject(Document*, DOMWrapperWorld&);
+JSDOMGlobalObject* toJSDOMGlobalObject(ScriptExecutionContext*, DOMWrapperWorld&);
 
 } // namespace WebCore

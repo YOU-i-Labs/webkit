@@ -36,11 +36,8 @@
 #include "StyleFontSizeFunctions.h"
 #include "StyleResolver.h"
 #include "VisiblePosition.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGInlineText);
 
 static String applySVGWhitespaceRules(const String& string, bool preserveWhiteSpace)
 {
@@ -91,8 +88,8 @@ void RenderSVGInlineText::styleDidChange(StyleDifference diff, const RenderStyle
     RenderText::styleDidChange(diff, oldStyle);
     updateScaledFont();
 
-    bool newPreserves = style().whiteSpace() == WhiteSpace::Pre;
-    bool oldPreserves = oldStyle ? oldStyle->whiteSpace() == WhiteSpace::Pre : false;
+    bool newPreserves = style().whiteSpace() == PRE;
+    bool oldPreserves = oldStyle ? oldStyle->whiteSpace() == PRE : false;
     if (oldPreserves && !newPreserves) {
         setText(applySVGWhitespaceRules(originalText(), false), true);
         return;
@@ -103,7 +100,7 @@ void RenderSVGInlineText::styleDidChange(StyleDifference diff, const RenderStyle
         return;
     }
 
-    if (diff != StyleDifference::Layout)
+    if (diff != StyleDifferenceLayout)
         return;
 
     // The text metrics may be influenced by style changes.
@@ -155,7 +152,7 @@ IntRect RenderSVGInlineText::linesBoundingBox() const
 bool RenderSVGInlineText::characterStartsNewTextChunk(int position) const
 {
     ASSERT(position >= 0);
-    ASSERT(position < static_cast<int>(text().length()));
+    ASSERT(position < static_cast<int>(textLength()));
 
     // Each <textPath> element starts a new text chunk, regardless of any x/y values.
     if (!position && parent()->isSVGTextPath() && !previousSibling())
@@ -168,9 +165,9 @@ bool RenderSVGInlineText::characterStartsNewTextChunk(int position) const
     return it->value.x != SVGTextLayoutAttributes::emptyValue() || it->value.y != SVGTextLayoutAttributes::emptyValue();
 }
 
-VisiblePosition RenderSVGInlineText::positionForPoint(const LayoutPoint& point, const RenderFragmentContainer*)
+VisiblePosition RenderSVGInlineText::positionForPoint(const LayoutPoint& point, const RenderRegion*)
 {
-    if (!firstTextBox() || text().isEmpty())
+    if (!firstTextBox() || !textLength())
         return createVisiblePosition(0, DOWNSTREAM);
 
     float baseline = m_scaledFont.fontMetrics().floatAscent();
@@ -231,7 +228,7 @@ void RenderSVGInlineText::computeNewScaledFontForStyle(const RenderObject& rende
 {
     // Alter font-size to the right on-screen value to avoid scaling the glyphs themselves, except when GeometricPrecision is specified
     scalingFactor = SVGRenderingContext::calculateScreenFontSizeScalingFactor(renderer);
-    if (!scalingFactor || style.fontDescription().textRenderingMode() == TextRenderingMode::GeometricPrecision) {
+    if (!scalingFactor || style.fontDescription().textRenderingMode() == GeometricPrecision) {
         scalingFactor = 1;
         scaledFont = style.fontCascade();
         return;
@@ -247,7 +244,7 @@ void RenderSVGInlineText::computeNewScaledFontForStyle(const RenderObject& rende
     if (fontDescription.orientation() != FontOrientation::Horizontal)
         fontDescription.setOrientation(FontOrientation::Horizontal);
 
-    scaledFont = FontCascade(WTFMove(fontDescription), 0, 0);
+    scaledFont = FontCascade(fontDescription, 0, 0);
     scaledFont.update(&renderer.document().fontSelector());
 }
 

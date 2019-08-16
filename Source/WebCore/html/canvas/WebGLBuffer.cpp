@@ -228,13 +228,13 @@ GC3Dsizeiptr WebGLBuffer::byteLength() const
     return m_byteLength;
 }
 
-Optional<unsigned> WebGLBuffer::getCachedMaxIndex(GC3Denum type)
+std::optional<unsigned> WebGLBuffer::getCachedMaxIndex(GC3Denum type)
 {
     for (auto& cache : m_maxIndexCache) {
         if (cache.type == type)
             return cache.maxIndex;
     }
-    return WTF::nullopt;
+    return std::nullopt;
 }
 
 void WebGLBuffer::setCachedMaxIndex(GC3Denum type, unsigned value)

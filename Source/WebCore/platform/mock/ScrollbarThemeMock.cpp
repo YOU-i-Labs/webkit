@@ -26,9 +26,9 @@
 #include "config.h"
 #include "ScrollbarThemeMock.h"
 
-// FIXME: This is a layering violation.
-#include "DeprecatedGlobalSettings.h"
 #include "Scrollbar.h"
+// FIXME: This is a layering violation.
+#include "Settings.h"
 
 namespace WebCore {
 
@@ -59,7 +59,7 @@ bool ScrollbarThemeMock::usesOverlayScrollbars() const
 {
     // FIXME: This is a layering violation, but ScrollbarThemeMock is also created depending on settings in platform layer,
     // we should fix it in both places.
-    return DeprecatedGlobalSettings::usesOverlayScrollbars();
+    return Settings::usesOverlayScrollbars();
 }
 
 }

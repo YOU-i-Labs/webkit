@@ -41,7 +41,9 @@ Ref<MediaQueryList> MediaQueryList::create(MediaQueryMatcher& matcher, Ref<Media
     return adoptRef(*new MediaQueryList(matcher, WTFMove(media), matches));
 }
 
-MediaQueryList::~MediaQueryList() = default;
+MediaQueryList::~MediaQueryList()
+{
+}
 
 String MediaQueryList::media() const
 {

@@ -32,7 +32,7 @@ public:
     {
     }
 
-    virtual ~CSSUnknownRule() = default;
+    virtual ~CSSUnknownRule() { }
 
     String cssText() const final { return String(); }
     void reattach(StyleRuleBase&) final { }

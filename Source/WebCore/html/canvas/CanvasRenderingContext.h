@@ -25,9 +25,10 @@
 
 #pragma once
 
-#include "CanvasBase.h"
 #include "GraphicsLayer.h"
+#include "HTMLCanvasElement.h"
 #include "ScriptWrappable.h"
+#include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/text/StringHash.h>
 
@@ -37,19 +38,17 @@ class CanvasPattern;
 class HTMLCanvasElement;
 class HTMLImageElement;
 class HTMLVideoElement;
-class ImageBitmap;
-class TypedOMCSSImageValue;
+class URL;
 class WebGLObject;
 
 class CanvasRenderingContext : public ScriptWrappable {
     WTF_MAKE_NONCOPYABLE(CanvasRenderingContext); WTF_MAKE_FAST_ALLOCATED;
 public:
-    virtual ~CanvasRenderingContext() = default;
+    virtual ~CanvasRenderingContext() { }
 
-    void ref();
-    WEBCORE_EXPORT void deref();
-
-    CanvasBase& canvasBase() const { return m_canvas; }
+    void ref() { m_canvas.ref(); }
+    void deref() { m_canvas.deref(); }
+    HTMLCanvasElement& canvas() const { return m_canvas; }
 
     virtual bool is2d() const { return false; }
     virtual bool isWebGL1() const { return false; }
@@ -58,43 +57,29 @@ public:
 #if ENABLE(WEBGPU)
     virtual bool isWebGPU() const { return false; }
 #endif
-#if ENABLE(WEBMETAL)
-    virtual bool isWebMetal() const { return false; }
-#endif
     virtual bool isGPUBased() const { return false; }
     virtual bool isAccelerated() const { return false; }
-    virtual bool isBitmapRenderer() const { return false; }
-    virtual bool isPlaceholder() const { return false; }
-    virtual bool isOffscreen2d() const { return false; }
-    virtual bool isPaint() const { return false; }
 
     virtual void paintRenderingResultsToCanvas() {}
     virtual PlatformLayer* platformLayer() const { return 0; }
 
-    bool callTracingActive() const { return m_callTracingActive; }
-    void setCallTracingActive(bool callTracingActive) { m_callTracingActive = callTracingActive; }
-
 protected:
-    explicit CanvasRenderingContext(CanvasBase&);
+    CanvasRenderingContext(HTMLCanvasElement&);
     bool wouldTaintOrigin(const CanvasPattern*);
-    bool wouldTaintOrigin(const CanvasBase*);
+    bool wouldTaintOrigin(const HTMLCanvasElement*);
     bool wouldTaintOrigin(const HTMLImageElement*);
     bool wouldTaintOrigin(const HTMLVideoElement*);
-    bool wouldTaintOrigin(const ImageBitmap*);
     bool wouldTaintOrigin(const URL&);
 
     template<class T> void checkOrigin(const T* arg)
     {
         if (wouldTaintOrigin(arg))
-            m_canvas.setOriginTainted();
+            canvas().setOriginTainted();
     }
     void checkOrigin(const URL&);
-    void checkOrigin(const TypedOMCSSImageValue&);
-
-    bool m_callTracingActive { false };
 
 private:
-    CanvasBase& m_canvas;
+    HTMLCanvasElement& m_canvas;
 };
 
 } // namespace WebCore

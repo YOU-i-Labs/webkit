@@ -37,16 +37,13 @@ InspectorBackendClass = class InspectorBackendClass
         this._agents = {};
 
         this._customTracer = null;
-        this._defaultTracer = new WI.LoggingProtocolTracer;
+        this._defaultTracer = new WebInspector.LoggingProtocolTracer;
         this._activeTracers = [this._defaultTracer];
 
-        this._supportedDomainsForDebuggableType = new Map;
+        this._workerSupportedDomains = [];
 
-        for (let debuggableType of Object.values(WI.DebuggableType))
-            this._supportedDomainsForDebuggableType.set(debuggableType, []);
-
-        WI.settings.autoLogProtocolMessages.addEventListener(WI.Setting.Event.Changed, this._startOrStopAutomaticTracing, this);
-        WI.settings.autoLogTimeStats.addEventListener(WI.Setting.Event.Changed, this._startOrStopAutomaticTracing, this);
+        WebInspector.settings.autoLogProtocolMessages.addEventListener(WebInspector.Setting.Event.Changed, this._startOrStopAutomaticTracing, this);
+        WebInspector.settings.autoLogTimeStats.addEventListener(WebInspector.Setting.Event.Changed, this._startOrStopAutomaticTracing, this);
         this._startOrStopAutomaticTracing();
 
         this.currentDispatchState = {
@@ -58,32 +55,27 @@ InspectorBackendClass = class InspectorBackendClass
 
     // Public
 
-    // This should be used for feature checking if something exists in the protocol
-    // regardless of whether or not the domain is active for a specific target.
-    get domains()
-    {
-        return this._agents;
-    }
+    get workerSupportedDomains() { return this._workerSupportedDomains; }
 
     // It's still possible to set this flag on InspectorBackend to just
     // dump protocol traffic as it happens. For more complex uses of
-    // protocol data, install a subclass of WI.ProtocolTracer.
+    // protocol data, install a subclass of WebInspector.ProtocolTracer.
     set dumpInspectorProtocolMessages(value)
     {
         // Implicitly cause automatic logging to start if it's allowed.
-        WI.settings.autoLogProtocolMessages.value = value;
+        WebInspector.settings.autoLogProtocolMessages.value = value;
 
         this._defaultTracer.dumpMessagesToConsole = value;
     }
 
     get dumpInspectorProtocolMessages()
     {
-        return WI.settings.autoLogProtocolMessages.value;
+        return WebInspector.settings.autoLogProtocolMessages.value;
     }
 
     set dumpInspectorTimeStats(value)
     {
-        WI.settings.autoLogTimeStats.value = value;
+        WebInspector.settings.autoLogTimeStats.value = value;
 
         if (!this.dumpInspectorProtocolMessages)
             this.dumpInspectorProtocolMessages = true;
@@ -93,24 +85,12 @@ InspectorBackendClass = class InspectorBackendClass
 
     get dumpInspectorTimeStats()
     {
-        return WI.settings.autoLogTimeStats.value;
-    }
-
-    set filterMultiplexingBackendInspectorProtocolMessages(value)
-    {
-        WI.settings.filterMultiplexingBackendInspectorProtocolMessages.value = value;
-
-        this._defaultTracer.filterMultiplexingBackend = value;
-    }
-
-    get filterMultiplexingBackendInspectorProtocolMessages()
-    {
-        return WI.settings.filterMultiplexingBackendInspectorProtocolMessages.value;
+        return WebInspector.settings.autoLogTimeStats.value;
     }
 
     set customTracer(tracer)
     {
-        console.assert(!tracer || tracer instanceof WI.ProtocolTracer, tracer);
+        console.assert(!tracer || tracer instanceof WebInspector.ProtocolTracer, tracer);
         console.assert(!tracer || tracer !== this._defaultTracer, tracer);
 
         // Bail early if no state change is to be made.
@@ -169,32 +149,19 @@ InspectorBackendClass = class InspectorBackendClass
 
     dispatch(message)
     {
-        InspectorBackend.backendConnection.dispatch(message);
+        InspectorBackend.mainConnection.dispatch(message);
     }
 
-    runAfterPendingDispatches(callback)
+    runAfterPendingDispatches(script)
     {
-        if (!WI.mainTarget) {
-            callback();
-            return;
-        }
-
         // FIXME: Should this respect pending dispatches in all connections?
-        WI.mainTarget.connection.runAfterPendingDispatches(callback);
+        InspectorBackend.mainConnection.runAfterPendingDispatches(script);
     }
 
-    activateDomain(domainName, activationDebuggableTypes)
+    activateDomain(domainName, activationDebuggableType)
     {
-        let supportedDebuggableTypes = activationDebuggableTypes || Object.values(WI.DebuggableType);
-        for (let debuggableType of supportedDebuggableTypes)
-            this._supportedDomainsForDebuggableType.get(debuggableType).push(domainName);
-
-        // FIXME: For proper multi-target support we should eliminate all uses of
-        // `window.FooAgent` and `unprefixed FooAgent` in favor of either:
-        //   - Per-target: `target.FooAgent`
-        //   - Global feature check: `InspectorBackend.domains.Foo`
-        if (!activationDebuggableTypes || activationDebuggableTypes.includes(InspectorFrontendHost.debuggableType())) {
-            let agent = this._agents[domainName];
+        if (!activationDebuggableType || InspectorFrontendHost.debuggableType() === activationDebuggableType) {
+            var agent = this._agents[domainName];
             agent.activate();
             return agent;
         }
@@ -202,11 +169,9 @@ InspectorBackendClass = class InspectorBackendClass
         return null;
     }
 
-    supportedDomainsForDebuggableType(type)
+    workerSupportedDomain(domainName)
     {
-        console.assert(Object.values(WI.DebuggableType).includes(type), "Unknown debuggable type", type);
-
-        return this._supportedDomainsForDebuggableType.get(type);
+        this._workerSupportedDomains.push(domainName);
     }
 
     // Private
@@ -215,7 +180,6 @@ InspectorBackendClass = class InspectorBackendClass
     {
         this._defaultTracer.dumpMessagesToConsole = this.dumpInspectorProtocolMessages;
         this._defaultTracer.dumpTimingDataToConsole = this.dumpTimingDataToConsole;
-        this._defaultTracer.filterMultiplexingBackend = this.filterMultiplexingBackendInspectorProtocolMessages;
     }
 
     _agentForDomain(domainName)
@@ -238,7 +202,7 @@ InspectorBackend.Agent = class InspectorBackendAgent
         this._domainName = domainName;
 
         // Default connection is the main connection.
-        this._connection = InspectorBackend.backendConnection;
+        this._connection = InspectorBackend.mainConnection;
         this._dispatcher = null;
 
         // Agents are always created, but are only useable after they are activated.
@@ -321,13 +285,8 @@ InspectorBackend.Agent = class InspectorBackendAgent
 
     dispatchEvent(eventName, eventArguments)
     {
-        if (!this._dispatcher) {
-            console.error(`No domain dispatcher registered for domain '${this._domainName}', for event '${this._domainName}.${eventName}'`);
-            return false;
-        }
-
         if (!(eventName in this._dispatcher)) {
-            console.error(`Protocol Error: Attempted to dispatch an unimplemented method '${this._domainName}.${eventName}'`);
+            console.error("Protocol Error: Attempted to dispatch an unimplemented method '" + this._domainName + "." + eventName + "'");
             return false;
         }
 

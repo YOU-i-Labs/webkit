@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,51 +23,20 @@
 
 #include "Document.h"
 #include "Element.h"
-#include "SVGAttributeOwnerProxy.h"
-#include <wtf/URL.h>
+#include "URL.h"
 #include "XLinkNames.h"
 
 namespace WebCore {
 
-SVGURIReference::SVGURIReference(SVGElement* contextElement)
-    : m_attributeOwnerProxy(std::make_unique<AttributeOwnerProxy>(*this, *contextElement))
-{
-    registerAttributes();
-}
-
-void SVGURIReference::registerAttributes()
-{
-    auto& registry = attributeRegistry();
-    if (!registry.isEmpty())
-        return;
-    registry.registerAttribute<SVGNames::hrefAttr, &SVGURIReference::m_href>();
-    registry.registerAttribute<XLinkNames::hrefAttr, &SVGURIReference::m_href>();
-}
-
-SVGURIReference::AttributeRegistry& SVGURIReference::attributeRegistry()
-{
-    return AttributeOwnerProxy::attributeRegistry();
-}
-
-bool SVGURIReference::isKnownAttribute(const QualifiedName& attributeName)
-{
-    return AttributeOwnerProxy::isKnownAttribute(attributeName);
-}
-
 void SVGURIReference::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (isKnownAttribute(name))
-        m_href.setValue(value);
+    if (name.matches(XLinkNames::hrefAttr))
+        setHrefBaseValue(value);
 }
 
-const String& SVGURIReference::href() const
+bool SVGURIReference::isKnownAttribute(const QualifiedName& attrName)
 {
-    return m_href.currentValue(*m_attributeOwnerProxy);
-}
-
-RefPtr<SVGAnimatedString> SVGURIReference::hrefAnimated()
-{
-    return m_href.animatedProperty(*m_attributeOwnerProxy);
+    return attrName.matches(XLinkNames::hrefAttr);
 }
 
 String SVGURIReference::fragmentIdentifierFromIRIString(const String& url, const Document& document)
@@ -87,31 +55,52 @@ String SVGURIReference::fragmentIdentifierFromIRIString(const String& url, const
     return emptyString();
 }
 
-auto SVGURIReference::targetElementFromIRIString(const String& iri, const TreeScope& treeScope, RefPtr<Document> externalDocument) -> TargetElementResult
+static inline URL urlFromIRIStringWithFragmentIdentifier(const String& url, const Document& document, String& fragmentIdentifier)
 {
-    // If there's no fragment identifier contained within the IRI string, we can't lookup an element.
-    size_t startOfFragmentIdentifier = iri.find('#');
+    size_t startOfFragmentIdentifier = url.find('#');
     if (startOfFragmentIdentifier == notFound)
-        return { };
+        return URL();
 
     // Exclude the '#' character when determining the fragmentIdentifier.
-    auto id = iri.substring(startOfFragmentIdentifier + 1);
-    if (id.isEmpty())
-        return { };
+    fragmentIdentifier = url.substring(startOfFragmentIdentifier + 1);
+    if (startOfFragmentIdentifier) {
+        URL base(document.baseURL(), url.substring(0, startOfFragmentIdentifier));
+        return URL(base, url.substring(startOfFragmentIdentifier));
+    }
 
-    auto& document = treeScope.documentScope();
-    auto url = document.completeURL(iri);
+    return URL(document.baseURL(), url.substring(startOfFragmentIdentifier));
+}
+
+Element* SVGURIReference::targetElementFromIRIString(const String& iri, const Document& document, String* fragmentIdentifier, const Document* externalDocument)
+{
+    // If there's no fragment identifier contained within the IRI string, we can't lookup an element.
+    String id;
+    URL url = urlFromIRIStringWithFragmentIdentifier(iri, document, id);
+    if (url == URL())
+        return 0;
+
+    if (fragmentIdentifier)
+        *fragmentIdentifier = id;
+
+    if (id.isEmpty())
+        return 0;
+
     if (externalDocument) {
         // Enforce that the referenced url matches the url of the document that we've loaded for it!
         ASSERT(equalIgnoringFragmentIdentifier(url, externalDocument->url()));
-        return { externalDocument->getElementById(id), WTFMove(id) };
+        return externalDocument->getElementById(id);
     }
 
     // Exit early if the referenced url is external, and we have no externalDocument given.
     if (isExternalURIReference(iri, document))
-        return { nullptr, WTFMove(id) };
+        return 0;
 
-    return { treeScope.getElementById(id), WTFMove(id) };
+    return document.getElementById(id);
+}
+
+void SVGURIReference::addSupportedAttributes(HashSet<QualifiedName>& supportedAttributes)
+{
+    supportedAttributes.add(XLinkNames::hrefAttr);
 }
 
 }

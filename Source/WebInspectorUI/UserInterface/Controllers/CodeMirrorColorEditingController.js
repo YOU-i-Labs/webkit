@@ -23,13 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.CodeMirrorColorEditingController = class CodeMirrorColorEditingController extends WI.CodeMirrorEditingController
+WebInspector.CodeMirrorColorEditingController = class CodeMirrorColorEditingController extends WebInspector.CodeMirrorEditingController
 {
+    constructor(codeMirror, marker)
+    {
+        super(codeMirror, marker);
+    }
+
     // Public
 
     get initialValue()
     {
-        return WI.Color.fromString(this.text);
+        return WebInspector.Color.fromString(this.text);
     }
 
     get cssClassName()
@@ -39,9 +44,9 @@ WI.CodeMirrorColorEditingController = class CodeMirrorColorEditingController ext
 
     popoverWillPresent(popover)
     {
-        this._colorPicker = new WI.ColorPicker;
-        this._colorPicker.addEventListener(WI.ColorPicker.Event.ColorChanged, this._colorPickerColorChanged, this);
-        this._colorPicker.addEventListener(WI.ColorPicker.Event.FormatChanged, (event) => popover.update());
+        this._colorPicker = new WebInspector.ColorPicker;
+        this._colorPicker.addEventListener(WebInspector.ColorPicker.Event.ColorChanged, this._colorPickerColorChanged, this);
+        this._colorPicker.addEventListener(WebInspector.ColorPicker.Event.FormatChanged, (event) => popover.update());
         popover.content = this._colorPicker.element;
     }
 

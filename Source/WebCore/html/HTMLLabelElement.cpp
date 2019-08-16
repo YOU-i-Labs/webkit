@@ -32,17 +32,14 @@
 #include "FormAssociatedElement.h"
 #include "HTMLFormControlElement.h"
 #include "HTMLNames.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLLabelElement);
 
 using namespace HTMLNames;
 
 static LabelableElement* firstElementWithIdIfLabelable(TreeScope& treeScope, const AtomicString& id)
 {
-    auto element = makeRefPtr(treeScope.getElementById(id));
+    auto* element = treeScope.getElementById(id);
     if (!is<LabelableElement>(element))
         return nullptr;
 
@@ -61,7 +58,7 @@ Ref<HTMLLabelElement> HTMLLabelElement::create(const QualifiedName& tagName, Doc
     return adoptRef(*new HTMLLabelElement(tagName, document));
 }
 
-RefPtr<LabelableElement> HTMLLabelElement::control() const
+LabelableElement* HTMLLabelElement::control() const
 {
     auto& controlId = attributeWithoutSynchronization(forAttr);
     if (controlId.isNull()) {
@@ -79,10 +76,10 @@ RefPtr<LabelableElement> HTMLLabelElement::control() const
 
 HTMLFormElement* HTMLLabelElement::form() const
 {
-    auto control = this->control();
+    auto* control = this->control();
     if (!is<HTMLFormControlElement>(control))
         return nullptr;
-    return downcast<HTMLFormControlElement>(control.get())->form();
+    return downcast<HTMLFormControlElement>(*control).form();
 }
 
 void HTMLLabelElement::setActive(bool down, bool pause)
@@ -94,7 +91,7 @@ void HTMLLabelElement::setActive(bool down, bool pause)
     HTMLElement::setActive(down, pause);
 
     // Also update our corresponding control.
-    if (auto element = control())
+    if (auto* element = control())
         element->setActive(down, pause);
 }
 
@@ -107,7 +104,7 @@ void HTMLLabelElement::setHovered(bool over)
     HTMLElement::setHovered(over);
 
     // Also update our corresponding control.
-    if (auto element = control())
+    if (auto* element = control())
         element->setHovered(over);
 }
 
@@ -116,34 +113,33 @@ void HTMLLabelElement::defaultEventHandler(Event& event)
     static bool processingClick = false;
 
     if (event.type() == eventNames().clickEvent && !processingClick) {
-        auto control = this->control();
+        RefPtr<LabelableElement> element = control();
 
         // If we can't find a control or if the control received the click
         // event, then there's no need for us to do anything.
-        if (!control || (is<Node>(event.target()) && control->containsIncludingShadowDOM(&downcast<Node>(*event.target())))) {
-            HTMLElement::defaultEventHandler(event);
+        if (!element || (event.target() && element->containsIncludingShadowDOM(event.target()->toNode())))
             return;
-        }
 
         processingClick = true;
 
-        control->dispatchSimulatedClick(&event);
+        // Click the corresponding control.
+        element->dispatchSimulatedClick(&event);
 
         document().updateLayoutIgnorePendingStylesheets();
-        if (control->isMouseFocusable())
-            control->focus();
+        if (element->isMouseFocusable())
+            element->focus();
 
         processingClick = false;
-
+        
         event.setDefaultHandled();
     }
-
+    
     HTMLElement::defaultEventHandler(event);
 }
 
 bool HTMLLabelElement::willRespondToMouseClickEvents()
 {
-    auto element = control();
+    auto* element = control();
     return (element && element->willRespondToMouseClickEvents()) || HTMLElement::willRespondToMouseClickEvents();
 }
 
@@ -159,13 +155,13 @@ void HTMLLabelElement::focus(bool restorePreviousSelection, FocusDirection direc
     }
 
     // To match other browsers, always restore previous selection.
-    if (auto element = control())
+    if (auto* element = control())
         element->focus(true, direction);
 }
 
 void HTMLLabelElement::accessKeyAction(bool sendMouseEvents)
 {
-    if (auto element = control())
+    if (auto* element = control())
         element->accessKeyAction(sendMouseEvents);
     else
         HTMLElement::accessKeyAction(sendMouseEvents);

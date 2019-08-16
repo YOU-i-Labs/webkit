@@ -29,16 +29,14 @@ enum KeyType {
     "secret"
 };
 
-typedef (CryptoKeyAlgorithm or CryptoAesKeyAlgorithm or CryptoEcKeyAlgorithm or CryptoHmacKeyAlgorithm or CryptoRsaHashedKeyAlgorithm or CryptoRsaKeyAlgorithm) KeyAlgorithm;
-
 [
-    Conditional=WEB_CRYPTO,
+    Conditional=SUBTLE_CRYPTO,
     Exposed=(Window,Worker),
     GenerateIsReachable=Impl,
     SkipVTableValidation
 ] interface CryptoKey {
     readonly attribute KeyType type;
     readonly attribute boolean extractable;
-    [CachedAttribute] readonly attribute KeyAlgorithm algorithm;
+    [CachedAttribute, CustomGetter] readonly attribute object algorithm;
     [CachedAttribute] readonly attribute sequence<CryptoKeyUsage> usages;
 };

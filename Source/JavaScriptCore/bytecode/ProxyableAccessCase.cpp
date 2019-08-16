@@ -30,18 +30,17 @@
 
 namespace JSC {
 
-ProxyableAccessCase::ProxyableAccessCase(VM& vm, JSCell* owner, AccessType accessType, PropertyOffset offset, Structure* structure,
-    const ObjectPropertyConditionSet& conditionSet, bool viaProxy, WatchpointSet* additionalSet, std::unique_ptr<PolyProtoAccessChain> prototypeAccessChain)
-    : Base(vm, owner, accessType, offset, structure, conditionSet, WTFMove(prototypeAccessChain))
+ProxyableAccessCase::ProxyableAccessCase(VM& vm, JSCell* owner, AccessType accessType, PropertyOffset offset, Structure* structure, const ObjectPropertyConditionSet& conditionSet, bool viaProxy, WatchpointSet* additionalSet)
+    : Base(vm, owner, accessType, offset, structure, conditionSet)
+    , m_viaProxy(viaProxy)
     , m_additionalSet(additionalSet)
 {
-    m_viaProxy = viaProxy;
 }
 
-std::unique_ptr<AccessCase> ProxyableAccessCase::create(VM& vm, JSCell* owner, AccessType type, PropertyOffset offset, Structure* structure, const ObjectPropertyConditionSet& conditionSet, bool viaProxy, WatchpointSet* additionalSet, std::unique_ptr<PolyProtoAccessChain> prototypeAccessChain)
+std::unique_ptr<AccessCase> ProxyableAccessCase::create(VM& vm, JSCell* owner, AccessType type, PropertyOffset offset, Structure* structure, const ObjectPropertyConditionSet& conditionSet, bool viaProxy, WatchpointSet* additionalSet)
 {
     ASSERT(type == Load || type == Miss || type == GetGetter);
-    return std::unique_ptr<AccessCase>(new ProxyableAccessCase(vm, owner, type, offset, structure, conditionSet, viaProxy, additionalSet, WTFMove(prototypeAccessChain)));
+    return std::unique_ptr<AccessCase>(new ProxyableAccessCase(vm, owner, type, offset, structure, conditionSet, viaProxy, additionalSet));
 }
 
 ProxyableAccessCase::~ProxyableAccessCase()

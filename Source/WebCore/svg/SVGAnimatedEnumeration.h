@@ -1,6 +1,5 @@
 /*
  * Copyright (C) Research In Motion Limited 2010, 2012. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,20 +20,19 @@
 #pragma once
 
 #include "SVGAnimatedEnumerationPropertyTearOff.h"
+#include "SVGAnimatedPropertyMacros.h"
 #include "SVGAnimatedTypeAnimator.h"
-#include "SVGAttributeAccessor.h"
 
 namespace WebCore {
 
-class SVGAnimationElement;
+typedef SVGAnimatedStaticPropertyTearOff<unsigned> SVGAnimatedEnumeration;
 
-using SVGAnimatedEnumeration = SVGAnimatedStaticPropertyTearOff<unsigned>;
+// Helper macros to declare/define a SVGAnimatedEnumeration object
+#define DECLARE_ANIMATED_ENUMERATION(UpperProperty, LowerProperty, EnumType) \
+DECLARE_ANIMATED_PROPERTY(SVGAnimatedEnumerationPropertyTearOff<EnumType>, EnumType, UpperProperty, LowerProperty, )
 
-template<typename EnumType>
-using SVGAnimatedEnumerationAttribute = SVGAnimatedAttribute<SVGAnimatedEnumerationPropertyTearOff<EnumType>>;
-
-template<typename OwnerType, typename EnumType>
-using SVGAnimatedEnumerationAttributeAccessor = SVGAnimatedAttributeAccessor<OwnerType, SVGAnimatedEnumerationAttribute<EnumType>, AnimatedEnumeration>;
+#define DEFINE_ANIMATED_ENUMERATION(OwnerType, DOMAttribute, UpperProperty, LowerProperty, EnumType) \
+DEFINE_ANIMATED_PROPERTY(AnimatedEnumeration, OwnerType, DOMAttribute, DOMAttribute.localName(), UpperProperty, LowerProperty)
 
 class SVGAnimatedEnumerationAnimator final : public SVGAnimatedTypeAnimator {
 public:

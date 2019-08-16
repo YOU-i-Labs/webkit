@@ -23,7 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef UTextProvider_h
+#define UTextProvider_h
 
 #include <unicode/utext.h>
 
@@ -106,3 +107,5 @@ inline bool uTextAccessInChunkOrOutOfRange(UText* text, int64_t nativeIndex, int
 }
 
 } // namespace WTF
+
+#endif // UTextProvider_h

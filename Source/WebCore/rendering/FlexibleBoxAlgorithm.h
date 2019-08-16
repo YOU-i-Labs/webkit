@@ -31,9 +31,10 @@
 #pragma once
 
 #include "LayoutUnit.h"
+#include "OrderIterator.h"
 #include "RenderStyle.h"
-#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -78,7 +79,7 @@ public:
     bool computeNextFlexLine(size_t& nextIndex, Vector<FlexItem>& lineItems, LayoutUnit& sumFlexBaseSize, double& totalFlexGrow, double& totalFlexShrink, double& totalWeightedFlexShrink, LayoutUnit& sumHypotheticalMainSize);
 
 private:
-    bool isMultiline() const { return m_style.flexWrap() != FlexWrap::NoWrap; }
+    bool isMultiline() const { return m_style.flexWrap() != FlexNoWrap; }
 
     const RenderStyle& m_style;
     LayoutUnit m_lineBreakLength;

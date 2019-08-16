@@ -26,13 +26,14 @@
 #include "URLSearchParams.h"
 
 #include "DOMURL.h"
-#include <wtf/URLParser.h>
+#include "ExceptionCode.h"
+#include "URLParser.h"
 
 namespace WebCore {
 
 URLSearchParams::URLSearchParams(const String& init, DOMURL* associatedURL)
     : m_associatedURL(associatedURL)
-    , m_pairs(init.startsWith('?') ? WTF::URLParser::parseURLEncodedForm(StringView(init).substring(1)) : WTF::URLParser::parseURLEncodedForm(init))
+    , m_pairs(init.startsWith('?') ? URLParser::parseURLEncodedForm(StringView(init).substring(1)) : URLParser::parseURLEncodedForm(init))
 {
 }
 
@@ -133,27 +134,27 @@ void URLSearchParams::remove(const String& name)
 
 String URLSearchParams::toString() const
 {
-    return WTF::URLParser::serialize(m_pairs);
+    return URLParser::serialize(m_pairs);
 }
 
 void URLSearchParams::updateURL()
 {
     if (m_associatedURL)
-        m_associatedURL->setQuery(WTF::URLParser::serialize(m_pairs));
+        m_associatedURL->setQuery(URLParser::serialize(m_pairs));
 }
 
 void URLSearchParams::updateFromAssociatedURL()
 {
     ASSERT(m_associatedURL);
     String search = m_associatedURL->search();
-    m_pairs = search.startsWith('?') ? WTF::URLParser::parseURLEncodedForm(StringView(search).substring(1)) : WTF::URLParser::parseURLEncodedForm(search);
+    m_pairs = search.startsWith('?') ? URLParser::parseURLEncodedForm(StringView(search).substring(1)) : URLParser::parseURLEncodedForm(search);
 }
 
-Optional<WTF::KeyValuePair<String, String>> URLSearchParams::Iterator::next()
+std::optional<WTF::KeyValuePair<String, String>> URLSearchParams::Iterator::next()
 {
     auto& pairs = m_target->pairs();
     if (m_index >= pairs.size())
-        return WTF::nullopt;
+        return std::nullopt;
 
     auto& pair = pairs[m_index++];
     return WTF::KeyValuePair<String, String> { pair.key, pair.value };

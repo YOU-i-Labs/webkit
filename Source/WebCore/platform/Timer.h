@@ -25,8 +25,6 @@
 
 #pragma once
 
-#include "ThreadTimers.h"
-#include <functional>
 #include <wtf/Function.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/Noncopyable.h>
@@ -34,13 +32,16 @@
 #include <wtf/Seconds.h>
 #include <wtf/Threading.h>
 #include <wtf/Vector.h>
-#include <wtf/WeakPtr.h>
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #include "WebCoreThread.h"
 #endif
 
 namespace WebCore {
+
+// Time intervals are all in seconds.
+
+class TimerHeapElement;
 
 class TimerBase {
     WTF_MAKE_NONCOPYABLE(TimerBase);
@@ -61,7 +62,7 @@ public:
     Seconds nextUnalignedFireInterval() const;
     Seconds repeatInterval() const { return m_repeatInterval; }
 
-    void augmentFireInterval(Seconds delta) { setNextFireTime(m_heapItem->time + delta); }
+    void augmentFireInterval(Seconds delta) { setNextFireTime(m_nextFireTime + delta); }
     void augmentRepeatInterval(Seconds delta) { augmentFireInterval(delta); m_repeatInterval += delta; }
 
     void didChangeAlignmentInterval();
@@ -71,14 +72,14 @@ public:
 private:
     virtual void fired() = 0;
 
-    virtual Optional<MonotonicTime> alignedFireTime(MonotonicTime) const { return WTF::nullopt; }
+    virtual std::optional<MonotonicTime> alignedFireTime(MonotonicTime) const { return std::nullopt; }
 
     void checkConsistency() const;
     void checkHeapIndex() const;
 
     void setNextFireTime(MonotonicTime);
 
-    bool inHeap() const { return m_heapItem && m_heapItem->isInHeap(); }
+    bool inHeap() const { return m_heapIndex != -1; }
 
     bool hasValidHeapPosition() const;
     void updateHeapIfNeeded(MonotonicTime oldTime);
@@ -90,16 +91,20 @@ private:
     void heapInsert();
     void heapPop();
     void heapPopMin();
-    static void heapDeleteNullMin(ThreadTimerHeap&);
 
-    MonotonicTime nextFireTime() const { return m_heapItem ? m_heapItem->time : MonotonicTime { }; }
+    Vector<TimerBase*>& timerHeap() const { ASSERT(m_cachedThreadGlobalTimerHeap); return *m_cachedThreadGlobalTimerHeap; }
 
+    MonotonicTime m_nextFireTime; // 0 if inactive
     MonotonicTime m_unalignedNextFireTime; // m_nextFireTime not considering alignment interval
     Seconds m_repeatInterval; // 0 if not repeating
-    bool m_wasDeleted { false };
+    int m_heapIndex { -1 }; // -1 if not in heap
+    unsigned m_heapInsertionOrder; // Used to keep order among equal-fire-time timers
+    Vector<TimerBase*>* m_cachedThreadGlobalTimerHeap { nullptr };
 
-    RefPtr<ThreadTimerHeapItem> m_heapItem;
-    Ref<Thread> m_thread { Thread::current() };
+#ifndef NDEBUG
+    ThreadIdentifier m_thread;
+    bool m_wasDeleted { false };
+#endif
 
     friend class ThreadTimers;
     friend class TimerHeapLessThanFunction;
@@ -132,17 +137,16 @@ private:
 
 inline bool TimerBase::isActive() const
 {
-    // FIXME: Write this in terms of USE(WEB_THREAD) instead of PLATFORM(IOS_FAMILY).
-#if !PLATFORM(IOS_FAMILY)
-    ASSERT(m_thread.ptr() == &Thread::current());
+    // FIXME: Write this in terms of USE(WEB_THREAD) instead of PLATFORM(IOS).
+#if !PLATFORM(IOS)
+    ASSERT(m_thread == currentThread());
 #else
-    ASSERT(WebThreadIsCurrent() || pthread_main_np() || m_thread.ptr() == &Thread::current());
-#endif // PLATFORM(IOS_FAMILY)
-    return static_cast<bool>(nextFireTime());
+    ASSERT(WebThreadIsCurrent() || pthread_main_np() || m_thread == currentThread());
+#endif // PLATFORM(IOS)
+    return static_cast<bool>(m_nextFireTime);
 }
 
 class DeferrableOneShotTimer : protected TimerBase {
-    WTF_MAKE_FAST_ALLOCATED;
 public:
     template<typename TimerFiredClass>
     DeferrableOneShotTimer(TimerFiredClass& object, void (TimerFiredClass::*function)(), Seconds delay)

@@ -27,20 +27,23 @@
 #include "WorkerConsoleClient.h"
 
 #include "InspectorInstrumentation.h"
-#include <JavaScriptCore/ConsoleMessage.h>
-#include <JavaScriptCore/ScriptArguments.h>
-#include <JavaScriptCore/ScriptCallStack.h>
-#include <JavaScriptCore/ScriptCallStackFactory.h>
+#include <inspector/ConsoleMessage.h>
+#include <inspector/ScriptArguments.h>
+#include <inspector/ScriptCallStack.h>
+#include <inspector/ScriptCallStackFactory.h>
+
+using namespace Inspector;
 
 namespace WebCore {
-using namespace Inspector;
 
 WorkerConsoleClient::WorkerConsoleClient(WorkerGlobalScope& workerGlobalScope)
     : m_workerGlobalScope(workerGlobalScope)
 {
 }
 
-WorkerConsoleClient::~WorkerConsoleClient() = default;
+WorkerConsoleClient::~WorkerConsoleClient()
+{
+}
 
 void WorkerConsoleClient::messageWithTypeAndLevel(MessageType type, MessageLevel level, JSC::ExecState* exec, Ref<Inspector::ScriptArguments>&& arguments)
 {
@@ -72,8 +75,5 @@ void WorkerConsoleClient::profileEnd(JSC::ExecState*, const String&) { }
 // FIXME: <https://webkit.org/b/127634> Web Inspector: support debugging web workers
 void WorkerConsoleClient::takeHeapSnapshot(JSC::ExecState*, const String&) { }
 void WorkerConsoleClient::timeStamp(JSC::ExecState*, Ref<ScriptArguments>&&) { }
-
-void WorkerConsoleClient::record(JSC::ExecState*, Ref<ScriptArguments>&&) { }
-void WorkerConsoleClient::recordEnd(JSC::ExecState*, Ref<ScriptArguments>&&) { }
 
 } // namespace WebCore

@@ -30,16 +30,14 @@
 
 #pragma once
 
-#include "ActiveDOMCallback.h"
 #include "CallbackResult.h"
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
 
-class RequestAnimationFrameCallback : public RefCounted<RequestAnimationFrameCallback>, public ActiveDOMCallback {
+class RequestAnimationFrameCallback : public RefCounted<RequestAnimationFrameCallback> {
 public:
-    using ActiveDOMCallback::ActiveDOMCallback;
-
+    virtual ~RequestAnimationFrameCallback() { }
     virtual CallbackResult<void> handleEvent(double highResTimeMs) = 0;
 
     int m_id;

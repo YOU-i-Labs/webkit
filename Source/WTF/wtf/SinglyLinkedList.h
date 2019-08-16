@@ -23,7 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef SinglyLinkedList_h
+#define SinglyLinkedList_h
 
 namespace WTF {
 
@@ -67,3 +68,5 @@ template <typename Node> inline Node* SinglyLinkedList<Node>::pop()
 }
 
 using WTF::SinglyLinkedList;
+
+#endif

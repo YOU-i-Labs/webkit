@@ -2,7 +2,7 @@
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2005-2008, 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
  * This library is free software; you can redistribute it and/or
@@ -22,7 +22,8 @@
  *
  */
 
-#pragma once
+#ifndef TranslateTransformOperation_h
+#define TranslateTransformOperation_h
 
 #include "Length.h"
 #include "LengthFunctions.h"
@@ -45,7 +46,7 @@ public:
 
     Ref<TransformOperation> clone() const override
     {
-        return adoptRef(*new TranslateTransformOperation(m_x, m_y, m_z, type()));
+        return adoptRef(*new TranslateTransformOperation(m_x, m_y, m_z, m_type));
     }
 
     double x(const FloatSize& borderBoxSize) const { return floatValueForLength(m_x, borderBoxSize.width()); }
@@ -59,7 +60,8 @@ public:
 private:
     bool isIdentity() const override { return !floatValueForLength(m_x, 1) && !floatValueForLength(m_y, 1) && !floatValueForLength(m_z, 1); }
 
-    bool isRepresentableIn2D() const final { return m_z.isZero(); }
+    OperationType type() const override { return m_type; }
+    bool isSameType(const TransformOperation& o) const override { return o.type() == m_type; }
 
     bool operator==(const TransformOperation&) const override;
 
@@ -71,13 +73,13 @@ private:
 
     Ref<TransformOperation> blend(const TransformOperation* from, double progress, bool blendToIdentity = false) override;
 
-    void dump(WTF::TextStream&) const final;
+    void dump(TextStream&) const final;
 
     TranslateTransformOperation(const Length& tx, const Length& ty, const Length& tz, OperationType type)
-        : TransformOperation(type)
-        , m_x(tx)
+        : m_x(tx)
         , m_y(ty)
         , m_z(tz)
+        , m_type(type)
     {
         ASSERT(isTranslateTransformOperationType());
     }
@@ -85,8 +87,11 @@ private:
     Length m_x;
     Length m_y;
     Length m_z;
+    OperationType m_type;
 };
 
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_TRANSFORMOPERATION(WebCore::TranslateTransformOperation, isTranslateTransformOperationType())
+
+#endif // TranslateTransformOperation_h

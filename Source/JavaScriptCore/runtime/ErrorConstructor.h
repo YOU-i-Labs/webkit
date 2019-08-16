@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ *  Copyright (C) 2008-2017 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "ErrorInstance.h"
 #include "InternalFunction.h"
 
 namespace JSC {
@@ -27,15 +28,9 @@ namespace JSC {
 class ErrorPrototype;
 class GetterSetter;
 
-class ErrorConstructor final : public InternalFunction {
+class ErrorConstructor : public InternalFunction {
 public:
     typedef InternalFunction Base;
-
-    template<typename CellType>
-    static IsoSubspace* subspaceFor(VM& vm)
-    {
-        return &vm.errorConstructorSpace;
-    }
 
     static ErrorConstructor* create(VM& vm, Structure* structure, ErrorPrototype* errorPrototype, GetterSetter*)
     {
@@ -48,10 +43,10 @@ public:
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype) 
     { 
-        return Structure::create(vm, globalObject, prototype, TypeInfo(InternalFunctionType, StructureFlags), info()); 
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info()); 
     }
 
-    Optional<unsigned> stackTraceLimit() const { return m_stackTraceLimit; }
+    std::optional<unsigned> stackTraceLimit() const { return m_stackTraceLimit; }
 
 protected:
     void finishCreation(VM&, ErrorPrototype*);
@@ -61,8 +56,10 @@ protected:
 
 private:
     ErrorConstructor(VM&, Structure*);
+    static ConstructType getConstructData(JSCell*, ConstructData&);
+    static CallType getCallData(JSCell*, CallData&);
 
-    Optional<unsigned> m_stackTraceLimit;
+    std::optional<unsigned> m_stackTraceLimit;
 };
 
 } // namespace JSC

@@ -31,12 +31,13 @@
 
 namespace JSC {
 
-SourceProvider::SourceProvider(const SourceOrigin& sourceOrigin, URL&& url, const TextPosition& startPosition, SourceProviderSourceType sourceType)
-    : m_url(WTFMove(url))
+SourceProvider::SourceProvider(const SourceOrigin& sourceOrigin, const String& url, const TextPosition& startPosition, SourceProviderSourceType sourceType)
+    : m_sourceOrigin(sourceOrigin)
+    , m_url(url)
+    , m_startPosition(startPosition)
     , m_sourceType(sourceType)
     , m_validated(false)
-    , m_sourceOrigin(sourceOrigin)
-    , m_startPosition(startPosition)
+    , m_id(0)
 {
 }
 
@@ -44,7 +45,7 @@ SourceProvider::~SourceProvider()
 {
 }
 
-static Lock providerIdLock;
+static StaticLock providerIdLock;
 
 void SourceProvider::getID()
 {
@@ -52,7 +53,6 @@ void SourceProvider::getID()
     if (!m_id) {
         static intptr_t nextProviderID = 0;
         m_id = ++nextProviderID;
-        RELEASE_ASSERT(m_id);
     }
 }
 

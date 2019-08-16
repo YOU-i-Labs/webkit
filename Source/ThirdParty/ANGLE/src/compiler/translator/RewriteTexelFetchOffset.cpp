@@ -9,8 +9,7 @@
 #include "compiler/translator/RewriteTexelFetchOffset.h"
 
 #include "common/angleutils.h"
-#include "compiler/translator/IntermNode_util.h"
-#include "compiler/translator/IntermTraverse.h"
+#include "compiler/translator/IntermNode.h"
 #include "compiler/translator/SymbolTable.h"
 
 namespace sh
@@ -108,10 +107,10 @@ bool Traverser::visitAggregate(Visit visit, TIntermAggregate *node)
         TIntermSequence *constructOffsetIvecArguments = new TIntermSequence();
         constructOffsetIvecArguments->push_back(sequence->at(3)->getAsTyped());
 
-        TIntermTyped *zeroNode = CreateZeroNode(TType(EbtInt));
+        TIntermTyped *zeroNode = TIntermTyped::CreateZero(TType(EbtInt));
         constructOffsetIvecArguments->push_back(zeroNode);
 
-        offsetNode = TIntermAggregate::CreateConstructor(texCoordNode->getType(),
+        offsetNode = TIntermAggregate::CreateConstructor(texCoordNode->getType(), EOpConstructIVec3,
                                                          constructOffsetIvecArguments);
         offsetNode->setLine(texCoordNode->getLine());
     }
@@ -130,12 +129,17 @@ bool Traverser::visitAggregate(Visit visit, TIntermAggregate *node)
 
     ASSERT(texelFetchArguments->size() == 3u);
 
-    TIntermTyped *texelFetchNode = CreateBuiltInFunctionCallNode("texelFetch", texelFetchArguments,
-                                                                 *symbolTable, shaderVersion);
+    // Get the symbol of the texel fetch function to use.
+    TString mangledName = TFunction::GetMangledNameFromCall("texelFetch", *texelFetchArguments);
+    TSymbol *texelFetchSymbol = symbolTable->findBuiltIn(mangledName, shaderVersion);
+    ASSERT(texelFetchSymbol && texelFetchSymbol->isFunction());
+
+    TIntermAggregate *texelFetchNode = TIntermAggregate::CreateBuiltInFunctionCall(
+        *static_cast<const TFunction *>(texelFetchSymbol), texelFetchArguments);
     texelFetchNode->setLine(node->getLine());
 
     // Replace the old node by this new node.
-    queueReplacement(texelFetchNode, OriginalNode::IS_DROPPED);
+    queueReplacement(node, texelFetchNode, OriginalNode::IS_DROPPED);
     mFound = true;
     return false;
 }

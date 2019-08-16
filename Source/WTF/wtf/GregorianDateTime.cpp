@@ -23,9 +23,9 @@
  */
 
 #include "config.h"
-#include <wtf/GregorianDateTime.h>
+#include "GregorianDateTime.h"
 
-#include <wtf/DateMath.h>
+#include "DateMath.h"
 
 #if OS(WINDOWS)
 #include <windows.h>

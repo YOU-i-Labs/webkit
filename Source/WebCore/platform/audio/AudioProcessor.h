@@ -40,8 +40,6 @@ class AudioBus;
 // or as the processor for a basic (one input - one output) AudioNode.
 
 class AudioProcessor {
-    WTF_MAKE_NONCOPYABLE(AudioProcessor);
-    WTF_MAKE_FAST_ALLOCATED;
 public:
     AudioProcessor(float sampleRate, unsigned numberOfChannels)
         : m_initialized(false)
@@ -50,7 +48,7 @@ public:
     {
     }
 
-    virtual ~AudioProcessor() = default;
+    virtual ~AudioProcessor() { }
 
     // Full initialization can be done here instead of in the constructor.
     virtual void initialize() = 0;

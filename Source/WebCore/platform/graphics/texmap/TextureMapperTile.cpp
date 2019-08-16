@@ -27,7 +27,7 @@ namespace WebCore {
 
 class GraphicsLayer;
 
-void TextureMapperTile::updateContents(TextureMapper& textureMapper, Image* image, const IntRect& dirtyRect)
+void TextureMapperTile::updateContents(TextureMapper& textureMapper, Image* image, const IntRect& dirtyRect, BitmapTexture::UpdateContentsFlag updateContentsFlag)
 {
     IntRect targetRect = enclosingIntRect(m_rect);
     targetRect.intersect(dirtyRect);
@@ -45,10 +45,10 @@ void TextureMapperTile::updateContents(TextureMapper& textureMapper, Image* imag
         m_texture->reset(targetRect.size(), image->currentFrameKnownToBeOpaque() ? 0 : BitmapTexture::SupportsAlpha);
     }
 
-    m_texture->updateContents(image, targetRect, sourceOffset);
+    m_texture->updateContents(image, targetRect, sourceOffset, updateContentsFlag);
 }
 
-void TextureMapperTile::updateContents(TextureMapper& textureMapper, GraphicsLayer* sourceLayer, const IntRect& dirtyRect, float scale)
+void TextureMapperTile::updateContents(TextureMapper& textureMapper, GraphicsLayer* sourceLayer, const IntRect& dirtyRect, BitmapTexture::UpdateContentsFlag updateContentsFlag, float scale)
 {
     IntRect targetRect = enclosingIntRect(m_rect);
     targetRect.intersect(dirtyRect);
@@ -64,7 +64,7 @@ void TextureMapperTile::updateContents(TextureMapper& textureMapper, GraphicsLay
         m_texture->reset(targetRect.size(), BitmapTexture::SupportsAlpha);
     }
 
-    m_texture->updateContents(textureMapper, sourceLayer, targetRect, sourceOffset, scale);
+    m_texture->updateContents(textureMapper, sourceLayer, targetRect, sourceOffset, updateContentsFlag, scale);
 }
 
 void TextureMapperTile::paint(TextureMapper& textureMapper, const TransformationMatrix& transform, float opacity, const unsigned exposedEdges)

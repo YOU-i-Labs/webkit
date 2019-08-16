@@ -43,7 +43,6 @@
 #include "Event.h"
 #include "EventHandler.h"
 #include "FormState.h"
-#include "Frame.h"
 #include "FrameLoadRequest.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
@@ -54,6 +53,7 @@
 #include "HitTestResult.h"
 #include "InspectorController.h"
 #include "LocalizedStrings.h"
+#include "MainFrame.h"
 #include "MouseEvent.h"
 #include "NavigationAction.h"
 #include "Node.h"
@@ -68,13 +68,12 @@
 #include "UserTypingGestureIndicator.h"
 #include "WindowFeatures.h"
 #include "markup.h"
-#include <wtf/WallTime.h>
 #include <wtf/unicode/CharacterNames.h>
 
-
-namespace WebCore {
 using namespace WTF;
 using namespace Unicode;
+
+namespace WebCore {
 
 ContextMenuController::ContextMenuController(Page& page, ContextMenuClient& client)
     : m_page(page)
@@ -150,10 +149,10 @@ std::unique_ptr<ContextMenu> ContextMenuController::maybeCreateContextMenu(Event
         return nullptr;
 
     auto& mouseEvent = downcast<MouseEvent>(event);
-    if (!is<Node>(mouseEvent.target()))
+    auto* node = mouseEvent.target()->toNode();
+    if (!node)
         return nullptr;
-    auto& node = downcast<Node>(*mouseEvent.target());
-    auto* frame = node.document().frame();
+    auto* frame = node->document().frame();
     if (!frame)
         return nullptr;
 
@@ -164,7 +163,7 @@ std::unique_ptr<ContextMenu> ContextMenuController::maybeCreateContextMenu(Event
     m_context = ContextMenuContext(result);
 
 #if ENABLE(SERVICE_CONTROLS)
-    if (node.isImageControlsButtonElement()) {
+    if (node->isImageControlsButtonElement()) {
         if (auto* image = imageFromImageElementNode(*result.innerNonSharedNode()))
             m_context.setControlledImage(image);
 
@@ -190,13 +189,13 @@ static void openNewWindow(const URL& urlToLoad, Frame& frame, ShouldOpenExternal
     if (!oldPage)
         return;
 
-    FrameLoadRequest frameLoadRequest { *frame.document(), frame.document()->securityOrigin(), ResourceRequest(urlToLoad, frame.loader().outgoingReferrer()), { }, LockHistory::No, LockBackForwardList::No, MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Suppress, shouldOpenExternalURLsPolicy, InitiatedByMainFrame::Unknown };
+    FrameLoadRequest request(frame.document()->securityOrigin(), ResourceRequest(urlToLoad, frame.loader().outgoingReferrer()), LockHistory::No, LockBackForwardList::No, MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Suppress, shouldOpenExternalURLsPolicy);
 
-    Page* newPage = oldPage->chrome().createWindow(frame, frameLoadRequest, { }, { *frame.document(), frameLoadRequest.resourceRequest(), frameLoadRequest.initiatedByMainFrame() });
+    Page* newPage = oldPage->chrome().createWindow(frame, request, WindowFeatures(), NavigationAction(request.resourceRequest()));
     if (!newPage)
         return;
     newPage->chrome().show();
-    newPage->mainFrame().loader().loadFrameRequest(WTFMove(frameLoadRequest), nullptr, { });
+    newPage->mainFrame().loader().loadFrameRequest(request, nullptr, nullptr);
 }
 
 #if PLATFORM(GTK)
@@ -360,7 +359,7 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuAction action, co
     case ContextMenuItemTagSpellingGuess: {
         VisibleSelection selection = frame->selection().selection();
         if (frame->editor().shouldInsertText(title, selection.toNormalizedRange().get(), EditorInsertAction::Pasted)) {
-            OptionSet<ReplaceSelectionCommand::CommandOption> replaceOptions { ReplaceSelectionCommand::MatchStyle, ReplaceSelectionCommand::PreventNesting };
+            ReplaceSelectionCommand::CommandOptions replaceOptions = ReplaceSelectionCommand::MatchStyle | ReplaceSelectionCommand::PreventNesting;
 
             if (frame->editor().behavior().shouldAllowSpellingSuggestionsWithoutSelection()) {
                 ASSERT(selection.isCaretOrRange());
@@ -369,7 +368,7 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuAction action, co
                 frame->selection().setSelection(wordSelection);
             } else {
                 ASSERT(frame->editor().selectedText().length());
-                replaceOptions.add(ReplaceSelectionCommand::SelectReplacement);
+                replaceOptions |= ReplaceSelectionCommand::SelectReplacement;
             }
 
             Document* document = frame->document();
@@ -394,11 +393,9 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuAction action, co
         m_client.lookUpInDictionary(frame);
         break;
     case ContextMenuItemTagOpenLink:
-        if (Frame* targetFrame = m_context.hitTestResult().targetFrame()) {
-            ResourceRequest resourceRequest { m_context.hitTestResult().absoluteLinkURL(), frame->loader().outgoingReferrer() };
-            FrameLoadRequest frameLoadRequest { *frame->document(), frame->document()->securityOrigin(), resourceRequest, { }, LockHistory::No, LockBackForwardList::No, MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Suppress, targetFrame->isMainFrame() ? ShouldOpenExternalURLsPolicy::ShouldAllow : ShouldOpenExternalURLsPolicy::ShouldNotAllow, InitiatedByMainFrame::Unknown };
-            targetFrame->loader().loadFrameRequest(WTFMove(frameLoadRequest), nullptr,  { });
-        } else
+        if (Frame* targetFrame = m_context.hitTestResult().targetFrame())
+            targetFrame->loader().loadFrameRequest(FrameLoadRequest(frame->document()->securityOrigin(), ResourceRequest(m_context.hitTestResult().absoluteLinkURL(), frame->loader().outgoingReferrer()), LockHistory::No, LockBackForwardList::No, MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Suppress, targetFrame->isMainFrame() ? ShouldOpenExternalURLsPolicy::ShouldAllow : ShouldOpenExternalURLsPolicy::ShouldNotAllow), nullptr, nullptr);
+        else
             openNewWindow(m_context.hitTestResult().absoluteLinkURL(), *frame, ShouldOpenExternalURLsPolicy::ShouldAllow);
         break;
     case ContextMenuItemTagBold:
@@ -429,13 +426,13 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuAction action, co
         m_client.stopSpeaking();
         break;
     case ContextMenuItemTagDefaultDirection:
-        frame->editor().setBaseWritingDirection(WritingDirection::Natural);
+        frame->editor().setBaseWritingDirection(NaturalWritingDirection);
         break;
     case ContextMenuItemTagLeftToRight:
-        frame->editor().setBaseWritingDirection(WritingDirection::LeftToRight);
+        frame->editor().setBaseWritingDirection(LeftToRightWritingDirection);
         break;
     case ContextMenuItemTagRightToLeft:
-        frame->editor().setBaseWritingDirection(WritingDirection::RightToLeft);
+        frame->editor().setBaseWritingDirection(RightToLeftWritingDirection);
         break;
     case ContextMenuItemTagTextDirectionDefault:
         frame->editor().command("MakeTextWritingDirectionNatural").execute();
@@ -1336,7 +1333,7 @@ void ContextMenuController::checkOrEnableIfNeeded(ContextMenuItem& item) const
             break;
         case ContextMenuItemTagDownloadImageToDisk:
 #if PLATFORM(MAC)
-            if (WTF::protocolIs(m_context.hitTestResult().absoluteImageURL(), "file"))
+            if (WebCore::protocolIs(m_context.hitTestResult().absoluteImageURL(), "file"))
                 shouldEnable = false;
 #endif
             break;
@@ -1351,7 +1348,7 @@ void ContextMenuController::checkOrEnableIfNeeded(ContextMenuItem& item) const
                 item.setTitle(contextMenuItemTagDownloadVideoToDisk());
             else
                 item.setTitle(contextMenuItemTagDownloadAudioToDisk());
-            if (WTF::protocolIs(m_context.hitTestResult().absoluteImageURL(), "file"))
+            if (WebCore::protocolIs(m_context.hitTestResult().absoluteImageURL(), "file"))
                 shouldEnable = false;
             break;
         case ContextMenuItemTagCopyMediaLinkToClipboard:
@@ -1441,7 +1438,7 @@ void ContextMenuController::showContextMenuAt(Frame& frame, const IntPoint& clic
     clearContextMenu();
     
     // Simulate a click in the middle of the accessibility object.
-    PlatformMouseEvent mouseEvent(clickPoint, clickPoint, RightButton, PlatformEvent::MousePressed, 1, false, false, false, false, WallTime::now(), ForceAtClick, NoTap);
+    PlatformMouseEvent mouseEvent(clickPoint, clickPoint, RightButton, PlatformEvent::MousePressed, 1, false, false, false, false, currentTime(), ForceAtClick, NoTap);
     frame.eventHandler().handleMousePressEvent(mouseEvent);
     bool handled = frame.eventHandler().sendContextMenuEvent(mouseEvent);
     if (handled)

@@ -26,8 +26,8 @@
 
 #pragma once
 
-#include <JavaScriptCore/JSPromise.h>
-#include <JavaScriptCore/WeakGCMap.h>
+#include <runtime/JSPromise.h>
+#include <runtime/WeakGCMap.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>

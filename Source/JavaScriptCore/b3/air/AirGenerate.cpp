@@ -46,6 +46,7 @@
 #include "AirReportUsedRegisters.h"
 #include "AirSimplifyCFG.h"
 #include "AirValidate.h"
+#include "AllowMacroScratchRegisterUsageIf.h"
 #include "B3Common.h"
 #include "B3Procedure.h"
 #include "B3TimingScope.h"
@@ -207,18 +208,21 @@ void generate(Code& code, CCallHelpers& jit)
         if (disassembler)
             disassembler->startBlock(block, jit); 
 
-        if (Optional<unsigned> entrypointIndex = code.entrypointIndex(block)) {
-            ASSERT(code.isEntrypoint(block));
-
+        if (code.isEntrypoint(block)) {
             if (disassembler)
                 disassembler->startEntrypoint(jit); 
 
-            code.prologueGeneratorForEntrypoint(*entrypointIndex)->run(jit, code);
+            jit.emitFunctionPrologue();
+            if (code.frameSize()) {
+                AllowMacroScratchRegisterUsageIf allowScratch(jit, isARM64());
+                jit.addPtr(CCallHelpers::TrustedImm32(-code.frameSize()), MacroAssembler::stackPointerRegister);
+            }
+            
+            jit.emitSave(code.calleeSaveRegisterAtOffsetList());
 
             if (disassembler)
                 disassembler->endEntrypoint(jit); 
-        } else
-            ASSERT(!code.isEntrypoint(block));
+        }
         
         ASSERT(block->size() >= 1);
         for (unsigned i = 0; i < block->size() - 1; ++i) {

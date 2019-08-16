@@ -109,4 +109,4 @@
         double constructed_;                                                            \
     } scoped_histogram_timer_##key
 
-#endif  // LIBANGLE_HISTOGRAM_MACROS_H_
+#endif  // BASE_METRICS_HISTOGRAM_MACROS_H_

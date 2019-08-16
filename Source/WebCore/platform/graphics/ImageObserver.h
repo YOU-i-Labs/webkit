@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef ImageObserver_h
+#define ImageObserver_h
 
 #include "ImageTypes.h"
 
@@ -31,25 +32,24 @@ namespace WebCore {
 
 class Image;
 class IntRect;
+class URL;
 
 // Interface for notification about changes to an image, including decoding,
 // drawing, and animating.
 class ImageObserver {
 protected:
-    virtual ~ImageObserver() = default;
+    virtual ~ImageObserver() {}
 public:
     virtual URL sourceUrl() const = 0;
-    virtual String mimeType() const = 0;
-    virtual long long expectedContentLength() const = 0;
-
-    virtual void encodedDataStatusChanged(const Image&, EncodedDataStatus) { };
     virtual void decodedSizeChanged(const Image&, long long delta) = 0;
 
     virtual void didDraw(const Image&) = 0;
 
     virtual bool canDestroyDecodedData(const Image&) = 0;
-    virtual void imageFrameAvailable(const Image&, ImageAnimatingState, const IntRect* changeRect = nullptr, DecodingStatus = DecodingStatus::Invalid) = 0;
+    virtual void imageFrameAvailable(const Image&, ImageAnimatingState, const IntRect* changeRect = nullptr) = 0;
     virtual void changedInRect(const Image&, const IntRect* changeRect = nullptr) = 0;
 };
 
 }
+
+#endif

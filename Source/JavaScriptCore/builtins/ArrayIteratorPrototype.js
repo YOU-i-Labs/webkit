@@ -28,10 +28,10 @@ function next()
 {
     "use strict";
 
-    if (@isUndefinedOrNull(this))
+    if (this == null)
         @throwTypeError("%ArrayIteratorPrototype%.next requires that |this| not be null or undefined");
 
-    let next = @getByIdDirectPrivate(this, "arrayIteratorNext");
+    let next = this.@arrayIteratorNext;
     if (next === @undefined)
         @throwTypeError("%ArrayIteratorPrototype%.next requires that |this| be an Array Iterator instance");
 
@@ -45,20 +45,20 @@ function arrayIteratorValueNext()
     var done = true;
     var value;
 
-    var array = @getByIdDirectPrivate(this, "iteratedObject");
-    if (!@getByIdDirectPrivate(this, "arrayIteratorIsDone")) {
-        var index = @getByIdDirectPrivate(this, "arrayIteratorNextIndex");
+    var array = this.@iteratedObject;
+    if (!this.@arrayIteratorIsDone) {
+        var index = this.@arrayIteratorNextIndex;
         var length = array.length >>> 0;
-        if (index >= length)
-            @putByIdDirectPrivate(this, "arrayIteratorIsDone", true);
-        else {
-            @putByIdDirectPrivate(this, "arrayIteratorNextIndex", index + 1);
+        if (index >= length) {
+            this.@arrayIteratorIsDone = true;
+        } else {
+            this.@arrayIteratorNextIndex = index + 1;
             done = false;
             value = array[index];
         }
     }
 
-    return { value, done };
+    return { done, value };
 }
 
 @globalPrivate
@@ -68,20 +68,20 @@ function arrayIteratorKeyNext()
     var done = true;
     var value;
 
-    var array = @getByIdDirectPrivate(this, "iteratedObject");
-    if (!@getByIdDirectPrivate(this, "arrayIteratorIsDone")) {
-        var index = @getByIdDirectPrivate(this, "arrayIteratorNextIndex");
+    var array = this.@iteratedObject;
+    if (!this.@arrayIteratorIsDone) {
+        var index = this.@arrayIteratorNextIndex;
         var length = array.length >>> 0;
-        if (index >= length)
-            @putByIdDirectPrivate(this, "arrayIteratorIsDone", true);
-        else {
-            @putByIdDirectPrivate(this, "arrayIteratorNextIndex", index + 1);
+        if (index >= length) {
+            this.@arrayIteratorIsDone = true;
+        } else {
+            this.@arrayIteratorNextIndex = index + 1;
             done = false;
             value = index;
         }
     }
 
-    return { value, done };
+    return { done, value };
 }
 
 @globalPrivate
@@ -91,18 +91,18 @@ function arrayIteratorKeyValueNext()
     var done = true;
     var value;
 
-    var array = @getByIdDirectPrivate(this, "iteratedObject");
-    if (!@getByIdDirectPrivate(this, "arrayIteratorIsDone")) {
-        var index = @getByIdDirectPrivate(this, "arrayIteratorNextIndex");
+    var array = this.@iteratedObject;
+    if (!this.@arrayIteratorIsDone) {
+        var index = this.@arrayIteratorNextIndex;
         var length = array.length >>> 0;
-        if (index >= length)
-            @putByIdDirectPrivate(this, "arrayIteratorIsDone", true);
-        else {
-            @putByIdDirectPrivate(this, "arrayIteratorNextIndex", index + 1);
+        if (index >= length) {
+            this.@arrayIteratorIsDone = true;
+        } else {
+            this.@arrayIteratorNextIndex = index + 1;
             done = false;
             value = [ index, array[index] ];
         }
     }
 
-    return { value, done };
+    return { done, value };
 }

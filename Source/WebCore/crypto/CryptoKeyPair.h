@@ -25,9 +25,10 @@
 
 #pragma once
 
+#include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 namespace WebCore {
 
@@ -40,4 +41,4 @@ struct CryptoKeyPair {
 
 } // namespace WebCore
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

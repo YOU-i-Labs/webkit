@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
- * Copyright (C) 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,8 +34,8 @@
 
 #include "AudioContext.h"
 #include "AudioFileReader.h"
-#include <JavaScriptCore/JSCInlines.h>
-#include <JavaScriptCore/TypedArrayInlines.h>
+#include <runtime/JSCInlines.h>
+#include <runtime/TypedArrayInlines.h>
 
 namespace WebCore {
 
@@ -67,7 +66,7 @@ AudioBuffer::AudioBuffer(unsigned numberOfChannels, size_t numberOfFrames, float
     m_channels.reserveCapacity(numberOfChannels);
 
     for (unsigned i = 0; i < numberOfChannels; ++i) {
-        auto channelDataArray = Float32Array::tryCreate(m_length);
+        auto channelDataArray = Float32Array::create(m_length);
         if (!channelDataArray) {
             invalidate();
             break;
@@ -86,7 +85,7 @@ AudioBuffer::AudioBuffer(AudioBus& bus)
     unsigned numberOfChannels = bus.numberOfChannels();
     m_channels.reserveCapacity(numberOfChannels);
     for (unsigned i = 0; i < numberOfChannels; ++i) {
-        auto channelDataArray = Float32Array::tryCreate(m_length);
+        auto channelDataArray = Float32Array::create(m_length);
         if (!channelDataArray) {
             invalidate();
             break;
@@ -106,16 +105,17 @@ void AudioBuffer::invalidate()
 
 void AudioBuffer::releaseMemory()
 {
-    auto locker = holdLock(m_channelsLock);
     m_channels.clear();
 }
 
 ExceptionOr<Ref<Float32Array>> AudioBuffer::getChannelData(unsigned channelIndex)
 {
     if (channelIndex >= m_channels.size())
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
     auto& channelData = *m_channels[channelIndex];
-    return Float32Array::create(channelData.unsharedBuffer(), channelData.byteOffset(), channelData.length());
+    auto array = Float32Array::create(channelData.unsharedBuffer(), channelData.byteOffset(), channelData.length());
+    RELEASE_ASSERT(array);
+    return array.releaseNonNull();
 }
 
 Float32Array* AudioBuffer::channelData(unsigned channelIndex)
@@ -133,12 +133,6 @@ void AudioBuffer::zero()
 
 size_t AudioBuffer::memoryCost() const
 {
-    // memoryCost() may be invoked concurrently from a GC thread, and we need to be careful
-    // about what data we access here and how. We need to hold a lock to prevent m_channels
-    // from being changed while we iterate it, but calling channel->byteLength() is safe
-    // because it doesn't involve chasing any pointers that can be nullified while the
-    // AudioBuffer is alive.
-    auto locker = holdLock(m_channelsLock);
     size_t cost = 0;
     for (auto& channel : m_channels)
         cost += channel->byteLength();

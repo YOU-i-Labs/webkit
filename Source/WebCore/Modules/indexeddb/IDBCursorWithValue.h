@@ -34,16 +34,16 @@ namespace WebCore {
 
 class IDBCursorWithValue final : public IDBCursor {
 public:
-    static Ref<IDBCursorWithValue> create(IDBObjectStore&, const IDBCursorInfo&);
-    static Ref<IDBCursorWithValue> create(IDBIndex&, const IDBCursorInfo&);
+    static Ref<IDBCursorWithValue> create(IDBTransaction&, IDBObjectStore&, const IDBCursorInfo&);
+    static Ref<IDBCursorWithValue> create(IDBTransaction&, IDBIndex&, const IDBCursorInfo&);
 
     virtual ~IDBCursorWithValue();
 
     bool isKeyCursorWithValue() const  override { return true; }
 
 private:
-    IDBCursorWithValue(IDBObjectStore&, const IDBCursorInfo&);
-    IDBCursorWithValue(IDBIndex&, const IDBCursorInfo&);
+    IDBCursorWithValue(IDBTransaction&, IDBObjectStore&, const IDBCursorInfo&);
+    IDBCursorWithValue(IDBTransaction&, IDBIndex&, const IDBCursorInfo&);
 };
 
 } // namespace WebCore

@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.GoToLineDialog = class GoToLineDialog extends WI.Dialog
+WebInspector.GoToLineDialog = class GoToLineDialog extends WebInspector.Dialog
 {
     constructor(delegate)
     {
@@ -35,7 +35,7 @@ WI.GoToLineDialog = class GoToLineDialog extends WI.Dialog
 
         this._input = field.appendChild(document.createElement("input"));
         this._input.type = "text";
-        this._input.placeholder = WI.UIString("Line Number");
+        this._input.placeholder = WebInspector.UIString("Line Number");
         this._input.spellcheck = false;
 
         this._clearIcon = field.appendChild(document.createElement("img"));
@@ -83,29 +83,27 @@ WI.GoToLineDialog = class GoToLineDialog extends WI.Dialog
     _handleInputEvent(event)
     {
         let force = this._input.value !== "";
-        this.element.classList.toggle(WI.GoToLineDialog.NonEmptyClassName, force);
+        this.element.classList.toggle(WebInspector.GoToLineDialog.NonEmptyClassName, force);
     }
 
     _handleKeydownEvent(event)
     {
-        if (event.keyCode === WI.KeyboardShortcut.Key.Escape.keyCode) {
-            if (this._input.value === "") {
+        if (event.keyCode === WebInspector.KeyboardShortcut.Key.Escape.keyCode) {
+            if (this._input.value === "")
                 this.dismiss();
-                event.preventDefault();
-            } else
+            else
                 this._clear();
 
             event.preventDefault();
-        } else if (event.keyCode === WI.KeyboardShortcut.Key.Enter.keyCode) {
+        } else if (event.keyCode === WebInspector.KeyboardShortcut.Key.Enter.keyCode) {
             let value = parseInt(this._input.value, 10);
 
             if (this.representedObjectIsValid(value)) {
                 this.dismiss(value);
-                event.preventDefault();
                 return;
             }
 
-            this._input.select();
+            this._inputElement.select();
 
             InspectorFrontendHost.beep();
         }
@@ -132,8 +130,8 @@ WI.GoToLineDialog = class GoToLineDialog extends WI.Dialog
     _clear()
     {
         this._input.value = "";
-        this.element.classList.remove(WI.GoToLineDialog.NonEmptyClassName);
+        this.element.classList.remove(WebInspector.GoToLineDialog.NonEmptyClassName);
     }
 };
 
-WI.GoToLineDialog.NonEmptyClassName = "non-empty";
+WebInspector.GoToLineDialog.NonEmptyClassName = "non-empty";

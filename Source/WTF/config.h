@@ -32,3 +32,9 @@
 #endif
 
 #include <wtf/DisallowCType.h>
+
+#if COMPILER(MSVC)
+#define SKIP_STATIC_CONSTRUCTORS_ON_MSVC 1
+#else
+#define SKIP_STATIC_CONSTRUCTORS_ON_GCC 1
+#endif

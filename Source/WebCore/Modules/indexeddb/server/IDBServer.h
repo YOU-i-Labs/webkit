@@ -31,7 +31,8 @@
 #include "IDBDatabaseIdentifier.h"
 #include "UniqueIDBDatabase.h"
 #include "UniqueIDBDatabaseConnection.h"
-#include <wtf/CrossThreadTaskHandler.h>
+#include <wtf/CrossThreadQueue.h>
+#include <wtf/CrossThreadTask.h>
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
 #include <wtf/Ref.h>
@@ -48,11 +49,9 @@ struct IDBGetRecordData;
 
 namespace IDBServer {
 
-const uint64_t defaultPerOriginQuota = 500 * MB;
-
 class IDBBackingStoreTemporaryFileHandler;
 
-class IDBServer : public RefCounted<IDBServer>, public CrossThreadTaskHandler {
+class IDBServer : public RefCounted<IDBServer> {
 public:
     static Ref<IDBServer> create(IDBBackingStoreTemporaryFileHandler&);
     WEBCORE_EXPORT static Ref<IDBServer> create(const String& databaseDirectoryPath, IDBBackingStoreTemporaryFileHandler&);
@@ -99,15 +98,12 @@ public:
     void registerTransaction(UniqueIDBDatabaseTransaction&);
     void unregisterTransaction(UniqueIDBDatabaseTransaction&);
 
-    std::unique_ptr<UniqueIDBDatabase> closeAndTakeUniqueIDBDatabase(UniqueIDBDatabase&);
+    void closeUniqueIDBDatabase(UniqueIDBDatabase&);
 
     std::unique_ptr<IDBBackingStore> createBackingStore(const IDBDatabaseIdentifier&);
 
-    WEBCORE_EXPORT void closeAndDeleteDatabasesModifiedSince(WallTime, Function<void ()>&& completionHandler);
+    WEBCORE_EXPORT void closeAndDeleteDatabasesModifiedSince(std::chrono::system_clock::time_point, Function<void ()>&& completionHandler);
     WEBCORE_EXPORT void closeAndDeleteDatabasesForOrigins(const Vector<SecurityOriginData>&, Function<void ()>&& completionHandler);
-
-    uint64_t perOriginQuota() const { return m_perOriginQuota; }
-    WEBCORE_EXPORT void setPerOriginQuota(uint64_t);
 
 private:
     IDBServer(IDBBackingStoreTemporaryFileHandler&);
@@ -118,12 +114,24 @@ private:
     void performGetAllDatabaseNames(uint64_t serverConnectionIdentifier, const SecurityOriginData& mainFrameOrigin, const SecurityOriginData& openingOrigin, uint64_t callbackID);
     void didGetAllDatabaseNames(uint64_t serverConnectionIdentifier, uint64_t callbackID, const Vector<String>& databaseNames);
 
-    void performCloseAndDeleteDatabasesModifiedSince(WallTime, uint64_t callbackID);
+    void performCloseAndDeleteDatabasesModifiedSince(std::chrono::system_clock::time_point, uint64_t callbackID);
     void performCloseAndDeleteDatabasesForOrigins(const Vector<SecurityOriginData>&, uint64_t callbackID);
     void didPerformCloseAndDeleteDatabases(uint64_t callbackID);
 
+    static void databaseThreadEntry(void*);
+    void databaseRunLoop();
+    void handleTaskRepliesOnMainThread();
+
     HashMap<uint64_t, RefPtr<IDBConnectionToClient>> m_connectionMap;
-    HashMap<IDBDatabaseIdentifier, std::unique_ptr<UniqueIDBDatabase>> m_uniqueIDBDatabaseMap;
+    HashMap<IDBDatabaseIdentifier, RefPtr<UniqueIDBDatabase>> m_uniqueIDBDatabaseMap;
+
+    RefPtr<Thread> m_thread { nullptr };
+    Lock m_databaseThreadCreationLock;
+    Lock m_mainThreadReplyLock;
+    bool m_mainThreadReplyScheduled { false };
+
+    CrossThreadQueue<CrossThreadTask> m_databaseQueue;
+    CrossThreadQueue<CrossThreadTask> m_databaseReplyQueue;
 
     HashMap<uint64_t, UniqueIDBDatabaseConnection*> m_databaseConnections;
     HashMap<IDBResourceIdentifier, UniqueIDBDatabaseTransaction*> m_transactions;
@@ -132,8 +140,6 @@ private:
 
     String m_databaseDirectoryPath;
     IDBBackingStoreTemporaryFileHandler& m_backingStoreTemporaryFileHandler;
-
-    uint64_t m_perOriginQuota { defaultPerOriginQuota };
 };
 
 } // namespace IDBServer

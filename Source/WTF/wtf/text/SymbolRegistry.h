@@ -23,7 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef WTF_SymbolRegistry_h
+#define WTF_SymbolRegistry_h
 
 #include <wtf/HashSet.h>
 #include <wtf/text/StringHash.h>
@@ -82,6 +83,7 @@ public:
     WTF_EXPORT_PRIVATE ~SymbolRegistry();
 
     WTF_EXPORT_PRIVATE Ref<RegisteredSymbolImpl> symbolForKey(const String&);
+    WTF_EXPORT_PRIVATE String keyForSymbol(RegisteredSymbolImpl&);
 
     void remove(RegisteredSymbolImpl&);
 
@@ -107,3 +109,5 @@ inline SymbolRegistryKey::SymbolRegistryKey(WTF::HashTableDeletedValueType)
 }
 
 }
+
+#endif

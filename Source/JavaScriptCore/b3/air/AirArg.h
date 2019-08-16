@@ -35,9 +35,10 @@
 #include "B3Width.h"
 #include <wtf/Optional.h>
 
-#if ASSERT_DISABLED
-IGNORE_RETURN_TYPE_WARNINGS_BEGIN
-#endif
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreturn-type"
+#endif // COMPILER(GCC) && ASSERT_DISABLED
 
 namespace JSC { namespace B3 {
 
@@ -586,7 +587,7 @@ public:
     }
 
     // If you don't pass a Width, this optimistically assumes that you're using the right width.
-    static bool isValidScale(unsigned scale, Optional<Width> width = WTF::nullopt)
+    static bool isValidScale(unsigned scale, std::optional<Width> width = std::nullopt)
     {
         switch (scale) {
         case 1:
@@ -888,7 +889,6 @@ public:
             case Width64:
                 return B3::isRepresentableAs<int64_t>(value);
             }
-            RELEASE_ASSERT_NOT_REACHED();
         case Unsigned:
             switch (width) {
             case Width8:
@@ -901,7 +901,7 @@ public:
                 return B3::isRepresentableAs<uint64_t>(value);
             }
         }
-        RELEASE_ASSERT_NOT_REACHED();
+        ASSERT_NOT_REACHED();
     }
 
     bool isRepresentableAs(Width, Signedness) const;
@@ -920,7 +920,6 @@ public:
             case Width64:
                 return static_cast<int64_t>(value);
             }
-            RELEASE_ASSERT_NOT_REACHED();
         case Unsigned:
             switch (width) {
             case Width8:
@@ -933,7 +932,7 @@ public:
                 return static_cast<uint64_t>(value);
             }
         }
-        RELEASE_ASSERT_NOT_REACHED();
+        ASSERT_NOT_REACHED();
     }
 
     template<typename T>
@@ -973,7 +972,7 @@ public:
     StackSlot* stackSlot() const
     {
         ASSERT(kind() == Stack);
-        return bitwise_cast<StackSlot*>(static_cast<uintptr_t>(m_offset));
+        return bitwise_cast<StackSlot*>(m_offset);
     }
 
     Air::Tmp index() const
@@ -996,7 +995,7 @@ public:
     Air::Special* special() const
     {
         ASSERT(kind() == Special);
-        return bitwise_cast<Air::Special*>(static_cast<uintptr_t>(m_offset));
+        return bitwise_cast<Air::Special*>(m_offset);
     }
 
     Width width() const
@@ -1181,7 +1180,7 @@ public:
     }
 
     template<typename Int, typename = Value::IsLegalOffset<Int>>
-    static bool isValidAddrForm(Int offset, Optional<Width> width = WTF::nullopt)
+    static bool isValidAddrForm(Int offset, std::optional<Width> width = std::nullopt)
     {
         if (isX86())
             return true;
@@ -1207,7 +1206,7 @@ public:
     }
 
     template<typename Int, typename = Value::IsLegalOffset<Int>>
-    static bool isValidIndexForm(unsigned scale, Int offset, Optional<Width> width = WTF::nullopt)
+    static bool isValidIndexForm(unsigned scale, Int offset, std::optional<Width> width = std::nullopt)
     {
         if (!isValidScale(scale, width))
             return false;
@@ -1221,7 +1220,7 @@ public:
     // If you don't pass a width then this optimistically assumes that you're using the right width. But
     // the width is relevant to validity, so passing a null width is only useful for assertions. Don't
     // pass null widths when cascading through Args in the instruction selector!
-    bool isValidForm(Optional<Width> width = WTF::nullopt) const
+    bool isValidForm(std::optional<Width> width = std::nullopt) const
     {
         switch (kind()) {
         case Invalid:
@@ -1493,8 +1492,8 @@ template<> struct HashTraits<JSC::B3::Air::Arg> : SimpleClassHashTraits<JSC::B3:
 
 } // namespace WTF
 
-#if ASSERT_DISABLED
-IGNORE_RETURN_TYPE_WARNINGS_END
-#endif
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic pop
+#endif // COMPILER(GCC) && ASSERT_DISABLED
 
 #endif // ENABLE(B3_JIT)

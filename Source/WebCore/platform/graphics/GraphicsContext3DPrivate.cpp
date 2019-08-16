@@ -26,23 +26,25 @@
 #include <wtf/StdLibExtras.h>
 
 
-#if USE(LIBEPOXY)
-#include <epoxy/gl.h>
-#elif USE(OPENGL_ES)
+#if USE(OPENGL_ES_2)
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #else
 #include "OpenGLShims.h"
 #endif
 
+using namespace std;
 
 namespace WebCore {
 
 GraphicsContext3DPrivate::GraphicsContext3DPrivate(GraphicsContext3D*, GraphicsContext3D::RenderStyle renderStyle)
+    : m_renderStyle(renderStyle)
 {
     switch (renderStyle) {
     case GraphicsContext3D::RenderOffscreen:
         m_glContext = GLContext::createOffscreenContext(&PlatformDisplay::sharedDisplayForCompositing());
+        break;
+    case GraphicsContext3D::RenderToCurrentGLContext:
         break;
     case GraphicsContext3D::RenderDirectlyToHostWindow:
         ASSERT_NOT_REACHED();

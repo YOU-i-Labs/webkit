@@ -9,7 +9,7 @@
 #ifndef LIBANGLE_RENDERER_GL_WGL_D3DTEXTIRESURFACEWGL_H_
 #define LIBANGLE_RENDERER_GL_WGL_D3DTEXTIRESURFACEWGL_H_
 
-#include "libANGLE/renderer/gl/wgl/SurfaceWGL.h"
+#include "libANGLE/renderer/gl/SurfaceGL.h"
 
 #include <GL/wglext.h>
 
@@ -22,7 +22,7 @@ class DisplayWGL;
 class StateManagerGL;
 struct WorkaroundsGL;
 
-class D3DTextureSurfaceWGL : public SurfaceWGL
+class D3DTextureSurfaceWGL : public SurfaceGL
 {
   public:
     D3DTextureSurfaceWGL(const egl::SurfaceState &state,
@@ -30,6 +30,7 @@ class D3DTextureSurfaceWGL : public SurfaceWGL
                          EGLenum buftype,
                          EGLClientBuffer clientBuffer,
                          DisplayWGL *display,
+                         HGLRC wglContext,
                          HDC deviceContext,
                          ID3D11Device *displayD3D11Device,
                          const FunctionsGL *functionsGL,
@@ -40,16 +41,12 @@ class D3DTextureSurfaceWGL : public SurfaceWGL
                                                      EGLClientBuffer clientBuffer,
                                                      ID3D11Device *d3d11Device);
 
-    egl::Error initialize(const egl::Display *display) override;
+    egl::Error initialize(const DisplayImpl *displayImpl) override;
     egl::Error makeCurrent() override;
     egl::Error unMakeCurrent() override;
 
-    egl::Error swap(const gl::Context *context) override;
-    egl::Error postSubBuffer(const gl::Context *context,
-                             EGLint x,
-                             EGLint y,
-                             EGLint width,
-                             EGLint height) override;
+    egl::Error swap(const DisplayImpl *displayImpl) override;
+    egl::Error postSubBuffer(EGLint x, EGLint y, EGLint width, EGLint height) override;
     egl::Error querySurfacePointerANGLE(EGLint attribute, void **value) override;
     egl::Error bindTexImage(gl::Texture *texture, EGLint buffer) override;
     egl::Error releaseTexImage(EGLint buffer) override;
@@ -62,8 +59,6 @@ class D3DTextureSurfaceWGL : public SurfaceWGL
     EGLint getSwapBehavior() const override;
 
     FramebufferImpl *createDefaultFramebuffer(const gl::FramebufferState &data) override;
-
-    HDC getDC() const override;
 
   private:
     EGLenum mBuftype;
@@ -79,6 +74,7 @@ class D3DTextureSurfaceWGL : public SurfaceWGL
     const FunctionsGL *mFunctionsGL;
     const FunctionsWGL *mFunctionsWGL;
 
+    HGLRC mWGLContext;
     HDC mDeviceContext;
 
     size_t mWidth;

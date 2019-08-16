@@ -30,14 +30,11 @@
 #include "InternalFunction.h"
 #include "JSObject.h"
 
-#include <wtf/Vector.h>
-
 namespace JSC {
 
-class JSWebAssemblyModule;
 class WebAssemblyModulePrototype;
 
-class WebAssemblyModuleConstructor final : public InternalFunction {
+class WebAssemblyModuleConstructor : public InternalFunction {
 public:
     typedef InternalFunction Base;
     static const unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;
@@ -47,13 +44,15 @@ public:
 
     DECLARE_INFO;
 
-    static JSWebAssemblyModule* createModule(ExecState*, Vector<uint8_t>&& buffer);
+    static JSValue createModule(ExecState*, JSValue buffer, Structure*);
 
 protected:
     void finishCreation(VM&, WebAssemblyModulePrototype*);
 
 private:
     WebAssemblyModuleConstructor(VM&, Structure*);
+    static ConstructType getConstructData(JSCell*, ConstructData&);
+    static CallType getCallData(JSCell*, CallData&);
 };
 
 } // namespace JSC

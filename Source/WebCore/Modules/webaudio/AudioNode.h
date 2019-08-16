@@ -45,8 +45,6 @@ class AudioParam;
 // Most processing nodes such as filters will have one input and one output, although multiple inputs and outputs are possible.
 
 class AudioNode : public EventTargetWithInlineData {
-    WTF_MAKE_NONCOPYABLE(AudioNode);
-    WTF_MAKE_FAST_ALLOCATED;
 public:
     enum { ProcessingSizeInFrames = 128 };
 

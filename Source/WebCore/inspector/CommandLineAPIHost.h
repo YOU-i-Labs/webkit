@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include <JavaScriptCore/PerGlobalObjectWrapperWorld.h>
+#include <inspector/PerGlobalObjectWrapperWorld.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
@@ -41,6 +41,8 @@ class JSValue;
 namespace Inspector {
 class InspectorAgent;
 class InspectorConsoleAgent;
+class InspectorObject;
+class InspectorValue;
 }
 
 namespace WebCore {
@@ -83,24 +85,16 @@ public:
         WTF_MAKE_FAST_ALLOCATED;
     public:
         virtual JSC::JSValue get(JSC::ExecState&);
-        virtual ~InspectableObject() = default;
+        virtual ~InspectableObject() { }
     };
     void addInspectedObject(std::unique_ptr<InspectableObject>);
-    JSC::JSValue inspectedObject(JSC::ExecState&);
-    void inspect(JSC::ExecState&, JSC::JSValue objectToInspect, JSC::JSValue hints);
+    InspectableObject* inspectedObject();
+    void inspectImpl(RefPtr<Inspector::InspectorValue>&& objectToInspect, RefPtr<Inspector::InspectorValue>&& hints);
 
-    struct ListenerEntry {
-        JSC::Strong<JSC::JSObject> listener;
-        bool useCapture;
-        bool passive;
-        bool once;
-    };
+    void getEventListenersImpl(Node*, Vector<EventListenerInfo>& listenersArray);
 
-    using EventListenersRecord = Vector<WTF::KeyValuePair<String, Vector<ListenerEntry>>>;
-    EventListenersRecord getEventListeners(JSC::ExecState&, Node*);
-
-    String databaseId(Database&);
-    String storageId(Storage&);
+    String databaseIdImpl(Database*);
+    String storageIdImpl(Storage*);
 
     JSC::JSValue wrapper(JSC::ExecState*, JSDOMGlobalObject*);
     void clearAllWrappers();
@@ -108,11 +102,11 @@ public:
 private:
     CommandLineAPIHost();
 
-    Inspector::InspectorAgent* m_inspectorAgent { nullptr };
-    Inspector::InspectorConsoleAgent* m_consoleAgent { nullptr };
-    InspectorDOMAgent* m_domAgent { nullptr };
-    InspectorDOMStorageAgent* m_domStorageAgent { nullptr };
-    InspectorDatabaseAgent* m_databaseAgent { nullptr };
+    Inspector::InspectorAgent* m_inspectorAgent {nullptr};
+    Inspector::InspectorConsoleAgent* m_consoleAgent {nullptr};
+    InspectorDOMAgent* m_domAgent {nullptr};
+    InspectorDOMStorageAgent* m_domStorageAgent {nullptr};
+    InspectorDatabaseAgent* m_databaseAgent {nullptr};
 
     std::unique_ptr<InspectableObject> m_inspectedObject; // $0
     Inspector::PerGlobalObjectWrapperWorld m_wrappers;

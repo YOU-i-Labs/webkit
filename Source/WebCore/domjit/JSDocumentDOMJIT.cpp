@@ -35,18 +35,19 @@
 #include "JSDOMWrapper.h"
 #include "JSElement.h"
 #include "JSHTMLElement.h"
-#include <JavaScriptCore/Snippet.h>
-#include <JavaScriptCore/SnippetParams.h>
+#include <jit/Snippet.h>
+#include <jit/SnippetParams.h>
+
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 
 Ref<JSC::Snippet> checkSubClassSnippetForJSDocument()
 {
     return DOMJIT::checkDOM<Document>();
 }
 
-Ref<JSC::DOMJIT::CallDOMGetterSnippet> compileDocumentDocumentElementAttribute()
+Ref<JSC::DOMJIT::CallDOMGetterSnippet> DocumentDocumentElementDOMJIT::callDOMGetter()
 {
     Ref<JSC::DOMJIT::CallDOMGetterSnippet> snippet = JSC::DOMJIT::CallDOMGetterSnippet::create();
     snippet->numGPScratchRegisters = 1;
@@ -79,7 +80,7 @@ static void loadLocalName(CCallHelpers& jit, GPRReg htmlElement, GPRReg localNam
     jit.loadPtr(CCallHelpers::Address(localNameImpl, QualifiedName::QualifiedNameImpl::localNameMemoryOffset()), localNameImpl);
 }
 
-Ref<JSC::DOMJIT::CallDOMGetterSnippet> compileDocumentBodyAttribute()
+Ref<JSC::DOMJIT::CallDOMGetterSnippet> DocumentBodyDOMJIT::callDOMGetter()
 {
     Ref<JSC::DOMJIT::CallDOMGetterSnippet> snippet = JSC::DOMJIT::CallDOMGetterSnippet::create();
     snippet->numGPScratchRegisters = 2;
@@ -101,7 +102,7 @@ Ref<JSC::DOMJIT::CallDOMGetterSnippet> compileDocumentBodyAttribute()
         // We ensured that the name of the given element is HTML qualified.
         // It allows us to perform local name comparison!
         loadLocalName(jit, scratch1, scratch2);
-        nullCases.append(jit.branchPtr(CCallHelpers::NotEqual, scratch2, CCallHelpers::TrustedImmPtr(HTMLNames::htmlTag->localName().impl())));
+        nullCases.append(jit.branchPtr(CCallHelpers::NotEqual, scratch2, CCallHelpers::TrustedImmPtr(HTMLNames::htmlTag.localName().impl())));
 
         RELEASE_ASSERT(!CAST_OFFSET(Node*, ContainerNode*));
         RELEASE_ASSERT(!CAST_OFFSET(Node*, Element*));
@@ -119,8 +120,8 @@ Ref<JSC::DOMJIT::CallDOMGetterSnippet> compileDocumentBodyAttribute()
         // We ensured that the name of the given element is HTML qualified.
         // It allows us to perform local name comparison!
         loadLocalName(jit, scratch1, scratch2);
-        successCases.append(jit.branchPtr(CCallHelpers::Equal, scratch2, CCallHelpers::TrustedImmPtr(HTMLNames::bodyTag->localName().impl())));
-        successCases.append(jit.branchPtr(CCallHelpers::Equal, scratch2, CCallHelpers::TrustedImmPtr(HTMLNames::framesetTag->localName().impl())));
+        successCases.append(jit.branchPtr(CCallHelpers::Equal, scratch2, CCallHelpers::TrustedImmPtr(HTMLNames::bodyTag.localName().impl())));
+        successCases.append(jit.branchPtr(CCallHelpers::Equal, scratch2, CCallHelpers::TrustedImmPtr(HTMLNames::framesetTag.localName().impl())));
 
         notHTMLElementCase.link(&jit);
         jit.loadPtr(CCallHelpers::Address(scratch1, Node::nextSiblingMemoryOffset()), scratch1);

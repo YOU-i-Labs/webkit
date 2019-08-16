@@ -36,7 +36,6 @@
 #include "RTCIceTransport.h"
 #include "RTCRtpReceiver.h"
 #include "RTCRtpSender.h"
-#include "RTCRtpTransceiverBackend.h"
 #include "RTCRtpTransceiverDirection.h"
 #include "ScriptWrappable.h"
 #include <wtf/RefCounted.h>
@@ -47,33 +46,42 @@ namespace WebCore {
 
 class RTCRtpTransceiver : public RefCounted<RTCRtpTransceiver>, public ScriptWrappable {
 public:
-    static Ref<RTCRtpTransceiver> create(Ref<RTCRtpSender>&& sender, Ref<RTCRtpReceiver>&& receiver, std::unique_ptr<RTCRtpTransceiverBackend>&& backend) { return adoptRef(*new RTCRtpTransceiver(WTFMove(sender), WTFMove(receiver), WTFMove(backend))); }
-    virtual ~RTCRtpTransceiver() = default;
+    static Ref<RTCRtpTransceiver> create(Ref<RTCRtpSender>&& sender, Ref<RTCRtpReceiver>&& receiver) { return adoptRef(*new RTCRtpTransceiver(WTFMove(sender), WTFMove(receiver))); }
+    virtual ~RTCRtpTransceiver() { }
 
     bool hasSendingDirection() const;
     void enableSendingDirection();
     void disableSendingDirection();
 
-    RTCRtpTransceiverDirection direction() const;
-    Optional<RTCRtpTransceiverDirection> currentDirection() const;
-    void setDirection(RTCRtpTransceiverDirection);
-    String mid() const;
+    const String& directionString() const;
+    RTCRtpTransceiverDirection direction() const { return m_direction; }
+    // FIXME: setDirection should trigger negotiation needed.
+    void setDirection(RTCRtpTransceiverDirection direction) { m_direction = direction; }
+
+    const String& provisionalMid() const { return m_provisionalMid; }
+    void setProvisionalMid(const String& provisionalMid) { m_provisionalMid = provisionalMid; }
+
+    const String& mid() const { return m_mid; }
+    void setMid(const String& mid) { m_mid = mid; }
 
     RTCRtpSender& sender() { return m_sender.get(); }
     RTCRtpReceiver& receiver() { return m_receiver.get(); }
 
-    bool stopped() const;
-    void stop();
+    bool stopped() const { return m_stopped; }
+    void stop() { m_stopped = true; }
 
     // FIXME: Temporary solution to keep track of ICE states for this transceiver. Later, each
     // sender and receiver will have up to two DTLS transports, which in turn will have an ICE
     // transport each.
     RTCIceTransport& iceTransport() { return m_iceTransport.get(); }
 
-    RTCRtpTransceiverBackend* backend() { return m_backend.get(); }
+    static String getNextMid();
 
 private:
-    RTCRtpTransceiver(Ref<RTCRtpSender>&&, Ref<RTCRtpReceiver>&&, std::unique_ptr<RTCRtpTransceiverBackend>&&);
+    RTCRtpTransceiver(Ref<RTCRtpSender>&&, Ref<RTCRtpReceiver>&&);
+
+    String m_provisionalMid;
+    String m_mid;
 
     RTCRtpTransceiverDirection m_direction;
 
@@ -83,7 +91,6 @@ private:
     bool m_stopped { false };
 
     Ref<RTCIceTransport> m_iceTransport;
-    std::unique_ptr<RTCRtpTransceiverBackend> m_backend;
 };
 
 class RtpTransceiverSet {
@@ -91,11 +98,14 @@ public:
     const Vector<RefPtr<RTCRtpTransceiver>>& list() const { return m_transceivers; }
     void append(Ref<RTCRtpTransceiver>&&);
 
-    Vector<std::reference_wrapper<RTCRtpSender>> senders() const;
-    Vector<std::reference_wrapper<RTCRtpReceiver>> receivers() const;
+    const Vector<std::reference_wrapper<RTCRtpSender>>& senders() const { return m_senders; }
+    const Vector<std::reference_wrapper<RTCRtpReceiver>>& receivers() const { return m_receivers; }
 
 private:
     Vector<RefPtr<RTCRtpTransceiver>> m_transceivers;
+
+    Vector<std::reference_wrapper<RTCRtpSender>> m_senders;
+    Vector<std::reference_wrapper<RTCRtpReceiver>> m_receivers;
 };
 
 } // namespace WebCore

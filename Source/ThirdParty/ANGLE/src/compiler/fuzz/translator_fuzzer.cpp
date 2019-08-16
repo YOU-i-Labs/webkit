@@ -14,7 +14,6 @@
 
 #include "angle_gl.h"
 #include "compiler/translator/Compiler.h"
-#include "compiler/translator/util.h"
 
 using namespace sh;
 
@@ -85,14 +84,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         return 0;
     }
 
-    ShShaderOutput shaderOutput = static_cast<ShShaderOutput>(output);
-    if (!(IsOutputGLSL(shaderOutput) || IsOutputESSL(shaderOutput)) &&
-        (options & SH_SELECT_VIEW_IN_NV_GLSL_VERTEX_SHADER) != 0u)
-    {
-        // This compiler option is only available in ESSL and GLSL.
-        return 0;
-    }
-
     std::vector<uint32_t> validOutputs;
     validOutputs.push_back(SH_ESSL_OUTPUT);
     validOutputs.push_back(SH_GLSL_COMPATIBILITY_OUTPUT);
@@ -134,8 +125,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
     if (translators.find(key) == translators.end())
     {
-        UniqueTCompiler translator(
-            ConstructCompiler(type, static_cast<ShShaderSpec>(spec), shaderOutput));
+        UniqueTCompiler translator(ConstructCompiler(type, static_cast<ShShaderSpec>(spec),
+                                                     static_cast<ShShaderOutput>(output)));
 
         if (translator == nullptr)
         {

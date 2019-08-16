@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.DragToAdjustController = class DragToAdjustController
+WebInspector.DragToAdjustController = class DragToAdjustController
 {
     constructor(delegate)
     {
@@ -81,10 +81,10 @@ WI.DragToAdjustController = class DragToAdjustController
             return;
 
         if (active) {
-            WI.notifications.addEventListener(WI.Notification.GlobalModifierKeysDidChange, this._modifiersDidChange, this);
+            WebInspector.notifications.addEventListener(WebInspector.Notification.GlobalModifierKeysDidChange, this._modifiersDidChange, this);
             this._element.addEventListener("mousemove", this);
         } else {
-            WI.notifications.removeEventListener(WI.Notification.GlobalModifierKeysDidChange, this._modifiersDidChange, this);
+            WebInspector.notifications.removeEventListener(WebInspector.Notification.GlobalModifierKeysDidChange, this._modifiersDidChange, this);
             this._element.removeEventListener("mousemove", this);
             this._setTracksMouseClickAndDrag(false);
         }
@@ -98,7 +98,7 @@ WI.DragToAdjustController = class DragToAdjustController
     reset()
     {
         this._setTracksMouseClickAndDrag(false);
-        this._element.classList.remove(WI.DragToAdjustController.StyleClassName);
+        this._element.classList.remove(WebInspector.DragToAdjustController.StyleClassName);
 
         if (this._delegate && typeof this._delegate.dragToAdjustControllerDidReset === "function")
             this._delegate.dragToAdjustControllerDidReset(this);
@@ -148,9 +148,9 @@ WI.DragToAdjustController = class DragToAdjustController
 
         console.assert(window.event);
         if (dragging)
-            WI.elementDragStart(this._element, this, this, window.event, "col-resize", window);
+            WebInspector.elementDragStart(this._element, this, this, window.event, "col-resize", window);
         else
-            WI.elementDragEnd(window.event);
+            WebInspector.elementDragEnd(window.event);
 
         this._dragging = dragging;
     }
@@ -161,11 +161,11 @@ WI.DragToAdjustController = class DragToAdjustController
             return;
 
         if (tracksMouseClickAndDrag) {
-            this._element.classList.add(WI.DragToAdjustController.StyleClassName);
+            this._element.classList.add(WebInspector.DragToAdjustController.StyleClassName);
             window.addEventListener("mousedown", this, true);
             window.addEventListener("contextmenu", this, true);
         } else {
-            this._element.classList.remove(WI.DragToAdjustController.StyleClassName);
+            this._element.classList.remove(WebInspector.DragToAdjustController.StyleClassName);
             window.removeEventListener("mousedown", this, true);
             window.removeEventListener("contextmenu", this, true);
             this._setDragging(false);
@@ -176,7 +176,7 @@ WI.DragToAdjustController = class DragToAdjustController
 
     _modifiersDidChange(event)
     {
-        var canBeAdjusted = WI.modifierKeys.altKey;
+        var canBeAdjusted = WebInspector.modifierKeys.altKey;
         if (canBeAdjusted && this._delegate && typeof this._delegate.dragToAdjustControllerCanBeAdjusted === "function")
             canBeAdjusted = this._delegate.dragToAdjustControllerCanBeAdjusted(this);
 
@@ -187,7 +187,7 @@ WI.DragToAdjustController = class DragToAdjustController
     {
         var canBeAdjusted = event.altKey;
         if (canBeAdjusted && this._delegate && typeof this._delegate.dragToAdjustControllerCanAdjustObjectAtPoint === "function")
-            canBeAdjusted = this._delegate.dragToAdjustControllerCanAdjustObjectAtPoint(this, WI.Point.fromEvent(event));
+            canBeAdjusted = this._delegate.dragToAdjustControllerCanAdjustObjectAtPoint(this, WebInspector.Point.fromEvent(event));
 
         this._setTracksMouseClickAndDrag(canBeAdjusted);
     }
@@ -235,4 +235,4 @@ WI.DragToAdjustController = class DragToAdjustController
     }
 };
 
-WI.DragToAdjustController.StyleClassName = "drag-to-adjust";
+WebInspector.DragToAdjustController.StyleClassName = "drag-to-adjust";

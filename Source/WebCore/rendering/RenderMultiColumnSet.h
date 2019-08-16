@@ -26,8 +26,8 @@
 #pragma once
 
 #include "LayerFragment.h"
-#include "RenderFragmentContainerSet.h"
-#include "RenderMultiColumnFlow.h"
+#include "RenderMultiColumnFlowThread.h"
+#include "RenderRegionSet.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -40,32 +40,31 @@ namespace WebCore {
 // for the 2nd to n-1 pages, and then one last column set that will hold the shorter columns on the final page (that may have to be balanced
 // as well).
 //
-// Column spans result in the creation of new column sets as well, since a spanning fragment has to be placed in between the column sets that
+// Column spans result in the creation of new column sets as well, since a spanning region has to be placed in between the column sets that
 // come before and after the span.
-class RenderMultiColumnSet final : public RenderFragmentContainerSet {
-    WTF_MAKE_ISO_ALLOCATED(RenderMultiColumnSet);
+class RenderMultiColumnSet final : public RenderRegionSet {
 public:
-    RenderMultiColumnSet(RenderFragmentedFlow&, RenderStyle&&);
+    RenderMultiColumnSet(RenderFlowThread&, RenderStyle&&);
 
     RenderBlockFlow* multiColumnBlockFlow() const { return downcast<RenderBlockFlow>(parent()); }
-    RenderMultiColumnFlow* multiColumnFlow() const { return static_cast<RenderMultiColumnFlow*>(fragmentedFlow()); }
+    RenderMultiColumnFlowThread* multiColumnFlowThread() const { return static_cast<RenderMultiColumnFlowThread*>(flowThread()); }
 
     RenderMultiColumnSet* nextSiblingMultiColumnSet() const;
     RenderMultiColumnSet* previousSiblingMultiColumnSet() const;
 
     // Return the first object in the flow thread that's rendered inside this set.
-    RenderObject* firstRendererInFragmentedFlow() const;
+    RenderObject* firstRendererInFlowThread() const;
     // Return the last object in the flow thread that's rendered inside this set.
-    RenderObject* lastRendererInFragmentedFlow() const;
+    RenderObject* lastRendererInFlowThread() const;
 
     // Return true if the specified renderer (descendant of the flow thread) is inside this column set.
-    bool containsRendererInFragmentedFlow(const RenderObject&) const;
+    bool containsRendererInFlowThread(const RenderObject&) const;
 
-    void setLogicalTopInFragmentedFlow(LayoutUnit);
-    LayoutUnit logicalTopInFragmentedFlow() const { return isHorizontalWritingMode() ? fragmentedFlowPortionRect().y() : fragmentedFlowPortionRect().x(); }
-    void setLogicalBottomInFragmentedFlow(LayoutUnit);
-    LayoutUnit logicalBottomInFragmentedFlow() const { return isHorizontalWritingMode() ? fragmentedFlowPortionRect().maxY() : fragmentedFlowPortionRect().maxX(); }
-    LayoutUnit logicalHeightInFragmentedFlow() const { return isHorizontalWritingMode() ? fragmentedFlowPortionRect().height() : fragmentedFlowPortionRect().width(); }
+    void setLogicalTopInFlowThread(LayoutUnit);
+    LayoutUnit logicalTopInFlowThread() const { return isHorizontalWritingMode() ? flowThreadPortionRect().y() : flowThreadPortionRect().x(); }
+    void setLogicalBottomInFlowThread(LayoutUnit);
+    LayoutUnit logicalBottomInFlowThread() const { return isHorizontalWritingMode() ? flowThreadPortionRect().maxY() : flowThreadPortionRect().maxX(); }
+    LayoutUnit logicalHeightInFlowThread() const { return isHorizontalWritingMode() ? flowThreadPortionRect().height() : flowThreadPortionRect().width(); }
 
     unsigned computedColumnCount() const { return m_computedColumnCount; }
     LayoutUnit computedColumnWidth() const { return m_computedColumnWidth; }
@@ -110,7 +109,7 @@ public:
     // when advancing to the next column set or spanner.
     void endFlow(RenderBlock* container, LayoutUnit bottomInContainer);
     // Has this set been flowed in this layout pass?
-    bool hasBeenFlowed() const { return logicalBottomInFragmentedFlow() != RenderFragmentedFlow::maxLogicalHeight(); }
+    bool hasBeenFlowed() const { return logicalBottomInFlowThread() != RenderFlowThread::maxLogicalHeight(); }
 
     bool requiresBalancing() const;
 
@@ -122,7 +121,7 @@ public:
         ClampHitTestTranslationToColumns,
         DoNotClampHitTestTranslationToColumns
     };
-    LayoutPoint translateFragmentPointToFragmentedFlow(const LayoutPoint & logicalPoint, ColumnHitTestTranslationMode = DoNotClampHitTestTranslationToColumns) const;
+    LayoutPoint translateRegionPointToFlowThread(const LayoutPoint & logicalPoint, ColumnHitTestTranslationMode = DoNotClampHitTestTranslationToColumns) const;
 
     void updateHitTestResult(HitTestResult&, const LayoutPoint&) override;
     
@@ -145,15 +144,15 @@ private:
 
     LayoutUnit pageLogicalTopForOffset(LayoutUnit offset) const override;
 
-    LayoutUnit logicalHeightOfAllFragmentedFlowContent() const override { return logicalHeightInFragmentedFlow(); }
+    LayoutUnit logicalHeightOfAllFlowThreadContent() const override { return logicalHeightInFlowThread(); }
 
-    void repaintFragmentedFlowContent(const LayoutRect& repaintRect) override;
+    void repaintFlowThreadContent(const LayoutRect& repaintRect) override;
 
     void collectLayerFragments(LayerFragments&, const LayoutRect& layerBoundingBox, const LayoutRect& dirtyRect) override;
 
-    void adjustFragmentBoundsFromFragmentedFlowPortionRect(LayoutRect& fragmentBounds) const override;
+    void adjustRegionBoundsFromFlowThreadPortionRect(LayoutRect& regionBounds) const override;
 
-    VisiblePosition positionForPoint(const LayoutPoint&, const RenderFragmentContainer*) override;
+    VisiblePosition positionForPoint(const LayoutPoint&, const RenderRegion*) override;
 
     const char* renderName() const override;
 
@@ -163,8 +162,8 @@ private:
     LayoutUnit columnLogicalLeft(unsigned) const;
     LayoutUnit columnLogicalTop(unsigned) const;
 
-    LayoutRect fragmentedFlowPortionRectAt(unsigned index) const;
-    LayoutRect fragmentedFlowPortionOverflowRect(const LayoutRect& fragmentedFlowPortion, unsigned index, unsigned colCount, LayoutUnit colGap);
+    LayoutRect flowThreadPortionRectAt(unsigned index) const;
+    LayoutRect flowThreadPortionOverflowRect(const LayoutRect& flowThreadPortion, unsigned index, unsigned colCount, LayoutUnit colGap);
 
     LayoutUnit initialBlockOffsetForPainting() const;
 

@@ -30,7 +30,7 @@
 #include "IntPoint.h"
 #include <wtf/MathExtras.h>
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #include <CoreGraphics/CoreGraphics.h>
 #endif
 
@@ -51,13 +51,10 @@ struct D2D_SIZE_F;
 typedef D2D_SIZE_F D2D1_SIZE_F;
 #endif
 
-namespace WTF {
-class TextStream;
-}
-
 namespace WebCore {
 
 class IntSize;
+class TextStream;
 
 class FloatSize {
 public:
@@ -95,16 +92,6 @@ public:
     {
         m_width *= scaleX;
         m_height *= scaleY;
-    }
-
-    FloatSize scaled(float s) const
-    {
-        return { m_width * s, m_height * s };
-    }
-
-    FloatSize scaled(float scaleX, float scaleY) const
-    {
-        return { m_width * scaleX, m_height * scaleY };
     }
 
     WEBCORE_EXPORT FloatSize constrainedBetween(const FloatSize& min, const FloatSize& max) const;
@@ -202,11 +189,6 @@ inline FloatSize operator*(const FloatSize& a, const FloatSize& b)
     return FloatSize(a.width() * b.width(), a.height() * b.height());
 }
 
-inline FloatSize operator/(const FloatSize& a, const FloatSize& b)
-{
-    return FloatSize(a.width() / b.width(), a.height() / b.height());
-}
-
 inline FloatSize operator/(const FloatSize& a, float b)
 {
     return FloatSize(a.width() / b, a.height() / b);
@@ -252,11 +234,7 @@ inline IntPoint flooredIntPoint(const FloatSize& p)
     return IntPoint(clampToInteger(floorf(p.width())), clampToInteger(floorf(p.height())));
 }
 
-WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const FloatSize&);
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, const FloatSize&);
 
 } // namespace WebCore
 
-namespace WTF {
-template<> struct DefaultHash<WebCore::FloatSize>;
-template<> struct HashTraits<WebCore::FloatSize>;
-}

@@ -27,9 +27,9 @@
 #include "CredentialStorage.h"
 
 #include "NetworkStorageSession.h"
-#include <wtf/URL.h>
+#include "URL.h"
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #include "WebCoreThread.h"
 #endif
 

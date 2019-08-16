@@ -41,7 +41,9 @@ StorageQuota::StorageQuota(Type type)
 {
 }
 
-StorageQuota::~StorageQuota() = default;
+StorageQuota::~StorageQuota()
+{
+}
 
 } // namespace WebCore
 

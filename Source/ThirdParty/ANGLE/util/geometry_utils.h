@@ -16,15 +16,12 @@
 #include <export.h>
 #include <GLES2/gl2.h>
 
-#include "common/vector_utils.h"
+#include "Vector.h"
 
 struct ANGLE_EXPORT SphereGeometry
 {
-    SphereGeometry();
-    ~SphereGeometry();
-
-    std::vector<angle::Vector3> positions;
-    std::vector<angle::Vector3> normals;
+    std::vector<Vector3> positions;
+    std::vector<Vector3> normals;
     std::vector<GLushort> indices;
 };
 
@@ -32,12 +29,9 @@ ANGLE_EXPORT void CreateSphereGeometry(size_t sliceCount, float radius, SphereGe
 
 struct ANGLE_EXPORT CubeGeometry
 {
-    CubeGeometry();
-    ~CubeGeometry();
-
-    std::vector<angle::Vector3> positions;
-    std::vector<angle::Vector3> normals;
-    std::vector<angle::Vector2> texcoords;
+    std::vector<Vector3> positions;
+    std::vector<Vector3> normals;
+    std::vector<Vector2> texcoords;
     std::vector<GLushort> indices;
 };
 

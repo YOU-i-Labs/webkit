@@ -34,7 +34,7 @@ class Tokenizer : public Lexer
     };
 
     Tokenizer(Diagnostics *diagnostics);
-    ~Tokenizer() override;
+    ~Tokenizer();
 
     bool init(size_t count, const char *const string[], const int length[]);
 

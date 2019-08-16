@@ -53,20 +53,15 @@ public:
 private:
     LoadableTextTrack(HTMLTrackElement&, const String& kind, const String& label, const String& language);
 
-    void newCuesAvailable(TextTrackLoader&) final;
-    void cueLoadingCompleted(TextTrackLoader&, bool loadingFailed) final;
-    void newRegionsAvailable(TextTrackLoader&) final;
-    void newStyleSheetsAvailable(TextTrackLoader&) final;
+    void newCuesAvailable(TextTrackLoader*) final;
+    void cueLoadingCompleted(TextTrackLoader*, bool loadingFailed) final;
+    void newRegionsAvailable(TextTrackLoader*) final;
 
     AtomicString id() const final;
     bool isDefault() const final { return m_isDefault; }
     Element* element() final;
 
     void loadTimerFired();
-
-#if !RELEASE_LOG_DISABLED
-    const char* logClassName() const override { return "LoadableTextTrack"; }
-#endif
 
     HTMLTrackElement* m_trackElement;
     Timer m_loadTimer;

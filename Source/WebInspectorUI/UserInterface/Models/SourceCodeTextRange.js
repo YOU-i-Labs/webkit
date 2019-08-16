@@ -23,31 +23,31 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SourceCodeTextRange = class SourceCodeTextRange extends WI.Object
+WebInspector.SourceCodeTextRange = class SourceCodeTextRange extends WebInspector.Object
 {
     constructor(sourceCode) /* textRange || startLocation, endLocation */
     {
         super();
 
-        console.assert(sourceCode instanceof WI.SourceCode);
+        console.assert(sourceCode instanceof WebInspector.SourceCode);
         console.assert(arguments.length === 2 || arguments.length === 3);
 
         this._sourceCode = sourceCode;
 
         if (arguments.length === 2) {
             var textRange = arguments[1];
-            console.assert(textRange instanceof WI.TextRange);
+            console.assert(textRange instanceof WebInspector.TextRange);
             this._startLocation = sourceCode.createSourceCodeLocation(textRange.startLine, textRange.startColumn);
             this._endLocation = sourceCode.createSourceCodeLocation(textRange.endLine, textRange.endColumn);
         } else {
-            console.assert(arguments[1] instanceof WI.SourceCodeLocation);
-            console.assert(arguments[2] instanceof WI.SourceCodeLocation);
+            console.assert(arguments[1] instanceof WebInspector.SourceCodeLocation);
+            console.assert(arguments[2] instanceof WebInspector.SourceCodeLocation);
             this._startLocation = arguments[1];
             this._endLocation = arguments[2];
         }
 
-        this._startLocation.addEventListener(WI.SourceCodeLocation.Event.LocationChanged, this._sourceCodeLocationChanged, this);
-        this._endLocation.addEventListener(WI.SourceCodeLocation.Event.LocationChanged, this._sourceCodeLocationChanged, this);
+        this._startLocation.addEventListener(WebInspector.SourceCodeLocation.Event.LocationChanged, this._sourceCodeLocationChanged, this);
+        this._endLocation.addEventListener(WebInspector.SourceCodeLocation.Event.LocationChanged, this._sourceCodeLocationChanged, this);
     }
 
     // Public
@@ -65,7 +65,7 @@ WI.SourceCodeTextRange = class SourceCodeTextRange extends WI.Object
         var startColumn = this._startLocation.columnNumber;
         var endLine = this._endLocation.lineNumber;
         var endColumn = this._endLocation.columnNumber;
-        return new WI.TextRange(startLine, startColumn, endLine, endColumn);
+        return new WebInspector.TextRange(startLine, startColumn, endLine, endColumn);
     }
 
     // Formatted text range in the original source code if it is pretty printed.
@@ -77,7 +77,7 @@ WI.SourceCodeTextRange = class SourceCodeTextRange extends WI.Object
         var startColumn = this._startLocation.formattedColumnNumber;
         var endLine = this._endLocation.formattedLineNumber;
         var endColumn = this._endLocation.formattedColumnNumber;
-        return new WI.TextRange(startLine, startColumn, endLine, endColumn);
+        return new WebInspector.TextRange(startLine, startColumn, endLine, endColumn);
     }
 
     // Display values:
@@ -102,7 +102,7 @@ WI.SourceCodeTextRange = class SourceCodeTextRange extends WI.Object
         var startColumn = this._startLocation.displayColumnNumber;
         var endLine = this._endLocation.displayLineNumber;
         var endColumn = this._endLocation.displayColumnNumber;
-        return new WI.TextRange(startLine, startColumn, endLine, endColumn);
+        return new WebInspector.TextRange(startLine, startColumn, endLine, endColumn);
     }
 
     get synthesizedTextValue()
@@ -120,10 +120,10 @@ WI.SourceCodeTextRange = class SourceCodeTextRange extends WI.Object
 
     _sourceCodeLocationChanged(event)
     {
-        this.dispatchEventToListeners(WI.SourceCodeLocation.Event.RangeChanged);
+        this.dispatchEventToListeners(WebInspector.SourceCodeLocation.Event.RangeChanged);
     }
 };
 
-WI.SourceCodeTextRange.Event = {
+WebInspector.SourceCodeTextRange.Event = {
     RangeChanged: "source-code-text-range-range-changed"
 };

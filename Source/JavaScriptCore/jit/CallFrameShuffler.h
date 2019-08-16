@@ -31,6 +31,7 @@
 #include "CallFrameShuffleData.h"
 #include "MacroAssembler.h"
 #include "RegisterSet.h"
+#include "StackAlignment.h"
 #include <wtf/Vector.h>
 
 namespace JSC {

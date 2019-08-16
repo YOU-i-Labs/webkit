@@ -27,8 +27,9 @@
 #include "FECompositeArithmeticNEON.h"
 #include "Filter.h"
 #include "GraphicsContext.h"
-#include <JavaScriptCore/Uint8ClampedArray.h>
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
+
+#include <runtime/Uint8ClampedArray.h>
 
 namespace WebCore {
 
@@ -47,12 +48,22 @@ Ref<FEComposite> FEComposite::create(Filter& filter, const CompositeOperationTyp
     return adoptRef(*new FEComposite(filter, type, k1, k2, k3, k4));
 }
 
+CompositeOperationType FEComposite::operation() const
+{
+    return m_type;
+}
+
 bool FEComposite::setOperation(CompositeOperationType type)
 {
     if (m_type == type)
         return false;
     m_type = type;
     return true;
+}
+
+float FEComposite::k1() const
+{
+    return m_k1;
 }
 
 bool FEComposite::setK1(float k1)
@@ -63,6 +74,11 @@ bool FEComposite::setK1(float k1)
     return true;
 }
 
+float FEComposite::k2() const
+{
+    return m_k2;
+}
+
 bool FEComposite::setK2(float k2)
 {
     if (m_k2 == k2)
@@ -71,12 +87,22 @@ bool FEComposite::setK2(float k2)
     return true;
 }
 
+float FEComposite::k3() const
+{
+    return m_k3;
+}
+
 bool FEComposite::setK3(float k3)
 {
     if (m_k3 == k3)
         return false;
     m_k3 = k3;
     return true;
+}
+
+float FEComposite::k4() const
+{
+    return m_k4;
 }
 
 bool FEComposite::setK4(float k4)
@@ -103,7 +129,8 @@ static unsigned char clampByte(int c)
 }
 
 template <int b1, int b4>
-static inline void computeArithmeticPixels(unsigned char* source, unsigned char* destination, int pixelArrayLength, float k1, float k2, float k3, float k4)
+static inline void computeArithmeticPixels(unsigned char* source, unsigned char* destination, int pixelArrayLength,
+                                    float k1, float k2, float k3, float k4)
 {
     float scaledK1;
     float scaledK4;
@@ -188,16 +215,17 @@ static inline void arithmeticSoftware(unsigned char* source, unsigned char* dest
 }
 #endif
 
-inline void FEComposite::platformArithmeticSoftware(const Uint8ClampedArray& source, Uint8ClampedArray& destination, float k1, float k2, float k3, float k4)
+inline void FEComposite::platformArithmeticSoftware(Uint8ClampedArray* source, Uint8ClampedArray* destination,
+    float k1, float k2, float k3, float k4)
 {
-    int length = source.length();
-    ASSERT(length == static_cast<int>(destination.length()));
+    int length = source->length();
+    ASSERT(length == static_cast<int>(destination->length()));
     // The selection here eventually should happen dynamically.
 #if HAVE(ARM_NEON_INTRINSICS)
     ASSERT(!(length & 0x3));
-    platformArithmeticNeon(source.data(), destination.data(), length, k1, k2, k3, k4);
+    platformArithmeticNeon(source->data(), destination->data(), length, k1, k2, k3, k4);
 #else
-    arithmeticSoftware(source.data(), destination.data(), length, k1, k2, k3, k4);
+    arithmeticSoftware(source->data(), destination->data(), length, k1, k2, k3, k4);
 #endif
 }
 
@@ -234,14 +262,12 @@ void FEComposite::platformApplySoftware()
             return;
 
         IntRect effectADrawingRect = requestedRegionOfInputImageData(in->absolutePaintRect());
-        auto srcPixelArray = in->premultipliedResult(effectADrawingRect);
-        if (!srcPixelArray)
-            return;
+        RefPtr<Uint8ClampedArray> srcPixelArray = in->asPremultipliedImage(effectADrawingRect);
 
         IntRect effectBDrawingRect = requestedRegionOfInputImageData(in2->absolutePaintRect());
-        in2->copyPremultipliedResult(*dstPixelArray, effectBDrawingRect);
+        in2->copyPremultipliedImage(dstPixelArray, effectBDrawingRect);
 
-        platformArithmeticSoftware(*srcPixelArray, *dstPixelArray, m_k1, m_k2, m_k3, m_k4);
+        platformArithmeticSoftware(srcPixelArray.get(), dstPixelArray, m_k1, m_k2, m_k3, m_k4);
         return;
     }
 
@@ -250,8 +276,8 @@ void FEComposite::platformApplySoftware()
         return;
     GraphicsContext& filterContext = resultImage->context();
 
-    ImageBuffer* imageBuffer = in->imageBufferResult();
-    ImageBuffer* imageBuffer2 = in2->imageBufferResult();
+    ImageBuffer* imageBuffer = in->asImageBuffer();
+    ImageBuffer* imageBuffer2 = in2->asImageBuffer();
     if (!imageBuffer || !imageBuffer2)
         return;
 
@@ -295,6 +321,10 @@ void FEComposite::platformApplySoftware()
     }
 }
 
+void FEComposite::dump()
+{
+}
+
 static TextStream& operator<<(TextStream& ts, const CompositeOperationType& type)
 {
     switch (type) {
@@ -326,18 +356,17 @@ static TextStream& operator<<(TextStream& ts, const CompositeOperationType& type
     return ts;
 }
 
-TextStream& FEComposite::externalRepresentation(TextStream& ts, RepresentationType representation) const
+TextStream& FEComposite::externalRepresentation(TextStream& ts, int indent) const
 {
-    ts << indent << "[feComposite";
-    FilterEffect::externalRepresentation(ts, representation);
+    writeIndent(ts, indent);
+    ts << "[feComposite";
+    FilterEffect::externalRepresentation(ts);
     ts << " operation=\"" << m_type << "\"";
     if (m_type == FECOMPOSITE_OPERATOR_ARITHMETIC)
         ts << " k1=\"" << m_k1 << "\" k2=\"" << m_k2 << "\" k3=\"" << m_k3 << "\" k4=\"" << m_k4 << "\"";
     ts << "]\n";
-
-    TextStream::IndentScope indentScope(ts);
-    inputEffect(0)->externalRepresentation(ts, representation);
-    inputEffect(1)->externalRepresentation(ts, representation);
+    inputEffect(0)->externalRepresentation(ts, indent + 1);
+    inputEffect(1)->externalRepresentation(ts, indent + 1);
     return ts;
 }
 

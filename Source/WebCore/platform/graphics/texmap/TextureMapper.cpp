@@ -24,6 +24,7 @@
 #include "FilterOperations.h"
 #include "GraphicsLayer.h"
 #include "Timer.h"
+#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 

@@ -25,6 +25,7 @@
 #define Font_h
 
 #include "FloatRect.h"
+#include "FontBaseline.h"
 #include "FontMetrics.h"
 #include "FontPlatformData.h"
 #include "GlyphBuffer.h"
@@ -36,9 +37,11 @@
 #endif
 #include <wtf/BitVector.h>
 #include <wtf/Optional.h>
+#include <wtf/TypeCasts.h>
 #include <wtf/text/StringHash.h>
 
 #if PLATFORM(COCOA)
+#include "WebCoreSystemInterface.h"
 #include <wtf/RetainPtr.h>
 #endif
 
@@ -46,8 +49,12 @@
 #include <usp10.h>
 #endif
 
+#if USE(CAIRO)
+#include <cairo.h>
+#endif
+
 #if USE(CG)
-#include <pal/spi/cg/CoreGraphicsSPI.h>
+#include "CoreGraphicsSPI.h"
 #endif
 
 #if USE(DIRECT2D)
@@ -65,24 +72,23 @@ struct WidthIterator;
 
 enum FontVariant { AutoVariant, NormalVariant, SmallCapsVariant, EmphasisMarkVariant, BrokenIdeographVariant };
 enum Pitch { UnknownPitch, FixedPitch, VariablePitch };
-enum class IsForPlatformFont : uint8_t { No, Yes };
 
 class Font : public RefCounted<Font> {
 public:
     // Used to create platform fonts.
-    enum class Origin : uint8_t {
+    enum class Origin {
         Remote,
         Local
     };
-    enum class Interstitial : uint8_t {
+    enum class Interstitial {
         Yes,
         No
     };
-    enum class Visibility : uint8_t {
+    enum class Visibility {
         Visible,
         Invisible
     };
-    enum class OrientationFallback : uint8_t {
+    enum class OrientationFallback {
         Yes,
         No
     };
@@ -130,7 +136,6 @@ public:
 
     const Font& verticalRightOrientationFont() const;
     const Font& uprightOrientationFont() const;
-    const Font& invisibleFont() const;
 
     bool hasVerticalGlyphs() const { return m_hasVerticalGlyphs; }
     bool isTextOrientationFallback() const { return m_isTextOrientationFallback; }
@@ -147,10 +152,8 @@ public:
 
     FloatRect boundsForGlyph(Glyph) const;
     float widthForGlyph(Glyph) const;
-    const Path& pathForGlyph(Glyph) const; // Don't store the result of this! The hash map is free to rehash at any point, leaving this reference dangling.
     FloatRect platformBoundsForGlyph(Glyph) const;
     float platformWidthForGlyph(Glyph) const;
-    Path platformPathForGlyph(Glyph) const;
 
     float spaceWidth() const { return m_spaceWidth; }
     float adjustedSpaceWidth() const { return m_adjustedSpaceWidth; }
@@ -174,10 +177,8 @@ public:
 
     GlyphData glyphDataForCharacter(UChar32) const;
     Glyph glyphForCharacter(UChar32) const;
-    bool supportsCodePoint(UChar32) const;
-    bool platformSupportsCodePoint(UChar32) const;
 
-    RefPtr<Font> systemFallbackFontForCharacter(UChar32, const FontDescription&, IsForPlatformFont) const;
+    RefPtr<Font> systemFallbackFontForCharacter(UChar32, const FontDescription&, bool isForPlatformFont) const;
 
     const GlyphPage* glyphPage(unsigned pageNumber) const;
 
@@ -188,11 +189,11 @@ public:
     bool isInterstitial() const { return m_isInterstitial; }
     Visibility visibility() const { return m_visibility; }
 
-#if !LOG_DISABLED
+#ifndef NDEBUG
     String description() const;
 #endif
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     bool shouldNotBeUsedForArabic() const { return m_shouldNotBeUsedForArabic; };
 #endif
 #if PLATFORM(COCOA)
@@ -204,7 +205,10 @@ public:
     const BitVector& glyphsSupportedByAllPetiteCaps() const;
 #endif
 
+#if PLATFORM(COCOA) || USE(HARFBUZZ)
     bool canRenderCombiningCharacterSequence(const UChar*, size_t) const;
+#endif
+
     bool applyTransforms(GlyphBufferGlyph*, GlyphBufferAdvance*, size_t glyphCount, bool enableKerning, bool requiresShaping) const;
 
 #if PLATFORM(WIN)
@@ -235,9 +239,6 @@ private:
     RefPtr<Font> platformCreateScaledFont(const FontDescription&, float scaleFactor) const;
 
     void removeFromSystemFallbackCache();
-    
-    struct DerivedFonts;
-    DerivedFonts& ensureDerivedFontData() const;
 
 #if PLATFORM(WIN)
     void initGDIFont();
@@ -247,8 +248,8 @@ private:
 #endif
 
     FontMetrics m_fontMetrics;
-    float m_maxCharWidth { -1 };
-    float m_avgCharWidth { -1 };
+    float m_maxCharWidth;
+    float m_avgCharWidth;
 
     const FontPlatformData m_platformData;
 
@@ -256,13 +257,18 @@ private:
     mutable HashMap<unsigned, RefPtr<GlyphPage>> m_glyphPages;
     mutable std::unique_ptr<GlyphMetricsMap<FloatRect>> m_glyphToBoundsMap;
     mutable GlyphMetricsMap<float> m_glyphToWidthMap;
-    mutable GlyphMetricsMap<Optional<Path>> m_glyphPathMap;
-    mutable BitVector m_codePointSupport;
 
     mutable RefPtr<OpenTypeMathData> m_mathData;
 #if ENABLE(OPENTYPE_VERTICAL)
     RefPtr<OpenTypeVerticalData> m_verticalData;
 #endif
+
+    Glyph m_spaceGlyph { 0 };
+    float m_spaceWidth { 0 };
+    Glyph m_zeroGlyph { 0 };
+    float m_adjustedSpaceWidth { 0 };
+
+    Glyph m_zeroWidthSpaceGlyph { 0 };
 
     struct DerivedFonts {
 #if !COMPILER(MSVC)
@@ -270,24 +276,31 @@ private:
 #endif
     public:
 
-        RefPtr<Font> smallCapsFont;
-        RefPtr<Font> noSynthesizableFeaturesFont;
-        RefPtr<Font> emphasisMarkFont;
-        RefPtr<Font> brokenIdeographFont;
-        RefPtr<Font> verticalRightOrientationFont;
-        RefPtr<Font> uprightOrientationFont;
-        RefPtr<Font> invisibleFont;
+        RefPtr<Font> smallCaps;
+        RefPtr<Font> noSynthesizableFeatures;
+        RefPtr<Font> emphasisMark;
+        RefPtr<Font> brokenIdeograph;
+        RefPtr<Font> verticalRightOrientation;
+        RefPtr<Font> uprightOrientation;
     };
 
     mutable std::unique_ptr<DerivedFonts> m_derivedFontData;
 
+#if USE(CG) || USE(DIRECT2D) || USE(CAIRO)
+    float m_syntheticBoldOffset;
+#endif
+
 #if PLATFORM(COCOA)
-    mutable RetainPtr<CFMutableDictionaryRef> m_nonKernedCFStringAttributes;
-    mutable RetainPtr<CFMutableDictionaryRef> m_kernedCFStringAttributes;
-    mutable Optional<BitVector> m_glyphsSupportedBySmallCaps;
-    mutable Optional<BitVector> m_glyphsSupportedByAllSmallCaps;
-    mutable Optional<BitVector> m_glyphsSupportedByPetiteCaps;
-    mutable Optional<BitVector> m_glyphsSupportedByAllPetiteCaps;
+    mutable RetainPtr<CFDictionaryRef> m_nonKernedCFStringAttributes;
+    mutable RetainPtr<CFDictionaryRef> m_kernedCFStringAttributes;
+    mutable std::optional<BitVector> m_glyphsSupportedBySmallCaps;
+    mutable std::optional<BitVector> m_glyphsSupportedByAllSmallCaps;
+    mutable std::optional<BitVector> m_glyphsSupportedByPetiteCaps;
+    mutable std::optional<BitVector> m_glyphsSupportedByAllPetiteCaps;
+#endif
+
+#if PLATFORM(COCOA) || USE(HARFBUZZ)
+    mutable std::unique_ptr<HashMap<String, bool>> m_combiningCharacterSequenceSupport;
 #endif
 
 #if PLATFORM(WIN)
@@ -295,19 +308,8 @@ private:
     mutable SCRIPT_FONTPROPERTIES* m_scriptFontProperties;
 #endif
 
-    Glyph m_spaceGlyph { 0 };
-    Glyph m_zeroGlyph { 0 };
-    Glyph m_zeroWidthSpaceGlyph { 0 };
-
     Origin m_origin; // Whether or not we are custom font loaded via @font-face
     Visibility m_visibility; // @font-face's internal timer can cause us to show fonts even when a font is being downloaded.
-
-    float m_spaceWidth { 0 };
-    float m_adjustedSpaceWidth { 0 };
-
-#if USE(CG) || USE(DIRECT2D) || USE(CAIRO)
-    float m_syntheticBoldOffset { 0 };
-#endif
 
     unsigned m_treatAsFixedPitch : 1;
     unsigned m_isInterstitial : 1; // Whether or not this custom font is the last resort placeholder for a loading font
@@ -318,12 +320,12 @@ private:
 
     unsigned m_isUsedInSystemFallbackCache : 1;
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     unsigned m_shouldNotBeUsedForArabic : 1;
 #endif
 };
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 bool fontFamilyShouldNotBeUsedForArabic(CFStringRef);
 #endif
 

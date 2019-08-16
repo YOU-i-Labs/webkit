@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
- * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -46,19 +46,24 @@ using namespace HTMLNames;
 
 SearchInputType::SearchInputType(HTMLInputElement& element)
     : BaseTextInputType(element)
+    , m_resultsButton(nullptr)
+    , m_cancelButton(nullptr)
     , m_searchEventTimer(*this, &SearchInputType::searchEventTimerFired)
+{
+}
+
+SearchInputType::~SearchInputType()
 {
 }
 
 void SearchInputType::addSearchResult()
 {
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
     // Normally we've got the correct renderer by the time we get here. However when the input type changes
     // we don't update the associated renderers until after the next tree update, so we could actually end up here
     // with a mismatched renderer (e.g. through form submission).
-    ASSERT(element());
-    if (is<RenderSearchField>(element()->renderer()))
-        downcast<RenderSearchField>(*element()->renderer()).addSearchResult();
+    if (is<RenderSearchField>(element().renderer()))
+        downcast<RenderSearchField>(*element().renderer()).addSearchResult();
 #endif
 }
 
@@ -68,25 +73,19 @@ static void updateResultButtonPseudoType(SearchFieldResultsButtonElement& result
         resultButton.setPseudo(AtomicString("-webkit-search-results-decoration", AtomicString::ConstructFromLiteral));
     else if (maxResults < 0)
         resultButton.setPseudo(AtomicString("-webkit-search-decoration", AtomicString::ConstructFromLiteral));
-    else
+    else if (maxResults > 0)
         resultButton.setPseudo(AtomicString("-webkit-search-results-button", AtomicString::ConstructFromLiteral));
 }
 
-void SearchInputType::attributeChanged(const QualifiedName& name)
+void SearchInputType::maxResultsAttributeChanged()
 {
-    if (name == resultsAttr) {
-        if (m_resultsButton) {
-            if (auto* element = this->element())
-                updateResultButtonPseudoType(*m_resultsButton, element->maxResults());
-        }
-    }
-    BaseTextInputType::attributeChanged(name);
+    if (m_resultsButton)
+        updateResultButtonPseudoType(*m_resultsButton, element().maxResults());
 }
 
 RenderPtr<RenderElement> SearchInputType::createInputRenderer(RenderStyle&& style)
 {
-    ASSERT(element());
-    return createRenderer<RenderSearchField>(*element(), WTFMove(style));
+    return createRenderer<RenderSearchField>(element(), WTFMove(style));
 }
 
 const AtomicString& SearchInputType::formControlType() const
@@ -110,17 +109,16 @@ void SearchInputType::createShadowSubtree()
     ASSERT(!m_cancelButton);
 
     TextFieldInputType::createShadowSubtree();
-    RefPtr<HTMLElement> container = containerElement();
-    RefPtr<HTMLElement> textWrapper = innerBlockElement();
+    HTMLElement* container = containerElement();
+    HTMLElement* textWrapper = innerBlockElement();
     ASSERT(container);
     ASSERT(textWrapper);
 
-    ASSERT(element());
-    m_resultsButton = SearchFieldResultsButtonElement::create(element()->document());
-    updateResultButtonPseudoType(*m_resultsButton, element()->maxResults());
-    container->insertBefore(*m_resultsButton, textWrapper.get());
+    m_resultsButton = SearchFieldResultsButtonElement::create(element().document());
+    updateResultButtonPseudoType(*m_resultsButton, element().maxResults());
+    container->insertBefore(*m_resultsButton, textWrapper);
 
-    m_cancelButton = SearchFieldCancelButtonElement::create(element()->document());
+    m_cancelButton = SearchFieldCancelButtonElement::create(element().document());
     container->insertBefore(*m_cancelButton, textWrapper->nextSibling());
 }
 
@@ -136,17 +134,16 @@ HTMLElement* SearchInputType::cancelButtonElement() const
 
 void SearchInputType::handleKeydownEvent(KeyboardEvent& event)
 {
-    ASSERT(element());
-    if (element()->isDisabledOrReadOnly()) {
+    if (element().isDisabledOrReadOnly()) {
         TextFieldInputType::handleKeydownEvent(event);
         return;
     }
 
     const String& key = event.keyIdentifier();
     if (key == "U+001B") {
-        Ref<HTMLInputElement> protectedInputElement(*element());
-        protectedInputElement->setValueForUser(emptyString());
-        protectedInputElement->onSearch();
+        Ref<HTMLInputElement> input(this->element());
+        input->setValueForUser(emptyString());
+        input->onSearch();
         event.setDefaultHandled();
         return;
     }
@@ -162,9 +159,8 @@ void SearchInputType::destroyShadowSubtree()
 
 void SearchInputType::startSearchEventTimer()
 {
-    ASSERT(element());
-    ASSERT(element()->renderer());
-    unsigned length = element()->innerTextValue().length();
+    ASSERT(element().renderer());
+    unsigned length = element().innerTextValue().length();
 
     if (!length) {
         m_searchEventTimer.startOneShot(0_ms);
@@ -183,21 +179,18 @@ void SearchInputType::stopSearchEventTimer()
 
 void SearchInputType::searchEventTimerFired()
 {
-    ASSERT(element());
-    element()->onSearch();
+    element().onSearch();
 }
 
 bool SearchInputType::searchEventsShouldBeDispatched() const
 {
-    ASSERT(element());
-    return element()->hasAttributeWithoutSynchronization(incrementalAttr);
+    return element().hasAttributeWithoutSynchronization(incrementalAttr);
 }
 
 void SearchInputType::didSetValueByUserEdit()
 {
-    ASSERT(element());
-    if (m_cancelButton && is<RenderSearchField>(element()->renderer()))
-        downcast<RenderSearchField>(*element()->renderer()).updateCancelButtonVisibility();
+    if (m_cancelButton && is<RenderSearchField>(element().renderer()))
+        downcast<RenderSearchField>(*element().renderer()).updateCancelButtonVisibility();
     // If the incremental attribute is set, then dispatch the search event
     if (searchEventsShouldBeDispatched())
         startSearchEventTimer();
@@ -207,8 +200,7 @@ void SearchInputType::didSetValueByUserEdit()
 
 bool SearchInputType::sizeShouldIncludeDecoration(int, int& preferredSize) const
 {
-    ASSERT(element());
-    preferredSize = element()->size();
+    preferredSize = element().size();
     return true;
 }
 

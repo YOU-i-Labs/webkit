@@ -35,7 +35,9 @@ EXTFragDepth::EXTFragDepth(WebGLRenderingContextBase& context)
 {
 }
 
-EXTFragDepth::~EXTFragDepth() = default;
+EXTFragDepth::~EXTFragDepth()
+{
+}
 
 WebGLExtension::ExtensionName EXTFragDepth::getName() const
 {

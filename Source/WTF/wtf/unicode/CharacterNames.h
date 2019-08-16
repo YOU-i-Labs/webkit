@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef CharacterNames_h
+#define CharacterNames_h
 
 #include <unicode/utypes.h>
 
@@ -46,7 +47,6 @@ const UChar blackUpPointingTriangle = 0x25B2;
 const UChar bullet = 0x2022;
 const UChar bullseye = 0x25CE;
 const UChar carriageReturn = 0x000D;
-const UChar combiningEnclosingKeycap = 0x20E3;
 const UChar ethiopicPrefaceColon = 0x1366;
 const UChar ethiopicWordspace = 0x1361;
 const UChar firstStrongIsolate = 0x2068;
@@ -60,9 +60,7 @@ const UChar ideographicComma = 0x3001;
 const UChar ideographicFullStop = 0x3002;
 const UChar ideographicSpace = 0x3000;
 const UChar leftDoubleQuotationMark = 0x201C;
-const UChar leftLowDoubleQuotationMark = 0x201E;
 const UChar leftSingleQuotationMark = 0x2018;
-const UChar leftLowSingleQuotationMark = 0x201A;
 const UChar leftToRightEmbed = 0x202A;
 const UChar leftToRightIsolate = 0x2066;
 const UChar leftToRightMark = 0x200E;
@@ -87,7 +85,6 @@ const UChar sesameDot = 0xFE45;
 const UChar smallLetterSharpS = 0x00DF;
 const UChar softHyphen = 0x00AD;
 const UChar space = 0x0020;
-const UChar tabCharacter = 0x0009;
 const UChar tibetanMarkDelimiterTshegBstar = 0x0F0C;
 const UChar tibetanMarkIntersyllabicTsheg = 0x0F0B;
 const UChar32 ugariticWordDivider = 0x1039F;
@@ -115,7 +112,6 @@ using WTF::Unicode::blackUpPointingTriangle;
 using WTF::Unicode::bullet;
 using WTF::Unicode::bullseye;
 using WTF::Unicode::carriageReturn;
-using WTF::Unicode::combiningEnclosingKeycap;
 using WTF::Unicode::ethiopicPrefaceColon;
 using WTF::Unicode::ethiopicWordspace;
 using WTF::Unicode::firstStrongIsolate;
@@ -129,9 +125,7 @@ using WTF::Unicode::ideographicComma;
 using WTF::Unicode::ideographicFullStop;
 using WTF::Unicode::ideographicSpace;
 using WTF::Unicode::leftDoubleQuotationMark;
-using WTF::Unicode::leftLowDoubleQuotationMark;
 using WTF::Unicode::leftSingleQuotationMark;
-using WTF::Unicode::leftLowSingleQuotationMark;
 using WTF::Unicode::leftToRightEmbed;
 using WTF::Unicode::leftToRightIsolate;
 using WTF::Unicode::leftToRightMark;
@@ -154,7 +148,6 @@ using WTF::Unicode::rightToLeftOverride;
 using WTF::Unicode::sesameDot;
 using WTF::Unicode::softHyphen;
 using WTF::Unicode::space;
-using WTF::Unicode::tabCharacter;
 using WTF::Unicode::tibetanMarkDelimiterTshegBstar;
 using WTF::Unicode::tibetanMarkIntersyllabicTsheg;
 using WTF::Unicode::ugariticWordDivider;
@@ -168,3 +161,5 @@ using WTF::Unicode::zeroWidthJoiner;
 using WTF::Unicode::zeroWidthNoBreakSpace;
 using WTF::Unicode::zeroWidthNonJoiner;
 using WTF::Unicode::zeroWidthSpace;
+
+#endif // CharacterNames_h

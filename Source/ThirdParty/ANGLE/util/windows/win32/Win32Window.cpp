@@ -522,11 +522,11 @@ bool Win32Window::initialize(const std::string &name, size_t width, size_t heigh
     parentWindowClass.lpfnWndProc   = WndProc;
     parentWindowClass.cbClsExtra    = 0;
     parentWindowClass.cbWndExtra    = 0;
-    parentWindowClass.hInstance     = GetModuleHandle(nullptr);
-    parentWindowClass.hIcon         = nullptr;
-    parentWindowClass.hCursor       = LoadCursorA(nullptr, idcArrow);
+    parentWindowClass.hInstance     = GetModuleHandle(NULL);
+    parentWindowClass.hIcon         = NULL;
+    parentWindowClass.hCursor       = LoadCursorA(NULL, idcArrow);
     parentWindowClass.hbrBackground = 0;
-    parentWindowClass.lpszMenuName  = nullptr;
+    parentWindowClass.lpszMenuName  = NULL;
     parentWindowClass.lpszClassName = mParentClassName.c_str();
     if (!RegisterClassExA(&parentWindowClass))
     {
@@ -539,11 +539,11 @@ bool Win32Window::initialize(const std::string &name, size_t width, size_t heigh
     childWindowClass.lpfnWndProc   = WndProc;
     childWindowClass.cbClsExtra    = 0;
     childWindowClass.cbWndExtra    = 0;
-    childWindowClass.hInstance     = GetModuleHandle(nullptr);
-    childWindowClass.hIcon         = nullptr;
-    childWindowClass.hCursor       = LoadCursorA(nullptr, idcArrow);
+    childWindowClass.hInstance     = GetModuleHandle(NULL);
+    childWindowClass.hIcon         = NULL;
+    childWindowClass.hCursor       = LoadCursorA(NULL, idcArrow);
     childWindowClass.hbrBackground = 0;
-    childWindowClass.lpszMenuName  = nullptr;
+    childWindowClass.lpszMenuName  = NULL;
     childWindowClass.lpszClassName = mChildClassName.c_str();
     if (!RegisterClassExA(&childWindowClass))
     {
@@ -556,14 +556,14 @@ bool Win32Window::initialize(const std::string &name, size_t width, size_t heigh
     RECT sizeRect = {0, 0, static_cast<LONG>(width), static_cast<LONG>(height)};
     AdjustWindowRectEx(&sizeRect, parentStyle, FALSE, parentExtendedStyle);
 
-    mParentWindow = CreateWindowExA(parentExtendedStyle, mParentClassName.c_str(), name.c_str(),
-                                    parentStyle, CW_USEDEFAULT, CW_USEDEFAULT,
-                                    sizeRect.right - sizeRect.left, sizeRect.bottom - sizeRect.top,
-                                    nullptr, nullptr, GetModuleHandle(nullptr), this);
+    mParentWindow =
+        CreateWindowExA(parentExtendedStyle, mParentClassName.c_str(), name.c_str(), parentStyle,
+                        CW_USEDEFAULT, CW_USEDEFAULT, sizeRect.right - sizeRect.left,
+                        sizeRect.bottom - sizeRect.top, NULL, NULL, GetModuleHandle(NULL), this);
 
     mNativeWindow = CreateWindowExA(0, mChildClassName.c_str(), name.c_str(), WS_CHILD, 0, 0,
                                     static_cast<int>(width), static_cast<int>(height),
-                                    mParentWindow, nullptr, GetModuleHandle(nullptr), this);
+                                    mParentWindow, NULL, GetModuleHandle(NULL), this);
 
     mNativeDisplay = GetDC(mNativeWindow);
     if (!mNativeDisplay)
@@ -595,8 +595,8 @@ void Win32Window::destroy()
         mParentWindow = 0;
     }
 
-    UnregisterClassA(mParentClassName.c_str(), nullptr);
-    UnregisterClassA(mChildClassName.c_str(), nullptr);
+    UnregisterClassA(mParentClassName.c_str(), NULL);
+    UnregisterClassA(mChildClassName.c_str(), NULL);
 }
 
 bool Win32Window::takeScreenshot(uint8_t *pixelData)
@@ -627,7 +627,7 @@ bool Win32Window::takeScreenshot(uint8_t *pixelData)
 
     if (!error)
     {
-        screenDC = GetDC(HWND_DESKTOP);
+        screenDC = GetDC(nullptr);
         error    = screenDC == nullptr;
     }
 
@@ -649,20 +649,18 @@ bool Win32Window::takeScreenshot(uint8_t *pixelData)
         error     = tmpBitmap == nullptr;
     }
 
-    POINT topLeft = {0, 0};
+    RECT rect = {0, 0, 0, 0};
     if (!error)
     {
-        error = (MapWindowPoints(mNativeWindow, HWND_DESKTOP, &topLeft, 1) == 0);
-    }
+        MapWindowPoints(mNativeWindow, nullptr, reinterpret_cast<LPPOINT>(&rect), 0);
 
-    if (!error)
-    {
         error = SelectObject(tmpDC, tmpBitmap) == nullptr;
     }
 
     if (!error)
     {
-        error = BitBlt(tmpDC, 0, 0, mWidth, mHeight, screenDC, topLeft.x, topLeft.y, SRCCOPY) == 0;
+        error =
+            BitBlt(tmpDC, 0, 0, mWidth, mHeight, screenDC, rect.left, rect.top, SRCCOPY) == TRUE;
     }
 
     if (!error)
@@ -681,7 +679,7 @@ bool Win32Window::takeScreenshot(uint8_t *pixelData)
         bitmapInfo.biClrImportant  = 0;
         int getBitsResult = GetDIBits(screenDC, tmpBitmap, 0, mHeight, pixelData,
                                       reinterpret_cast<BITMAPINFO *>(&bitmapInfo), DIB_RGB_COLORS);
-        error = (getBitsResult == 0);
+        error = getBitsResult != 0;
     }
 
     if (tmpBitmap != nullptr)
@@ -717,7 +715,7 @@ EGLNativeDisplayType Win32Window::getNativeDisplay() const
 void Win32Window::messageLoop()
 {
     MSG msg;
-    while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+    while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
     {
         TranslateMessage(&msg);
         DispatchMessage(&msg);

@@ -24,7 +24,7 @@
 #pragma once
 
 #include "EventListener.h"
-#include <wtf/Ref.h>
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 

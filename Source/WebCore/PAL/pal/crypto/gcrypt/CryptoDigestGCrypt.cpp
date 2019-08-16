@@ -41,7 +41,9 @@ CryptoDigest::CryptoDigest()
 {
 }
 
-CryptoDigest::~CryptoDigest() = default;
+CryptoDigest::~CryptoDigest()
+{
+}
 
 std::unique_ptr<CryptoDigest> CryptoDigest::create(CryptoDigest::Algorithm algorithm)
 {

@@ -30,7 +30,6 @@
 #include "JSCJSValue.h"
 #include "JSCJSValueInlines.h"
 #include "JSGlobalObject.h"
-#include "HeapCellInlines.h"
 
 namespace JSC {
     class ExecState;
@@ -69,7 +68,7 @@ inline JSC::JSGlobalObject* toJSGlobalObject(JSGlobalContextRef context)
 inline JSC::JSValue toJS(JSC::ExecState* exec, JSValueRef v)
 {
     ASSERT_UNUSED(exec, exec);
-#if !CPU(ADDRESS64)
+#if USE(JSVALUE32_64)
     JSC::JSCell* jsCell = reinterpret_cast<JSC::JSCell*>(const_cast<OpaqueJSValue*>(v));
     if (!jsCell)
         return JSC::jsNull();
@@ -79,28 +78,28 @@ inline JSC::JSValue toJS(JSC::ExecState* exec, JSValueRef v)
     else
         result = jsCell;
 #else
-    JSC::JSValue result = bitwise_cast<JSC::JSValue>(v);
+    JSC::JSValue result = JSC::JSValue::decode(reinterpret_cast<JSC::EncodedJSValue>(const_cast<OpaqueJSValue*>(v)));
 #endif
     if (!result)
         return JSC::jsNull();
     if (result.isCell())
-        RELEASE_ASSERT(result.asCell()->methodTable(exec->vm()));
+        RELEASE_ASSERT(result.asCell()->methodTable());
     return result;
 }
 
 inline JSC::JSValue toJSForGC(JSC::ExecState* exec, JSValueRef v)
 {
     ASSERT_UNUSED(exec, exec);
-#if !CPU(ADDRESS64)
+#if USE(JSVALUE32_64)
     JSC::JSCell* jsCell = reinterpret_cast<JSC::JSCell*>(const_cast<OpaqueJSValue*>(v));
     if (!jsCell)
         return JSC::JSValue();
     JSC::JSValue result = jsCell;
 #else
-    JSC::JSValue result = bitwise_cast<JSC::JSValue>(v);
+    JSC::JSValue result = JSC::JSValue::decode(reinterpret_cast<JSC::EncodedJSValue>(const_cast<OpaqueJSValue*>(v)));
 #endif
     if (result && result.isCell())
-        RELEASE_ASSERT(result.asCell()->methodTable(exec->vm()));
+        RELEASE_ASSERT(result.asCell()->methodTable());
     return result;
 }
 
@@ -114,7 +113,7 @@ inline JSC::JSObject* toJS(JSObjectRef o)
 {
     JSC::JSObject* object = uncheckedToJS(o);
     if (object)
-        RELEASE_ASSERT(object->methodTable(*object->vm()));
+        RELEASE_ASSERT(object->methodTable());
     return object;
 }
 
@@ -131,7 +130,7 @@ inline JSC::VM* toJS(JSContextGroupRef g)
 inline JSValueRef toRef(JSC::ExecState* exec, JSC::JSValue v)
 {
     ASSERT(exec->vm().currentThreadIsHoldingAPILock());
-#if !CPU(ADDRESS64)
+#if USE(JSVALUE32_64)
     if (!v)
         return 0;
     if (!v.isCell())
@@ -139,7 +138,7 @@ inline JSValueRef toRef(JSC::ExecState* exec, JSC::JSValue v)
     return reinterpret_cast<JSValueRef>(v.asCell());
 #else
     UNUSED_PARAM(exec);
-    return bitwise_cast<JSValueRef>(v);
+    return reinterpret_cast<JSValueRef>(JSC::JSValue::encode(v));
 #endif
 }
 

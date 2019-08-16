@@ -38,8 +38,8 @@ class Page;
 class DeviceMotionClient : public DeviceClient {
     WTF_MAKE_NONCOPYABLE(DeviceMotionClient);
 public:
-    DeviceMotionClient() = default;
-    virtual ~DeviceMotionClient() = default;
+    DeviceMotionClient() { }
+    virtual ~DeviceMotionClient() { }
     virtual void setController(DeviceMotionController*) = 0;
     virtual DeviceMotionData* lastMotion() const = 0;
     virtual void deviceMotionControllerDestroyed() = 0;

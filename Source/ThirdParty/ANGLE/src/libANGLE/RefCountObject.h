@@ -12,21 +12,21 @@
 #ifndef LIBANGLE_REFCOUNTOBJECT_H_
 #define LIBANGLE_REFCOUNTOBJECT_H_
 
-#include "angle_gl.h"
 #include "common/debug.h"
-#include "libANGLE/Error.h"
+
+#include "angle_gl.h"
 
 #include <cstddef>
 
 namespace gl
 {
 class Context;
+}
 
 class RefCountObjectNoID : angle::NonCopyable
 {
   public:
     RefCountObjectNoID() : mRefCount(0) {}
-    virtual Error onDestroy(const Context *context);
 
     void addRef() const { ++mRefCount; }
 
@@ -40,50 +40,33 @@ class RefCountObjectNoID : angle::NonCopyable
         }
     }
 
-    size_t getRefCount() const { return mRefCount; }
-
-  protected:
-    virtual ~RefCountObjectNoID();
-
     // A specialized release method for objects which need a destroy context.
     void release(const gl::Context *context)
     {
         ASSERT(mRefCount > 0);
         if (--mRefCount == 0)
         {
-            ANGLE_SWALLOW_ERR(onDestroy(context));
+            destroy(context);
             delete this;
         }
     }
 
-    template <class ObjectType>
-    friend class BindingPointer;
+    size_t getRefCount() const { return mRefCount; }
+
+  protected:
+    virtual ~RefCountObjectNoID() { ASSERT(mRefCount == 0); }
+    virtual void destroy(const gl::Context *context) {}
+
+  private:
     mutable std::size_t mRefCount;
 };
 
-inline RefCountObjectNoID::~RefCountObjectNoID()
-{
-    ASSERT(mRefCount == 0);
-}
-
-inline Error RefCountObjectNoID::onDestroy(const Context *context)
-{
-    return NoError();
-}
-
-template <class ObjectType>
-class BindingPointer;
-
-class RefCountObject : RefCountObjectNoID
+class RefCountObject : public RefCountObjectNoID
 {
   public:
     explicit RefCountObject(GLuint id) : mId(id) {}
 
     GLuint id() const { return mId; }
-
-    using RefCountObjectNoID::release;
-    using RefCountObjectNoID::addRef;
-    using RefCountObjectNoID::getRefCount;
 
   protected:
     ~RefCountObject() override {}
@@ -101,17 +84,15 @@ class BindingPointer
     {
     }
 
-    BindingPointer(ObjectType *object) : mObject(object) { mObject->addRef(); }
-
-    BindingPointer(const BindingPointer<ObjectType> &other) : mObject(other.mObject)
+    BindingPointer(const BindingPointer<ObjectType> &other)
+        : mObject(nullptr)
     {
-        mObject->addRef();
+        set(other.mObject);
     }
 
-    BindingPointer &operator=(BindingPointer<ObjectType> &&other)
+    void operator=(const BindingPointer<ObjectType> &other)
     {
-        std::swap(mObject, other.mObject);
-        return *this;
+        set(other.mObject);
     }
 
     virtual ~BindingPointer()
@@ -120,12 +101,11 @@ class BindingPointer
         ASSERT(mObject == nullptr);
     }
 
-    virtual void set(const Context *context, ObjectType *newObject)
+    virtual void set(ObjectType *newObject)
     {
         // addRef first in case newObject == mObject and this is the last reference to it.
-        if (newObject != nullptr) reinterpret_cast<const RefCountObjectNoID*>(newObject)->addRef();
-        if (mObject != nullptr)
-            reinterpret_cast<RefCountObjectNoID *>(mObject)->release(context);
+        if (newObject != nullptr) reinterpret_cast<const RefCountObject*>(newObject)->addRef();
+        if (mObject != nullptr) reinterpret_cast<const RefCountObject*>(mObject)->release();
         mObject = newObject;
     }
 
@@ -151,16 +131,16 @@ class OffsetBindingPointer : public BindingPointer<ObjectType>
   public:
     OffsetBindingPointer() : mOffset(0), mSize(0) { }
 
-    void set(const Context *context, ObjectType *newObject) override
+    void set(ObjectType *newObject) override
     {
-        BindingPointer<ObjectType>::set(context, newObject);
+        BindingPointer<ObjectType>::set(newObject);
         mOffset = 0;
         mSize = 0;
     }
 
-    void set(const Context *context, ObjectType *newObject, GLintptr offset, GLsizeiptr size)
+    void set(ObjectType *newObject, GLintptr offset, GLsizeiptr size)
     {
-        BindingPointer<ObjectType>::set(context, newObject);
+        BindingPointer<ObjectType>::set(newObject);
         mOffset = offset;
         mSize = size;
     }
@@ -182,6 +162,5 @@ class OffsetBindingPointer : public BindingPointer<ObjectType>
     GLintptr mOffset;
     GLsizeiptr mSize;
 };
-}  // namespace gl
 
 #endif   // LIBANGLE_REFCOUNTOBJECT_H_

@@ -13,7 +13,7 @@
 #include <array>
 #include <cstdio>
 #include <fstream>
-#include <ostream>
+#include <iostream>
 #include <vector>
 
 #include "common/angleutils.h"
@@ -162,8 +162,7 @@ void Trace(LogSeverity severity, const char *message)
 
     if (severity == LOG_ERR)
     {
-        // Note: we use fprintf because <iostream> includes static initializers.
-        fprintf(stderr, "%s: %s\n", LogSeverityName(severity), str.c_str());
+        std::cerr << LogSeverityName(severity) << ": " << str << std::endl;
     }
 
 #if defined(ANGLE_PLATFORM_WINDOWS) && \
@@ -208,13 +207,6 @@ std::ostream &operator<<(std::ostream &os, const FmtHR &fmt)
     os << "HRESULT: ";
     return FmtHexInt(os, fmt.mHR);
 }
-
-std::ostream &operator<<(std::ostream &os, const FmtErr &fmt)
-{
-    os << "error: ";
-    return FmtHexInt(os, fmt.mErr);
-}
-
 #endif  // defined(ANGLE_PLATFORM_WINDOWS)
 
 }  // namespace gl

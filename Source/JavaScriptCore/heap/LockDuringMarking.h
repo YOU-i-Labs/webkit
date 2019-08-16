@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "Heap.h"
+#include <heap/Heap.h>
 #include <wtf/Locker.h>
 
 namespace JSC {
@@ -33,9 +33,14 @@ namespace JSC {
 // Use this lock scope like so:
 // auto locker = lockDuringMarking(heap, lock);
 template<typename LockType>
-auto lockDuringMarking(Heap& heap, LockType& passedLock)
+Locker<LockType> lockDuringMarking(Heap& heap, LockType& passedLock)
 {
-    return holdLockIf(passedLock, heap.mutatorShouldBeFenced());
+    LockType* lock;
+    if (heap.mutatorShouldBeFenced())
+        lock = &passedLock;
+    else
+        lock = nullptr;
+    return Locker<LockType>(lock);
 }
 
 } // namespace JSC

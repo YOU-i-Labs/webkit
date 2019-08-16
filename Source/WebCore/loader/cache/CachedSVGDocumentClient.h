@@ -28,7 +28,7 @@ namespace WebCore {
 
 class CachedSVGDocumentClient : public CachedResourceClient {
 public:
-    virtual ~CachedSVGDocumentClient() = default;
+    virtual ~CachedSVGDocumentClient() { }
     static CachedResourceClientType expectedType() { return SVGDocumentType; }
     CachedResourceClientType resourceClientType() const override { return expectedType(); }
 };

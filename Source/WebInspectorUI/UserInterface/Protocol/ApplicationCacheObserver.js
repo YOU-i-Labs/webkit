@@ -23,17 +23,17 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ApplicationCacheObserver = class ApplicationCacheObserver
+WebInspector.ApplicationCacheObserver = class ApplicationCacheObserver
 {
     // Events defined by the "ApplicationCache" domain.
 
     applicationCacheStatusUpdated(frameId, manifestURL, status)
     {
-        WI.applicationCacheManager.applicationCacheStatusUpdated(frameId, manifestURL, status);
+        WebInspector.applicationCacheManager.applicationCacheStatusUpdated(frameId, manifestURL, status);
     }
 
     networkStateUpdated(isNowOnline)
     {
-        WI.applicationCacheManager.networkStateUpdated(isNowOnline);
+        WebInspector.applicationCacheManager.networkStateUpdated(isNowOnline);
     }
 };

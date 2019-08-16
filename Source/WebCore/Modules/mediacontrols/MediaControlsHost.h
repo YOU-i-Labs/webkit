@@ -27,6 +27,7 @@
 
 #if ENABLE(MEDIA_CONTROLS_SCRIPT)
 
+#include <bindings/ScriptObject.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Variant.h>
 #include <wtf/Vector.h>
@@ -56,7 +57,7 @@ public:
     Vector<RefPtr<AudioTrack>> sortedTrackListForMenu(AudioTrackList&);
 
     using TextOrAudioTrack = WTF::Variant<RefPtr<TextTrack>, RefPtr<AudioTrack>>;
-    String displayNameForTrack(const Optional<TextOrAudioTrack>&);
+    String displayNameForTrack(const std::optional<TextOrAudioTrack>&);
 
     TextTrack* captionMenuOffItem();
     TextTrack* captionMenuAutomaticItem();
@@ -81,9 +82,6 @@ public:
     enum class DeviceType { None, Airplay, Tvout };
     DeviceType externalDeviceType() const;
 
-    bool compactMode() const;
-    void setSimulateCompactMode(bool value) { m_simulateCompactMode = value; }
-
     bool controlsDependOnPageScaleFactor() const;
     void setControlsDependOnPageScaleFactor(bool v);
 
@@ -91,14 +89,12 @@ public:
 
     String shadowRootCSSText() const;
     String base64StringForIconNameAndType(const String& iconName, const String& iconType) const;
-    String formattedStringForDuration(double) const;
 
 private:
     MediaControlsHost(HTMLMediaElement*);
 
     HTMLMediaElement* m_mediaElement;
     RefPtr<MediaControlTextTrackContainerElement> m_textTrackContainer;
-    bool m_simulateCompactMode { false };
 };
 
 }

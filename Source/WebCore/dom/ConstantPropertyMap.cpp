@@ -54,11 +54,6 @@ const AtomicString& ConstantPropertyMap::nameForProperty(ConstantProperty proper
     static NeverDestroyed<AtomicString> safeAreaInsetRightName("safe-area-inset-right", AtomicString::ConstructFromLiteral);
     static NeverDestroyed<AtomicString> safeAreaInsetBottomName("safe-area-inset-bottom", AtomicString::ConstructFromLiteral);
     static NeverDestroyed<AtomicString> safeAreaInsetLeftName("safe-area-inset-left", AtomicString::ConstructFromLiteral);
-    static NeverDestroyed<AtomicString> fullscreenInsetTopName("fullscreen-inset-top", AtomicString::ConstructFromLiteral);
-    static NeverDestroyed<AtomicString> fullscreenInsetLeftName("fullscreen-inset-left", AtomicString::ConstructFromLiteral);
-    static NeverDestroyed<AtomicString> fullscreenInsetBottomName("fullscreen-inset-bottom", AtomicString::ConstructFromLiteral);
-    static NeverDestroyed<AtomicString> fullscreenInsetRightName("fullscreen-inset-right", AtomicString::ConstructFromLiteral);
-    static NeverDestroyed<AtomicString> fullscreenAutoHideDurationName("fullscreen-auto-hide-duration", AtomicString::ConstructFromLiteral);
 
     switch (property) {
     case ConstantProperty::SafeAreaInsetTop:
@@ -69,19 +64,9 @@ const AtomicString& ConstantPropertyMap::nameForProperty(ConstantProperty proper
         return safeAreaInsetBottomName;
     case ConstantProperty::SafeAreaInsetLeft:
         return safeAreaInsetLeftName;
-    case ConstantProperty::FullscreenInsetTop:
-        return fullscreenInsetTopName;
-    case ConstantProperty::FullscreenInsetLeft:
-        return fullscreenInsetLeftName;
-    case ConstantProperty::FullscreenInsetBottom:
-        return fullscreenInsetBottomName;
-    case ConstantProperty::FullscreenInsetRight:
-        return fullscreenInsetRightName;
-    case ConstantProperty::FullscreenAutoHideDuration:
-        return fullscreenAutoHideDurationName;
     }
 
-    return nullAtom();
+    return nullAtom;
 }
 
 void ConstantPropertyMap::setValueForProperty(ConstantProperty property, Ref<CSSVariableData>&& data)
@@ -90,7 +75,7 @@ void ConstantPropertyMap::setValueForProperty(ConstantProperty property, Ref<CSS
         buildValues();
 
     auto& name = nameForProperty(property);
-    m_values->set(name, CSSCustomPropertyValue::createSyntaxAll(name, WTFMove(data)));
+    m_values->set(name, CSSCustomPropertyValue::createWithVariableData(name, WTFMove(data)));
 }
 
 void ConstantPropertyMap::buildValues()
@@ -98,7 +83,6 @@ void ConstantPropertyMap::buildValues()
     m_values = Values { };
 
     updateConstantsForSafeAreaInsets();
-    updateConstantsForFullscreen();
 }
 
 static Ref<CSSVariableData> variableDataForPositivePixelLength(float lengthInPx)
@@ -110,19 +94,7 @@ static Ref<CSSVariableData> variableDataForPositivePixelLength(float lengthInPx)
 
     Vector<CSSParserToken> tokens { token };
     CSSParserTokenRange tokenRange(tokens);
-    return CSSVariableData::create(tokenRange);
-}
-
-static Ref<CSSVariableData> variableDataForPositiveDuration(Seconds durationInSeconds)
-{
-    ASSERT(durationInSeconds >= 0_s);
-
-    CSSParserToken token(NumberToken, durationInSeconds.value(), NumberValueType, NoSign);
-    token.convertToDimensionWithUnit("s");
-
-    Vector<CSSParserToken> tokens { token };
-    CSSParserTokenRange tokenRange(tokens);
-    return CSSVariableData::create(tokenRange);
+    return CSSVariableData::create(tokenRange, false);
 }
 
 void ConstantPropertyMap::updateConstantsForSafeAreaInsets()
@@ -137,30 +109,6 @@ void ConstantPropertyMap::updateConstantsForSafeAreaInsets()
 void ConstantPropertyMap::didChangeSafeAreaInsets()
 {
     updateConstantsForSafeAreaInsets();
-    m_document.invalidateMatchedPropertiesCacheAndForceStyleRecalc();
-}
-
-void ConstantPropertyMap::updateConstantsForFullscreen()
-{
-    FloatBoxExtent fullscreenInsets = m_document.page() ? m_document.page()->fullscreenInsets() : FloatBoxExtent();
-    setValueForProperty(ConstantProperty::FullscreenInsetTop, variableDataForPositivePixelLength(fullscreenInsets.top()));
-    setValueForProperty(ConstantProperty::FullscreenInsetRight, variableDataForPositivePixelLength(fullscreenInsets.right()));
-    setValueForProperty(ConstantProperty::FullscreenInsetBottom, variableDataForPositivePixelLength(fullscreenInsets.bottom()));
-    setValueForProperty(ConstantProperty::FullscreenInsetLeft, variableDataForPositivePixelLength(fullscreenInsets.left()));
-
-    Seconds fullscreenAutoHideDuration = m_document.page() ? m_document.page()->fullscreenAutoHideDuration() : 0_s;
-    setValueForProperty(ConstantProperty::FullscreenAutoHideDuration, variableDataForPositiveDuration(fullscreenAutoHideDuration));
-}
-
-void ConstantPropertyMap::didChangeFullscreenInsets()
-{
-    updateConstantsForFullscreen();
-    m_document.invalidateMatchedPropertiesCacheAndForceStyleRecalc();
-}
-
-void ConstantPropertyMap::setFullscreenAutoHideDuration(Seconds duration)
-{
-    setValueForProperty(ConstantProperty::FullscreenAutoHideDuration, variableDataForPositiveDuration(duration));
     m_document.invalidateMatchedPropertiesCacheAndForceStyleRecalc();
 }
 

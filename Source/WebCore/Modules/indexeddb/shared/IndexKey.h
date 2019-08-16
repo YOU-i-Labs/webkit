@@ -28,6 +28,7 @@
 #if ENABLE(INDEXED_DATABASE)
 
 #include "IDBKeyData.h"
+#include <wtf/HashMap.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {

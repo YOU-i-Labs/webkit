@@ -27,13 +27,10 @@
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "PaintInfo.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderDetailsMarker);
 
 RenderDetailsMarker::RenderDetailsMarker(DetailsMarkerControl& element, RenderStyle&& style)
     : RenderBlockFlow(element, WTFMove(style))
@@ -118,7 +115,7 @@ Path RenderDetailsMarker::getPath(const LayoutPoint& origin) const
 
 void RenderDetailsMarker::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (paintInfo.phase != PaintPhase::Foreground || style().visibility() != Visibility::Visible) {
+    if (paintInfo.phase != PaintPhaseForeground || style().visibility() != VISIBLE) {
         RenderBlockFlow::paint(paintInfo, paintOffset);
         return;
     }
@@ -130,7 +127,7 @@ void RenderDetailsMarker::paint(PaintInfo& paintInfo, const LayoutPoint& paintOf
     if (!paintInfo.rect.intersects(snappedIntRect(overflowRect)))
         return;
 
-    const Color color(style().visitedDependentColorWithColorFilter(CSSPropertyColor));
+    const Color color(style().visitedDependentColor(CSSPropertyColor));
     paintInfo.context().setStrokeColor(color);
     paintInfo.context().setStrokeStyle(SolidStroke);
     paintInfo.context().setStrokeThickness(1.0f);

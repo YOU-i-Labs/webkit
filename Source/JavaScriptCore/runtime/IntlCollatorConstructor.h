@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2015 Andy VanWagoner (andy@vanwagoner.family)
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015 Andy VanWagoner (thetalecrafter@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,16 +34,10 @@ namespace JSC {
 class IntlCollator;
 class IntlCollatorPrototype;
 
-class IntlCollatorConstructor final : public InternalFunction {
+class IntlCollatorConstructor : public InternalFunction {
 public:
     typedef InternalFunction Base;
     static const unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;
-
-    template<typename CellType>
-    static IsoSubspace* subspaceFor(VM& vm)
-    {
-        return &vm.intlCollatorConstructorSpace;
-    }
 
     static IntlCollatorConstructor* create(VM&, Structure*, IntlCollatorPrototype*, Structure*);
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue);
@@ -58,6 +51,8 @@ protected:
 
 private:
     IntlCollatorConstructor(VM&, Structure*);
+    static ConstructType getConstructData(JSCell*, ConstructData&);
+    static CallType getCallData(JSCell*, CallData&);
     static void visitChildren(JSCell*, SlotVisitor&);
     
     WriteBarrier<Structure> m_collatorStructure;

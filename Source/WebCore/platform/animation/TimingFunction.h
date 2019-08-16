@@ -24,22 +24,18 @@
 
 #pragma once
 
-#include "CSSValue.h"
-#include "ExceptionOr.h"
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
-namespace WTF {
-class TextStream;
-}
-
 namespace WebCore {
+
+class TextStream;
 
 class TimingFunction : public RefCounted<TimingFunction> {
 public:
     virtual Ref<TimingFunction> clone() const = 0;
 
-    virtual ~TimingFunction() = default;
+    virtual ~TimingFunction() { }
 
     enum TimingFunctionType { LinearFunction, CubicBezierFunction, StepsFunction, SpringFunction };
     TimingFunctionType type() const { return m_type; }
@@ -51,11 +47,6 @@ public:
 
     virtual bool operator==(const TimingFunction&) const = 0;
     bool operator!=(const TimingFunction& other) const { return !(*this == other); }
-
-    static ExceptionOr<RefPtr<TimingFunction>> createFromCSSText(const String&);
-    static RefPtr<TimingFunction> createFromCSSValue(const CSSValue&);
-    double transformTime(double, double, bool before = false) const;
-    String cssText() const;
 
 protected:
     explicit TimingFunction(TimingFunctionType type)
@@ -76,7 +67,7 @@ public:
     
     bool operator==(const TimingFunction& other) const final
     {
-        return is<LinearTimingFunction>(other);
+        return other.isLinearTimingFunction();
     }
 
 private:
@@ -125,9 +116,9 @@ public:
 
     bool operator==(const TimingFunction& other) const final
     {
-        if (!is<CubicBezierTimingFunction>(other))
+        if (!other.isCubicBezierTimingFunction())
             return false;
-        auto& otherCubic = downcast<CubicBezierTimingFunction>(other);
+        auto& otherCubic = static_cast<const CubicBezierTimingFunction&>(other);
         if (m_timingFunctionPreset != otherCubic.m_timingFunctionPreset)
             return false;
         if (m_timingFunctionPreset != Custom)
@@ -160,11 +151,6 @@ public:
     Ref<CubicBezierTimingFunction> createReversed() const
     {
         return create(1.0 - m_x2, 1.0 - m_y2, 1.0 - m_x1, 1.0 - m_y1);
-    }
-
-    bool isLinear() const
-    {
-        return (!m_x1 && !m_y1 && !m_x2 && !m_y2) || (m_x1 == 1.0 && m_y1 == 1.0 && m_x2 == 1.0 && m_y2 == 1.0) || (m_x1 == 0.0 && m_y1 == 0.0 && m_x2 == 1.0 && m_y2 == 1.0);
     }
 
 private:
@@ -203,9 +189,9 @@ public:
     
     bool operator==(const TimingFunction& other) const final
     {
-        if (!is<StepsTimingFunction>(other))
+        if (!other.isStepsTimingFunction())
             return false;
-        auto& otherSteps = downcast<StepsTimingFunction>(other);
+        auto& otherSteps = static_cast<const StepsTimingFunction&>(other);
         return m_steps == otherSteps.m_steps && m_stepAtStart == otherSteps.m_stepAtStart;
     }
     
@@ -248,9 +234,9 @@ public:
     
     bool operator==(const TimingFunction& other) const final
     {
-        if (!is<SpringTimingFunction>(other))
+        if (!other.isSpringTimingFunction())
             return false;
-        auto& otherSpring = downcast<SpringTimingFunction>(other);
+        auto& otherSpring = static_cast<const SpringTimingFunction&>(other);
         return m_mass == otherSpring.m_mass && m_stiffness == otherSpring.m_stiffness && m_damping == otherSpring.m_damping && m_initialVelocity == otherSpring.m_initialVelocity;
     }
 
@@ -288,16 +274,6 @@ private:
     double m_initialVelocity;
 };
 
-WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const TimingFunction&);
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, const TimingFunction&);
 
 } // namespace WebCore
-
-#define SPECIALIZE_TYPE_TRAITS_TIMINGFUNCTION(ToValueTypeName, predicate) \
-SPECIALIZE_TYPE_TRAITS_BEGIN(ToValueTypeName) \
-static bool isType(const WebCore::TimingFunction& function) { return function.predicate; } \
-SPECIALIZE_TYPE_TRAITS_END()
-
-SPECIALIZE_TYPE_TRAITS_TIMINGFUNCTION(WebCore::LinearTimingFunction, isLinearTimingFunction())
-SPECIALIZE_TYPE_TRAITS_TIMINGFUNCTION(WebCore::CubicBezierTimingFunction, isCubicBezierTimingFunction())
-SPECIALIZE_TYPE_TRAITS_TIMINGFUNCTION(WebCore::StepsTimingFunction, isStepsTimingFunction())
-SPECIALIZE_TYPE_TRAITS_TIMINGFUNCTION(WebCore::SpringTimingFunction, isSpringTimingFunction())

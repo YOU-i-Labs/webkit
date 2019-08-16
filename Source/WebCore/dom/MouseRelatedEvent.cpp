@@ -23,57 +23,49 @@
 #include "config.h"
 #include "MouseRelatedEvent.h"
 
-#include "DOMWindow.h"
 #include "Document.h"
 #include "Frame.h"
 #include "FrameView.h"
-#include "LayoutPoint.h"
 #include "RenderLayer.h"
 #include "RenderObject.h"
 
 namespace WebCore {
 
-MouseRelatedEvent::MouseRelatedEvent(const AtomicString& eventType, CanBubble canBubble, IsCancelable isCancelable, IsComposed isComposed,
-    MonotonicTime timestamp, RefPtr<WindowProxy>&& view, int detail,
-    const IntPoint& screenLocation, const IntPoint& windowLocation, const IntPoint& movementDelta, OptionSet<Modifier> modifiers, IsSimulated isSimulated, IsTrusted isTrusted)
-    : UIEventWithKeyState(eventType, canBubble, isCancelable, isComposed, timestamp, WTFMove(view), detail, modifiers, isTrusted)
+MouseRelatedEvent::MouseRelatedEvent(const AtomicString& eventType, bool canBubble, bool cancelable, double timestamp, DOMWindow* DOMWindow,
+                                     int detail, const IntPoint& screenLocation, const IntPoint& windowLocation,
+#if ENABLE(POINTER_LOCK)
+                                     const IntPoint& movementDelta,
+#endif
+                                     bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, bool isSimulated)
+    : UIEventWithKeyState(eventType, canBubble, cancelable, timestamp, DOMWindow, detail, ctrlKey, altKey, shiftKey, metaKey, false, false)
     , m_screenLocation(screenLocation)
 #if ENABLE(POINTER_LOCK)
     , m_movementDelta(movementDelta)
 #endif
-    , m_isSimulated(isSimulated == IsSimulated::Yes)
+    , m_isSimulated(isSimulated)
 {
-#if !ENABLE(POINTER_LOCK)
-    UNUSED_PARAM(movementDelta);
-#endif
-    init(m_isSimulated, windowLocation);
-}
-
-MouseRelatedEvent::MouseRelatedEvent(const AtomicString& type, IsCancelable isCancelable, MonotonicTime timestamp, RefPtr<WindowProxy>&& view, const IntPoint& globalLocation, OptionSet<Modifier> modifiers)
-    : MouseRelatedEvent(type, CanBubble::Yes, isCancelable, IsComposed::Yes, timestamp,
-        WTFMove(view), 0, globalLocation, globalLocation /* Converted in init */, { }, modifiers, IsSimulated::No)
-{
+    init(isSimulated, windowLocation);
 }
 
 MouseRelatedEvent::MouseRelatedEvent(const AtomicString& eventType, const MouseRelatedEventInit& initializer, IsTrusted isTrusted)
-    : UIEventWithKeyState(eventType, initializer)
+    : UIEventWithKeyState(eventType, initializer, isTrusted)
     , m_screenLocation(IntPoint(initializer.screenX, initializer.screenY))
 #if ENABLE(POINTER_LOCK)
     , m_movementDelta(IntPoint(0, 0))
 #endif
 {
-    ASSERT_UNUSED(isTrusted, isTrusted == IsTrusted::No);
     init(false, IntPoint(0, 0));
 }
 
 void MouseRelatedEvent::init(bool isSimulated, const IntPoint& windowLocation)
 {
-    if (!isSimulated) {
-        if (auto* frameView = frameViewFromWindowProxy(view())) {
+    auto* frame = view() ? view()->frame() : nullptr;
+    if (frame && !isSimulated) {
+        if (FrameView* frameView = frame->view()) {
             FloatPoint absolutePoint = frameView->windowToContents(windowLocation);
             FloatPoint documentPoint = frameView->absoluteToDocumentPoint(absolutePoint);
             m_pageLocation = flooredLayoutPoint(documentPoint);
-            m_clientLocation = pagePointToClientPoint(m_pageLocation, frameView);
+            m_clientLocation = flooredLayoutPoint(frameView->documentToClientPoint(documentPoint));
         }
     }
 
@@ -91,38 +83,16 @@ void MouseRelatedEvent::initCoordinates()
     m_hasCachedRelativePosition = false;
 }
 
-FrameView* MouseRelatedEvent::frameViewFromWindowProxy(WindowProxy* windowProxy)
-{
-    if (!windowProxy || !is<DOMWindow>(windowProxy->window()))
-        return nullptr;
-
-    auto* frame = downcast<DOMWindow>(*windowProxy->window()).frame();
-    return frame ? frame->view() : nullptr;
-}
-
-LayoutPoint MouseRelatedEvent::pagePointToClientPoint(LayoutPoint pagePoint, FrameView* frameView)
-{
-    if (!frameView)
-        return pagePoint;
-
-    return flooredLayoutPoint(frameView->documentToClientPoint(pagePoint));
-}
-
-LayoutPoint MouseRelatedEvent::pagePointToAbsolutePoint(LayoutPoint pagePoint, FrameView* frameView)
-{
-    if (!frameView)
-        return pagePoint;
-    
-    return pagePoint.scaled(frameView->documentToAbsoluteScaleFactor());
-}
-
 void MouseRelatedEvent::initCoordinates(const LayoutPoint& clientLocation)
 {
     // Set up initial values for coordinates.
     // Correct values are computed lazily, see computeRelativePosition.
     FloatSize documentToClientOffset;
-    if (auto* frameView = frameViewFromWindowProxy(view()))
-        documentToClientOffset = frameView->documentToClientOffset();
+    auto* frame = view() ? view()->frame() : nullptr;
+    if (frame) {
+        if (FrameView* frameView = frame->view())
+            documentToClientOffset = frameView->documentToClientOffset();
+    }
 
     m_clientLocation = clientLocation;
     m_pageLocation = clientLocation - LayoutSize(documentToClientOffset);
@@ -134,17 +104,32 @@ void MouseRelatedEvent::initCoordinates(const LayoutPoint& clientLocation)
     m_hasCachedRelativePosition = false;
 }
 
-float MouseRelatedEvent::documentToAbsoluteScaleFactor() const
+static float pageZoomFactor(const UIEvent* event)
 {
-    if (auto* frameView = frameViewFromWindowProxy(view()))
-        return frameView->documentToAbsoluteScaleFactor();
+    DOMWindow* window = event->view();
+    if (!window)
+        return 1;
+    Frame* frame = window->frame();
+    if (!frame)
+        return 1;
+    return frame->pageZoomFactor();
+}
 
-    return 1;
+static float frameScaleFactor(const UIEvent* event)
+{
+    DOMWindow* window = event->view();
+    if (!window)
+        return 1;
+    Frame* frame = window->frame();
+    if (!frame)
+        return 1;
+    return frame->frameScaleFactor();
 }
 
 void MouseRelatedEvent::computePageLocation()
 {
-    m_absoluteLocation = pagePointToAbsolutePoint(m_pageLocation, frameViewFromWindowProxy(view()));
+    float scaleFactor = pageZoomFactor(this) * frameScaleFactor(this);
+    setAbsoluteLocation(LayoutPoint(pageX() * scaleFactor, pageY() * scaleFactor));
 }
 
 void MouseRelatedEvent::receivedTarget()
@@ -154,21 +139,21 @@ void MouseRelatedEvent::receivedTarget()
 
 void MouseRelatedEvent::computeRelativePosition()
 {
-    if (!is<Node>(target()))
+    Node* targetNode = target() ? target()->toNode() : nullptr;
+    if (!targetNode)
         return;
-    auto& targetNode = downcast<Node>(*target());
 
     // Compute coordinates that are based on the target.
     m_layerLocation = m_pageLocation;
     m_offsetLocation = m_pageLocation;
 
     // Must have an updated render tree for this math to work correctly.
-    targetNode.document().updateLayoutIgnorePendingStylesheets();
+    targetNode->document().updateLayoutIgnorePendingStylesheets();
 
     // Adjust offsetLocation to be relative to the target's position.
-    if (RenderObject* r = targetNode.renderer()) {
+    if (RenderObject* r = targetNode->renderer()) {
         m_offsetLocation = LayoutPoint(r->absoluteToLocal(absoluteLocation(), UseTransforms));
-        float scaleFactor = 1 / documentToAbsoluteScaleFactor();
+        float scaleFactor = 1 / (pageZoomFactor(this) * frameScaleFactor(this));
         if (scaleFactor != 1.0f)
             m_offsetLocation.scale(scaleFactor);
     }
@@ -177,7 +162,7 @@ void MouseRelatedEvent::computeRelativePosition()
     // FIXME: event.layerX and event.layerY are poorly defined,
     // and probably don't always correspond to RenderLayer offsets.
     // https://bugs.webkit.org/show_bug.cgi?id=21868
-    Node* n = &targetNode;
+    Node* n = targetNode;
     while (n && !n->renderer())
         n = n->parentNode();
 
@@ -189,14 +174,6 @@ void MouseRelatedEvent::computeRelativePosition()
     }
 
     m_hasCachedRelativePosition = true;
-}
-    
-FloatPoint MouseRelatedEvent::locationInRootViewCoordinates() const
-{
-    if (auto* frameView = frameViewFromWindowProxy(view()))
-        return frameView->contentsToRootView(roundedIntPoint(m_absoluteLocation));
-
-    return m_absoluteLocation;
 }
 
 int MouseRelatedEvent::layerX()

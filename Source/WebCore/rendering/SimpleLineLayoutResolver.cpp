@@ -88,30 +88,6 @@ StringView RunResolver::Run::text() const
     return StringView(segment.text).substring(segment.toSegmentPosition(run.start), run.end - run.start);
 }
 
-const RenderObject& RunResolver::Run::renderer() const
-{
-    auto& run = m_iterator.simpleRun();
-    // FlowContents cannot differentiate empty runs.
-    ASSERT(run.start != run.end);
-    return m_iterator.resolver().m_flowContents.segmentForRun(run.start, run.end).renderer;
-}
-
-unsigned RunResolver::Run::localStart() const
-{
-    auto& run = m_iterator.simpleRun();
-    // FlowContents cannot differentiate empty runs.
-    ASSERT(run.start != run.end);
-    return m_iterator.resolver().m_flowContents.segmentForRun(run.start, run.end).toSegmentPosition(run.start);
-}
-
-unsigned RunResolver::Run::localEnd() const
-{
-    auto& run = m_iterator.simpleRun();
-    // FlowContents cannot differentiate empty runs.
-    ASSERT(run.start != run.end);
-    return m_iterator.resolver().m_flowContents.segmentForRun(run.start, run.end).toSegmentPosition(run.end);
-}
-
 RunResolver::Iterator::Iterator(const RunResolver& resolver, unsigned runIndex, unsigned lineIndex)
     : m_resolver(resolver)
     , m_runIndex(runIndex)
@@ -164,33 +140,21 @@ unsigned RunResolver::adjustLineIndexForStruts(LayoutUnit y, IndexType type, uns
     if (strut.lineBreak >= lineIndexCandidate)
         return lineIndexCandidate;
     unsigned strutIndex = 0;
-    Optional<unsigned> lastIndexCandidate;
-    auto top = strut.lineBreak * m_lineHeight;
-    auto lineHeightWithOverflow = m_lineHeight;
-    // If font is larger than the line height (glyphs overflow), use the font size when checking line boundaries.
-    if (m_ascent + m_descent > m_lineHeight) {
-        lineHeightWithOverflow = m_ascent + m_descent;
-        top += m_baseline - m_ascent;
-    }
-    auto bottom = top + lineHeightWithOverflow;
+    std::optional<unsigned> lastIndexCandidate;
+    float topPosition = strut.lineBreak * m_lineHeight + (m_baseline - m_ascent);
     for (auto lineIndex = strut.lineBreak; lineIndex < m_layout.lineCount(); ++lineIndex) {
         float strutOffset = 0;
         if (strutIndex < struts.size() && struts.at(strutIndex).lineBreak == lineIndex)
             strutOffset = struts.at(strutIndex++).offset;
-        bottom = top + strutOffset + lineHeightWithOverflow;
-        if (y >= top && y < bottom) {
+        if (y >= topPosition && y < (topPosition + m_ascent + m_descent + strutOffset)) {
             if (type == IndexType::First)
                 return lineIndex;
             lastIndexCandidate = lineIndex;
         } else if (lastIndexCandidate)
             return *lastIndexCandidate;
-        top += m_lineHeight + strutOffset;
+        topPosition += m_lineHeight + strutOffset;
     }
-    if (lastIndexCandidate || y >= bottom)
-        return m_layout.lineCount() - 1;
-    // We missed the line.
-    ASSERT_NOT_REACHED();
-    return lineIndexCandidate;
+    return m_layout.lineCount() - 1;
 }
 
 unsigned RunResolver::lineIndexForHeight(LayoutUnit height, IndexType type) const
@@ -223,16 +187,6 @@ WTF::IteratorRange<RunResolver::Iterator> RunResolver::rangeForRect(const Layout
     auto rangeEnd = rangeBegin;
     ASSERT(lastLine >= firstLine);
     rangeEnd.advanceLines(lastLine - firstLine + 1);
-    return { rangeBegin, rangeEnd };
-}
-
-WTF::IteratorRange<RunResolver::Iterator> RunResolver::rangeForLine(unsigned lineIndex) const
-{
-    auto rangeBegin = begin().advanceLines(lineIndex);
-    if (rangeBegin == end())
-        return { end(), end() };
-    auto rangeEnd = rangeBegin;
-    rangeEnd.advanceLines(1);
     return { rangeBegin, rangeEnd };
 }
 
@@ -272,8 +226,6 @@ WTF::IteratorRange<RunResolver::Iterator> RunResolver::rangeForRenderer(const Re
 RunResolver::Iterator RunResolver::runForPoint(const LayoutPoint& point) const
 {
     if (!m_lineHeight)
-        return end();
-    if (begin() == end())
         return end();
     unsigned lineIndex = lineIndexForHeight(point.y(), IndexType::Last);
     auto x = point.x() - m_borderAndPaddingBefore;
@@ -337,8 +289,8 @@ const RenderObject& LineResolver::Iterator::renderer() const
     return m_runIterator.resolver().flowContents().segmentForRun(run.start(), run.end()).renderer;
 }
 
-LineResolver::LineResolver(const RunResolver& runResolver)
-    : m_runResolver(runResolver)
+LineResolver::LineResolver(const RenderBlockFlow& flow, const Layout& layout)
+    : m_runResolver(flow, layout)
 {
 }
 

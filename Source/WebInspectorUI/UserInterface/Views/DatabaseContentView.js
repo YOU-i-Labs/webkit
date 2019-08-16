@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.DatabaseContentView = class DatabaseContentView extends WI.ContentView
+WebInspector.DatabaseContentView = class DatabaseContentView extends WebInspector.ContentView
 {
     constructor(representedObject)
     {
@@ -33,7 +33,7 @@ WI.DatabaseContentView = class DatabaseContentView extends WI.ContentView
 
         this.element.classList.add("storage-view", "query", "monospace");
 
-        this._prompt = new WI.ConsolePrompt(this, "text/x-sql");
+        this._prompt = new WebInspector.ConsolePrompt(this, "text/x-sql");
         this.addSubview(this._prompt);
 
         this.element.addEventListener("click", this._messagesClicked.bind(this), true);
@@ -43,7 +43,7 @@ WI.DatabaseContentView = class DatabaseContentView extends WI.ContentView
 
     saveToCookie(cookie)
     {
-        cookie.type = WI.ContentViewCookieType.Database;
+        cookie.type = WebInspector.ContentViewCookieType.Database;
         cookie.host = this.representedObject.host;
         cookie.name = this.representedObject.name;
     }
@@ -88,7 +88,7 @@ WI.DatabaseContentView = class DatabaseContentView extends WI.ContentView
     _queryFinished(query, columnNames, values)
     {
         let trimmedQuery = query.trim();
-        let queryView = new WI.DatabaseUserQuerySuccessView(trimmedQuery, columnNames, values);
+        let queryView = new WebInspector.DatabaseUserQuerySuccessView(trimmedQuery, columnNames, values);
         this.insertSubviewBefore(queryView, this._prompt);
 
         if (queryView.dataGrid)
@@ -97,7 +97,7 @@ WI.DatabaseContentView = class DatabaseContentView extends WI.ContentView
         this._prompt.element.scrollIntoView(false);
 
         if (trimmedQuery.match(/^create /i) || trimmedQuery.match(/^drop table /i))
-            this.dispatchEventToListeners(WI.DatabaseContentView.Event.SchemaUpdated, this.database);
+            this.dispatchEventToListeners(WebInspector.DatabaseContentView.Event.SchemaUpdated, this.database);
     }
 
     _queryError(query, error)
@@ -106,16 +106,16 @@ WI.DatabaseContentView = class DatabaseContentView extends WI.ContentView
         if (error.message)
             message = error.message;
         else if (error.code === 2)
-            message = WI.UIString("Database no longer has expected version.");
+            message = WebInspector.UIString("Database no longer has expected version.");
         else
-            message = WI.UIString("An unexpected error %s occurred.").format(error.code);
+            message = WebInspector.UIString("An unexpected error %s occurred.").format(error.code);
 
-        let queryView = new WI.DatabaseUserQueryErrorView(query, message);
+        let queryView = new WebInspector.DatabaseUserQueryErrorView(query, message);
         this.insertSubviewBefore(queryView, this._prompt);
         this._prompt.element.scrollIntoView(false);
     }
 };
 
-WI.DatabaseContentView.Event = {
+WebInspector.DatabaseContentView.Event = {
     SchemaUpdated: "SchemaUpdated"
 };

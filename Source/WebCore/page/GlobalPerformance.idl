@@ -29,5 +29,5 @@
     NoInterfaceObject,
     Exposed=(Window,Worker)
 ] interface GlobalPerformance {
-    [Replaceable] readonly attribute Performance performance;
+    [Conditional=WEB_TIMING, Replaceable] readonly attribute Performance performance;
 };

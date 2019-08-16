@@ -30,13 +30,13 @@ typedef USVString CSSOMString;
     CheckSecurity,
     CustomDefineOwnProperty,
     CustomDeleteProperty,
-    CustomGetOwnPropertyNames,
+    CustomEnumerateProperty,
     CustomGetOwnPropertySlot,
+    CustomGetOwnPropertySlotByIndex,
     CustomGetPrototype,
-    CustomHeapSnapshot,
     CustomPreventExtensions,
     CustomProxyToJSObject,
-    CustomPut,
+    CustomPutFunction,
     CustomToStringName,
     ExportMacro=WEBCORE_EXPORT,
     ImplicitThis,
@@ -50,11 +50,11 @@ typedef USVString CSSOMString;
     PrimaryGlobal,
 ] interface DOMWindow : EventTarget {
     // The current browsing context.
-    [DoNotCheckSecurity, Unforgeable, ImplementedAs=self] readonly attribute WindowProxy window;
-    [Replaceable, DoNotCheckSecurityOnGetter] readonly attribute WindowProxy self;
+    [DoNotCheckSecurity, Unforgeable] readonly attribute DOMWindow window;
+    [Replaceable, DoNotCheckSecurityOnGetter] readonly attribute DOMWindow self;
     [Unforgeable] readonly attribute Document document;
     attribute DOMString name;
-    [DoNotCheckSecurity, PutForwards=href, Unforgeable] readonly attribute Location location;
+    [DoNotCheckSecurity, PutForwards=href, Unforgeable] readonly attribute Location? location; // FIXME: Should not be nullable.
     readonly attribute History history;
     [EnabledAtRuntime=CustomElements, ImplementedAs=ensureCustomElementRegistry] readonly attribute CustomElementRegistry customElements;
     [Replaceable] readonly attribute BarProp locationbar;
@@ -71,13 +71,13 @@ typedef USVString CSSOMString;
     [DoNotCheckSecurity, ForwardDeclareInHeader] void blur();
 
     // Other browsing contexts.
-    [Replaceable, DoNotCheckSecurityOnGetter, ImplementedAs=self] readonly attribute WindowProxy frames;
+    [Replaceable, DoNotCheckSecurityOnGetter] readonly attribute DOMWindow frames;
     [Replaceable, DoNotCheckSecurityOnGetter] readonly attribute unsigned long length;
-    [DoNotCheckSecurityOnGetter, Unforgeable] readonly attribute WindowProxy? top;
-    [DoNotCheckSecurityOnGetter, CustomSetter] attribute WindowProxy? opener;
-    [Replaceable, DoNotCheckSecurityOnGetter] readonly attribute WindowProxy? parent;
+    [DoNotCheckSecurityOnGetter, Unforgeable] readonly attribute DOMWindow? top;
+    [Replaceable, DoNotCheckSecurityOnGetter] readonly attribute DOMWindow? opener;
+    [Replaceable, DoNotCheckSecurityOnGetter] readonly attribute DOMWindow? parent;
     [CheckSecurityForNode] readonly attribute Element? frameElement;
-    [CallWith=ActiveWindow&FirstWindow, MayThrowException] WindowProxy? open(optional USVString url = "about:blank", optional DOMString target = "_blank", optional [TreatNullAs=EmptyString] DOMString features = "");
+    [CallWith=ActiveWindow&FirstWindow] DOMWindow? open(optional USVString url = "about:blank", optional DOMString target = "_blank", optional [TreatNullAs=EmptyString] DOMString features = "");
 
     // The user agent.
     readonly attribute Navigator navigator;
@@ -93,17 +93,17 @@ typedef USVString CSSOMString;
     long requestAnimationFrame(RequestAnimationFrameCallback callback); // FIXME: Should return an unsigned long.
     void cancelAnimationFrame(long handle); // FIXME: handle should be an unsigned long.
 
-    [CallWith=ExecState&IncumbentWindow, DoNotCheckSecurity, ForwardDeclareInHeader, MayThrowException] void postMessage(any message, USVString targetOrigin, optional sequence<object> transfer = []);
+    [CallWith=ScriptState&IncumbentWindow, DoNotCheckSecurity, ForwardDeclareInHeader, MayThrowException] void postMessage(any message, USVString targetOrigin, optional sequence<object> transfer = []);
 
     // Obsolete members, still part of the HTML specification (https://html.spec.whatwg.org/#Window-partial).
     void captureEvents(); // Not implemented. Also not in modern standards. Empty function may help compatibility with legacy content.
     void releaseEvents(); // Not implemented. Also not in modern standards. Empty function may help compatibility with legacy content.
 
     // WebStorage (https://html.spec.whatwg.org/multipage/webstorage.html#the-sessionstorage-attribute).
-    readonly attribute Storage sessionStorage;
+    [GetterMayThrowException] readonly attribute Storage sessionStorage;
 
     // WebStorage (https://html.spec.whatwg.org/multipage/webstorage.html#the-localstorage-attribute).
-    readonly attribute Storage localStorage;
+    [GetterMayThrowException] readonly attribute Storage localStorage;
 
     // Extensions from the CSSOM specification (https://drafts.csswg.org/cssom/#extensions-to-the-window-interface).
     [NewObject] CSSStyleDeclaration getComputedStyle(Element element, optional CSSOMString? pseudoElement = null);
@@ -133,9 +133,6 @@ typedef USVString CSSOMString;
     void scrollTo(unrestricted double x, unrestricted double y);
     void scrollBy(optional ScrollToOptions option);
     void scrollBy(unrestricted double x, unrestricted double y);
-
-    // Visual Viewport (https://wicg.github.io/ViewportAPI/spec.html)
-    [EnabledBySetting=VisualViewportAPI, Replaceable] readonly attribute VisualViewport visualViewport; // FIXME: Should be [SameObject]. https://bugs.webkit.org/show_bug.cgi?id=163414
 
     // Client (CSSOM-View).
     [Replaceable] readonly attribute long screenX;
@@ -195,6 +192,7 @@ typedef USVString CSSOMString;
     [NotEnumerable, Conditional=DEVICE_ORIENTATION] attribute EventHandler ondeviceorientation; // FIXME: Should be enumerable.
 
     // Non standard event handlers.
+    [NotEnumerable, Conditional=PROXIMITY_EVENTS] attribute EventHandler onwebkitdeviceproximity;
     [NotEnumerable, ImplementedAs=onwebkitAnimationEnd] attribute EventHandler onwebkitanimationend;
     [NotEnumerable, ImplementedAs=onwebkitAnimationIteration] attribute EventHandler onwebkitanimationiteration;
     [NotEnumerable, ImplementedAs=onwebkitAnimationStart] attribute EventHandler onwebkitanimationstart;

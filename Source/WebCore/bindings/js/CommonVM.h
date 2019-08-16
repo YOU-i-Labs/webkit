@@ -33,9 +33,6 @@ class VM;
 
 namespace WebCore {
 
-class Frame;
-Frame* lexicalFrameFromCommonVM();
-
 WEBCORE_EXPORT extern JSC::VM* g_commonVMOrNull;
 
 WEBCORE_EXPORT JSC::VM& commonVMSlow();

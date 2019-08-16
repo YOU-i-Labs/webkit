@@ -31,7 +31,7 @@ namespace JSC { namespace B3 {
 
 class Procedure;
 
-JS_EXPORT_PRIVATE void breakCriticalEdges(Procedure&);
+void breakCriticalEdges(Procedure&);
 
 } } // namespace JSC::B3
 

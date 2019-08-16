@@ -15,16 +15,15 @@
 #include "libANGLE/renderer/null/CompilerNULL.h"
 #include "libANGLE/renderer/null/DisplayNULL.h"
 #include "libANGLE/renderer/null/FenceNVNULL.h"
+#include "libANGLE/renderer/null/FenceSyncNULL.h"
 #include "libANGLE/renderer/null/FramebufferNULL.h"
 #include "libANGLE/renderer/null/ImageNULL.h"
 #include "libANGLE/renderer/null/PathNULL.h"
 #include "libANGLE/renderer/null/ProgramNULL.h"
-#include "libANGLE/renderer/null/ProgramPipelineNULL.h"
 #include "libANGLE/renderer/null/QueryNULL.h"
 #include "libANGLE/renderer/null/RenderbufferNULL.h"
 #include "libANGLE/renderer/null/SamplerNULL.h"
 #include "libANGLE/renderer/null/ShaderNULL.h"
-#include "libANGLE/renderer/null/SyncNULL.h"
 #include "libANGLE/renderer/null/TextureNULL.h"
 #include "libANGLE/renderer/null/TransformFeedbackNULL.h"
 #include "libANGLE/renderer/null/VertexArrayNULL.h"
@@ -64,34 +63,14 @@ ContextNULL::ContextNULL(const gl::ContextState &state, AllocationTrackerNULL *a
 {
     ASSERT(mAllocationTracker != nullptr);
 
-    mExtensions                       = gl::Extensions();
-    mExtensions.fence                 = true;
-    mExtensions.instancedArrays       = true;
-    mExtensions.pixelBufferObject     = true;
-    mExtensions.mapBuffer             = true;
-    mExtensions.mapBufferRange        = true;
+    const gl::Version maxClientVersion(3, 1);
+    mCaps        = GenerateMinimumCaps(maxClientVersion);
+
+    mExtensions  = gl::Extensions();
     mExtensions.copyTexture           = true;
     mExtensions.copyCompressedTexture = true;
-    mExtensions.textureRectangle      = true;
-    mExtensions.textureUsage           = true;
-    mExtensions.vertexArrayObject      = true;
-    mExtensions.debugMarker            = true;
-    mExtensions.translatedShaderSource = true;
 
-    mExtensions.rgb8rgba8 = true;
-    mExtensions.textureCompressionDXT1     = true;
-    mExtensions.textureCompressionDXT3     = true;
-    mExtensions.textureCompressionDXT5     = true;
-    mExtensions.textureCompressionS3TCsRGB = true;
-    mExtensions.textureCompressionASTCHDR  = true;
-    mExtensions.textureCompressionASTCLDR  = true;
-    mExtensions.compressedETC1RGB8Texture  = true;
-    mExtensions.lossyETCDecode             = true;
-
-    const gl::Version maxClientVersion(3, 1);
-    mCaps = GenerateMinimumCaps(maxClientVersion, mExtensions);
-
-    InitMinimumTextureCapsMap(maxClientVersion, mExtensions, &mTextureCaps);
+    mTextureCaps = GenerateMinimumTextureCapsMap(maxClientVersion, mExtensions);
 }
 
 ContextNULL::~ContextNULL()
@@ -103,26 +82,22 @@ gl::Error ContextNULL::initialize()
     return gl::NoError();
 }
 
-gl::Error ContextNULL::flush(const gl::Context *context)
+gl::Error ContextNULL::flush()
 {
     return gl::NoError();
 }
 
-gl::Error ContextNULL::finish(const gl::Context *context)
+gl::Error ContextNULL::finish()
 {
     return gl::NoError();
 }
 
-gl::Error ContextNULL::drawArrays(const gl::Context *context,
-                                  GLenum mode,
-                                  GLint first,
-                                  GLsizei count)
+gl::Error ContextNULL::drawArrays(GLenum mode, GLint first, GLsizei count)
 {
     return gl::NoError();
 }
 
-gl::Error ContextNULL::drawArraysInstanced(const gl::Context *context,
-                                           GLenum mode,
+gl::Error ContextNULL::drawArraysInstanced(GLenum mode,
                                            GLint first,
                                            GLsizei count,
                                            GLsizei instanceCount)
@@ -130,47 +105,42 @@ gl::Error ContextNULL::drawArraysInstanced(const gl::Context *context,
     return gl::NoError();
 }
 
-gl::Error ContextNULL::drawElements(const gl::Context *context,
-                                    GLenum mode,
+gl::Error ContextNULL::drawElements(GLenum mode,
                                     GLsizei count,
                                     GLenum type,
-                                    const void *indices)
+                                    const GLvoid *indices,
+                                    const gl::IndexRange &indexRange)
 {
     return gl::NoError();
 }
 
-gl::Error ContextNULL::drawElementsInstanced(const gl::Context *context,
-                                             GLenum mode,
+gl::Error ContextNULL::drawElementsInstanced(GLenum mode,
                                              GLsizei count,
                                              GLenum type,
-                                             const void *indices,
-                                             GLsizei instances)
+                                             const GLvoid *indices,
+                                             GLsizei instances,
+                                             const gl::IndexRange &indexRange)
 {
     return gl::NoError();
 }
 
-gl::Error ContextNULL::drawRangeElements(const gl::Context *context,
-                                         GLenum mode,
+gl::Error ContextNULL::drawRangeElements(GLenum mode,
                                          GLuint start,
                                          GLuint end,
                                          GLsizei count,
                                          GLenum type,
-                                         const void *indices)
+                                         const GLvoid *indices,
+                                         const gl::IndexRange &indexRange)
 {
     return gl::NoError();
 }
 
-gl::Error ContextNULL::drawArraysIndirect(const gl::Context *context,
-                                          GLenum mode,
-                                          const void *indirect)
+gl::Error ContextNULL::drawArraysIndirect(GLenum mode, const GLvoid *indirect)
 {
     return gl::NoError();
 }
 
-gl::Error ContextNULL::drawElementsIndirect(const gl::Context *context,
-                                            GLenum mode,
-                                            GLenum type,
-                                            const void *indirect)
+gl::Error ContextNULL::drawElementsIndirect(GLenum mode, GLenum type, const GLvoid *indirect)
 {
     return gl::NoError();
 }
@@ -280,15 +250,7 @@ void ContextNULL::popGroupMarker()
 {
 }
 
-void ContextNULL::pushDebugGroup(GLenum source, GLuint id, GLsizei length, const char *message)
-{
-}
-
-void ContextNULL::popDebugGroup()
-{
-}
-
-void ContextNULL::syncState(const gl::Context *context, const gl::State::DirtyBits &dirtyBits)
+void ContextNULL::syncState(const gl::State::DirtyBits &dirtyBits)
 {
 }
 
@@ -302,7 +264,7 @@ GLint64 ContextNULL::getTimestamp()
     return 0;
 }
 
-void ContextNULL::onMakeCurrent(const gl::Context *context)
+void ContextNULL::onMakeCurrent(const gl::ContextState &data)
 {
 }
 
@@ -376,9 +338,9 @@ FenceNVImpl *ContextNULL::createFenceNV()
     return new FenceNVNULL();
 }
 
-SyncImpl *ContextNULL::createSync()
+FenceSyncImpl *ContextNULL::createFenceSync()
 {
-    return new SyncNULL();
+    return new FenceSyncNULL();
 }
 
 TransformFeedbackImpl *ContextNULL::createTransformFeedback(const gl::TransformFeedbackState &state)
@@ -386,14 +348,9 @@ TransformFeedbackImpl *ContextNULL::createTransformFeedback(const gl::TransformF
     return new TransformFeedbackNULL(state);
 }
 
-SamplerImpl *ContextNULL::createSampler(const gl::SamplerState &state)
+SamplerImpl *ContextNULL::createSampler()
 {
-    return new SamplerNULL(state);
-}
-
-ProgramPipelineImpl *ContextNULL::createProgramPipeline(const gl::ProgramPipelineState &state)
-{
-    return new ProgramPipelineNULL(state);
+    return new SamplerNULL();
 }
 
 std::vector<PathImpl *> ContextNULL::createPaths(GLsizei range)
@@ -406,10 +363,7 @@ std::vector<PathImpl *> ContextNULL::createPaths(GLsizei range)
     return result;
 }
 
-gl::Error ContextNULL::dispatchCompute(const gl::Context *context,
-                                       GLuint numGroupsX,
-                                       GLuint numGroupsY,
-                                       GLuint numGroupsZ)
+gl::Error ContextNULL::dispatchCompute(GLuint numGroupsX, GLuint numGroupsY, GLuint numGroupsZ)
 {
     return gl::NoError();
 }

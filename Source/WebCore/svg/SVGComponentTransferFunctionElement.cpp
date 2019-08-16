@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,31 +24,52 @@
 #include "SVGFEComponentTransferElement.h"
 #include "SVGNames.h"
 #include "SVGNumberListValues.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(SVGComponentTransferFunctionElement);
+// Animated property definitions
+DEFINE_ANIMATED_ENUMERATION(SVGComponentTransferFunctionElement, SVGNames::typeAttr, Type, type, ComponentTransferType)
+DEFINE_ANIMATED_NUMBER_LIST(SVGComponentTransferFunctionElement, SVGNames::tableValuesAttr, TableValues, tableValues)
+DEFINE_ANIMATED_NUMBER(SVGComponentTransferFunctionElement, SVGNames::slopeAttr, Slope, slope)
+DEFINE_ANIMATED_NUMBER(SVGComponentTransferFunctionElement, SVGNames::interceptAttr, Intercept, intercept)
+DEFINE_ANIMATED_NUMBER(SVGComponentTransferFunctionElement, SVGNames::amplitudeAttr, Amplitude, amplitude)
+DEFINE_ANIMATED_NUMBER(SVGComponentTransferFunctionElement, SVGNames::exponentAttr, Exponent, exponent)
+DEFINE_ANIMATED_NUMBER(SVGComponentTransferFunctionElement, SVGNames::offsetAttr, Offset, offset)
+
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGComponentTransferFunctionElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(type)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(tableValues)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(slope)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(intercept)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(amplitude)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(exponent)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(offset)
+END_REGISTER_ANIMATED_PROPERTIES
 
 SVGComponentTransferFunctionElement::SVGComponentTransferFunctionElement(const QualifiedName& tagName, Document& document)
     : SVGElement(tagName, document)
+    , m_type(FECOMPONENTTRANSFER_TYPE_IDENTITY)
+    , m_slope(1)
+    , m_amplitude(1)
+    , m_exponent(1)
 {
-    registerAttributes();
+    registerAnimatedPropertiesForSVGComponentTransferFunctionElement();
 }
 
-void SVGComponentTransferFunctionElement::registerAttributes()
+bool SVGComponentTransferFunctionElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    auto& registry = attributeRegistry();
-    if (!registry.isEmpty())
-        return;
-    registry.registerAttribute<SVGNames::typeAttr, ComponentTransferType, &SVGComponentTransferFunctionElement::m_type>();
-    registry.registerAttribute<SVGNames::tableValuesAttr, &SVGComponentTransferFunctionElement::m_tableValues>();
-    registry.registerAttribute<SVGNames::slopeAttr, &SVGComponentTransferFunctionElement::m_slope>();
-    registry.registerAttribute<SVGNames::interceptAttr, &SVGComponentTransferFunctionElement::m_intercept>();
-    registry.registerAttribute<SVGNames::amplitudeAttr, &SVGComponentTransferFunctionElement::m_amplitude>();
-    registry.registerAttribute<SVGNames::exponentAttr, &SVGComponentTransferFunctionElement::m_exponent>();
-    registry.registerAttribute<SVGNames::offsetAttr, &SVGComponentTransferFunctionElement::m_offset>();
+    static NeverDestroyed<HashSet<QualifiedName>> supportedAttributes;
+    if (supportedAttributes.get().isEmpty()) {
+        supportedAttributes.get().add(SVGNames::typeAttr);
+        supportedAttributes.get().add(SVGNames::tableValuesAttr);
+        supportedAttributes.get().add(SVGNames::slopeAttr);
+        supportedAttributes.get().add(SVGNames::interceptAttr);
+        supportedAttributes.get().add(SVGNames::amplitudeAttr);
+        supportedAttributes.get().add(SVGNames::exponentAttr);
+        supportedAttributes.get().add(SVGNames::offsetAttr);
+    }
+    return supportedAttributes.get().contains<SVGAttributeHashTranslator>(attrName);
 }
 
 void SVGComponentTransferFunctionElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -57,40 +77,40 @@ void SVGComponentTransferFunctionElement::parseAttribute(const QualifiedName& na
     if (name == SVGNames::typeAttr) {
         ComponentTransferType propertyValue = SVGPropertyTraits<ComponentTransferType>::fromString(value);
         if (propertyValue > 0)
-            m_type.setValue(propertyValue);
+            setTypeBaseValue(propertyValue);
         return;
     }
 
     if (name == SVGNames::tableValuesAttr) {
         SVGNumberListValues newList;
         newList.parse(value);
-        m_tableValues.detachAnimatedListWrappers(attributeOwnerProxy(), newList.size());
-        m_tableValues.setValue(WTFMove(newList));
+        detachAnimatedTableValuesListWrappers(newList.size());
+        setTableValuesBaseValue(newList);
         return;
     }
 
     if (name == SVGNames::slopeAttr) {
-        m_slope.setValue(value.toFloat());
+        setSlopeBaseValue(value.toFloat());
         return;
     }
 
     if (name == SVGNames::interceptAttr) {
-        m_intercept.setValue(value.toFloat());
+        setInterceptBaseValue(value.toFloat());
         return;
     }
 
     if (name == SVGNames::amplitudeAttr) {
-        m_amplitude.setValue(value.toFloat());
+        setAmplitudeBaseValue(value.toFloat());
         return;
     }
 
     if (name == SVGNames::exponentAttr) {
-        m_exponent.setValue(value.toFloat());
+        setExponentBaseValue(value.toFloat());
         return;
     }
 
     if (name == SVGNames::offsetAttr) {
-        m_offset.setValue(value.toFloat());
+        setOffsetBaseValue(value.toFloat());
         return;
     }
 
@@ -99,26 +119,27 @@ void SVGComponentTransferFunctionElement::parseAttribute(const QualifiedName& na
 
 void SVGComponentTransferFunctionElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    if (isKnownAttribute(attrName)) {
-        InstanceInvalidationGuard guard(*this);
-        invalidateFilterPrimitiveParent(this);
+    if (!isSupportedAttribute(attrName)) {
+        SVGElement::svgAttributeChanged(attrName);
         return;
     }
 
-    SVGElement::svgAttributeChanged(attrName);
+    InstanceInvalidationGuard guard(*this);
+
+    invalidateFilterPrimitiveParent(this);
 }
 
 ComponentTransferFunction SVGComponentTransferFunctionElement::transferFunction() const
 {
-    return {
-        type(),
-        slope(),
-        intercept(),
-        amplitude(),
-        exponent(),
-        offset(),
-        tableValues()
-    };
+    ComponentTransferFunction func;
+    func.type = type();
+    func.slope = slope();
+    func.intercept = intercept();
+    func.amplitude = amplitude();
+    func.exponent = exponent();
+    func.offset = offset();
+    func.tableValues = tableValues();
+    return func;
 }
 
 }

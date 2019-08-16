@@ -33,19 +33,16 @@
 
 #include <wtf/CrossThreadCopier.h>
 
-namespace PAL {
-class SessionID;
-}
-
 namespace WebCore {
+class SessionID;
 class ThreadSafeDataBuffer;
 }
 
 namespace WTF {
 
-template<> struct CrossThreadCopierBase<false, false, PAL::SessionID> {
-    typedef PAL::SessionID Type;
-    static Type copy(const PAL::SessionID&);
+template<> struct CrossThreadCopierBase<false, false, WebCore::SessionID> {
+    typedef WebCore::SessionID Type;
+    static Type copy(const WebCore::SessionID&);
 };
 
 template<> struct CrossThreadCopierBase<false, false, WebCore::ThreadSafeDataBuffer> {

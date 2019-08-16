@@ -34,30 +34,26 @@ namespace WebCore {
 class RenderTextControlInnerBlock;
 
 class TextControlInnerContainer final : public HTMLDivElement {
-    WTF_MAKE_ISO_ALLOCATED(TextControlInnerContainer);
 public:
     static Ref<TextControlInnerContainer> create(Document&);
 protected:
     TextControlInnerContainer(Document&);
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
-    Optional<ElementStyle> resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle* shadowHostStyle) override;
 };
 
 class TextControlInnerElement final : public HTMLDivElement {
-    WTF_MAKE_ISO_ALLOCATED(TextControlInnerElement);
 public:
     static Ref<TextControlInnerElement> create(Document&);
 
 protected:
     TextControlInnerElement(Document&);
-    Optional<ElementStyle> resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle* shadowHostStyle) override;
+    std::optional<ElementStyle> resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle* shadowHostStyle) override;
 
 private:
     bool isMouseFocusable() const override { return false; }
 };
 
 class TextControlInnerTextElement final : public HTMLDivElement {
-    WTF_MAKE_ISO_ALLOCATED(TextControlInnerTextElement);
 public:
     static Ref<TextControlInnerTextElement> create(Document&);
 
@@ -68,29 +64,27 @@ public:
 private:
     TextControlInnerTextElement(Document&);
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
-    Optional<ElementStyle> resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle* shadowHostStyle) override;
+    std::optional<ElementStyle> resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle* shadowHostStyle) override;
     bool isMouseFocusable() const override { return false; }
     bool isTextControlInnerTextElement() const override { return true; }
 };
 
 class TextControlPlaceholderElement final : public HTMLDivElement {
-    WTF_MAKE_ISO_ALLOCATED(TextControlPlaceholderElement);
 public:
-    static Ref<TextControlPlaceholderElement> create(Document&);
+    static Ref<TextControlPlaceholderElement> create(Document& document) { return adoptRef(*new TextControlPlaceholderElement(document)); }
 
 private:
     TextControlPlaceholderElement(Document&);
     
-    Optional<ElementStyle> resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle* shadowHostStyle) override;
+    std::optional<ElementStyle> resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle* shadowHostStyle) override;
 };
 
 class SearchFieldResultsButtonElement final : public HTMLDivElement {
-    WTF_MAKE_ISO_ALLOCATED(SearchFieldResultsButtonElement);
 public:
     static Ref<SearchFieldResultsButtonElement> create(Document&);
 
     void defaultEventHandler(Event&) override;
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
     bool willRespondToMouseClickEvents() override;
 #endif
 
@@ -100,12 +94,11 @@ private:
 };
 
 class SearchFieldCancelButtonElement final : public HTMLDivElement {
-    WTF_MAKE_ISO_ALLOCATED(SearchFieldCancelButtonElement);
 public:
     static Ref<SearchFieldCancelButtonElement> create(Document&);
 
     void defaultEventHandler(Event&) override;
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
     bool willRespondToMouseClickEvents() override;
 #endif
 

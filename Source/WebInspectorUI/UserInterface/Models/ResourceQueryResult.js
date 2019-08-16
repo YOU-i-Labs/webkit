@@ -23,11 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ResourceQueryResult = class ResourceQueryResult
+WebInspector.ResourceQueryResult = class QueryResult extends WebInspector.Object
 {
     constructor(resource, matches, cookie)
     {
         console.assert(matches.length, "Query matches list can't be empty.");
+
+        super();
 
         this._resource = resource;
         this._matches = matches;
@@ -64,7 +66,7 @@ WI.ResourceQueryResult = class ResourceQueryResult
         const specialMultiplier = 5;
 
         function getMultiplier(match) {
-            if (match.type === WI.ResourceQueryMatch.Type.Special)
+            if (match.type === WebInspector.ResourceQueryMatch.Type.Special)
                 return specialMultiplier;
 
             return 1;
@@ -118,12 +120,12 @@ WI.ResourceQueryResult = class ResourceQueryResult
             }
 
             // Begin a new range when a gap between this match and the previous match is found.
-            ranges.push(new WI.TextRange(0, startIndex, 0, endIndex + 1));
+            ranges.push(new WebInspector.TextRange(0, startIndex, 0, endIndex + 1));
             startIndex = match.index;
             endIndex = startIndex;
         }
 
-        ranges.push(new WI.TextRange(0, startIndex, 0, endIndex + 1));
+        ranges.push(new WebInspector.TextRange(0, startIndex, 0, endIndex + 1));
         return ranges;
     }
 

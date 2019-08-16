@@ -29,14 +29,13 @@
 #include "DeletedAddressOfOperator.h"
 #include "MoveOnly.h"
 #include "RefLogger.h"
-#include <functional>
 #include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
 
 namespace TestWebKitAPI {
 
 template<int initialCapacity>
-struct InitialCapacityTestHashTraits : public WTF::UnsignedWithZeroKeyHashTraits<int> {
+    struct InitialCapacityTestHashTraits : public WTF::UnsignedWithZeroKeyHashTraits<int> {
     static const int minimumTableSize = initialCapacity;
 };
 
@@ -455,15 +454,6 @@ TEST(WTF_HashSet, DeletedAddressOfOperator)
     set1.add(10);
 
     set1.remove(10);
-}
-
-TEST(WTF_HashSet, RemoveRandom)
-{
-    HashSet<unsigned> set1 { 1, 2, 3 };
-    set1.remove(set1.random());
-    set1.remove(set1.random());
-    set1.remove(set1.random());
-    ASSERT_TRUE(set1.isEmpty());
 }
 
 } // namespace TestWebKitAPI

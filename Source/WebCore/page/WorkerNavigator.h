@@ -33,17 +33,14 @@ namespace WebCore {
 
 class WorkerNavigator final : public NavigatorBase, public Supplementable<WorkerNavigator> {
 public:
-    static Ref<WorkerNavigator> create(ScriptExecutionContext& context, const String& userAgent, bool isOnline) { return adoptRef(*new WorkerNavigator(context, userAgent, isOnline)); }
+    static Ref<WorkerNavigator> create(const String& userAgent) { return adoptRef(*new WorkerNavigator(userAgent)); }
 
-    const String& userAgent() const final;
-    bool onLine() const final;
-    void setIsOnline(bool isOnline) { m_isOnline = isOnline; }
+    String userAgent() const final;
 
 private:
-    explicit WorkerNavigator(ScriptExecutionContext&, const String&, bool isOnline);
+    explicit WorkerNavigator(const String&);
 
     String m_userAgent;
-    bool m_isOnline;
 };
 
 } // namespace WebCore

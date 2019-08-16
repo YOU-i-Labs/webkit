@@ -46,8 +46,6 @@ class AudioSupport extends MediaControllerSupport
     syncControl()
     {
         this.control.shouldUseAudioLayout = this.mediaController.isAudio;
-        if (this.mediaController.mediaDocumentController)
-            this.mediaController.mediaDocumentController.layout();
     }
 
 }

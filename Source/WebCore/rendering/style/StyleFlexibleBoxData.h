@@ -46,8 +46,8 @@ public:
     float flexShrink;
     Length flexBasis;
 
-    unsigned flexDirection : 2; // FlexDirection
-    unsigned flexWrap : 2; // FlexWrap
+    unsigned flexDirection : 2; // EFlexDirection
+    unsigned flexWrap : 2; // EFlexWrap
 
 private:
     StyleFlexibleBoxData();

@@ -131,17 +131,11 @@ void IDBGetResult::encode(Encoder& encoder) const
 template<class Decoder>
 bool IDBGetResult::decode(Decoder& decoder, IDBGetResult& result)
 {
-    Optional<IDBKeyData> keyData;
-    decoder >> keyData;
-    if (!keyData)
+    if (!decoder.decode(result.m_keyData))
         return false;
-    result.m_keyData = WTFMove(*keyData);
 
-    Optional<IDBKeyData> primaryKeyData;
-    decoder >> primaryKeyData;
-    if (!primaryKeyData)
+    if (!decoder.decode(result.m_primaryKeyData))
         return false;
-    result.m_primaryKeyData = WTFMove(*primaryKeyData);
 
     if (!decoder.decode(result.m_keyPath))
         return false;
@@ -149,11 +143,8 @@ bool IDBGetResult::decode(Decoder& decoder, IDBGetResult& result)
     if (!decoder.decode(result.m_isDefined))
         return false;
 
-    Optional<IDBValue> value;
-    decoder >> value;
-    if (!value)
+    if (!decoder.decode(result.m_value))
         return false;
-    result.m_value = WTFMove(*value);
 
     return true;
 }

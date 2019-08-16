@@ -36,7 +36,6 @@
 #include "MathMLNames.h"
 #include "MathMLPresentationElement.h"
 #include "RenderView.h"
-#include <wtf/IsoMallocInlines.h>
 
 #if ENABLE(DEBUG_MATH_LAYOUT)
 #include "PaintInfo.h"
@@ -45,9 +44,6 @@
 namespace WebCore {
 
 using namespace MathMLNames;
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMathMLBlock);
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMathMLTable);
 
 RenderMathMLBlock::RenderMathMLBlock(MathMLPresentationElement& container, RenderStyle&& style)
     : RenderBlock(container, WTFMove(style), 0)
@@ -63,7 +59,9 @@ RenderMathMLBlock::RenderMathMLBlock(Document& document, RenderStyle&& style)
     setChildrenInline(false); // All of our children must be block-level.
 }
 
-RenderMathMLBlock::~RenderMathMLBlock() = default;
+RenderMathMLBlock::~RenderMathMLBlock()
+{
+}
 
 bool RenderMathMLBlock::isChildAllowed(const RenderObject& child, const RenderStyle&) const
 {
@@ -89,7 +87,7 @@ LayoutUnit RenderMathMLBlock::mathAxisHeight() const
 
 LayoutUnit RenderMathMLBlock::mirrorIfNeeded(LayoutUnit horizontalOffset, LayoutUnit boxWidth) const
 {
-    if (style().direction() == TextDirection::RTL)
+    if (style().direction() == RTL)
         return logicalWidth() - boxWidth - horizontalOffset;
 
     return horizontalOffset;
@@ -102,7 +100,7 @@ int RenderMathMLBlock::baselinePosition(FontBaseline baselineType, bool firstLin
     if (linePositionMode == PositionOfInteriorLineBoxes)
         return 0;
 
-    return firstLineBaseline().valueOr(RenderBlock::baselinePosition(baselineType, firstLine, direction, linePositionMode));
+    return firstLineBaseline().value_or(RenderBlock::baselinePosition(baselineType, firstLine, direction, linePositionMode));
 }
 
 #if ENABLE(DEBUG_MATH_LAYOUT)
@@ -110,7 +108,7 @@ void RenderMathMLBlock::paint(PaintInfo& info, const LayoutPoint& paintOffset)
 {
     RenderBlock::paint(info, paintOffset);
 
-    if (info.context().paintingDisabled() || info.phase != PaintPhase::Foreground)
+    if (info.context().paintingDisabled() || info.phase != PaintPhaseForeground)
         return;
 
     IntPoint adjustedPaintOffset = roundedIntPoint(paintOffset + location());
@@ -143,29 +141,26 @@ void RenderMathMLBlock::paint(PaintInfo& info, const LayoutPoint& paintOffset)
 LayoutUnit toUserUnits(const MathMLElement::Length& length, const RenderStyle& style, const LayoutUnit& referenceValue)
 {
     switch (length.type) {
-    // Zoom for physical units needs to be accounted for.
     case MathMLElement::LengthType::Cm:
-        return style.effectiveZoom() * length.value * cssPixelsPerInch / 2.54f;
-    case MathMLElement::LengthType::In:
-        return style.effectiveZoom() * length.value * cssPixelsPerInch;
-    case MathMLElement::LengthType::Mm:
-        return style.effectiveZoom() * length.value * cssPixelsPerInch / 25.4f;
-    case MathMLElement::LengthType::Pc:
-        return style.effectiveZoom() * length.value * cssPixelsPerInch / 6;
-    case MathMLElement::LengthType::Pt:
-        return style.effectiveZoom() * length.value * cssPixelsPerInch / 72;
-    case MathMLElement::LengthType::Px:
-        return style.effectiveZoom() * length.value;
-
-    // Zoom for logical units is accounted for either in the font info or referenceValue.
+        return length.value * cssPixelsPerInch / 2.54f;
     case MathMLElement::LengthType::Em:
         return length.value * style.fontCascade().size();
     case MathMLElement::LengthType::Ex:
         return length.value * style.fontMetrics().xHeight();
+    case MathMLElement::LengthType::In:
+        return length.value * cssPixelsPerInch;
     case MathMLElement::LengthType::MathUnit:
         return length.value * style.fontCascade().size() / 18;
+    case MathMLElement::LengthType::Mm:
+        return length.value * cssPixelsPerInch / 25.4f;
+    case MathMLElement::LengthType::Pc:
+        return length.value * cssPixelsPerInch / 6;
     case MathMLElement::LengthType::Percentage:
         return referenceValue * length.value / 100;
+    case MathMLElement::LengthType::Pt:
+        return length.value * cssPixelsPerInch / 72;
+    case MathMLElement::LengthType::Px:
+        return length.value;
     case MathMLElement::LengthType::UnitLess:
         return referenceValue * length.value;
     case MathMLElement::LengthType::ParsingFailed:
@@ -178,11 +173,11 @@ LayoutUnit toUserUnits(const MathMLElement::Length& length, const RenderStyle& s
     }
 }
 
-Optional<int> RenderMathMLTable::firstLineBaseline() const
+std::optional<int> RenderMathMLTable::firstLineBaseline() const
 {
     // By default the vertical center of <mtable> is aligned on the math axis.
     // This is different than RenderTable::firstLineBoxBaseline, which returns the baseline of the first row of a <table>.
-    return Optional<int>(logicalHeight() / 2 + axisHeight(style()));
+    return std::optional<int>(logicalHeight() / 2 + axisHeight(style()));
 }
 
 void RenderMathMLBlock::layoutItems(bool relayoutChildren)
@@ -190,7 +185,7 @@ void RenderMathMLBlock::layoutItems(bool relayoutChildren)
     LayoutUnit verticalOffset = borderBefore() + paddingBefore();
     LayoutUnit horizontalOffset = borderStart() + paddingStart();
 
-    LayoutUnit preferredHorizontalExtent;
+    LayoutUnit preferredHorizontalExtent = 0;
     for (auto* child = firstChildBox(); child; child = child->nextSiblingBox()) {
         LayoutUnit childHorizontalExtent = child->maxPreferredLogicalWidth() - child->horizontalBorderAndPaddingExtent();
         LayoutUnit childHorizontalMarginBoxExtent = child->horizontalBorderAndPaddingExtent() + childHorizontalExtent;
@@ -248,14 +243,12 @@ void RenderMathMLBlock::layoutBlock(bool relayoutChildren, LayoutUnit)
 
     updateLogicalHeight();
 
-    layoutPositionedObjects(relayoutChildren);
-
     repainter.repaintAfterLayout();
 
     clearNeedsLayout();
 }
 
-void RenderMathMLBlock::layoutInvalidMarkup(bool relayoutChildren)
+void RenderMathMLBlock::layoutInvalidMarkup()
 {
     // Invalid MathML subtrees are just renderered as empty boxes.
     // FIXME: https://webkit.org/b/135460 - Should we display some "invalid" markup message instead?
@@ -264,7 +257,6 @@ void RenderMathMLBlock::layoutInvalidMarkup(bool relayoutChildren)
         child->layoutIfNeeded();
     setLogicalWidth(0);
     setLogicalHeight(0);
-    layoutPositionedObjects(relayoutChildren);
     clearNeedsLayout();
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Andy VanWagoner (andy@vanwagoner.family)
+ * Copyright (C) 2015 Andy VanWagoner (thetalecrafter@gmail.com)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,16 +29,13 @@
 
 #include "JSDestructibleObject.h"
 #include <unicode/unum.h>
-#include <unicode/uvernum.h>
-
-#define HAVE_ICU_FORMAT_DOUBLE_FOR_FIELDS (U_ICU_VERSION_MAJOR_NUM >= 59)
 
 namespace JSC {
 
 class IntlNumberFormatConstructor;
 class JSBoundFunction;
 
-class IntlNumberFormat final : public JSDestructibleObject {
+class IntlNumberFormat : public JSDestructibleObject {
 public:
     typedef JSDestructibleObject Base;
 
@@ -49,9 +46,6 @@ public:
 
     void initializeNumberFormat(ExecState&, JSValue locales, JSValue optionsValue);
     JSValue formatNumber(ExecState&, double number);
-#if HAVE(ICU_FORMAT_DOUBLE_FOR_FIELDS)
-    JSValue formatToParts(ExecState&, double value);
-#endif
     JSObject* resolvedOptions(ExecState&);
 
     JSBoundFunction* boundFormat() const { return m_boundFormat.get(); }
@@ -71,8 +65,9 @@ private:
         void operator()(UNumberFormat*) const;
     };
 
-    static ASCIILiteral styleString(Style);
-    static ASCIILiteral currencyDisplayString(CurrencyDisplay);
+    void createNumberFormat(ExecState&);
+    static const char* styleString(Style);
+    static const char* currencyDisplayString(CurrencyDisplay);
 
     String m_locale;
     String m_numberingSystem;
@@ -88,24 +83,6 @@ private:
     WriteBarrier<JSBoundFunction> m_boundFormat;
     bool m_useGrouping { true };
     bool m_initializedNumberFormat { false };
-
-#if HAVE(ICU_FORMAT_DOUBLE_FOR_FIELDS)
-    struct UFieldPositionIteratorDeleter {
-        void operator()(UFieldPositionIterator*) const;
-    };
-
-    struct IntlNumberFormatField {
-        UNumberFormatFields type;
-        int32_t beginIndex { 0 };
-        int32_t endIndex { 0 };
-        int32_t size() const
-        {
-            return endIndex - beginIndex;
-        };
-    };
-
-    static ASCIILiteral partTypeString(UNumberFormatFields, double);
-#endif
 };
 
 } // namespace JSC

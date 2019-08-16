@@ -33,23 +33,16 @@ namespace WebCore {
 class RuleData;
 class StyleRule;
 
-enum class MatchElement { Subject, Parent, Ancestor, DirectSibling, IndirectSibling, AnySibling, ParentSibling, AncestorSibling, Host };
-constexpr unsigned matchElementCount = static_cast<unsigned>(MatchElement::Host) + 1;
-
 struct RuleFeature {
-    RuleFeature(StyleRule* rule, unsigned selectorIndex, unsigned selectorListIndex, Optional<MatchElement> matchElement = WTF::nullopt, const CSSSelector* invalidationSelector = nullptr)
+    RuleFeature(StyleRule* rule, unsigned selectorIndex, bool hasDocumentSecurityOrigin)
         : rule(rule)
         , selectorIndex(selectorIndex)
-        , selectorListIndex(selectorListIndex)
-        , matchElement(matchElement)
-        , invalidationSelector(invalidationSelector)
-    {
+        , hasDocumentSecurityOrigin(hasDocumentSecurityOrigin) 
+    { 
     }
     StyleRule* rule;
     unsigned selectorIndex;
-    unsigned selectorListIndex;
-    Optional<MatchElement> matchElement;
-    const CSSSelector* invalidationSelector;
+    bool hasDocumentSecurityOrigin;
 };
 
 struct RuleFeatureSet {
@@ -57,35 +50,34 @@ struct RuleFeatureSet {
     void clear();
     void shrinkToFit();
     void collectFeatures(const RuleData&);
-    void registerContentAttribute(const AtomicString&);
 
     HashSet<AtomicString> idsInRules;
     HashSet<AtomicString> idsMatchingAncestorsInRules;
+    HashSet<AtomicString> classesInRules;
     HashSet<AtomicString> attributeCanonicalLocalNamesInRules;
     HashSet<AtomicString> attributeLocalNamesInRules;
-    HashSet<AtomicString> contentAttributeNamesInRules;
     Vector<RuleFeature> siblingRules;
     Vector<RuleFeature> uncommonAttributeRules;
-    
-    HashMap<AtomicString, std::unique_ptr<Vector<RuleFeature>>> classRules;
-    HashMap<AtomicString, std::unique_ptr<Vector<RuleFeature>>> attributeRules;
-    HashSet<AtomicString> classesAffectingHost;
-    HashSet<AtomicString> attributesAffectingHost;
+    HashMap<AtomicString, std::unique_ptr<Vector<RuleFeature>>> ancestorClassRules;
 
+    struct AttributeRules {
+        WTF_MAKE_FAST_ALLOCATED;
+    public:
+        using SelectorKey = std::pair<AtomicStringImpl*, std::pair<AtomicStringImpl*, unsigned>>;
+        HashMap<SelectorKey, const CSSSelector*> selectors;
+        Vector<RuleFeature> features;
+    };
+    HashMap<AtomicString, std::unique_ptr<AttributeRules>> ancestorAttributeRulesForHTML;
     bool usesFirstLineRules { false };
     bool usesFirstLetterRules { false };
 
 private:
-    static MatchElement computeNextMatchElement(MatchElement, CSSSelector::RelationType);
-    static MatchElement computeSubSelectorMatchElement(MatchElement, const CSSSelector&);
-
     struct SelectorFeatures {
         bool hasSiblingSelector { false };
-
-        Vector<std::pair<AtomicString, MatchElement>, 32> classes;
-        Vector<std::pair<const CSSSelector*, MatchElement>, 32> attributes;
+        Vector<AtomicString, 32> classesMatchingAncestors;
+        Vector<const CSSSelector*> attributeSelectorsMatchingAncestors;
     };
-    void recursivelyCollectFeaturesFromSelector(SelectorFeatures&, const CSSSelector&, MatchElement = MatchElement::Subject);
+    void recursivelyCollectFeaturesFromSelector(SelectorFeatures&, const CSSSelector&, bool matchesAncestor = false);
 };
 
 } // namespace WebCore

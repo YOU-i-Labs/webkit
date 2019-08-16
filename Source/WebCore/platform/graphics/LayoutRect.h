@@ -34,13 +34,11 @@
 #include "IntRect.h"
 #include "LayoutPoint.h"
 #include "LengthBox.h"
-#include <wtf/Forward.h>
-
-namespace WTF {
-class TextStream;
-}
+#include <wtf/Vector.h>
 
 namespace WebCore {
+
+class TextStream;
 
 class LayoutRect {
 public:
@@ -145,7 +143,6 @@ public:
     bool contains(const LayoutPoint& point) const { return contains(point.x(), point.y()); }
 
     void intersect(const LayoutRect&);
-    bool edgeInclusiveIntersect(const LayoutRect&);
     WEBCORE_EXPORT void unite(const LayoutRect&);
     void uniteIfNonZero(const LayoutRect&);
     bool checkedUnite(const LayoutRect&);
@@ -161,7 +158,6 @@ public:
         m_size.setHeight(m_size.height() + dy + dy);
     }
     void inflate(LayoutUnit d) { inflateX(d); inflateY(d); }
-    void inflate(LayoutSize size) { inflateX(size.width()); inflateY(size.height()); }
     WEBCORE_EXPORT void scale(float);
     void scale(float xScale, float yScale);
 
@@ -250,7 +246,7 @@ inline FloatRect snapRectToDevicePixelsWithWritingDirection(const LayoutRect& re
 
 FloatRect encloseRectToDevicePixels(const LayoutRect&, float pixelSnappingFactor);
 
-WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const LayoutRect&);
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, const LayoutRect&);
 
 } // namespace WebCore
 

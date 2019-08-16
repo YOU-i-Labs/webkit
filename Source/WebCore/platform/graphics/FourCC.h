@@ -30,20 +30,12 @@
 namespace WebCore {
 
 struct FourCC {
-    FourCC(uint32_t value) : value(value) { }
-
-    template<std::size_t N>
-    constexpr FourCC(const char (&data)[N])
-    {
-        static_assert((N - 1) == 4, "FourCC literals must be exactly 4 characters long");
-        value = data[0] << 24 | data[1] << 16 | data[2] << 8 | data[3];
-    }
+    WEBCORE_EXPORT FourCC(uint32_t value) : value(value) { }
 
     String toString() const;
-    WEBCORE_EXPORT static Optional<FourCC> fromString(const String&);
+    WEBCORE_EXPORT static std::optional<FourCC> fromString(const String&);
 
     bool operator==(const FourCC& other) const { return value == other.value; }
-    bool operator!=(const FourCC& other) const { return value != other.value; }
 
     uint32_t value;
 };

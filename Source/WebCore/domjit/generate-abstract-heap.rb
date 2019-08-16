@@ -136,7 +136,7 @@ header = <<-EOS
 
 #pragma once
 
-#include <JavaScriptCore/DOMJITHeapRange.h>
+#include <domjit/DOMJITHeapRange.h>
 
 namespace WebCore { namespace DOMJIT { namespace AbstractHeapRepository {
 EOS

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2011, 2012, 2013, 2014 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,6 +25,7 @@
 #include "CollectionIndexCache.h"
 #include "HTMLNames.h"
 #include "LiveNodeList.h"
+#include "ScriptWrappable.h"
 #include <wtf/HashMap.h>
 
 namespace WebCore {
@@ -101,15 +102,13 @@ protected:
     enum RootType { IsRootedAtNode, IsRootedAtDocument };
     static RootType rootTypeFromCollectionType(CollectionType);
 
-    mutable Lock m_namedElementCacheAssignmentLock;
-
-    const unsigned m_collectionType : 5; // CollectionType
-    const unsigned m_invalidationType : 4; // NodeListInvalidationType
-    const unsigned m_rootType : 1; // RootType
-
     Ref<ContainerNode> m_ownerNode;
 
     mutable std::unique_ptr<CollectionNamedElementCache> m_namedElementCache;
+
+    const unsigned m_collectionType : 5;
+    const unsigned m_invalidationType : 4;
+    const unsigned m_rootType : 1;
 };
 
 inline ContainerNode& HTMLCollection::rootNode() const
@@ -142,8 +141,6 @@ inline void CollectionNamedElementCache::appendToNameCache(const AtomicString& n
 
 inline size_t CollectionNamedElementCache::memoryCost() const
 {
-    // memoryCost() may be invoked concurrently from a GC thread, and we need to be careful about what data we access here and how.
-    // It is safe to access m_idMap.size(), m_nameMap.size(), and m_propertyNames.size() because they don't chase pointers.
     return (m_idMap.size() + m_nameMap.size()) * sizeof(Element*) + m_propertyNames.size() * sizeof(AtomicString);
 }
 
@@ -172,9 +169,6 @@ inline void CollectionNamedElementCache::append(StringToElementsMap& map, const 
 
 inline size_t HTMLCollection::memoryCost() const
 {
-    // memoryCost() may be invoked concurrently from a GC thread, and we need to be careful about what data we access here and how.
-    // Hence, we need to guard m_namedElementCache from being replaced while accessing it.
-    auto locker = holdLock(m_namedElementCacheAssignmentLock);
     return m_namedElementCache ? m_namedElementCache->memoryCost() : 0;
 }
 
@@ -221,10 +215,7 @@ inline void HTMLCollection::setNamedItemCache(std::unique_ptr<CollectionNamedEle
     ASSERT(cache);
     ASSERT(!m_namedElementCache);
     cache->didPopulate();
-    {
-        auto locker = holdLock(m_namedElementCacheAssignmentLock);
-        m_namedElementCache = WTFMove(cache);
-    }
+    m_namedElementCache = WTFMove(cache);
     document().collectionCachedIdNameMap(*this);
 }
 

@@ -29,6 +29,7 @@
 
 #include "DFGEdge.h"
 #include "DFGNodeOrigin.h"
+#include "DFGOpInfo.h"
 #include <wtf/HashTable.h>
 #include <wtf/PrintStream.h>
 
@@ -63,9 +64,6 @@ enum PromotedLocationKind {
     VectorLengthPLoc,
     SpreadPLoc,
     NewArrayWithSpreadArgumentPLoc,
-    NewArrayBufferPLoc,
-    RegExpObjectRegExpPLoc,
-    RegExpObjectLastIndexPLoc,
 };
 
 class PromotedLocationDescriptor {
@@ -119,7 +117,6 @@ public:
         switch (kind()) {
         case NamedPropertyPLoc:
         case ClosureVarPLoc:
-        case RegExpObjectLastIndexPLoc:
             return false;
 
         default:

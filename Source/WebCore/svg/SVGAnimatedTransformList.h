@@ -1,6 +1,5 @@
 /*
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,18 +21,20 @@
 
 #include "SVGAnimatedTransformListPropertyTearOff.h"
 #include "SVGAnimatedTypeAnimator.h"
-#include "SVGAttributeAccessor.h"
 #include "SVGTransformList.h"
 
 namespace WebCore {
 
-class SVGAnimationElement;
-
 using SVGAnimatedTransformList = SVGAnimatedTransformListPropertyTearOff;
-using SVGAnimatedTransformListAttribute = SVGAnimatedAttributeList<SVGAnimatedTransformList>;
 
-template<typename OwnerType>
-using SVGAnimatedTransformListAttributeAccessor = SVGAnimatedAttributeAccessor<OwnerType, SVGAnimatedTransformListAttribute, AnimatedTransformList>;
+// Helper macros to declare/define a SVGAnimatedTransformList object
+#define DECLARE_ANIMATED_TRANSFORM_LIST(UpperProperty, LowerProperty) \
+DECLARE_ANIMATED_LIST_PROPERTY(SVGAnimatedTransformList, SVGTransformListValues, UpperProperty, LowerProperty)
+
+#define DEFINE_ANIMATED_TRANSFORM_LIST(OwnerType, DOMAttribute, UpperProperty, LowerProperty) \
+DEFINE_ANIMATED_PROPERTY(AnimatedTransformList, OwnerType, DOMAttribute, DOMAttribute.localName(), UpperProperty, LowerProperty)
+
+class SVGAnimationElement;
 
 class SVGAnimatedTransformListAnimator final : public SVGAnimatedTypeAnimator {
 public:

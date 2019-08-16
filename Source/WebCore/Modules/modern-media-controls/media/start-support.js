@@ -30,21 +30,14 @@ class StartSupport extends MediaControllerSupport
     {
         super(mediaController);
 
-        this._updateShowsStartButton();
+        this.mediaController.controls.showsStartButton = this._shouldShowStartButton();
     }
 
     // Protected
 
     get mediaEvents()
     {
-        return ["loadedmetadata", "play", "error", this.mediaController.fullscreenChangeEventType];
-    }
-
-    enable()
-    {
-        super.enable();
-
-        this._updateShowsStartButton();
+        return ["loadedmetadata", "play", "error", "webkitfullscreenchange"];
     }
 
     buttonWasPressed(control)
@@ -54,17 +47,15 @@ class StartSupport extends MediaControllerSupport
 
     handleEvent(event)
     {
-        super.handleEvent(event);
+        if (event.type === "play")
+            this.mediaController.hasPlayed = true;
 
-        this._updateShowsStartButton();
+        this.mediaController.controls.showsStartButton = this._shouldShowStartButton();
+
+        super.handleEvent(event);
     }
 
     // Private
-
-    _updateShowsStartButton()
-    {
-        this.mediaController.controls.showsStartButton = this._shouldShowStartButton();
-    }
 
     _shouldShowStartButton()
     {

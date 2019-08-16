@@ -31,11 +31,11 @@
 
 namespace WebCore {
 
-static inline Optional<TrackEvent::TrackEventTrack> convertToTrackEventTrack(Ref<TrackBase>&& track)
+static inline std::optional<TrackEvent::TrackEventTrack> convertToTrackEventTrack(Ref<TrackBase>&& track)
 {
     switch (track->type()) {
     case TrackBase::BaseTrack:
-        return WTF::nullopt;
+        return std::nullopt;
     case TrackBase::TextTrack:
         return TrackEvent::TrackEventTrack { RefPtr<TextTrack>(&downcast<TextTrack>(track.get())) };
     case TrackBase::AudioTrack:
@@ -45,10 +45,10 @@ static inline Optional<TrackEvent::TrackEventTrack> convertToTrackEventTrack(Ref
     }
     
     ASSERT_NOT_REACHED();
-    return WTF::nullopt;
+    return std::nullopt;
 }
 
-TrackEvent::TrackEvent(const AtomicString& type, CanBubble canBubble, IsCancelable cancelable, Ref<TrackBase>&& track)
+TrackEvent::TrackEvent(const AtomicString& type, bool canBubble, bool cancelable, Ref<TrackBase>&& track)
     : Event(type, canBubble, cancelable)
     , m_track(convertToTrackEventTrack(WTFMove(track)))
 {
@@ -60,7 +60,9 @@ TrackEvent::TrackEvent(const AtomicString& type, Init&& initializer, IsTrusted i
 {
 }
 
-TrackEvent::~TrackEvent() = default;
+TrackEvent::~TrackEvent()
+{
+}
 
 EventInterface TrackEvent::eventInterface() const
 {

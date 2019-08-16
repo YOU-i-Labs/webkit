@@ -121,14 +121,14 @@ String Value::toString() const
             return m_data->string;
         case NumberValue:
             if (std::isnan(m_number))
-                return "NaN"_s;
+                return ASCIILiteral("NaN");
             if (m_number == 0)
-                return "0"_s;
+                return ASCIILiteral("0");
             if (std::isinf(m_number))
-                return std::signbit(m_number) ? "-Infinity"_s : "Infinity"_s;
+                return ASCIILiteral(std::signbit(m_number) ? "-Infinity" : "Infinity");
             return String::number(m_number);
         case BooleanValue:
-            return m_bool ? "true"_s : "false"_s;
+            return ASCIILiteral(m_bool ? "true" : "false");
     }
 
     ASSERT_NOT_REACHED();

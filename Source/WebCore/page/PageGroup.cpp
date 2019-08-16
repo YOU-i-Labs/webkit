@@ -28,12 +28,12 @@
 
 #include "DOMWrapperWorld.h"
 #include "Document.h"
-#include "Frame.h"
+#include "MainFrame.h"
 #include "Page.h"
 #include "PageCache.h"
 #include "StorageNamespace.h"
-#include <JavaScriptCore/HeapInlines.h>
-#include <JavaScriptCore/StructureInlines.h>
+#include <heap/HeapInlines.h>
+#include <runtime/StructureInlines.h>
 #include <wtf/StdLibExtras.h>
 
 #if ENABLE(VIDEO_TRACK)
@@ -66,7 +66,9 @@ PageGroup::PageGroup(Page& page)
     addPage(page);
 }
 
-PageGroup::~PageGroup() = default;
+PageGroup::~PageGroup()
+{
+}
 
 typedef HashMap<String, PageGroup*> PageGroupMap;
 static PageGroupMap* pageGroups = nullptr;

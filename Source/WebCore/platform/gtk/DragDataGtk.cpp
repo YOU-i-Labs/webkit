@@ -41,9 +41,9 @@ unsigned DragData::numberOfFiles() const
     return m_platformDragData->filenames().size();
 }
 
-Vector<String> DragData::asFilenames() const
+void DragData::asFilenames(Vector<String>& result) const
 {
-    return m_platformDragData->filenames();
+    result = m_platformDragData->filenames();
 }
 
 bool DragData::containsPlainText() const

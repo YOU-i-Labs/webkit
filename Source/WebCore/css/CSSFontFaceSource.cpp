@@ -29,15 +29,14 @@
 #include "CSSFontFace.h"
 #include "CSSFontSelector.h"
 #include "CachedFont.h"
+#include "CachedResourceLoader.h"
 #include "Document.h"
+#include "ElementIterator.h"
 #include "Font.h"
 #include "FontCache.h"
 #include "FontCustomPlatformData.h"
 #include "FontDescription.h"
-#include "ResourceLoadObserver.h"
-#include "RuntimeEnabledFeatures.h"
 #include "SVGToOTFFontConversion.h"
-#include "SharedBuffer.h"
 
 #if ENABLE(SVG_FONTS)
 #include "CachedSVGFont.h"
@@ -92,12 +91,10 @@ CSSFontFaceSource::CSSFontFaceSource(CSSFontFace& owner, const String& familyNam
 
     if (status() == Status::Pending && m_font && m_font->isLoaded()) {
         setStatus(Status::Loading);
-        if (!shouldIgnoreFontLoadCompletions()) {
-            if (m_font && m_font->errorOccurred())
-                setStatus(Status::Failure);
-            else
-                setStatus(Status::Success);
-        }
+        if (m_font && m_font->errorOccurred())
+            setStatus(Status::Failure);
+        else
+            setStatus(Status::Success);
     }
 }
 
@@ -107,25 +104,9 @@ CSSFontFaceSource::~CSSFontFaceSource()
         m_font->removeClient(*this);
 }
 
-bool CSSFontFaceSource::shouldIgnoreFontLoadCompletions() const
-{
-    return m_face.shouldIgnoreFontLoadCompletions();
-}
-
-void CSSFontFaceSource::opportunisticallyStartFontDataURLLoading(CSSFontSelector& fontSelector)
-{
-    if (status() == Status::Pending && m_font && m_font->url().protocolIsData() && m_familyNameOrURI.length() < MB)
-        load(&fontSelector);
-}
-
 void CSSFontFaceSource::fontLoaded(CachedFont& loadedFont)
 {
     ASSERT_UNUSED(loadedFont, &loadedFont == m_font.get());
-
-    if (shouldIgnoreFontLoadCompletions())
-        return;
-
-    Ref<CSSFontFace> protectedFace(m_face);
 
     // If the font is in the cache, this will be synchronously called from CachedFont::addClient().
     if (m_status == Status::Pending)
@@ -136,7 +117,10 @@ void CSSFontFaceSource::fontLoaded(CachedFont& loadedFont)
         return;
     }
 
-    if (m_font->errorOccurred() || !m_font->ensureCustomFontData(m_familyNameOrURI))
+    if (m_face.webFontsShouldAlwaysFallBack())
+        return;
+
+    if (m_font->errorOccurred())
         setStatus(Status::Failure);
     else
         setStatus(Status::Success);
@@ -161,7 +145,7 @@ void CSSFontFaceSource::load(CSSFontSelector* fontSelector)
                 if (auto otfFont = convertSVGToOTFFont(fontElement))
                     m_generatedOTFBuffer = SharedBuffer::create(WTFMove(otfFont.value()));
                 if (m_generatedOTFBuffer) {
-                    m_inDocumentCustomPlatformData = createFontCustomPlatformData(*m_generatedOTFBuffer, String());
+                    m_inDocumentCustomPlatformData = createFontCustomPlatformData(*m_generatedOTFBuffer);
                     success = static_cast<bool>(m_inDocumentCustomPlatformData);
                 }
             }
@@ -170,8 +154,9 @@ void CSSFontFaceSource::load(CSSFontSelector* fontSelector)
         if (m_immediateSource) {
             ASSERT(!m_immediateFontCustomPlatformData);
             bool wrapping;
-            auto buffer = SharedBuffer::create(static_cast<const char*>(m_immediateSource->baseAddress()), m_immediateSource->byteLength());
-            m_immediateFontCustomPlatformData = CachedFont::createCustomFontData(buffer.get(), String(), wrapping);
+            RefPtr<SharedBuffer> buffer = SharedBuffer::create(static_cast<const char*>(m_immediateSource->baseAddress()), m_immediateSource->byteLength());
+            ASSERT(buffer);
+            m_immediateFontCustomPlatformData = CachedFont::createCustomFontData(*buffer, wrapping);
             success = static_cast<bool>(m_immediateFontCustomPlatformData);
         } else {
             // We are only interested in whether or not fontForFamily() returns null or not. Luckily, none of
@@ -180,12 +165,7 @@ void CSSFontFaceSource::load(CSSFontSelector* fontSelector)
             FontCascadeDescription fontDescription;
             fontDescription.setOneFamily(m_familyNameOrURI);
             fontDescription.setComputedSize(1);
-            fontDescription.setShouldAllowUserInstalledFonts(m_face.allowUserInstalledFonts());
             success = FontCache::singleton().fontForFamily(fontDescription, m_familyNameOrURI, nullptr, nullptr, FontSelectionSpecifiedCapabilities(), true);
-            if (RuntimeEnabledFeatures::sharedFeatures().webAPIStatisticsEnabled()) {
-                if (auto* document = fontSelector->document())
-                    ResourceLoadObserver::shared().logFontLoad(*document, m_familyNameOrURI.string(), success);
-            }
         }
         setStatus(success ? Status::Success : Status::Failure);
     }
@@ -213,13 +193,10 @@ RefPtr<Font> CSSFontFaceSource::font(const FontDescription& fontDescription, boo
     }
 
     if (m_font) {
-        auto success = m_font->ensureCustomFontData(m_familyNameOrURI);
-        ASSERT_UNUSED(success, success);
+        if (!m_font->ensureCustomFontData(m_familyNameOrURI))
+            return nullptr;
 
-        ASSERT(status() == Status::Success);
-        auto result = m_font->createFont(fontDescription, m_familyNameOrURI, syntheticBold, syntheticItalic, fontFaceFeatures, fontFaceVariantSettings, fontFaceCapabilities);
-        ASSERT(result);
-        return result;
+        return m_font->createFont(fontDescription, m_familyNameOrURI, syntheticBold, syntheticItalic, fontFaceFeatures, fontFaceVariantSettings, fontFaceCapabilities);
     }
 
     // In-Document SVG Fonts
@@ -231,7 +208,11 @@ RefPtr<Font> CSSFontFaceSource::font(const FontDescription& fontDescription, boo
         return nullptr;
     if (!m_inDocumentCustomPlatformData)
         return nullptr;
+#if PLATFORM(COCOA)
     return Font::create(m_inDocumentCustomPlatformData->fontPlatformData(fontDescription, syntheticBold, syntheticItalic, fontFaceFeatures, fontFaceVariantSettings, fontFaceCapabilities), Font::Origin::Remote);
+#else
+    return Font::create(m_inDocumentCustomPlatformData->fontPlatformData(fontDescription, syntheticBold, syntheticItalic), Font::Origin::Remote);
+#endif
 #endif
 
     ASSERT_NOT_REACHED();

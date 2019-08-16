@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef BitVector_h
+#define BitVector_h
 
 #include <stdio.h>
 #include <wtf/Assertions.h>
@@ -307,13 +308,6 @@ public:
             return *this;
         }
 
-        iterator operator++(int)
-        {
-            iterator result = *this;
-            ++(*this);
-            return result;
-        }
-
         bool isAtEnd() const
         {
             return m_index >= m_bitVector->size();
@@ -481,8 +475,11 @@ template<> struct DefaultHash<BitVector> {
     typedef BitVectorHash Hash;
 };
 
+template<typename T> struct HashTraits;
 template<> struct HashTraits<BitVector> : public CustomHashTraits<BitVector> { };
 
 } // namespace WTF
 
 using WTF::BitVector;
+
+#endif // BitVector_h

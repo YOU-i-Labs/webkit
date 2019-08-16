@@ -23,10 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.FormatterWorkerProxy = class FormatterWorkerProxy
+WebInspector.FormatterWorkerProxy = class FormatterWorkerProxy extends WebInspector.Object
 {
     constructor()
     {
+        super();
+
         this._formatterWorker = new Worker("Workers/Formatter/FormatterWorker.js");
         this._formatterWorker.addEventListener("message", this._handleMessage.bind(this));
 

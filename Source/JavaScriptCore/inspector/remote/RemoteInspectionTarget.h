@@ -42,7 +42,7 @@ public:
     void setRemoteDebuggingAllowed(bool);
 
 #if USE(CF)
-    CFRunLoopRef targetRunLoop() const final { return m_runLoop.get(); }
+    CFRunLoopRef targetRunLoop() override { return m_runLoop.get(); }
     void setTargetRunLoop(CFRunLoopRef runLoop) { m_runLoop = runLoop; }
 #endif
 
@@ -57,10 +57,9 @@ public:
     virtual void unpauseForInitializedInspector();
 
     // RemoteControllableTarget overrides.
-    bool remoteControlAllowed() const final;
-
+    bool remoteControlAllowed() const override;
 private:
-    bool m_allowed { false };
+    bool m_allowed {false};
 #if USE(CF)
     RetainPtr<CFRunLoopRef> m_runLoop;
 #endif
@@ -72,7 +71,6 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(Inspector::RemoteInspectionTarget) \
     static bool isType(const Inspector::RemoteControllableTarget& target) \
     { \
         return target.type() == Inspector::RemoteControllableTarget::Type::JavaScript \
-            || target.type() == Inspector::RemoteControllableTarget::Type::ServiceWorker \
             || target.type() == Inspector::RemoteControllableTarget::Type::Web; \
     }
 SPECIALIZE_TYPE_TRAITS_END()

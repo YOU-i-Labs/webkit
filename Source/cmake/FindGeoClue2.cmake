@@ -2,6 +2,8 @@
 # Once done, this will define
 #
 #  GEOCLUE2_FOUND - system has GeoClue 2.
+#  GEOCLUE2_INCLUDE_DIRS - the GeoClue 2. include directories
+#  GEOCLUE2_LIBRARIES - link these to use GeoClue 2.
 #
 # Copyright (C) 2012 Raphael Kubo da Costa <rakuco@webkit.org>
 # Copyright (C) 2013, 2014 Igalia S.L.
@@ -29,7 +31,7 @@
 # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 find_package(PkgConfig)
-pkg_check_modules(GEOCLUE2 geoclue-2.0)
+pkg_check_modules(GEOCLUE2 libgeoclue-2.0)
 
 set(VERSION_OK FALSE)
 if (GEOCLUE2_VERSION)
@@ -46,5 +48,4 @@ if (GEOCLUE2_VERSION)
 endif ()
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(GeoClue2 REQUIRED_VARS VERSION_OK
-                                  FOUND_VAR GEOCLUE2_FOUND)
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(GEOCLUE2 DEFAULT_MSG VERSION_OK)

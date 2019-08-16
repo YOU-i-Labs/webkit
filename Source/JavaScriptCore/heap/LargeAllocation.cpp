@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,6 @@
 #include "config.h"
 #include "LargeAllocation.h"
 
-#include "AlignedMemoryAllocator.h"
 #include "Heap.h"
 #include "JSCInlines.h"
 #include "Operations.h"
@@ -35,18 +34,9 @@ namespace JSC {
 
 LargeAllocation* LargeAllocation::tryCreate(Heap& heap, size_t size, Subspace* subspace)
 {
-    // This includes padding at the end of the allocation to maintain the distancing constraint.
-    constexpr size_t distancing = minimumDistanceBetweenCellsFromDifferentOrigins;
-    size_t sizeBeforeDistancing = headerSize() + size;
-    size_t sizeIncludingDistancing = sizeBeforeDistancing + distancing;
-    
-    void* space = subspace->alignedMemoryAllocator()->tryAllocateAlignedMemory(alignment, sizeIncludingDistancing);
+    void* space = tryFastAlignedMalloc(alignment, headerSize() + size);
     if (!space)
         return nullptr;
-    
-    // Make sure that the padding does not contain useful things.
-    memset(static_cast<char*>(space) + sizeBeforeDistancing, 0, distancing);
-    
     if (scribbleFreeCells())
         scribble(space, size);
     return new (NotNull, space) LargeAllocation(heap, size, subspace);
@@ -116,9 +106,8 @@ void LargeAllocation::sweep()
 
 void LargeAllocation::destroy()
 {
-    AlignedMemoryAllocator* allocator = m_subspace->alignedMemoryAllocator();
     this->~LargeAllocation();
-    allocator->freeAlignedMemory(this);
+    fastAlignedFree(this);
 }
 
 void LargeAllocation::dump(PrintStream& out) const

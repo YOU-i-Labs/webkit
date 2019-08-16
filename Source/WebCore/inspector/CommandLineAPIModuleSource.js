@@ -28,9 +28,16 @@
 
 //# sourceURL=__InjectedScript_CommandLineAPIModuleSource.js
 
-(function (InjectedScriptHost, inspectedWindow, injectedScriptId, injectedScript, RemoteObject, CommandLineAPIHost) {
+/**
+ * @param {InjectedScriptHost} InjectedScriptHost
+ * @param {Window} inspectedWindow
+ * @param {number} injectedScriptId
+ * @param {InjectedScript} injectedScript
+ * @param {CommandLineAPIHost} CommandLineAPIHost
+ */
+(function (InjectedScriptHost, inspectedWindow, injectedScriptId, injectedScript, CommandLineAPIHost) {
 
-// FIXME: <https://webkit.org/b/152294> Web Inspector: Parse InjectedScriptSource as a built-in to get guaranteed non-user-overridden built-ins
+// FIXME: <https://webkit.org/b/152294> Web Inspector: Parse InjectedScriptSource as a built-in to get guaranteed non-user-overriden built-ins
 
 function bind(func, thisObject, ...outerArgs)
 {
@@ -57,10 +64,9 @@ function CommandLineAPI(commandLineAPIImpl, callFrame)
         this.__defineGetter__("$" + i, bind(injectedScript._savedResult, injectedScript, i));
 
     // Command Line API methods.
-    for (let i = 0; i < CommandLineAPI.methods.length; ++i) {
-        let method = CommandLineAPI.methods[i];
-        this[method] = bind(commandLineAPIImpl[method], commandLineAPIImpl);
-        this[method].toString = function() { return "function " + method + "() { [Command Line API] }" };
+    for (let member of CommandLineAPI.members_) {
+        this[member] = bind(commandLineAPIImpl[member], commandLineAPIImpl);
+        this[member].toString = function() { return "function " + member + "() { [Command Line API] }" };
     }
 }
 
@@ -68,24 +74,9 @@ function CommandLineAPI(commandLineAPIImpl, callFrame)
  * @type {Array.<string>}
  * @const
  */
-CommandLineAPI.methods = [
-    "$",
-    "$$",
-    "$x",
-    "clear",
-    "copy",
-    "dir",
-    "dirxml",
-    "getEventListeners",
-    "inspect",
-    "keys",
-    "monitorEvents",
-    "profile",
-    "profileEnd",
-    "queryObjects",
-    "table",
-    "unmonitorEvents",
-    "values",
+CommandLineAPI.members_ = [
+    "$", "$$", "$x", "dir", "dirxml", "keys", "values", "profile", "profileEnd", "table",
+    "monitorEvents", "unmonitorEvents", "inspect", "copy", "clear", "getEventListeners"
 ];
 
 /**
@@ -237,15 +228,10 @@ CommandLineAPIImpl.prototype = {
         return this._inspect(object);
     },
 
-    queryObjects()
-    {
-        return InjectedScriptHost.queryObjects(...arguments);
-    },
-
     copy: function(object)
     {
         var string;
-        var subtype = RemoteObject.subtype(object);
+        var subtype = injectedScript._subtype(object);
         if (subtype === "node")
             string = object.outerHTML;
         else if (subtype === "regexp")
@@ -329,10 +315,10 @@ CommandLineAPIImpl.prototype = {
         if (arguments.length === 0)
             return;
 
-        var objectId = RemoteObject.create(object, "");
+        var objectId = injectedScript._wrapObject(object, "");
         var hints = {};
 
-        switch (RemoteObject.describe(object)) {
+        switch (injectedScript._describe(object)) {
         case "Database":
             var databaseId = CommandLineAPIHost.databaseId(object)
             if (databaseId)

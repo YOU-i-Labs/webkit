@@ -36,7 +36,7 @@ public:
     typedef JSPromiseDeferred Base;
     static const unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;
 
-    JS_EXPORT_PRIVATE static JSInternalPromiseDeferred* tryCreate(ExecState*, JSGlobalObject*);
+    JS_EXPORT_PRIVATE static JSInternalPromiseDeferred* create(ExecState*, JSGlobalObject*);
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {

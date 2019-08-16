@@ -31,8 +31,7 @@
 #include "EventTarget.h"
 #include "MessagePort.h"
 #include "WorkerScriptLoaderClient.h"
-#include <JavaScriptCore/RuntimeFlags.h>
-#include <wtf/MonotonicTime.h>
+#include <runtime/RuntimeFlags.h>
 #include <wtf/Optional.h>
 #include <wtf/text/AtomicStringHash.h>
 
@@ -50,10 +49,7 @@ class WorkerScriptLoader;
 
 class Worker final : public AbstractWorker, public ActiveDOMObject, private WorkerScriptLoaderClient {
 public:
-    struct Options {
-        String name;
-    };
-    static ExceptionOr<Ref<Worker>> create(ScriptExecutionContext&, JSC::RuntimeFlags, const String& url, const Options&);
+    static ExceptionOr<Ref<Worker>> create(ScriptExecutionContext&, JSC::RuntimeFlags, const String& url);
     virtual ~Worker();
 
     ExceptionOr<void> postMessage(JSC::ExecState&, JSC::JSValue message, Vector<JSC::Strong<JSC::JSObject>>&&);
@@ -67,7 +63,7 @@ public:
     ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
 
 private:
-    explicit Worker(ScriptExecutionContext&, JSC::RuntimeFlags, const Options&);
+    explicit Worker(ScriptExecutionContext&, JSC::RuntimeFlags);
 
     EventTargetInterface eventTargetInterface() const final { return WorkerEventTargetInterfaceType; }
 
@@ -80,13 +76,12 @@ private:
     void stop() final;
     const char* activeDOMObjectName() const final;
 
-    static void networkStateChanged(bool isOnLine);
+    friend void networkStateChanged(bool isOnLine);
 
     RefPtr<WorkerScriptLoader> m_scriptLoader;
-    String m_name;
     String m_identifier;
     WorkerGlobalScopeProxy& m_contextProxy; // The proxy outlives the worker to perform thread shutdown.
-    Optional<ContentSecurityPolicyResponseHeaders> m_contentSecurityPolicyResponseHeaders;
+    std::optional<ContentSecurityPolicyResponseHeaders> m_contentSecurityPolicyResponseHeaders;
     MonotonicTime m_workerCreationTime;
     bool m_shouldBypassMainWorldContentSecurityPolicy { false };
     JSC::RuntimeFlags m_runtimeFlags;

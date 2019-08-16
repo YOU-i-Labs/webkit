@@ -28,6 +28,7 @@
 #if ENABLE(DFG_JIT)
 
 #include "Structure.h"
+#include "StructureSet.h"
 
 namespace JSC { namespace DFG {
 

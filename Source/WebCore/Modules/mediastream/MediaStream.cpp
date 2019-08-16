@@ -34,20 +34,19 @@
 #include "Event.h"
 #include "EventNames.h"
 #include "Frame.h"
-#include "FrameLoader.h"
 #include "Logging.h"
 #include "MediaStreamRegistry.h"
 #include "MediaStreamTrackEvent.h"
 #include "NetworkingContext.h"
 #include "Page.h"
 #include "RealtimeMediaSource.h"
-#include <wtf/URL.h>
+#include "URL.h"
 
 namespace WebCore {
 
 Ref<MediaStream> MediaStream::create(ScriptExecutionContext& context)
 {
-    return MediaStream::create(context, MediaStreamPrivate::create({ }));
+    return MediaStream::create(context, MediaStreamPrivate::create(Vector<RefPtr<MediaStreamTrackPrivate>>()));
 }
 
 Ref<MediaStream> MediaStream::create(ScriptExecutionContext& context, MediaStream& stream)
@@ -77,6 +76,7 @@ static inline MediaStreamTrackPrivateVector createTrackPrivateVector(const Media
 MediaStream::MediaStream(ScriptExecutionContext& context, const MediaStreamTrackVector& tracks)
     : ActiveDOMObject(&context)
     , m_private(MediaStreamPrivate::create(createTrackPrivateVector(tracks)))
+    , m_activityEventTimer(*this, &MediaStream::activityEventTimerFired)
     , m_mediaSession(PlatformMediaSession::create(*this))
 {
     // This constructor preserves MediaStreamTrack instances and must be used by calls originating
@@ -96,6 +96,7 @@ MediaStream::MediaStream(ScriptExecutionContext& context, const MediaStreamTrack
 MediaStream::MediaStream(ScriptExecutionContext& context, Ref<MediaStreamPrivate>&& streamPrivate)
     : ActiveDOMObject(&context)
     , m_private(WTFMove(streamPrivate))
+    , m_activityEventTimer(*this, &MediaStream::activityEventTimerFired)
     , m_mediaSession(PlatformMediaSession::create(*this))
 {
     setIsActive(m_private->active());
@@ -177,7 +178,11 @@ MediaStreamTrackVector MediaStream::getVideoTracks() const
 
 MediaStreamTrackVector MediaStream::getTracks() const
 {
-    return copyToVector(m_trackSet.values());
+    MediaStreamTrackVector tracks;
+    tracks.reserveCapacity(m_trackSet.size());
+    copyValuesToVector(m_trackSet, tracks);
+
+    return tracks;
 }
 
 void MediaStream::trackDidEnd()
@@ -187,7 +192,9 @@ void MediaStream::trackDidEnd()
 
 void MediaStream::activeStatusChanged()
 {
-    updateActiveState();
+    // Schedule the active state change and event dispatch since this callback may be called
+    // synchronously from the DOM API (e.g. as a result of addTrack()).
+    scheduleActiveStateChange();
 }
 
 void MediaStream::didAddTrack(MediaStreamTrackPrivate& trackPrivate)
@@ -222,12 +229,10 @@ bool MediaStream::internalAddTrack(Ref<MediaStreamTrack>&& trackToAdd, StreamMod
     auto& track = *result.iterator->value;
     track.addObserver(*this);
 
-    updateActiveState();
-
     if (streamModifier == StreamModifier::DomAPI)
         m_private->addTrack(&track.privateTrack(), MediaStreamPrivate::NotifyClientOption::DontNotify);
     else
-        dispatchEvent(MediaStreamTrackEvent::create(eventNames().addtrackEvent, Event::CanBubble::No, Event::IsCancelable::No, &track));
+        dispatchEvent(MediaStreamTrackEvent::create(eventNames().addtrackEvent, false, false, &track));
 
     return true;
 }
@@ -240,12 +245,10 @@ bool MediaStream::internalRemoveTrack(const String& trackId, StreamModifier stre
 
     track->removeObserver(*this);
 
-    updateActiveState();
-
     if (streamModifier == StreamModifier::DomAPI)
         m_private->removeTrack(track->privateTrack(), MediaStreamPrivate::NotifyClientOption::DontNotify);
     else
-        dispatchEvent(MediaStreamTrackEvent::create(eventNames().removetrackEvent, Event::CanBubble::No, Event::IsCancelable::No, WTFMove(track)));
+        dispatchEvent(MediaStreamTrackEvent::create(eventNames().removetrackEvent, false, false, WTFMove(track)));
 
     return true;
 }
@@ -334,9 +337,8 @@ void MediaStream::statusDidChange()
     m_mediaSession->canProduceAudioChanged();
 
     if (Document* document = this->document()) {
-        if (!m_isActive)
-            return;
-        document->updateIsPlayingMedia();
+        if (m_isActive)
+            document->setHasActiveMediaStreamTrack();
     }
 }
 
@@ -349,7 +351,7 @@ void MediaStream::characteristicsChanged()
     }
 }
 
-void MediaStream::updateActiveState()
+void MediaStream::scheduleActiveStateChange()
 {
     bool active = false;
     for (auto& track : m_trackSet.values()) {
@@ -363,6 +365,21 @@ void MediaStream::updateActiveState()
         return;
 
     setIsActive(active);
+
+    const AtomicString& eventName = m_isActive ? eventNames().inactiveEvent : eventNames().activeEvent;
+    m_scheduledActivityEvents.append(Event::create(eventName, false, false));
+
+    if (!m_activityEventTimer.isActive())
+        m_activityEventTimer.startOneShot(0_s);
+}
+
+void MediaStream::activityEventTimerFired()
+{
+    Vector<Ref<Event>> events;
+    events.swap(m_scheduledActivityEvents);
+
+    for (auto& event : events)
+        dispatchEvent(event);
 }
 
 URLRegistry& MediaStream::registry() const
@@ -479,7 +496,7 @@ bool MediaStream::canSuspendForDocumentSuspension() const
 
 bool MediaStream::hasPendingActivity() const
 {
-    return m_isActive;
+    return m_isActive || !m_scheduledActivityEvents.isEmpty();
 }
 
 } // namespace WebCore

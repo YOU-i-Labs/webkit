@@ -30,11 +30,13 @@
 
 #if ENABLE(ENCRYPTED_MEDIA)
 
-#include "CDMSessionType.h"
-
 namespace WebCore {
 
-using MediaKeySessionType = CDMSessionType;
+enum class MediaKeySessionType {
+    Temporary,
+    PersistentUsageRecord,
+    PersistentLicense
+};
 
 } // namespace WebCore
 

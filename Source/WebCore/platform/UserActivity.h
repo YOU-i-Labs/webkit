@@ -26,7 +26,7 @@
 #ifndef UserActivity_h
 #define UserActivity_h
 
-#include <pal/HysteresisActivity.h>
+#include "HysteresisActivity.h"
 
 #if HAVE(NS_ACTIVITY)
 #include <objc/objc.h>
@@ -40,7 +40,7 @@ namespace WebCore {
 // The UserActivity type is used to indicate to the operating system that
 // a user initiated or visible action is taking place, and as such that
 // resources should be allocated to the process accordingly.
-class UserActivity : public PAL::HysteresisActivity {
+class UserActivity : public HysteresisActivity {
 public:
     class Impl {
     public:
@@ -59,7 +59,7 @@ public:
     WEBCORE_EXPORT explicit UserActivity(const char* description);
 
 private:
-    void hysteresisUpdated(PAL::HysteresisState);
+    void hysteresisUpdated(HysteresisState);
 
     Impl m_impl;
 };

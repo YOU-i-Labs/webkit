@@ -40,13 +40,9 @@
 #include "Region.h"
 #include <wtf/Assertions.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/UniqueArray.h>
 #include <wtf/Vector.h>
 
 #if ENABLE(ACCELERATED_2D_CANVAS)
-#if USE(EGL) && USE(LIBEPOXY)
-#include "EpoxyEGL.h"
-#endif
 #include <cairo-gl.h>
 #endif
 
@@ -164,37 +160,37 @@ static cairo_operator_t toCairoCompositeOperator(CompositeOperator op)
 cairo_operator_t toCairoOperator(CompositeOperator op, BlendMode blendOp)
 {
     switch (blendOp) {
-    case BlendMode::Normal:
+    case BlendModeNormal:
         return toCairoCompositeOperator(op);
-    case BlendMode::Multiply:
+    case BlendModeMultiply:
         return CAIRO_OPERATOR_MULTIPLY;
-    case BlendMode::Screen:
+    case BlendModeScreen:
         return CAIRO_OPERATOR_SCREEN;
-    case BlendMode::Overlay:
+    case BlendModeOverlay:
         return CAIRO_OPERATOR_OVERLAY;
-    case BlendMode::Darken:
+    case BlendModeDarken:
         return CAIRO_OPERATOR_DARKEN;
-    case BlendMode::Lighten:
+    case BlendModeLighten:
         return CAIRO_OPERATOR_LIGHTEN;
-    case BlendMode::ColorDodge:
+    case BlendModeColorDodge:
         return CAIRO_OPERATOR_COLOR_DODGE;
-    case BlendMode::ColorBurn:
+    case BlendModeColorBurn:
         return CAIRO_OPERATOR_COLOR_BURN;
-    case BlendMode::HardLight:
+    case BlendModeHardLight:
         return CAIRO_OPERATOR_HARD_LIGHT;
-    case BlendMode::SoftLight:
+    case BlendModeSoftLight:
         return CAIRO_OPERATOR_SOFT_LIGHT;
-    case BlendMode::Difference:
+    case BlendModeDifference:
         return CAIRO_OPERATOR_DIFFERENCE;
-    case BlendMode::Exclusion:
+    case BlendModeExclusion:
         return CAIRO_OPERATOR_EXCLUSION;
-    case BlendMode::Hue:
+    case BlendModeHue:
         return CAIRO_OPERATOR_HSL_HUE;
-    case BlendMode::Saturation:
+    case BlendModeSaturation:
         return CAIRO_OPERATOR_HSL_SATURATION;
-    case BlendMode::Color:
+    case BlendModeColor:
         return CAIRO_OPERATOR_HSL_COLOR;
-    case BlendMode::Luminosity:
+    case BlendModeLuminosity:
         return CAIRO_OPERATOR_HSL_LUMINOSITY;
     default:
         return CAIRO_OPERATOR_OVER;
@@ -232,20 +228,21 @@ void drawPatternToCairoContext(cairo_t* cr, cairo_surface_t* image, const IntSiz
     // user space coordinates to pattern coordinates). The overflow happens only in the translation components of the matrices.
 
     // To avoid the problem in the transformation matrix what we do is remove the translation components of the transformation matrix
-    // and perform the translation by moving the destination rectangle instead. For this, we calculate such a translation amount (dx, dy)
-    // that its opposite translate (-dx, -dy) will zero the translation components of the transformation matrix. We move the current
-    // transformation matrix by (-dx, -dy) and move the destination rectangle by (dx, dy). We also need to apply the same translation to
-    // the pattern matrix, so we get the same pattern coordinates for the new destination rectangle. (dx, dy) is caclucated by transforming
-    // the current translation components by the inverse matrix of the current transformation matrix.
+    // and perform the translation by moving the destination rectangle instead. For this, we get its translation components (which are in
+    // device coordinates) and divide them by the scale factor to take them to user space coordinates. Then we move the transformation
+    // matrix by the opposite of that amount (which will zero the translation components of the transformation matrix), and move
+    // the destination rectangle by the same amount. We also need to apply the same translation to the pattern matrix, so we get the
+    // same pattern coordinates for the new destination rectangle.
 
     cairo_matrix_t ctm;
     cairo_get_matrix(cr, &ctm);
     double dx = 0, dy = 0;
     cairo_matrix_transform_point(&ctm, &dx, &dy);
-    cairo_matrix_t inv = ctm;
-    if (cairo_matrix_invert(&inv) == CAIRO_STATUS_SUCCESS)
-        cairo_matrix_transform_distance(&inv, &dx, &dy);
+    double xScale = 1, yScale = 1;
+    cairo_matrix_transform_distance(&ctm, &xScale, &yScale);
 
+    dx = dx / xScale;
+    dy = dy / yScale;
     cairo_translate(cr, -dx, -dy);
     FloatRect adjustedDestRect(destRect);
     adjustedDestRect.move(dx, dy);
@@ -254,7 +251,7 @@ void drawPatternToCairoContext(cairo_t* cr, cairo_surface_t* image, const IntSiz
     // are drawing a repeated pattern. This means that, assuming that (w, h) is the size of the pattern, samplig it at (x, y) is the same
     // than sampling it at (x mod w, y mod h), so we transform the translation component of the pattern matrix in that way.
 
-    cairo_matrix_t patternMatrix = toCairoMatrix(patternTransform);
+    cairo_matrix_t patternMatrix = cairo_matrix_t(patternTransform);
     // dx and dy are added here as well to compensate the previous translation of the destination rectangle.
     double phaseOffsetX = phase.x() + tileRect.x() * patternTransform.a() + dx;
     double phaseOffsetY = phase.y() + tileRect.y() * patternTransform.d() + dy;
@@ -340,7 +337,7 @@ void flipImageSurfaceVertically(cairo_surface_t* surface)
     int halfHeight = size.height() / 2;
 
     uint8_t* source = static_cast<uint8_t*>(cairo_image_surface_get_data(surface));
-    auto tmp = makeUniqueArray<uint8_t>(stride);
+    std::unique_ptr<uint8_t[]> tmp = std::make_unique<uint8_t[]>(stride);
 
     for (int i = 0; i < halfHeight; ++i) {
         uint8_t* top = source + (i * stride);
@@ -383,11 +380,6 @@ RefPtr<cairo_region_t> toCairoRegion(const Region& region)
         cairo_region_union_rectangle(cairoRegion.get(), &cairoRect);
     }
     return cairoRegion;
-}
-
-cairo_matrix_t toCairoMatrix(const AffineTransform& transform)
-{
-    return cairo_matrix_t { transform.a(), transform.b(), transform.c(), transform.d(), transform.e(), transform.f() };
 }
 
 } // namespace WebCore

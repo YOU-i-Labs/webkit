@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -61,7 +61,7 @@ static ALWAYS_INLINE JSWebAssemblyTable* getTable(ExecState* exec, VM& vm, JSVal
     JSWebAssemblyTable* result = jsDynamicCast<JSWebAssemblyTable*>(vm, v);
     if (!result) {
         throwException(exec, throwScope, 
-            createTypeError(exec, "expected |this| value to be an instance of WebAssembly.Table"_s));
+            createTypeError(exec, ASCIILiteral("expected |this| value to be an instance of WebAssembly.Table")));
         return nullptr;
     }
     return result;
@@ -74,7 +74,7 @@ static EncodedJSValue JSC_HOST_CALL webAssemblyTableProtoFuncLength(ExecState* e
 
     JSWebAssemblyTable* table = getTable(exec, vm, exec->thisValue());
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    return JSValue::encode(jsNumber(table->length()));
+    return JSValue::encode(jsNumber(table->size()));
 }
 
 static EncodedJSValue JSC_HOST_CALL webAssemblyTableProtoFuncGrow(ExecState* exec)
@@ -88,12 +88,12 @@ static EncodedJSValue JSC_HOST_CALL webAssemblyTableProtoFuncGrow(ExecState* exe
     uint32_t delta = toNonWrappingUint32(exec, exec->argument(0));
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
 
-    uint32_t oldLength = table->length();
+    uint32_t oldSize = table->size();
 
     if (!table->grow(delta))
-        return JSValue::encode(throwException(exec, throwScope, createRangeError(exec, "WebAssembly.Table.prototype.grow could not grow the table"_s)));
+        return JSValue::encode(throwException(exec, throwScope, createRangeError(exec, ASCIILiteral("WebAssembly.Table.prototype.grow could not grow the table"))));
 
-    return JSValue::encode(jsNumber(oldLength));
+    return JSValue::encode(jsNumber(oldSize));
 }
 
 static EncodedJSValue JSC_HOST_CALL webAssemblyTableProtoFuncGet(ExecState* exec)
@@ -106,8 +106,8 @@ static EncodedJSValue JSC_HOST_CALL webAssemblyTableProtoFuncGet(ExecState* exec
 
     uint32_t index = toNonWrappingUint32(exec, exec->argument(0));
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    if (index >= table->length())
-        return JSValue::encode(throwException(exec, throwScope, createRangeError(exec, "WebAssembly.Table.prototype.get expects an integer less than the length of the table"_s)));
+    if (index >= table->size())
+        return JSValue::encode(throwException(exec, throwScope, createRangeError(exec, ASCIILiteral("WebAssembly.Table.prototype.get expects an integer less than the size of the table"))));
 
     if (JSObject* result = table->getFunction(index))
         return JSValue::encode(result);
@@ -126,13 +126,13 @@ static EncodedJSValue JSC_HOST_CALL webAssemblyTableProtoFuncSet(ExecState* exec
     WebAssemblyFunction* wasmFunction;
     WebAssemblyWrapperFunction* wasmWrapperFunction;
     if (!value.isNull() && !isWebAssemblyHostFunction(vm, value, wasmFunction, wasmWrapperFunction))
-        return JSValue::encode(throwException(exec, throwScope, createTypeError(exec, "WebAssembly.Table.prototype.set expects the second argument to be null or an instance of WebAssembly.Function"_s)));
+        return JSValue::encode(throwException(exec, throwScope, createTypeError(exec, ASCIILiteral("WebAssembly.Table.prototype.set expects the second argument to be null or an instance of WebAssembly.Function"))));
 
     uint32_t index = toNonWrappingUint32(exec, exec->argument(0));
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
 
-    if (index >= table->length())
-        return JSValue::encode(throwException(exec, throwScope, createRangeError(exec, "WebAssembly.Table.prototype.set expects an integer less than the length of the table"_s)));
+    if (index >= table->size())
+        return JSValue::encode(throwException(exec, throwScope, createRangeError(exec, ASCIILiteral("WebAssembly.Table.prototype.set expects an integer less than the size of the table"))));
 
     if (value.isNull())
         table->clearFunction(index);

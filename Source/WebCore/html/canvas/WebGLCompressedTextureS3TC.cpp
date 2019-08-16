@@ -43,7 +43,9 @@ WebGLCompressedTextureS3TC::WebGLCompressedTextureS3TC(WebGLRenderingContextBase
     context.addCompressedTextureFormat(Extensions3D::COMPRESSED_RGBA_S3TC_DXT5_EXT);
 }
 
-WebGLCompressedTextureS3TC::~WebGLCompressedTextureS3TC() = default;
+WebGLCompressedTextureS3TC::~WebGLCompressedTextureS3TC()
+{
+}
 
 WebGLExtension::ExtensionName WebGLCompressedTextureS3TC::getName() const
 {

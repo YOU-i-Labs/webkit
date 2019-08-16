@@ -30,7 +30,6 @@
 #include "InlineTextBox.h"
 #include "RenderBlock.h"
 #include "RenderStyle.h"
-#include "RenderView.h"
 #include "RootInlineBox.h"
 
 namespace WebCore {
@@ -224,7 +223,7 @@ int RenderTextLineBoxes::caretMaxOffset(const RenderText& renderer) const
 {
     auto box = m_last;
     if (!box)
-        return renderer.text().length();
+        return renderer.textLength();
 
     int maxOffset = box->start() + box->len();
     for (box = box->prevTextBox(); box; box = box->prevTextBox())
@@ -279,7 +278,7 @@ static bool lineDirectionPointFitsInBox(int pointLineDirection, const InlineText
         return true;
     }
 
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
     // and the x coordinate is to the left of the right edge of this box
     // check to see if position goes in this box
     if (pointLineDirection < box.logicalRight()) {
@@ -395,7 +394,7 @@ static VisiblePosition createVisiblePositionAfterAdjustingOffsetForBiDi(const In
 
 VisiblePosition RenderTextLineBoxes::positionForPoint(const RenderText& renderer, const LayoutPoint& point) const
 {
-    if (!m_first || !renderer.text().length())
+    if (!m_first || !renderer.textLength())
         return renderer.createVisiblePosition(0, DOWNSTREAM);
 
     LayoutUnit pointLineDirection = m_first->isHorizontal() ? point.x() : point.y();
@@ -416,7 +415,7 @@ VisiblePosition RenderTextLineBoxes::positionForPoint(const RenderText& renderer
 
             if (pointBlockDirection < bottom || (blocksAreFlipped && pointBlockDirection == bottom)) {
                 ShouldAffinityBeDownstream shouldAffinityBeDownstream;
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
                 if (pointLineDirection != box->logicalLeft() && point.x() < box->x() + box->logicalWidth()) {
                     int half = box->x() + box->logicalWidth() / 2;
                     EAffinity affinity = point.x() < half ? DOWNSTREAM : VP_UPSTREAM_IF_POSSIBLE;
@@ -446,10 +445,11 @@ void RenderTextLineBoxes::setSelectionState(RenderText& renderer, RenderObject::
         return;
     }
 
-    auto start = renderer.view().selection().startPosition();
-    auto end = renderer.view().selection().endPosition();
+    unsigned start, end;
+    renderer.selectionStartEnd(start, end);
     if (state == RenderObject::SelectionStart) {
-        end = renderer.text().length();
+        end = renderer.textLength();
+
         // to handle selection from end of text to end of line
         if (start && start == end)
             start = end - 1;
@@ -553,6 +553,7 @@ Vector<IntRect> RenderTextLineBoxes::absoluteRectsForRange(const RenderText& ren
             rects.append(renderer.localToAbsoluteQuad(boundaries, UseTransforms, wasFixed).enclosingBoundingBox());
             continue;
         }
+        // FIXME: This code is wrong. It's converting local to absolute twice. http://webkit.org/b/65722
         FloatRect rect = localQuadForTextBox(*box, start, end, useSelectionHeight);
         if (!rect.isZero())
             rects.append(renderer.localToAbsoluteQuad(rect, UseTransforms, wasFixed).enclosingBoundingBox());
@@ -568,7 +569,7 @@ Vector<FloatQuad> RenderTextLineBoxes::absoluteQuads(const RenderText& renderer,
 
         // Shorten the width of this text box if it ends in an ellipsis.
         // FIXME: ellipsisRectForBox should switch to return FloatRect soon with the subpixellayout branch.
-        IntRect ellipsisRect = (option == ClipToEllipsis) ? ellipsisRectForBox(*box, 0, renderer.text().length()) : IntRect();
+        IntRect ellipsisRect = (option == ClipToEllipsis) ? ellipsisRectForBox(*box, 0, renderer.textLength()) : IntRect();
         if (!ellipsisRect.isEmpty()) {
             if (renderer.style().isHorizontalWritingMode())
                 boundaries.setWidth(ellipsisRect.maxX() - boundaries.x());

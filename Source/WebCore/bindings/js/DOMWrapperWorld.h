@@ -26,7 +26,8 @@
 
 namespace WebCore {
 
-class WindowProxy;
+class DeprecatedCSSOMValue;
+class ScriptController;
 
 typedef HashMap<void*, JSC::Weak<JSC::JSObject>> DOMObjectWrapperMap;
 
@@ -41,16 +42,15 @@ public:
     // Free as much memory held onto by this world as possible.
     WEBCORE_EXPORT void clearWrappers();
 
-    void didCreateWindowProxy(WindowProxy* controller) { m_jsWindowProxies.add(controller); }
-    void didDestroyWindowProxy(WindowProxy* controller) { m_jsWindowProxies.remove(controller); }
+    void didCreateWindowProxy(ScriptController* scriptController) { m_scriptControllersWithWindowProxies.add(scriptController); }
+    void didDestroyWindowProxy(ScriptController* scriptController) { m_scriptControllersWithWindowProxies.remove(scriptController); }
 
     void setShadowRootIsAlwaysOpen() { m_shadowRootIsAlwaysOpen = true; }
     bool shadowRootIsAlwaysOpen() const { return m_shadowRootIsAlwaysOpen; }
 
-    void disableOverrideBuiltinsBehavior() { m_shouldDisableOverrideBuiltinsBehavior = true; }
-    bool shouldDisableOverrideBuiltinsBehavior() const { return m_shouldDisableOverrideBuiltinsBehavior; }
-
-    DOMObjectWrapperMap& wrappers() { return m_wrappers; }
+    // FIXME: can we make this private?
+    DOMObjectWrapperMap m_wrappers;
+    HashMap<DeprecatedCSSOMValue*, void*> m_deprecatedCSSOMValueRoots;
 
     bool isNormal() const { return m_isNormal; }
 
@@ -61,39 +61,24 @@ protected:
 
 private:
     JSC::VM& m_vm;
-    HashSet<WindowProxy*> m_jsWindowProxies;
-    DOMObjectWrapperMap m_wrappers;
-
+    HashSet<ScriptController*> m_scriptControllersWithWindowProxies;
     bool m_isNormal;
     bool m_shadowRootIsAlwaysOpen { false };
-    bool m_shouldDisableOverrideBuiltinsBehavior { false };
 };
 
 DOMWrapperWorld& normalWorld(JSC::VM&);
 WEBCORE_EXPORT DOMWrapperWorld& mainThreadNormalWorld();
-
 inline DOMWrapperWorld& debuggerWorld() { return mainThreadNormalWorld(); }
 inline DOMWrapperWorld& pluginWorld() { return mainThreadNormalWorld(); }
 
-DOMWrapperWorld& currentWorld(JSC::ExecState&);
-DOMWrapperWorld& worldForDOMObject(JSC::JSObject&);
-
-// Helper function for code paths that must not share objects across isolated DOM worlds.
-bool isWorldCompatible(JSC::ExecState&, JSC::JSValue);
-
-inline DOMWrapperWorld& currentWorld(JSC::ExecState& state)
+inline DOMWrapperWorld& currentWorld(JSC::ExecState* exec)
 {
-    return JSC::jsCast<JSDOMGlobalObject*>(state.lexicalGlobalObject())->world();
+    return JSC::jsCast<JSDOMGlobalObject*>(exec->lexicalGlobalObject())->world();
 }
 
-inline DOMWrapperWorld& worldForDOMObject(JSC::JSObject& object)
+inline DOMWrapperWorld& worldForDOMObject(JSC::JSObject* object)
 {
-    return JSC::jsCast<JSDOMGlobalObject*>(object.globalObject())->world();
+    return JSC::jsCast<JSDOMGlobalObject*>(object->globalObject())->world();
 }
-
-inline bool isWorldCompatible(JSC::ExecState& state, JSC::JSValue value)
-{
-    return !value.isObject() || &worldForDOMObject(*value.getObject()) == &currentWorld(state);
-}
-
+    
 } // namespace WebCore

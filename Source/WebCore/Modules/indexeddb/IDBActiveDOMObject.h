@@ -27,6 +27,8 @@
 
 #include "ActiveDOMObject.h"
 #include "ScriptExecutionContext.h"
+#include <wtf/CrossThreadTask.h>
+#include <wtf/MainThread.h>
 #include <wtf/Threading.h>
 
 #if ENABLE(INDEXED_DATABASE)
@@ -35,10 +37,10 @@ namespace WebCore {
 
 class IDBActiveDOMObject : public ActiveDOMObject {
 public:
-    Thread& originThread() const { return m_originThread.get(); }
+    ThreadIdentifier originThreadID() const { return m_originThreadID; }
 
     void contextDestroyed() final {
-        ASSERT(m_originThread.ptr() == &Thread::current());
+        ASSERT(currentThread() == m_originThreadID);
 
         Locker<Lock> lock(m_scriptExecutionContextLock);
         ActiveDOMObject::contextDestroyed();
@@ -47,9 +49,9 @@ public:
     template<typename T, typename... Parameters, typename... Arguments>
     void performCallbackOnOriginThread(T& object, void (T::*method)(Parameters...), Arguments&&... arguments)
     {
-        ASSERT(&originThread() == &object.originThread());
+        ASSERT(originThreadID() == object.originThreadID());
 
-        if (&object.originThread() == &Thread::current()) {
+        if (object.originThreadID() == currentThread()) {
             (object.*method)(arguments...);
             return;
         }
@@ -65,7 +67,7 @@ public:
 
     void callFunctionOnOriginThread(WTF::Function<void ()>&& function)
     {
-        if (&originThread() == &Thread::current()) {
+        if (originThreadID() == currentThread()) {
             function();
             return;
         }
@@ -87,7 +89,7 @@ protected:
     }
 
 private:
-    Ref<Thread> m_originThread { Thread::current() };
+    ThreadIdentifier m_originThreadID { currentThread() };
     Lock m_scriptExecutionContextLock;
 };
 

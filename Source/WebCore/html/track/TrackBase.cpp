@@ -26,8 +26,7 @@
 #include "config.h"
 #include "TrackBase.h"
 
-#include "Logging.h"
-#include <wtf/Language.h>
+#include "Language.h"
 #include <wtf/text/StringBuilder.h>
 
 #if ENABLE(VIDEO_TRACK)
@@ -35,23 +34,8 @@
 #include "HTMLMediaElement.h"
 
 namespace WebCore {
-using namespace WTF;
 
 static int s_uniqueId = 0;
-
-#if !RELEASE_LOG_DISABLED
-static const void* nextLogIdentifier()
-{
-    static uint64_t logIdentifier = cryptographicallyRandomNumber();
-    return reinterpret_cast<const void*>(++logIdentifier);
-}
-
-static RefPtr<Logger>& nullLogger()
-{
-    static NeverDestroyed<RefPtr<Logger>> logger;
-    return logger;
-}
-#endif
 
 TrackBase::TrackBase(Type type, const AtomicString& id, const AtomicString& label, const AtomicString& language)
     : m_uniqueId(++s_uniqueId)
@@ -62,33 +46,15 @@ TrackBase::TrackBase(Type type, const AtomicString& id, const AtomicString& labe
 {
     ASSERT(type != BaseTrack);
     m_type = type;
+}
 
-#if !RELEASE_LOG_DISABLED
-    if (!nullLogger().get()) {
-        nullLogger() = Logger::create(this);
-        nullLogger()->setEnabled(this, false);
-    }
-
-    m_logger = nullLogger().get();
-    m_logIdentifier = nextLogIdentifier();
-#endif
+TrackBase::~TrackBase()
+{
 }
 
 Element* TrackBase::element()
 {
     return m_mediaElement;
-}
-
-void TrackBase::setMediaElement(HTMLMediaElement* element)
-{
-    m_mediaElement = element;
-
-#if !RELEASE_LOG_DISABLED
-    if (element) {
-        m_logger = &element->logger();
-        m_logIdentifier = element->logIdentifier();
-    }
-#endif
 }
 
 // See: https://tools.ietf.org/html/bcp47#section-2.1
@@ -147,7 +113,7 @@ void TrackBase::setLanguage(const AtomicString& language)
     if (!language.isEmpty() && !isValidBCP47LanguageTag(language)) {
         String message;
         if (language.contains((UChar)'\0'))
-            message = "The language contains a null character and is not a valid BCP 47 language tag."_s;
+            message = WTF::ASCIILiteral("The language contains a null character and is not a valid BCP 47 language tag.");
         else {
             StringBuilder stringBuilder;
             stringBuilder.appendLiteral("The language '");
@@ -168,13 +134,6 @@ AtomicString TrackBase::validBCP47Language() const
     return m_validBCP47Language;
 }
 
-#if !RELEASE_LOG_DISABLED
-WTFLogChannel& TrackBase::logChannel() const
-{
-    return LogMedia;
-}
-#endif
-
 MediaTrackBase::MediaTrackBase(Type type, const AtomicString& id, const AtomicString& label, const AtomicString& language)
     : TrackBase(type, id, label, language)
 {
@@ -190,7 +149,7 @@ void MediaTrackBase::setKindInternal(const AtomicString& kind)
     if (isValidKind(kind))
         m_kind = kind;
     else
-        m_kind = emptyAtom();
+        m_kind = emptyAtom;
 }
 
 } // namespace WebCore

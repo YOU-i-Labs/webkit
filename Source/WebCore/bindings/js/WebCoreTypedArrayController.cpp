@@ -28,15 +28,19 @@
 
 #include "JSDOMConvertBufferSource.h"
 #include "JSDOMGlobalObject.h"
-#include <JavaScriptCore/ArrayBuffer.h>
-#include <JavaScriptCore/JSArrayBuffer.h>
-#include <JavaScriptCore/JSCInlines.h>
+#include <runtime/ArrayBuffer.h>
+#include <runtime/JSArrayBuffer.h>
+#include <runtime/JSCInlines.h>
 
 namespace WebCore {
 
-WebCoreTypedArrayController::WebCoreTypedArrayController() = default;
+WebCoreTypedArrayController::WebCoreTypedArrayController()
+{
+}
 
-WebCoreTypedArrayController::~WebCoreTypedArrayController() = default;
+WebCoreTypedArrayController::~WebCoreTypedArrayController()
+{
+}
 
 JSC::JSArrayBuffer* WebCoreTypedArrayController::toJS(JSC::ExecState* state, JSC::JSGlobalObject* globalObject, JSC::ArrayBuffer* buffer)
 {
@@ -53,10 +57,8 @@ bool WebCoreTypedArrayController::isAtomicsWaitAllowedOnCurrentThread()
     return !isMainThread();
 }
 
-bool WebCoreTypedArrayController::JSArrayBufferOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, JSC::SlotVisitor& visitor, const char** reason)
+bool WebCoreTypedArrayController::JSArrayBufferOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, JSC::SlotVisitor& visitor)
 {
-    if (UNLIKELY(reason))
-        *reason = "ArrayBuffer is opaque root";
     auto& wrapper = *JSC::jsCast<JSC::JSArrayBuffer*>(handle.slot()->asCell());
     return visitor.containsOpaqueRoot(wrapper.impl());
 }

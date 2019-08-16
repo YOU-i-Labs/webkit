@@ -23,12 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.LayoutInstrument = class LayoutInstrument extends WI.Instrument
+WebInspector.LayoutInstrument = class LayoutInstrument extends WebInspector.Instrument
 {
     // Protected
 
     get timelineRecordType()
     {
-        return WI.TimelineRecord.Type.Layout;
+        return WebInspector.TimelineRecord.Type.Layout;
     }
 };

@@ -12,7 +12,6 @@
 #include "common/angleutils.h"
 #include "libANGLE/AttributeMap.h"
 #include "libANGLE/Error.h"
-#include "libANGLE/FramebufferAttachment.h"
 #include "libANGLE/RefCountObject.h"
 #include "libANGLE/formatutils.h"
 
@@ -20,7 +19,6 @@
 
 namespace rx
 {
-class EGLImplFactory;
 class ImageImpl;
 }
 
@@ -28,25 +26,18 @@ namespace egl
 {
 class Image;
 
-// Only currently Renderbuffers and Textures can be bound with images. This makes the relationship
-// explicit, and also ensures that an image sibling can determine if it's been initialized or not,
-// which is important for the robust resource init extension with Textures and EGLImages.
-class ImageSibling : public gl::RefCountObject, public gl::FramebufferAttachmentObject
+class ImageSibling : public RefCountObject
 {
   public:
     ImageSibling(GLuint id);
-    ~ImageSibling() override;
-
-    bool isEGLImageTarget() const;
-    gl::InitState sourceEGLImageInitState() const;
-    void setSourceEGLImageInitState(gl::InitState initState) const;
+    virtual ~ImageSibling();
 
   protected:
     // Set the image target of this sibling
-    void setTargetImage(const gl::Context *context, egl::Image *imageTarget);
+    void setTargetImage(egl::Image *imageTarget);
 
     // Orphan all EGL image sources and targets
-    gl::Error orphanImages(const gl::Context *context);
+    gl::Error orphanImages();
 
   private:
     friend class Image;
@@ -58,42 +49,22 @@ class ImageSibling : public gl::RefCountObject, public gl::FramebufferAttachment
     void removeImageSource(egl::Image *imageSource);
 
     std::set<Image *> mSourcesOf;
-    gl::BindingPointer<Image> mTargetOf;
+    BindingPointer<Image> mTargetOf;
 };
 
-struct ImageState : private angle::NonCopyable
-{
-    ImageState(EGLenum target, ImageSibling *buffer, const AttributeMap &attribs);
-    ~ImageState();
-
-    gl::ImageIndex imageIndex;
-    gl::BindingPointer<ImageSibling> source;
-    std::set<ImageSibling *> targets;
-};
-
-class Image final : public gl::RefCountObject
+class Image final : public RefCountObject
 {
   public:
-    Image(rx::EGLImplFactory *factory,
-          EGLenum target,
-          ImageSibling *buffer,
-          const AttributeMap &attribs);
-
-    gl::Error onDestroy(const gl::Context *context) override;
-    ~Image() override;
+    Image(rx::ImageImpl *impl, EGLenum target, ImageSibling *buffer, const AttributeMap &attribs);
+    ~Image();
 
     const gl::Format &getFormat() const;
     size_t getWidth() const;
     size_t getHeight() const;
     size_t getSamples() const;
 
-    Error initialize();
-
-    rx::ImageImpl *getImplementation() const;
-
-    bool orphaned() const;
-    gl::InitState sourceInitState() const;
-    void setInitState(gl::InitState initState);
+    rx::ImageImpl *getImplementation();
+    const rx::ImageImpl *getImplementation() const;
 
   private:
     friend class ImageSibling;
@@ -104,12 +75,18 @@ class Image final : public gl::RefCountObject
 
     // Called from ImageSibling only to notify the image that a sibling (source or target) has
     // been respecified and state tracking should be updated.
-    gl::Error orphanSibling(const gl::Context *context, ImageSibling *sibling);
+    gl::Error orphanSibling(ImageSibling *sibling);
 
-    ImageState mState;
     rx::ImageImpl *mImplementation;
-    bool mOrphanedAndNeedsInit;
+
+    gl::Format mFormat;
+    size_t mWidth;
+    size_t mHeight;
+    size_t mSamples;
+
+    BindingPointer<ImageSibling> mSource;
+    std::set<ImageSibling *> mTargets;
 };
-}  // namespace egl
+}
 
 #endif  // LIBANGLE_IMAGE_H_

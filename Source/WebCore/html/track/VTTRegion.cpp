@@ -37,6 +37,7 @@
 #include "DOMRect.h"
 #include "DOMTokenList.h"
 #include "ElementChildIterator.h"
+#include "ExceptionCode.h"
 #include "HTMLDivElement.h"
 #include "HTMLParserIdioms.h"
 #include "Logging.h"
@@ -64,7 +65,9 @@ VTTRegion::VTTRegion(ScriptExecutionContext& context)
 {
 }
 
-VTTRegion::~VTTRegion() = default;
+VTTRegion::~VTTRegion()
+{
+}
 
 void VTTRegion::setTrack(TextTrack* track)
 {
@@ -79,23 +82,23 @@ void VTTRegion::setId(const String& id)
 ExceptionOr<void> VTTRegion::setWidth(double value)
 {
     if (!(value >= 0 && value <= 100))
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
     m_width = value;
     return { };
 }
 
-ExceptionOr<void> VTTRegion::setLines(int value)
+ExceptionOr<void> VTTRegion::setHeight(int value)
 {
     if (value < 0)
-        return Exception { IndexSizeError };
-    m_lines = value;
+        return Exception { INDEX_SIZE_ERR };
+    m_heightInLines = value;
     return { };
 }
 
 ExceptionOr<void> VTTRegion::setRegionAnchorX(double value)
 {
     if (!(value >= 0 && value <= 100))
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
     m_regionAnchor.setX(value);
     return { };
 }
@@ -103,7 +106,7 @@ ExceptionOr<void> VTTRegion::setRegionAnchorX(double value)
 ExceptionOr<void> VTTRegion::setRegionAnchorY(double value)
 {
     if (!(value >= 0 && value <= 100))
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
     m_regionAnchor.setY(value);
     return { };
 }
@@ -111,7 +114,7 @@ ExceptionOr<void> VTTRegion::setRegionAnchorY(double value)
 ExceptionOr<void> VTTRegion::setViewportAnchorX(double value)
 {
     if (!(value >= 0 && value <= 100))
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
     m_viewportAnchor.setX(value);
     return { };
 }
@@ -119,7 +122,7 @@ ExceptionOr<void> VTTRegion::setViewportAnchorX(double value)
 ExceptionOr<void> VTTRegion::setViewportAnchorY(double value)
 {
     if (!(value >= 0 && value <= 100))
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
     m_viewportAnchor.setY(value);
     return { };
 }
@@ -132,7 +135,7 @@ static const AtomicString& upKeyword()
 
 const AtomicString& VTTRegion::scroll() const
 {
-    return m_scroll ? upKeyword() : emptyAtom();
+    return m_scroll ? upKeyword() : emptyAtom;
 }
 
 ExceptionOr<void> VTTRegion::setScroll(const AtomicString& value)
@@ -145,12 +148,12 @@ ExceptionOr<void> VTTRegion::setScroll(const AtomicString& value)
         m_scroll = true;
         return { };
     }
-    return Exception { SyntaxError };
+    return Exception { SYNTAX_ERR };
 }
 
 void VTTRegion::updateParametersFromRegion(const VTTRegion& other)
 {
-    m_lines = other.m_lines;
+    m_heightInLines = other.m_heightInLines;
     m_width = other.m_width;
     m_regionAnchor = other.m_regionAnchor;
     m_viewportAnchor = other.m_viewportAnchor;
@@ -170,8 +173,8 @@ void VTTRegion::setRegionSettings(const String& inputString)
         // Scan the name part.
         RegionSetting name = scanSettingName(input);
 
-        // Verify that we're looking at a ':'.
-        if (name == None || !input.scan(':')) {
+        // Verify that we're looking at a '='.
+        if (name == None || !input.scan('=')) {
             input.skipUntil<isHTMLSpace<UChar>>();
             continue;
         }
@@ -185,8 +188,8 @@ VTTRegion::RegionSetting VTTRegion::scanSettingName(VTTScanner& input)
 {
     if (input.scan("id"))
         return Id;
-    if (input.scan("lines"))
-        return Lines;
+    if (input.scan("height"))
+        return Height;
     if (input.scan("width"))
         return Width;
     if (input.scan("viewportanchor"))
@@ -223,10 +226,10 @@ void VTTRegion::parseSettingValue(RegionSetting setting, VTTScanner& input)
             LOG(Media, "VTTRegion::parseSettingValue, invalid Width");
         break;
     }
-    case Lines: {
+    case Height: {
         int number;
         if (input.scanDigits(number) && parsedEntireRun(input, valueRun))
-            m_lines = number;
+            m_heightInLines = number;
         else
             LOG(Media, "VTTRegion::parseSettingValue, invalid Height");
         break;
@@ -364,7 +367,7 @@ void VTTRegion::prepareRegionDisplayTree()
     // Let lineHeight be '0.0533vh' ('vh' is a CSS unit) and regionHeight be
     // the text track region height. Let height be 'lineHeight' multiplied
     // by regionHeight.
-    double height = lineHeight * m_lines;
+    double height = lineHeight * m_heightInLines;
     m_regionDisplayTree->setInlineStyleProperty(CSSPropertyHeight, height, CSSPrimitiveValue::CSS_VH);
 
     // Let viewportAnchorX be the x dimension of the text track region viewport

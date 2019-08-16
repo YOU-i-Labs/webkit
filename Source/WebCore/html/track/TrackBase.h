@@ -27,7 +27,6 @@
 
 #if ENABLE(VIDEO_TRACK)
 
-#include <wtf/LoggerHelper.h>
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
@@ -36,19 +35,14 @@ class Element;
 class HTMLMediaElement;
 class SourceBuffer;
 
-class TrackBase
-    : public RefCounted<TrackBase>
-#if !RELEASE_LOG_DISABLED
-    , private LoggerHelper
-#endif
-{
+class TrackBase : public RefCounted<TrackBase> {
 public:
-    virtual ~TrackBase() = default;
+    virtual ~TrackBase();
 
     enum Type { BaseTrack, TextTrack, AudioTrack, VideoTrack };
     Type type() const { return m_type; }
 
-    virtual void setMediaElement(HTMLMediaElement*);
+    void setMediaElement(HTMLMediaElement* element) { m_mediaElement = element; }
     HTMLMediaElement* mediaElement() { return m_mediaElement; }
     virtual Element* element();
 
@@ -73,12 +67,6 @@ public:
 
     virtual bool enabled() const = 0;
 
-#if !RELEASE_LOG_DISABLED
-    const Logger& logger() const final { ASSERT(m_logger); return *m_logger.get(); }
-    const void* logIdentifier() const final { return m_logIdentifier; }
-    WTFLogChannel& logChannel() const final;
-#endif
-
 protected:
     TrackBase(Type, const AtomicString& id, const AtomicString& label, const AtomicString& language);
 
@@ -95,10 +83,6 @@ private:
     AtomicString m_label;
     AtomicString m_language;
     AtomicString m_validBCP47Language;
-#if !RELEASE_LOG_DISABLED
-    RefPtr<const Logger> m_logger;
-    const void* m_logIdentifier;
-#endif
 };
 
 class MediaTrackBase : public TrackBase {

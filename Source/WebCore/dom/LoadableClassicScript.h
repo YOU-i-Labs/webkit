@@ -29,6 +29,7 @@
 #include "CachedResourceHandle.h"
 #include "CachedScript.h"
 #include "LoadableScript.h"
+#include "LoadableScriptClient.h"
 #include <wtf/TypeCasts.h>
 
 namespace WebCore {
@@ -42,7 +43,7 @@ public:
 
     static Ref<LoadableClassicScript> create(const String& nonce, const String& integrity, const String& crossOriginMode, const String& charset, const AtomicString& initiatorName, bool isInUserAgentShadowTree);
     bool isLoaded() const final;
-    Optional<Error> error() const final;
+    std::optional<Error> error() const final;
     bool wasCanceled() const final;
 
     CachedScript& cachedScript() { return *m_cachedScript; }
@@ -64,7 +65,7 @@ private:
     void notifyFinished(CachedResource&) final;
 
     CachedResourceHandle<CachedScript> m_cachedScript { };
-    Optional<Error> m_error { WTF::nullopt };
+    std::optional<Error> m_error { std::nullopt };
     String m_integrity;
 };
 

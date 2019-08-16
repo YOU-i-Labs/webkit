@@ -22,6 +22,7 @@
 
 #include "Decimal.h"
 #include <wtf/Forward.h>
+#include <wtf/Noncopyable.h>
 
 namespace WebCore {
 
@@ -43,12 +44,12 @@ public:
     struct StepDescription {
         WTF_MAKE_FAST_ALLOCATED;
     public:
-        int defaultStep { 1 };
-        int defaultStepBase { 0 };
-        int stepScaleFactor { 1 };
-        StepValueShouldBe stepValueShouldBe { StepValueShouldBeReal };
+        int defaultStep;
+        int defaultStepBase;
+        int stepScaleFactor;
+        StepValueShouldBe stepValueShouldBe;
 
-        constexpr StepDescription(int defaultStep, int defaultStepBase, int stepScaleFactor, StepValueShouldBe stepValueShouldBe = StepValueShouldBeReal)
+        StepDescription(int defaultStep, int defaultStepBase, int stepScaleFactor, StepValueShouldBe stepValueShouldBe = StepValueShouldBeReal)
             : defaultStep(defaultStep)
             , defaultStepBase(defaultStepBase)
             , stepScaleFactor(stepScaleFactor)
@@ -56,7 +57,13 @@ public:
         {
         }
 
-        StepDescription() = default;
+        StepDescription()
+            : defaultStep(1)
+            , defaultStepBase(0)
+            , stepScaleFactor(1)
+            , stepValueShouldBe(StepValueShouldBeReal)
+        {
+        }
 
         Decimal defaultValue() const
         {

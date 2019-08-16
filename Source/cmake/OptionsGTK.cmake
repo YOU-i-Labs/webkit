@@ -1,11 +1,21 @@
 include(GNUInstallDirs)
-include(VersioningUtils)
 
-SET_PROJECT_VERSION(2 23 3)
+set(PROJECT_VERSION_MAJOR 2)
+set(PROJECT_VERSION_MINOR 17)
+set(PROJECT_VERSION_MICRO 4)
+set(PROJECT_VERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_MICRO})
 set(WEBKITGTK_API_VERSION 4.0)
 
-CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(WEBKIT 72 1 35)
-CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(JAVASCRIPTCORE 30 2 12)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9.0")
+        message(FATAL_ERROR "GCC 4.9.0 is required to build WebKitGTK+, use a newer GCC version or clang")
+    endif ()
+endif ()
+
+# Libtool library version, not to be confused with API version.
+# See http://www.gnu.org/software/libtool/manual/html_node/Libtool-versioning.html
+CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(WEBKIT2 60 0 23)
+CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(JAVASCRIPTCORE 24 4 6)
 
 # These are shared variables, but we special case their definition so that we can use the
 # CMAKE_INSTALL_* variables that are populated by the GNUInstallDirs macro.
@@ -13,13 +23,15 @@ set(LIB_INSTALL_DIR "${CMAKE_INSTALL_FULL_LIBDIR}" CACHE PATH "Absolute path to 
 set(EXEC_INSTALL_DIR "${CMAKE_INSTALL_FULL_BINDIR}" CACHE PATH "Absolute path to executable installation directory")
 set(LIBEXEC_INSTALL_DIR "${CMAKE_INSTALL_FULL_LIBEXECDIR}/webkit2gtk-${WEBKITGTK_API_VERSION}" CACHE PATH "Absolute path to install executables executed by the library")
 
+set(DATA_BUILD_DIR "${CMAKE_BINARY_DIR}/share/${WebKit_OUTPUT_NAME}")
+set(DATA_INSTALL_DIR "${CMAKE_INSTALL_DATADIR}/webkitgtk-${WEBKITGTK_API_VERSION}")
 set(WEBKITGTK_HEADER_INSTALL_DIR "${CMAKE_INSTALL_INCLUDEDIR}/webkitgtk-${WEBKITGTK_API_VERSION}")
 set(INTROSPECTION_INSTALL_GIRDIR "${CMAKE_INSTALL_FULL_DATADIR}/gir-1.0")
 set(INTROSPECTION_INSTALL_TYPELIBDIR "${LIB_INSTALL_DIR}/girepository-1.0")
 
 find_package(Cairo 1.10.2 REQUIRED)
 find_package(Fontconfig 2.8.0 REQUIRED)
-find_package(Freetype 2.4.2 REQUIRED)
+find_package(Freetype2 2.4.2 REQUIRED)
 find_package(LibGcrypt 1.6.0 REQUIRED)
 find_package(GTK3 3.6.0 REQUIRED)
 find_package(GDK3 3.6.0 REQUIRED)
@@ -42,15 +54,9 @@ find_package(OpenGLES2)
 
 WEBKIT_OPTION_BEGIN()
 
-include(GStreamerDefinitions)
-
-SET_AND_EXPOSE_TO_BUILD(USE_CAIRO TRUE)
-SET_AND_EXPOSE_TO_BUILD(USE_XDGMIME TRUE)
-SET_AND_EXPOSE_TO_BUILD(USE_GCRYPT TRUE)
-
-if (WTF_CPU_ARM OR WTF_CPU_MIPS)
-    SET_AND_EXPOSE_TO_BUILD(USE_CAPSTONE ${DEVELOPER_MODE})
-endif ()
+set(USE_CAIRO ON)
+set(USE_WOFF2 ON)
+set(USE_XDGMIME ON)
 
 # For old versions of HarfBuzz that do not expose an API for the OpenType MATH
 # table, we enable our own code to parse that table.
@@ -83,24 +89,26 @@ WEBKIT_OPTION_DEFINE(ENABLE_WAYLAND_TARGET "Whether to enable support for the Wa
 WEBKIT_OPTION_DEFINE(USE_LIBNOTIFY "Whether to enable the default web notification implementation." PUBLIC ON)
 WEBKIT_OPTION_DEFINE(USE_LIBHYPHEN "Whether to enable the default automatic hyphenation implementation." PUBLIC ON)
 WEBKIT_OPTION_DEFINE(USE_LIBSECRET "Whether to enable the persistent credential storage using libsecret." PUBLIC ON)
-WEBKIT_OPTION_DEFINE(USE_WOFF2 "Whether to enable support for WOFF2 Web Fonts." PUBLIC ON)
 
 # Private options specific to the GTK+ port. Changing these options is
 # completely unsupported. They are intended for use only by WebKit developers.
+WEBKIT_OPTION_DEFINE(USE_GSTREAMER_GL "Whether to enable support for GStreamer GL" PRIVATE OFF)
+WEBKIT_OPTION_DEFINE(USE_GSTREAMER_MPEGTS "Whether to enable support for MPEG-TS" PRIVATE OFF)
 WEBKIT_OPTION_DEFINE(USE_REDIRECTED_XCOMPOSITE_WINDOW "Whether to use a Redirected XComposite Window for accelerated compositing in X11." PRIVATE ON)
-WEBKIT_OPTION_DEFINE(USE_OPENVR "Whether to use OpenVR as WebVR backend." PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
 
 # FIXME: Can we use cairo-glesv2 to avoid this conflict?
 WEBKIT_OPTION_CONFLICT(ENABLE_ACCELERATED_2D_CANVAS ENABLE_GLES2)
 
 WEBKIT_OPTION_DEPEND(ENABLE_3D_TRANSFORMS ENABLE_OPENGL)
 WEBKIT_OPTION_DEPEND(ENABLE_ACCELERATED_2D_CANVAS ENABLE_OPENGL)
-WEBKIT_OPTION_DEPEND(ENABLE_ASYNC_SCROLLING ENABLE_OPENGL)
 WEBKIT_OPTION_DEPEND(ENABLE_GLES2 ENABLE_OPENGL)
 WEBKIT_OPTION_DEPEND(ENABLE_PLUGIN_PROCESS_GTK2 ENABLE_X11_TARGET)
 WEBKIT_OPTION_DEPEND(ENABLE_WEBGL ENABLE_OPENGL)
 WEBKIT_OPTION_DEPEND(USE_REDIRECTED_XCOMPOSITE_WINDOW ENABLE_OPENGL)
 WEBKIT_OPTION_DEPEND(USE_REDIRECTED_XCOMPOSITE_WINDOW ENABLE_X11_TARGET)
+WEBKIT_OPTION_DEPEND(USE_GSTREAMER_GL ENABLE_OPENGL)
+WEBKIT_OPTION_DEPEND(USE_GSTREAMER_GL ENABLE_VIDEO)
+WEBKIT_OPTION_DEPEND(USE_GSTREAMER_MPEGTS ENABLE_VIDEO)
 
 SET_AND_EXPOSE_TO_BUILD(ENABLE_DEVELOPER_MODE ${DEVELOPER_MODE})
 if (DEVELOPER_MODE)
@@ -109,56 +117,59 @@ if (DEVELOPER_MODE)
 else ()
     WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_MINIBROWSER PUBLIC OFF)
     WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_API_TESTS PRIVATE OFF)
+    if (NOT CMAKE_SYSTEM_NAME MATCHES "Darwin")
+        set(WebKit2_VERSION_SCRIPT "-Wl,--version-script,${CMAKE_MODULE_PATH}/gtksymbols.filter")
+    endif ()
 endif ()
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
-    WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_MEMORY_SAMPLER PRIVATE ON)
+    WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_MEMORY_SAMPLER PUBLIC ON)
     WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_RESOURCE_USAGE PRIVATE ON)
 else ()
-    WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_MEMORY_SAMPLER PRIVATE OFF)
+    WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_MEMORY_SAMPLER PUBLIC OFF)
     WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_RESOURCE_USAGE PRIVATE OFF)
-endif ()
-
-if (CMAKE_SYSTEM_NAME MATCHES "Linux" AND NOT EXISTS "/.flatpak-info")
-    WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_BUBBLEWRAP_SANDBOX PUBLIC ON)
-else ()
-    WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_BUBBLEWRAP_SANDBOX PRIVATE OFF)
-endif ()
-
-# Enable variation fonts when cairo >= 1.16, fontconfig >= 2.13.0, freetype >= 2.9.0 and harfbuzz >= 1.4.2.
-if (("${PC_CAIRO_VERSION}" VERSION_GREATER "1.16.0" OR "${PC_CAIRO_VERSION}" STREQUAL "1.16.0")
-    AND ("${PC_FONTCONFIG_VERSION}" VERSION_GREATER "2.13.0" OR "${PC_FONTCONFIG_VERSION}" STREQUAL "2.13.0")
-    AND ("${FREETYPE_VERSION_STRING}" VERSION_GREATER "2.9.0" OR "${FREETYPE_VERSION_STRING}" STREQUAL "2.9.0")
-    AND ("${PC_HARFBUZZ_VERSION}" VERSION_GREATER "1.4.2" OR "${PC_HARFBUZZ_VERSION}" STREQUAL "1.4.2"))
-    WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_VARIATION_FONTS PRIVATE ON)
 endif ()
 
 # Public options shared with other WebKit ports. Do not add any options here
 # without approval from a GTK+ reviewer. There must be strong reason to support
 # changing the value of the option.
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_ACCELERATED_2D_CANVAS PUBLIC OFF)
-WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_ASYNC_SCROLLING PRIVATE ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_DRAG_SUPPORT PUBLIC ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_GEOLOCATION PUBLIC ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_ICONDATABASE PUBLIC ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_JIT PUBLIC ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_SAMPLING_PROFILER PUBLIC ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_SPELLCHECK PUBLIC ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_TOUCH_EVENTS PUBLIC ON)
-WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEB_CRYPTO PUBLIC ON)
-WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBDRIVER PUBLIC ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_VIDEO PUBLIC ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEB_AUDIO PUBLIC ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(USE_SYSTEM_MALLOC PUBLIC OFF)
 
 # Private options shared with other WebKit ports. Add options here when
 # we need a value different from the default defined in WebKitFeatures.cmake.
 # Changing these options is completely unsupported.
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_3D_TRANSFORMS PRIVATE ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_ACCESSIBILITY PRIVATE ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_CANVAS_PATH PRIVATE OFF)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_CSS_REGIONS PRIVATE ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_CSS_SELECTORS_LEVEL4 PRIVATE ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_DATABASE_PROCESS PRIVATE ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_DOWNLOAD_ATTRIBUTE PRIVATE ON)
-WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_ENCRYPTED_MEDIA PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_FTPDIR PRIVATE OFF)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_FULLSCREEN_API PRIVATE ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_INDEXED_DATABASE PRIVATE ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_INDEXED_DATABASE_IN_WORKERS PRIVATE ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_INPUT_TYPE_COLOR PRIVATE ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_MEDIA_CONTROLS_SCRIPT PRIVATE ON)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_MHTML PRIVATE ON)
-WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_MEDIA_STREAM PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
-WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_SERVICE_WORKER PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
-WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEB_RTC PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
-
-include(GStreamerDependencies)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_NOTIFICATIONS PRIVATE ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_PUBLIC_SUFFIX_LIST PRIVATE ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_REMOTE_INSPECTOR PRIVATE ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_SMOOTH_SCROLLING PRIVATE ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_USERSELECT_ALL PRIVATE ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_USER_MESSAGE_HANDLERS PRIVATE ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_VIDEO_TRACK PRIVATE ON)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBGL PRIVATE ON)
 
 # Finalize the value for all options. Do not attempt to use an option before
 # this point, and do not attempt to change any option after this point.
@@ -168,21 +179,23 @@ SET_AND_EXPOSE_TO_BUILD(WTF_PLATFORM_QUARTZ ${ENABLE_QUARTZ_TARGET})
 SET_AND_EXPOSE_TO_BUILD(WTF_PLATFORM_X11 ${ENABLE_X11_TARGET})
 SET_AND_EXPOSE_TO_BUILD(WTF_PLATFORM_WAYLAND ${ENABLE_WAYLAND_TARGET})
 
-if (ENABLE_NETSCAPE_PLUGIN_API)
-    # MOZ_X11 and XP_UNIX are required by npapi.h. Their value is not checked;
-    # only their definedness is. They should only be defined in the true case.
-    if (ENABLE_X11_TARGET)
-        SET_AND_EXPOSE_TO_BUILD(MOZ_X11 1)
-    endif ()
+# MOZ_X11 and XP_UNIX are required by npapi.h. Their value is not checked;
+# only their definedness is. They should only be defined in the true case.
+if (${ENABLE_X11_TARGET})
+    SET_AND_EXPOSE_TO_BUILD(MOZ_X11 1)
     SET_AND_EXPOSE_TO_BUILD(XP_UNIX 1)
 endif ()
 
+set(ENABLE_WEBKIT OFF)
+set(ENABLE_WEBKIT2 ON)
 set(ENABLE_PLUGIN_PROCESS ${ENABLE_NETSCAPE_PLUGIN_API})
 
 add_definitions(-DBUILDING_GTK__=1)
 add_definitions(-DGETTEXT_PACKAGE="WebKit2GTK-${WEBKITGTK_API_VERSION}")
+add_definitions(-DDATA_DIR="${CMAKE_INSTALL_DATADIR}")
+add_definitions(-DUSER_AGENT_GTK_MAJOR_VERSION="604")
+add_definitions(-DUSER_AGENT_GTK_MINOR_VERSION="1")
 add_definitions(-DWEBKITGTK_API_VERSION_STRING="${WEBKITGTK_API_VERSION}")
-add_definitions(-DJSC_GLIB_API_ENABLED)
 
 set(GTK_LIBRARIES ${GTK3_LIBRARIES})
 set(GTK_INCLUDE_DIRS ${GTK3_INCLUDE_DIRS})
@@ -190,9 +203,12 @@ set(GDK_LIBRARIES ${GDK3_LIBRARIES})
 set(GDK_INCLUDE_DIRS ${GDK3_INCLUDE_DIRS})
 
 SET_AND_EXPOSE_TO_BUILD(HAVE_GTK_GESTURES ${GTK3_SUPPORTS_GESTURES})
-SET_AND_EXPOSE_TO_BUILD(HAVE_GTK_UNIX_PRINTING ${GTKUnixPrint_FOUND})
+SET_AND_EXPOSE_TO_BUILD(HAVE_GTK_UNIX_PRINTING ${GTK_UNIX_PRINT_FOUND})
 
-set(glib_components gio gio-unix gobject gthread gmodule)
+set(glib_components gio gobject gthread gmodule)
+if (ENABLE_GAMEPAD_DEPRECATED OR ENABLE_GEOLOCATION)
+    list(APPEND glib_components gio-unix)
+endif ()
 find_package(GLIB 2.36 REQUIRED COMPONENTS ${glib_components})
 
 if (ENABLE_XSLT)
@@ -213,38 +229,6 @@ if (ENABLE_ACCELERATED_2D_CANVAS)
     endif ()
 endif ()
 
-if (ENABLE_BUBBLEWRAP_SANDBOX)
-    find_program(BWRAP_EXECUTABLE bwrap)
-    if (NOT BWRAP_EXECUTABLE)
-        message(FATAL_ERROR "bwrap executable is needed for ENABLE_BUBBLEWRAP_SANDBOX")
-    endif ()
-    add_definitions(-DBWRAP_EXECUTABLE="${BWRAP_EXECUTABLE}")
-
-    execute_process(
-        COMMAND "${BWRAP_EXECUTABLE}" --version
-        RESULT_VARIABLE BWRAP_RET
-        OUTPUT_VARIABLE BWRAP_OUTPUT
-    )
-    if (BWRAP_RET)
-        message(FATAL_ERROR "Failed to run ${BWRAP_EXECUTABLE}")
-    endif ()
-    string(REGEX MATCH "([0-9]+.[0-9]+.[0-9]+)" BWRAP_VERSION "${BWRAP_OUTPUT}")
-    if (NOT "${BWRAP_VERSION}" VERSION_GREATER_EQUAL "0.3.1")
-        message(FATAL_ERROR "bwrap must be >= 0.3.1 but ${BWRAP_VERSION} found")
-    endif ()
-
-    find_package(Libseccomp)
-    if (NOT LIBSECCOMP_FOUND)
-        message(FATAL_ERROR "libseccomp is needed for ENABLE_BUBBLEWRAP_SANDBOX")
-    endif ()
-
-    find_program(DBUS_PROXY_EXECUTABLE xdg-dbus-proxy)
-    if (NOT DBUS_PROXY_EXECUTABLE)
-        message(FATAL_ERROR "xdg-dbus-proxy not found and is needed for ENABLE_BUBBLEWRAP_SANDBOX")
-    endif ()
-    add_definitions(-DDBUS_PROXY_EXECUTABLE="${DBUS_PROXY_EXECUTABLE}")
-endif ()
-
 if (USE_LIBSECRET)
     find_package(Libsecret)
     if (NOT LIBSECRET_FOUND)
@@ -252,10 +236,22 @@ if (USE_LIBSECRET)
     endif ()
 endif ()
 
+if (ENABLE_GAMEPAD_DEPRECATED)
+    find_package(GUdev)
+    if (NOT GUDEV_FOUND)
+        message(FATAL_ERROR "GUdev is needed for ENABLE_GAMEPAD_DEPRECATED")
+    endif ()
+endif ()
+
 if (ENABLE_GEOLOCATION)
     find_package(GeoClue2 2.1.5)
-    if (NOT GEOCLUE2_FOUND)
-        message(FATAL_ERROR "Geoclue is needed for ENABLE_GEOLOCATION.")
+    if (GEOCLUE2_FOUND)
+        SET_AND_EXPOSE_TO_BUILD(USE_GEOCLUE2 ${GEOCLUE2_FOUND})
+    else ()
+        find_package(GeoClue)
+        if (NOT GEOCLUE_FOUND)
+            message(FATAL_ERROR "Geoclue is needed for ENABLE_GEOLOCATION.")
+        endif ()
     endif ()
 endif ()
 
@@ -266,24 +262,19 @@ if (ENABLE_INTROSPECTION)
     endif ()
 endif ()
 
-if (ENABLE_WEB_CRYPTO)
-    find_package(Libtasn1 REQUIRED)
-    if (NOT LIBTASN1_FOUND)
-        message(FATAL_ERROR "libtasn1 is required to enable Web Crypto API support.")
+if (ENABLE_MEDIA_STREAM OR ENABLE_WEB_RTC)
+    find_package(OpenWebRTC)
+    if (NOT OPENWEBRTC_FOUND)
+        message(FATAL_ERROR "OpenWebRTC is needed for ENABLE_MEDIA_STREAM and ENABLE_WEB_RTC.")
     endif ()
+    SET_AND_EXPOSE_TO_BUILD(USE_OPENWEBRTC TRUE)
+endif ()
+
+if (ENABLE_SUBTLE_CRYPTO)
     if (LIBGCRYPT_VERSION VERSION_LESS 1.7.0)
         message(FATAL_ERROR "libgcrypt 1.7.0 is required to enable Web Crypto API support.")
     endif ()
-endif ()
-
-if (ENABLE_WEBDRIVER)
-    # WebDriver requires newer versions of GLib and Soup.
-    if (PC_GLIB_VERSION VERSION_LESS "2.40")
-        message(FATAL_ERROR "GLib 2.40 is required to enable WebDriver support.")
-    endif ()
-    if (PC_LIBSOUP_VERSION VERSION_LESS "2.48")
-        message(FATAL_ERROR "libsoup 2.48 is required to enable WebDriver support.")
-    endif ()
+    SET_AND_EXPOSE_TO_BUILD(USE_GCRYPT TRUE)
 endif ()
 
 SET_AND_EXPOSE_TO_BUILD(USE_TEXTURE_MAPPER TRUE)
@@ -293,7 +284,7 @@ if (ENABLE_OPENGL)
     # But USE_OPENGL is the opposite of ENABLE_GLES2.
     if (ENABLE_GLES2)
         find_package(OpenGLES2 REQUIRED)
-        SET_AND_EXPOSE_TO_BUILD(USE_OPENGL_ES TRUE)
+        SET_AND_EXPOSE_TO_BUILD(USE_OPENGL_ES_2 TRUE)
 
         if (NOT EGL_FOUND)
             message(FATAL_ERROR "EGL is needed for ENABLE_GLES2.")
@@ -321,7 +312,6 @@ if (ENABLE_OPENGL)
 
     SET_AND_EXPOSE_TO_BUILD(USE_COORDINATED_GRAPHICS TRUE)
     SET_AND_EXPOSE_TO_BUILD(USE_COORDINATED_GRAPHICS_THREADED TRUE)
-    SET_AND_EXPOSE_TO_BUILD(USE_NICOSIA TRUE)
 endif ()
 
 if (ENABLE_PLUGIN_PROCESS_GTK2)
@@ -334,6 +324,48 @@ if (ENABLE_SPELLCHECK)
     if (NOT PC_ENCHANT_FOUND)
         message(FATAL_ERROR "Enchant is needed for ENABLE_SPELLCHECK")
     endif ()
+endif ()
+
+if (ENABLE_VIDEO OR ENABLE_WEB_AUDIO)
+    set(GSTREAMER_COMPONENTS app pbutils)
+
+    if (ENABLE_VIDEO)
+        list(APPEND GSTREAMER_COMPONENTS video mpegts tag gl)
+    endif ()
+
+    if (ENABLE_WEB_AUDIO)
+        list(APPEND GSTREAMER_COMPONENTS audio fft)
+    endif ()
+
+    find_package(GStreamer 1.2.3 REQUIRED COMPONENTS ${GSTREAMER_COMPONENTS})
+
+    if (ENABLE_WEB_AUDIO)
+        if (NOT PC_GSTREAMER_AUDIO_FOUND OR NOT PC_GSTREAMER_FFT_FOUND)
+            message(FATAL_ERROR "WebAudio requires the audio and fft GStreamer libraries. Please check your gst-plugins-base installation.")
+        else ()
+            SET_AND_EXPOSE_TO_BUILD(USE_WEBAUDIO_GSTREAMER TRUE)
+        endif ()
+    endif ()
+
+    if (ENABLE_VIDEO)
+        if (NOT PC_GSTREAMER_APP_FOUND OR NOT PC_GSTREAMER_PBUTILS_FOUND OR NOT PC_GSTREAMER_TAG_FOUND OR NOT PC_GSTREAMER_VIDEO_FOUND)
+            message(FATAL_ERROR "Video playback requires the following GStreamer libraries: app, pbutils, tag, video. Please check your gst-plugins-base installation.")
+        endif ()
+    endif ()
+
+    if (USE_GSTREAMER_MPEGTS)
+        if (NOT PC_GSTREAMER_MPEGTS_FOUND)
+            message(FATAL_ERROR "GStreamer MPEG-TS is needed for USE_GSTREAMER_MPEGTS.")
+        endif ()
+    endif ()
+
+    if (USE_GSTREAMER_GL)
+        if (NOT PC_GSTREAMER_GL_FOUND)
+            message(FATAL_ERROR "GStreamerGL is needed for USE_GSTREAMER_GL.")
+        endif ()
+    endif ()
+
+    SET_AND_EXPOSE_TO_BUILD(USE_GSTREAMER TRUE)
 endif ()
 
 if (ENABLE_QUARTZ_TARGET)
@@ -389,18 +421,6 @@ if (USE_LIBHYPHEN)
     endif ()
 endif ()
 
-if (USE_WOFF2)
-    find_package(WOFF2Dec 1.0.2)
-    if (NOT WOFF2DEC_FOUND)
-       message(FATAL_ERROR "libwoff2dec is needed for USE_WOFF2.")
-    endif ()
-endif ()
-
-# https://bugs.webkit.org/show_bug.cgi?id=182247
-if (ENABLED_COMPILER_SANITIZERS)
-    set(ENABLE_INTROSPECTION OFF)
-endif ()
-
 # Override the cached variables, gtk-doc and gobject-introspection do not really work when cross-building.
 if (CMAKE_CROSSCOMPILING)
     set(ENABLE_GTKDOC OFF)
@@ -416,16 +436,13 @@ set(DERIVED_SOURCES_WEBKITGTK_DIR ${DERIVED_SOURCES_DIR}/webkitgtk)
 set(DERIVED_SOURCES_WEBKITGTK_API_DIR ${DERIVED_SOURCES_WEBKITGTK_DIR}/webkit)
 set(DERIVED_SOURCES_WEBKIT2GTK_DIR ${DERIVED_SOURCES_DIR}/webkit2gtk)
 set(DERIVED_SOURCES_WEBKIT2GTK_API_DIR ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/webkit2)
-set(DERIVED_SOURCES_JAVASCRIPCOREGTK_DIR ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/javascriptcoregtk)
-set(DERIVED_SOURCES_JAVASCRIPCORE_GLIB_API_DIR ${DERIVED_SOURCES_JAVASCRIPTCORE_DIR}/javascriptcoregtk/jsc)
 set(FORWARDING_HEADERS_WEBKIT2GTK_DIR ${FORWARDING_HEADERS_DIR}/webkit2gtk)
 set(FORWARDING_HEADERS_WEBKIT2GTK_EXTENSION_DIR ${FORWARDING_HEADERS_DIR}/webkit2gtk-webextension)
 
-set(JavaScriptCore_PKGCONFIG_FILE ${CMAKE_BINARY_DIR}/Source/JavaScriptCore/javascriptcoregtk-${WEBKITGTK_API_VERSION}.pc)
-set(WebKit2_PKGCONFIG_FILE ${CMAKE_BINARY_DIR}/Source/WebKit/webkit2gtk-${WEBKITGTK_API_VERSION}.pc)
-set(WebKit2WebExtension_PKGCONFIG_FILE ${CMAKE_BINARY_DIR}/Source/WebKit/webkit2gtk-web-extension-${WEBKITGTK_API_VERSION}.pc)
+set(WebKit_PKGCONFIG_FILE ${CMAKE_BINARY_DIR}/Source/WebKit/gtk/webkitgtk-${WEBKITGTK_API_VERSION}.pc)
+set(WebKit2_PKGCONFIG_FILE ${CMAKE_BINARY_DIR}/Source/WebKit2/webkit2gtk-${WEBKITGTK_API_VERSION}.pc)
+set(WebKit2WebExtension_PKGCONFIG_FILE ${CMAKE_BINARY_DIR}/Source/WebKit2/webkit2gtk-web-extension-${WEBKITGTK_API_VERSION}.pc)
 
-set(JavaScriptCore_LIBRARY_TYPE SHARED)
 set(SHOULD_INSTALL_JS_SHELL ON)
 
 # Add a typelib file to the list of all typelib dependencies. This makes it easy to
@@ -447,16 +464,30 @@ macro(ADD_WHOLE_ARCHIVE_TO_LIBRARIES _list_name)
     if (CMAKE_SYSTEM_NAME MATCHES "Darwin")
         list(APPEND ${_list_name} -Wl,-all_load)
     else ()
-        set(_tmp)
-        foreach (item IN LISTS ${_list_name})
-            if ("${item}" STREQUAL "PRIVATE" OR "${item}" STREQUAL "PUBLIC")
-                list(APPEND _tmp "${item}")
-            else ()
-                list(APPEND _tmp -Wl,--whole-archive "${item}" -Wl,--no-whole-archive)
-            endif ()
+        foreach (library IN LISTS ${_list_name})
+          list(APPEND ${_list_name}_TMP -Wl,--whole-archive ${library} -Wl,--no-whole-archive)
         endforeach ()
-        set(${_list_name} ${_tmp})
+        set(${_list_name} "${${_list_name}_TMP}")
     endif ()
 endmacro()
 
-include(GStreamerChecks)
+if (CMAKE_MAJOR_VERSION LESS 3)
+    # Before CMake 3 it was necessary to use a build script instead of using cmake --build directly
+    # to preserve colors and pretty-printing.
+
+    build_command(COMMAND_LINE_TO_BUILD)
+    # build_command unconditionally adds -i (ignore errors) for make, and there's
+    # no reasonable way to turn that off, so we just replace it with -k, which has
+    # the same effect, except that the return code will indicate that an error occurred.
+    # See: http://www.cmake.org/cmake/help/v3.0/command/build_command.html
+    string(REPLACE " -i" " -k" COMMAND_LINE_TO_BUILD ${COMMAND_LINE_TO_BUILD})
+    file(WRITE
+        ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/build.sh
+        "#!/bin/sh\n"
+        "${COMMAND_LINE_TO_BUILD} $@"
+    )
+    file(COPY ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/build.sh
+        DESTINATION ${CMAKE_BINARY_DIR}
+        FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE
+    )
+endif ()

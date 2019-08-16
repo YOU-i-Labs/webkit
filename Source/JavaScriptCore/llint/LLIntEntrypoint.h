@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "CodeSpecializationKind.h"
 
 namespace JSC {
 

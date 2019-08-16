@@ -19,39 +19,25 @@
 
 #pragma once
 
-#include "DOMWindow.h"
+#include "JSDOMBinding.h"
 #include "JSDOMGlobalObject.h"
-#include "JSDOMWrapperCache.h"
-#include <JavaScriptCore/AuxiliaryBarrierInlines.h>
-#include <JavaScriptCore/HeapInlines.h>
-#include <JavaScriptCore/JSArray.h>
-#include <JavaScriptCore/JSCJSValueInlines.h>
-#include <JavaScriptCore/JSCellInlines.h>
-#include <JavaScriptCore/JSObjectInlines.h>
-#include <JavaScriptCore/Lookup.h>
-#include <JavaScriptCore/ObjectConstructor.h>
-#include <JavaScriptCore/SlotVisitorInlines.h>
-#include <JavaScriptCore/StructureInlines.h>
-#include <JavaScriptCore/WriteBarrier.h>
-#include <cstddef>
 #include <wtf/Forward.h>
-#include <wtf/GetPtr.h>
-#include <wtf/Vector.h>
 
 namespace WebCore {
 
-class DOMWrapperWorld;
+class DOMWindow;
 class Frame;
-class FetchResponse;
+class DOMWrapperWorld;
 class JSDOMWindow;
+class JSDOMWindowProxy;
+
 class JSDOMWindowBasePrivate;
-class JSWindowProxy;
 
 class WEBCORE_EXPORT JSDOMWindowBase : public JSDOMGlobalObject {
     typedef JSDOMGlobalObject Base;
 protected:
-    JSDOMWindowBase(JSC::VM&, JSC::Structure*, RefPtr<DOMWindow>&&, JSWindowProxy*);
-    void finishCreation(JSC::VM&, JSWindowProxy*);
+    JSDOMWindowBase(JSC::VM&, JSC::Structure*, RefPtr<DOMWindow>&&, JSDOMWindowProxy*);
+    void finishCreation(JSC::VM&, JSDOMWindowProxy*);
 
     static void destroy(JSCell*);
 
@@ -61,7 +47,7 @@ public:
     DOMWindow& wrapped() const { return *m_wrapped; }
     ScriptExecutionContext* scriptExecutionContext() const;
 
-    // Called just before removing this window from the JSWindowProxy.
+    // Called just before removing this window from the JSDOMWindowProxy.
     void willRemoveFromWindowProxy();
 
     DECLARE_INFO;
@@ -81,7 +67,7 @@ public:
 
     void printErrorMessage(const String&) const;
 
-    JSWindowProxy* proxy() const;
+    JSDOMWindowProxy* proxy() const;
 
     static void fireFrameClearedWatchpointsForWindow(DOMWindow*);
 
@@ -89,28 +75,23 @@ protected:
     JSC::WatchpointSet m_windowCloseWatchpoints;
 
 private:
-    using ResponseCallback = WTF::Function<void(const char*, size_t)>;
-
-    static JSC::Identifier moduleLoaderResolve(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue, JSC::JSValue, JSC::JSValue);
-    static JSC::JSInternalPromise* moduleLoaderFetch(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue, JSC::JSValue, JSC::JSValue);
+    static JSC::JSInternalPromise* moduleLoaderResolve(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue, JSC::JSValue, JSC::JSValue);
+    static JSC::JSInternalPromise* moduleLoaderFetch(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue, JSC::JSValue);
     static JSC::JSValue moduleLoaderEvaluate(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue, JSC::JSValue, JSC::JSValue);
-    static JSC::JSInternalPromise* moduleLoaderImportModule(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSString*, JSC::JSValue, const JSC::SourceOrigin&);
-    static JSC::JSObject* moduleLoaderCreateImportMetaProperties(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSValue, JSC::JSModuleRecord*, JSC::JSValue);
-
-#if ENABLE(WEBASSEMBLY)
-    static void compileStreaming(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSPromiseDeferred*, JSC::JSValue);
-    static void instantiateStreaming(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSPromiseDeferred*, JSC::JSValue, JSC::JSObject*);
-#endif
+    static JSC::JSInternalPromise* moduleLoaderImportModule(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSModuleLoader*, JSC::JSString*, const JSC::SourceOrigin&);
+    static void promiseRejectionTracker(JSC::JSGlobalObject*, JSC::ExecState*, JSC::JSPromise*, JSC::JSPromiseRejectionOperation);
 
     RefPtr<DOMWindow> m_wrapped;
-    JSWindowProxy* m_proxy;
+    JSDOMWindowProxy* m_proxy;
 };
 
-WEBCORE_EXPORT JSC::JSValue toJS(JSC::ExecState*, DOMWindow&);
-// The following return a JSWindowProxy or jsNull()
+// The following return a JSDOMWindowProxy or jsNull()
 // JSDOMGlobalObject* is ignored, accessing a window in any context will use that DOMWindow's prototype chain.
-inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject*, DOMWindow& window) { return toJS(state, window); }
+WEBCORE_EXPORT JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, DOMWindow&);
 inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, DOMWindow* window) { return window ? toJS(state, globalObject, *window) : JSC::jsNull(); }
+JSC::JSValue toJS(JSC::ExecState*, JSDOMGlobalObject*, Frame&);
+inline JSC::JSValue toJS(JSC::ExecState* state, JSDOMGlobalObject* globalObject, Frame* frame) { return frame ? toJS(state, globalObject, *frame) : JSC::jsNull(); }
+JSC::JSValue toJS(JSC::ExecState*, DOMWindow&);
 inline JSC::JSValue toJS(JSC::ExecState* state, DOMWindow* window) { return window ? toJS(state, *window) : JSC::jsNull(); }
 
 // The following return a JSDOMWindow or nullptr.

@@ -87,7 +87,7 @@ static AtkAttributeSet* getAttributeSetForAccessibilityObject(const Accessibilit
     auto* style = &renderer->style();
 
     AtkAttributeSet* result = nullptr;
-    GUniquePtr<gchar> buffer(g_strdup_printf("%i", style->computedFontPixelSize()));
+    GUniquePtr<gchar> buffer(g_strdup_printf("%i", style->fontSize()));
     result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_SIZE), buffer.get());
 
     Color bgColor = style->visitedDependentColor(CSSPropertyBackgroundColor);
@@ -105,13 +105,13 @@ static AtkAttributeSet* getAttributeSetForAccessibilityObject(const Accessibilit
     int baselinePosition;
     bool includeRise = true;
     switch (style->verticalAlign()) {
-    case VerticalAlign::Sub:
+    case SUB:
         baselinePosition = -1 * baselinePositionForRenderObject(renderer);
         break;
-    case VerticalAlign::Super:
+    case SUPER:
         baselinePosition = baselinePositionForRenderObject(renderer);
         break;
-    case VerticalAlign::Baseline:
+    case BASELINE:
         baselinePosition = 0;
         break;
     default:
@@ -143,32 +143,32 @@ static AtkAttributeSet* getAttributeSetForAccessibilityObject(const Accessibilit
     }
 
     switch (style->textAlign()) {
-    case TextAlignMode::Start:
-    case TextAlignMode::End:
+    case TASTART:
+    case TAEND:
         break;
-    case TextAlignMode::Left:
-    case TextAlignMode::WebKitLeft:
+    case LEFT:
+    case WEBKIT_LEFT:
         result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_JUSTIFICATION), "left");
         break;
-    case TextAlignMode::Right:
-    case TextAlignMode::WebKitRight:
+    case RIGHT:
+    case WEBKIT_RIGHT:
         result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_JUSTIFICATION), "right");
         break;
-    case TextAlignMode::Center:
-    case TextAlignMode::WebKitCenter:
+    case CENTER:
+    case WEBKIT_CENTER:
         result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_JUSTIFICATION), "center");
         break;
-    case TextAlignMode::Justify:
+    case JUSTIFY:
         result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_JUSTIFICATION), "fill");
     }
 
-    result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_UNDERLINE), (style->textDecoration() & TextDecoration::Underline) ? "single" : "none");
+    result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_UNDERLINE), (style->textDecoration() & TextDecorationUnderline) ? "single" : "none");
 
     result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_STYLE), style->fontCascade().italic() ? "italic" : "normal");
 
-    result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_STRIKETHROUGH), (style->textDecoration() & TextDecoration::LineThrough) ? "true" : "false");
+    result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_STRIKETHROUGH), (style->textDecoration() & TextDecorationLineThrough) ? "true" : "false");
 
-    result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_INVISIBLE), (style->visibility() == Visibility::Hidden) ? "true" : "false");
+    result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_INVISIBLE), (style->visibility() == HIDDEN) ? "true" : "false");
 
     result = addToAtkAttributeSet(result, atk_text_attribute_get_name(ATK_TEXT_ATTR_EDITABLE), object->canSetValueAttribute() ? "true" : "false");
 
@@ -325,10 +325,6 @@ static IntRect textExtents(AtkText* text, gint startOffset, gint length, AtkCoor
     case ATK_XY_WINDOW:
         // No-op
         break;
-#if ATK_CHECK_VERSION(2, 30, 0)
-    case ATK_XY_PARENT:
-        RELEASE_ASSERT_NOT_REACHED();
-#endif
     }
 
     return extents;
@@ -339,7 +335,7 @@ static int offsetAdjustmentForListItem(const AccessibilityObject* object)
     // We need to adjust the offsets for the list item marker in
     // Left-To-Right text, since we expose it together with the text.
     RenderObject* renderer = object->renderer();
-    if (is<RenderListItem>(renderer) && renderer->style().direction() == TextDirection::LTR)
+    if (is<RenderListItem>(renderer) && renderer->style().direction() == LTR)
         return downcast<RenderListItem>(*renderer).markerTextWithSuffix().length();
 
     return 0;
@@ -395,6 +391,13 @@ static void getSelectionOffsetsForObject(AccessibilityObject* coreObject, Visibl
     Position firstValidPosition = firstPositionInOrBeforeNode(node->firstDescendant());
     Position lastValidPosition = lastPositionInOrAfterNode(node->lastDescendant());
 
+    // Early return with proper values if the selection falls entirely out of the object.
+    if (!selectionBelongsToObject(coreObject, selection)) {
+        startOffset = comparePositions(selection.start(), firstValidPosition) <= 0 ? 0 : accessibilityObjectLength(coreObject);
+        endOffset = startOffset;
+        return;
+    }
+
     // Find the proper range for the selection that falls inside the object.
     Position nodeRangeStart = selection.start();
     if (comparePositions(nodeRangeStart, firstValidPosition) < 0)
@@ -406,13 +409,13 @@ static void getSelectionOffsetsForObject(AccessibilityObject* coreObject, Visibl
 
     // Calculate position of the selected range inside the object.
     Position parentFirstPosition = firstPositionInOrBeforeNode(node);
-    auto rangeInParent = Range::create(node->document(), parentFirstPosition, nodeRangeStart);
+    RefPtr<Range> rangeInParent = Range::create(node->document(), parentFirstPosition, nodeRangeStart);
 
     // Set values for start offsets and calculate initial range length.
     // These values might be adjusted later to cover special cases.
-    startOffset = webCoreOffsetToAtkOffset(coreObject, TextIterator::rangeLength(rangeInParent.ptr(), true));
-    auto nodeRange = Range::create(node->document(), nodeRangeStart, nodeRangeEnd);
-    int rangeLength = TextIterator::rangeLength(nodeRange.ptr(), true);
+    startOffset = webCoreOffsetToAtkOffset(coreObject, TextIterator::rangeLength(rangeInParent.get(), true));
+    RefPtr<Range> nodeRange = Range::create(node->document(), nodeRangeStart, nodeRangeEnd);
+    int rangeLength = TextIterator::rangeLength(nodeRange.get(), true);
 
     // Special cases that are only relevant when working with *_END boundaries.
     if (selection.affinity() == UPSTREAM) {
@@ -444,7 +447,7 @@ static gchar* webkitAccessibleTextGetText(AtkText* text, gint startOffset, gint 
     AccessibilityObject* coreObject = core(text);
 
 #if ENABLE(INPUT_TYPE_COLOR)
-    if (coreObject->roleValue() == AccessibilityRole::ColorWell) {
+    if (coreObject->roleValue() == ColorWellRole) {
         int r, g, b;
         coreObject->colorValue(r, g, b);
         return g_strdup_printf("rgb %7.5f %7.5f %7.5f 1", r / 255., g / 255., b / 255.);
@@ -462,11 +465,11 @@ static gchar* webkitAccessibleTextGetText(AtkText* text, gint startOffset, gint 
 
     // Prefix a item number/bullet if needed
     int actualEndOffset = endOffset == -1 ? ret.length() : endOffset;
-    if (coreObject->roleValue() == AccessibilityRole::ListItem) {
+    if (coreObject->roleValue() == ListItemRole) {
         RenderObject* objRenderer = coreObject->renderer();
         if (is<RenderListItem>(objRenderer)) {
             String markerText = downcast<RenderListItem>(*objRenderer).markerTextWithSuffix();
-            ret = objRenderer->style().direction() == TextDirection::LTR ? markerText + ret : ret + markerText;
+            ret = objRenderer->style().direction() == LTR ? markerText + ret : ret + markerText;
             if (endOffset == -1)
                 actualEndOffset = ret.length() + markerText.length();
         }
@@ -909,11 +912,11 @@ static char* webkitAccessibleTextLineForBoundary(AtkText* text, int offset, AtkT
     RenderObject* renderer = coreObject->renderer();
     if (renderer->isListItem()) {
         // For Left-to-Right, the list item marker is at the beginning of the exposed text.
-        if (renderer->style().direction() == TextDirection::LTR && isFirstVisiblePositionInNode(selectedLine.visibleStart(), node))
+        if (renderer->style().direction() == LTR && isFirstVisiblePositionInNode(selectedLine.visibleStart(), node))
             *startOffset = 0;
 
         // For Right-to-Left, the list item marker is at the end of the exposed text.
-        if (renderer->style().direction() == TextDirection::RTL && isLastVisiblePositionInNode(selectedLine.visibleEnd(), node))
+        if (renderer->style().direction() == RTL && isLastVisiblePositionInNode(selectedLine.visibleEnd(), node))
             *endOffset = accessibilityObjectLength(coreObject);
     }
 

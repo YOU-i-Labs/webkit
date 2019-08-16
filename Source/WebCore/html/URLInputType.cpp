@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -36,7 +35,7 @@
 #include "HTMLParserIdioms.h"
 #include "InputTypeNames.h"
 #include "LocalizedStrings.h"
-#include <wtf/URL.h>
+#include "URL.h"
 
 namespace WebCore {
 
@@ -52,8 +51,7 @@ bool URLInputType::typeMismatchFor(const String& value) const
 
 bool URLInputType::typeMismatch() const
 {
-    ASSERT(element());
-    return typeMismatchFor(element()->value());
+    return typeMismatchFor(element().value());
 }
 
 String URLInputType::typeMismatchText() const

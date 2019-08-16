@@ -172,7 +172,7 @@ void DeleteSelectionCommand::setStartingSelectionOnSmartDelete(const Position& s
     setStartingSelection(VisibleSelection(newBase, newExtent, startingSelection().isDirectional())); 
 }
     
-bool DeleteSelectionCommand::initializePositionData()
+void DeleteSelectionCommand::initializePositionData()
 {
     Position start, end;
     initializeStartEnd(start, end);
@@ -181,9 +181,6 @@ bool DeleteSelectionCommand::initializePositionData()
         start = firstEditablePositionAfterPositionInRoot(start, highestEditableRoot(start));
     if (!isEditablePosition(end, ContentIsEditable))
         end = lastEditablePositionBeforePositionInRoot(end, highestEditableRoot(start));
-
-    if (start.isNull() || end.isNull())
-        return false;
 
     m_upstreamStart = start.upstream();
     m_downstreamStart = start.downstream();
@@ -275,8 +272,6 @@ bool DeleteSelectionCommand::initializePositionData()
     // node.  This was done to match existing behavior, but it seems wrong.
     m_startBlock = enclosingNodeOfType(m_downstreamStart.parentAnchoredEquivalent(), &isBlock, CanCrossEditingBoundary);
     m_endBlock = enclosingNodeOfType(m_upstreamEnd.parentAnchoredEquivalent(), &isBlock, CanCrossEditingBoundary);
-
-    return true;
 }
 
 void DeleteSelectionCommand::saveTypingStyleState()
@@ -461,7 +456,7 @@ void DeleteSelectionCommand::deleteTextFromNode(Text& node, unsigned offset, uns
 void DeleteSelectionCommand::makeStylingElementsDirectChildrenOfEditableRootToPreventStyleLoss()
 {
     RefPtr<Range> range = m_selectionToDelete.toNormalizedRange();
-    RefPtr<Node> node = range ? range->firstNode() : nullptr;
+    RefPtr<Node> node = range->firstNode();
     while (node && node != range->pastLastNode()) {
         RefPtr<Node> nextNode = NodeTraversal::next(*node);
         if ((is<HTMLStyleElement>(*node) && !downcast<HTMLStyleElement>(*node).hasAttributeWithoutSynchronization(scopedAttr)) || is<HTMLLinkElement>(*node)) {
@@ -693,9 +688,9 @@ void DeleteSelectionCommand::mergeParagraphs()
         return;
     }
     
-    auto range = Range::create(document(), startOfParagraphToMove.deepEquivalent().parentAnchoredEquivalent(), endOfParagraphToMove.deepEquivalent().parentAnchoredEquivalent());
-    auto rangeToBeReplaced = Range::create(document(), mergeDestination.deepEquivalent().parentAnchoredEquivalent(), mergeDestination.deepEquivalent().parentAnchoredEquivalent());
-    if (!frame().editor().client()->shouldMoveRangeAfterDelete(range.ptr(), rangeToBeReplaced.ptr()))
+    RefPtr<Range> range = Range::create(document(), startOfParagraphToMove.deepEquivalent().parentAnchoredEquivalent(), endOfParagraphToMove.deepEquivalent().parentAnchoredEquivalent());
+    RefPtr<Range> rangeToBeReplaced = Range::create(document(), mergeDestination.deepEquivalent().parentAnchoredEquivalent(), mergeDestination.deepEquivalent().parentAnchoredEquivalent());
+    if (!frame().editor().client()->shouldMoveRangeAfterDelete(range.get(), rangeToBeReplaced.get()))
         return;
     
     // moveParagraphs will insert placeholders if it removes blocks that would require their use, don't let block
@@ -862,8 +857,7 @@ void DeleteSelectionCommand::doApply()
         
     
     // set up our state
-    if (!initializePositionData())
-        return;
+    initializePositionData();
 
     // Delete any text that may hinder our ability to fixup whitespace after the delete
     deleteInsignificantTextDownstream(m_trailingWhitespace);    
@@ -900,7 +894,7 @@ void DeleteSelectionCommand::doApply()
         if (is<Text>(node)) {
             Text& textNode = downcast<Text>(*node);
             if (textNode.length() && textNode.renderer())
-                shouldRebalaceWhiteSpace = textNode.renderer()->style().textSecurity() == TextSecurity::None;
+                shouldRebalaceWhiteSpace = textNode.renderer()->style().textSecurity() == TSNONE;
         }        
     }
     if (shouldRebalaceWhiteSpace)

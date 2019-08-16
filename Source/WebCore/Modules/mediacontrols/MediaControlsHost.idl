@@ -49,7 +49,6 @@ enum DeviceType {
     readonly attribute boolean userGestureRequired;
     readonly attribute boolean isInMediaDocument;
     readonly attribute boolean shouldForceControlsDisplay;
-    readonly attribute boolean compactMode;
 
     readonly attribute DOMString externalDeviceDisplayName;
     readonly attribute DeviceType externalDeviceType;
@@ -64,5 +63,4 @@ enum DeviceType {
 
     [EnabledAtRuntime=ModernMediaControls] readonly attribute DOMString shadowRootCSSText;
     [EnabledAtRuntime=ModernMediaControls] DOMString base64StringForIconNameAndType(DOMString iconName, DOMString iconType);
-    [EnabledAtRuntime=ModernMediaControls] DOMString formattedStringForDuration(unrestricted double durationInSeconds);
 };

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "CSSReflectionDirection.h"
 #include "CSSValue.h"
 #include <wtf/RefPtr.h>
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,14 +27,15 @@
 
 #include "LLIntCommon.h"
 #include <wtf/Assertions.h>
-#include <wtf/Gigacage.h>
-#include <wtf/Poisoned.h>
+#include <wtf/InlineASM.h>
 
-#if ENABLE(C_LOOP)
+#if !ENABLE(JIT)
 #define OFFLINE_ASM_C_LOOP 1
 #define OFFLINE_ASM_X86 0
 #define OFFLINE_ASM_X86_WIN 0
+#define OFFLINE_ASM_ARM 0
 #define OFFLINE_ASM_ARMv7 0
+#define OFFLINE_ASM_ARMv7_TRADITIONAL 0
 #define OFFLINE_ASM_ARM64 0
 #define OFFLINE_ASM_ARM64E 0
 #define OFFLINE_ASM_X86_64 0
@@ -43,7 +44,7 @@
 #define OFFLINE_ASM_ARMv7s 0
 #define OFFLINE_ASM_MIPS 0
 
-#else // ENABLE(C_LOOP)
+#else // ENABLE(JIT)
 
 #define OFFLINE_ASM_C_LOOP 0
 
@@ -77,6 +78,19 @@
 #define OFFLINE_ASM_ARMv7 0
 #endif
 
+#if CPU(ARM_TRADITIONAL)
+#if WTF_ARM_ARCH_AT_LEAST(7)
+#define OFFLINE_ASM_ARMv7_TRADITIONAL 1
+#define OFFLINE_ASM_ARM 0
+#else
+#define OFFLINE_ASM_ARM 1
+#define OFFLINE_ASM_ARMv7_TRADITIONAL 0
+#endif
+#else
+#define OFFLINE_ASM_ARMv7_TRADITIONAL 0
+#define OFFLINE_ASM_ARM 0
+#endif
+
 #if CPU(X86_64) && !COMPILER(MSVC)
 #define OFFLINE_ASM_X86_64 1
 #else
@@ -103,8 +117,6 @@
 
 #if CPU(ARM64E)
 #define OFFLINE_ASM_ARM64E 1
-#undef OFFLINE_ASM_ARM64
-#define OFFLINE_ASM_ARM64 0 // Pretend that ARM64 and ARM64E are mutually exclusive to please the offlineasm.
 #else
 #define OFFLINE_ASM_ARM64E 0
 #endif
@@ -122,24 +134,12 @@
 #endif
 #endif
 
-#endif // ENABLE(C_LOOP)
+#endif // ENABLE(JIT)
 
 #if USE(JSVALUE64)
 #define OFFLINE_ASM_JSVALUE64 1
 #else
 #define OFFLINE_ASM_JSVALUE64 0
-#endif
-
-#if CPU(ADDRESS64)
-#define OFFLINE_ASM_ADDRESS64 1
-#else
-#define OFFLINE_ASM_ADDRESS64 0
-#endif
-
-#if ENABLE(POISON)
-#define OFFLINE_ASM_POISON 1
-#else
-#define OFFLINE_ASM_POISON 0
 #endif
 
 #if !ASSERT_DISABLED
@@ -154,16 +154,14 @@
 #define OFFLINE_ASM_BIG_ENDIAN 0
 #endif
 
-#if LLINT_TRACING
-#define OFFLINE_ASM_TRACING 1
+#if ENABLE(LLINT_STATS)
+#define OFFLINE_ASM_COLLECT_STATS 1
 #else
-#define OFFLINE_ASM_TRACING 0
+#define OFFLINE_ASM_COLLECT_STATS 0
 #endif
 
-#if USE(POINTER_PROFILING)
-#define OFFLINE_ASM_POINTER_PROFILING 1
+#if LLINT_EXECUTION_TRACING
+#define OFFLINE_ASM_EXECUTION_TRACING 1
 #else
-#define OFFLINE_ASM_POINTER_PROFILING 0
+#define OFFLINE_ASM_EXECUTION_TRACING 0
 #endif
-
-#define OFFLINE_ASM_GIGACAGE_ENABLED GIGACAGE_ENABLED

@@ -38,7 +38,7 @@ namespace WebCore {
 
 class StorageUsageCallback : public RefCounted<StorageUsageCallback> {
 public:
-    virtual ~StorageUsageCallback() = default;
+    virtual ~StorageUsageCallback() { }
     virtual bool handleEvent(unsigned long long currentUsageInBytes, unsigned long long currentQuotaInBytes) = 0;
 };
 

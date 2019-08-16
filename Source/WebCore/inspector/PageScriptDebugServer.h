@@ -26,7 +26,7 @@
 
 #pragma once
 
-#include <JavaScriptCore/ScriptDebugServer.h>
+#include <inspector/ScriptDebugServer.h>
 
 namespace WebCore {
 
@@ -36,10 +36,9 @@ class PageGroup;
 
 class PageScriptDebugServer final : public Inspector::ScriptDebugServer {
     WTF_MAKE_NONCOPYABLE(PageScriptDebugServer);
-    WTF_MAKE_FAST_ALLOCATED;
 public:
     PageScriptDebugServer(Page&);
-    virtual ~PageScriptDebugServer() = default;
+    virtual ~PageScriptDebugServer() { }
 
     void recompileAllJSFunctions() override;
 

@@ -23,13 +23,13 @@
 * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-WI.ProfileDataGridTree = class ProfileDataGridTree extends WI.Object
+WebInspector.ProfileDataGridTree = class ProfileDataGridTree extends WebInspector.Object
 {
     constructor(callingContextTree, startTime, endTime, sortComparator)
     {
         super();
 
-        console.assert(callingContextTree instanceof WI.CallingContextTree);
+        console.assert(callingContextTree instanceof WebInspector.CallingContextTree);
         console.assert(typeof sortComparator === "function");
 
         this._children = [];
@@ -50,7 +50,7 @@ WI.ProfileDataGridTree = class ProfileDataGridTree extends WI.Object
 
     static buildSortComparator(columnIdentifier, sortOrder)
     {
-        let ascending = sortOrder === WI.DataGrid.SortOrder.Ascending;
+        let ascending = sortOrder === WebInspector.DataGrid.SortOrder.Ascending;
         return function(a, b) {
             let result = a.data[columnIdentifier] - b.data[columnIdentifier];
             return ascending ? result : -result;
@@ -142,7 +142,7 @@ WI.ProfileDataGridTree = class ProfileDataGridTree extends WI.Object
 
     addFocusNode(profileDataGridNode)
     {
-        console.assert(profileDataGridNode instanceof WI.ProfileDataGridNode);
+        console.assert(profileDataGridNode instanceof WebInspector.ProfileDataGridNode);
 
         // Save the original parent for when we rollback.
         this._saveFocusedNodeOriginalParent(profileDataGridNode);
@@ -153,7 +153,7 @@ WI.ProfileDataGridTree = class ProfileDataGridTree extends WI.Object
 
     rollbackFocusNode(profileDataGridNode)
     {
-        console.assert(profileDataGridNode instanceof WI.ProfileDataGridNode);
+        console.assert(profileDataGridNode instanceof WebInspector.ProfileDataGridNode);
 
         let index = this._focusNodes.indexOf(profileDataGridNode);
         console.assert(index !== -1, "rollbackFocusNode should be rolling back to a previous focused node");
@@ -212,7 +212,7 @@ WI.ProfileDataGridTree = class ProfileDataGridTree extends WI.Object
             // All nodes in the time range in the calling context tree.
             this._callingContextTree.forEachChild((child) => {
                 if (child.hasStackTraceInTimeRange(this._startTime, this._endTime))
-                    this.appendChild(new WI.ProfileDataGridNode(child, this));
+                    this.appendChild(new WebInspector.ProfileDataGridNode(child, this));
             });
         }
 
@@ -228,7 +228,7 @@ WI.ProfileDataGridTree = class ProfileDataGridTree extends WI.Object
         // FIXME: This re-creates top level children, without remembering their expanded / unexpanded state.
         this._repopulate();
 
-        this.dispatchEventToListeners(WI.ProfileDataGridTree.Event.FocusChanged);
+        this.dispatchEventToListeners(WebInspector.ProfileDataGridTree.Event.FocusChanged);
 
         if (this._focusParentsToExpand) {
             for (let profileDataGridNode of this._focusParentsToExpand)
@@ -277,15 +277,15 @@ WI.ProfileDataGridTree = class ProfileDataGridTree extends WI.Object
 
     _modifiersChanged()
     {
-        this.dispatchEventToListeners(WI.ProfileDataGridTree.Event.ModifiersChanged);
+        this.dispatchEventToListeners(WebInspector.ProfileDataGridTree.Event.ModifiersChanged);
     }
 };
 
-WI.ProfileDataGridTree.Event = {
+WebInspector.ProfileDataGridTree.Event = {
     FocusChanged: "profile-data-grid-tree-focus-changed",
     ModifiersChanged: "profile-data-grid-tree-modifiers-changed",
 };
 
-WI.ProfileDataGridTree.ModifierType = {
+WebInspector.ProfileDataGridTree.ModifierType = {
     ChargeToCaller: "charge",
 };

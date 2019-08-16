@@ -35,7 +35,7 @@ namespace WebCore {
 
 class WebMediaSessionManagerClient {
 public:
-    virtual ~WebMediaSessionManagerClient() = default;
+    virtual ~WebMediaSessionManagerClient() { }
 
     virtual void setPlaybackTarget(uint64_t, Ref<MediaPlaybackTarget>&&) = 0;
     virtual void externalOutputDeviceAvailableDidChange(uint64_t, bool) = 0;

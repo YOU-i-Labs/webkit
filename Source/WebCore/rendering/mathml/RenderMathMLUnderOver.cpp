@@ -34,11 +34,8 @@
 #include "MathMLUnderOverElement.h"
 #include "RenderIterator.h"
 #include "RenderMathMLOperator.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMathMLUnderOver);
 
 RenderMathMLUnderOver::RenderMathMLUnderOver(MathMLUnderOverElement& element, RenderStyle&& style)
     : RenderMathMLScripts(element, WTFMove(style))
@@ -50,75 +47,33 @@ MathMLUnderOverElement& RenderMathMLUnderOver::element() const
     return static_cast<MathMLUnderOverElement&>(nodeForNonAnonymous());
 }
 
-static RenderMathMLOperator* horizontalStretchyOperator(const RenderBox& box)
+void RenderMathMLUnderOver::computeOperatorsHorizontalStretch()
 {
-    if (!is<RenderMathMLBlock>(box))
-        return nullptr;
-
-    auto* renderOperator = downcast<RenderMathMLBlock>(box).unembellishedOperator();
-    if (!renderOperator)
-        return nullptr;
-
-    if (!renderOperator->isStretchy() || renderOperator->isVertical() || renderOperator->isStretchWidthLocked())
-        return nullptr;
-
-    return renderOperator;
-}
-
-static void fixLayoutAfterStretch(RenderBox& ancestor, RenderMathMLOperator& stretchyOperator)
-{
-    stretchyOperator.setStretchWidthLocked(true);
-    stretchyOperator.setNeedsLayout();
-    ancestor.layoutIfNeeded();
-    stretchyOperator.setStretchWidthLocked(false);
-}
-
-void RenderMathMLUnderOver::stretchHorizontalOperatorsAndLayoutChildren()
-{
-    ASSERT(isValid());
-    ASSERT(needsLayout());
-
-    // We apply horizontal stretchy rules from the MathML spec (sections 3.2.5.8.3 and 3.2.5.8.4), which
-    // can be roughly summarized as "stretching opersators to the maximum widths of all children" and
-    // minor variations of that algorithm do not affect the result. However, the spec is a bit ambiguous
-    // for embellished operators (section 3.2.5.7.3) and different approaches can lead to significant
-    // stretch size differences. We made the following decisions:
-    // - The unstretched size is the embellished operator width with the <mo> at the core unstretched.
-    // - In general, the target size is just the maximum widths of non-stretchy children because the
-    // embellishments could make widths significantly larger.
-    // - In the edge case when all operators of stretchy, we follow the specification and take the
-    // maximum of all unstretched sizes.
-    // - The <mo> at the core is stretched to cover the target size, even if the embellished operator
-    // might become much wider.
-    
-    Vector<RenderBox*, 3> embellishedOperators;
-    Vector<RenderMathMLOperator*, 3> stretchyOperators;
-    bool isAllStretchyOperators = true;
-    LayoutUnit stretchWidth;
+    LayoutUnit stretchWidth = 0;
+    Vector<RenderMathMLOperator*, 2> renderOperators;
 
     for (auto* child = firstChildBox(); child; child = child->nextSiblingBox()) {
-        if (auto* stretchyOperator = horizontalStretchyOperator(*child)) {
-            embellishedOperators.append(child);
-            stretchyOperators.append(stretchyOperator);
-        } else {
-            isAllStretchyOperators = false;
-            child->layoutIfNeeded();
-            stretchWidth = std::max(stretchWidth, child->logicalWidth());
+        if (child->needsLayout()) {
+            if (is<RenderMathMLBlock>(child)) {
+                if (auto renderOperator = downcast<RenderMathMLBlock>(*child).unembellishedOperator()) {
+                    if (renderOperator->isStretchy() && !renderOperator->isVertical()) {
+                        renderOperator->resetStretchSize();
+                        renderOperators.append(renderOperator);
+                    }
+                }
+            }
+
+            child->layout();
         }
+
+        // Skipping the embellished op does not work for nested structures like
+        // <munder><mover><mo>_</mo>...</mover> <mo>_</mo></munder>.
+        stretchWidth = std::max(stretchWidth, child->logicalWidth());
     }
 
-    if (isAllStretchyOperators) {
-        for (size_t i = 0; i < embellishedOperators.size(); i++) {
-            stretchyOperators[i]->resetStretchSize();
-            fixLayoutAfterStretch(*embellishedOperators[i], *stretchyOperators[i]);
-            stretchWidth = std::max(stretchWidth, embellishedOperators[i]->logicalWidth());
-        }
-    }
-
-    for (size_t i = 0; i < embellishedOperators.size(); i++) {
-        stretchyOperators[i]->stretchTo(stretchWidth);
-        fixLayoutAfterStretch(*embellishedOperators[i], *stretchyOperators[i]);
-    }
+    // Set the sizes of (possibly embellished) stretchy operator children.
+    for (auto& renderOperator : renderOperators)
+        renderOperator->stretchTo(stretchWidth);
 }
 
 bool RenderMathMLUnderOver::isValid() const
@@ -134,11 +89,11 @@ bool RenderMathMLUnderOver::isValid() const
     if (!child)
         return false;
     child = child->nextSiblingBox();
-    switch (scriptType()) {
-    case ScriptType::Over:
-    case ScriptType::Under:
+    switch (m_scriptType) {
+    case Over:
+    case Under:
         return !child;
-    case ScriptType::UnderOver:
+    case UnderOver:
         return child && !child->nextSiblingBox();
     default:
         ASSERT_NOT_REACHED();
@@ -162,16 +117,16 @@ RenderBox& RenderMathMLUnderOver::base() const
 RenderBox& RenderMathMLUnderOver::under() const
 {
     ASSERT(isValid());
-    ASSERT(scriptType() == ScriptType::Under || scriptType() == ScriptType::UnderOver);
+    ASSERT(m_scriptType == Under || m_scriptType == UnderOver);
     return *firstChildBox()->nextSiblingBox();
 }
 
 RenderBox& RenderMathMLUnderOver::over() const
 {
     ASSERT(isValid());
-    ASSERT(scriptType() == ScriptType::Over || scriptType() == ScriptType::UnderOver);
+    ASSERT(m_scriptType == Over || m_scriptType == UnderOver);
     auto* secondChild = firstChildBox()->nextSiblingBox();
-    return scriptType() == ScriptType::Over ? *secondChild : *secondChild->nextSiblingBox();
+    return m_scriptType == Over ? *secondChild : *secondChild->nextSiblingBox();
 }
 
 
@@ -192,10 +147,10 @@ void RenderMathMLUnderOver::computePreferredLogicalWidths()
 
     LayoutUnit preferredWidth = base().maxPreferredLogicalWidth();
 
-    if (scriptType() == ScriptType::Under || scriptType() == ScriptType::UnderOver)
+    if (m_scriptType == Under || m_scriptType == UnderOver)
         preferredWidth = std::max(preferredWidth, under().maxPreferredLogicalWidth());
 
-    if (scriptType() == ScriptType::Over || scriptType() == ScriptType::UnderOver)
+    if (m_scriptType == Over || m_scriptType == UnderOver)
         preferredWidth = std::max(preferredWidth, over().maxPreferredLogicalWidth());
 
     m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = preferredWidth;
@@ -210,7 +165,7 @@ LayoutUnit RenderMathMLUnderOver::horizontalOffset(const RenderBox& child) const
 
 bool RenderMathMLUnderOver::hasAccent(bool accentUnder) const
 {
-    ASSERT(scriptType() == ScriptType::UnderOver || (accentUnder && scriptType() == ScriptType::Under) || (!accentUnder && scriptType() == ScriptType::Over));
+    ASSERT(m_scriptType == UnderOver || (accentUnder && m_scriptType == Under) || (!accentUnder && m_scriptType == Over));
 
     const MathMLElement::BooleanValue& attributeValue = accentUnder ? element().accentUnder() : element().accent();
     if (attributeValue == MathMLElement::BooleanValue::True)
@@ -292,7 +247,7 @@ void RenderMathMLUnderOver::layoutBlock(bool relayoutChildren, LayoutUnit pageLo
         return;
 
     if (!isValid()) {
-        layoutInvalidMarkup(relayoutChildren);
+        layoutInvalidMarkup();
         return;
     }
 
@@ -303,22 +258,24 @@ void RenderMathMLUnderOver::layoutBlock(bool relayoutChildren, LayoutUnit pageLo
 
     recomputeLogicalWidth();
 
-    stretchHorizontalOperatorsAndLayoutChildren();
+    computeOperatorsHorizontalStretch();
 
-    ASSERT(!base().needsLayout());
-    ASSERT(scriptType() == ScriptType::Over || !under().needsLayout());
-    ASSERT(scriptType() == ScriptType::Under || !over().needsLayout());
+    base().layoutIfNeeded();
+    if (m_scriptType == Under || m_scriptType == UnderOver)
+        under().layoutIfNeeded();
+    if (m_scriptType == Over || m_scriptType == UnderOver)
+        over().layoutIfNeeded();
 
     LayoutUnit logicalWidth = base().logicalWidth();
-    if (scriptType() == ScriptType::Under || scriptType() == ScriptType::UnderOver)
+    if (m_scriptType == Under || m_scriptType == UnderOver)
         logicalWidth = std::max(logicalWidth, under().logicalWidth());
-    if (scriptType() == ScriptType::Over || scriptType() == ScriptType::UnderOver)
+    if (m_scriptType == Over || m_scriptType == UnderOver)
         logicalWidth = std::max(logicalWidth, over().logicalWidth());
     setLogicalWidth(logicalWidth);
 
     VerticalParameters parameters = verticalParameters();
-    LayoutUnit verticalOffset;
-    if (scriptType() == ScriptType::Over || scriptType() == ScriptType::UnderOver) {
+    LayoutUnit verticalOffset = 0;
+    if (m_scriptType == Over || m_scriptType == UnderOver) {
         verticalOffset += parameters.overExtraAscender;
         over().setLocation(LayoutPoint(horizontalOffset(over()), verticalOffset));
         if (parameters.useUnderOverBarFallBack) {
@@ -336,7 +293,7 @@ void RenderMathMLUnderOver::layoutBlock(bool relayoutChildren, LayoutUnit pageLo
     }
     base().setLocation(LayoutPoint(horizontalOffset(base()), verticalOffset));
     verticalOffset += base().logicalHeight();
-    if (scriptType() == ScriptType::Under || scriptType() == ScriptType::UnderOver) {
+    if (m_scriptType == Under || m_scriptType == UnderOver) {
         if (parameters.useUnderOverBarFallBack) {
             if (!hasAccentUnder())
                 verticalOffset += parameters.underGapMin;
@@ -350,8 +307,6 @@ void RenderMathMLUnderOver::layoutBlock(bool relayoutChildren, LayoutUnit pageLo
     }
 
     setLogicalHeight(verticalOffset);
-
-    layoutPositionedObjects(relayoutChildren);
 
     clearNeedsLayout();
 }

@@ -23,18 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.DebuggerObserver = class DebuggerObserver
+WebInspector.DebuggerObserver = class DebuggerObserver
 {
     constructor()
     {
-        this._legacyScriptParsed = InspectorBackend.domains.Debugger.hasEventParameter("scriptParsed", "hasSourceURL");
+        this._legacyScriptParsed = DebuggerAgent.hasEventParameter("scriptParsed", "hasSourceURL");
     }
 
     // Events defined by the "Debugger" domain.
 
     globalObjectCleared()
     {
-        WI.debuggerManager.reset();
+        WebInspector.debuggerManager.reset();
     }
 
     scriptParsed(scriptId, url, startLine, startColumn, endLine, endColumn, isContentScript, sourceURL, sourceMapURL, isModule)
@@ -46,11 +46,11 @@ WI.DebuggerObserver = class DebuggerObserver
             let legacySourceMapURL = arguments[7];
             let hasSourceURL = arguments[8];
             let legacySourceURL = hasSourceURL ? url : undefined;
-            WI.debuggerManager.scriptDidParse(this.target, scriptId, url, startLine, startColumn, endLine, endColumn, isModule, isContentScript, legacySourceURL, legacySourceMapURL);
+            WebInspector.debuggerManager.scriptDidParse(this.target, scriptId, url, startLine, startColumn, endLine, endColumn, isModule, isContentScript, legacySourceURL, legacySourceMapURL);
             return;
         }
 
-        WI.debuggerManager.scriptDidParse(this.target, scriptId, url, startLine, startColumn, endLine, endColumn, isModule, isContentScript, sourceURL, sourceMapURL);
+        WebInspector.debuggerManager.scriptDidParse(this.target, scriptId, url, startLine, startColumn, endLine, endColumn, isModule, isContentScript, sourceURL, sourceMapURL);
     }
 
     scriptFailedToParse(url, scriptSource, startLine, errorLine, errorMessage)
@@ -60,26 +60,26 @@ WI.DebuggerObserver = class DebuggerObserver
 
     breakpointResolved(breakpointId, location)
     {
-        WI.debuggerManager.breakpointResolved(this.target, breakpointId, location);
+        WebInspector.debuggerManager.breakpointResolved(this.target, breakpointId, location);
     }
 
     paused(callFrames, reason, data, asyncStackTrace)
     {
-        WI.debuggerManager.debuggerDidPause(this.target, callFrames, reason, data, asyncStackTrace);
+        WebInspector.debuggerManager.debuggerDidPause(this.target, callFrames, reason, data, asyncStackTrace);
     }
 
     resumed()
     {
-        WI.debuggerManager.debuggerDidResume(this.target);
+        WebInspector.debuggerManager.debuggerDidResume(this.target);
     }
 
     playBreakpointActionSound(breakpointActionIdentifier)
     {
-        WI.debuggerManager.playBreakpointActionSound(breakpointActionIdentifier);
+        WebInspector.debuggerManager.playBreakpointActionSound(breakpointActionIdentifier);
     }
 
     didSampleProbe(sample)
     {
-        WI.debuggerManager.didSampleProbe(this.target, sample);
+        WebInspector.probeManager.didSampleProbe(this.target, sample);
     }
 };

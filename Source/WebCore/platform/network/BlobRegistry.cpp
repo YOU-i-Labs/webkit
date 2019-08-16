@@ -37,6 +37,8 @@ BlobRegistry& blobRegistry()
     return *platformStrategies()->blobRegistry();
 }
 
-BlobRegistry::~BlobRegistry() = default;
+BlobRegistry::~BlobRegistry()
+{
+}
 
 }

@@ -39,7 +39,7 @@ class Scrollbar;
 
 class ScrollingStateFrameScrollingNode final : public ScrollingStateScrollingNode {
 public:
-    static Ref<ScrollingStateFrameScrollingNode> create(ScrollingStateTree&, ScrollingNodeType, ScrollingNodeID);
+    static Ref<ScrollingStateFrameScrollingNode> create(ScrollingStateTree&, ScrollingNodeID);
 
     Ref<ScrollingStateNode> clone(ScrollingStateTree&) override;
 
@@ -57,8 +57,6 @@ public:
         FooterHeight,
         HeaderLayer,
         FooterLayer,
-        VerticalScrollbarLayer,
-        HorizontalScrollbarLayer,
         PainterForScrollbar,
         BehaviorForFixedElements,
         TopContentInset,
@@ -99,6 +97,9 @@ public:
     float topContentInset() const { return m_topContentInset; }
     WEBCORE_EXPORT void setTopContentInset(float);
 
+    const LayerRepresentation& scrolledContentsLayer() const { return m_scrolledContentsLayer; }
+    WEBCORE_EXPORT void setScrolledContentsLayer(const LayerRepresentation&);
+
     // This is a layer moved in the opposite direction to scrolling, for example for background-attachment:fixed
     const LayerRepresentation& counterScrollingLayer() const { return m_counterScrollingLayer; }
     WEBCORE_EXPORT void setCounterScrollingLayer(const LayerRepresentation&);
@@ -121,12 +122,6 @@ public:
     const LayerRepresentation& footerLayer() const { return m_footerLayer; }
     WEBCORE_EXPORT void setFooterLayer(const LayerRepresentation&);
 
-    const LayerRepresentation& verticalScrollbarLayer() const { return m_verticalScrollbarLayer; }
-    WEBCORE_EXPORT void setVerticalScrollbarLayer(const LayerRepresentation&);
-
-    const LayerRepresentation& horizontalScrollbarLayer() const { return m_horizontalScrollbarLayer; }
-    WEBCORE_EXPORT void setHorizontalScrollbarLayer(const LayerRepresentation&);
-
     bool fixedElementsLayoutRelativeToFrame() const { return m_fixedElementsLayoutRelativeToFrame; }
     WEBCORE_EXPORT void setFixedElementsLayoutRelativeToFrame(bool);
 
@@ -139,19 +134,18 @@ public:
 #endif
     void setScrollerImpsFromScrollbars(Scrollbar* verticalScrollbar, Scrollbar* horizontalScrollbar);
 
-    void dumpProperties(WTF::TextStream&, ScrollingStateTreeAsTextBehavior) const override;
+    void dumpProperties(TextStream&, ScrollingStateTreeAsTextBehavior) const override;
 
 private:
-    ScrollingStateFrameScrollingNode(ScrollingStateTree&, ScrollingNodeType, ScrollingNodeID);
+    ScrollingStateFrameScrollingNode(ScrollingStateTree&, ScrollingNodeID);
     ScrollingStateFrameScrollingNode(const ScrollingStateFrameScrollingNode&, ScrollingStateTree&);
 
     LayerRepresentation m_counterScrollingLayer;
     LayerRepresentation m_insetClipLayer;
+    LayerRepresentation m_scrolledContentsLayer;
     LayerRepresentation m_contentShadowLayer;
     LayerRepresentation m_headerLayer;
     LayerRepresentation m_footerLayer;
-    LayerRepresentation m_verticalScrollbarLayer;
-    LayerRepresentation m_horizontalScrollbarLayer;
 
 #if PLATFORM(MAC)
     RetainPtr<NSScrollerImp> m_verticalScrollerImp;

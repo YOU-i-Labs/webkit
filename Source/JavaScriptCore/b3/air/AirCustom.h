@@ -88,7 +88,7 @@ struct PatchCustom {
         return inst.args[0].special()->admitsExtendedOffsetAddr(inst, argIndex);
     }
 
-    static Optional<unsigned> shouldTryAliasingDef(Inst& inst)
+    static std::optional<unsigned> shouldTryAliasingDef(Inst& inst)
     {
         return inst.args[0].special()->shouldTryAliasingDef(inst);
     }
@@ -343,7 +343,7 @@ struct WasmBoundsCheckCustom : public CommonCustomBase<WasmBoundsCheckCustom> {
                 outOfBounds.link(&jit);
                 switch (value->boundsType()) {
                 case WasmBoundsCheckValue::Type::Pinned:
-                    context.code->wasmBoundsCheckGenerator()->run(jit, value->bounds().pinnedSize);
+                    context.code->wasmBoundsCheckGenerator()->run(jit, value->bounds().pinned);
                     break;
 
                 case WasmBoundsCheckValue::Type::Maximum:

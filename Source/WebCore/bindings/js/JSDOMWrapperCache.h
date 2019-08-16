@@ -26,13 +26,15 @@
 #include "DOMWrapperWorld.h"
 #include "JSDOMGlobalObject.h"
 #include "JSDOMWrapper.h"
+#include "JSDynamicDowncast.h"
 #include "ScriptWrappable.h"
 #include "ScriptWrappableInlines.h"
 #include "WebCoreTypedArrayController.h"
-#include <JavaScriptCore/JSArrayBuffer.h>
-#include <JavaScriptCore/TypedArrayInlines.h>
-#include <JavaScriptCore/Weak.h>
-#include <JavaScriptCore/WeakInlines.h>
+#include <heap/Weak.h>
+#include <heap/WeakInlines.h>
+#include <runtime/JSArrayBuffer.h>
+#include <runtime/TypedArrayInlines.h>
+#include <runtime/TypedArrays.h>
 
 namespace WebCore {
 
@@ -160,7 +162,7 @@ template<typename DOMClass> inline JSC::JSObject* getCachedWrapper(DOMWrapperWor
 {
     if (auto* wrapper = getInlineCachedWrapper(world, &domObject))
         return wrapper;
-    return world.wrappers().get(wrapperKey(&domObject));
+    return world.m_wrappers.get(wrapperKey(&domObject));
 }
 
 template<typename DOMClass, typename WrapperClass> inline void cacheWrapper(DOMWrapperWorld& world, DOMClass* domObject, WrapperClass* wrapper)
@@ -168,14 +170,14 @@ template<typename DOMClass, typename WrapperClass> inline void cacheWrapper(DOMW
     JSC::WeakHandleOwner* owner = wrapperOwner(world, domObject);
     if (setInlineCachedWrapper(world, domObject, wrapper, owner))
         return;
-    weakAdd(world.wrappers(), wrapperKey(domObject), JSC::Weak<JSC::JSObject>(wrapper, owner, &world));
+    weakAdd(world.m_wrappers, wrapperKey(domObject), JSC::Weak<JSC::JSObject>(wrapper, owner, &world));
 }
 
 template<typename DOMClass, typename WrapperClass> inline void uncacheWrapper(DOMWrapperWorld& world, DOMClass* domObject, WrapperClass* wrapper)
 {
     if (clearInlineCachedWrapper(world, domObject, wrapper))
         return;
-    weakRemove(world.wrappers(), wrapperKey(domObject), wrapper);
+    weakRemove(world.m_wrappers, wrapperKey(domObject), wrapper);
 }
 
 template<typename DOMClass, typename T> inline auto createWrapper(JSDOMGlobalObject* globalObject, Ref<T>&& domObject) -> typename std::enable_if<std::is_same<DOMClass, T>::value, typename JSDOMWrapperConverterTraits<DOMClass>::WrapperClass*>::type

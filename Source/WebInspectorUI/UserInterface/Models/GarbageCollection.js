@@ -23,10 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.GarbageCollection = class GarbageCollection
+WebInspector.GarbageCollection = class GarbageCollection extends WebInspector.Object
 {
     constructor(type, startTime, endTime)
     {
+        super();
+
         console.assert(endTime >= startTime);
 
         this._type = type;
@@ -38,11 +40,11 @@ WI.GarbageCollection = class GarbageCollection
 
     static fromPayload(payload)
     {
-        let type = WI.GarbageCollection.Type.Full;
+        let type = WebInspector.GarbageCollection.Type.Full;
         if (payload.type === HeapAgent.GarbageCollectionType.Partial)
-            type = WI.GarbageCollection.Type.Partial;
+            type = WebInspector.GarbageCollection.Type.Partial;
 
-        return new WI.GarbageCollection(type, payload.startTime, payload.endTime);
+        return new WebInspector.GarbageCollection(type, payload.startTime, payload.endTime);
     }
 
     // Public
@@ -57,7 +59,7 @@ WI.GarbageCollection = class GarbageCollection
     }
 };
 
-WI.GarbageCollection.Type = {
+WebInspector.GarbageCollection.Type = {
     Partial: Symbol("Partial"),
     Full: Symbol("Full")
 };

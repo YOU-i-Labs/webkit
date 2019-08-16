@@ -23,49 +23,27 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.FormattedValue = {};
+WebInspector.FormattedValue = {};
 
-WI.FormattedValue.hasSimpleDisplay = function(object)
-{
-    switch (object.type) {
-    case "boolean":
-    case "number":
-    case "string":
-    case "symbol":
-    case "undefined":
-        return true;
-
-    case "function":
-        return false;
-
-    case "object":
-        var subtype = object.subtype;
-        return subtype === "null" || subtype === "regexp" || subtype === "date";
-    }
-
-    console.assert(false, "All RemoteObject types should be handled above");
-    return false;
-};
-
-WI.FormattedValue.classNameForTypes = function(type, subtype)
+WebInspector.FormattedValue.classNameForTypes = function(type, subtype)
 {
     return "formatted-" + (subtype ? subtype : type);
 };
 
-WI.FormattedValue.classNameForObject = function(object)
+WebInspector.FormattedValue.classNameForObject = function(object)
 {
-    return WI.FormattedValue.classNameForTypes(object.type, object.subtype);
+    return WebInspector.FormattedValue.classNameForTypes(object.type, object.subtype);
 };
 
-WI.FormattedValue.createLinkifiedElementString = function(string)
+WebInspector.FormattedValue.createLinkifiedElementString = function(string)
 {
     var span = document.createElement("span");
     span.className = "formatted-string";
-    span.append("\"", WI.linkifyStringAsFragment(string.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")), "\"");
+    span.append("\"", WebInspector.linkifyStringAsFragment(string.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")), "\"");
     return span;
 };
 
-WI.FormattedValue.createElementForNode = function(object)
+WebInspector.FormattedValue.createElementForNode = function(object)
 {
     var span = document.createElement("span");
     span.className = "formatted-node";
@@ -76,9 +54,9 @@ WI.FormattedValue.createElementForNode = function(object)
             return;
         }
 
-        var treeOutline = new WI.DOMTreeOutline;
+        var treeOutline = new WebInspector.DOMTreeOutline;
         treeOutline.setVisible(true);
-        treeOutline.rootDOMNode = WI.domManager.nodeForId(nodeId);
+        treeOutline.rootDOMNode = WebInspector.domTreeManager.nodeForId(nodeId);
         if (!treeOutline.children[0].hasChildren)
             treeOutline.element.classList.add("single-node");
         span.appendChild(treeOutline.element);
@@ -87,7 +65,7 @@ WI.FormattedValue.createElementForNode = function(object)
     return span;
 };
 
-WI.FormattedValue.createElementForError = function(object)
+WebInspector.FormattedValue.createElementForError = function(object)
 {
     var span = document.createElement("span");
     span.classList.add("formatted-error");
@@ -109,12 +87,12 @@ WI.FormattedValue.createElementForError = function(object)
     if (!preview.sourceURL)
         return span;
 
-    var sourceLinkWithPrefix = WI.ErrorObjectView.makeSourceLinkWithPrefix(preview.sourceURL, preview.line, preview.column);
+    var sourceLinkWithPrefix = WebInspector.ErrorObjectView.makeSourceLinkWithPrefix(preview.sourceURL, preview.line, preview.column);
     span.append(sourceLinkWithPrefix);
     return span;
 };
 
-WI.FormattedValue.createElementForNodePreview = function(preview)
+WebInspector.FormattedValue.createElementForNodePreview = function(preview)
 {
     var value = preview.value || preview.description;
     var span = document.createElement("span");
@@ -175,7 +153,7 @@ WI.FormattedValue.createElementForNodePreview = function(preview)
     return span;
 };
 
-WI.FormattedValue.createElementForFunctionWithName = function(description)
+WebInspector.FormattedValue.createElementForFunctionWithName = function(description)
 {
     var span = document.createElement("span");
     span.classList.add("formatted-function");
@@ -183,10 +161,10 @@ WI.FormattedValue.createElementForFunctionWithName = function(description)
     return span;
 };
 
-WI.FormattedValue.createElementForTypesAndValue = function(type, subtype, displayString, size, isPreview, hadException)
+WebInspector.FormattedValue.createElementForTypesAndValue = function(type, subtype, displayString, size, isPreview, hadException)
 {
     var span = document.createElement("span");
-    span.classList.add(WI.FormattedValue.classNameForTypes(type, subtype));
+    span.classList.add(WebInspector.FormattedValue.classNameForTypes(type, subtype));
 
     // Exception.
     if (hadException) {
@@ -196,7 +174,7 @@ WI.FormattedValue.createElementForTypesAndValue = function(type, subtype, displa
 
     // String: quoted and replace newlines as nice unicode symbols.
     if (type === "string") {
-        displayString = displayString.truncate(WI.FormattedValue.MAX_PREVIEW_STRING_LENGTH);
+        displayString = displayString.truncate(WebInspector.FormattedValue.MAX_PREVIEW_STRING_LENGTH);
         span.textContent = doubleQuotedString(displayString.replace(/\n/g, "\u21B5"));
         return span;
     }
@@ -223,60 +201,60 @@ WI.FormattedValue.createElementForTypesAndValue = function(type, subtype, displa
     return span;
 };
 
-WI.FormattedValue.createElementForRemoteObject = function(object, hadException)
+WebInspector.FormattedValue.createElementForRemoteObject = function(object, hadException)
 {
-    return WI.FormattedValue.createElementForTypesAndValue(object.type, object.subtype, object.description, object.size, false, hadException);
+    return WebInspector.FormattedValue.createElementForTypesAndValue(object.type, object.subtype, object.description, object.size, false, hadException);
 };
 
-WI.FormattedValue.createElementForObjectPreview = function(objectPreview)
+WebInspector.FormattedValue.createElementForObjectPreview = function(objectPreview)
 {
-    return WI.FormattedValue.createElementForTypesAndValue(objectPreview.type, objectPreview.subtype, objectPreview.description, objectPreview.size, true, false);
+    return WebInspector.FormattedValue.createElementForTypesAndValue(objectPreview.type, objectPreview.subtype, objectPreview.description, objectPreview.size, true, false);
 };
 
-WI.FormattedValue.createElementForPropertyPreview = function(propertyPreview)
+WebInspector.FormattedValue.createElementForPropertyPreview = function(propertyPreview)
 {
-    return WI.FormattedValue.createElementForTypesAndValue(propertyPreview.type, propertyPreview.subtype, propertyPreview.value, undefined, true, false);
+    return WebInspector.FormattedValue.createElementForTypesAndValue(propertyPreview.type, propertyPreview.subtype, propertyPreview.value, undefined, true, false);
 };
 
-WI.FormattedValue.createObjectPreviewOrFormattedValueForObjectPreview = function(objectPreview, previewViewMode)
+WebInspector.FormattedValue.createObjectPreviewOrFormattedValueForObjectPreview = function(objectPreview, previewViewMode)
 {
     if (objectPreview.subtype === "node")
-        return WI.FormattedValue.createElementForNodePreview(objectPreview);
+        return WebInspector.FormattedValue.createElementForNodePreview(objectPreview);
 
     if (objectPreview.type === "function")
-        return WI.FormattedValue.createElementForFunctionWithName(objectPreview.description);
+        return WebInspector.FormattedValue.createElementForFunctionWithName(objectPreview.description);
 
-    return new WI.ObjectPreviewView(objectPreview, previewViewMode).element;
+    return new WebInspector.ObjectPreviewView(objectPreview, previewViewMode).element;
 };
 
-WI.FormattedValue.createObjectPreviewOrFormattedValueForRemoteObject = function(object, previewViewMode)
+WebInspector.FormattedValue.createObjectPreviewOrFormattedValueForRemoteObject = function(object, previewViewMode)
 {
     if (object.subtype === "node")
-        return WI.FormattedValue.createElementForNode(object);
+        return WebInspector.FormattedValue.createElementForNode(object);
 
     if (object.subtype === "error")
-        return WI.FormattedValue.createElementForError(object);
+        return WebInspector.FormattedValue.createElementForError(object);
 
     if (object.preview)
-        return new WI.ObjectPreviewView(object.preview, previewViewMode);
+        return new WebInspector.ObjectPreviewView(object.preview, previewViewMode);
 
-    return WI.FormattedValue.createElementForRemoteObject(object);
+    return WebInspector.FormattedValue.createElementForRemoteObject(object);
 };
 
-WI.FormattedValue.createObjectTreeOrFormattedValueForRemoteObject = function(object, propertyPath, forceExpanding)
+WebInspector.FormattedValue.createObjectTreeOrFormattedValueForRemoteObject = function(object, propertyPath, forceExpanding)
 {
     if (object.subtype === "node")
-        return WI.FormattedValue.createElementForNode(object);
+        return WebInspector.FormattedValue.createElementForNode(object);
 
     if (object.subtype === "null")
-        return WI.FormattedValue.createElementForRemoteObject(object);
+        return WebInspector.FormattedValue.createElementForRemoteObject(object);
 
     if (object.type === "object" || object.subtype === "class") {
-        var objectTree = new WI.ObjectTreeView(object, null, propertyPath, forceExpanding);
+        var objectTree = new WebInspector.ObjectTreeView(object, null, propertyPath, forceExpanding);
         return objectTree.element;
     }
 
-    return WI.FormattedValue.createElementForRemoteObject(object);
+    return WebInspector.FormattedValue.createElementForRemoteObject(object);
 };
 
-WI.FormattedValue.MAX_PREVIEW_STRING_LENGTH = 140;
+WebInspector.FormattedValue.MAX_PREVIEW_STRING_LENGTH = 140;

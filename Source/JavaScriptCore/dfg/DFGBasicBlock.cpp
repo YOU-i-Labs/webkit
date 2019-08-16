@@ -36,16 +36,14 @@ BasicBlock::BasicBlock(
     unsigned bytecodeBegin, unsigned numArguments, unsigned numLocals, float executionCount)
     : bytecodeBegin(bytecodeBegin)
     , index(NoBlock)
-    , cfaStructureClobberStateAtHead(StructuresAreWatched)
-    , cfaStructureClobberStateAtTail(StructuresAreWatched)
-    , cfaBranchDirection(InvalidBranchDirection)
+    , isOSRTarget(false)
     , cfaHasVisited(false)
     , cfaShouldRevisit(false)
     , cfaFoundConstants(false)
     , cfaDidFinish(true)
-    , intersectionOfCFAHasVisited(true)
-    , isOSRTarget(false)
-    , isCatchEntrypoint(false)
+    , cfaStructureClobberStateAtHead(StructuresAreWatched)
+    , cfaStructureClobberStateAtTail(StructuresAreWatched)
+    , cfaBranchDirection(InvalidBranchDirection)
 #if !ASSERT_DISABLED
     , isLinked(false)
 #endif
@@ -55,6 +53,7 @@ BasicBlock::BasicBlock(
     , valuesAtHead(numArguments, numLocals)
     , valuesAtTail(numArguments, numLocals)
     , intersectionOfPastValuesAtHead(numArguments, numLocals, AbstractValue::fullTop())
+    , intersectionOfCFAHasVisited(true)
     , executionCount(executionCount)
 {
 }
@@ -72,14 +71,14 @@ void BasicBlock::ensureLocals(unsigned newNumLocals)
     intersectionOfPastValuesAtHead.ensureLocals(newNumLocals, AbstractValue::fullTop());
 }
 
-void BasicBlock::replaceTerminal(Graph& graph, Node* node)
+void BasicBlock::replaceTerminal(Node* node)
 {
     NodeAndIndex result = findTerminal();
     if (!result)
         append(node);
     else {
         m_nodes.insert(result.index + 1, node);
-        result.node->remove(graph);
+        result.node->remove();
     }
     
     ASSERT(terminal());

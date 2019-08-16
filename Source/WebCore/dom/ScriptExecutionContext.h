@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2010, 2011, 2013, 2014, 2015, 2016 Apple Inc. All Rights Reserved.
  * Copyright (C) 2012 Google Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,14 +30,12 @@
 #include "ActiveDOMObject.h"
 #include "DOMTimer.h"
 #include "SecurityContext.h"
-#include "ServiceWorkerTypes.h"
-#include <JavaScriptCore/ConsoleTypes.h>
-#include <JavaScriptCore/HandleTypes.h>
+#include "Supplementable.h"
+#include <heap/HandleTypes.h>
+#include <runtime/ConsoleTypes.h>
 #include <wtf/CrossThreadTask.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
-#include <wtf/ObjectIdentifier.h>
-#include <wtf/text/WTFString.h>
 
 namespace JSC {
 class Exception;
@@ -48,12 +46,7 @@ template<typename> class Strong;
 }
 
 namespace Inspector {
-class ConsoleMessage;
 class ScriptCallStack;
-}
-
-namespace PAL {
-class SessionID;
 }
 
 namespace WebCore {
@@ -68,18 +61,11 @@ class RejectedPromiseTracker;
 class ResourceRequest;
 class SecurityOrigin;
 class SocketProvider;
-
-#if ENABLE(SERVICE_WORKER)
-class ServiceWorker;
-class ServiceWorkerContainer;
-#endif
+class URL;
 
 namespace IDBClient {
 class IDBConnectionProxy;
 }
-
-enum ScriptExecutionContextIdentifierType { };
-using ScriptExecutionContextIdentifier = ObjectIdentifier<ScriptExecutionContextIdentifierType>;
 
 class ScriptExecutionContext : public SecurityContext {
 public:
@@ -88,40 +74,34 @@ public:
 
     virtual bool isDocument() const { return false; }
     virtual bool isWorkerGlobalScope() const { return false; }
-    virtual bool isWorkletGlobalScope() const { return false; }
 
     virtual bool isContextThread() const { return true; }
     virtual bool isJSExecutionForbidden() const = 0;
 
     virtual const URL& url() const = 0;
     virtual URL completeURL(const String& url) const = 0;
-    virtual PAL::SessionID sessionID() const = 0;
 
     virtual String userAgent(const URL&) const = 0;
 
     virtual void disableEval(const String& errorMessage) = 0;
-    virtual void disableWebAssembly(const String& errorMessage) = 0;
 
 #if ENABLE(INDEXED_DATABASE)
     virtual IDBClient::IDBConnectionProxy* idbConnectionProxy() = 0;
 #endif
+#if ENABLE(WEB_SOCKETS)
     virtual SocketProvider* socketProvider() = 0;
+#endif
 
     virtual String resourceRequestIdentifier() const { return String(); };
 
-    bool canIncludeErrorDetails(CachedScript*, const String& sourceURL);
+    bool sanitizeScriptError(String& errorMessage, int& lineNumber, int& columnNumber, String& sourceURL, JSC::Strong<JSC::Unknown>& error, CachedScript* = nullptr);
     void reportException(const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL, JSC::Exception*, RefPtr<Inspector::ScriptCallStack>&&, CachedScript* = nullptr);
     void reportUnhandledPromiseRejection(JSC::ExecState&, JSC::JSPromise&, RefPtr<Inspector::ScriptCallStack>&&);
 
-    virtual void addConsoleMessage(std::unique_ptr<Inspector::ConsoleMessage>&&) = 0;
-
-    // The following addConsoleMessage functions are deprecated.
-    // Callers should try to create the ConsoleMessage themselves.
     void addConsoleMessage(MessageSource, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, unsigned columnNumber, JSC::ExecState* = nullptr, unsigned long requestIdentifier = 0);
     virtual void addConsoleMessage(MessageSource, MessageLevel, const String& message, unsigned long requestIdentifier = 0) = 0;
 
     virtual SecurityOrigin& topOrigin() const = 0;
-    virtual String origin() const = 0;
 
     virtual bool shouldBypassMainWorldContentSecurityPolicy() const { return false; }
 
@@ -132,8 +112,8 @@ public:
 
     // Active objects can be asked to suspend even if canSuspendActiveDOMObjectsForDocumentSuspension() returns 'false' -
     // step-by-step JS debugging is one example.
-    virtual void suspendActiveDOMObjects(ReasonForSuspension);
-    virtual void resumeActiveDOMObjects(ReasonForSuspension);
+    virtual void suspendActiveDOMObjects(ActiveDOMObject::ReasonForSuspension);
+    virtual void resumeActiveDOMObjects(ActiveDOMObject::ReasonForSuspension);
     virtual void stopActiveDOMObjects();
 
     bool activeDOMObjectsAreSuspended() const { return m_activeDOMObjectsAreSuspended; }
@@ -150,7 +130,7 @@ public:
     void willDestroyDestructionObserver(ContextDestructionObserver&);
 
     // MessagePort is conceptually a kind of ActiveDOMObject, but it needs to be tracked separately for message dispatch.
-    void processMessageWithMessagePortsSoon();
+    void processMessagePortMessagesSoon();
     void dispatchMessagePortEvents();
     void createdMessagePort(MessagePort&);
     void destroyedMessagePort(MessagePort&);
@@ -224,7 +204,7 @@ public:
     DatabaseContext* databaseContext() { return m_databaseContext.get(); }
     void setDatabaseContext(DatabaseContext*);
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
     virtual bool wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t>& wrappedKey) = 0;
     virtual bool unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<uint8_t>& key) = 0;
 #endif
@@ -239,38 +219,11 @@ public:
         return ensureRejectedPromiseTrackerSlow();
     }
 
-    WEBCORE_EXPORT JSC::ExecState* execState();
-
-    WEBCORE_EXPORT String domainForCachePartition() const;
-    void setDomainForCachePartition(String&& domain) { m_domainForCachePartition = WTFMove(domain); }
-
-    bool hasServiceWorkerScheme();
-#if ENABLE(SERVICE_WORKER)
-    ServiceWorker* activeServiceWorker() const;
-    void setActiveServiceWorker(RefPtr<ServiceWorker>&&);
-
-    void registerServiceWorker(ServiceWorker&);
-    void unregisterServiceWorker(ServiceWorker&);
-    ServiceWorker* serviceWorker(ServiceWorkerIdentifier identifier) { return m_serviceWorkers.get(identifier); }
-
-    ServiceWorkerContainer* serviceWorkerContainer();
-
-    WEBCORE_EXPORT static bool postTaskTo(const DocumentOrWorkerIdentifier&, WTF::Function<void(ScriptExecutionContext&)>&&);
-#endif
-    WEBCORE_EXPORT static bool postTaskTo(ScriptExecutionContextIdentifier, Task&&);
-
-    ScriptExecutionContextIdentifier contextIdentifier() const;
+    JSC::ExecState* execState();
 
 protected:
     class AddConsoleMessageTask : public Task {
     public:
-        AddConsoleMessageTask(std::unique_ptr<Inspector::ConsoleMessage>&& consoleMessage)
-            : Task([&consoleMessage](ScriptExecutionContext& context) {
-                context.addConsoleMessage(WTFMove(consoleMessage));
-            })
-        {
-        }
-
         AddConsoleMessageTask(MessageSource source, MessageLevel level, const String& message)
             : Task([source, level, message = message.isolatedCopy()](ScriptExecutionContext& context) {
                 context.addConsoleMessage(source, level, message);
@@ -279,24 +232,17 @@ protected:
         }
     };
 
-    ReasonForSuspension reasonForSuspendingActiveDOMObjects() const { return m_reasonForSuspendingActiveDOMObjects; }
+    ActiveDOMObject::ReasonForSuspension reasonForSuspendingActiveDOMObjects() const { return m_reasonForSuspendingActiveDOMObjects; }
 
     bool hasPendingActivity() const;
-    void removeFromContextsMap();
-    void removeRejectedPromiseTracker();
 
 private:
-    // The following addMessage function is deprecated.
-    // Callers should try to create the ConsoleMessage themselves.
     virtual void addMessage(MessageSource, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, unsigned columnNumber, RefPtr<Inspector::ScriptCallStack>&&, JSC::ExecState* = nullptr, unsigned long requestIdentifier = 0) = 0;
     virtual void logExceptionToConsole(const String& errorMessage, const String& sourceURL, int lineNumber, int columnNumber, RefPtr<Inspector::ScriptCallStack>&&) = 0;
     bool dispatchErrorEvent(const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL, JSC::Exception*, CachedScript*);
 
     virtual void refScriptExecutionContext() = 0;
     virtual void derefScriptExecutionContext() = 0;
-
-    enum class ShouldContinue { No, Yes };
-    void forEachActiveDOMObject(const Function<ShouldContinue(ActiveDOMObject&)>&) const;
 
     RejectedPromiseTracker& ensureRejectedPromiseTrackerSlow();
 
@@ -312,7 +258,7 @@ private:
     std::unique_ptr<Vector<std::unique_ptr<PendingException>>> m_pendingExceptions;
     std::unique_ptr<RejectedPromiseTracker> m_rejectedPromiseTracker;
 
-    ReasonForSuspension m_reasonForSuspendingActiveDOMObjects { static_cast<ReasonForSuspension>(-1) };
+    ActiveDOMObject::ReasonForSuspension m_reasonForSuspendingActiveDOMObjects { static_cast<ActiveDOMObject::ReasonForSuspension>(-1) };
 
     std::unique_ptr<PublicURLManager> m_publicURLManager;
 
@@ -324,20 +270,15 @@ private:
     bool m_activeDOMObjectsAreSuspended { false };
     bool m_activeDOMObjectsAreStopped { false };
     bool m_inDispatchErrorEvent { false };
-    mutable bool m_activeDOMObjectAdditionForbidden { false };
-    bool m_willprocessMessageWithMessagePortsSoon { false };
+    bool m_activeDOMObjectAdditionForbidden { false };
+    bool m_willProcessMessagePortMessagesSoon { false };
 
 #if !ASSERT_DISABLED
     bool m_inScriptExecutionContextDestructor { false };
 #endif
-
-#if ENABLE(SERVICE_WORKER)
-    RefPtr<ServiceWorker> m_activeServiceWorker;
-    HashMap<ServiceWorkerIdentifier, ServiceWorker*> m_serviceWorkers;
+#if !ASSERT_DISABLED || ENABLE(SECURITY_ASSERTIONS)
+    bool m_activeDOMObjectRemovalForbidden { false };
 #endif
-
-    String m_domainForCachePartition;
-    mutable ScriptExecutionContextIdentifier m_contextIdentifier;
 };
 
 } // namespace WebCore

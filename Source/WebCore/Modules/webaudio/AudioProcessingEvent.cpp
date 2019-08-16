@@ -33,17 +33,21 @@
 
 namespace WebCore {
 
-AudioProcessingEvent::AudioProcessingEvent() = default;
+AudioProcessingEvent::AudioProcessingEvent()
+{
+}
 
 AudioProcessingEvent::AudioProcessingEvent(RefPtr<AudioBuffer>&& inputBuffer, RefPtr<AudioBuffer>&& outputBuffer, double playbackTime)
-    : Event(eventNames().audioprocessEvent, CanBubble::Yes, IsCancelable::No)
+    : Event(eventNames().audioprocessEvent, true, false)
     , m_inputBuffer(WTFMove(inputBuffer))
     , m_outputBuffer(WTFMove(outputBuffer))
     , m_playbackTime(playbackTime)
 {
 }
 
-AudioProcessingEvent::~AudioProcessingEvent() = default;
+AudioProcessingEvent::~AudioProcessingEvent()
+{
+}
 
 EventInterface AudioProcessingEvent::eventInterface() const
 {

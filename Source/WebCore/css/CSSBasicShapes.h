@@ -55,10 +55,10 @@ public:
     virtual bool equals(const CSSBasicShape&) const = 0;
 
 public:
-    virtual ~CSSBasicShape() = default;
+    virtual ~CSSBasicShape() { }
 
 protected:
-    CSSBasicShape() = default;
+    CSSBasicShape() { }
     RefPtr<CSSPrimitiveValue> m_referenceBox;
 };
 
@@ -110,7 +110,7 @@ public:
     void setBottomLeftRadius(RefPtr<CSSPrimitiveValue>&& radius) { m_bottomLeftRadius = WTFMove(radius); }
 
 private:
-    CSSBasicShapeInset() = default;
+    CSSBasicShapeInset() { }
 
     Type type() const final { return CSSBasicShapeInsetType; }
     String cssText() const final;
@@ -140,7 +140,7 @@ public:
     void setRadius(Ref<CSSPrimitiveValue>&& radius) { m_radius = WTFMove(radius); }
 
 private:
-    CSSBasicShapeCircle() = default;
+    CSSBasicShapeCircle() { }
 
     Type type() const final { return CSSBasicShapeCircleType; }
     String cssText() const final;
@@ -166,7 +166,7 @@ public:
     void setRadiusY(Ref<CSSPrimitiveValue>&& radiusY) { m_radiusY = WTFMove(radiusY); }
 
 private:
-    CSSBasicShapeEllipse() = default;
+    CSSBasicShapeEllipse() { }
 
     Type type() const final { return CSSBasicShapeEllipseType; }
     String cssText() const final;
@@ -195,7 +195,7 @@ public:
 
 private:
     CSSBasicShapePolygon()
-        : m_windRule(WindRule::NonZero)
+        : m_windRule(RULE_NONZERO)
     {
     }
 
@@ -230,7 +230,7 @@ private:
     bool equals(const CSSBasicShape&) const final;
 
     std::unique_ptr<SVGPathByteStream> m_byteStream;
-    WindRule m_windRule { WindRule::NonZero };
+    WindRule m_windRule { RULE_NONZERO };
 };
 
 } // namespace WebCore

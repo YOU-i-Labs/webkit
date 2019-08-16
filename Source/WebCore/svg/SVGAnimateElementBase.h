@@ -31,7 +31,6 @@
 namespace WebCore {
 
 class SVGAnimateElementBase : public SVGAnimationElement {
-    WTF_MAKE_ISO_ALLOCATED(SVGAnimateElementBase);
 public:
     virtual ~SVGAnimateElementBase();
 

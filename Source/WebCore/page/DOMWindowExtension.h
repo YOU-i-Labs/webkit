@@ -37,13 +37,13 @@ class Frame;
 
 class DOMWindowExtension : public RefCounted<DOMWindowExtension>, public DOMWindowProperty {
 public:
-    static Ref<DOMWindowExtension> create(DOMWindow* window, DOMWrapperWorld& world)
+    static Ref<DOMWindowExtension> create(Frame* frame, DOMWrapperWorld& world)
     {
-        return adoptRef(*new DOMWindowExtension(window, world));
+        return adoptRef(*new DOMWindowExtension(frame, world));
     }
 
-    void suspendForPageCache() override;
-    void resumeFromPageCache() override;
+    void disconnectFrameForDocumentSuspension() override;
+    void reconnectFrameFromDocumentSuspension(Frame*) override;
     void willDestroyGlobalObjectInCachedFrame() override;
     void willDestroyGlobalObjectInFrame() override;
     void willDetachGlobalObjectFromFrame() override;
@@ -51,7 +51,7 @@ public:
     DOMWrapperWorld& world() const { return m_world; }
 
 private:
-    WEBCORE_EXPORT DOMWindowExtension(DOMWindow*, DOMWrapperWorld&);
+    WEBCORE_EXPORT DOMWindowExtension(Frame*, DOMWrapperWorld&);
 
     Ref<DOMWrapperWorld> m_world;
     RefPtr<Frame> m_disconnectedFrame;

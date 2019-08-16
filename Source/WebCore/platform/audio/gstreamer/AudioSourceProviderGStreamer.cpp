@@ -26,11 +26,8 @@
 #include <gst/app/gstappsink.h>
 #include <gst/audio/audio-info.h>
 #include <gst/base/gstadapter.h>
+#include <wtf/glib/GMutexLocker.h>
 
-#if ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC)
-#include "GStreamerAudioData.h"
-#include "GStreamerMediaStreamSource.h"
-#endif
 
 namespace WebCore {
 
@@ -82,63 +79,33 @@ static void copyGStreamerBuffersToAudioChannel(GstAdapter* adapter, AudioBus* bu
     if (gst_adapter_available(adapter) >= bytes) {
         gst_adapter_copy(adapter, bus->channel(channelNumber)->mutableData(), 0, bytes);
         gst_adapter_flush(adapter, bytes);
-    } else
-        bus->zero();
+    }
 }
 
 AudioSourceProviderGStreamer::AudioSourceProviderGStreamer()
-    : m_notifier(MainThreadNotifier<MainThreadNotification>::create())
-    , m_client(nullptr)
+    : m_client(nullptr)
     , m_deinterleaveSourcePads(0)
     , m_deinterleavePadAddedHandlerId(0)
     , m_deinterleaveNoMorePadsHandlerId(0)
     , m_deinterleavePadRemovedHandlerId(0)
 {
+    g_mutex_init(&m_adapterMutex);
     m_frontLeftAdapter = gst_adapter_new();
     m_frontRightAdapter = gst_adapter_new();
 }
-
-#if ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC)
-AudioSourceProviderGStreamer::AudioSourceProviderGStreamer(MediaStreamTrackPrivate& source)
-    : m_notifier(MainThreadNotifier<MainThreadNotification>::create())
-    , m_client(nullptr)
-    , m_deinterleaveSourcePads(0)
-    , m_deinterleavePadAddedHandlerId(0)
-    , m_deinterleaveNoMorePadsHandlerId(0)
-    , m_deinterleavePadRemovedHandlerId(0)
-{
-    m_frontLeftAdapter = gst_adapter_new();
-    m_frontRightAdapter = gst_adapter_new();
-    auto pipelineName = String::format("WebAudioProvider_MediaStreamTrack_%s", source.id().utf8().data());
-    m_pipeline = adoptGRef(GST_ELEMENT(g_object_ref_sink(gst_element_factory_make("pipeline", pipelineName.utf8().data()))));
-    auto src = webkitMediaStreamSrcNew();
-    webkitMediaStreamSrcAddTrack(WEBKIT_MEDIA_STREAM_SRC(src), &source, true);
-
-    m_audioSinkBin = adoptGRef(GST_ELEMENT(g_object_ref_sink(gst_parse_bin_from_description("tee name=audioTee", true, nullptr))));
-
-    gst_bin_add_many(GST_BIN(m_pipeline.get()), src, m_audioSinkBin.get(), nullptr);
-    gst_element_link(src, m_audioSinkBin.get());
-
-    connectSimpleBusMessageCallback(m_pipeline.get());
-}
-#endif
 
 AudioSourceProviderGStreamer::~AudioSourceProviderGStreamer()
 {
-    m_notifier->invalidate();
-
     GRefPtr<GstElement> deinterleave = adoptGRef(gst_bin_get_by_name(GST_BIN(m_audioSinkBin.get()), "deinterleave"));
-    if (deinterleave && m_client) {
+    if (deinterleave) {
         g_signal_handler_disconnect(deinterleave.get(), m_deinterleavePadAddedHandlerId);
         g_signal_handler_disconnect(deinterleave.get(), m_deinterleaveNoMorePadsHandlerId);
         g_signal_handler_disconnect(deinterleave.get(), m_deinterleavePadRemovedHandlerId);
     }
 
-    if (m_pipeline)
-        gst_element_set_state(m_pipeline.get(), GST_STATE_NULL);
-
     g_object_unref(m_frontLeftAdapter);
     g_object_unref(m_frontRightAdapter);
+    g_mutex_clear(&m_adapterMutex);
 }
 
 void AudioSourceProviderGStreamer::configureAudioBin(GstElement* audioBin, GstElement* teePredecessor)
@@ -183,7 +150,7 @@ void AudioSourceProviderGStreamer::configureAudioBin(GstElement* audioBin, GstEl
 
 void AudioSourceProviderGStreamer::provideInput(AudioBus* bus, size_t framesToProcess)
 {
-    auto locker = holdLock(m_adapterMutex);
+    WTF::GMutexLocker<GMutex> lock(m_adapterMutex);
     copyGStreamerBuffersToAudioChannel(m_frontLeftAdapter, bus, 0, framesToProcess);
     copyGStreamerBuffersToAudioChannel(m_frontRightAdapter, bus, 1, framesToProcess);
 }
@@ -210,7 +177,7 @@ GstFlowReturn AudioSourceProviderGStreamer::handleAudioBuffer(GstAppSink* sink)
     GstAudioInfo info;
     gst_audio_info_from_caps(&info, caps);
 
-    auto locker = holdLock(m_adapterMutex);
+    WTF::GMutexLocker<GMutex> lock(m_adapterMutex);
 
     // Check the first audio channel. The buffer is supposed to store
     // data of a single channel anyway.
@@ -231,23 +198,15 @@ GstFlowReturn AudioSourceProviderGStreamer::handleAudioBuffer(GstAppSink* sink)
 
 void AudioSourceProviderGStreamer::setClient(AudioSourceProviderClient* client)
 {
-    if (m_client)
-        return;
-
     ASSERT(client);
     m_client = client;
-
-    if (m_pipeline)
-        gst_element_set_state(m_pipeline.get(), GST_STATE_PLAYING);
 
     // The volume element is used to mute audio playback towards the
     // autoaudiosink. This is needed to avoid double playback of audio
     // from our audio sink and from the WebAudio AudioDestination node
     // supposedly configured already by application side.
     GRefPtr<GstElement> volumeElement = adoptGRef(gst_bin_get_by_name(GST_BIN(m_audioSinkBin.get()), "volume"));
-
-    if (volumeElement)
-        g_object_set(volumeElement.get(), "mute", TRUE, nullptr);
+    g_object_set(volumeElement.get(), "mute", TRUE, nullptr);
 
     // The audioconvert and audioresample elements are needed to
     // ensure deinterleave and the sinks downstream receive buffers in
@@ -359,10 +318,7 @@ void AudioSourceProviderGStreamer::handleRemovedDeinterleavePad(GstPad* pad)
 
     // Remove the queue ! appsink chain downstream of deinterleave.
     GQuark quark = g_quark_from_static_string("peer");
-    GstPad* sinkPad = GST_PAD_CAST(g_object_get_qdata(G_OBJECT(pad), quark));
-    if (!sinkPad)
-        return;
-
+    GstPad* sinkPad = reinterpret_cast<GstPad*>(g_object_get_qdata(G_OBJECT(pad), quark));
     GRefPtr<GstElement> queue = adoptGRef(gst_pad_get_parent_element(sinkPad));
     GRefPtr<GstPad> queueSrcPad = adoptGRef(gst_element_get_static_pad(queue.get(), "src"));
     GRefPtr<GstPad> appsinkSinkPad = adoptGRef(gst_pad_get_peer(queueSrcPad.get()));
@@ -375,17 +331,15 @@ void AudioSourceProviderGStreamer::handleRemovedDeinterleavePad(GstPad* pad)
 
 void AudioSourceProviderGStreamer::deinterleavePadsConfigured()
 {
-    m_notifier->notify(MainThreadNotification::DeinterleavePadsConfigured, [this] {
-        ASSERT(m_client);
-        ASSERT(m_deinterleaveSourcePads == gNumberOfChannels);
+    ASSERT(m_client);
+    ASSERT(m_deinterleaveSourcePads == gNumberOfChannels);
 
-        m_client->setFormat(m_deinterleaveSourcePads, gSampleBitRate);
-    });
+    m_client->setFormat(m_deinterleaveSourcePads, gSampleBitRate);
 }
 
 void AudioSourceProviderGStreamer::clearAdapters()
 {
-    auto locker = holdLock(m_adapterMutex);
+    WTF::GMutexLocker<GMutex> lock(m_adapterMutex);
     gst_adapter_clear(m_frontLeftAdapter);
     gst_adapter_clear(m_frontRightAdapter);
 }

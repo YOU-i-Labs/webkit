@@ -37,7 +37,7 @@
 
 namespace WebCore {
 
-inline MutationObserverInterestGroup::MutationObserverInterestGroup(HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions>&& observers, MutationRecordDeliveryOptions oldValueFlag)
+inline MutationObserverInterestGroup::MutationObserverInterestGroup(HashMap<MutationObserver*, MutationRecordDeliveryOptions>&& observers, MutationRecordDeliveryOptions oldValueFlag)
     : m_observers(WTFMove(observers))
     , m_oldValueFlag(oldValueFlag)
 {
@@ -67,9 +67,9 @@ void MutationObserverInterestGroup::enqueueMutationRecord(Ref<MutationRecord>&& 
 {
     RefPtr<MutationRecord> mutationWithNullOldValue;
     for (auto& observerOptionsPair : m_observers) {
-        auto& observer = observerOptionsPair.key.get();
+        MutationObserver* observer = observerOptionsPair.key;
         if (hasOldValue(observerOptionsPair.value)) {
-            observer.enqueueMutationRecord(mutation.copyRef());
+            observer->enqueueMutationRecord(mutation.copyRef());
             continue;
         }
         if (!mutationWithNullOldValue) {
@@ -78,7 +78,7 @@ void MutationObserverInterestGroup::enqueueMutationRecord(Ref<MutationRecord>&& 
             else
                 mutationWithNullOldValue = MutationRecord::createWithNullOldValue(mutation).ptr();
         }
-        observer.enqueueMutationRecord(*mutationWithNullOldValue);
+        observer->enqueueMutationRecord(*mutationWithNullOldValue);
     }
 }
 

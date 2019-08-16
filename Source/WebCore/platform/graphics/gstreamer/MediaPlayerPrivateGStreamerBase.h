@@ -25,8 +25,7 @@
 #define MediaPlayerPrivateGStreamerBase_h
 #if ENABLE(VIDEO) && USE(GSTREAMER)
 
-#include "GStreamerCommon.h"
-#include "GStreamerEMEUtilities.h"
+#include "GRefPtrGStreamer.h"
 #include "MainThreadNotifier.h"
 #include "MediaPlayerPrivate.h"
 #include "PlatformLayer.h"
@@ -35,14 +34,10 @@
 #include <wtf/Condition.h>
 #include <wtf/Forward.h>
 #include <wtf/RunLoop.h>
-#include <wtf/WeakPtr.h>
 
-#if USE(TEXTURE_MAPPER_GL)
-#if USE(NICOSIA)
-#include "NicosiaContentLayerTextureMapperImpl.h"
-#else
-#include "TextureMapperPlatformLayerProxyProvider.h"
-#endif
+#if USE(TEXTURE_MAPPER)
+#include "TextureMapperPlatformLayer.h"
+#include "TextureMapperPlatformLayerProxy.h"
 #endif
 
 typedef struct _GstStreamVolume GstStreamVolume;
@@ -60,25 +55,15 @@ class IntSize;
 class IntRect;
 class VideoTextureCopierGStreamer;
 
-#if USE(TEXTURE_MAPPER_GL)
-class TextureMapperPlatformLayerProxy;
-#endif
-
 void registerWebKitGStreamerElements();
 
-class MediaPlayerPrivateGStreamerBase : public MediaPlayerPrivateInterface, public CanMakeWeakPtr<MediaPlayerPrivateGStreamerBase>
+class MediaPlayerPrivateGStreamerBase : public MediaPlayerPrivateInterface
 #if USE(TEXTURE_MAPPER_GL)
-#if USE(NICOSIA)
-    , public Nicosia::ContentLayerTextureMapperImpl::Client
-#else
     , public PlatformLayer
-#endif
 #endif
 {
 
 public:
-    static void initializeDebugCategory();
-
     virtual ~MediaPlayerPrivateGStreamerBase();
 
     FloatSize naturalSize() const override;
@@ -88,8 +73,9 @@ public:
 
 #if USE(GSTREAMER_GL)
     bool ensureGstGLContext();
-    GstContext* requestGLContext(const char* contextType);
+    static GstContext* requestGLContext(const gchar* contextType, MediaPlayerPrivateGStreamerBase*);
 #endif
+    static bool initializeGStreamerAndRegisterWebKitElements();
     bool supportsMuting() const override { return true; }
     void setMuted(bool) override;
     bool muted() const;
@@ -101,27 +87,13 @@ public:
     void setSize(const IntSize&) override;
     void sizeChanged();
 
-    // Prefer MediaTime based methods over float based.
-    float duration() const override { return durationMediaTime().toFloat(); }
-    double durationDouble() const override { return durationMediaTime().toDouble(); }
-    MediaTime durationMediaTime() const override { return MediaTime::zeroTime(); }
-    float currentTime() const override { return currentMediaTime().toFloat(); }
-    double currentTimeDouble() const override { return currentMediaTime().toDouble(); }
-    MediaTime currentMediaTime() const override { return MediaTime::zeroTime(); }
-    void seek(float time) override { seek(MediaTime::createWithFloat(time)); }
-    void seekDouble(double time) override { seek(MediaTime::createWithDouble(time)); }
-    void seek(const MediaTime&) override { }
-    float maxTimeSeekable() const override { return maxMediaTimeSeekable().toFloat(); }
-    MediaTime maxMediaTimeSeekable() const override { return MediaTime::zeroTime(); }
-    double minTimeSeekable() const override { return minMediaTimeSeekable().toFloat(); }
-    MediaTime minMediaTimeSeekable() const override { return MediaTime::zeroTime(); }
-
     void paint(GraphicsContext&, const FloatRect&) override;
 
     bool hasSingleSecurityOrigin() const override { return true; }
-    virtual MediaTime maxTimeLoaded() const { return MediaTime::zeroTime(); }
+    virtual float maxTimeLoaded() const { return 0.0; }
 
     bool supportsFullscreen() const override;
+    PlatformMedia platformMedia() const override;
 
     MediaPlayer::MovieLoadType movieLoadType() const override;
     virtual bool isLiveStream() const = 0;
@@ -136,25 +108,13 @@ public:
     void acceleratedRenderingStateChanged() override;
 
 #if USE(TEXTURE_MAPPER_GL)
-    PlatformLayer* platformLayer() const override;
+    PlatformLayer* platformLayer() const override { return const_cast<MediaPlayerPrivateGStreamerBase*>(this); }
 #if PLATFORM(WIN_CAIRO)
     // FIXME: Accelerated rendering has not been implemented for WinCairo yet.
     bool supportsAcceleratedRendering() const override { return false; }
 #else
     bool supportsAcceleratedRendering() const override { return true; }
 #endif
-#endif
-
-#if ENABLE(ENCRYPTED_MEDIA)
-    void cdmInstanceAttached(CDMInstance&) override;
-    void cdmInstanceDetached(CDMInstance&) override;
-    void dispatchDecryptionKey(GstBuffer*);
-    void handleProtectionEvent(GstEvent*);
-    virtual void attemptToDecryptWithLocalInstance();
-    void attemptToDecryptWithInstance(CDMInstance&) final;
-    void initializationDataEncountered(InitData&&);
-    void setWaitingForKey(bool);
-    bool waitingForKey() const override;
 #endif
 
     static bool supportsKeySystem(const String& keySystem, const String& mimeType);
@@ -182,17 +142,13 @@ protected:
     GstElement* createVideoSinkGL();
     GstGLContext* gstGLContext() const { return m_glContext.get(); }
     GstGLDisplay* gstGLDisplay() const { return m_glDisplay.get(); }
-    void ensureGLVideoSinkContext();
 #endif
 
 #if USE(TEXTURE_MAPPER_GL)
+    void updateTexture(BitmapTextureGL&, GstVideoInfo&);
+    RefPtr<TextureMapperPlatformLayerProxy> proxy() const override { return m_platformLayerProxy.copyRef(); }
+    void swapBuffersIfNeeded() override { };
     void pushTextureToCompositor();
-#if USE(NICOSIA)
-    void swapBuffersIfNeeded() override;
-#else
-    RefPtr<TextureMapperPlatformLayerProxy> proxy() const override;
-    void swapBuffersIfNeeded() override;
-#endif
 #endif
 
     GstElement* videoSink() const { return m_videoSink.get(); }
@@ -205,7 +161,7 @@ protected:
 
     void triggerRepaint(GstSample*);
     void repaint();
-    void cancelRepaint(bool destroying = false);
+    void cancelRepaint();
 
     static void repaintCallback(MediaPlayerPrivateGStreamerBase*, GstSample*);
     static void repaintCancelledCallback(MediaPlayerPrivateGStreamerBase*);
@@ -225,10 +181,7 @@ protected:
 #if ENABLE(VIDEO_TRACK)
         TextChanged = 1 << 5,
 #endif
-        SizeChanged = 1 << 6,
-#if GST_CHECK_VERSION(1, 10, 0)
-        StreamCollectionChanged = 1 << 7
-#endif
+        SizeChanged = 1 << 6
     };
 
     Ref<MainThreadNotifier<MainThreadNotification>> m_notifier;
@@ -240,7 +193,7 @@ protected:
     MediaPlayer::ReadyState m_readyState;
     mutable MediaPlayer::NetworkState m_networkState;
     IntSize m_size;
-    mutable Lock m_sampleMutex;
+    mutable GMutex m_sampleMutex;
     GRefPtr<GstSample> m_sample;
 
     mutable FloatSize m_videoSize;
@@ -249,34 +202,20 @@ protected:
 
     Condition m_drawCondition;
     Lock m_drawMutex;
-    bool m_destroying { false };
     RunLoop::Timer<MediaPlayerPrivateGStreamerBase> m_drawTimer;
 
 #if USE(TEXTURE_MAPPER_GL)
-#if USE(NICOSIA)
-    Ref<Nicosia::ContentLayer> m_nicosiaLayer;
-#else
+    RefPtr<GraphicsContext3D> m_context3D;
     RefPtr<TextureMapperPlatformLayerProxy> m_platformLayerProxy;
-#endif
 #endif
 
 #if USE(GSTREAMER_GL)
     GRefPtr<GstGLContext> m_glContext;
     GRefPtr<GstGLDisplay> m_glDisplay;
-    GRefPtr<GstContext> m_glDisplayElementContext;
-    GRefPtr<GstContext> m_glAppElementContext;
     std::unique_ptr<VideoTextureCopierGStreamer> m_videoTextureCopier;
 #endif
 
     ImageOrientation m_videoSourceOrientation;
-
-#if ENABLE(ENCRYPTED_MEDIA)
-    Lock m_protectionMutex;
-    Condition m_protectionCondition;
-    RefPtr<const CDMInstance> m_cdmInstance;
-    HashSet<uint32_t> m_handledProtectionEvents;
-    bool m_waitingForKey { false };
-#endif
 };
 
 }

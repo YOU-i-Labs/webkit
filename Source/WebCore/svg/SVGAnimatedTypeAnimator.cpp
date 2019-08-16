@@ -22,6 +22,7 @@
 #include "config.h"
 #include "SVGAnimatedTypeAnimator.h"
 
+#include "SVGAttributeToPropertyMap.h"
 #include "SVGElement.h"
 
 namespace WebCore {
@@ -33,7 +34,9 @@ SVGAnimatedTypeAnimator::SVGAnimatedTypeAnimator(AnimatedPropertyType type, SVGA
 {
 }
 
-SVGAnimatedTypeAnimator::~SVGAnimatedTypeAnimator() = default;
+SVGAnimatedTypeAnimator::~SVGAnimatedTypeAnimator()
+{
+}
 
 void SVGAnimatedTypeAnimator::calculateFromAndToValues(std::unique_ptr<SVGAnimatedType>& from, std::unique_ptr<SVGAnimatedType>& to, const String& fromString, const String& toString)
 {
@@ -55,14 +58,16 @@ SVGElementAnimatedPropertyList SVGAnimatedTypeAnimator::findAnimatedPropertiesFo
     if (!SVGAnimatedType::supportsAnimVal(m_type))
         return result;
 
-    auto targetProperties = targetElement.lookupOrCreateAnimatedProperties(attributeName);
+    auto& propertyMap = targetElement.localAttributeToPropertyMap();
+    auto targetProperties = propertyMap.properties(targetElement, attributeName);
+
     if (targetProperties.isEmpty())
         return result;
 
     result.append(SVGElementAnimatedProperties { &targetElement, WTFMove(targetProperties) });
 
     for (SVGElement* instance : targetElement.instances())
-        result.append(SVGElementAnimatedProperties { instance, instance->lookupOrCreateAnimatedProperties(attributeName) });
+        result.append(SVGElementAnimatedProperties { instance, propertyMap.properties(*instance, attributeName) });
 
 #if !ASSERT_DISABLED
     for (auto& animatedProperties : result) {

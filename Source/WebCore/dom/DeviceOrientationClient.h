@@ -27,6 +27,7 @@
 #pragma once
 
 #include "DeviceClient.h"
+#include "PlatformExportMacros.h"
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {
@@ -38,8 +39,8 @@ class Page;
 class DeviceOrientationClient : public DeviceClient {
     WTF_MAKE_NONCOPYABLE(DeviceOrientationClient);
 public:
-    DeviceOrientationClient() = default;
-    virtual ~DeviceOrientationClient() = default;
+    DeviceOrientationClient() { }
+    virtual ~DeviceOrientationClient() { }
     virtual void setController(DeviceOrientationController*) = 0;
     virtual DeviceOrientationData* lastOrientation() const = 0;
     virtual void deviceOrientationControllerDestroyed() = 0;

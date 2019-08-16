@@ -97,20 +97,20 @@ void ImageQualityController::restartTimer()
     m_timer.startOneShot(lowQualityTimeThreshold);
 }
 
-Optional<InterpolationQuality> ImageQualityController::interpolationQualityFromStyle(const RenderStyle& style)
+std::optional<InterpolationQuality> ImageQualityController::interpolationQualityFromStyle(const RenderStyle& style)
 {
     switch (style.imageRendering()) {
-    case ImageRendering::OptimizeSpeed:
+    case ImageRenderingOptimizeSpeed:
         return InterpolationLow;
-    case ImageRendering::CrispEdges:
-    case ImageRendering::Pixelated:
+    case ImageRenderingCrispEdges:
+    case ImageRenderingPixelated:
         return InterpolationNone;
-    case ImageRendering::OptimizeQuality:
+    case ImageRenderingOptimizeQuality:
         return InterpolationDefault; // FIXME: CSS 3 Images says that optimizeQuality should behave like 'auto', but that prevents authors from overriding this low quality rendering behavior.
-    case ImageRendering::Auto:
+    case ImageRenderingAuto:
         break;
     }
-    return WTF::nullopt;
+    return std::nullopt;
 }
 
 InterpolationQuality ImageQualityController::chooseInterpolationQuality(GraphicsContext& context, RenderBoxModelObject* object, Image& image, const void* layer, const LayoutSize& size)
@@ -119,7 +119,7 @@ InterpolationQuality ImageQualityController::chooseInterpolationQuality(Graphics
     if (!(image.isBitmapImage() || image.isPDFDocumentImage()) || context.paintingDisabled())
         return InterpolationDefault;
 
-    if (Optional<InterpolationQuality> styleInterpolation = interpolationQualityFromStyle(object->style()))
+    if (std::optional<InterpolationQuality> styleInterpolation = interpolationQualityFromStyle(object->style()))
         return styleInterpolation.value();
 
     // Make sure to use the unzoomed image size, since if a full page zoom is in effect, the image

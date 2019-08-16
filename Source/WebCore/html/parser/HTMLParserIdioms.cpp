@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,10 +27,12 @@
 
 #include "Decimal.h"
 #include "QualifiedName.h"
+#include "URL.h"
 #include <limits>
 #include <wtf/MathExtras.h>
-#include <wtf/URL.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/dtoa.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -46,7 +48,7 @@ static String stripLeadingAndTrailingHTMLSpaces(String string, CharType characte
     }
 
     if (numLeadingSpaces == length)
-        return string.isNull() ? string : emptyAtom().string();
+        return string.isNull() ? string : emptyAtom.string();
 
     for (; numTrailingSpaces < length; ++numTrailingSpaces) {
         if (isNotHTMLSpace(characters[length - numTrailingSpaces - 1]))
@@ -66,7 +68,7 @@ String stripLeadingAndTrailingHTMLSpaces(const String& string)
     unsigned length = string.length();
 
     if (!length)
-        return string.isNull() ? string : emptyAtom().string();
+        return string.isNull() ? string : emptyAtom.string();
 
     if (string.is8Bit())
         return stripLeadingAndTrailingHTMLSpaces(string, string.characters8(), length);
@@ -209,7 +211,7 @@ Expected<unsigned, HTMLIntegerParsingError> parseHTMLNonNegativeInteger(StringVi
 {
     auto optionalSignedResult = parseHTMLInteger(input);
     if (!optionalSignedResult)
-        return makeUnexpected(WTFMove(optionalSignedResult.error()));
+        return optionalSignedResult.getUnexpected();
 
     if (optionalSignedResult.value() < 0)
         return makeUnexpected(HTMLIntegerParsingError::NegativeOverflow);
@@ -218,26 +220,26 @@ Expected<unsigned, HTMLIntegerParsingError> parseHTMLNonNegativeInteger(StringVi
 }
 
 template <typename CharacterType>
-static Optional<int> parseValidHTMLNonNegativeIntegerInternal(const CharacterType* position, const CharacterType* end)
+static std::optional<int> parseValidHTMLNonNegativeIntegerInternal(const CharacterType* position, const CharacterType* end)
 {
     // A string is a valid non-negative integer if it consists of one or more ASCII digits.
     for (auto* c = position; c < end; ++c) {
         if (!isASCIIDigit(*c))
-            return WTF::nullopt;
+            return std::nullopt;
     }
 
     auto optionalSignedValue = parseHTMLIntegerInternal(position, end);
     if (!optionalSignedValue || optionalSignedValue.value() < 0)
-        return WTF::nullopt;
+        return std::nullopt;
 
     return optionalSignedValue.value();
 }
 
 // https://html.spec.whatwg.org/#valid-non-negative-integer
-Optional<int> parseValidHTMLNonNegativeInteger(StringView input)
+std::optional<int> parseValidHTMLNonNegativeInteger(StringView input)
 {
     if (input.isEmpty())
-        return WTF::nullopt;
+        return std::nullopt;
 
     if (LIKELY(input.is8Bit())) {
         auto* start = input.characters8();
@@ -249,25 +251,25 @@ Optional<int> parseValidHTMLNonNegativeInteger(StringView input)
 }
 
 template <typename CharacterType>
-static Optional<double> parseValidHTMLFloatingPointNumberInternal(const CharacterType* position, size_t length)
+static std::optional<double> parseValidHTMLFloatingPointNumberInternal(const CharacterType* position, size_t length)
 {
     ASSERT(length > 0);
 
     // parseDouble() allows the string to start with a '+' or to end with a '.' but those
     // are not valid floating point numbers as per HTML.
     if (*position == '+' || *(position + length - 1) == '.')
-        return WTF::nullopt;
+        return std::nullopt;
 
     size_t parsedLength = 0;
     double number = parseDouble(position, length, parsedLength);
-    return parsedLength == length && std::isfinite(number) ? number : Optional<double>();
+    return parsedLength == length && std::isfinite(number) ? number : std::optional<double>();
 }
 
 // https://html.spec.whatwg.org/#valid-floating-point-number
-Optional<double> parseValidHTMLFloatingPointNumber(StringView input)
+std::optional<double> parseValidHTMLFloatingPointNumber(StringView input)
 {
     if (input.isEmpty())
-        return WTF::nullopt;
+        return std::nullopt;
 
     if (LIKELY(input.is8Bit())) {
         auto* start = input.characters8();
@@ -349,8 +351,8 @@ String parseCORSSettingsAttribute(const AtomicString& value)
     if (value.isNull())
         return String();
     if (equalIgnoringASCIICase(value, "use-credentials"))
-        return "use-credentials"_s;
-    return "anonymous"_s;
+        return ASCIILiteral("use-credentials");
+    return ASCIILiteral("anonymous");
 }
 
 // https://html.spec.whatwg.org/multipage/semantics.html#attr-meta-http-equiv-refresh
@@ -360,35 +362,26 @@ static bool parseHTTPRefreshInternal(const CharacterType* position, const Charac
     while (position < end && isHTMLSpace(*position))
         ++position;
 
-    unsigned time = 0;
-
     const CharacterType* numberStart = position;
     while (position < end && isASCIIDigit(*position))
         ++position;
 
-    StringView timeString(numberStart, position - numberStart);
-    if (timeString.isEmpty()) {
-        if (position >= end || *position != '.')
-            return false;
-    } else {
-        auto optionalNumber = parseHTMLNonNegativeInteger(timeString);
-        if (!optionalNumber)
-            return false;
-        time = optionalNumber.value();
-    }
+    auto optionalNumber = parseHTMLNonNegativeInteger(StringView(numberStart, position - numberStart));
+    if (!optionalNumber)
+        return false;
 
     while (position < end && (isASCIIDigit(*position) || *position == '.'))
         ++position;
 
     if (position == end) {
-        parsedDelay = time;
+        parsedDelay = optionalNumber.value();
         return true;
     }
 
     if (*position != ';' && *position != ',' && !isHTMLSpace(*position))
         return false;
 
-    parsedDelay = time;
+    parsedDelay = optionalNumber.value();
 
     while (position < end && isHTMLSpace(*position))
         ++position;
@@ -470,7 +463,7 @@ AtomicString parseHTMLHashNameReference(StringView usemap)
 {
     size_t numberSignIndex = usemap.find('#');
     if (numberSignIndex == notFound)
-        return nullAtom();
+        return nullAtom;
     return usemap.substring(numberSignIndex + 1).toAtomicString();
 }
 

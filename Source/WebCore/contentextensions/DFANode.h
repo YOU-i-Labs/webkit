@@ -38,8 +38,8 @@ namespace ContentExtensions {
 struct DFA;
 
 struct CharRange {
-    signed char first;
-    signed char last;
+    char first;
+    char last;
     unsigned size() const { return last - first + 1; }
 };
 
@@ -145,6 +145,7 @@ public:
 
     void setActions(uint32_t start, uint16_t length)
     {
+        ASSERT(!m_actionsStart);
         ASSERT(!m_actionsLength);
         m_actionsStart = start;
         m_actionsLength = length;

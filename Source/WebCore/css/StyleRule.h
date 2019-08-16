@@ -22,11 +22,9 @@
 #pragma once
 
 #include "CSSSelectorList.h"
-#include "CompiledSelector.h"
 #include "StyleProperties.h"
 #include <wtf/RefPtr.h>
 #include <wtf/TypeCasts.h>
-#include <wtf/UniqueArray.h>
 
 namespace WebCore {
 
@@ -57,6 +55,7 @@ public:
 #if ENABLE(CSS_DEVICE_ADAPTATION)
         Viewport = 15,
 #endif
+        Region = 16,
     };
 
     Type type() const { return static_cast<Type>(m_type); }
@@ -69,6 +68,7 @@ public:
     bool isMediaRule() const { return type() == Media; }
     bool isPageRule() const { return type() == Page; }
     bool isStyleRule() const { return type() == Style; }
+    bool isRegionRule() const { return type() == Region; }
     bool isSupportsRule() const { return type() == Supports; }
 #if ENABLE(CSS_DEVICE_ADAPTATION)
     bool isViewportRule() const { return type() == Viewport; }
@@ -84,43 +84,35 @@ public:
     }
 
     // FIXME: There shouldn't be any need for the null parent version.
-    Ref<CSSRule> createCSSOMWrapper(CSSStyleSheet* parentSheet = nullptr) const;
-    Ref<CSSRule> createCSSOMWrapper(CSSRule* parentRule) const;
+    RefPtr<CSSRule> createCSSOMWrapper(CSSStyleSheet* parentSheet = nullptr) const;
+    RefPtr<CSSRule> createCSSOMWrapper(CSSRule* parentRule) const;
 
 protected:
-    StyleRuleBase(Type type, bool hasDocumentSecurityOrigin = false)
+    StyleRuleBase(Type type)
         : m_type(type)
-        , m_hasDocumentSecurityOrigin(hasDocumentSecurityOrigin)
-    {
-    }
+        { }
 
     StyleRuleBase(const StyleRuleBase& o)
         : WTF::RefCountedBase()
         , m_type(o.m_type)
-        , m_hasDocumentSecurityOrigin(o.m_hasDocumentSecurityOrigin)
-    {
-    }
+        { }
 
-    ~StyleRuleBase() = default;
-
-    bool hasDocumentSecurityOrigin() const { return m_hasDocumentSecurityOrigin; }
+    ~StyleRuleBase() { }
 
 private:
     WEBCORE_EXPORT void destroy();
     
-    Ref<CSSRule> createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSRule* parentRule) const;
+    RefPtr<CSSRule> createCSSOMWrapper(CSSStyleSheet* parentSheet, CSSRule* parentRule) const;
 
     unsigned m_type : 5;
-    // This is only needed to support getMatchedCSSRules.
-    unsigned m_hasDocumentSecurityOrigin : 1;
 };
 
 class StyleRule final : public StyleRuleBase {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<StyleRule> create(Ref<StylePropertiesBase>&& properties, bool hasDocumentSecurityOrigin, CSSSelectorList&& selectors)
+    static Ref<StyleRule> create(Ref<StylePropertiesBase>&& properties)
     {
-        return adoptRef(*new StyleRule(WTFMove(properties), hasDocumentSecurityOrigin, WTFMove(selectors)));
+        return adoptRef(*new StyleRule(WTFMove(properties)));
     }
     
     ~StyleRule();
@@ -131,47 +123,24 @@ public:
     MutableStyleProperties& mutableProperties();
     const StyleProperties* propertiesWithoutDeferredParsing() const;
 
-    using StyleRuleBase::hasDocumentSecurityOrigin;
-
-    void wrapperAdoptSelectorList(CSSSelectorList&& selectors)
-    {
-        m_selectorList = WTFMove(selectors);
-#if ENABLE(CSS_SELECTOR_JIT)
-        m_compiledSelectors = nullptr;
-#endif
-    }
+    void parserAdoptSelectorVector(Vector<std::unique_ptr<CSSParserSelector>>& selectors) { m_selectorList.adoptSelectorVector(selectors); }
+    void wrapperAdoptSelectorList(CSSSelectorList& selectors) { m_selectorList = WTFMove(selectors); }
+    void parserAdoptSelectorArray(CSSSelector* selectors) { m_selectorList.adoptSelectorArray(selectors); }
 
     Ref<StyleRule> copy() const { return adoptRef(*new StyleRule(*this)); }
 
     Vector<RefPtr<StyleRule>> splitIntoMultipleRulesWithMaximumSelectorComponentCount(unsigned) const;
 
-#if ENABLE(CSS_SELECTOR_JIT)
-    CompiledSelector& compiledSelectorForListIndex(unsigned index)
-    {
-        if (!m_compiledSelectors)
-            m_compiledSelectors = makeUniqueArray<CompiledSelector>(m_selectorList.listSize());
-        return m_compiledSelectors[index];
-    }
-    void releaseCompiledSelectors() const
-    {
-        m_compiledSelectors = nullptr;
-    }
-#endif
-
     static unsigned averageSizeInBytes();
 
 private:
-    StyleRule(Ref<StylePropertiesBase>&&, bool hasDocumentSecurityOrigin, CSSSelectorList&&);
+    StyleRule(Ref<StylePropertiesBase>&&);
     StyleRule(const StyleRule&);
 
-    static Ref<StyleRule> createForSplitting(const Vector<const CSSSelector*>&, Ref<StyleProperties>&&, bool hasDocumentSecurityOrigin);
+    static Ref<StyleRule> create(const Vector<const CSSSelector*>&, Ref<StyleProperties>&&);
 
     mutable Ref<StylePropertiesBase> m_properties;
     CSSSelectorList m_selectorList;
-
-#if ENABLE(CSS_SELECTOR_JIT)
-    mutable UniqueArray<CompiledSelector> m_compiledSelectors;
-#endif
 };
 
 inline const StyleProperties* StyleRule::propertiesWithoutDeferredParsing() const
@@ -199,7 +168,7 @@ private:
 
 class StyleRulePage final : public StyleRuleBase {
 public:
-    static Ref<StyleRulePage> create(Ref<StyleProperties>&& properties, CSSSelectorList&& selectors) { return adoptRef(*new StyleRulePage(WTFMove(properties), WTFMove(selectors))); }
+    static Ref<StyleRulePage> create(Ref<StyleProperties>&& properties) { return adoptRef(*new StyleRulePage(WTFMove(properties))); }
 
     ~StyleRulePage();
 
@@ -207,12 +176,13 @@ public:
     const StyleProperties& properties() const { return m_properties; }
     MutableStyleProperties& mutableProperties();
 
-    void wrapperAdoptSelectorList(CSSSelectorList&& selectors) { m_selectorList = WTFMove(selectors); }
+    void parserAdoptSelectorVector(Vector<std::unique_ptr<CSSParserSelector>>& selectors) { m_selectorList.adoptSelectorVector(selectors); }
+    void wrapperAdoptSelectorList(CSSSelectorList& selectors) { m_selectorList = WTFMove(selectors); }
 
     Ref<StyleRulePage> copy() const { return adoptRef(*new StyleRulePage(*this)); }
 
 private:
-    explicit StyleRulePage(Ref<StyleProperties>&&, CSSSelectorList&&);
+    explicit StyleRulePage(Ref<StyleProperties>&&);
     StyleRulePage(const StyleRulePage&);
     
     Ref<StyleProperties> m_properties;
@@ -306,6 +276,31 @@ private:
     bool m_conditionIsSupported;
 };
 
+class StyleRuleRegion final : public StyleRuleGroup {
+public:
+    static Ref<StyleRuleRegion> create(Vector<std::unique_ptr<CSSParserSelector>>* selectors, Vector<RefPtr<StyleRuleBase>>& adoptRules)
+    {
+        return adoptRef(*new StyleRuleRegion(selectors, adoptRules));
+    }
+    
+    static Ref<StyleRuleRegion> create(CSSSelectorList& selectors, Vector<RefPtr<StyleRuleBase>>& adoptRules)
+    {
+        return adoptRef(*new StyleRuleRegion(selectors, adoptRules));
+    }
+    
+    const CSSSelectorList& selectorList() const { return m_selectorList; }
+
+    Ref<StyleRuleRegion> copy() const { return adoptRef(*new StyleRuleRegion(*this)); }
+
+private:
+    StyleRuleRegion(Vector<std::unique_ptr<CSSParserSelector>>*, Vector<RefPtr<StyleRuleBase>>& adoptRules);
+    StyleRuleRegion(CSSSelectorList&, Vector<RefPtr<StyleRuleBase>>&);
+    
+    StyleRuleRegion(const StyleRuleRegion&);
+    
+    CSSSelectorList m_selectorList;
+};
+
 #if ENABLE(CSS_DEVICE_ADAPTATION)
 class StyleRuleViewport final : public StyleRuleBase {
 public:
@@ -382,6 +377,10 @@ SPECIALIZE_TYPE_TRAITS_END()
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRuleSupports)
     static bool isType(const WebCore::StyleRuleBase& rule) { return rule.isSupportsRule(); }
+SPECIALIZE_TYPE_TRAITS_END()
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::StyleRuleRegion)
+    static bool isType(const WebCore::StyleRuleBase& rule) { return rule.isRegionRule(); }
 SPECIALIZE_TYPE_TRAITS_END()
 
 #if ENABLE(CSS_DEVICE_ADAPTATION)

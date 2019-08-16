@@ -88,7 +88,7 @@ public:
     // Internal engine support
     String stringIdentifier() const;
     String displayName() const;
-    unsigned long long estimatedSize() const;
+    unsigned estimatedSize() const;
     String fileName() const;
     DatabaseDetails details() const;
     SQLiteDatabase& sqliteDatabase() { return m_sqliteDatabase; }
@@ -126,7 +126,7 @@ public:
     void performClose();
 
 private:
-    Database(DatabaseContext&, const String& name, const String& expectedVersion, const String& displayName, unsigned long long estimatedSize);
+    Database(DatabaseContext&, const String& name, const String& expectedVersion, const String& displayName, unsigned estimatedSize);
 
     void closeDatabase();
 
@@ -137,7 +137,6 @@ private:
     String getCachedVersion() const;
     void setCachedVersion(const String&);
     bool getActualVersionForTransaction(String& version);
-    void setEstimatedSize(unsigned long long);
 
     void scheduleTransaction();
 
@@ -158,7 +157,7 @@ private:
     String m_name;
     String m_expectedVersion;
     String m_displayName;
-    unsigned long long m_estimatedSize;
+    unsigned m_estimatedSize;
     String m_filename;
 
     DatabaseGUID m_guid;

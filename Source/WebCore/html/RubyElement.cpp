@@ -27,11 +27,8 @@
 #include "RubyElement.h"
 
 #include "RenderRuby.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RubyElement);
 
 using namespace HTMLNames;
 
@@ -53,9 +50,9 @@ Ref<RubyElement> RubyElement::create(Document& document)
 
 RenderPtr<RenderElement> RubyElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition& insertionPosition)
 {
-    if (style.display() == DisplayType::Inline)
+    if (style.display() == INLINE)
         return createRenderer<RenderRubyAsInline>(*this, WTFMove(style));
-    if (style.display() == DisplayType::Block || style.display() == DisplayType::InlineBlock)
+    if (style.display() == BLOCK || style.display() == INLINE_BLOCK)
         return createRenderer<RenderRubyAsBlock>(*this, WTFMove(style));
     return HTMLElement::createElementRenderer(WTFMove(style), insertionPosition);
 }

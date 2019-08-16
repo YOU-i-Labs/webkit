@@ -28,11 +28,10 @@
 
 #include "ContentSecurityPolicyHash.h"
 #include "ContentSecurityPolicyResponseHeaders.h"
-#include "SecurityContext.h"
 #include "SecurityOrigin.h"
 #include "SecurityOriginHash.h"
-#include <functional>
 #include <wtf/HashSet.h>
+#include <wtf/OptionSet.h>
 #include <wtf/Vector.h>
 #include <wtf/text/TextPosition.h>
 
@@ -51,39 +50,38 @@ class ContentSecurityPolicyDirectiveList;
 class ContentSecurityPolicySource;
 class DOMStringList;
 class Frame;
-class JSWindowProxy;
+class JSDOMWindowProxy;
 class ResourceRequest;
 class ScriptExecutionContext;
 class SecurityOrigin;
 class TextEncoding;
-struct ContentSecurityPolicyClient;
+class URL;
 
 typedef Vector<std::unique_ptr<ContentSecurityPolicyDirectiveList>> CSPDirectiveListVector;
+typedef int SandboxFlags;
 
 class ContentSecurityPolicy {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    explicit ContentSecurityPolicy(URL&&, ScriptExecutionContext&);
-    WEBCORE_EXPORT explicit ContentSecurityPolicy(URL&&, ContentSecurityPolicyClient* = nullptr);
-    WEBCORE_EXPORT ~ContentSecurityPolicy();
+    explicit ContentSecurityPolicy(ScriptExecutionContext&);
+    explicit ContentSecurityPolicy(const SecurityOrigin&, const Frame* = nullptr);
+    ~ContentSecurityPolicy();
 
     void copyStateFrom(const ContentSecurityPolicy*);
     void copyUpgradeInsecureRequestStateFrom(const ContentSecurityPolicy&);
-    void createPolicyForPluginDocumentFrom(const ContentSecurityPolicy&);
 
-    void didCreateWindowProxy(JSWindowProxy&) const;
+    void didCreateWindowProxy(JSDOMWindowProxy&) const;
 
     enum class PolicyFrom {
         API,
         HTTPEquivMeta,
         HTTPHeader,
         Inherited,
-        InheritedForPluginDocument,
     };
-    WEBCORE_EXPORT ContentSecurityPolicyResponseHeaders responseHeaders() const;
+    ContentSecurityPolicyResponseHeaders responseHeaders() const;
     enum ReportParsingErrors { No, Yes };
-    WEBCORE_EXPORT void didReceiveHeaders(const ContentSecurityPolicyResponseHeaders&, String&& referrer, ReportParsingErrors = ReportParsingErrors::Yes);
-    void didReceiveHeader(const String&, ContentSecurityPolicyHeaderType, ContentSecurityPolicy::PolicyFrom, String&& referrer, int httpStatusCode = 0);
+    void didReceiveHeaders(const ContentSecurityPolicyResponseHeaders&, ReportParsingErrors = ReportParsingErrors::Yes);
+    void didReceiveHeader(const String&, ContentSecurityPolicyHeaderType, ContentSecurityPolicy::PolicyFrom);
 
     bool allowScriptWithNonce(const String& nonce, bool overrideContentSecurityPolicy = false) const;
     bool allowStyleWithNonce(const String& nonce, bool overrideContentSecurityPolicy = false) const;
@@ -98,21 +96,17 @@ public:
     bool allowPluginType(const String& type, const String& typeAttribute, const URL&, bool overrideContentSecurityPolicy = false) const;
 
     bool allowFrameAncestors(const Frame&, const URL&, bool overrideContentSecurityPolicy = false) const;
-    WEBCORE_EXPORT bool allowFrameAncestors(const Vector<RefPtr<SecurityOrigin>>& ancestorOrigins, const URL&, bool overrideContentSecurityPolicy = false) const;
 
     enum class RedirectResponseReceived { No, Yes };
-    WEBCORE_EXPORT bool allowScriptFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
+    bool allowScriptFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
     bool allowImageFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
     bool allowStyleFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
     bool allowFontFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
-#if ENABLE(APPLICATION_MANIFEST)
-    bool allowManifestFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
-#endif
     bool allowMediaFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
 
     bool allowChildFrameFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
-    WEBCORE_EXPORT bool allowChildContextFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
-    WEBCORE_EXPORT bool allowConnectToSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
+    bool allowChildContextFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
+    bool allowConnectToSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
     bool allowFormAction(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
 
     bool allowObjectFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
@@ -150,11 +144,11 @@ public:
     void enforceSandboxFlags(SandboxFlags sandboxFlags) { m_sandboxFlags |= sandboxFlags; }
     void addHashAlgorithmsForInlineScripts(OptionSet<ContentSecurityPolicyHashAlgorithm> hashAlgorithmsForInlineScripts)
     {
-        m_hashAlgorithmsForInlineScripts.add(hashAlgorithmsForInlineScripts);
+        m_hashAlgorithmsForInlineScripts |= hashAlgorithmsForInlineScripts;
     }
     void addHashAlgorithmsForInlineStylesheets(OptionSet<ContentSecurityPolicyHashAlgorithm> hashAlgorithmsForInlineStylesheets)
     {
-        m_hashAlgorithmsForInlineStylesheets.add(hashAlgorithmsForInlineStylesheets);
+        m_hashAlgorithmsForInlineStylesheets |= hashAlgorithmsForInlineStylesheets;
     }
 
     // Used by ContentSecurityPolicySource
@@ -163,22 +157,17 @@ public:
     void setUpgradeInsecureRequests(bool);
     bool upgradeInsecureRequests() const { return m_upgradeInsecureRequests; }
     enum class InsecureRequestType { Load, FormSubmission, Navigation };
-    WEBCORE_EXPORT void upgradeInsecureRequestIfNeeded(ResourceRequest&, InsecureRequestType) const;
-    WEBCORE_EXPORT void upgradeInsecureRequestIfNeeded(URL&, InsecureRequestType) const;
+    void upgradeInsecureRequestIfNeeded(ResourceRequest&, InsecureRequestType) const;
+    void upgradeInsecureRequestIfNeeded(URL&, InsecureRequestType) const;
 
-    HashSet<SecurityOriginData> takeNavigationRequestsToUpgrade();
+    HashSet<RefPtr<SecurityOrigin>>&& takeNavigationRequestsToUpgrade();
     void inheritInsecureNavigationRequestsToUpgradeFromOpener(const ContentSecurityPolicy&);
-    void setInsecureNavigationRequestsToUpgrade(HashSet<SecurityOriginData>&&);
-
-    void setClient(ContentSecurityPolicyClient* client) { m_client = client; }
+    void setInsecureNavigationRequestsToUpgrade(HashSet<RefPtr<SecurityOrigin>>&&);
 
 private:
     void logToConsole(const String& message, const String& contextURL = String(), const WTF::OrdinalNumber& contextLine = WTF::OrdinalNumber::beforeFirst(), JSC::ExecState* = nullptr) const;
     void updateSourceSelf(const SecurityOrigin&);
     void applyPolicyToScriptExecutionContext();
-
-    // Implements the deprecated CSP2 "strip uri for reporting" algorithm from <https://www.w3.org/TR/CSP2/#violation-reports>.
-    String deprecatedURLForReporting(const URL&) const;
 
     const TextEncoding& documentEncoding() const;
 
@@ -210,26 +199,21 @@ private:
     void reportViolation(const String& effectiveViolatedDirective, const String& violatedDirective, const ContentSecurityPolicyDirectiveList& violatedDirectiveList, const URL& blockedURL, const String& consoleMessage, const String& sourceURL, const TextPosition& sourcePosition, JSC::ExecState*) const;
     void reportBlockedScriptExecutionToInspector(const String& directiveText) const;
 
-    // We can never have both a script execution context and a ContentSecurityPolicyClient.
+    // We can never have both a script execution context and a frame.
     ScriptExecutionContext* m_scriptExecutionContext { nullptr };
-    ContentSecurityPolicyClient* m_client { nullptr };
-    URL m_protectedURL;
+    const Frame* m_frame { nullptr };
     std::unique_ptr<ContentSecurityPolicySource> m_selfSource;
     String m_selfSourceProtocol;
     CSPDirectiveListVector m_policies;
     String m_lastPolicyEvalDisabledErrorMessage;
-    String m_lastPolicyWebAssemblyDisabledErrorMessage;
-    String m_referrer;
-    SandboxFlags m_sandboxFlags { SandboxNone };
+    SandboxFlags m_sandboxFlags;
     bool m_overrideInlineStyleAllowed { false };
     bool m_isReportingEnabled { true };
     bool m_upgradeInsecureRequests { false };
     bool m_hasAPIPolicy { false };
-    int m_httpStatusCode { 0 };
     OptionSet<ContentSecurityPolicyHashAlgorithm> m_hashAlgorithmsForInlineScripts;
     OptionSet<ContentSecurityPolicyHashAlgorithm> m_hashAlgorithmsForInlineStylesheets;
-    HashSet<SecurityOriginData> m_insecureNavigationRequestsToUpgrade;
-    mutable Optional<ContentSecurityPolicyResponseHeaders> m_cachedResponseHeaders;
+    HashSet<RefPtr<SecurityOrigin>> m_insecureNavigationRequestsToUpgrade;
 };
 
 }

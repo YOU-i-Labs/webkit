@@ -29,7 +29,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.roleSelectorForNode = function(node)
+WebInspector.roleSelectorForNode = function(node)
 {
     // This is proposed syntax for CSS 4 computed role selector :role(foo) and subject to change.
     // See http://lists.w3.org/Archives/Public/www-style/2013Jul/0104.html
@@ -40,50 +40,49 @@ WI.roleSelectorForNode = function(node)
     return title;
 };
 
-WI.linkifyAccessibilityNodeReference = function(node)
+WebInspector.linkifyAccessibilityNodeReference = function(node)
 {
     if (!node)
         return null;
     // Same as linkifyNodeReference except the link text has the classnames removed...
     // ...for list brevity, and both text and title have roleSelectorForNode appended.
-    var link = WI.linkifyNodeReference(node);
+    var link = WebInspector.linkifyNodeReference(node);
     var tagIdSelector = link.title;
     var classSelectorIndex = tagIdSelector.indexOf(".");
     if (classSelectorIndex > -1)
         tagIdSelector = tagIdSelector.substring(0, classSelectorIndex);
-    var roleSelector = WI.roleSelectorForNode(node);
+    var roleSelector = WebInspector.roleSelectorForNode(node);
     link.textContent = tagIdSelector + roleSelector;
     link.title += roleSelector;
     return link;
 };
 
-WI.linkifyNodeReference = function(node, options = {})
+WebInspector.linkifyNodeReference = function(node, maxLength)
 {
     let displayName = node.displayName;
-    if (!isNaN(options.maxLength))
-        displayName = displayName.truncate(options.maxLength);
+    if (!isNaN(maxLength))
+        displayName = displayName.truncate(maxLength);
 
     let link = document.createElement("span");
     link.append(displayName);
-    return WI.linkifyNodeReferenceElement(node, link, {...options, displayName});
+    return WebInspector.linkifyNodeReferenceElement(node, link, displayName);
 };
 
-WI.linkifyNodeReferenceElement = function(node, element, options = {})
+WebInspector.linkifyNodeReferenceElement = function(node, element, displayName)
 {
+    if (!displayName)
+        displayName = node.displayName;
+
     element.setAttribute("role", "link");
-    element.title = options.displayName || node.displayName;
+    element.title = displayName;
 
     let nodeType = node.nodeType();
     if ((nodeType !== Node.DOCUMENT_NODE || node.parentNode) && nodeType !== Node.TEXT_NODE)
         element.classList.add("node-link");
 
-    element.addEventListener("click", WI.domManager.inspectElement.bind(WI.domManager, node.id));
-    element.addEventListener("mouseover", WI.domManager.highlightDOMNode.bind(WI.domManager, node.id, "all"));
-    element.addEventListener("mouseout", WI.domManager.hideDOMNodeHighlight.bind(WI.domManager));
-    element.addEventListener("contextmenu", (event) => {
-        let contextMenu = WI.ContextMenu.createFromEvent(event);
-        WI.appendContextMenuItemsForDOMNode(contextMenu, node, options);
-    });
+    element.addEventListener("click", WebInspector.domTreeManager.inspectElement.bind(WebInspector.domTreeManager, node.id));
+    element.addEventListener("mouseover", WebInspector.domTreeManager.highlightDOMNode.bind(WebInspector.domTreeManager, node.id, "all"));
+    element.addEventListener("mouseout", WebInspector.domTreeManager.hideDOMNodeHighlight.bind(WebInspector.domTreeManager));
 
     return element;
 };
@@ -93,9 +92,9 @@ function createSVGElement(tagName)
     return document.createElementNS("http://www.w3.org/2000/svg", tagName);
 }
 
-WI.cssPath = function(node, options = {})
+WebInspector.cssPath = function(node)
 {
-    console.assert(node instanceof WI.DOMNode, "Expected a DOMNode.");
+    console.assert(node instanceof WebInspector.DOMNode, "Expected a DOMNode.");
     if (node.nodeType() !== Node.ELEMENT_NODE)
         return "";
 
@@ -107,7 +106,7 @@ WI.cssPath = function(node, options = {})
 
     let components = [];
     while (node) {
-        let component = WI.cssPathComponent(node, options);
+        let component = WebInspector.cssPathComponent(node);
         if (!component)
             break;
         components.push(component);
@@ -120,83 +119,14 @@ WI.cssPath = function(node, options = {})
     return components.map((x) => x.value).join(" > ") + suffix;
 };
 
-WI.cssPathComponent = function(node, options = {})
+WebInspector.cssPathComponent = function(node)
 {
-    console.assert(node instanceof WI.DOMNode, "Expected a DOMNode.");
+    console.assert(node instanceof WebInspector.DOMNode, "Expected a DOMNode.");
     console.assert(!node.isPseudoElement());
     if (node.nodeType() !== Node.ELEMENT_NODE)
         return null;
 
     let nodeName = node.nodeNameInCorrectCase();
-
-    // Root node does not have siblings.
-    if (!node.parentNode || node.parentNode.nodeType() === Node.DOCUMENT_NODE)
-        return {value: nodeName, done: true};
-
-    if (options.full) {
-        function getUniqueAttributes(domNode) {
-            let uniqueAttributes = new Map;
-            for (let attribute of domNode.attributes()) {
-                let values = [attribute.value];
-                if (attribute.name === "id" || attribute.name === "class")
-                    values = attribute.value.split(/\s+/);
-                uniqueAttributes.set(attribute.name, new Set(values));
-            }
-            return uniqueAttributes;
-        }
-
-        let nodeIndex = 0;
-        let needsNthChild = false;
-        let uniqueAttributes = getUniqueAttributes(node);
-        node.parentNode.children.forEach((child, i) => {
-            if (child.nodeType() !== Node.ELEMENT_NODE)
-                return;
-
-            if (child === node) {
-                nodeIndex = i;
-                return;
-            }
-
-            if (needsNthChild || child.nodeNameInCorrectCase() !== nodeName)
-                return;
-
-            let childUniqueAttributes = getUniqueAttributes(child);
-            let subsetCount = 0;
-            for (let [name, values] of uniqueAttributes) {
-                let childValues = childUniqueAttributes.get(name);
-                if (childValues && values.size <= childValues.size && values.isSubsetOf(childValues))
-                    ++subsetCount;
-            }
-
-            if (subsetCount === uniqueAttributes.size)
-                needsNthChild = true;
-        });
-
-        function selectorForAttribute(values, prefix = "", shouldCSSEscape = false) {
-            if (!values || !values.size)
-                return "";
-            values = Array.from(values);
-            values = values.filter((value) => value && value.length);
-            if (!values.length)
-                return "";
-            values = values.map((value) => shouldCSSEscape ? CSS.escape(value) : value.escapeCharacters("\""));
-            return prefix + values.join(prefix);
-        }
-
-        let selector = nodeName;
-        selector += selectorForAttribute(uniqueAttributes.get("id"), "#", true);
-        selector += selectorForAttribute(uniqueAttributes.get("class"), ".", true);
-        for (let [attribute, values] of uniqueAttributes) {
-            if (attribute !== "id" && attribute !== "class")
-                selector += `[${attribute}="${selectorForAttribute(values)}"]`;
-        }
-
-        if (needsNthChild)
-            selector += `:nth-child(${nodeIndex + 1})`;
-
-        return {value: selector, done: false};
-    }
-
     let lowerNodeName = node.nodeName().toLowerCase();
 
     // html, head, and body are unique nodes.
@@ -207,6 +137,10 @@ WI.cssPathComponent = function(node, options = {})
     let id = node.getAttribute("id");
     if (id)
         return {value: node.escapedIdSelector, done: true};
+
+    // Root node does not have siblings.
+    if (!node.parentNode || node.parentNode.nodeType() === Node.DOCUMENT_NODE)
+        return {value: nodeName, done: true};
 
     // Find uniqueness among siblings.
     //   - look for a unique className
@@ -257,16 +191,16 @@ WI.cssPathComponent = function(node, options = {})
     return {value: selector, done: false};
 };
 
-WI.xpath = function(node)
+WebInspector.xpath = function(node)
 {
-    console.assert(node instanceof WI.DOMNode, "Expected a DOMNode.");
+    console.assert(node instanceof WebInspector.DOMNode, "Expected a DOMNode.");
 
     if (node.nodeType() === Node.DOCUMENT_NODE)
         return "/";
 
     let components = [];
     while (node) {
-        let component = WI.xpathComponent(node);
+        let component = WebInspector.xpathComponent(node);
         if (!component)
             break;
         components.push(component);
@@ -281,11 +215,11 @@ WI.xpath = function(node)
     return prefix + components.map((x) => x.value).join("/");
 };
 
-WI.xpathComponent = function(node)
+WebInspector.xpathComponent = function(node)
 {
-    console.assert(node instanceof WI.DOMNode, "Expected a DOMNode.");
+    console.assert(node instanceof WebInspector.DOMNode, "Expected a DOMNode.");
 
-    let index = WI.xpathIndex(node);
+    let index = WebInspector.xpathIndex(node);
     if (index === -1)
         return null;
 
@@ -324,7 +258,7 @@ WI.xpathComponent = function(node)
     return {value, done: false};
 };
 
-WI.xpathIndex = function(node)
+WebInspector.xpathIndex = function(node)
 {
     // Root node.
     if (!node.parentNode)

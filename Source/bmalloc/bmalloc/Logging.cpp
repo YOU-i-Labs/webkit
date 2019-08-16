@@ -31,28 +31,23 @@
 #include <stdio.h>
 #endif
 
-#if BPLATFORM(IOS_FAMILY)
-#include <CoreFoundation/CoreFoundation.h>
+#if BPLATFORM(IOS)
 #include <mach/exception_types.h>
 #include <objc/objc.h>
 #include <unistd.h>
 
 #include "BSoftLinking.h"
 BSOFT_LINK_PRIVATE_FRAMEWORK(CrashReporterSupport);
-BSOFT_LINK_FUNCTION(CrashReporterSupport, SimulateCrash, BOOL, (pid_t pid, mach_exception_data_type_t exceptionCode, CFStringRef description), (pid, exceptionCode, description));
+BSOFT_LINK_FUNCTION(CrashReporterSupport, SimulateCrash, BOOL, (pid_t pid, mach_exception_data_type_t exceptionCode, id description), (pid, exceptionCode, description));
 #endif
 
 namespace bmalloc {
 
-void logVMFailure(size_t vmSize)
+void logVMFailure()
 {
-#if BPLATFORM(IOS_FAMILY)
+#if BPLATFORM(IOS)
     const mach_exception_data_type_t kExceptionCode = 0xc105ca11;
-    CFStringRef description = CFStringCreateWithFormat(kCFAllocatorDefault, nullptr, CFSTR("bmalloc failed to mmap %lu bytes"), vmSize);
-    SimulateCrash(getpid(), kExceptionCode, description);
-    CFRelease(description);
-#else
-    BUNUSED_PARAM(vmSize);
+    SimulateCrash(getpid(), kExceptionCode, nullptr);
 #endif
 }
 

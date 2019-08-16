@@ -29,7 +29,6 @@
 #if USE(SOUP)
 
 #include "LocalizedStrings.h"
-#include "URLSoup.h"
 #include <libsoup/soup.h>
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/CString.h>
@@ -39,7 +38,7 @@ namespace WebCore {
 static URL failingURI(SoupURI* soupURI)
 {
     ASSERT(soupURI);
-    return soupURIToURL(soupURI);
+    return URL(soupURI);
 }
 
 static URL failingURI(SoupRequest* request)
@@ -76,9 +75,10 @@ ResourceError ResourceError::genericGError(GError* error, SoupRequest* request)
         failingURI(request), String::fromUTF8(error->message));
 }
 
-ResourceError ResourceError::tlsError(const URL& failingURL, unsigned tlsErrors, GTlsCertificate* certificate)
+ResourceError ResourceError::tlsError(SoupRequest* request, unsigned tlsErrors, GTlsCertificate* certificate)
 {
-    ResourceError resourceError(g_quark_to_string(SOUP_HTTP_ERROR), SOUP_STATUS_SSL_FAILED, failingURL, unacceptableTLSCertificate());
+    ResourceError resourceError(g_quark_to_string(SOUP_HTTP_ERROR), SOUP_STATUS_SSL_FAILED,
+        failingURI(request), unacceptableTLSCertificate());
     resourceError.setTLSErrors(tlsErrors);
     resourceError.setCertificate(certificate);
     return resourceError;

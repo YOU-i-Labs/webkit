@@ -36,36 +36,37 @@ namespace WebCore {
  *  three phases invoked on them during this phase.
  */
 
-enum class PaintPhase : uint8_t {
-    BlockBackground,
-    ChildBlockBackground,
-    ChildBlockBackgrounds,
-    Float,
-    Foreground,
-    Outline,
-    ChildOutlines,
-    SelfOutline,
-    Selection,
-    CollapsedTableBorders,
-    TextClip,
-    Mask,
-    ClippingMask
+enum PaintPhase {
+    PaintPhaseBlockBackground,
+    PaintPhaseChildBlockBackground,
+    PaintPhaseChildBlockBackgrounds,
+    PaintPhaseFloat,
+    PaintPhaseForeground,
+    PaintPhaseOutline,
+    PaintPhaseChildOutlines,
+    PaintPhaseSelfOutline,
+    PaintPhaseSelection,
+    PaintPhaseCollapsedTableBorders,
+    PaintPhaseTextClip,
+    PaintPhaseMask,
+    PaintPhaseClippingMask
 };
 
-enum class PaintBehavior : uint16_t {
-    Normal                      = 0,
-    SelectionOnly               = 1 << 0,
-    SkipSelectionHighlight      = 1 << 1,
-    ForceBlackText              = 1 << 2,
-    ForceWhiteText              = 1 << 3,
-    RenderingSVGMask            = 1 << 4,
-    SkipRootBackground          = 1 << 5,
-    RootBackgroundOnly          = 1 << 6,
-    SelectionAndBackgroundsOnly = 1 << 7,
-    ExcludeSelection            = 1 << 8,
-    FlattenCompositingLayers    = 1 << 9, // Paint doesn't stop at compositing layer boundaries.
-    Snapshotting                = 1 << 10,
-    TileFirstPaint              = 1 << 11,
+enum PaintBehaviorFlags {
+    PaintBehaviorNormal                      = 0,
+    PaintBehaviorSelectionOnly               = 1 << 0,
+    PaintBehaviorSkipSelectionHighlight      = 1 << 1,
+    PaintBehaviorForceBlackText              = 1 << 2,
+    PaintBehaviorForceWhiteText              = 1 << 3,
+    PaintBehaviorRenderingSVGMask            = 1 << 4,
+    PaintBehaviorSkipRootBackground          = 1 << 5,
+    PaintBehaviorRootBackgroundOnly          = 1 << 6,
+    PaintBehaviorSelectionAndBackgroundsOnly = 1 << 7,
+    PaintBehaviorExcludeSelection            = 1 << 8,
+    PaintBehaviorFlattenCompositingLayers    = 1 << 9, // Paint doesn't stop at compositing layer boundaries.
+    PaintBehaviorSnapshotting                = 1 << 10, // Indicates snapshotting, e.g. force synchronous image decoding.
 };
+
+typedef unsigned PaintBehavior;
 
 } // namespace WebCore

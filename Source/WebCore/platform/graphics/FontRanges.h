@@ -27,6 +27,7 @@
 #define FontRanges_h
 
 #include "Font.h"
+#include <wtf/TypeCasts.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -83,7 +84,7 @@ public:
     unsigned size() const { return m_ranges.size(); }
     const Range& rangeAt(unsigned i) const { return m_ranges[i]; }
 
-    WEBCORE_EXPORT GlyphData glyphDataForCharacter(UChar32, ExternalResourceDownloadPolicy) const;
+    GlyphData glyphDataForCharacter(UChar32, ExternalResourceDownloadPolicy) const;
     WEBCORE_EXPORT const Font* fontForCharacter(UChar32) const;
     WEBCORE_EXPORT const Font& fontForFirstRange() const;
     bool isLoading() const;

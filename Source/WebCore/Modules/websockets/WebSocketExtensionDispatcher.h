@@ -30,6 +30,8 @@
 
 #pragma once
 
+#if ENABLE(WEB_SOCKETS)
+
 #include "WebSocketExtensionProcessor.h"
 #include <wtf/Vector.h>
 #include <wtf/text/StringBuilder.h>
@@ -59,3 +61,5 @@ private:
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_SOCKETS)

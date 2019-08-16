@@ -30,7 +30,7 @@
 namespace JSC {
 
 template<typename ViewClass>
-class JSGenericTypedArrayViewConstructor final : public InternalFunction {
+class JSGenericTypedArrayViewConstructor : public InternalFunction {
 public:
     typedef InternalFunction Base;
 
@@ -43,11 +43,24 @@ public:
         VM&, JSGlobalObject*, Structure*, JSObject* prototype, const String& name, FunctionExecutable* privateAllocator);
 
     // FIXME: We should fix the warnings for extern-template in JSObject template classes: https://bugs.webkit.org/show_bug.cgi?id=161979
-    IGNORE_CLANG_WARNINGS_BEGIN("undefined-var-template")
+#if COMPILER(CLANG)
+#if __has_warning("-Wundefined-var-template")
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundefined-var-template"
+#endif
+#endif
     DECLARE_INFO;
-    IGNORE_CLANG_WARNINGS_END
-
+#if COMPILER(CLANG)
+#if __has_warning("-Wundefined-var-template")
+#pragma clang diagnostic pop
+#endif
+#endif
+    
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue prototype);
+
+protected:
+    static ConstructType getConstructData(JSCell*, ConstructData&);
+    static CallType getCallData(JSCell*, CallData&);
 };
 
 } // namespace JSC

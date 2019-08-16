@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +35,6 @@
 #include "B3ConstPtrValue.h"
 #include "B3UpsilonValue.h"
 #include "B3ValueInlines.h"
-#include "JSCPtrTag.h"
 #include "MathCommon.h"
 
 namespace JSC { namespace B3 {
@@ -57,7 +56,7 @@ std::pair<BasicBlock*, Value*> powDoubleInt32(Procedure& procedure, BasicBlock* 
 
     // Function call.
     Value* yAsDouble = functionCallCase->appendNew<Value>(procedure, IToD, origin, y);
-    auto* powDouble = tagCFunctionPtr<double (*)(double, double)>(pow, B3CCallPtrTag);
+    double (*powDouble)(double, double) = pow;
     Value* powResult = functionCallCase->appendNew<CCallValue>(
         procedure, Double, origin,
         functionCallCase->appendNew<ConstPtrValue>(procedure, origin, bitwise_cast<void*>(powDouble)),

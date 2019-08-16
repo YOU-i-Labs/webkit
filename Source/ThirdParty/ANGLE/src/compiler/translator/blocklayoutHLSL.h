@@ -35,8 +35,8 @@ class HLSLBlockEncoder : public BlockLayoutEncoder
 
     HLSLBlockEncoder(HLSLBlockEncoderStrategy strategy, bool transposeMatrices);
 
-    void enterAggregateType() override;
-    void exitAggregateType() override;
+    virtual void enterAggregateType();
+    virtual void exitAggregateType();
     void skipRegisters(unsigned int numRegisters);
 
     bool isPacked() const { return mEncoderStrategy == ENCODE_PACKED; }
@@ -44,16 +44,16 @@ class HLSLBlockEncoder : public BlockLayoutEncoder
     static HLSLBlockEncoderStrategy GetStrategyFor(ShShaderOutput outputType);
 
   protected:
-    void getBlockLayoutInfo(GLenum type,
-                            const std::vector<unsigned int> &arraySizes,
-                            bool isRowMajorMatrix,
-                            int *arrayStrideOut,
-                            int *matrixStrideOut) override;
-    void advanceOffset(GLenum type,
-                       const std::vector<unsigned int> &arraySizes,
-                       bool isRowMajorMatrix,
-                       int arrayStride,
-                       int matrixStride) override;
+    virtual void getBlockLayoutInfo(GLenum type,
+                                    unsigned int arraySize,
+                                    bool isRowMajorMatrix,
+                                    int *arrayStrideOut,
+                                    int *matrixStrideOut);
+    virtual void advanceOffset(GLenum type,
+                               unsigned int arraySize,
+                               bool isRowMajorMatrix,
+                               int arrayStride,
+                               int matrixStride);
 
     HLSLBlockEncoderStrategy mEncoderStrategy;
     bool mTransposeMatrices;

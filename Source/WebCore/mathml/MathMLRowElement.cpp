@@ -32,12 +32,10 @@
 #include "MathMLOperatorElement.h"
 #include "RenderMathMLFenced.h"
 #include "RenderMathMLMenclose.h"
+#include "RenderMathMLRoot.h"
 #include "RenderMathMLRow.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(MathMLRowElement);
 
 using namespace MathMLNames;
 
@@ -63,6 +61,9 @@ void MathMLRowElement::childrenChanged(const ChildChange& change)
 
 RenderPtr<RenderElement> MathMLRowElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
+    if (hasTagName(msqrtTag) || hasTagName(mrootTag))
+        return createRenderer<RenderMathMLRoot>(*this, WTFMove(style));
+
     if (hasTagName(mfencedTag))
         return createRenderer<RenderMathMLFenced>(*this, WTFMove(style));
 

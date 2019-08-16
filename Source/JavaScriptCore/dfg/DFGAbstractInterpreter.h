@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 #if ENABLE(DFG_JIT)
 
 #include "DFGAbstractValue.h"
+#include "DFGBranchDirection.h"
 #include "DFGGraph.h"
 #include "DFGNode.h"
 #include "DFGNodeFlowProjection.h"
@@ -41,80 +42,19 @@ public:
     AbstractInterpreter(Graph&, AbstractStateType&);
     ~AbstractInterpreter();
     
-    ALWAYS_INLINE AbstractValue& forNode(NodeFlowProjection node)
+    AbstractValue& forNode(NodeFlowProjection node)
     {
         return m_state.forNode(node);
     }
     
-    ALWAYS_INLINE AbstractValue& forNode(Edge edge)
+    AbstractValue& forNode(Edge edge)
     {
         return forNode(edge.node());
     }
     
-    ALWAYS_INLINE void clearForNode(NodeFlowProjection node)
+    Operands<AbstractValue>& variables()
     {
-        m_state.clearForNode(node);
-    }
-    
-    ALWAYS_INLINE void clearForNode(Edge edge)
-    {
-        clearForNode(edge.node());
-    }
-
-    template<typename... Arguments>
-    ALWAYS_INLINE void setForNode(NodeFlowProjection node, Arguments&&... arguments)
-    {
-        m_state.setForNode(node, std::forward<Arguments>(arguments)...);
-    }
-
-    template<typename... Arguments>
-    ALWAYS_INLINE void setForNode(Edge edge, Arguments&&... arguments)
-    {
-        setForNode(edge.node(), std::forward<Arguments>(arguments)...);
-    }
-
-    template<typename... Arguments>
-    ALWAYS_INLINE void setTypeForNode(NodeFlowProjection node, Arguments&&... arguments)
-    {
-        m_state.setTypeForNode(node, std::forward<Arguments>(arguments)...);
-    }
-
-    template<typename... Arguments>
-    ALWAYS_INLINE void setTypeForNode(Edge edge, Arguments&&... arguments)
-    {
-        setTypeForNode(edge.node(), std::forward<Arguments>(arguments)...);
-    }
-    
-    template<typename... Arguments>
-    ALWAYS_INLINE void setNonCellTypeForNode(NodeFlowProjection node, Arguments&&... arguments)
-    {
-        m_state.setNonCellTypeForNode(node, std::forward<Arguments>(arguments)...);
-    }
-
-    template<typename... Arguments>
-    ALWAYS_INLINE void setNonCellTypeForNode(Edge edge, Arguments&&... arguments)
-    {
-        setNonCellTypeForNode(edge.node(), std::forward<Arguments>(arguments)...);
-    }
-    
-    ALWAYS_INLINE void makeBytecodeTopForNode(NodeFlowProjection node)
-    {
-        m_state.makeBytecodeTopForNode(node);
-    }
-    
-    ALWAYS_INLINE void makeBytecodeTopForNode(Edge edge)
-    {
-        makeBytecodeTopForNode(edge.node());
-    }
-    
-    ALWAYS_INLINE void makeHeapTopForNode(NodeFlowProjection node)
-    {
-        m_state.makeHeapTopForNode(node);
-    }
-    
-    ALWAYS_INLINE void makeHeapTopForNode(Edge edge)
-    {
-        makeHeapTopForNode(edge.node());
+        return m_state.variables();
     }
     
     bool needsTypeCheck(Node* node, SpeculatedType typesPassedThrough)
@@ -160,10 +100,7 @@ public:
     
     ALWAYS_INLINE void filterEdgeByUse(Edge& edge)
     {
-        UseKind useKind = edge.useKind();
-        if (useKind == UntypedUse)
-            return;
-        filterByType(edge, typeFilterFor(useKind));
+        filterByType(edge, typeFilterFor(edge.useKind()));
     }
     
     // Abstractly execute the effects of the given node. This changes the abstract
@@ -212,20 +149,16 @@ public:
     
     PhiChildren* phiChildren() { return m_phiChildren.get(); }
     
-    void filterICStatus(Node*);
-    
 private:
-    void clobberWorld();
-    void didFoldClobberWorld();
+    void clobberWorld(const CodeOrigin&, unsigned indexInBlock);
     
     template<typename Functor>
     void forAllValues(unsigned indexInBlock, Functor&);
     
-    void clobberStructures();
-    void didFoldClobberStructures();
-    
+    void clobberStructures(unsigned indexInBlock);
     void observeTransition(unsigned indexInBlock, RegisteredStructure from, RegisteredStructure to);
     void observeTransitions(unsigned indexInBlock, const TransitionVector&);
+    void setDidClobber();
     
     enum BooleanResult {
         UnknownBooleanResult,
@@ -247,7 +180,16 @@ private:
         m_state.setFoundConstants(true);
     }
     
-    ALWAYS_INLINE void filterByType(Edge& edge, SpeculatedType type);
+    ALWAYS_INLINE void filterByType(Edge& edge, SpeculatedType type)
+    {
+        AbstractValue& value = forNode(edge);
+        if (!value.isType(type))
+            edge.setProofStatus(NeedsCheck);
+        else
+            edge.setProofStatus(IsProved);
+        
+        filter(value, type);
+    }
     
     void verifyEdge(Node*, Edge);
     void verifyEdges(Node*);

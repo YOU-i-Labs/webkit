@@ -39,30 +39,27 @@
 #include "EventHandler.h"
 #include "FormatBlockCommand.h"
 #include "Frame.h"
-#include "FrameLoader.h"
 #include "FrameView.h"
 #include "HTMLFontElement.h"
 #include "HTMLHRElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
 #include "IndentOutdentCommand.h"
-#include "InsertEditableImageCommand.h"
 #include "InsertListCommand.h"
-#include "InsertNestedListCommand.h"
+#include "KillRing.h"
 #include "Page.h"
 #include "Pasteboard.h"
 #include "RenderBox.h"
 #include "ReplaceSelectionCommand.h"
 #include "Scrollbar.h"
 #include "Settings.h"
+#include "Sound.h"
 #include "StyleProperties.h"
 #include "TypingCommand.h"
 #include "UnlinkCommand.h"
 #include "UserGestureIndicator.h"
 #include "UserTypingGestureIndicator.h"
 #include "markup.h"
-#include <pal/system/Sound.h>
-#include <pal/text/KillRing.h>
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
@@ -77,7 +74,7 @@ public:
     TriState (*state)(Frame&, Event*);
     String (*value)(Frame&, Event*);
     bool isTextInsertion;
-    bool (*allowExecutionWhenDisabled)(Frame&, EditorCommandSource);
+    bool (*allowExecutionWhenDisabled)(EditorCommandSource);
 };
 
 typedef HashMap<String, const EditorInternalCommand*, ASCIICaseInsensitiveHash> CommandMap;
@@ -92,9 +89,10 @@ static Frame* targetFrame(Frame& frame, Event* event)
 {
     if (!event)
         return &frame;
-    if (!is<Node>(event->target()))
+    Node* node = event->target()->toNode();
+    if (!node)
         return &frame;
-    return downcast<Node>(*event->target()).document().frame();
+    return node->document().frame();
 }
 
 static bool applyCommandToFrame(Frame& frame, EditorCommandSource source, EditAction action, Ref<EditingStyle>&& style)
@@ -102,12 +100,11 @@ static bool applyCommandToFrame(Frame& frame, EditorCommandSource source, EditAc
     // FIXME: We don't call shouldApplyStyle when the source is DOM; is there a good reason for that?
     switch (source) {
     case CommandFromMenuOrKeyBinding:
-        // Use InvertColor for testing purposes. foreColor and backColor are never triggered with CommandFromMenuOrKeyBinding outside DRT/WTR.
-        frame.editor().applyStyleToSelection(WTFMove(style), action, Editor::ColorFilterMode::InvertColor);
+        frame.editor().applyStyleToSelection(WTFMove(style), action);
         return true;
     case CommandFromDOM:
     case CommandFromDOMWithUserInterface:
-        frame.editor().applyStyle(WTFMove(style), EditAction::Unspecified, Editor::ColorFilterMode::UseOriginalColor);
+        frame.editor().applyStyle(WTFMove(style), EditActionUnspecified);
         return true;
     }
     ASSERT_NOT_REACHED();
@@ -142,16 +139,16 @@ static bool executeToggleStyle(Frame& frame, EditorCommandSource source, EditAct
 
 static bool executeApplyParagraphStyle(Frame& frame, EditorCommandSource source, EditAction action, CSSPropertyID propertyID, const String& propertyValue)
 {
-    auto style = MutableStyleProperties::create();
+    RefPtr<MutableStyleProperties> style = MutableStyleProperties::create();
     style->setProperty(propertyID, propertyValue);
     // FIXME: We don't call shouldApplyStyle when the source is DOM; is there a good reason for that?
     switch (source) {
     case CommandFromMenuOrKeyBinding:
-        frame.editor().applyParagraphStyleToSelection(style.ptr(), action);
+        frame.editor().applyParagraphStyleToSelection(style.get(), action);
         return true;
     case CommandFromDOM:
     case CommandFromDOMWithUserInterface:
-        frame.editor().applyParagraphStyle(style.ptr());
+        frame.editor().applyParagraphStyle(style.get());
         return true;
     }
     ASSERT_NOT_REACHED();
@@ -161,7 +158,7 @@ static bool executeApplyParagraphStyle(Frame& frame, EditorCommandSource source,
 static bool executeInsertFragment(Frame& frame, Ref<DocumentFragment>&& fragment)
 {
     ASSERT(frame.document());
-    ReplaceSelectionCommand::create(*frame.document(), WTFMove(fragment), ReplaceSelectionCommand::PreventNesting, EditAction::Insert)->apply();
+    ReplaceSelectionCommand::create(*frame.document(), WTFMove(fragment), ReplaceSelectionCommand::PreventNesting, EditActionInsert)->apply();
     return true;
 }
 
@@ -186,7 +183,7 @@ static bool expandSelectionToGranularity(Frame& frame, TextGranularity granulari
     EAffinity affinity = selection.affinity();
     if (!frame.editor().client()->shouldChangeSelectedRange(oldRange.get(), newRange.get(), affinity, false))
         return false;
-    frame.selection().setSelectedRange(newRange.get(), affinity, FrameSelection::ShouldCloseTyping::Yes);
+    frame.selection().setSelectedRange(newRange.get(), affinity, true);
     return true;
 }
 
@@ -222,7 +219,7 @@ static unsigned verticalScrollDistance(Frame& frame)
     if (!is<RenderBox>(renderer))
         return 0;
     const RenderStyle& style = renderer->style();
-    if (!(style.overflowY() == Overflow::Scroll || style.overflowY() == Overflow::Auto || focusedElement->hasEditableStyle()))
+    if (!(style.overflowY() == OSCROLL || style.overflowY() == OAUTO || focusedElement->hasEditableStyle()))
         return 0;
     int height = std::min<int>(downcast<RenderBox>(*renderer).clientHeight(), frame.view()->visibleHeight());
     return static_cast<unsigned>(Scrollbar::pageStep(height));
@@ -239,7 +236,7 @@ static RefPtr<Range> unionDOMRanges(Range& a, Range& b)
 
 static bool executeBackColor(Frame& frame, Event*, EditorCommandSource source, const String& value)
 {
-    return executeApplyStyle(frame, source, EditAction::SetBackgroundColor, CSSPropertyBackgroundColor, value);
+    return executeApplyStyle(frame, source, EditActionSetBackgroundColor, CSSPropertyBackgroundColor, value);
 }
 
 static bool executeCopy(Frame& frame, Event*, EditorCommandSource, const String&)
@@ -356,7 +353,7 @@ static bool executeDeleteToMark(Frame& frame, Event*, EditorCommandSource, const
     RefPtr<Range> mark = frame.editor().mark().toNormalizedRange();
     FrameSelection& selection = frame.selection();
     if (mark && frame.editor().selectedRange()) {
-        bool selected = selection.setSelectedRange(unionDOMRanges(*mark, *frame.editor().selectedRange()).get(), DOWNSTREAM, FrameSelection::ShouldCloseTyping::Yes);
+        bool selected = selection.setSelectedRange(unionDOMRanges(*mark, *frame.editor().selectedRange()).get(), DOWNSTREAM, true);
         ASSERT(selected);
         if (!selected)
             return false;
@@ -380,12 +377,12 @@ static bool executeDeleteWordForward(Frame& frame, Event*, EditorCommandSource, 
 
 static bool executeFindString(Frame& frame, Event*, EditorCommandSource, const String& value)
 {
-    return frame.editor().findString(value, { CaseInsensitive, WrapAround, DoNotTraverseFlatTree });
+    return frame.editor().findString(value, CaseInsensitive | WrapAround | DoNotTraverseFlatTree);
 }
 
 static bool executeFontName(Frame& frame, Event*, EditorCommandSource source, const String& value)
 {
-    return executeApplyStyle(frame, source, EditAction::SetFont, CSSPropertyFontFamily, value);
+    return executeApplyStyle(frame, source, EditActionSetFont, CSSPropertyFontFamily, value);
 }
 
 static bool executeFontSize(Frame& frame, Event*, EditorCommandSource source, const String& value)
@@ -393,17 +390,17 @@ static bool executeFontSize(Frame& frame, Event*, EditorCommandSource source, co
     CSSValueID size;
     if (!HTMLFontElement::cssValueFromFontSizeNumber(value, size))
         return false;
-    return executeApplyStyle(frame, source, EditAction::ChangeAttributes, CSSPropertyFontSize, size);
+    return executeApplyStyle(frame, source, EditActionChangeAttributes, CSSPropertyFontSize, size);
 }
 
 static bool executeFontSizeDelta(Frame& frame, Event*, EditorCommandSource source, const String& value)
 {
-    return executeApplyStyle(frame, source, EditAction::ChangeAttributes, CSSPropertyWebkitFontSizeDelta, value);
+    return executeApplyStyle(frame, source, EditActionChangeAttributes, CSSPropertyWebkitFontSizeDelta, value);
 }
 
 static bool executeForeColor(Frame& frame, Event*, EditorCommandSource source, const String& value)
 {
-    return executeApplyStyle(frame, source, EditAction::SetColor, CSSPropertyColor, value);
+    return executeApplyStyle(frame, source, EditActionSetColor, CSSPropertyColor, value);
 }
 
 static bool executeFormatBlock(Frame& frame, Event*, EditorCommandSource, const String& value)
@@ -455,7 +452,7 @@ static bool executeIndent(Frame& frame, Event*, EditorCommandSource, const Strin
 
 static bool executeInsertBacktab(Frame& frame, Event* event, EditorCommandSource, const String&)
 {
-    return targetFrame(frame, event)->eventHandler().handleTextInputEvent("\t"_s, event, TextEventInputBackTab);
+    return targetFrame(frame, event)->eventHandler().handleTextInputEvent(ASCIILiteral("\t"), event, TextEventInputBackTab);
 }
 
 static bool executeInsertHorizontalRule(Frame& frame, Event*, EditorCommandSource, const String& value)
@@ -479,18 +476,11 @@ static bool executeInsertImage(Frame& frame, Event*, EditorCommandSource, const 
     return executeInsertNode(frame, WTFMove(image));
 }
 
-static bool executeInsertEditableImage(Frame& frame, Event*, EditorCommandSource, const String&)
-{
-    ASSERT(frame.document());
-    InsertEditableImageCommand::create(*frame.document())->apply();
-    return true;
-}
-
 static bool executeInsertLineBreak(Frame& frame, Event* event, EditorCommandSource source, const String&)
 {
     switch (source) {
     case CommandFromMenuOrKeyBinding:
-        return targetFrame(frame, event)->eventHandler().handleTextInputEvent("\n"_s, event, TextEventInputLineBreak);
+        return targetFrame(frame, event)->eventHandler().handleTextInputEvent(ASCIILiteral("\n"), event, TextEventInputLineBreak);
     case CommandFromDOM:
     case CommandFromDOMWithUserInterface:
         // Doesn't scroll to make the selection visible, or modify the kill ring.
@@ -506,7 +496,7 @@ static bool executeInsertLineBreak(Frame& frame, Event* event, EditorCommandSour
 static bool executeInsertNewline(Frame& frame, Event* event, EditorCommandSource, const String&)
 {
     Frame* targetFrame = WebCore::targetFrame(frame, event);
-    return targetFrame->eventHandler().handleTextInputEvent("\n"_s, event, targetFrame->editor().canEditRichly() ? TextEventInputKeyboard : TextEventInputLineBreak);
+    return targetFrame->eventHandler().handleTextInputEvent(ASCIILiteral("\n"), event, targetFrame->editor().canEditRichly() ? TextEventInputKeyboard : TextEventInputLineBreak);
 }
 
 static bool executeInsertNewlineInQuotedContent(Frame& frame, Event*, EditorCommandSource, const String&)
@@ -518,7 +508,7 @@ static bool executeInsertNewlineInQuotedContent(Frame& frame, Event*, EditorComm
 static bool executeInsertOrderedList(Frame& frame, Event*, EditorCommandSource, const String&)
 {
     ASSERT(frame.document());
-    InsertListCommand::create(*frame.document(), InsertListCommand::Type::OrderedList)->apply();
+    InsertListCommand::create(*frame.document(), InsertListCommand::OrderedList)->apply();
     return true;
 }
 
@@ -530,7 +520,7 @@ static bool executeInsertParagraph(Frame& frame, Event*, EditorCommandSource, co
 
 static bool executeInsertTab(Frame& frame, Event* event, EditorCommandSource, const String&)
 {
-    return targetFrame(frame, event)->eventHandler().handleTextInputEvent("\t"_s, event);
+    return targetFrame(frame, event)->eventHandler().handleTextInputEvent(ASCIILiteral("\t"), event);
 }
 
 static bool executeInsertText(Frame& frame, Event*, EditorCommandSource, const String& value)
@@ -542,67 +532,53 @@ static bool executeInsertText(Frame& frame, Event*, EditorCommandSource, const S
 static bool executeInsertUnorderedList(Frame& frame, Event*, EditorCommandSource, const String&)
 {
     ASSERT(frame.document());
-    InsertListCommand::create(*frame.document(), InsertListCommand::Type::UnorderedList)->apply();
-    return true;
-}
-
-static bool executeInsertNestedUnorderedList(Frame& frame, Event*, EditorCommandSource, const String&)
-{
-    ASSERT(frame.document());
-    InsertNestedListCommand::insertUnorderedList(*frame.document());
-    return true;
-}
-
-static bool executeInsertNestedOrderedList(Frame& frame, Event*, EditorCommandSource, const String&)
-{
-    ASSERT(frame.document());
-    InsertNestedListCommand::insertOrderedList(*frame.document());
+    InsertListCommand::create(*frame.document(), InsertListCommand::UnorderedList)->apply();
     return true;
 }
 
 static bool executeJustifyCenter(Frame& frame, Event*, EditorCommandSource source, const String&)
 {
-    return executeApplyParagraphStyle(frame, source, EditAction::Center, CSSPropertyTextAlign, "center"_s);
+    return executeApplyParagraphStyle(frame, source, EditActionCenter, CSSPropertyTextAlign, ASCIILiteral("center"));
 }
 
 static bool executeJustifyFull(Frame& frame, Event*, EditorCommandSource source, const String&)
 {
-    return executeApplyParagraphStyle(frame, source, EditAction::Justify, CSSPropertyTextAlign, "justify"_s);
+    return executeApplyParagraphStyle(frame, source, EditActionJustify, CSSPropertyTextAlign, ASCIILiteral("justify"));
 }
 
 static bool executeJustifyLeft(Frame& frame, Event*, EditorCommandSource source, const String&)
 {
-    return executeApplyParagraphStyle(frame, source, EditAction::AlignLeft, CSSPropertyTextAlign, "left"_s);
+    return executeApplyParagraphStyle(frame, source, EditActionAlignLeft, CSSPropertyTextAlign, ASCIILiteral("left"));
 }
 
 static bool executeJustifyRight(Frame& frame, Event*, EditorCommandSource source, const String&)
 {
-    return executeApplyParagraphStyle(frame, source, EditAction::AlignRight, CSSPropertyTextAlign, "right"_s);
+    return executeApplyParagraphStyle(frame, source, EditActionAlignRight, CSSPropertyTextAlign, ASCIILiteral("right"));
 }
 
 static bool executeMakeTextWritingDirectionLeftToRight(Frame& frame, Event*, EditorCommandSource, const String&)
 {
-    auto style = MutableStyleProperties::create();
+    RefPtr<MutableStyleProperties> style = MutableStyleProperties::create();
     style->setProperty(CSSPropertyUnicodeBidi, CSSValueEmbed);
     style->setProperty(CSSPropertyDirection, CSSValueLtr);
-    frame.editor().applyStyle(style.ptr(), EditAction::SetWritingDirection);
+    frame.editor().applyStyle(style.get(), EditActionSetWritingDirection);
     return true;
 }
 
 static bool executeMakeTextWritingDirectionNatural(Frame& frame, Event*, EditorCommandSource, const String&)
 {
-    auto style = MutableStyleProperties::create();
+    RefPtr<MutableStyleProperties> style = MutableStyleProperties::create();
     style->setProperty(CSSPropertyUnicodeBidi, CSSValueNormal);
-    frame.editor().applyStyle(style.ptr(), EditAction::SetWritingDirection);
+    frame.editor().applyStyle(style.get(), EditActionSetWritingDirection);
     return true;
 }
 
 static bool executeMakeTextWritingDirectionRightToLeft(Frame& frame, Event*, EditorCommandSource, const String&)
 {
-    auto style = MutableStyleProperties::create();
+    RefPtr<MutableStyleProperties> style = MutableStyleProperties::create();
     style->setProperty(CSSPropertyUnicodeBidi, CSSValueEmbed);
     style->setProperty(CSSPropertyDirection, CSSValueRtl);
-    frame.editor().applyStyle(style.ptr(), EditAction::SetWritingDirection);
+    frame.editor().applyStyle(style.get(), EditActionSetWritingDirection);
     return true;
 }
 
@@ -949,22 +925,13 @@ static bool executePasteAsPlainText(Frame& frame, Event*, EditorCommandSource so
     return true;
 }
 
-static bool executePasteAsQuotation(Frame& frame, Event*, EditorCommandSource source, const String&)
-{
-    if (source == CommandFromMenuOrKeyBinding) {
-        UserTypingGestureIndicator typingGestureIndicator(frame);
-        frame.editor().pasteAsQuotation();
-    } else
-        frame.editor().pasteAsQuotation();
-    return true;
-}
-
 static bool executePrint(Frame& frame, Event*, EditorCommandSource, const String&)
 {
     Page* page = frame.page();
     if (!page)
         return false;
-    return page->chrome().print(frame);
+    page->chrome().print(frame);
+    return true;
 }
 
 static bool executeRedo(Frame& frame, Event*, EditorCommandSource, const String&)
@@ -1035,10 +1002,10 @@ static bool executeSelectToMark(Frame& frame, Event*, EditorCommandSource, const
     RefPtr<Range> mark = frame.editor().mark().toNormalizedRange();
     RefPtr<Range> selection = frame.editor().selectedRange();
     if (!mark || !selection) {
-        PAL::systemBeep();
+        systemBeep();
         return false;
     }
-    frame.selection().setSelectedRange(unionDOMRanges(*mark, *selection).get(), DOWNSTREAM, FrameSelection::ShouldCloseTyping::Yes);
+    frame.selection().setSelectedRange(unionDOMRanges(*mark, *selection).get(), DOWNSTREAM, true);
     return true;
 }
 
@@ -1061,9 +1028,9 @@ static TextDecorationChange textDecorationChangeForToggling(Editor& editor, CSSP
 static bool executeStrikethrough(Frame& frame, Event*, EditorCommandSource source, const String&)
 {
     Ref<EditingStyle> style = EditingStyle::create();
-    style->setStrikeThroughChange(textDecorationChangeForToggling(frame.editor(), CSSPropertyWebkitTextDecorationsInEffect, "line-through"_s));
+    style->setStrikeThroughChange(textDecorationChangeForToggling(frame.editor(), CSSPropertyWebkitTextDecorationsInEffect, ASCIILiteral("line-through")));
     // FIXME: Needs a new EditAction!
-    return applyCommandToFrame(frame, source, EditAction::Underline, WTFMove(style));
+    return applyCommandToFrame(frame, source, EditActionUnderline, WTFMove(style));
 }
 
 static bool executeStyleWithCSS(Frame& frame, Event*, EditorCommandSource, const String& value)
@@ -1080,12 +1047,12 @@ static bool executeUseCSS(Frame& frame, Event*, EditorCommandSource, const Strin
 
 static bool executeSubscript(Frame& frame, Event*, EditorCommandSource source, const String&)
 {
-    return executeToggleStyle(frame, source, EditAction::Subscript, CSSPropertyVerticalAlign, "baseline"_s, "sub"_s);
+    return executeToggleStyle(frame, source, EditActionSubscript, CSSPropertyVerticalAlign, ASCIILiteral("baseline"), ASCIILiteral("sub"));
 }
 
 static bool executeSuperscript(Frame& frame, Event*, EditorCommandSource source, const String&)
 {
-    return executeToggleStyle(frame, source, EditAction::Superscript, CSSPropertyVerticalAlign, "baseline"_s, "super"_s);
+    return executeToggleStyle(frame, source, EditActionSuperscript, CSSPropertyVerticalAlign, ASCIILiteral("baseline"), ASCIILiteral("super"));
 }
 
 static bool executeSwapWithMark(Frame& frame, Event*, EditorCommandSource, const String&)
@@ -1094,7 +1061,7 @@ static bool executeSwapWithMark(Frame& frame, Event*, EditorCommandSource, const
     const VisibleSelection& mark = frame.editor().mark();
     const VisibleSelection& selection = frame.selection().selection();
     if (mark.isNone() || selection.isNone()) {
-        PAL::systemBeep();
+        systemBeep();
         return false;
     }
     frame.selection().setSelection(mark);
@@ -1102,24 +1069,22 @@ static bool executeSwapWithMark(Frame& frame, Event*, EditorCommandSource, const
     return true;
 }
 
-#if PLATFORM(COCOA)
-
+#if PLATFORM(MAC)
 static bool executeTakeFindStringFromSelection(Frame& frame, Event*, EditorCommandSource, const String&)
 {
     frame.editor().takeFindStringFromSelection();
     return true;
 }
-
-#endif // PLATFORM(COCOA)
+#endif
 
 static bool executeToggleBold(Frame& frame, Event*, EditorCommandSource source, const String&)
 {
-    return executeToggleStyle(frame, source, EditAction::Bold, CSSPropertyFontWeight, "normal"_s, "bold"_s);
+    return executeToggleStyle(frame, source, EditActionBold, CSSPropertyFontWeight, ASCIILiteral("normal"), ASCIILiteral("bold"));
 }
 
 static bool executeToggleItalic(Frame& frame, Event*, EditorCommandSource source, const String&)
 {
-    return executeToggleStyle(frame, source, EditAction::Italics, CSSPropertyFontStyle, "normal"_s, "italic"_s);
+    return executeToggleStyle(frame, source, EditActionItalics, CSSPropertyFontStyle, ASCIILiteral("normal"), ASCIILiteral("italic"));
 }
 
 static bool executeTranspose(Frame& frame, Event*, EditorCommandSource, const String&)
@@ -1131,9 +1096,9 @@ static bool executeTranspose(Frame& frame, Event*, EditorCommandSource, const St
 static bool executeUnderline(Frame& frame, Event*, EditorCommandSource source, const String&)
 {
     Ref<EditingStyle> style = EditingStyle::create();
-    TextDecorationChange change = textDecorationChangeForToggling(frame.editor(), CSSPropertyWebkitTextDecorationsInEffect, "underline"_s);
+    TextDecorationChange change = textDecorationChangeForToggling(frame.editor(), CSSPropertyWebkitTextDecorationsInEffect, ASCIILiteral("underline"));
     style->setUnderlineChange(change);
-    return applyCommandToFrame(frame, source, EditAction::Underline, WTFMove(style));
+    return applyCommandToFrame(frame, source, EditActionUnderline, WTFMove(style));
 }
 
 static bool executeUndo(Frame& frame, Event*, EditorCommandSource, const String&)
@@ -1151,7 +1116,7 @@ static bool executeUnlink(Frame& frame, Event*, EditorCommandSource, const Strin
 
 static bool executeUnscript(Frame& frame, Event*, EditorCommandSource source, const String&)
 {
-    return executeApplyStyle(frame, source, EditAction::Unscript, CSSPropertyVerticalAlign, "baseline"_s);
+    return executeApplyStyle(frame, source, EditActionUnscript, CSSPropertyVerticalAlign, ASCIILiteral("baseline"));
 }
 
 static bool executeUnselect(Frame& frame, Event*, EditorCommandSource, const String&)
@@ -1369,25 +1334,16 @@ static bool enabledRedo(Frame& frame, Event*, EditorCommandSource)
     return frame.editor().canRedo();
 }
 
-#if PLATFORM(COCOA)
-
+#if PLATFORM(MAC)
 static bool enabledTakeFindStringFromSelection(Frame& frame, Event*, EditorCommandSource)
 {
     return frame.editor().canCopyExcludingStandaloneImages();
 }
-
-#endif // PLATFORM(COCOA)
+#endif
 
 static bool enabledUndo(Frame& frame, Event*, EditorCommandSource)
 {
     return frame.editor().canUndo();
-}
-
-static bool enabledInRichlyEditableTextWithEditableImagesEnabled(Frame& frame, Event* event, EditorCommandSource source)
-{
-    if (!frame.settings().editableImagesEnabled())
-        return false;
-    return enabledInRichlyEditableText(frame, event, source);
 }
 
 // State functions
@@ -1399,12 +1355,12 @@ static TriState stateNone(Frame&, Event*)
 
 static TriState stateBold(Frame& frame, Event*)
 {
-    return stateStyle(frame, CSSPropertyFontWeight, "bold"_s);
+    return stateStyle(frame, CSSPropertyFontWeight, ASCIILiteral("bold"));
 }
 
 static TriState stateItalic(Frame& frame, Event*)
 {
-    return stateStyle(frame, CSSPropertyFontStyle, "italic"_s);
+    return stateStyle(frame, CSSPropertyFontStyle, ASCIILiteral("italic"));
 }
 
 static TriState stateOrderedList(Frame& frame, Event*)
@@ -1414,7 +1370,7 @@ static TriState stateOrderedList(Frame& frame, Event*)
 
 static TriState stateStrikethrough(Frame& frame, Event*)
 {
-    return stateStyle(frame, CSSPropertyWebkitTextDecorationsInEffect, "line-through"_s);
+    return stateStyle(frame, CSSPropertyWebkitTextDecorationsInEffect, ASCIILiteral("line-through"));
 }
 
 static TriState stateStyleWithCSS(Frame& frame, Event*)
@@ -1424,32 +1380,32 @@ static TriState stateStyleWithCSS(Frame& frame, Event*)
 
 static TriState stateSubscript(Frame& frame, Event*)
 {
-    return stateStyle(frame, CSSPropertyVerticalAlign, "sub"_s);
+    return stateStyle(frame, CSSPropertyVerticalAlign, ASCIILiteral("sub"));
 }
 
 static TriState stateSuperscript(Frame& frame, Event*)
 {
-    return stateStyle(frame, CSSPropertyVerticalAlign, "super"_s);
+    return stateStyle(frame, CSSPropertyVerticalAlign, ASCIILiteral("super"));
 }
 
 static TriState stateTextWritingDirectionLeftToRight(Frame& frame, Event*)
 {
-    return stateTextWritingDirection(frame, WritingDirection::LeftToRight);
+    return stateTextWritingDirection(frame, LeftToRightWritingDirection);
 }
 
 static TriState stateTextWritingDirectionNatural(Frame& frame, Event*)
 {
-    return stateTextWritingDirection(frame, WritingDirection::Natural);
+    return stateTextWritingDirection(frame, NaturalWritingDirection);
 }
 
 static TriState stateTextWritingDirectionRightToLeft(Frame& frame, Event*)
 {
-    return stateTextWritingDirection(frame, WritingDirection::RightToLeft);
+    return stateTextWritingDirection(frame, RightToLeftWritingDirection);
 }
 
 static TriState stateUnderline(Frame& frame, Event*)
 {
-    return stateStyle(frame, CSSPropertyWebkitTextDecorationsInEffect, "underline"_s);
+    return stateStyle(frame, CSSPropertyWebkitTextDecorationsInEffect, ASCIILiteral("underline"));
 }
 
 static TriState stateUnorderedList(Frame& frame, Event*)
@@ -1459,22 +1415,22 @@ static TriState stateUnorderedList(Frame& frame, Event*)
 
 static TriState stateJustifyCenter(Frame& frame, Event*)
 {
-    return stateStyle(frame, CSSPropertyTextAlign, "center"_s);
+    return stateStyle(frame, CSSPropertyTextAlign, ASCIILiteral("center"));
 }
 
 static TriState stateJustifyFull(Frame& frame, Event*)
 {
-    return stateStyle(frame, CSSPropertyTextAlign, "justify"_s);
+    return stateStyle(frame, CSSPropertyTextAlign, ASCIILiteral("justify"));
 }
 
 static TriState stateJustifyLeft(Frame& frame, Event*)
 {
-    return stateStyle(frame, CSSPropertyTextAlign, "left"_s);
+    return stateStyle(frame, CSSPropertyTextAlign, ASCIILiteral("left"));
 }
 
 static TriState stateJustifyRight(Frame& frame, Event*)
 {
-    return stateStyle(frame, CSSPropertyTextAlign, "right"_s);
+    return stateStyle(frame, CSSPropertyTextAlign, ASCIILiteral("right"));
 }
 
 // Value functions
@@ -1493,9 +1449,9 @@ static String valueDefaultParagraphSeparator(Frame& frame, Event*)
 {
     switch (frame.editor().defaultParagraphSeparator()) {
     case EditorParagraphSeparatorIsDiv:
-        return divTag->localName();
+        return divTag.localName();
     case EditorParagraphSeparatorIsP:
-        return pTag->localName();
+        return pTag.localName();
     }
 
     ASSERT_NOT_REACHED();
@@ -1535,17 +1491,17 @@ static String valueFormatBlock(Frame& frame, Event*)
 
 // allowExecutionWhenDisabled functions
 
-static bool allowExecutionWhenDisabled(Frame&, EditorCommandSource)
+static bool allowExecutionWhenDisabled(EditorCommandSource)
 {
     return true;
 }
 
-static bool doNotAllowExecutionWhenDisabled(Frame&, EditorCommandSource)
+static bool doNotAllowExecutionWhenDisabled(EditorCommandSource)
 {
     return false;
 }
 
-static bool allowExecutionWhenDisabledCopyCut(Frame&, EditorCommandSource source)
+static bool allowExecutionWhenDisabledCopyCut(EditorCommandSource source)
 {
     switch (source) {
     case CommandFromMenuOrKeyBinding:
@@ -1557,13 +1513,6 @@ static bool allowExecutionWhenDisabledCopyCut(Frame&, EditorCommandSource source
 
     ASSERT_NOT_REACHED();
     return false;
-}
-
-static bool allowExecutionWhenDisabledPaste(Frame& frame, EditorCommandSource)
-{
-    if (frame.mainFrame().loader().shouldSuppressTextInputFromEditing())
-        return false;
-    return true;
 }
 
 // Map of functions
@@ -1609,7 +1558,6 @@ static const CommandMap& createCommandMap()
         { "IgnoreSpelling", { executeIgnoreSpelling, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Indent", { executeIndent, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "InsertBacktab", { executeInsertBacktab, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, isTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "InsertEditableImage", { executeInsertEditableImage, supported, enabledInRichlyEditableTextWithEditableImagesEnabled, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "InsertHTML", { executeInsertHTML, supported, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "InsertHorizontalRule", { executeInsertHorizontalRule, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "InsertImage", { executeInsertImage, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
@@ -1617,12 +1565,10 @@ static const CommandMap& createCommandMap()
         { "InsertNewline", { executeInsertNewline, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, isTextInsertion, doNotAllowExecutionWhenDisabled } },    
         { "InsertNewlineInQuotedContent", { executeInsertNewlineInQuotedContent, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "InsertOrderedList", { executeInsertOrderedList, supported, enabledInRichlyEditableText, stateOrderedList, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "InsertNestedOrderedList", { executeInsertNestedOrderedList, supported, enabledInRichlyEditableText, stateOrderedList, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "InsertParagraph", { executeInsertParagraph, supported, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "InsertTab", { executeInsertTab, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, isTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "InsertText", { executeInsertText, supported, enabledInEditableText, stateNone, valueNull, isTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "InsertUnorderedList", { executeInsertUnorderedList, supported, enabledInRichlyEditableText, stateUnorderedList, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "InsertNestedUnorderedList", { executeInsertNestedUnorderedList, supported, enabledInRichlyEditableText, stateUnorderedList, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Italic", { executeToggleItalic, supported, enabledInRichlyEditableText, stateItalic, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "JustifyCenter", { executeJustifyCenter, supported, enabledInRichlyEditableText, stateJustifyCenter, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "JustifyFull", { executeJustifyFull, supported, enabledInRichlyEditableText, stateJustifyFull, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
@@ -1680,10 +1626,9 @@ static const CommandMap& createCommandMap()
         { "MoveWordRightAndModifySelection", { executeMoveWordRightAndModifySelection, supportedFromMenuOrKeyBinding, enabledVisibleSelectionOrCaretBrowsing, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Outdent", { executeOutdent, supported, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "OverWrite", { executeToggleOverwrite, supportedFromMenuOrKeyBinding, enabledInRichlyEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
-        { "Paste", { executePaste, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabledPaste } },
-        { "PasteAndMatchStyle", { executePasteAndMatchStyle, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabledPaste } },
-        { "PasteAsPlainText", { executePasteAsPlainText, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabledPaste } },
-        { "PasteAsQuotation", { executePasteAsQuotation, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabledPaste } },
+        { "Paste", { executePaste, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },
+        { "PasteAndMatchStyle", { executePasteAndMatchStyle, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },
+        { "PasteAsPlainText", { executePasteAsPlainText, supportedPaste, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },
         { "Print", { executePrint, supported, enabled, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Redo", { executeRedo, supported, enabledRedo, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "RemoveFormat", { executeRemoveFormat, supported, enabledRangeInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
@@ -1722,7 +1667,7 @@ static const CommandMap& createCommandMap()
         { "PasteGlobalSelection", { executePasteGlobalSelection, supportedFromMenuOrKeyBinding, enabledPaste, stateNone, valueNull, notTextInsertion, allowExecutionWhenDisabled } },
 #endif
 
-#if PLATFORM(COCOA)
+#if PLATFORM(MAC)
         { "TakeFindStringFromSelection", { executeTakeFindStringFromSelection, supportedFromMenuOrKeyBinding, enabledTakeFindStringFromSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
 #endif
     };
@@ -1870,7 +1815,7 @@ String Editor::Command::value(Event* triggeringEvent) const
     if (!isSupported() || !m_frame)
         return String();
     if (m_command->value == valueNull && m_command->state != stateNone)
-        return m_command->state(*m_frame, triggeringEvent) == TrueTriState ? "true"_s : "false"_s;
+        return m_command->state(*m_frame, triggeringEvent) == TrueTriState ? ASCIILiteral("true") : ASCIILiteral("false");
     return m_command->value(*m_frame, triggeringEvent);
 }
 
@@ -1883,7 +1828,7 @@ bool Editor::Command::allowExecutionWhenDisabled() const
 {
     if (!isSupported() || !m_frame)
         return false;
-    return m_command->allowExecutionWhenDisabled(*m_frame, m_source);
+    return m_command->allowExecutionWhenDisabled(m_source);
 }
 
 } // namespace WebCore

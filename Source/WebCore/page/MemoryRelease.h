@@ -29,12 +29,11 @@
 
 namespace WebCore {
 
-enum class MaintainPageCache : bool { No, Yes };
-
-WEBCORE_EXPORT void releaseMemory(Critical, Synchronous, MaintainPageCache = MaintainPageCache::No);
+WEBCORE_EXPORT void releaseMemory(Critical, Synchronous);
 void platformReleaseMemory(Critical);
 void jettisonExpensiveObjectsOnTopLevelNavigation();
 WEBCORE_EXPORT void registerMemoryReleaseNotifyCallbacks();
 WEBCORE_EXPORT void logMemoryStatisticsAtTimeOfDeath();
+void registerSQLiteMemoryPressureHandler();
 
 } // namespace WebCore

@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "SVGPathElement.h"
+#include "SVGAnimatedPathSegListPropertyTearOff.h"
 
 namespace WebCore {
 
@@ -27,7 +27,7 @@ class SVGPathSegWithContext : public SVGPathSeg {
 public:
     SVGPathSegWithContext(const SVGPathElement& element, SVGPathSegRole role)
         : m_role(role)
-        , m_element(makeWeakPtr(const_cast<SVGPathElement&>(element)))
+        , m_element(element.createWeakPtr())
     {
     }
 
@@ -40,7 +40,7 @@ public:
         case PathSegUndefinedRole:
             return nullptr;
         case PathSegUnalteredRole:
-            return m_element->pathSegListAnimated();
+            return SVGAnimatedProperty::lookupWrapper<SVGPathElement, SVGAnimatedPathSegListPropertyTearOff>(m_element.get(), SVGPathElement::dPropertyInfo());
         case PathSegNormalizedRole:
             // FIXME: https://bugs.webkit.org/show_bug.cgi?id=15412 - Implement normalized path segment lists!
             return nullptr;
@@ -55,7 +55,7 @@ public:
     void setContextAndRole(SVGPathElement* element, SVGPathSegRole role)
     {
         m_role = role;
-        m_element = makeWeakPtr(element);
+        m_element = element ? element->createWeakPtr() : WeakPtr<SVGPathElement>();
     }
 
 protected:

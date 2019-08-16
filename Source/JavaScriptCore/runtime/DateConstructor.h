@@ -27,7 +27,7 @@ namespace JSC {
 class DatePrototype;
 class GetterSetter;
 
-class DateConstructor final : public InternalFunction {
+class DateConstructor : public InternalFunction {
 public:
     typedef InternalFunction Base;
     static const unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;
@@ -43,7 +43,7 @@ public:
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(vm, globalObject, prototype, TypeInfo(InternalFunctionType, StructureFlags), info());
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
     }
 
 protected:
@@ -51,6 +51,8 @@ protected:
 
 private:
     DateConstructor(VM&, Structure*);
+    static ConstructType getConstructData(JSCell*, ConstructData&);
+    static CallType getCallData(JSCell*, CallData&);
 };
 
 JSObject* constructDate(ExecState*, JSGlobalObject*, JSValue newTarget, const ArgList&);

@@ -44,14 +44,6 @@ class PlacardSupport extends MediaControllerSupport
         this._updatePlacard();
     }
 
-    disable()
-    {
-        // We should not allow disabling Placard support when playing inline as it would prevent the
-        // PiP placard from being shown if the controls are disabled.
-        if (this.mediaController.isFullscreen)
-            super.disable();
-    }
-
     // Private
 
     _updatePlacard()
@@ -62,31 +54,12 @@ class PlacardSupport extends MediaControllerSupport
         let placard = null;
         if (media.webkitPresentationMode === "picture-in-picture")
             placard = controls.pipPlacard;
-        else if (media.webkitCurrentPlaybackTargetIsWireless) {
-            this._updateAirPlayPlacard();
+        else if (media.webkitCurrentPlaybackTargetIsWireless)
             placard = controls.airplayPlacard;
-        } else if (media instanceof HTMLVideoElement && media.error !== null && media.played.length === 0)
+        else if (media instanceof HTMLVideoElement && media.error !== null && media.played.length === 0)
             placard = controls.invalidPlacard;
 
         controls.placard = placard;
-    }
-    
-    _updateAirPlayPlacard()
-    {
-        var deviceName = "";
-        
-        if (!this.mediaController.host)
-            return;
-        
-        switch(this.mediaController.host.externalDeviceType) {
-            case 'airplay':
-                deviceName = UIString("This video is playing on “%s”.", this.mediaController.host.externalDeviceDisplayName || UIString("Apple TV"));
-                break;
-            case 'tvout':
-                deviceName = UIString("This video is playing on the TV.");
-                break;
-        }
-        this.mediaController.controls.airplayPlacard.description = deviceName;
     }
 
 }

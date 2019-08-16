@@ -23,11 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.CallingContextTree = class CallingContextTree
+WebInspector.CallingContextTree = class CallingContextTree extends WebInspector.Object
 {
     constructor(type)
     {
-        this._type = type || WI.CallingContextTree.Type.TopDown;
+        super();
+
+        this._type = type || WebInspector.CallingContextTree.Type.TopDown;
 
         this.reset();
     }
@@ -39,7 +41,7 @@ WI.CallingContextTree = class CallingContextTree
 
     reset()
     {
-        this._root = new WI.CallingContextTreeNode(-1, -1, -1, "<root>", null);
+        this._root = new WebInspector.CallingContextTreeNode(-1, -1, -1, "<root>", null);
         this._totalNumberOfSamples = 0;
     }
 
@@ -56,21 +58,21 @@ WI.CallingContextTree = class CallingContextTree
         node.addTimestampAndExpressionLocation(timestamp, duration, null);
 
         switch (this._type) {
-        case WI.CallingContextTree.Type.TopDown:
+        case WebInspector.CallingContextTree.Type.TopDown:
             for (let i = stackFrames.length; i--; ) {
                 let stackFrame = stackFrames[i];
                 node = node.findOrMakeChild(stackFrame);
                 node.addTimestampAndExpressionLocation(timestamp, duration, stackFrame.expressionLocation || null, i === 0);
             }
             break;
-        case WI.CallingContextTree.Type.BottomUp:
+        case WebInspector.CallingContextTree.Type.BottomUp:
             for (let i = 0; i < stackFrames.length; ++i) {
                 let stackFrame = stackFrames[i];
                 node = node.findOrMakeChild(stackFrame);
                 node.addTimestampAndExpressionLocation(timestamp, duration, stackFrame.expressionLocation || null, i === 0);
             }
             break;
-        case WI.CallingContextTree.Type.TopFunctionsTopDown:
+        case WebInspector.CallingContextTree.Type.TopFunctionsTopDown:
             for (let i = stackFrames.length; i--; ) {
                 node = this._root;
                 for (let j = i + 1; j--; ) {
@@ -80,7 +82,7 @@ WI.CallingContextTree = class CallingContextTree
                 }
             }
             break;
-        case WI.CallingContextTree.Type.TopFunctionsBottomUp:
+        case WebInspector.CallingContextTree.Type.TopFunctionsBottomUp:
             for (let i = 0; i < stackFrames.length; i++) {
                 node = this._root;
                 for (let j = i; j < stackFrames.length; j++) {
@@ -125,7 +127,7 @@ WI.CallingContextTree = class CallingContextTree
 
     static __test_makeTreeFromProtocolMessageObject(messageObject)
     {
-        let tree = new WI.CallingContextTree;
+        let tree = new WebInspector.CallingContextTree;
         let stackTraces = messageObject.params.samples.stackTraces;
         for (let i = 0; i < stackTraces.length; i++)
             tree.updateTreeWithStackTrace(stackTraces[i]);
@@ -166,7 +168,7 @@ WI.CallingContextTree = class CallingContextTree
     }
 };
 
-WI.CallingContextTree.Type = {
+WebInspector.CallingContextTree.Type = {
     TopDown: Symbol("TopDown"),
     BottomUp: Symbol("BottomUp"),
     TopFunctionsTopDown: Symbol("TopFunctionsTopDown"),

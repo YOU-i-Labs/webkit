@@ -43,11 +43,7 @@ void JumpReplacement::fire()
 
 void JumpReplacement::installVMTrapBreakpoint()
 {
-#if ENABLE(SIGNAL_BASED_VM_TRAPS)
-    MacroAssembler::replaceWithVMHalt(m_source);
-#else
-    UNREACHABLE_FOR_PLATFORM();
-#endif
+    MacroAssembler::replaceWithBreakpoint(m_source);
 }
 
 } } // namespace JSC::DFG

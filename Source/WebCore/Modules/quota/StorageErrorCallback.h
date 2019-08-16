@@ -37,14 +37,14 @@
 
 namespace WebCore {
 
-class DOMException;
+class DOMCoreException;
 
 typedef int ExceptionCode;
 
 class StorageErrorCallback : public RefCounted<StorageErrorCallback> {
 public:
-    virtual ~StorageErrorCallback() = default;
-    virtual bool handleEvent(DOMException*) = 0;
+    virtual ~StorageErrorCallback() { }
+    virtual bool handleEvent(DOMCoreException*) = 0;
 
     class CallbackTask : public ScriptExecutionContext::Task {
     public:

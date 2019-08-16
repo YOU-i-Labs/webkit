@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.WebSocketResourceTreeElement = class WebSocketResourceTreeElement extends WI.ResourceTreeElement
+WebInspector.WebSocketResourceTreeElement = class WebSocketResourceTreeElement extends WebInspector.ResourceTreeElement
 {
     // Overrides from TreeElement
 
@@ -33,32 +33,14 @@ WI.WebSocketResourceTreeElement = class WebSocketResourceTreeElement extends WI.
 
         this._updateConnectionStatus();
 
-        this.resource.addEventListener(WI.WebSocketResource.Event.ReadyStateChanged, this._updateConnectionStatus, this);
+        this.resource.addEventListener(WebInspector.WebSocketResource.Event.ReadyStateChanged, this._updateConnectionStatus, this);
     }
 
     ondetach()
     {
         super.ondetach();
 
-        this.resource.removeEventListener(WI.WebSocketResource.Event.ReadyStateChanged, this._updateConnectionStatus, this);
-    }
-
-    populateContextMenu(contextMenu, event)
-    {
-        contextMenu.appendItem(WI.UIString("Log WebSocket"), () => {
-            WI.RemoteObject.resolveWebSocket(this._resource, WI.RuntimeManager.ConsoleObjectGroup, (remoteObject) => {
-                if (!remoteObject)
-                    return;
-
-                const text = WI.UIString("Selected WebSocket");
-                const addSpecialUserLogClass = true;
-                WI.consoleLogViewController.appendImmediateExecutionWithResult(text, remoteObject, addSpecialUserLogClass);
-            });
-        });
-
-        contextMenu.appendSeparator();
-
-        super.populateContextMenu(contextMenu, event);
+        this.resource.removeEventListener(WebInspector.WebSocketResource.Event.ReadyStateChanged, this._updateConnectionStatus, this);
     }
 
     // Private
@@ -66,22 +48,22 @@ WI.WebSocketResourceTreeElement = class WebSocketResourceTreeElement extends WI.
     _updateConnectionStatus()
     {
         switch (this.resource.readyState) {
-        case WI.WebSocketResource.ReadyState.Closed:
+        case WebInspector.WebSocketResource.ReadyState.Closed:
             this.status = "";
             break;
 
-        case WI.WebSocketResource.ReadyState.Connecting:
+        case WebInspector.WebSocketResource.ReadyState.Connecting:
             var connectionIndicatorElement = document.createElement("div");
             connectionIndicatorElement.classList.add("ready-state", "connecting");
-            connectionIndicatorElement.title = WI.UIString("Connecting");
+            connectionIndicatorElement.title = WebInspector.UIString("Connecting");
 
             this.status = connectionIndicatorElement;
             break;
 
-        case WI.WebSocketResource.ReadyState.Open:
+        case WebInspector.WebSocketResource.ReadyState.Open:
             var connectionIndicatorElement = document.createElement("div");
             connectionIndicatorElement.classList.add("ready-state", "open");
-            connectionIndicatorElement.title = WI.UIString("Open");
+            connectionIndicatorElement.title = WebInspector.UIString("Open");
 
             this.status = connectionIndicatorElement;
             break;

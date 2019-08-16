@@ -36,7 +36,6 @@
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
-#include <wtf/WallTime.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
@@ -66,11 +65,11 @@ public:
     // m_databaseGuard and m_openDatabaseMapGuard currently don't overlap.
     // notificationMutex() is currently independent of the other locks.
 
-    ExceptionOr<void> canEstablishDatabase(DatabaseContext&, const String& name, unsigned long long estimatedSize);
-    ExceptionOr<void> retryCanEstablishDatabase(DatabaseContext&, const String& name, unsigned long long estimatedSize);
+    ExceptionOr<void> canEstablishDatabase(DatabaseContext&, const String& name, unsigned estimatedSize);
+    ExceptionOr<void> retryCanEstablishDatabase(DatabaseContext&, const String& name, unsigned estimatedSize);
 
-    void setDatabaseDetails(const SecurityOriginData&, const String& name, const String& displayName, unsigned long long estimatedSize);
-    WEBCORE_EXPORT String fullPathForDatabase(const SecurityOriginData&, const String& name, bool createIfDoesNotExist);
+    void setDatabaseDetails(const SecurityOriginData&, const String& name, const String& displayName, unsigned estimatedSize);
+    String fullPathForDatabase(const SecurityOriginData&, const String& name, bool createIfDoesNotExist);
 
     void addOpenDatabase(Database&);
     void removeOpenDatabase(Database&);
@@ -90,11 +89,11 @@ public:
     RefPtr<OriginLock> originLockFor(const SecurityOriginData&);
 
     WEBCORE_EXPORT void deleteAllDatabasesImmediately();
-    WEBCORE_EXPORT void deleteDatabasesModifiedSince(WallTime);
+    WEBCORE_EXPORT void deleteDatabasesModifiedSince(std::chrono::system_clock::time_point);
     WEBCORE_EXPORT bool deleteOrigin(const SecurityOriginData&);
     WEBCORE_EXPORT bool deleteDatabase(const SecurityOriginData&, const String& name);
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     WEBCORE_EXPORT void removeDeletedOpenedDatabases();
     WEBCORE_EXPORT static bool deleteDatabaseFileIfEmpty(const String&);
 
@@ -117,7 +116,7 @@ public:
 private:
     explicit DatabaseTracker(const String& databasePath);
 
-    ExceptionOr<void> hasAdequateQuotaForOrigin(const SecurityOriginData&, unsigned long long estimatedSize);
+    ExceptionOr<void> hasAdequateQuotaForOrigin(const SecurityOriginData&, unsigned estimatedSize);
 
     bool hasEntryForOriginNoLock(const SecurityOriginData&);
     String fullPathForDatabaseNoLock(const SecurityOriginData&, const String& name, bool createIfDoesNotExist);
@@ -140,7 +139,7 @@ private:
 
     enum class DeletionMode {
         Immediate,
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
         // Deferred deletion is currently only supported on iOS
         // (see removeDeletedOpenedDatabases etc, above).
         Deferred,

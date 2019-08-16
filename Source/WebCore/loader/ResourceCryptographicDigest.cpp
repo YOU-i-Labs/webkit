@@ -55,17 +55,17 @@ static bool parseHashAlgorithmAdvancingPosition(const CharacterType*& position, 
 }
 
 template<typename CharacterType>
-static Optional<ResourceCryptographicDigest> parseCryptographicDigestImpl(const CharacterType*& position, const CharacterType* end)
+static std::optional<ResourceCryptographicDigest> parseCryptographicDigestImpl(const CharacterType*& position, const CharacterType* end)
 {
     if (position == end)
-        return WTF::nullopt;
+        return std::nullopt;
 
     ResourceCryptographicDigest::Algorithm algorithm;
     if (!parseHashAlgorithmAdvancingPosition(position, end, algorithm))
-        return WTF::nullopt;
+        return std::nullopt;
 
     if (!skipExactly<CharacterType>(position, end, '-'))
-        return WTF::nullopt;
+        return std::nullopt;
 
     const CharacterType* beginHashValue = position;
     skipWhile<CharacterType, isBase64OrBase64URLCharacter>(position, end);
@@ -73,40 +73,40 @@ static Optional<ResourceCryptographicDigest> parseCryptographicDigestImpl(const 
     skipExactly<CharacterType>(position, end, '=');
 
     if (position == beginHashValue)
-        return WTF::nullopt;
+        return std::nullopt;
 
     Vector<uint8_t> digest;
     StringView hashValue(beginHashValue, position - beginHashValue);
     if (!base64Decode(hashValue, digest, Base64ValidatePadding)) {
         if (!base64URLDecode(hashValue, digest))
-            return WTF::nullopt;
+            return std::nullopt;
     }
 
     return ResourceCryptographicDigest { algorithm, WTFMove(digest) };
 }
 
-Optional<ResourceCryptographicDigest> parseCryptographicDigest(const UChar*& begin, const UChar* end)
+std::optional<ResourceCryptographicDigest> parseCryptographicDigest(const UChar*& begin, const UChar* end)
 {
     return parseCryptographicDigestImpl(begin, end);
 }
 
-Optional<ResourceCryptographicDigest> parseCryptographicDigest(const LChar*& begin, const LChar* end)
+std::optional<ResourceCryptographicDigest> parseCryptographicDigest(const LChar*& begin, const LChar* end)
 {
     return parseCryptographicDigestImpl(begin, end);
 }
 
 template<typename CharacterType>
-static Optional<EncodedResourceCryptographicDigest> parseEncodedCryptographicDigestImpl(const CharacterType*& position, const CharacterType* end)
+static std::optional<EncodedResourceCryptographicDigest> parseEncodedCryptographicDigestImpl(const CharacterType*& position, const CharacterType* end)
 {
     if (position == end)
-        return WTF::nullopt;
+        return std::nullopt;
 
     EncodedResourceCryptographicDigest::Algorithm algorithm;
     if (!parseHashAlgorithmAdvancingPosition(position, end, algorithm))
-        return WTF::nullopt;
+        return std::nullopt;
 
     if (!skipExactly<CharacterType>(position, end, '-'))
-        return WTF::nullopt;
+        return std::nullopt;
 
     const CharacterType* beginHashValue = position;
     skipWhile<CharacterType, isBase64OrBase64URLCharacter>(position, end);
@@ -114,27 +114,27 @@ static Optional<EncodedResourceCryptographicDigest> parseEncodedCryptographicDig
     skipExactly<CharacterType>(position, end, '=');
 
     if (position == beginHashValue)
-        return WTF::nullopt;
+        return std::nullopt;
 
     return EncodedResourceCryptographicDigest { algorithm, String(beginHashValue, position - beginHashValue) };
 }
 
-Optional<EncodedResourceCryptographicDigest> parseEncodedCryptographicDigest(const UChar*& begin, const UChar* end)
+std::optional<EncodedResourceCryptographicDigest> parseEncodedCryptographicDigest(const UChar*& begin, const UChar* end)
 {
     return parseEncodedCryptographicDigestImpl(begin, end);
 }
 
-Optional<EncodedResourceCryptographicDigest> parseEncodedCryptographicDigest(const LChar*& begin, const LChar* end)
+std::optional<EncodedResourceCryptographicDigest> parseEncodedCryptographicDigest(const LChar*& begin, const LChar* end)
 {
     return parseEncodedCryptographicDigestImpl(begin, end);
 }
 
-Optional<ResourceCryptographicDigest> decodeEncodedResourceCryptographicDigest(const EncodedResourceCryptographicDigest& encodedDigest)
+std::optional<ResourceCryptographicDigest> decodeEncodedResourceCryptographicDigest(const EncodedResourceCryptographicDigest& encodedDigest)
 {
     Vector<uint8_t> digest;
     if (!base64Decode(encodedDigest.digest, digest, Base64ValidatePadding)) {
         if (!base64URLDecode(encodedDigest.digest, digest))
-            return WTF::nullopt;
+            return std::nullopt;
     }
 
     return ResourceCryptographicDigest { encodedDigest.algorithm, WTFMove(digest) };
@@ -154,7 +154,7 @@ static PAL::CryptoDigest::Algorithm toCryptoDigestAlgorithm(ResourceCryptographi
     return PAL::CryptoDigest::Algorithm::SHA_512;
 }
 
-ResourceCryptographicDigest cryptographicDigestForBytes(ResourceCryptographicDigest::Algorithm algorithm, const void* bytes, size_t length)
+ResourceCryptographicDigest cryptographicDigestForBytes(ResourceCryptographicDigest::Algorithm algorithm, const char* bytes, size_t length)
 {
     auto cryptoDigest = PAL::CryptoDigest::create(toCryptoDigestAlgorithm(algorithm));
     cryptoDigest->addBytes(bytes, length);

@@ -31,25 +31,25 @@
 #include "config.h"
 #include "PerformanceNavigation.h"
 
+#if ENABLE(WEB_TIMING)
+
 #include "DocumentLoader.h"
 #include "Frame.h"
-#include "FrameLoader.h"
 #include "FrameLoaderTypes.h"
 
 namespace WebCore {
 
-PerformanceNavigation::PerformanceNavigation(DOMWindow* window)
-    : DOMWindowProperty(window)
+PerformanceNavigation::PerformanceNavigation(Frame* frame)
+    : DOMWindowProperty(frame)
 {
 }
 
 unsigned short PerformanceNavigation::type() const
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return TYPE_NAVIGATE;
 
-    DocumentLoader* documentLoader = frame->loader().documentLoader();
+    DocumentLoader* documentLoader = m_frame->loader().documentLoader();
     if (!documentLoader)
         return TYPE_NAVIGATE;
 
@@ -66,11 +66,10 @@ unsigned short PerformanceNavigation::type() const
 
 unsigned short PerformanceNavigation::redirectCount() const
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return 0;
 
-    DocumentLoader* loader = frame->loader().documentLoader();
+    DocumentLoader* loader = m_frame->loader().documentLoader();
     if (!loader)
         return 0;
 
@@ -82,3 +81,5 @@ unsigned short PerformanceNavigation::redirectCount() const
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_TIMING)

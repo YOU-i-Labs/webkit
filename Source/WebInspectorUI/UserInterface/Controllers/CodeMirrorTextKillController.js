@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.CodeMirrorTextKillController = class CodeMirrorTextKillController extends WI.Object
+WebInspector.CodeMirrorTextKillController = class CodeMirrorTextKillController extends WebInspector.Object
 {
     constructor(codeMirror)
     {

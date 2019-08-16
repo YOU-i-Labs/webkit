@@ -35,6 +35,8 @@
 #include <vector>
 #include <windows.h>
 
+using namespace std;
+
 #if defined _M_IX86
 #define PROCESSORARCHITECTURE "x86"
 #elif defined _M_IA64
@@ -56,91 +58,83 @@ static void enableTerminationOnHeapCorruption()
     HeapSetInformation(0, heapEnableTerminationOnCorruption, 0, 0);
 }
 
-static std::wstring copyEnvironmentVariable(const std::wstring& variable)
-{
-    DWORD length = ::GetEnvironmentVariableW(variable.c_str(), 0, 0);
-    if (!length)
-        return std::wstring();
-    std::vector<wchar_t> buffer(length);
-    if (!GetEnvironmentVariable(variable.c_str(), &buffer[0], buffer.size()) || !buffer[0])
-        return std::wstring();
-    return &buffer[0];
-}
-
-#if !defined(WIN_CAIRO)
-static std::wstring getStringValue(HKEY key, const std::wstring& valueName)
+static wstring getStringValue(HKEY key, const wstring& valueName)
 {
     DWORD type = 0;
     DWORD bufferSize = 0;
     if (::RegQueryValueExW(key, valueName.c_str(), 0, &type, 0, &bufferSize) != ERROR_SUCCESS || type != REG_SZ)
-        return std::wstring();
+        return wstring();
 
-    std::vector<wchar_t> buffer(bufferSize / sizeof(wchar_t));
+    vector<wchar_t> buffer(bufferSize / sizeof(wchar_t));
     if (::RegQueryValueExW(key, valueName.c_str(), 0, &type, reinterpret_cast<LPBYTE>(&buffer[0]), &bufferSize) != ERROR_SUCCESS)
-        return std::wstring();
+        return wstring();
 
     return &buffer[0];
 }
 
-static std::wstring applePathFromRegistry(const std::wstring& key, const std::wstring& value)
+static wstring applePathFromRegistry(const wstring& key, const wstring& value)
 {
     HKEY applePathKey = 0;
     if (::RegOpenKeyExW(HKEY_LOCAL_MACHINE, key.c_str(), 0, KEY_READ, &applePathKey) != ERROR_SUCCESS)
-        return std::wstring();
-    std::wstring path = getStringValue(applePathKey, value);
+        return wstring();
+    wstring path = getStringValue(applePathKey, value);
     ::RegCloseKey(applePathKey);
     return path;
 }
 
-static std::wstring appleApplicationSupportDirectory()
+static wstring appleApplicationSupportDirectory()
 {
     return applePathFromRegistry(L"SOFTWARE\\Apple Inc.\\Apple Application Support", L"InstallDir");
 }
 
-static bool prependPath(const std::wstring& directoryToPrepend)
+static wstring copyEnvironmentVariable(const wstring& variable)
 {
-    std::wstring pathVariable = L"PATH";
-    std::wstring oldPath = copyEnvironmentVariable(pathVariable);
-    std::wstring newPath = directoryToPrepend + L';' + oldPath;
+    DWORD length = ::GetEnvironmentVariableW(variable.c_str(), 0, 0);
+    if (!length)
+        return wstring();
+    vector<wchar_t> buffer(length);
+    if (!GetEnvironmentVariable(variable.c_str(), &buffer[0], buffer.size()) || !buffer[0])
+        return wstring();
+    return &buffer[0];
+}
+
+static bool prependPath(const wstring& directoryToPrepend)
+{
+    wstring pathVariable = L"PATH";
+    wstring oldPath = copyEnvironmentVariable(pathVariable);
+    wstring newPath = directoryToPrepend + L';' + oldPath;
     return ::SetEnvironmentVariableW(pathVariable.c_str(), newPath.c_str());
 }
-#endif
 
-static int fatalError(const std::wstring& programName, const std::wstring& message)
+static int fatalError(const wstring& programName, const wstring& message)
 {
-    std::wstring caption = programName + L" can't open.";
+    wstring caption = programName + L" can't open.";
     ::MessageBoxW(0, message.c_str(), caption.c_str(), MB_ICONERROR);
     return 1;
 }
 
-static bool directoryExists(const std::wstring& path)
+static bool directoryExists(const wstring& path)
 {
     DWORD attrib = ::GetFileAttributes(path.c_str());
 
     return ((attrib != INVALID_FILE_ATTRIBUTES) && (attrib & FILE_ATTRIBUTE_DIRECTORY));
 }
 
-static bool modifyPath(const std::wstring& programName)
+static bool modifyPath(const wstring& programName)
 {
 #ifdef WIN_CAIRO
 
-    std::wstring pathWinCairo = copyEnvironmentVariable(L"WEBKIT_LIBRARIES");
-    if (!directoryExists(pathWinCairo))
-        return true;
 #if defined(_M_X64)
-    pathWinCairo += L"\\bin64";
+    wstring pathWinCairo = copyEnvironmentVariable(L"WEBKIT_LIBRARIES") + L"\\bin64";
 #else
-    pathWinCairo += L"\\bin32";
+    wstring pathWinCairo = copyEnvironmentVariable(L"WEBKIT_LIBRARIES") + L"\\bin32";
 #endif
-    if (!SetDllDirectory(pathWinCairo.c_str())) {
-        fatalError(programName, L"Failed to SetDllDirectory");
-        return false;
-    }
+    prependPath(pathWinCairo);
     return true;
 
 #else
 
-    const std::wstring& pathPrefix = appleApplicationSupportDirectory();
+    const wstring& pathPrefix = appleApplicationSupportDirectory();
 
     if (!directoryExists(pathPrefix)) {
         fatalError(programName, L"Failed to determine path to AAS directory.");
@@ -155,7 +149,7 @@ static bool modifyPath(const std::wstring& programName)
 #endif
 }
 
-static std::wstring getLastErrorString(HRESULT hr)
+static wstring getLastErrorString(HRESULT hr)
 {
     static const DWORD kFlags = FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS;
     static const size_t bufSize = 4096;
@@ -185,20 +179,20 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpstrCm
 
     ::PathRemoveExtensionW(exePath);
 
-    std::wstring programName = ::PathFindFileNameW(exePath);
+    wstring programName = ::PathFindFileNameW(exePath);
 
     if (!modifyPath(programName))
         return 1;
 
     // Load our corresponding DLL.
-    std::wstring dllName = programName + L"Lib.dll";
+    wstring dllName = programName + L"Lib.dll";
     if (!::PathRemoveFileSpecW(exePath))
         return fatalError(programName, L"::PathRemoveFileSpecW failed: " + getLastErrorString(::GetLastError()));
     if (!::PathAppendW(exePath, dllName.c_str()))
         return fatalError(programName, L"::PathAppendW failed: " + getLastErrorString(::GetLastError()));
     HMODULE module = ::LoadLibraryW(exePath);
     if (!module)
-        return fatalError(programName, L"::LoadLibraryW failed: \npath=" + std::wstring(exePath) + L"\n" + getLastErrorString(::GetLastError()));
+        return fatalError(programName, L"::LoadLibraryW failed: \npath=" + wstring(exePath) + L"\n" + getLastErrorString(::GetLastError()));
 
 #if USE_CONSOLE_ENTRY_POINT
     typedef int (WINAPI*EntryPoint)(int, const char*[]);

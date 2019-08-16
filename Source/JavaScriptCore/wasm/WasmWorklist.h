@@ -27,6 +27,8 @@
 
 #if ENABLE(WEBASSEMBLY)
 
+#include "VM.h"
+
 #include <queue>
 
 #include <wtf/AutomaticThread.h>
@@ -35,9 +37,10 @@
 
 namespace JSC {
 
+class JSPromiseDeferred;
+
 namespace Wasm {
 
-struct Context;
 class Plan;
 
 class Worklist {
@@ -47,9 +50,12 @@ public:
     ~Worklist();
 
     JS_EXPORT_PRIVATE void enqueue(Ref<Plan>);
-    void stopAllPlansForContext(Context&);
+    void stopAllPlansForVM(VM&);
 
     JS_EXPORT_PRIVATE void completePlanSynchronously(Plan&);
+
+    void activatePlan(JSPromiseDeferred*, Plan*);
+    void deactivePlan(JSPromiseDeferred*, Plan*);
 
     enum class Priority {
         Shutdown,
@@ -82,7 +88,7 @@ private:
     }
 
     Box<Lock> m_lock;
-    Ref<AutomaticThreadCondition> m_planEnqueued;
+    RefPtr<AutomaticThreadCondition> m_planEnqueued;
     // Technically, this could overflow but that's unlikely. Even if it did, we will just compile things of the same
     // Priority it the wrong order, which isn't wrong, just suboptimal.
     Ticket m_lastGrantedTicket { 0 };

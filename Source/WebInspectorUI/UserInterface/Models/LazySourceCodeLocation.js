@@ -30,7 +30,7 @@
 //  - formatted information does require initialization, done by overriding public APIs.
 //  - display information does require initialization, done by overriding private funnel API resolveMappedLocation.
 
-WI.LazySourceCodeLocation = class LazySourceCodeLocation extends WI.SourceCodeLocation
+WebInspector.LazySourceCodeLocation = class LazySourceCodeLocation extends WebInspector.SourceCodeLocation
 {
     constructor(sourceCode, lineNumber, columnNumber)
     {
@@ -77,7 +77,7 @@ WI.LazySourceCodeLocation = class LazySourceCodeLocation extends WI.SourceCodeLo
     formattedPosition()
     {
         this._lazyInitialization();
-        return new WI.SourceCodePosition(this._formattedLineNumber, this._formattedColumnNumber);
+        return new WebInspector.SourceCodePosition(this._formattedLineNumber, this._formattedColumnNumber);
     }
 
     hasFormattedLocation()

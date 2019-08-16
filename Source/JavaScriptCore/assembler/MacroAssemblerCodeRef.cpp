@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,42 +26,60 @@
 #include "config.h"
 #include "MacroAssemblerCodeRef.h"
 
-#include "Disassembler.h"
 #include "JSCInlines.h"
-#include "JSCPtrTag.h"
-#include <mutex>
+#include "LLIntData.h"
 
 namespace JSC {
 
-void MacroAssemblerCodePtrBase::dumpWithName(void* executableAddress, void* dataLocation, const char* name, PrintStream& out)
+MacroAssemblerCodePtr MacroAssemblerCodePtr::createLLIntCodePtr(OpcodeID codeId)
 {
-    if (!executableAddress) {
+    return createFromExecutableAddress(LLInt::getCodePtr(codeId));
+}
+
+void MacroAssemblerCodePtr::dumpWithName(const char* name, PrintStream& out) const
+{
+    if (!m_value) {
         out.print(name, "(null)");
         return;
     }
-    if (executableAddress == dataLocation) {
-        out.print(name, "(", RawPointer(executableAddress), ")");
+    if (executableAddress() == dataLocation()) {
+        out.print(name, "(", RawPointer(executableAddress()), ")");
         return;
     }
-    out.print(name, "(executable = ", RawPointer(executableAddress), ", dataLocation = ", RawPointer(dataLocation), ")");
+    out.print(name, "(executable = ", RawPointer(executableAddress()), ", dataLocation = ", RawPointer(dataLocation()), ")");
 }
 
-bool MacroAssemblerCodeRefBase::tryToDisassemble(MacroAssemblerCodePtr<DisassemblyPtrTag> codePtr, size_t size, const char* prefix, PrintStream& out)
+void MacroAssemblerCodePtr::dump(PrintStream& out) const
 {
-    return JSC::tryToDisassemble(codePtr, size, prefix, out);
+    dumpWithName("CodePtr", out);
 }
 
-bool MacroAssemblerCodeRefBase::tryToDisassemble(MacroAssemblerCodePtr<DisassemblyPtrTag> codePtr, size_t size, const char* prefix)
+MacroAssemblerCodeRef MacroAssemblerCodeRef::createLLIntCodeRef(OpcodeID codeId)
 {
-    return tryToDisassemble(codePtr, size, prefix, WTF::dataFile());
+    return createSelfManagedCodeRef(MacroAssemblerCodePtr::createFromExecutableAddress(LLInt::getCodePtr(codeId)));
 }
 
-CString MacroAssemblerCodeRefBase::disassembly(MacroAssemblerCodePtr<DisassemblyPtrTag> codePtr, size_t size)
+bool MacroAssemblerCodeRef::tryToDisassemble(PrintStream& out, const char* prefix) const
+{
+    return JSC::tryToDisassemble(m_codePtr, size(), prefix, out);
+}
+
+bool MacroAssemblerCodeRef::tryToDisassemble(const char* prefix) const
+{
+    return tryToDisassemble(WTF::dataFile(), prefix);
+}
+
+CString MacroAssemblerCodeRef::disassembly() const
 {
     StringPrintStream out;
-    if (!tryToDisassemble(codePtr, size, "", out))
+    if (!tryToDisassemble(out, ""))
         return CString();
     return out.toCString();
+}
+
+void MacroAssemblerCodeRef::dump(PrintStream& out) const
+{
+    m_codePtr.dumpWithName("CodeRef", out);
 }
 
 } // namespace JSC

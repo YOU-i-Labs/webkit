@@ -35,7 +35,6 @@
 namespace WebCore {
 
 class RenderRubyText final : public RenderBlockFlow {
-    WTF_MAKE_ISO_ALLOCATED(RenderRubyText);
 public:
     RenderRubyText(Element&, RenderStyle&&);
     virtual ~RenderRubyText();
@@ -54,7 +53,7 @@ private:
 
     bool avoidsFloats() const override;
 
-    TextAlignMode textAlignmentForLine(bool endsWithSoftBreak) const override;
+    ETextAlign textAlignmentForLine(bool endsWithSoftBreak) const override;
     void adjustInlineDirectionLineBounds(int expansionOpportunityCount, float& logicalLeft, float& logicalWidth) const override;
 };
 

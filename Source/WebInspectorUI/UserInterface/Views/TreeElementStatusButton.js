@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TreeElementStatusButton = class TreeElementStatusButton extends WI.Object
+WebInspector.TreeElementStatusButton = class TreeElementStatusButton extends WebInspector.Object
 {
     constructor(element)
     {
@@ -45,7 +45,7 @@ WI.TreeElementStatusButton = class TreeElementStatusButton extends WI.Object
 
     get hidden()
     {
-        return !this._element.classList.contains(WI.TreeElementStatusButton.DisabledStyleClassName);
+        return !this._element.classList.contains(WebInspector.TreeElementStatusButton.DisabledStyleClassName);
     }
 
     set hidden(flag)
@@ -55,15 +55,15 @@ WI.TreeElementStatusButton = class TreeElementStatusButton extends WI.Object
 
     get enabled()
     {
-        return !this._element.classList.contains(WI.TreeElementStatusButton.DisabledStyleClassName);
+        return !this._element.classList.contains(WebInspector.TreeElementStatusButton.DisabledStyleClassName);
     }
 
     set enabled(flag)
     {
         if (flag)
-            this._element.classList.remove(WI.TreeElementStatusButton.DisabledStyleClassName);
+            this._element.classList.remove(WebInspector.TreeElementStatusButton.DisabledStyleClassName);
         else
-            this._element.classList.add(WI.TreeElementStatusButton.DisabledStyleClassName);
+            this._element.classList.add(WebInspector.TreeElementStatusButton.DisabledStyleClassName);
     }
 
     // Private
@@ -75,12 +75,12 @@ WI.TreeElementStatusButton = class TreeElementStatusButton extends WI.Object
 
         event.stopPropagation();
 
-        this.dispatchEventToListeners(WI.TreeElementStatusButton.Event.Clicked, event);
+        this.dispatchEventToListeners(WebInspector.TreeElementStatusButton.Event.Clicked, event);
     }
 };
 
-WI.TreeElementStatusButton.DisabledStyleClassName = "disabled";
+WebInspector.TreeElementStatusButton.DisabledStyleClassName = "disabled";
 
-WI.TreeElementStatusButton.Event = {
+WebInspector.TreeElementStatusButton.Event = {
     Clicked: "status-button-clicked"
 };

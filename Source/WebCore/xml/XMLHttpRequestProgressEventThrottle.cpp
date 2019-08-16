@@ -37,12 +37,19 @@ const Seconds XMLHttpRequestProgressEventThrottle::minimumProgressEventDispatchi
 
 XMLHttpRequestProgressEventThrottle::XMLHttpRequestProgressEventThrottle(EventTarget* target)
     : m_target(target)
+    , m_hasThrottledProgressEvent(false)
+    , m_lengthComputable(false)
+    , m_loaded(0)
+    , m_total(0)
+    , m_deferEvents(false)
     , m_dispatchDeferredEventsTimer(*this, &XMLHttpRequestProgressEventThrottle::dispatchDeferredEvents)
 {
     ASSERT(target);
 }
 
-XMLHttpRequestProgressEventThrottle::~XMLHttpRequestProgressEventThrottle() = default;
+XMLHttpRequestProgressEventThrottle::~XMLHttpRequestProgressEventThrottle()
+{
+}
 
 void XMLHttpRequestProgressEventThrottle::dispatchThrottledProgressEvent(bool lengthComputable, unsigned long long loaded, unsigned long long total)
 {

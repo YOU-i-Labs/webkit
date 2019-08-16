@@ -56,7 +56,6 @@ enum class DominantScrollGestureDirection {
 };
 
 class BasicWheelEventDeltaFilter final : public WheelEventDeltaFilter {
-    WTF_MAKE_FAST_ALLOCATED;
 public:
     BasicWheelEventDeltaFilter();
     void updateFromDelta(const FloatSize&) override;

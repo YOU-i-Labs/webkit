@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "CSSFontFamily.h"
 #include "CSSInheritedValue.h"
 #include "CSSInitialValue.h"
 #include "CSSPrimitiveValue.h"

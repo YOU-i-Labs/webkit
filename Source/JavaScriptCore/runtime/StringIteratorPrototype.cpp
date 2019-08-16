@@ -48,8 +48,8 @@ void StringIteratorPrototype::finishCreation(VM& vm, JSGlobalObject*)
 {
     Base::finishCreation(vm);
     ASSERT(inherits(vm, info()));
-    putDirectWithoutTransition(vm, vm.propertyNames->toStringTagSymbol, jsString(&vm, "String Iterator"), PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly);
-    didBecomePrototype();
+    putDirectWithoutTransition(vm, vm.propertyNames->toStringTagSymbol, jsString(&vm, "String Iterator"), DontEnum | ReadOnly);
+    vm.prototypeMap.addPrototype(this);
 }
 
 } // namespace JSC

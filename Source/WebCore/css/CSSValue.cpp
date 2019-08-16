@@ -28,6 +28,7 @@
 #include "config.h"
 #include "CSSValue.h"
 
+#include "CSSAnimationTriggerScrollValue.h"
 #include "CSSAspectRatioValue.h"
 #include "CSSBorderImageSliceValue.h"
 #include "CSSCalculationValue.h"
@@ -52,7 +53,6 @@
 #include "CSSInitialValue.h"
 #include "CSSLineBoxContainValue.h"
 #include "CSSNamedImageValue.h"
-#include "CSSPaintImageValue.h"
 #include "CSSPendingSubstitutionValue.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSProperty.h"
@@ -101,7 +101,7 @@ CSSValue::Type CSSValue::cssValueType() const
     return CSS_CUSTOM;
 }
 
-bool CSSValue::traverseSubresources(const WTF::Function<bool (const CachedResource&)>& handler) const
+bool CSSValue::traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const
 {
     if (is<CSSValueList>(*this))
         return downcast<CSSValueList>(*this).traverseSubresources(handler);
@@ -116,18 +116,6 @@ bool CSSValue::traverseSubresources(const WTF::Function<bool (const CachedResour
     if (is<CSSImageSetValue>(*this))
         return downcast<CSSImageSetValue>(*this).traverseSubresources(handler);
     return false;
-}
-
-void CSSValue::collectDirectComputationalDependencies(HashSet<CSSPropertyID>& values) const
-{
-    if (is<CSSPrimitiveValue>(*this))
-        downcast<CSSPrimitiveValue>(*this).collectDirectComputationalDependencies(values);
-}
-
-void CSSValue::collectDirectRootComputationalDependencies(HashSet<CSSPropertyID>& values) const
-{
-    if (is<CSSPrimitiveValue>(*this))
-        downcast<CSSPrimitiveValue>(*this).collectDirectRootComputationalDependencies(values);
 }
 
 template<class ChildClassType>
@@ -152,10 +140,6 @@ bool CSSValue::equals(const CSSValue& other) const
             return compareCSSValues<CSSCursorImageValue>(*this, other);
         case FilterImageClass:
             return compareCSSValues<CSSFilterImageValue>(*this, other);
-#if ENABLE(CSS_PAINTING_API)
-        case PaintImageClass:
-            return compareCSSValues<CSSPaintImageValue>(*this, other);
-#endif
         case FontClass:
             return compareCSSValues<CSSFontValue>(*this, other);
         case FontFaceSrcClass:
@@ -172,8 +156,6 @@ bool CSSValue::equals(const CSSValue& other) const
             return compareCSSValues<CSSLinearGradientValue>(*this, other);
         case RadialGradientClass:
             return compareCSSValues<CSSRadialGradientValue>(*this, other);
-        case ConicGradientClass:
-            return compareCSSValues<CSSConicGradientValue>(*this, other);
         case CrossfadeClass:
             return compareCSSValues<CSSCrossfadeValue>(*this, other);
         case ImageClass:
@@ -214,6 +196,10 @@ bool CSSValue::equals(const CSSValue& other) const
             return compareCSSValues<CSSCalcValue>(*this, other);
         case ImageSetClass:
             return compareCSSValues<CSSImageSetValue>(*this, other);
+#if ENABLE(CSS_ANIMATIONS_LEVEL_2)
+        case AnimationTriggerScrollClass:
+            return compareCSSValues<CSSAnimationTriggerScrollValue>(*this, other);
+#endif
         case CSSContentDistributionClass:
             return compareCSSValues<CSSContentDistributionValue>(*this, other);
         case CustomPropertyClass:
@@ -252,10 +238,6 @@ String CSSValue::cssText() const
         return downcast<CSSCursorImageValue>(*this).customCSSText();
     case FilterImageClass:
         return downcast<CSSFilterImageValue>(*this).customCSSText();
-#if ENABLE(CSS_PAINTING_API)
-    case PaintImageClass:
-        return downcast<CSSPaintImageValue>(*this).customCSSText();
-#endif
     case FontClass:
         return downcast<CSSFontValue>(*this).customCSSText();
     case FontFaceSrcClass:
@@ -272,8 +254,6 @@ String CSSValue::cssText() const
         return downcast<CSSLinearGradientValue>(*this).customCSSText();
     case RadialGradientClass:
         return downcast<CSSRadialGradientValue>(*this).customCSSText();
-    case ConicGradientClass:
-        return downcast<CSSConicGradientValue>(*this).customCSSText();
     case CrossfadeClass:
         return downcast<CSSCrossfadeValue>(*this).customCSSText();
     case ImageClass:
@@ -314,6 +294,10 @@ String CSSValue::cssText() const
         return downcast<CSSCalcValue>(*this).customCSSText();
     case ImageSetClass:
         return downcast<CSSImageSetValue>(*this).customCSSText();
+#if ENABLE(CSS_ANIMATIONS_LEVEL_2)
+    case AnimationTriggerScrollClass:
+        return downcast<CSSAnimationTriggerScrollValue>(*this).customCSSText();
+#endif
     case CSSContentDistributionClass:
         return downcast<CSSContentDistributionValue>(*this).customCSSText();
     case CustomPropertyClass:
@@ -374,9 +358,6 @@ void CSSValue::destroy()
         return;
     case RadialGradientClass:
         delete downcast<CSSRadialGradientValue>(this);
-        return;
-    case ConicGradientClass:
-        delete downcast<CSSConicGradientValue>(this);
         return;
     case CrossfadeClass:
         delete downcast<CSSCrossfadeValue>(this);
@@ -441,9 +422,9 @@ void CSSValue::destroy()
     case FilterImageClass:
         delete downcast<CSSFilterImageValue>(this);
         return;
-#if ENABLE(CSS_PAINTING_API)
-    case PaintImageClass:
-        delete downcast<CSSPaintImageValue>(this);
+#if ENABLE(CSS_ANIMATIONS_LEVEL_2)
+    case AnimationTriggerScrollClass:
+        delete downcast<CSSAnimationTriggerScrollValue>(this);
         return;
 #endif
     case CSSContentDistributionClass:
@@ -471,15 +452,15 @@ void CSSValue::destroy()
     ASSERT_NOT_REACHED();
 }
 
-Ref<DeprecatedCSSOMValue> CSSValue::createDeprecatedCSSOMWrapper(CSSStyleDeclaration& styleDeclaration) const
+Ref<DeprecatedCSSOMValue> CSSValue::createDeprecatedCSSOMWrapper() const
 {
     if (isImageValue() || isCursorImageValue())
-        return downcast<CSSImageValue>(this)->createDeprecatedCSSOMWrapper(styleDeclaration);
+        return downcast<CSSImageValue>(this)->createDeprecatedCSSOMWrapper();
     if (isPrimitiveValue())
-        return DeprecatedCSSOMPrimitiveValue::create(downcast<CSSPrimitiveValue>(*this), styleDeclaration);
+        return DeprecatedCSSOMPrimitiveValue::create(downcast<CSSPrimitiveValue>(*this));
     if (isValueList())
-        return DeprecatedCSSOMValueList::create(downcast<CSSValueList>(*this), styleDeclaration);
-    return DeprecatedCSSOMComplexValue::create(*this, styleDeclaration);
+        return DeprecatedCSSOMValueList::create(downcast<CSSValueList>(*this));
+    return DeprecatedCSSOMComplexValue::create(*this);
 }
 
 bool CSSValue::treatAsInheritedValue(CSSPropertyID propertyID) const

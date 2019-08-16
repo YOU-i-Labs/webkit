@@ -29,7 +29,7 @@
 
 namespace JSC {
 
-class WeakMapPrototype final : public JSNonFinalObject {
+class WeakMapPrototype : public JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
 

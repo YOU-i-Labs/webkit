@@ -19,15 +19,17 @@
  *
  */
 
-#pragma once
-
-#include <wtf/text/LChar.h>
+#ifndef IntegerToStringConversion_h
+#define IntegerToStringConversion_h
 
 namespace WTF {
 
-enum PositiveOrNegativeNumber { PositiveNumber, NegativeNumber };
+enum PositiveOrNegativeNumber {
+    PositiveNumber,
+    NegativeNumber
+};
 
-template<typename> struct IntegerToStringConversionTrait;
+template<typename T> struct IntegerToStringConversionTrait;
 
 template<typename T, typename UnsignedIntegerType, PositiveOrNegativeNumber NumberType, typename AdditionalArgumentType>
 static typename IntegerToStringConversionTrait<T>::ReturnType numberToStringImpl(UnsignedIntegerType number, AdditionalArgumentType additionalArgument)
@@ -60,6 +62,7 @@ inline typename IntegerToStringConversionTrait<T>::ReturnType numberToStringUnsi
 {
     return numberToStringImpl<T, UnsignedIntegerType, PositiveNumber>(number, additionalArgument);
 }
+
 
 template<typename CharacterType, typename UnsignedIntegerType, PositiveOrNegativeNumber NumberType>
 static void writeNumberToBufferImpl(UnsignedIntegerType number, CharacterType* destination)
@@ -94,6 +97,7 @@ inline void writeNumberToBufferUnsigned(UnsignedIntegerType number, CharacterTyp
     return writeNumberToBufferImpl<CharacterType, UnsignedIntegerType, PositiveNumber>(number, destination);
 }
 
+
 template<typename UnsignedIntegerType, PositiveOrNegativeNumber NumberType>
 static unsigned lengthOfNumberAsStringImpl(UnsignedIntegerType number)
 {
@@ -124,4 +128,7 @@ inline unsigned lengthOfNumberAsStringUnsigned(UnsignedIntegerType number)
     return lengthOfNumberAsStringImpl<UnsignedIntegerType, PositiveNumber>(number);
 }
 
+
 } // namespace WTF
+
+#endif // IntegerToStringConversion_h

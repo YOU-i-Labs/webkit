@@ -36,7 +36,6 @@ namespace WebCore {
 
 // LabelableElement represents "labelable element" defined in the HTML specification.
 class LabelableElement : public HTMLElement {
-    WTF_MAKE_ISO_ALLOCATED(LabelableElement);
 public:
     virtual ~LabelableElement();
 

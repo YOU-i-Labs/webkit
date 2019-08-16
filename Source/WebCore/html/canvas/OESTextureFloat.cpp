@@ -36,7 +36,9 @@ OESTextureFloat::OESTextureFloat(WebGLRenderingContextBase& context)
 {
 }
 
-OESTextureFloat::~OESTextureFloat() = default;
+OESTextureFloat::~OESTextureFloat()
+{
+}
 
 WebGLExtension::ExtensionName OESTextureFloat::getName() const
 {

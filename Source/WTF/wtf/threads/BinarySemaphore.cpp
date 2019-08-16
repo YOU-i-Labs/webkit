@@ -24,24 +24,42 @@
  */
 
 #include "config.h"
-#include <wtf/threads/BinarySemaphore.h>
+#include "BinarySemaphore.h"
 
 namespace WTF {
 
-void BinarySemaphore::signal()
+BinarySemaphore::BinarySemaphore()
+    : m_isSet(false)
 {
-    auto locker = holdLock(m_lock);
-    m_isSet = true;
-    m_condition.notifyOne();
+}
+    
+BinarySemaphore::~BinarySemaphore()
+{
 }
 
-bool BinarySemaphore::waitUntil(const TimeWithDynamicClockType& absoluteTime)
+void BinarySemaphore::signal()
 {
-    auto locker = holdLock(m_lock);
-    bool satisfied = m_condition.waitUntil(m_lock, absoluteTime, [&] { return m_isSet; });
-    if (satisfied)
-        m_isSet = false;
-    return satisfied;
+    MutexLocker locker(m_mutex);
+
+    m_isSet = true;
+    m_condition.signal();
+}
+
+bool BinarySemaphore::wait(TimeWithDynamicClockType absoluteTime)
+{
+    MutexLocker locker(m_mutex);
+
+    bool timedOut = false;
+    while (!m_isSet) {
+        timedOut = !m_condition.timedWait(
+            m_mutex, absoluteTime.approximateWallTime().secondsSinceEpoch().value());
+        if (timedOut)
+            return false;
+    }
+
+    // Reset the semaphore.
+    m_isSet = false;
+    return true;
 }
 
 } // namespace WTF

@@ -33,6 +33,7 @@
 
 #if ENABLE(VIDEO_TRACK)
 
+#include "EventTarget.h"
 #include "HTMLElement.h"
 #include "TextTrackCue.h"
 
@@ -49,7 +50,6 @@ class WebVTTCueData;
 // ----------------------------
 
 class VTTCueBox : public HTMLElement {
-    WTF_MAKE_ISO_ALLOCATED(VTTCueBox);
 public:
     static Ref<VTTCueBox> create(Document&, VTTCue&);
 
@@ -64,16 +64,13 @@ protected:
 
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
 
-    int fontSizeFromCaptionUserPrefs() const { return m_fontSizeFromCaptionUserPrefs; }
-
-private:
-    WeakPtr<VTTCue> m_cue;
+    VTTCue& m_cue;
     int m_fontSizeFromCaptionUserPrefs;
 };
 
 // ----------------------------
 
-class VTTCue : public TextTrackCue, public CanMakeWeakPtr<VTTCue> {
+class VTTCue : public TextTrackCue {
 public:
     static Ref<VTTCue> create(ScriptExecutionContext& context, double start, double end, const String& content)
     {
@@ -91,12 +88,6 @@ public:
 
     virtual ~VTTCue();
 
-    enum AutoKeyword {
-        Auto
-    };
-    
-    using LineAndPositionSetting = Variant<double, AutoKeyword>;
-
     const String& vertical() const;
     ExceptionOr<void> setVertical(const String&);
 
@@ -106,8 +97,8 @@ public:
     double line() const { return m_linePosition; }
     virtual ExceptionOr<void> setLine(double);
 
-    LineAndPositionSetting position() const;
-    virtual ExceptionOr<void> setPosition(const LineAndPositionSetting&);
+    double position() const { return m_textPosition; }
+    virtual ExceptionOr<void> setPosition(double);
 
     int size() const { return m_cueSize; }
     ExceptionOr<void> setSize(int);
@@ -158,7 +149,7 @@ public:
 
     enum CueAlignment {
         Start = 0,
-        Center,
+        Middle,
         End,
         Left,
         Right,
@@ -177,18 +168,12 @@ public:
 
     void didChange() override;
 
-    String toJSONString() const;
-
-    double calculateComputedTextPosition() const;
-
 protected:
     VTTCue(ScriptExecutionContext&, const MediaTime& start, const MediaTime& end, const String& content);
     VTTCue(ScriptExecutionContext&, const WebVTTCueData&);
 
     virtual Ref<VTTCueBox> createDisplayTree();
     VTTCueBox& displayTreeInternal();
-
-    void toJSON(JSON::Object&) const final;
 
 private:
     void initialize(ScriptExecutionContext&);
@@ -197,8 +182,6 @@ private:
 
     void parseSettings(const String&);
 
-    bool textPositionIsAuto() const;
-    
     void determineTextDirection();
     void calculateDisplayParameters();
 
@@ -244,20 +227,5 @@ VTTCue* toVTTCue(TextTrackCue*);
 const VTTCue* toVTTCue(const TextTrackCue*);
 
 } // namespace WebCore
-
-namespace WTF {
-
-template<typename Type>
-struct LogArgument;
-
-template <>
-struct LogArgument<WebCore::VTTCue> {
-    static String toString(const WebCore::VTTCue& cue)
-    {
-        return cue.toJSONString();
-    }
-};
-
-} // namespace WTF
 
 #endif

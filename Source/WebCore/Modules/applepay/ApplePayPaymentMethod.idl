@@ -25,7 +25,15 @@
 
 [
     Conditional=APPLE_PAY,
-    ExportMacro=WEBCORE_EXPORT,
+] enum ApplePayPaymentMethodType { 
+    "debit", 
+    "credit",
+    "prepaid",
+    "store" 
+};
+
+[
+    Conditional=APPLE_PAY,
     JSGenerateToJSObject
 ] dictionary ApplePayPaymentMethod {
     DOMString displayName;

@@ -48,9 +48,10 @@ void EvalExecutable::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     EvalExecutable* thisObject = jsCast<EvalExecutable*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
-    Base::visitChildren(thisObject, visitor);
+    ScriptExecutable::visitChildren(thisObject, visitor);
     visitor.append(thisObject->m_unlinkedEvalCodeBlock);
-    visitor.append(thisObject->m_evalCodeBlock);
+    if (EvalCodeBlock* evalCodeBlock = thisObject->m_evalCodeBlock.get())
+        evalCodeBlock->visitWeakly(visitor);
 }
 
 } // namespace JSC

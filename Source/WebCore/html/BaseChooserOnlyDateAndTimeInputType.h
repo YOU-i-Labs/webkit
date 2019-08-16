@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,13 +34,13 @@
 
 namespace WebCore {
 
-class BaseChooserOnlyDateAndTimeInputType : public BaseDateAndTimeInputType, private DateTimeChooserClient {
+class BaseChooserOnlyDateAndTimeInputType : public BaseDateAndTimeInputType, public DateTimeChooserClient {
 protected:
     explicit BaseChooserOnlyDateAndTimeInputType(HTMLInputElement& element) : BaseDateAndTimeInputType(element) { }
-    ~BaseChooserOnlyDateAndTimeInputType();
+    virtual ~BaseChooserOnlyDateAndTimeInputType();
 
 private:
-    void updateInnerTextValue() override;
+    void updateAppearance();
     void closeDateTimeChooser();
 
     // InputType functions:
@@ -54,11 +53,10 @@ private:
     void handleKeyupEvent(KeyboardEvent&) override;
     void accessKeyAction(bool sendMouseEvents) override;
     bool isMouseFocusable() const override;
-    void attributeChanged(const QualifiedName&) override;
 
     // DateTimeChooserClient functions:
-    void didChooseValue(const String&) final;
-    void didEndChooser() final;
+    void didChooseValue(const String&) override;
+    void didEndChooser() override;
 
     RefPtr<DateTimeChooser> m_dateTimeChooser;
 };

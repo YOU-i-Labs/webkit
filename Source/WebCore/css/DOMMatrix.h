@@ -29,20 +29,25 @@
 
 namespace WebCore {
 
-class ScriptExecutionContext;
-
 class DOMMatrix : public DOMMatrixReadOnly {
 public:
-    static ExceptionOr<Ref<DOMMatrix>> create(ScriptExecutionContext&, Optional<Variant<String, Vector<double>>>&&);
+    static ExceptionOr<Ref<DOMMatrix>> create(std::optional<Variant<String, Vector<double>>>&& init)
+    {
+        auto matrix = adoptRef(*new DOMMatrix);
+        if (!init)
+            return WTFMove(matrix);
+
+        ExceptionOr<void> result = WTF::switchOn(init.value(), [&matrix](const auto& init) {
+            return matrix->setMatrixValue(init);
+        });
+        if (result.hasException())
+            return result.releaseException();
+        return WTFMove(matrix);
+    }
 
     static Ref<DOMMatrix> create(const TransformationMatrix& matrix, Is2D is2D)
     {
         return adoptRef(*new DOMMatrix(matrix, is2D));
-    }
-
-    static Ref<DOMMatrix> create(TransformationMatrix&& matrix, Is2D is2D)
-    {
-        return adoptRef(*new DOMMatrix(WTFMove(matrix), is2D));
     }
 
     static ExceptionOr<Ref<DOMMatrix>> fromMatrix(DOMMatrixInit&&);
@@ -53,9 +58,9 @@ public:
     ExceptionOr<Ref<DOMMatrix>> multiplySelf(DOMMatrixInit&& other);
     ExceptionOr<Ref<DOMMatrix>> preMultiplySelf(DOMMatrixInit&& other);
     Ref<DOMMatrix> translateSelf(double tx = 0, double ty = 0, double tz = 0);
-    Ref<DOMMatrix> scaleSelf(double scaleX = 1, Optional<double> scaleY = WTF::nullopt, double scaleZ = 1, double originX = 0, double originY = 0, double originZ = 0);
+    Ref<DOMMatrix> scaleSelf(double scaleX = 1, std::optional<double> scaleY = std::nullopt, double scaleZ = 1, double originX = 0, double originY = 0, double originZ = 0);
     Ref<DOMMatrix> scale3dSelf(double scale = 1, double originX = 0, double originY = 0, double originZ = 0);
-    Ref<DOMMatrix> rotateSelf(double rotX = 0, Optional<double> rotY = WTF::nullopt, Optional<double> rotZ = WTF::nullopt); // Angles are in degrees.
+    Ref<DOMMatrix> rotateSelf(double rotX = 0, std::optional<double> rotY = std::nullopt, std::optional<double> rotZ = std::nullopt); // Angles are in degrees.
     Ref<DOMMatrix> rotateFromVectorSelf(double x = 0, double y = 0);
     Ref<DOMMatrix> rotateAxisAngleSelf(double x = 0, double y = 0, double z = 0, double angle = 0); // Angle is in degrees.
     Ref<DOMMatrix> skewXSelf(double sx = 0); // Angle is in degrees.
@@ -87,11 +92,9 @@ public:
     void setM42(double f) { m_matrix.setM42(f); }
     void setM43(double f);
     void setM44(double f);
-
 private:
     DOMMatrix() = default;
     DOMMatrix(const TransformationMatrix&, Is2D);
-    DOMMatrix(TransformationMatrix&&, Is2D);
 };
 
 inline void DOMMatrix::setM13(double f)

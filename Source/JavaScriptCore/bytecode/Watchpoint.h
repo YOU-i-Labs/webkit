@@ -29,13 +29,10 @@
 #include <wtf/FastMalloc.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PrintStream.h>
-#include <wtf/ScopedLambda.h>
 #include <wtf/SentinelLinkedList.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
 namespace JSC {
-
-class VM;
 
 class FireDetail {
     void* operator new(size_t) = delete;
@@ -65,44 +62,24 @@ private:
     const char* m_string;
 };
 
-template<typename... Types>
-class LazyFireDetail : public FireDetail {
-public:
-    LazyFireDetail(const Types&... args)
-    {
-        m_lambda = scopedLambda<void(PrintStream&)>([&] (PrintStream& out) {
-            out.print(args...);
-        });
-    }
-
-    void dump(PrintStream& out) const override { m_lambda(out); }
-
-private:
-    ScopedLambda<void(PrintStream&)> m_lambda;
-};
-
-template<typename... Types>
-LazyFireDetail<Types...> createLazyFireDetail(const Types&... types)
-{
-    return LazyFireDetail<Types...>(types...);
-}
-
 class WatchpointSet;
 
 class Watchpoint : public BasicRawSentinelNode<Watchpoint> {
     WTF_MAKE_NONCOPYABLE(Watchpoint);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    Watchpoint() = default;
+    Watchpoint()
+    {
+    }
     
     virtual ~Watchpoint();
 
 protected:
-    virtual void fireInternal(VM&, const FireDetail&) = 0;
+    virtual void fireInternal(const FireDetail&) = 0;
 
 private:
     friend class WatchpointSet;
-    void fire(VM&, const FireDetail&);
+    void fire(const FireDetail&);
 };
 
 enum WatchpointState {
@@ -112,23 +89,16 @@ enum WatchpointState {
 };
 
 class InlineWatchpointSet;
-class DeferredWatchpointFire;
 class VM;
 
 class WatchpointSet : public ThreadSafeRefCounted<WatchpointSet> {
     friend class LLIntOffsetsExtractor;
-    friend class DeferredWatchpointFire;
 public:
     JS_EXPORT_PRIVATE WatchpointSet(WatchpointState);
     
     // FIXME: In many cases, it would be amazing if this *did* fire the watchpoints. I suspect that
     // this might be hard to get right, but still, it might be awesome.
     JS_EXPORT_PRIVATE ~WatchpointSet(); // Note that this will not fire any of the watchpoints; if you need to know when a WatchpointSet dies then you need a separate mechanism for this.
-
-    static Ref<WatchpointSet> create(WatchpointState state)
-    {
-        return adoptRef(*new WatchpointSet(state));
-    }
     
     // Fast way of getting the state, which only works from the main thread.
     WatchpointState stateOnJSThread() const
@@ -181,15 +151,21 @@ public:
         m_state = IsWatched;
         WTF::storeStoreFence();
     }
-
-    template <typename T>
-    void fireAll(VM& vm, T& fireDetails)
+    
+    void fireAll(VM& vm, const FireDetail& detail)
     {
         if (LIKELY(m_state != IsWatched))
             return;
-        fireAllSlow(vm, fireDetails);
+        fireAllSlow(vm, detail);
     }
-
+    
+    void fireAll(VM& vm, const char* reason)
+    {
+        if (LIKELY(m_state != IsWatched))
+            return;
+        fireAllSlow(vm, reason);
+    }
+    
     void touch(VM& vm, const FireDetail& detail)
     {
         if (state() == ClearWatchpoint)
@@ -225,12 +201,10 @@ public:
     int8_t* addressOfSetIsNotEmpty() { return &m_setIsNotEmpty; }
     
     JS_EXPORT_PRIVATE void fireAllSlow(VM&, const FireDetail&); // Call only if you've checked isWatched.
-    JS_EXPORT_PRIVATE void fireAllSlow(VM&, DeferredWatchpointFire* deferredWatchpoints); // Ditto.
     JS_EXPORT_PRIVATE void fireAllSlow(VM&, const char* reason); // Ditto.
     
 private:
     void fireAllWatchpoints(VM&, const FireDetail&);
-    void take(WatchpointSet* other);
     
     friend class InlineWatchpointSet;
 
@@ -321,12 +295,11 @@ public:
         ASSERT(decodeState(m_data) != IsInvalidated);
         m_data = encodeState(IsWatched);
     }
-
-    template <typename T>
-    void fireAll(VM& vm, T fireDetails)
+    
+    void fireAll(VM& vm, const FireDetail& detail)
     {
         if (isFat()) {
-            fat()->fireAll(vm, fireDetails);
+            fat()->fireAll(vm, detail);
             return;
         }
         if (decodeState(m_data) == ClearWatchpoint)
@@ -334,7 +307,7 @@ public:
         m_data = encodeState(IsInvalidated);
         WTF::storeStoreFence();
     }
-
+    
     void invalidate(VM& vm, const FireDetail& detail)
     {
         if (isFat())
@@ -405,17 +378,6 @@ public:
             return fat()->isBeingWatched();
         return false;
     }
-
-    // We expose this because sometimes a client knows its about to start
-    // watching this InlineWatchpointSet, hence it'll become inflated regardless.
-    // Such clients may find it useful to have a WatchpointSet* pointer, for example,
-    // if they collect a Vector of WatchpointSet*.
-    WatchpointSet* inflate()
-    {
-        if (LIKELY(isFat()))
-            return fat();
-        return inflateSlow();
-    }
     
 private:
     static const uintptr_t IsThinFlag        = 1;
@@ -456,32 +418,17 @@ private:
         return fat(m_data);
     }
     
+    WatchpointSet* inflate()
+    {
+        if (LIKELY(isFat()))
+            return fat();
+        return inflateSlow();
+    }
+    
     JS_EXPORT_PRIVATE WatchpointSet* inflateSlow();
     JS_EXPORT_PRIVATE void freeFat();
     
     uintptr_t m_data;
 };
 
-class DeferredWatchpointFire : public FireDetail {
-    WTF_MAKE_NONCOPYABLE(DeferredWatchpointFire);
-public:
-    JS_EXPORT_PRIVATE DeferredWatchpointFire(VM&);
-    JS_EXPORT_PRIVATE ~DeferredWatchpointFire();
-
-    JS_EXPORT_PRIVATE void takeWatchpointsToFire(WatchpointSet*);
-    JS_EXPORT_PRIVATE void fireAll();
-
-    void dump(PrintStream& out) const override = 0;
-private:
-    VM& m_vm;
-    WatchpointSet m_watchpointsToFire;
-};
-
 } // namespace JSC
-
-namespace WTF {
-
-void printInternal(PrintStream& out, JSC::WatchpointState);
-
-} // namespace WTF
-

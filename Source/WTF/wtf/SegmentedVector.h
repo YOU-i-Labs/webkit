@@ -26,7 +26,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef SegmentedVector_h
+#define SegmentedVector_h
 
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
@@ -272,3 +273,5 @@ namespace WTF {
 } // namespace WTF
 
 using WTF::SegmentedVector;
+
+#endif // SegmentedVector_h

@@ -27,7 +27,7 @@
 #pragma once
 
 #include "FileSystem.h"
-#include <JavaScriptCore/ArrayBuffer.h>
+#include <runtime/ArrayBuffer.h>
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -41,11 +41,6 @@
 
 #if USE(SOUP)
 #include "GUniquePtrSoup.h"
-#endif
-
-#if USE(GLIB)
-#include <wtf/glib/GRefPtr.h>
-typedef struct _GBytes GBytes;
 #endif
 
 #if USE(FOUNDATION)
@@ -65,13 +60,11 @@ public:
     static RefPtr<SharedBuffer> createWithContentsOfFile(const String& filePath);
 
     static Ref<SharedBuffer> create(Vector<char>&&);
-    static Ref<SharedBuffer> create(Vector<uint8_t>&&);
-
+    
 #if USE(FOUNDATION)
     RetainPtr<NSData> createNSData() const;
     RetainPtr<NSArray> createNSDataArray() const;
     static Ref<SharedBuffer> create(NSData *);
-    void append(NSData *);
 #endif
 #if USE(CF)
     RetainPtr<CFDataRef> createCFData() const;
@@ -84,10 +77,6 @@ public:
     static Ref<SharedBuffer> wrapSoupBuffer(SoupBuffer*);
 #endif
 
-#if USE(GLIB)
-    static Ref<SharedBuffer> create(GBytes*);
-#endif
-
     // Calling data() causes all the data segments to be copied into one segment if they are not already.
     // Iterate the segments using begin() and end() instead.
     // FIXME: Audit the call sites of this function and replace them with iteration if possible.
@@ -97,7 +86,8 @@ public:
     // ArrayBuffer without merging segmented buffers into a flat buffer.
     RefPtr<ArrayBuffer> tryCreateArrayBuffer() const;
 
-    size_t size() const { return m_size; }
+    // FIXME: This should return a size_t.
+    unsigned size() const { return m_size; }
 
     bool isEmpty() const { return !size(); }
 
@@ -113,8 +103,8 @@ public:
     // To modify or combine the data, allocate a new DataSegment.
     class DataSegment : public ThreadSafeRefCounted<DataSegment> {
     public:
-        WEBCORE_EXPORT const char* data() const;
-        WEBCORE_EXPORT size_t size() const;
+        const char* data() const;
+        size_t size() const;
 
         static Ref<DataSegment> create(Vector<char>&& data) { return adoptRef(*new DataSegment(WTFMove(data))); }
 #if USE(CF)
@@ -123,10 +113,7 @@ public:
 #if USE(SOUP)
         static Ref<DataSegment> create(GUniquePtr<SoupBuffer>&& data) { return adoptRef(*new DataSegment(WTFMove(data))); }
 #endif
-#if USE(GLIB)
-        static Ref<DataSegment> create(GRefPtr<GBytes>&& data) { return adoptRef(*new DataSegment(WTFMove(data))); }
-#endif
-        static Ref<DataSegment> create(FileSystem::MappedFileData&& data) { return adoptRef(*new DataSegment(WTFMove(data))); }
+        static Ref<DataSegment> create(MappedFileData&& data) { return adoptRef(*new DataSegment(WTFMove(data))); }
 
     private:
         DataSegment(Vector<char>&& data)
@@ -139,11 +126,7 @@ public:
         DataSegment(GUniquePtr<SoupBuffer>&& data)
             : m_immutableData(WTFMove(data)) { }
 #endif
-#if USE(GLIB)
-        DataSegment(GRefPtr<GBytes>&& data)
-            : m_immutableData(WTFMove(data)) { }
-#endif
-        DataSegment(FileSystem::MappedFileData&& data)
+        DataSegment(MappedFileData&& data)
             : m_immutableData(WTFMove(data)) { }
 
         Variant<Vector<char>,
@@ -153,10 +136,7 @@ public:
 #if USE(SOUP)
             GUniquePtr<SoupBuffer>,
 #endif
-#if USE(GLIB)
-            GRefPtr<GBytes>,
-#endif
-            FileSystem::MappedFileData> m_immutableData;
+            MappedFileData> m_immutableData;
         friend class SharedBuffer;
     };
 
@@ -173,23 +153,17 @@ public:
 
     void hintMemoryNotNeededSoon() const;
 
-    bool operator==(const SharedBuffer&) const;
-    bool operator!=(const SharedBuffer& other) const { return !operator==(other); }
-
 private:
     explicit SharedBuffer() = default;
     explicit SharedBuffer(const char*, size_t);
     explicit SharedBuffer(const unsigned char*, size_t);
     explicit SharedBuffer(Vector<char>&&);
-    explicit SharedBuffer(FileSystem::MappedFileData&&);
+    explicit SharedBuffer(MappedFileData&&);
 #if USE(CF)
     explicit SharedBuffer(CFDataRef);
 #endif
 #if USE(SOUP)
     explicit SharedBuffer(SoupBuffer*);
-#endif
-#if USE(GLIB)
-    explicit SharedBuffer(GBytes*);
 #endif
 
     void combineIntoOneSegment() const;
@@ -204,16 +178,6 @@ private:
     bool internallyConsistent() const;
 #endif
 };
-
-inline bool operator==(const Ref<SharedBuffer>& left, const SharedBuffer& right)
-{
-    return left.get() == right;
-}
-
-inline bool operator!=(const Ref<SharedBuffer>& left, const SharedBuffer& right)
-{
-    return left.get() != right;
-}
 
 class WEBCORE_EXPORT SharedBufferDataView {
 public:

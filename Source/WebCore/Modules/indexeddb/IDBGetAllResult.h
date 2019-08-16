@@ -107,21 +107,16 @@ bool IDBGetAllResult::decode(Decoder& decoder, IDBGetAllResult& result)
         return false;
 
     switch (index) {
-    case 0: {
+    case 0:
         result.m_results = Vector<IDBKeyData>();
         if (!decoder.decode(WTF::get<Vector<IDBKeyData>>(result.m_results)))
             return false;
         break;
-    }
-    case 1: {
+    case 1:
         result.m_results = Vector<IDBValue>();
-        Optional<Vector<IDBValue>> optional;
-        decoder >> optional;
-        if (!optional)
+        if (!decoder.decode(WTF::get<Vector<IDBValue>>(result.m_results)))
             return false;
-        WTF::get<Vector<IDBValue>>(result.m_results) = WTFMove(*optional);
         break;
-    }
     case 2:
         result.m_results = nullptr;
         break;

@@ -23,6 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+const SkipBackSeconds = 15;
+
 class SkipBackSupport extends MediaControllerSupport
 {
 
@@ -41,7 +43,7 @@ class SkipBackSupport extends MediaControllerSupport
     buttonWasPressed(control)
     {
         const media = this.mediaController.media;
-        media.currentTime = Math.max(media.currentTime - SkipSeconds, media.seekable.start(0));
+        media.currentTime = Math.max(media.currentTime - SkipBackSeconds, media.seekable.start(0));
     }
 
     syncControl()

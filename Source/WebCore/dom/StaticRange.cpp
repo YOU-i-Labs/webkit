@@ -39,7 +39,9 @@ StaticRange::StaticRange(Ref<Node>&& startContainer, unsigned startOffset, Ref<N
 {
 }
 
-StaticRange::~StaticRange() = default;
+StaticRange::~StaticRange()
+{
+}
 
 Ref<StaticRange> StaticRange::create(Ref<Node>&& startContainer, unsigned startOffset, Ref<Node>&& endContainer, unsigned endOffset)
 {

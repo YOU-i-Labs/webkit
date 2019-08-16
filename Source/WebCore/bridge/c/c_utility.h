@@ -29,8 +29,8 @@
 #if ENABLE(NETSCAPE_PLUGIN_API)
 
 #include "npruntime_internal.h"
-#include <JavaScriptCore/JSCInlines.h>
-#include <JavaScriptCore/JSCJSValue.h>
+#include <runtime/JSCInlines.h>
+#include <runtime/JSCJSValue.h>
 #include <wtf/Forward.h>
 
 namespace JSC {

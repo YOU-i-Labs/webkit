@@ -19,7 +19,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#pragma once
+#ifndef FEFlood_h
+#define FEFlood_h
 
 #include "Color.h"
 #include "Filter.h"
@@ -31,10 +32,10 @@ class FEFlood : public FilterEffect {
 public:
     static Ref<FEFlood> create(Filter&, const Color&, float);
 
-    const Color& floodColor() const { return m_floodColor; }
+    const Color& floodColor() const;
     bool setFloodColor(const Color&);
 
-    float floodOpacity() const { return m_floodOpacity; }
+    float floodOpacity() const;
     bool setFloodOpacity(float);
 
 #if !USE(CG)
@@ -44,16 +45,15 @@ public:
     void setResultColorSpace(ColorSpace) override { FilterEffect::setResultColorSpace(ColorSpaceSRGB); }
 #endif
 
-private:
-    FEFlood(Filter&, const Color&, float);
-
-    const char* filterName() const final { return "FEFlood"; }
-
     void platformApplySoftware() override;
+    void dump() override;
 
     void determineAbsolutePaintRect() override { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
 
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
+    TextStream& externalRepresentation(TextStream&, int indention) const override;
+
+private:
+    FEFlood(Filter&, const Color&, float);
 
     Color m_floodColor;
     float m_floodOpacity;
@@ -61,3 +61,4 @@ private:
 
 } // namespace WebCore
 
+#endif // FEFlood_h

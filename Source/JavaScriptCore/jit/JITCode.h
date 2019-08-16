@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 #include "ArityCheckMode.h"
 #include "CallFrame.h"
 #include "CodeOrigin.h"
+#include "Disassembler.h"
 #include "JSCJSValue.h"
 #include "MacroAssemblerCodeRef.h"
 #include "RegisterSet.h"
@@ -50,8 +51,8 @@ class VM;
 
 class JITCode : public ThreadSafeRefCounted<JITCode> {
 public:
-    template<PtrTag tag> using CodePtr = MacroAssemblerCodePtr<tag>;
-    template<PtrTag tag> using CodeRef = MacroAssemblerCodeRef<tag>;
+    typedef MacroAssemblerCodeRef CodeRef;
+    typedef MacroAssemblerCodePtr CodePtr;
 
     enum JITType : uint8_t {
         None,
@@ -172,7 +173,7 @@ public:
         return jitCode->jitType();
     }
     
-    virtual CodePtr<JSEntryPtrTag> addressForCall(ArityCheckMode) = 0;
+    virtual CodePtr addressForCall(ArityCheckMode) = 0;
     virtual void* executableAddressAtOffset(size_t offset) = 0;
     void* executableAddress() { return executableAddressAtOffset(0); }
     virtual void* dataAddressAtOffset(size_t offset) = 0;
@@ -195,7 +196,7 @@ public:
 
 #if ENABLE(JIT)
     virtual RegisterSet liveRegistersToPreserveAtExceptionHandlingCallSite(CodeBlock*, CallSiteIndex);
-    virtual Optional<CodeOrigin> findPC(CodeBlock*, void* pc) { UNUSED_PARAM(pc); return WTF::nullopt; }
+    virtual std::optional<CodeOrigin> findPC(CodeBlock*, void* pc) { UNUSED_PARAM(pc); return std::nullopt; }
 #endif
 
 private:
@@ -205,7 +206,7 @@ private:
 class JITCodeWithCodeRef : public JITCode {
 protected:
     JITCodeWithCodeRef(JITType);
-    JITCodeWithCodeRef(CodeRef<JSEntryPtrTag>, JITType);
+    JITCodeWithCodeRef(CodeRef, JITType);
 
 public:
     virtual ~JITCodeWithCodeRef();
@@ -217,32 +218,32 @@ public:
     bool contains(void*) override;
 
 protected:
-    CodeRef<JSEntryPtrTag> m_ref;
+    CodeRef m_ref;
 };
 
 class DirectJITCode : public JITCodeWithCodeRef {
 public:
     DirectJITCode(JITType);
-    DirectJITCode(CodeRef<JSEntryPtrTag>, CodePtr<JSEntryPtrTag> withArityCheck, JITType);
+    DirectJITCode(CodeRef, CodePtr withArityCheck, JITType);
     virtual ~DirectJITCode();
     
-    void initializeCodeRef(CodeRef<JSEntryPtrTag>, CodePtr<JSEntryPtrTag> withArityCheck);
+    void initializeCodeRef(CodeRef, CodePtr withArityCheck);
 
-    CodePtr<JSEntryPtrTag> addressForCall(ArityCheckMode) override;
+    CodePtr addressForCall(ArityCheckMode) override;
 
 private:
-    CodePtr<JSEntryPtrTag> m_withArityCheck;
+    CodePtr m_withArityCheck;
 };
 
 class NativeJITCode : public JITCodeWithCodeRef {
 public:
     NativeJITCode(JITType);
-    NativeJITCode(CodeRef<JSEntryPtrTag>, JITType);
+    NativeJITCode(CodeRef, JITType);
     virtual ~NativeJITCode();
     
-    void initializeCodeRef(CodeRef<JSEntryPtrTag>);
+    void initializeCodeRef(CodeRef);
 
-    CodePtr<JSEntryPtrTag> addressForCall(ArityCheckMode) override;
+    CodePtr addressForCall(ArityCheckMode) override;
 };
 
 } // namespace JSC

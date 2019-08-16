@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -73,26 +73,21 @@ public:
         return m_oldStructure;
     }
     
+    const StructureSet& structureSet() const
+    {
+        return structure();
+    }
+    
     const StructureSet& oldStructure() const
     {
         ASSERT(kind() == Transition || kind() == Replace || kind() == Setter);
         return m_oldStructure;
     }
     
-    const StructureSet& structureSet() const
-    {
-        return oldStructure();
-    }
-    
     StructureSet& oldStructure()
     {
         ASSERT(kind() == Transition || kind() == Replace || kind() == Setter);
         return m_oldStructure;
-    }
-    
-    StructureSet& structureSet()
-    {
-        return oldStructure();
     }
     
     Structure* oldStructureForTransition() const;
@@ -102,8 +97,6 @@ public:
         ASSERT(kind() == Transition);
         return m_newStructure;
     }
-    
-    void fixTransitionToReplaceIfNecessary();
 
     InferredType::Descriptor requiredType() const
     {
@@ -136,9 +129,6 @@ public:
 
     bool attemptToMerge(const PutByIdVariant& other);
     
-    void markIfCheap(SlotVisitor&);
-    bool finalize();
-    
     void dump(PrintStream&) const;
     void dumpInContext(PrintStream&, DumpContext*) const;
 
@@ -147,7 +137,7 @@ private:
     
     Kind m_kind;
     StructureSet m_oldStructure;
-    Structure* m_newStructure { nullptr };
+    Structure* m_newStructure;
     ObjectPropertyConditionSet m_conditionSet;
     PropertyOffset m_offset;
     InferredType::Descriptor m_requiredType;

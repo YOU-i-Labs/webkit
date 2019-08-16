@@ -42,7 +42,7 @@ class TimeLabel extends LayoutNode
 
     constructor(type)
     {
-        super(`<div role="text" class="time-label"></div>`);
+        super(`<div class="time-label"></div>`);
 
         this._type = type;
         this.setValueWithNumberOfDigits(0, 4);
@@ -69,7 +69,7 @@ class TimeLabel extends LayoutNode
     {
         if (propertyName === "value") {
             this.element.textContent = this._formattedTime();
-            const timeAsString = formattedStringForDuration(this.value);
+            const timeAsString = formatTimeToString(this.value);
             const ariaLabel = (this._type === TimeLabel.Types.Remaining) ? UIString("Remaining") : UIString("Elapsed");
             this.element.setAttribute("aria-label", `${ariaLabel}: ${timeAsString}`);
             if (this.parent instanceof TimeControl)

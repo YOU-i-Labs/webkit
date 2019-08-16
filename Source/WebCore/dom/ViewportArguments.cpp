@@ -31,10 +31,9 @@
 #include "Document.h"
 #include "Frame.h"
 #include "IntSize.h"
-#include "RuntimeEnabledFeatures.h"
 #include "ScriptableDocumentParser.h"
 #include "Settings.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 
@@ -411,7 +410,7 @@ void setViewportFeature(ViewportArguments& arguments, Document& document, String
         arguments.maxZoom = findScaleValue(document, key, value);
     else if (equalLettersIgnoringASCIICase(key, "user-scalable"))
         arguments.userZoom = findBooleanValue(document, key, value);
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     else if (equalLettersIgnoringASCIICase(key, "minimal-ui")) {
         // FIXME: Ignore silently for now. This code should eventually be removed
         // so we start giving the warning in the web inspector as for other unimplemented keys.
@@ -474,11 +473,20 @@ void reportViewportWarning(Document& document, ViewportErrorCode errorCode, Stri
 
 TextStream& operator<<(TextStream& ts, const ViewportArguments& viewportArguments)
 {
-    TextStream::IndentScope indentScope(ts);
+    ts.increaseIndent();
 
-    ts << "\n" << indent << "(width " << viewportArguments.width << ", minWidth " << viewportArguments.minWidth << ", maxWidth " << viewportArguments.maxWidth << ")";
-    ts << "\n" << indent << "(height " << viewportArguments.height << ", minHeight " << viewportArguments.minHeight << ", maxHeight " << viewportArguments.maxHeight << ")";
-    ts << "\n" << indent << "(zoom " << viewportArguments.zoom << ", minZoom " << viewportArguments.minZoom << ", maxZoom " << viewportArguments.maxZoom << ")";
+    ts << "\n";
+    ts.writeIndent();
+    ts << "(width " << viewportArguments.width << ", minWidth " << viewportArguments.minWidth << ", maxWidth " << viewportArguments.maxWidth << ")";
+
+    ts << "\n";
+    ts.writeIndent();
+    ts << "(height " << viewportArguments.height << ", minHeight " << viewportArguments.minHeight << ", maxHeight " << viewportArguments.maxHeight << ")";
+
+    ts << "\n";
+    ts.writeIndent();
+    ts << "(zoom " << viewportArguments.zoom << ", minZoom " << viewportArguments.minZoom << ", maxZoom " << viewportArguments.maxZoom << ")";
+    ts.decreaseIndent();
 
     return ts;
 }

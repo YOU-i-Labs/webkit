@@ -86,7 +86,7 @@ void ResourceUsageThread::notifyObservers(ResourceUsageData&& data)
         {
             auto& resourceUsageThread = ResourceUsageThread::singleton();
             LockHolder locker(resourceUsageThread.m_lock);
-            functions = copyToVector(resourceUsageThread.m_observers.values());
+            copyValuesToVector(resourceUsageThread.m_observers, functions);
         }
 
         for (auto& function : functions)
@@ -100,26 +100,31 @@ void ResourceUsageThread::createThreadIfNeeded()
         return;
 
     m_vm = &commonVM();
-    m_thread = Thread::create("WebCore: ResourceUsage", [this] {
-        threadBody();
-    });
+    m_thread = Thread::create(threadCallback, this, "WebCore: ResourceUsage");
+}
+
+void ResourceUsageThread::threadCallback(void* resourceUsageThread)
+{
+    static_cast<ResourceUsageThread*>(resourceUsageThread)->threadBody();
 }
 
 NO_RETURN void ResourceUsageThread::threadBody()
 {
+    using namespace std::literals::chrono_literals;
+
     while (true) {
         // Only do work if we have observers.
         waitUntilObservers();
 
-        auto start = WallTime::now();
+        auto start = std::chrono::system_clock::now();
 
         ResourceUsageData data;
         platformThreadBody(m_vm, data);
         notifyObservers(WTFMove(data));
 
-        auto duration = WallTime::now() - start;
-        auto difference = 500_ms - duration;
-        WTF::sleep(difference);
+        auto duration = std::chrono::system_clock::now() - start;
+        auto difference = 500ms - duration;
+        std::this_thread::sleep_for(difference);
     }
 }
 

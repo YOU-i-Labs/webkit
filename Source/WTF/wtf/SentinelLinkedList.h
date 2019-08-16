@@ -34,7 +34,8 @@
 //        void setNext(Node*);
 //        Node* next();
 
-#pragma once
+#ifndef SentinelLinkedList_h
+#define SentinelLinkedList_h
 
 namespace WTF {
 
@@ -275,3 +276,6 @@ inline void SentinelLinkedList<T, RawNode>::takeFrom(SentinelLinkedList<T, RawNo
 
 using WTF::BasicRawSentinelNode;
 using WTF::SentinelLinkedList;
+
+#endif
+

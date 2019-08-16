@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,12 @@
 
 namespace WebCore {
 
+#if !PLATFORM(MAC)
+void PlatformMediaSessionManager::updateNowPlayingInfoIfNecessary()
+{
+}
+#endif
+
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
 
 #if !PLATFORM(COCOA)
@@ -51,14 +57,8 @@ PlatformMediaSessionManager* PlatformMediaSessionManager::sharedManagerIfExists(
 }
 #endif // !PLATFORM(COCOA)
 
-void PlatformMediaSessionManager::updateNowPlayingInfoIfNecessary()
-{
-    if (auto existingManager = PlatformMediaSessionManager::sharedManagerIfExists())
-        existingManager->scheduleUpdateNowPlayingInfo();
-}
-
 PlatformMediaSessionManager::PlatformMediaSessionManager()
-    : m_systemSleepListener(PAL::SystemSleepListener::create(*this))
+    : m_systemSleepListener(SystemSleepListener::create(*this))
 {
     resetRestrictions();
 }
@@ -162,12 +162,6 @@ void PlatformMediaSessionManager::removeSession(PlatformMediaSession& session)
     if (m_sessions.isEmpty() || std::all_of(m_sessions.begin(), m_sessions.end(), std::logical_not<void>())) {
         m_remoteCommandListener = nullptr;
         m_audioHardwareListener = nullptr;
-#if USE(AUDIO_SESSION)
-        if (m_becameActive && shouldDeactivateAudioSession()) {
-            AudioSession::sharedSession().tryToSetActive(false);
-            m_becameActive = false;
-        }
-#endif
     }
 
     updateSessionState();
@@ -205,8 +199,6 @@ bool PlatformMediaSessionManager::sessionWillBeginPlayback(PlatformMediaSession&
 #if USE(AUDIO_SESSION)
     if (activeAudioSessionRequired() && !AudioSession::sharedSession().tryToSetActive(true))
         return false;
-
-    m_becameActive = true;
 #endif
 
     if (m_interrupted)
@@ -221,6 +213,7 @@ bool PlatformMediaSessionManager::sessionWillBeginPlayback(PlatformMediaSession&
             oneSession.pauseSession();
     });
 
+    updateSessionState();
     return true;
 }
     
@@ -256,11 +249,6 @@ void PlatformMediaSessionManager::sessionWillEndPlayback(PlatformMediaSession& s
     LOG(Media, "PlatformMediaSessionManager::sessionWillEndPlayback - session moved from index %zu to %zu", pausingSessionIndex, lastPlayingSessionIndex);
 }
 
-void PlatformMediaSessionManager::sessionStateChanged(PlatformMediaSession&)
-{
-    updateSessionState();
-}
-
 void PlatformMediaSessionManager::setCurrentSession(PlatformMediaSession& session)
 {
     LOG(Media, "PlatformMediaSessionManager::setCurrentSession - %p", &session);
@@ -289,7 +277,7 @@ PlatformMediaSession* PlatformMediaSessionManager::currentSession() const
     return m_sessions[0];
 }
 
-Vector<PlatformMediaSession*> PlatformMediaSessionManager::currentSessionsMatching(const WTF::Function<bool(const PlatformMediaSession&)>& filter)
+Vector<PlatformMediaSession*> PlatformMediaSessionManager::currentSessionsMatching(std::function<bool(const PlatformMediaSession &)> filter)
 {
     Vector<PlatformMediaSession*> matchingSessions;
     forEachSession([&] (PlatformMediaSession& session, size_t) {
@@ -298,11 +286,19 @@ Vector<PlatformMediaSession*> PlatformMediaSessionManager::currentSessionsMatchi
     });
     return matchingSessions;
 }
+    
+bool PlatformMediaSessionManager::sessionCanLoadMedia(const PlatformMediaSession& session) const
+{
+    if (session.isSuspended())
+        return false;
+    return session.state() == PlatformMediaSession::Playing || !session.isHidden() || session.shouldOverrideBackgroundLoadingRestriction();
+}
 
 void PlatformMediaSessionManager::applicationWillBecomeInactive() const
 {
     LOG(Media, "PlatformMediaSessionManager::applicationWillBecomeInactive");
 
+    Vector<PlatformMediaSession*> sessions = m_sessions;
     forEachSession([&] (PlatformMediaSession& session, size_t) {
         if (m_restrictions[session.mediaType()] & InactiveProcessPlaybackRestricted)
             session.beginInterruption(PlatformMediaSession::ProcessInactive);
@@ -311,8 +307,9 @@ void PlatformMediaSessionManager::applicationWillBecomeInactive() const
 
 void PlatformMediaSessionManager::applicationDidBecomeActive() const
 {
-    LOG(Media, "PlatformMediaSessionManager::applicationDidBecomeActive");
+    LOG(Media, "PlatformMediaSessionManager::applicationDidBecomeInactive");
 
+    Vector<PlatformMediaSession*> sessions = m_sessions;
     forEachSession([&] (PlatformMediaSession& session, size_t) {
         if (m_restrictions[session.mediaType()] & InactiveProcessPlaybackRestricted)
             session.endInterruption(PlatformMediaSession::MayResumePlaying);
@@ -327,7 +324,8 @@ void PlatformMediaSessionManager::applicationDidEnterBackground(bool suspendedUn
         return;
 
     m_isApplicationInBackground = true;
-
+    
+    Vector<PlatformMediaSession*> sessions = m_sessions;
     forEachSession([&] (PlatformMediaSession& session, size_t) {
         if (suspendedUnderLock && m_restrictions[session.mediaType()] & SuspendedUnderLockPlaybackRestricted)
             session.beginInterruption(PlatformMediaSession::SuspendedUnderLock);
@@ -345,6 +343,7 @@ void PlatformMediaSessionManager::applicationWillEnterForeground(bool suspendedU
 
     m_isApplicationInBackground = false;
 
+    Vector<PlatformMediaSession*> sessions = m_sessions;
     forEachSession([&] (PlatformMediaSession& session, size_t) {
         if ((suspendedUnderLock && m_restrictions[session.mediaType()] & SuspendedUnderLockPlaybackRestricted) || m_restrictions[session.mediaType()] & BackgroundProcessPlaybackRestricted)
             session.endInterruption(PlatformMediaSession::MayResumePlaying);
@@ -364,6 +363,12 @@ void PlatformMediaSessionManager::sessionCanProduceAudioChanged(PlatformMediaSes
 {
     updateSessionState();
 }
+
+#if !PLATFORM(COCOA)
+void PlatformMediaSessionManager::updateSessionState()
+{
+}
+#endif
 
 void PlatformMediaSessionManager::didReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType command, const PlatformMediaSession::RemoteCommandArgument* argument)
 {
@@ -421,22 +426,6 @@ void PlatformMediaSessionManager::stopAllMediaPlaybackForProcess()
     });
 }
 
-void PlatformMediaSessionManager::suspendAllMediaPlaybackForDocument(const Document& document)
-{
-    forEachSession([&] (PlatformMediaSession& session, size_t) {
-        if (session.client().hostingDocument() == &document)
-            session.beginInterruption(PlatformMediaSession::PlaybackSuspended);
-    });
-}
-
-void PlatformMediaSessionManager::resumeAllMediaPlaybackForDocument(const Document& document)
-{
-    forEachSession([&] (PlatformMediaSession& session, size_t) {
-        if (session.client().hostingDocument() == &document)
-            session.endInterruption(PlatformMediaSession::MayResumePlaying);
-    });
-}
-
 void PlatformMediaSessionManager::forEachSession(const Function<void(PlatformMediaSession&, size_t)>& predicate) const
 {
     ++m_iteratingOverSessions;
@@ -475,29 +464,6 @@ PlatformMediaSession* PlatformMediaSessionManager::findSession(const Function<bo
         m_sessions.removeAll(nullptr);
 
     return foundSession;
-}
-
-static bool& deactivateAudioSession()
-{
-    static bool deactivate;
-    return deactivate;
-}
-
-bool PlatformMediaSessionManager::shouldDeactivateAudioSession()
-{
-    return deactivateAudioSession();
-}
-
-void PlatformMediaSessionManager::setShouldDeactivateAudioSession(bool deactivate)
-{
-    deactivateAudioSession() = deactivate;
-}
-
-#else // ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
-
-void PlatformMediaSessionManager::updateNowPlayingInfoIfNecessary()
-{
-
 }
 
 #endif // ENABLE(VIDEO) || ENABLE(WEB_AUDIO)

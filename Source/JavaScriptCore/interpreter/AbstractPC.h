@@ -36,7 +36,8 @@ struct Instruction;
 class AbstractPC {
 public:
     AbstractPC()
-        : m_mode(None)
+        : m_pointer(0)
+        , m_mode(None)
     {
     }
     
@@ -61,10 +62,8 @@ public:
     bool operator!() const { return !isSet(); }
 
 private:
-#if ENABLE(JIT)
-    const void* m_pointer { nullptr };
-#endif
-
+    void* m_pointer;
+    
     enum Mode { None, JIT, Interpreter };
     Mode m_mode;
 };

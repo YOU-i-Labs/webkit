@@ -33,7 +33,6 @@ namespace WebCore {
 class DocumentRuleSets;
 class RuleSet;
 class SpaceSplitString;
-struct InvalidationRuleSet;
 
 namespace Style {
 
@@ -43,13 +42,13 @@ public:
     ~ClassChangeInvalidation();
 
 private:
-    void computeInvalidation(const SpaceSplitString& oldClasses, const SpaceSplitString& newClasses);
-    void invalidateStyleWithRuleSets();
+    void invalidateStyle(const SpaceSplitString& oldClasses, const SpaceSplitString& newClasses);
+    void invalidateDescendantStyle();
 
     const bool m_isEnabled;
     Element& m_element;
 
-    Vector<const InvalidationRuleSet*, 4> m_invalidationRuleSets;
+    Vector<const RuleSet*, 4> m_descendantInvalidationRuleSets;
 };
 
 inline ClassChangeInvalidation::ClassChangeInvalidation(Element& element, const SpaceSplitString& oldClasses, const SpaceSplitString& newClasses)
@@ -59,15 +58,15 @@ inline ClassChangeInvalidation::ClassChangeInvalidation(Element& element, const 
 {
     if (!m_isEnabled)
         return;
-    computeInvalidation(oldClasses, newClasses);
-    invalidateStyleWithRuleSets();
+    invalidateStyle(oldClasses, newClasses);
+    invalidateDescendantStyle();
 }
 
 inline ClassChangeInvalidation::~ClassChangeInvalidation()
 {
     if (!m_isEnabled)
         return;
-    invalidateStyleWithRuleSets();
+    invalidateDescendantStyle();
 }
 
 }

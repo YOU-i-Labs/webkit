@@ -37,18 +37,16 @@ namespace WebCore {
 
 class CachedTextTrack;
 class Document;
-class HTMLTrackElement;
 class TextTrackLoader;
 class ScriptExecutionContext;
 
 class TextTrackLoaderClient {
 public:
-    virtual ~TextTrackLoaderClient() = default;
+    virtual ~TextTrackLoaderClient() { }
     
-    virtual void newCuesAvailable(TextTrackLoader&) = 0;
-    virtual void cueLoadingCompleted(TextTrackLoader&, bool loadingFailed) = 0;
-    virtual void newRegionsAvailable(TextTrackLoader&) = 0;
-    virtual void newStyleSheetsAvailable(TextTrackLoader&) = 0;
+    virtual void newCuesAvailable(TextTrackLoader*) = 0;
+    virtual void cueLoadingCompleted(TextTrackLoader*, bool loadingFailed) = 0;
+    virtual void newRegionsAvailable(TextTrackLoader*) = 0;
 };
 
 class TextTrackLoader : public CachedResourceClient, private WebVTTParserClient {
@@ -57,12 +55,11 @@ class TextTrackLoader : public CachedResourceClient, private WebVTTParserClient 
 public:
     TextTrackLoader(TextTrackLoaderClient&, ScriptExecutionContext*);
     virtual ~TextTrackLoader();
-
-    bool load(const URL&, HTMLTrackElement&);
+    
+    bool load(const URL&, const String& crossOriginMode, bool isInitiatingElementInUserAgentShadowTree);
     void cancelLoad();
     void getNewCues(Vector<RefPtr<TextTrackCue>>& outputCues);
     void getNewRegions(Vector<RefPtr<VTTRegion>>& outputRegions);
-    Vector<String> getNewStyleSheets();
 private:
 
     // CachedResourceClient
@@ -72,7 +69,6 @@ private:
     // WebVTTParserClient
     void newCuesParsed() override;
     void newRegionsParsed() override;
-    void newStyleSheetsParsed() final;
     void fileFailedToParse() override;
 
     void processNewCueData(CachedResource&);

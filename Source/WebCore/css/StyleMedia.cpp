@@ -31,7 +31,6 @@
 #include "FrameView.h"
 #include "MediaList.h"
 #include "MediaQueryEvaluator.h"
-#include "MediaQueryParser.h"
 #include "NodeRenderStyle.h"
 #include "RenderElement.h"
 #include "StyleResolver.h"
@@ -39,15 +38,14 @@
 
 namespace WebCore {
 
-StyleMedia::StyleMedia(DOMWindow& window)
-    : DOMWindowProperty(&window)
+StyleMedia::StyleMedia(Frame* frame)
+    : DOMWindowProperty(frame)
 {
 }
 
 String StyleMedia::type() const
 {
-    auto* frame = this->frame();
-    FrameView* view = frame ? frame->view() : nullptr;
+    FrameView* view = m_frame ? m_frame->view() : 0;
     if (view)
         return view->mediaType();
 
@@ -56,19 +54,18 @@ String StyleMedia::type() const
 
 bool StyleMedia::matchMedium(const String& query) const
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return false;
 
-    Document* document = frame->document();
+    Document* document = m_frame->document();
     ASSERT(document);
     Element* documentElement = document->documentElement();
     if (!documentElement)
         return false;
 
-    auto rootStyle = document->styleScope().resolver().styleForElement(*documentElement, document->renderStyle(), nullptr, RuleMatchingBehavior::MatchOnlyUserAgentRules).renderStyle;
+    auto rootStyle = document->styleScope().resolver().styleForElement(*documentElement, document->renderStyle(), nullptr, MatchOnlyUserAgentRules).renderStyle;
 
-    auto media = MediaQuerySet::create(query, MediaQueryParserContext(*document));
+    auto media = MediaQuerySet::create(query);
 
     return MediaQueryEvaluator { type(), *document, rootStyle.get() }.evaluate(media.get());
 }

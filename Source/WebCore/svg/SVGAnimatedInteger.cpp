@@ -1,6 +1,5 @@
 /*
  * Copyright (C) Research In Motion Limited 2011. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -34,12 +33,14 @@ SVGAnimatedIntegerAnimator::SVGAnimatedIntegerAnimator(SVGAnimationElement* anim
 
 std::unique_ptr<SVGAnimatedType> SVGAnimatedIntegerAnimator::constructFromString(const String& string)
 {
-    return SVGAnimatedType::create(SVGPropertyTraits<int>::fromString(string));
+    auto animatedType = SVGAnimatedType::createInteger(std::make_unique<int>());
+    animatedType->integer() = string.toIntStrict();
+    return animatedType;
 }
 
 std::unique_ptr<SVGAnimatedType> SVGAnimatedIntegerAnimator::startAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
 {
-    return constructFromBaseValue<SVGAnimatedInteger>(animatedTypes);
+    return SVGAnimatedType::createInteger(constructFromBaseValue<SVGAnimatedInteger>(animatedTypes));
 }
 
 void SVGAnimatedIntegerAnimator::stopAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
@@ -49,7 +50,7 @@ void SVGAnimatedIntegerAnimator::stopAnimValAnimation(const SVGElementAnimatedPr
 
 void SVGAnimatedIntegerAnimator::resetAnimValToBaseVal(const SVGElementAnimatedPropertyList& animatedTypes, SVGAnimatedType& type)
 {
-    resetFromBaseValue<SVGAnimatedInteger>(animatedTypes, type);
+    resetFromBaseValue<SVGAnimatedInteger>(animatedTypes, type, &SVGAnimatedType::integer);
 }
 
 void SVGAnimatedIntegerAnimator::animValWillChange(const SVGElementAnimatedPropertyList& animatedTypes)
@@ -67,7 +68,7 @@ void SVGAnimatedIntegerAnimator::addAnimatedTypes(SVGAnimatedType* from, SVGAnim
     ASSERT(from->type() == AnimatedInteger);
     ASSERT(from->type() == to->type());
 
-    to->as<int>() += from->as<int>();
+    to->integer() += from->integer();
 }
 
 void SVGAnimatedIntegerAnimator::calculateAnimatedInteger(SVGAnimationElement* animationElement, float percentage, unsigned repeatCount, int fromInteger, int toInteger, int toAtEndOfDurationInteger, int& animatedInteger)
@@ -82,10 +83,10 @@ void SVGAnimatedIntegerAnimator::calculateAnimatedValue(float percentage, unsign
     ASSERT(m_animationElement);
     ASSERT(m_contextElement);
 
-    const auto fromInteger = (m_animationElement->animationMode() == ToAnimation ? animated : from)->as<int>();
-    const auto toInteger = to->as<int>();
-    const auto toAtEndOfDurationInteger = toAtEndOfDuration->as<int>();
-    auto& animatedInteger = animated->as<int>();
+    int fromInteger = m_animationElement->animationMode() == ToAnimation ? animated->integer() : from->integer();
+    int toInteger = to->integer();
+    int toAtEndOfDurationInteger = toAtEndOfDuration->integer();
+    int& animatedInteger = animated->integer();
 
     calculateAnimatedInteger(m_animationElement, percentage, repeatCount, fromInteger, toInteger, toAtEndOfDurationInteger, animatedInteger);
 }

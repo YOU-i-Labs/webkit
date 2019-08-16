@@ -27,6 +27,7 @@
 
 #if ENABLE(DFG_JIT)
 
+#include "DFGGraph.h"
 #include "DFGInsertionSet.h"
 
 namespace JSC { namespace DFG {

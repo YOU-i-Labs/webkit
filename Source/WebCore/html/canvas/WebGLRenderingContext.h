@@ -26,22 +26,19 @@
 #pragma once
 
 #include "WebGLRenderingContextBase.h"
-#include <memory>
-
-#if ENABLE(WEBGL)
 
 namespace WebCore {
 
 class WebGLRenderingContext final : public WebGLRenderingContextBase {
 public:
-    static std::unique_ptr<WebGLRenderingContext> create(CanvasBase&, GraphicsContext3DAttributes);
-    static std::unique_ptr<WebGLRenderingContext> create(CanvasBase&, Ref<GraphicsContext3D>&&, GraphicsContext3DAttributes);
+    WebGLRenderingContext(HTMLCanvasElement&, GraphicsContext3DAttributes);
+    WebGLRenderingContext(HTMLCanvasElement&, Ref<GraphicsContext3D>&&, GraphicsContext3DAttributes);
 
     bool isWebGL1() const final { return true; }
 
     WebGLExtension* getExtension(const String&) final;
     WebGLAny getParameter(GC3Denum pname) final;
-    Optional<Vector<String>> getSupportedExtensions() final;
+    std::optional<Vector<String>> getSupportedExtensions() final;
 
     WebGLAny getFramebufferAttachmentParameter(GC3Denum target, GC3Denum attachment, GC3Denum pname) final;
     void renderbufferStorage(GC3Denum target, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height) final;
@@ -55,14 +52,8 @@ public:
     bool validateIndexArrayConservative(GC3Denum type, unsigned& numElementsRequired) final;
     bool validateBlendEquation(const char* functionName, GC3Denum mode) final;
     bool validateCapability(const char* functionName, GC3Denum cap) final;
-
-private:
-    WebGLRenderingContext(CanvasBase&, GraphicsContext3DAttributes);
-    WebGLRenderingContext(CanvasBase&, Ref<GraphicsContext3D>&&, GraphicsContext3DAttributes);
 };
-
+    
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_CANVASRENDERINGCONTEXT(WebCore::WebGLRenderingContext, isWebGL1())
-
-#endif

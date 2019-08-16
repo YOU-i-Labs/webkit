@@ -35,7 +35,7 @@ namespace WebCore {
 
 JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject* globalObject, Ref<MediaStreamTrack>&& object)
 {
-    if (is<CanvasCaptureMediaStreamTrack>(object))
+    if (is<CanvasCaptureMediaStreamTrack>(object.get()))
         return createWrapper<CanvasCaptureMediaStreamTrack>(globalObject, WTFMove(object));
     return createWrapper<MediaStreamTrack>(globalObject, WTFMove(object));
 }

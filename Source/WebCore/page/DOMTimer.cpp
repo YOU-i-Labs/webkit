@@ -35,13 +35,14 @@
 #include "ScheduledAction.h"
 #include "ScriptExecutionContext.h"
 #include "Settings.h"
+#include <wtf/CurrentTime.h>
 #include <wtf/HashMap.h>
 #include <wtf/MathExtras.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RandomNumber.h>
 #include <wtf/StdLibExtras.h>
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Frame.h"
@@ -211,7 +212,9 @@ DOMTimer::DOMTimer(ScriptExecutionContext& context, std::unique_ptr<ScheduledAct
         startRepeating(m_currentTimerInterval);
 }
 
-DOMTimer::~DOMTimer() = default;
+DOMTimer::~DOMTimer()
+{
+}
 
 int DOMTimer::install(ScriptExecutionContext& context, std::unique_ptr<ScheduledAction> action, Seconds timeout, bool singleShot)
 {
@@ -219,13 +222,12 @@ int DOMTimer::install(ScriptExecutionContext& context, std::unique_ptr<Scheduled
     // This reference will be released automatically when a one-shot timer fires, when the context
     // is destroyed, or if explicitly cancelled by removeById. 
     DOMTimer* timer = new DOMTimer(context, WTFMove(action), timeout, singleShot);
-#if PLATFORM(IOS_FAMILY)
-    if (WKIsObservingDOMTimerScheduling() && is<Document>(context)) {
+#if PLATFORM(IOS)
+    if (is<Document>(context)) {
         bool didDeferTimeout = context.activeDOMObjectsAreSuspended();
-        if (!didDeferTimeout && timeout <= 250_ms && singleShot) {
+        if (!didDeferTimeout && timeout <= 100_ms && singleShot) {
             WKSetObservedContentChange(WKContentIndeterminateChange);
-            WebThreadAddObservedDOMTimer(timer);
-            LOG_WITH_STREAM(ContentObservation, stream << "DOMTimer::install: registed this timer: (" << timer << ") and observe when it fires.");
+            WebThreadAddObservedContentModifier(timer); // Will only take affect if not already visibility change.
         }
     }
 #endif
@@ -322,7 +324,7 @@ void DOMTimer::fired()
     // Only the first execution of a multi-shot timer should get an affirmative user gesture indicator.
     m_userGestureTokenToForward = nullptr;
 
-    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willFireTimer(context, m_timeoutId, !repeatInterval());
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willFireTimer(context, m_timeoutId);
 
     // Simple case for non-one-shot timers.
     if (isActive()) {
@@ -341,19 +343,20 @@ void DOMTimer::fired()
 
     context.removeTimeout(m_timeoutId);
 
-#if PLATFORM(IOS_FAMILY)
-    auto isObversingLastTimer = false;
-    auto shouldBeginObservingChanges = false;
+#if PLATFORM(IOS)
+    bool shouldReportLackOfChanges;
+    bool shouldBeginObservingChanges;
     if (is<Document>(context)) {
-        isObversingLastTimer = WebThreadCountOfObservedDOMTimers() == 1;
-        shouldBeginObservingChanges = WebThreadContainsObservedDOMTimer(this);
+        shouldReportLackOfChanges = WebThreadCountOfObservedContentModifiers() == 1;
+        shouldBeginObservingChanges = WebThreadContainsObservedContentModifier(this);
+    } else {
+        shouldReportLackOfChanges = false;
+        shouldBeginObservingChanges = false;
     }
 
     if (shouldBeginObservingChanges) {
-        LOG_WITH_STREAM(ContentObservation, stream << "DOMTimer::fired: start observing (" << this << ") timer callback.");
-        WKStartObservingContentChanges();
-        WKStartObservingStyleRecalcScheduling();
-        WebThreadRemoveObservedDOMTimer(this);
+        WKBeginObservingContentChanges(false);
+        WebThreadRemoveObservedContentModifier(this);
     }
 #endif
 
@@ -364,24 +367,14 @@ void DOMTimer::fired()
 
     m_action->execute(context);
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     if (shouldBeginObservingChanges) {
-        LOG_WITH_STREAM(ContentObservation, stream << "DOMTimer::fired: stop observing (" << this << ") timer callback.");
-        WKStopObservingStyleRecalcScheduling();
         WKStopObservingContentChanges();
 
-        auto observedContentChange = WKObservedContentChange();
-        // Check if the timer callback triggered either a sync or async style update.
-        auto inDeterminedState = observedContentChange == WKContentVisibilityChange || (isObversingLastTimer && observedContentChange == WKContentNoChange);  
-        if (inDeterminedState) {
-            LOG(ContentObservation, "DOMTimer::fired: in determined state.");
-            auto& document = downcast<Document>(context);
-            if (auto* page = document.page())
+        if (WKObservedContentChange() == WKContentVisibilityChange || shouldReportLackOfChanges) {
+            Document& document = downcast<Document>(context);
+            if (Page* page = document.page())
                 page->chrome().client().observedContentChange(*document.frame());
-        } else if (observedContentChange == WKContentIndeterminateChange) {
-            // An async style recalc has been scheduled. Let's observe it.
-            LOG(ContentObservation, "DOMTimer::fired: wait until next style recalc fires.");
-            WKSetShouldObserveNextStyleRecalc(true);
         }
     }
 #endif
@@ -444,11 +437,11 @@ Seconds DOMTimer::intervalClampedToMinimum() const
     return interval;
 }
 
-Optional<MonotonicTime> DOMTimer::alignedFireTime(MonotonicTime fireTime) const
+std::optional<MonotonicTime> DOMTimer::alignedFireTime(MonotonicTime fireTime) const
 {
     Seconds alignmentInterval = scriptExecutionContext()->domTimerAlignmentInterval(m_nestingLevel >= maxTimerNestingLevel);
     if (!alignmentInterval)
-        return WTF::nullopt;
+        return std::nullopt;
     
     static const double randomizedProportion = randomNumber();
 

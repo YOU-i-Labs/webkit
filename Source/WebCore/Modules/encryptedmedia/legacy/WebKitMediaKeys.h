@@ -27,11 +27,10 @@
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
 
-#include "ExceptionOr.h"
 #include "LegacyCDM.h"
-#include <JavaScriptCore/Uint8Array.h>
+#include "ExceptionOr.h"
+#include <runtime/Uint8Array.h>
 #include <wtf/Vector.h>
-#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -39,7 +38,7 @@ class HTMLMediaElement;
 class ScriptExecutionContext;
 class WebKitMediaKeySession;
 
-class WebKitMediaKeys final : public RefCounted<WebKitMediaKeys>, private LegacyCDMClient {
+class WebKitMediaKeys final : public RefCounted<WebKitMediaKeys>, private CDMClient {
 public:
     static ExceptionOr<Ref<WebKitMediaKeys>> create(const String& keySystem);
     virtual ~WebKitMediaKeys();
@@ -48,7 +47,7 @@ public:
     static bool isTypeSupported(const String& keySystem, const String& mimeType);
     const String& keySystem() const { return m_keySystem; }
 
-    LegacyCDM& cdm() { ASSERT(m_cdm); return *m_cdm; }
+    CDM& cdm() { ASSERT(m_cdm); return *m_cdm; }
 
     void setMediaElement(HTMLMediaElement*);
 
@@ -56,14 +55,14 @@ public:
     RefPtr<ArrayBuffer> cachedKeyForKeyId(const String& keyId) const;
 
 private:
-    RefPtr<MediaPlayer> cdmMediaPlayer(const LegacyCDM*) const final;
+    MediaPlayer* cdmMediaPlayer(const CDM*) const final;
 
-    WebKitMediaKeys(const String& keySystem, std::unique_ptr<LegacyCDM>&&);
+    WebKitMediaKeys(const String& keySystem, std::unique_ptr<CDM>&&);
 
     Vector<Ref<WebKitMediaKeySession>> m_sessions;
-    WeakPtr<HTMLMediaElement> m_mediaElement;
+    HTMLMediaElement* m_mediaElement { nullptr };
     String m_keySystem;
-    std::unique_ptr<LegacyCDM> m_cdm;
+    std::unique_ptr<CDM> m_cdm;
 };
 
 }

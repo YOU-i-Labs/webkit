@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl -w
 
 # Copyright (C) 2013-2014 Apple Inc. All rights reserved.
 #
@@ -23,7 +23,6 @@
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use strict;
-use warnings;
 use File::Spec;
 
 my $FeatureDefines = ($ARGV[1] eq 'cairo')  ? 'FeatureDefinesCairo.props' : 'FeatureDefines.props';

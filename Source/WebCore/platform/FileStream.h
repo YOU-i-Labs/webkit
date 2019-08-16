@@ -35,6 +35,8 @@
 
 namespace WebCore {
 
+class URL;
+
 // All methods are synchronous.
 class FileStream {
 public:
@@ -43,7 +45,7 @@ public:
 
     // Gets the size of a file. Also validates if the file has been changed or not if the expected modification time is provided, i.e. non-zero.
     // Returns total number of bytes if successful. -1 otherwise.
-    long long getSize(const String& path, Optional<WallTime> expectedModificationTime);
+    long long getSize(const String& path, double expectedModificationTime);
 
     // Opens a file for reading. The reading starts at the specified offset and lasts till the specified length.
     // Returns true on success. False otherwise.
@@ -58,7 +60,7 @@ public:
     int read(char* buffer, int length);
 
 private:
-    FileSystem::PlatformFileHandle m_handle;
+    PlatformFileHandle m_handle;
     long long m_bytesProcessed;
     long long m_totalBytesToRead;
 };

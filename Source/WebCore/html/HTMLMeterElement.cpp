@@ -25,6 +25,7 @@
 
 #include "Attribute.h"
 #include "ElementIterator.h"
+#include "FormDataList.h"
 #include "HTMLDivElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
@@ -35,11 +36,8 @@
 #include "RenderTheme.h"
 #include "ShadowRoot.h"
 #include "UserAgentStyleSheets.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLMeterElement);
 
 using namespace HTMLNames;
 
@@ -49,7 +47,9 @@ HTMLMeterElement::HTMLMeterElement(const QualifiedName& tagName, Document& docum
     ASSERT(hasTagName(meterTag));
 }
 
-HTMLMeterElement::~HTMLMeterElement() = default;
+HTMLMeterElement::~HTMLMeterElement()
+{
+}
 
 Ref<HTMLMeterElement> HTMLMeterElement::create(const QualifiedName& tagName, Document& document)
 {
@@ -223,7 +223,7 @@ RenderMeter* HTMLMeterElement::renderMeter() const
     return nullptr;
 }
 
-void HTMLMeterElement::didAddUserAgentShadowRoot(ShadowRoot& root)
+void HTMLMeterElement::didAddUserAgentShadowRoot(ShadowRoot* root)
 {
     ASSERT(!m_value);
 
@@ -231,13 +231,13 @@ void HTMLMeterElement::didAddUserAgentShadowRoot(ShadowRoot& root)
 
     auto style = HTMLStyleElement::create(HTMLNames::styleTag, document(), false);
     style->setTextContent(shadowStyle);
-    root.appendChild(style);
+    root->appendChild(style);
 
     // Pseudos are set to allow author styling.
     auto inner = HTMLDivElement::create(document());
     inner->setIdAttribute("inner");
     inner->setPseudo("-webkit-meter-inner-element");
-    root.appendChild(inner);
+    root->appendChild(inner);
 
     auto bar = HTMLDivElement::create(document());
     bar->setIdAttribute("bar");

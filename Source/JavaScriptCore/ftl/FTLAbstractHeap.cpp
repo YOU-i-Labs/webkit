@@ -38,6 +38,8 @@
 
 namespace JSC { namespace FTL {
 
+using namespace B3;
+
 AbstractHeap::AbstractHeap(AbstractHeap* parent, const char* heapName, ptrdiff_t offset)
     : m_offset(offset)
     , m_heapName(heapName)
@@ -75,7 +77,7 @@ void AbstractHeap::compute(unsigned begin)
 
     if (m_children.isEmpty()) {
         // Must special-case leaves so that they use just one slot on the number line.
-        m_range = B3::HeapRange(begin);
+        m_range = HeapRange(begin);
         return;
     }
 
@@ -85,7 +87,7 @@ void AbstractHeap::compute(unsigned begin)
         current = child->range().end();
     }
 
-    m_range = B3::HeapRange(begin, current);
+    m_range = HeapRange(begin, current);
 }
 
 void AbstractHeap::shallowDump(PrintStream& out) const
@@ -140,13 +142,11 @@ IndexedAbstractHeap::~IndexedAbstractHeap()
 {
 }
 
-TypedPointer IndexedAbstractHeap::baseIndex(Output& out, LValue base, LValue index, JSValue indexAsConstant, ptrdiff_t offset, LValue mask)
+TypedPointer IndexedAbstractHeap::baseIndex(Output& out, LValue base, LValue index, JSValue indexAsConstant, ptrdiff_t offset)
 {
     if (indexAsConstant.isInt32())
         return out.address(base, at(indexAsConstant.asInt32()), offset);
 
-    if (mask)
-        index = out.bitAnd(mask, index);
     LValue result = out.add(base, out.mul(index, out.constIntPtr(m_elementSize)));
     
     return TypedPointer(atAnyIndex(), out.addPtr(result, m_offset + offset));

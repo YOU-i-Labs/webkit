@@ -29,7 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ContextMenuItem = class ContextMenuItem extends WI.Object
+WebInspector.ContextMenuItem = class ContextMenuItem extends WebInspector.Object
 {
     constructor(topLevelMenu, type, label, disabled, checked)
     {
@@ -82,7 +82,7 @@ WI.ContextMenuItem = class ContextMenuItem extends WI.Object
     }
 };
 
-WI.ContextSubMenuItem = class ContextSubMenuItem extends WI.ContextMenuItem
+WebInspector.ContextSubMenuItem = class ContextSubMenuItem extends WebInspector.ContextMenuItem
 {
     constructor(topLevelMenu, label, disabled)
     {
@@ -95,23 +95,23 @@ WI.ContextSubMenuItem = class ContextSubMenuItem extends WI.ContextMenuItem
 
     appendItem(label, handler, disabled)
     {
-        let item = new WI.ContextMenuItem(this._contextMenu, "item", label, disabled);
-        this.pushItem(item);
+        let item = new WebInspector.ContextMenuItem(this._contextMenu, "item", label, disabled);
+        this._pushItem(item);
         this._contextMenu._setHandler(item.id(), handler);
         return item;
     }
 
     appendSubMenuItem(label, disabled)
     {
-        let item = new WI.ContextSubMenuItem(this._contextMenu, label, disabled);
-        this.pushItem(item);
+        let item = new WebInspector.ContextSubMenuItem(this._contextMenu, label, disabled);
+        this._pushItem(item);
         return item;
     }
 
     appendCheckboxItem(label, handler, checked, disabled)
     {
-        let item = new WI.ContextMenuItem(this._contextMenu, "checkbox", label, disabled, checked);
-        this.pushItem(item);
+        let item = new WebInspector.ContextMenuItem(this._contextMenu, "checkbox", label, disabled, checked);
+        this._pushItem(item);
         this._contextMenu._setHandler(item.id(), handler);
         return item;
     }
@@ -122,10 +122,10 @@ WI.ContextSubMenuItem = class ContextSubMenuItem extends WI.ContextMenuItem
             this._pendingSeparator = true;
     }
 
-    pushItem(item)
+    _pushItem(item)
     {
         if (this._pendingSeparator) {
-            this._items.push(new WI.ContextMenuItem(this._contextMenu, "separator"));
+            this._items.push(new WebInspector.ContextMenuItem(this._contextMenu, "separator"));
             this._pendingSeparator = null;
         }
         this._items.push(item);
@@ -136,19 +136,14 @@ WI.ContextSubMenuItem = class ContextSubMenuItem extends WI.ContextMenuItem
         return !this._items.length;
     }
 
-    // Private
-
     _buildDescriptor()
     {
-        if (this.isEmpty())
-            return null;
-
-        let subItems = this._items.map((item) => item._buildDescriptor()).filter((item) => !!item);
+        let subItems = this._items.map((item) => item._buildDescriptor());
         return {type: "subMenu", label: this._label, enabled: !this._disabled, subItems};
     }
 };
 
-WI.ContextMenu = class ContextMenu extends WI.ContextSubMenuItem
+WebInspector.ContextMenu = class ContextMenu extends WebInspector.ContextSubMenuItem
 {
     constructor(event)
     {
@@ -163,22 +158,22 @@ WI.ContextMenu = class ContextMenu extends WI.ContextSubMenuItem
 
     static createFromEvent(event, onlyExisting = false)
     {
-        if (!event[WI.ContextMenu.ProposedMenuSymbol] && !onlyExisting)
-            event[WI.ContextMenu.ProposedMenuSymbol] = new WI.ContextMenu(event);
+        if (!event[WebInspector.ContextMenu.ProposedMenuSymbol] && !onlyExisting)
+            event[WebInspector.ContextMenu.ProposedMenuSymbol] = new WebInspector.ContextMenu(event);
 
-        return event[WI.ContextMenu.ProposedMenuSymbol] || null;
+        return event[WebInspector.ContextMenu.ProposedMenuSymbol] || null;
     }
 
     static contextMenuItemSelected(id)
     {
-        if (WI.ContextMenu._lastContextMenu)
-            WI.ContextMenu._lastContextMenu._itemSelected(id);
+        if (WebInspector.ContextMenu._lastContextMenu)
+            WebInspector.ContextMenu._lastContextMenu._itemSelected(id);
     }
 
     static contextMenuCleared()
     {
         // FIXME: Unfortunately, contextMenuCleared is invoked between show and item selected
-        // so we can't delete last menu object from WI. Fix the contract.
+        // so we can't delete last menu object from WebInspector. Fix the contract.
     }
 
     // Public
@@ -194,7 +189,7 @@ WI.ContextMenu = class ContextMenu extends WI.ContextSubMenuItem
 
         let menuObject = this._buildDescriptor();
         if (menuObject.length) {
-            WI.ContextMenu._lastContextMenu = this;
+            WebInspector.ContextMenu._lastContextMenu = this;
 
             if (this._event.type !== "contextmenu" && typeof InspectorFrontendHost.dispatchEventAsContextMenuEvent === "function") {
                 this._menuObject = menuObject;
@@ -229,7 +224,7 @@ WI.ContextMenu = class ContextMenu extends WI.ContextSubMenuItem
 
     _buildDescriptor()
     {
-        return this._items.map((item) => item._buildDescriptor()).filter((item) => !!item);
+        return this._items.map((item) => item._buildDescriptor());
     }
 
     _itemSelected(id)
@@ -239,4 +234,4 @@ WI.ContextMenu = class ContextMenu extends WI.ContextSubMenuItem
     }
 };
 
-WI.ContextMenu.ProposedMenuSymbol = Symbol("context-menu-proposed-menu");
+WebInspector.ContextMenu.ProposedMenuSymbol = Symbol("context-menu-proposed-menu");

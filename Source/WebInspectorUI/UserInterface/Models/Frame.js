@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.Frame = class Frame extends WI.Object
+WebInspector.Frame = class Frame extends WebInspector.Object
 {
     constructor(id, name, securityOrigin, loaderIdentifier, mainResource)
     {
@@ -36,11 +36,11 @@ WI.Frame = class Frame extends WI.Object
         this._name = null;
         this._securityOrigin = null;
 
-        this._resourceCollection = new WI.ResourceCollection;
-        this._provisionalResourceCollection = new WI.ResourceCollection;
-        this._extraScriptCollection = new WI.ScriptCollection;
+        this._resourceCollection = new WebInspector.ResourceCollection;
+        this._provisionalResourceCollection = new WebInspector.ResourceCollection;
+        this._extraScriptCollection = new WebInspector.Collection(WebInspector.Collection.TypeVerifier.Script);
 
-        this._childFrameCollection = new WI.FrameCollection;
+        this._childFrameCollection = new WebInspector.Collection(WebInspector.Collection.TypeVerifier.Frame);
         this._childFrameIdentifierMap = new Map;
 
         this._parentFrame = null;
@@ -49,7 +49,7 @@ WI.Frame = class Frame extends WI.Object
         this._domContentReadyEventTimestamp = NaN;
         this._loadEventTimestamp = NaN;
 
-        this._executionContextList = new WI.ExecutionContextList;
+        this._executionContextList = new WebInspector.ExecutionContextList;
 
         this.initialize(name, securityOrigin, loaderIdentifier, mainResource);
     }
@@ -88,10 +88,10 @@ WI.Frame = class Frame extends WI.Object
             this._dispatchMainResourceDidChangeEvent(oldMainResource);
 
         if (this._securityOrigin !== oldSecurityOrigin)
-            this.dispatchEventToListeners(WI.Frame.Event.SecurityOriginDidChange, {oldSecurityOrigin});
+            this.dispatchEventToListeners(WebInspector.Frame.Event.SecurityOriginDidChange, {oldSecurityOrigin});
 
         if (this._name !== oldName)
-            this.dispatchEventToListeners(WI.Frame.Event.NameDidChange, {oldName});
+            this.dispatchEventToListeners(WebInspector.Frame.Event.NameDidChange, {oldName});
     }
 
     startProvisionalLoad(provisionalMainResource)
@@ -105,7 +105,7 @@ WI.Frame = class Frame extends WI.Object
 
         this._provisionalResourceCollection.clear();
 
-        this.dispatchEventToListeners(WI.Frame.Event.ProvisionalLoadStarted);
+        this.dispatchEventToListeners(WebInspector.Frame.Event.ProvisionalLoadStarted);
     }
 
     commitProvisionalLoad(securityOrigin)
@@ -131,20 +131,20 @@ WI.Frame = class Frame extends WI.Object
         this.removeAllResources();
 
         this._resourceCollection = this._provisionalResourceCollection;
-        this._provisionalResourceCollection = new WI.ResourceCollection;
+        this._provisionalResourceCollection = new WebInspector.ResourceCollection;
         this._extraScriptCollection.clear();
 
         this.clearExecutionContexts(true);
         this.clearProvisionalLoad(true);
         this.removeAllChildFrames();
 
-        this.dispatchEventToListeners(WI.Frame.Event.ProvisionalLoadCommitted);
+        this.dispatchEventToListeners(WebInspector.Frame.Event.ProvisionalLoadCommitted);
 
         if (this._mainResource !== oldMainResource)
             this._dispatchMainResourceDidChangeEvent(oldMainResource);
 
         if (this._securityOrigin !== oldSecurityOrigin)
-            this.dispatchEventToListeners(WI.Frame.Event.SecurityOriginDidChange, {oldSecurityOrigin});
+            this.dispatchEventToListeners(WebInspector.Frame.Event.SecurityOriginDidChange, {oldSecurityOrigin});
     }
 
     clearProvisionalLoad(skipProvisionalLoadClearedEvent)
@@ -157,7 +157,7 @@ WI.Frame = class Frame extends WI.Object
         this._provisionalResourceCollection.clear();
 
         if (!skipProvisionalLoadClearedEvent)
-            this.dispatchEventToListeners(WI.Frame.Event.ProvisionalLoadCleared);
+            this.dispatchEventToListeners(WebInspector.Frame.Event.ProvisionalLoadCleared);
     }
 
     get id()
@@ -193,7 +193,7 @@ WI.Frame = class Frame extends WI.Object
     get domTree()
     {
         if (!this._domTree)
-            this._domTree = new WI.DOMTree(this);
+            this._domTree = new WebInspector.DOMTree(this);
         return this._domTree;
     }
 
@@ -212,7 +212,7 @@ WI.Frame = class Frame extends WI.Object
         if (this._executionContextList.contexts.length) {
             let contexts = this._executionContextList.contexts.slice();
             this._executionContextList.clear();
-            this.dispatchEventToListeners(WI.Frame.Event.ExecutionContextsCleared, {committingProvisionalLoad: !!committingProvisionalLoad, contexts});
+            this.dispatchEventToListeners(WebInspector.Frame.Event.ExecutionContextsCleared, {committingProvisionalLoad: !!committingProvisionalLoad, contexts});
         }
     }
 
@@ -221,7 +221,7 @@ WI.Frame = class Frame extends WI.Object
         var changedPageContext = this._executionContextList.add(context);
 
         if (changedPageContext)
-            this.dispatchEventToListeners(WI.Frame.Event.PageExecutionContextChanged);
+            this.dispatchEventToListeners(WebInspector.Frame.Event.PageExecutionContextChanged);
     }
 
     get mainResource()
@@ -293,8 +293,8 @@ WI.Frame = class Frame extends WI.Object
 
     addChildFrame(frame)
     {
-        console.assert(frame instanceof WI.Frame);
-        if (!(frame instanceof WI.Frame))
+        console.assert(frame instanceof WebInspector.Frame);
+        if (!(frame instanceof WebInspector.Frame))
             return;
 
         if (frame._parentFrame === this)
@@ -308,7 +308,7 @@ WI.Frame = class Frame extends WI.Object
 
         frame._parentFrame = this;
 
-        this.dispatchEventToListeners(WI.Frame.Event.ChildFrameWasAdded, {childFrame: frame});
+        this.dispatchEventToListeners(WebInspector.Frame.Event.ChildFrameWasAdded, {childFrame: frame});
     }
 
     removeChildFrame(frameOrFrameId)
@@ -316,15 +316,15 @@ WI.Frame = class Frame extends WI.Object
         console.assert(frameOrFrameId);
 
         let childFrameId = frameOrFrameId;
-        if (childFrameId instanceof WI.Frame)
+        if (childFrameId instanceof WebInspector.Frame)
             childFrameId = frameOrFrameId._id;
 
-        // Fetch the frame by id even if we were passed a WI.Frame.
-        // We do this incase the WI.Frame is a new object that isn't
+        // Fetch the frame by id even if we were passed a WebInspector.Frame.
+        // We do this incase the WebInspector.Frame is a new object that isn't
         // in _childFrameCollection, but the id is a valid child frame.
         let childFrame = this.childFrameForIdentifier(childFrameId);
-        console.assert(childFrame instanceof WI.Frame);
-        if (!(childFrame instanceof WI.Frame))
+        console.assert(childFrame instanceof WebInspector.Frame);
+        if (!(childFrame instanceof WebInspector.Frame))
             return;
 
         console.assert(childFrame.parentFrame === this);
@@ -334,20 +334,20 @@ WI.Frame = class Frame extends WI.Object
 
         childFrame._detachFromParentFrame();
 
-        this.dispatchEventToListeners(WI.Frame.Event.ChildFrameWasRemoved, {childFrame});
+        this.dispatchEventToListeners(WebInspector.Frame.Event.ChildFrameWasRemoved, {childFrame});
     }
 
     removeAllChildFrames()
     {
         this._detachFromParentFrame();
 
-        for (let childFrame of this._childFrameCollection)
+        for (let childFrame of this._childFrameCollection.items)
             childFrame.removeAllChildFrames();
 
         this._childFrameCollection.clear();
         this._childFrameIdentifierMap.clear();
 
-        this.dispatchEventToListeners(WI.Frame.Event.AllChildFramesRemoved);
+        this.dispatchEventToListeners(WebInspector.Frame.Event.AllChildFramesRemoved);
     }
 
     resourceForURL(url, recursivelySearchChildFrames)
@@ -357,7 +357,7 @@ WI.Frame = class Frame extends WI.Object
             return resource;
 
         // Check the main resources of the child frames for the requested URL.
-        for (let childFrame of this._childFrameCollection) {
+        for (let childFrame of this._childFrameCollection.items) {
             resource = childFrame.mainResource;
             if (resource.url === url)
                 return resource;
@@ -367,7 +367,7 @@ WI.Frame = class Frame extends WI.Object
             return null;
 
         // Recursively search resources of child frames.
-        for (let childFrame of this._childFrameCollection) {
+        for (let childFrame of this._childFrameCollection.items) {
             resource = childFrame.resourceForURL(url, true);
             if (resource)
                 return resource;
@@ -383,8 +383,8 @@ WI.Frame = class Frame extends WI.Object
 
     addResource(resource)
     {
-        console.assert(resource instanceof WI.Resource);
-        if (!(resource instanceof WI.Resource))
+        console.assert(resource instanceof WebInspector.Resource);
+        if (!(resource instanceof WebInspector.Resource))
             return;
 
         if (resource.parentFrame === this)
@@ -397,10 +397,10 @@ WI.Frame = class Frame extends WI.Object
 
         if (this._isProvisionalResource(resource)) {
             this._provisionalResourceCollection.add(resource);
-            this.dispatchEventToListeners(WI.Frame.Event.ProvisionalResourceWasAdded, {resource});
+            this.dispatchEventToListeners(WebInspector.Frame.Event.ProvisionalResourceWasAdded, {resource});
         } else {
             this._resourceCollection.add(resource);
-            this.dispatchEventToListeners(WI.Frame.Event.ResourceWasAdded, {resource});
+            this.dispatchEventToListeners(WebInspector.Frame.Event.ResourceWasAdded, {resource});
         }
     }
 
@@ -412,35 +412,36 @@ WI.Frame = class Frame extends WI.Object
 
         this._disassociateWithResource(resource);
 
-        this.dispatchEventToListeners(WI.Frame.Event.ResourceWasRemoved, {resource});
+        this.dispatchEventToListeners(WebInspector.Frame.Event.ResourceWasRemoved, {resource});
     }
 
     removeAllResources()
     {
         // This does not remove provisional resources, use clearProvisionalLoad for that.
 
-        if (!this._resourceCollection.size)
+        let resources = this._resourceCollection.items;
+        if (!resources.size)
             return;
 
-        for (let resource of this._resourceCollection)
+        for (let resource of resources)
             this._disassociateWithResource(resource);
 
         this._resourceCollection.clear();
 
-        this.dispatchEventToListeners(WI.Frame.Event.AllResourcesRemoved);
+        this.dispatchEventToListeners(WebInspector.Frame.Event.AllResourcesRemoved);
     }
 
     addExtraScript(script)
     {
         this._extraScriptCollection.add(script);
 
-        this.dispatchEventToListeners(WI.Frame.Event.ExtraScriptAdded, {script});
+        this.dispatchEventToListeners(WebInspector.Frame.Event.ExtraScriptAdded, {script});
     }
 
     saveIdentityToCookie(cookie)
     {
-        cookie[WI.Frame.MainResourceURLCookieKey] = this.mainResource.url.hash;
-        cookie[WI.Frame.IsMainFrameCookieKey] = this._isMainFrame;
+        cookie[WebInspector.Frame.MainResourceURLCookieKey] = this.mainResource.url.hash;
+        cookie[WebInspector.Frame.IsMainFrameCookieKey] = this._isMainFrame;
     }
 
     // Private
@@ -480,11 +481,11 @@ WI.Frame = class Frame extends WI.Object
 
     _dispatchMainResourceDidChangeEvent(oldMainResource)
     {
-        this.dispatchEventToListeners(WI.Frame.Event.MainResourceDidChange, {oldMainResource});
+        this.dispatchEventToListeners(WebInspector.Frame.Event.MainResourceDidChange, {oldMainResource});
     }
 };
 
-WI.Frame.Event = {
+WebInspector.Frame.Event = {
     NameDidChange: "frame-name-did-change",
     SecurityOriginDidChange: "frame-security-origin-did-change",
     MainResourceDidChange: "frame-main-resource-did-change",
@@ -503,6 +504,6 @@ WI.Frame.Event = {
     ExecutionContextsCleared: "frame-execution-contexts-cleared"
 };
 
-WI.Frame.TypeIdentifier = "Frame";
-WI.Frame.MainResourceURLCookieKey = "frame-main-resource-url";
-WI.Frame.IsMainFrameCookieKey = "frame-is-main-frame";
+WebInspector.Frame.TypeIdentifier = "Frame";
+WebInspector.Frame.MainResourceURLCookieKey = "frame-main-resource-url";
+WebInspector.Frame.IsMainFrameCookieKey = "frame-is-main-frame";

@@ -10,7 +10,6 @@
 #define LIBANGLE_RENDERER_D3D_D3D11_INDEXBUFFER11_H_
 
 #include "libANGLE/renderer/d3d/IndexBuffer.h"
-#include "libANGLE/renderer/d3d/d3d11/ResourceManager11.h"
 
 namespace rx
 {
@@ -20,31 +19,31 @@ class IndexBuffer11 : public IndexBuffer
 {
   public:
     explicit IndexBuffer11(Renderer11 *const renderer);
-    ~IndexBuffer11() override;
+    virtual ~IndexBuffer11();
 
-    gl::Error initialize(unsigned int bufferSize, GLenum indexType, bool dynamic) override;
+    virtual gl::Error initialize(unsigned int bufferSize, GLenum indexType, bool dynamic);
 
-    gl::Error mapBuffer(unsigned int offset, unsigned int size, void **outMappedMemory) override;
-    gl::Error unmapBuffer() override;
+    virtual gl::Error mapBuffer(unsigned int offset, unsigned int size, void** outMappedMemory);
+    virtual gl::Error unmapBuffer();
 
-    GLenum getIndexType() const override;
-    unsigned int getBufferSize() const override;
-    gl::Error setSize(unsigned int bufferSize, GLenum indexType) override;
+    virtual GLenum getIndexType() const;
+    virtual unsigned int getBufferSize() const;
+    virtual gl::Error setSize(unsigned int bufferSize, GLenum indexType);
 
-    gl::Error discard() override;
+    virtual gl::Error discard();
 
     DXGI_FORMAT getIndexFormat() const;
-    const d3d11::Buffer &getBuffer() const;
+    ID3D11Buffer *getBuffer() const;
 
   private:
     Renderer11 *const mRenderer;
 
-    d3d11::Buffer mBuffer;
+    ID3D11Buffer *mBuffer;
     unsigned int mBufferSize;
     GLenum mIndexType;
     bool mDynamicUsage;
 };
 
-}  // namespace rx
+}
 
 #endif // LIBANGLE_RENDERER_D3D_D3D11_INDEXBUFFER11_H_

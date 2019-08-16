@@ -32,8 +32,7 @@
 #include "config.h"
 #include "SpotLightSource.h"
 
-#include "FilterEffect.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 
@@ -41,14 +40,12 @@ namespace WebCore {
 // according to the SVG 1.1 SE light regression tests
 static const float antiAliasTreshold = 0.016f;
 
-void SpotLightSource::initPaintingData(const FilterEffect& filterEffect, PaintingData& paintingData)
+void SpotLightSource::initPaintingData(PaintingData& paintingData)
 {
-    m_bufferPosition.setXY(filterEffect.mapPointFromUserSpaceToBuffer(m_userSpacePosition.xy()));
-    // To scale Z, map a point offset from m_userSpacePosition in the x direction by z.
-    FloatPoint mappedZ = filterEffect.mapPointFromUserSpaceToBuffer({ m_userSpacePosition.x() + m_userSpacePosition.z(), m_userSpacePosition.y() });
-    m_bufferPosition.setZ(mappedZ.x() - m_bufferPosition.x());
-    
-    paintingData.directionVector = m_userSpacePointsAt - m_userSpacePosition;
+    paintingData.privateColorVector = paintingData.colorVector;
+    paintingData.directionVector.setX(m_direction.x() - m_position.x());
+    paintingData.directionVector.setY(m_direction.y() - m_position.y());
+    paintingData.directionVector.setZ(m_direction.z() - m_position.z());
     paintingData.directionVector.normalize();
 
     if (!m_limitingConeAngle) {
@@ -73,19 +70,20 @@ void SpotLightSource::initPaintingData(const FilterEffect& filterEffect, Paintin
         paintingData.specularExponent = 2;
 }
 
-LightSource::ComputedLightingData SpotLightSource::computePixelLightingData(const PaintingData& paintingData, int x, int y, float z) const
+void SpotLightSource::updatePaintingData(PaintingData& paintingData, int x, int y, float z)
 {
-    FloatPoint3D lightVector = {
-        m_bufferPosition.x() - x,
-        m_bufferPosition.y() - y,
-        m_bufferPosition.z() - z
-    };
-    float lightVectorLength = lightVector.length();
+    paintingData.lightVector.setX(m_position.x() - x);
+    paintingData.lightVector.setY(m_position.y() - y);
+    paintingData.lightVector.setZ(m_position.z() - z);
+    paintingData.lightVectorLength = paintingData.lightVector.length();
 
-    float cosineOfAngle = (lightVector * paintingData.directionVector) / lightVectorLength;
+    float cosineOfAngle = (paintingData.lightVector * paintingData.directionVector) / paintingData.lightVectorLength;
     if (cosineOfAngle > paintingData.coneCutOffLimit) {
         // No light is produced, scanlines are not updated
-        return { lightVector, { }, lightVectorLength };
+        paintingData.colorVector.setX(0.0f);
+        paintingData.colorVector.setY(0.0f);
+        paintingData.colorVector.setZ(0.0f);
+        return;
     }
 
     // Set the color of the pixel
@@ -108,58 +106,56 @@ LightSource::ComputedLightingData SpotLightSource::computePixelLightingData(cons
     if (lightStrength > 1.0f)
         lightStrength = 1.0f;
 
-    return {
-        lightVector,
-        paintingData.initialLightingData.colorVector * lightStrength,
-        lightVectorLength
-    };
+    paintingData.colorVector.setX(paintingData.privateColorVector.x() * lightStrength);
+    paintingData.colorVector.setY(paintingData.privateColorVector.y() * lightStrength);
+    paintingData.colorVector.setZ(paintingData.privateColorVector.z() * lightStrength);
 }
 
 bool SpotLightSource::setX(float x)
 {
-    if (m_userSpacePosition.x() == x)
+    if (m_position.x() == x)
         return false;
-    m_userSpacePosition.setX(x);
+    m_position.setX(x);
     return true;
 }
 
 bool SpotLightSource::setY(float y)
 {
-    if (m_userSpacePosition.y() == y)
+    if (m_position.y() == y)
         return false;
-    m_userSpacePosition.setY(y);
+    m_position.setY(y);
     return true;
 }
 
 bool SpotLightSource::setZ(float z)
 {
-    if (m_userSpacePosition.z() == z)
+    if (m_position.z() == z)
         return false;
-    m_userSpacePosition.setZ(z);
+    m_position.setZ(z);
     return true;
 }
 
 bool SpotLightSource::setPointsAtX(float pointsAtX)
 {
-    if (m_userSpacePointsAt.x() == pointsAtX)
+    if (m_direction.x() == pointsAtX)
         return false;
-    m_userSpacePointsAt.setX(pointsAtX);
+    m_direction.setX(pointsAtX);
     return true;
 }
 
 bool SpotLightSource::setPointsAtY(float pointsAtY)
 {
-    if (m_userSpacePointsAt.y() == pointsAtY)
+    if (m_direction.y() == pointsAtY)
         return false;
-    m_userSpacePointsAt.setY(pointsAtY);
+    m_direction.setY(pointsAtY);
     return true;
 }
 
 bool SpotLightSource::setPointsAtZ(float pointsAtZ)
 {
-    if (m_userSpacePointsAt.z() == pointsAtZ)
+    if (m_direction.z() == pointsAtZ)
         return false;
-    m_userSpacePointsAt.setZ(pointsAtZ);
+    m_direction.setZ(pointsAtZ);
     return true;
 }
 

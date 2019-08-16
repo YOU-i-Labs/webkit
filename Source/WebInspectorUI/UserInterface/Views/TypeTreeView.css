@@ -27,8 +27,8 @@
     position: relative;
     display: block;
 
-    color: var(--text-color);
-    font-family: -webkit-system-font, sans-serif;
+    color: black;
+    font-family: -apple-system, sans-serif;
     font-size: 12px;
 }
 

@@ -27,6 +27,7 @@
 
 #if ENABLE(DFG_JIT)
 
+#include "DFGCommon.h"
 #include "DFGEdge.h"
 
 namespace JSC { namespace DFG {
@@ -61,9 +62,6 @@ public:
         ASSERT_UNUSED(kind, kind == Variable);
         setFirstChild(firstChild);
         setNumChildren(numChildren);
-        // We need to make sure this is the empty value so equivalent adjacency
-        // lists produce identical hashes.
-        m_words[2] = Edge(); 
     }
     
     bool isEmpty() const { return !child1(); }

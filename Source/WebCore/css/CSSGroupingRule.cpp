@@ -35,6 +35,7 @@
 #include "CSSParser.h"
 #include "CSSRuleList.h"
 #include "CSSStyleSheet.h"
+#include "ExceptionCode.h"
 #include "StyleRule.h"
 #include <wtf/text/StringBuilder.h>
 
@@ -61,26 +62,26 @@ ExceptionOr<unsigned> CSSGroupingRule::insertRule(const String& ruleString, unsi
     ASSERT(m_childRuleCSSOMWrappers.size() == m_groupRule->childRules().size());
 
     if (index > m_groupRule->childRules().size()) {
-        // IndexSizeError: Raised if the specified index is not a valid insertion point.
-        return Exception { IndexSizeError };
+        // INDEX_SIZE_ERR: Raised if the specified index is not a valid insertion point.
+        return Exception { INDEX_SIZE_ERR };
     }
 
     CSSStyleSheet* styleSheet = parentStyleSheet();
     RefPtr<StyleRuleBase> newRule = CSSParser::parseRule(parserContext(), styleSheet ? &styleSheet->contents() : nullptr, ruleString);
     if (!newRule) {
-        // SyntaxError: Raised if the specified rule has a syntax error and is unparsable.
-        return Exception { SyntaxError };
+        // SYNTAX_ERR: Raised if the specified rule has a syntax error and is unparsable.
+        return Exception { SYNTAX_ERR };
     }
 
     if (newRule->isImportRule() || newRule->isNamespaceRule()) {
-        // FIXME: an HierarchyRequestError should also be thrown for a @charset or a nested
-        // @media rule. They are currently not getting parsed, resulting in a SyntaxError
+        // FIXME: an HIERARCHY_REQUEST_ERR should also be thrown for a @charset or a nested
+        // @media rule. They are currently not getting parsed, resulting in a SYNTAX_ERR
         // to get raised above.
 
-        // HierarchyRequestError: Raised if the rule cannot be inserted at the specified
+        // HIERARCHY_REQUEST_ERR: Raised if the rule cannot be inserted at the specified
         // index, e.g., if an @import rule is inserted after a standard rule set or other
         // at-rule.
-        return Exception { HierarchyRequestError };
+        return Exception { HIERARCHY_REQUEST_ERR };
     }
     CSSStyleSheet::RuleMutationScope mutationScope(this);
 
@@ -95,9 +96,9 @@ ExceptionOr<void> CSSGroupingRule::deleteRule(unsigned index)
     ASSERT(m_childRuleCSSOMWrappers.size() == m_groupRule->childRules().size());
 
     if (index >= m_groupRule->childRules().size()) {
-        // IndexSizeError: Raised if the specified index does not correspond to a
+        // INDEX_SIZE_ERR: Raised if the specified index does not correspond to a
         // rule in the media rule list.
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
     }
 
     CSSStyleSheet::RuleMutationScope mutationScope(this);

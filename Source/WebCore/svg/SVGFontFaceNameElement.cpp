@@ -24,11 +24,8 @@
 
 #include "CSSFontFaceSrcValue.h"
 #include "SVGNames.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(SVGFontFaceNameElement);
     
 inline SVGFontFaceNameElement::SVGFontFaceNameElement(const QualifiedName& tagName, Document& document)
     : SVGElement(tagName, document)

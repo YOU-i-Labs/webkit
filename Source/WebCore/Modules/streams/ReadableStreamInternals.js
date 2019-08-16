@@ -27,19 +27,34 @@
 // @conditional=ENABLE(STREAMS_API)
 // @internal
 
+function privateInitializeReadableStreamDefaultReader(stream)
+{
+    "use strict";
+
+    if (!@isReadableStream(stream))
+       @throwTypeError("ReadableStreamDefaultReader needs a ReadableStream");
+    if (@isReadableStreamLocked(stream))
+       @throwTypeError("ReadableStream is locked");
+
+    @readableStreamReaderGenericInitialize(this, stream);
+    this.@readRequests = [];
+
+    return this;
+}
+
 function readableStreamReaderGenericInitialize(reader, stream)
 {
     "use strict";
 
-    @putByIdDirectPrivate(reader, "ownerReadableStream", stream);
-    @putByIdDirectPrivate(stream, "reader", reader);
-    if (@getByIdDirectPrivate(stream, "state") === @streamReadable)
-        @putByIdDirectPrivate(reader, "closedPromiseCapability", @newPromiseCapability(@Promise));
-    else if (@getByIdDirectPrivate(stream, "state") === @streamClosed)
-        @putByIdDirectPrivate(reader, "closedPromiseCapability", { @promise: @Promise.@resolve() });
+    reader.@ownerReadableStream = stream;
+    stream.@reader = reader;
+    if (stream.@state === @streamReadable)
+        reader.@closedPromiseCapability = @newPromiseCapability(@Promise);
+    else if (stream.@state === @streamClosed)
+        reader.@closedPromiseCapability = { @promise: @Promise.@resolve() };
     else {
-        @assert(@getByIdDirectPrivate(stream, "state") === @streamErrored);
-        @putByIdDirectPrivate(reader, "closedPromiseCapability", { @promise: @newHandledRejectedPromise(@getByIdDirectPrivate(stream, "storedError")) });
+        @assert(stream.@state === @streamErrored);
+        reader.@closedPromiseCapability = { @promise: @newHandledRejectedPromise(stream.@storedError) };
     }
 }
 
@@ -51,31 +66,32 @@ function privateInitializeReadableStreamDefaultController(stream, underlyingSour
         @throwTypeError("ReadableStreamDefaultController needs a ReadableStream");
 
     // readableStreamController is initialized with null value.
-    if (@getByIdDirectPrivate(stream, "readableStreamController") !== null)
+    if (stream.@readableStreamController !== null)
         @throwTypeError("ReadableStream already has a controller");
 
-    @putByIdDirectPrivate(this, "controlledReadableStream", stream);
-    @putByIdDirectPrivate(this, "underlyingSource", underlyingSource);
-    @putByIdDirectPrivate(this, "queue", @newQueue());
-    @putByIdDirectPrivate(this, "started", false);
-    @putByIdDirectPrivate(this, "closeRequested", false);
-    @putByIdDirectPrivate(this, "pullAgain", false);
-    @putByIdDirectPrivate(this, "pulling", false);
-    @putByIdDirectPrivate(this, "strategy", @validateAndNormalizeQueuingStrategy(size, highWaterMark));
+    this.@controlledReadableStream = stream;
+    this.@underlyingSource = underlyingSource;
+    this.@queue = @newQueue();
+    this.@started = false;
+    this.@closeRequested = false;
+    this.@pullAgain = false;
+    this.@pulling = false;
+    this.@strategy = @validateAndNormalizeQueuingStrategy(size, highWaterMark);
 
     const controller = this;
     @promiseInvokeOrNoopNoCatch(underlyingSource, "start", [this]).@then(() => {
-        @putByIdDirectPrivate(controller, "started", true);
-        @assert(!@getByIdDirectPrivate(controller, "pulling"));
-        @assert(!@getByIdDirectPrivate(controller, "pullAgain"));
+        controller.@started = true;
+        @assert(!controller.@pulling);
+        @assert(!controller.@pullAgain);
         @readableStreamDefaultControllerCallPullIfNeeded(controller);
     }, (error) => {
-        @readableStreamDefaultControllerError(controller, error);
+        if (stream.@state === @streamReadable)
+            @readableStreamDefaultControllerError(controller, error);
     });
 
-    @putByIdDirectPrivate(this, "cancel", @readableStreamDefaultControllerCancel);
+    this.@cancel = @readableStreamDefaultControllerCancel;
 
-    @putByIdDirectPrivate(this, "pull", @readableStreamDefaultControllerPull);
+    this.@pull = @readableStreamDefaultControllerPull;
 
     return this;
 }
@@ -84,38 +100,10 @@ function readableStreamDefaultControllerError(controller, error)
 {
     "use strict";
 
-    const stream = @getByIdDirectPrivate(controller, "controlledReadableStream");
-    if (@getByIdDirectPrivate(stream, "state") !== @streamReadable)
-        return;
-    @putByIdDirectPrivate(controller, "queue", @newQueue());
+    const stream = controller.@controlledReadableStream;
+    @assert(stream.@state === @streamReadable);
+    controller.@queue = @newQueue();
     @readableStreamError(stream, error);
-}
-
-function readableStreamPipeTo(stream, sink)
-{
-    "use strict";
-    @assert(@isReadableStream(stream));
-
-    const reader = new @ReadableStreamDefaultReader(stream);
-
-    @getByIdDirectPrivate(reader, "closedPromiseCapability").@promise.@then(() => { }, (e) => { sink.error(e); });
-
-    function doPipe() {
-        @readableStreamDefaultReaderRead(reader).@then(function(result) {
-            if (result.done) {
-                sink.close();
-                return;
-            }
-            try {
-                sink.enqueue(result.value);
-            } catch (e) {
-                sink.error("ReadableStream chunk enqueueing in the sink failed");
-                return;
-            }
-            doPipe();
-        });
-    }
-    doPipe();
 }
 
 function readableStreamTee(stream, shouldClone)
@@ -148,7 +136,7 @@ function readableStreamTee(stream, shouldClone)
         "cancel": @readableStreamTeeBranch2CancelFunction(teeState, stream)
     });
 
-    @getByIdDirectPrivate(reader, "closedPromiseCapability").@promise.@then(@undefined, function(e) {
+    reader.@closedPromiseCapability.@promise.@then(@undefined, function(e) {
         if (teeState.closedOrErrored)
             return;
         @readableStreamDefaultControllerError(branch1.@readableStreamController, e);
@@ -243,7 +231,7 @@ function isReadableStream(stream)
     // Spec tells to return true only if stream has a readableStreamController internal slot.
     // However, since it is a private slot, it cannot be checked using hasOwnProperty().
     // Therefore, readableStreamController is initialized with null value.
-    return @isObject(stream) && @getByIdDirectPrivate(stream, "readableStreamController") !== @undefined;
+    return @isObject(stream) && stream.@readableStreamController !== @undefined;
 }
 
 function isReadableStreamDefaultReader(reader)
@@ -253,7 +241,7 @@ function isReadableStreamDefaultReader(reader)
     // Spec tells to return true only if reader has a readRequests internal slot.
     // However, since it is a private slot, it cannot be checked using hasOwnProperty().
     // Since readRequests is initialized with an empty array, the following test is ok.
-    return @isObject(reader) && !!@getByIdDirectPrivate(reader, "readRequests");
+    return @isObject(reader) && !!reader.@readRequests;
 }
 
 function isReadableStreamDefaultController(controller)
@@ -264,7 +252,7 @@ function isReadableStreamDefaultController(controller)
     // However, since it is a private slot, it cannot be checked using hasOwnProperty().
     // underlyingSource is obtained in ReadableStream constructor: if undefined, it is set
     // to an empty object. Therefore, following test is ok.
-    return @isObject(controller) && !!@getByIdDirectPrivate(controller, "underlyingSource");
+    return @isObject(controller) && !!controller.@underlyingSource;
 }
 
 function readableStreamError(stream, error)
@@ -272,61 +260,64 @@ function readableStreamError(stream, error)
     "use strict";
 
     @assert(@isReadableStream(stream));
-    @assert(@getByIdDirectPrivate(stream, "state") === @streamReadable);
-    @putByIdDirectPrivate(stream, "state", @streamErrored);
-    @putByIdDirectPrivate(stream, "storedError", error);
+    @assert(stream.@state === @streamReadable);
+    stream.@state = @streamErrored;
+    stream.@storedError = error;
 
-    if (!@getByIdDirectPrivate(stream, "reader"))
+    if (!stream.@reader)
         return;
 
-    const reader = @getByIdDirectPrivate(stream, "reader");
+    const reader = stream.@reader;
 
     if (@isReadableStreamDefaultReader(reader)) {
-        const requests = @getByIdDirectPrivate(reader, "readRequests");
+        const requests = reader.@readRequests;
         for (let index = 0, length = requests.length; index < length; ++index)
             requests[index].@reject.@call(@undefined, error);
-        @putByIdDirectPrivate(reader, "readRequests", []);
+        reader.@readRequests = [];
     } else {
         @assert(@isReadableStreamBYOBReader(reader));
-        const requests = @getByIdDirectPrivate(reader, "readIntoRequests");
+        const requests = reader.@readIntoRequests;
         for (let index = 0, length = requests.length; index < length; ++index)
             requests[index].@reject.@call(@undefined, error);
-        @putByIdDirectPrivate(reader, "readIntoRequests", []);
+        reader.@readIntoRequests = [];
     }
 
-    @getByIdDirectPrivate(reader, "closedPromiseCapability").@reject.@call(@undefined, error);
-    @putByIdDirectPrivate(@getByIdDirectPrivate(reader, "closedPromiseCapability").@promise, "promiseIsHandled", true);
+    reader.@closedPromiseCapability.@reject.@call(@undefined, error);
+    reader.@closedPromiseCapability.@promise.@promiseIsHandled = true;
 }
 
 function readableStreamDefaultControllerCallPullIfNeeded(controller)
 {
     "use strict";
 
-    const stream = @getByIdDirectPrivate(controller, "controlledReadableStream");
+    const stream = controller.@controlledReadableStream;
 
-    if (!@readableStreamDefaultControllerCanCloseOrEnqueue(controller))
+    if (stream.@state === @streamClosed || stream.@state === @streamErrored)
         return;
-    if (!@getByIdDirectPrivate(controller, "started"))
+    if (controller.@closeRequested)
         return;
-    if ((!@isReadableStreamLocked(stream) || !@getByIdDirectPrivate(@getByIdDirectPrivate(stream, "reader"), "readRequests").length) && @readableStreamDefaultControllerGetDesiredSize(controller) <= 0)
+    if (!controller.@started)
+        return;
+    if ((!@isReadableStreamLocked(stream) || !stream.@reader.@readRequests.length) && @readableStreamDefaultControllerGetDesiredSize(controller) <= 0)
         return;
 
-    if (@getByIdDirectPrivate(controller, "pulling")) {
-        @putByIdDirectPrivate(controller, "pullAgain", true);
+    if (controller.@pulling) {
+        controller.@pullAgain = true;
         return;
     }
 
-    @assert(!@getByIdDirectPrivate(controller, "pullAgain"));
-    @putByIdDirectPrivate(controller, "pulling", true);
+    @assert(!controller.@pullAgain);
+    controller.@pulling = true;
 
-    @promiseInvokeOrNoop(@getByIdDirectPrivate(controller, "underlyingSource"), "pull", [controller]).@then(function() {
-        @putByIdDirectPrivate(controller, "pulling", false);
-        if (@getByIdDirectPrivate(controller, "pullAgain")) {
-            @putByIdDirectPrivate(controller, "pullAgain", false);
+    @promiseInvokeOrNoop(controller.@underlyingSource, "pull", [controller]).@then(function() {
+        controller.@pulling = false;
+        if (controller.@pullAgain) {
+            controller.@pullAgain = false;
             @readableStreamDefaultControllerCallPullIfNeeded(controller);
         }
     }, function(error) {
-        @readableStreamDefaultControllerError(controller, error);
+        if (stream.@state === @streamReadable)
+            @readableStreamDefaultControllerError(controller, error);
     });
 }
 
@@ -335,22 +326,21 @@ function isReadableStreamLocked(stream)
    "use strict";
 
     @assert(@isReadableStream(stream));
-    return !!@getByIdDirectPrivate(stream, "reader");
+    return !!stream.@reader;
 }
 
 function readableStreamDefaultControllerGetDesiredSize(controller)
 {
    "use strict";
 
-    const stream = @getByIdDirectPrivate(controller, "controlledReadableStream");
-    const state = @getByIdDirectPrivate(stream, "state");
+   const stream = controller.@controlledReadableStream;
 
-    if (state === @streamErrored)
-        return null;
-    if (state === @streamClosed)
-        return 0;
+   if (stream.@state === @streamErrored)
+       return null;
+   if (stream.@state === @streamClosed)
+       return 0;
 
-    return @getByIdDirectPrivate(controller, "strategy").highWaterMark - @getByIdDirectPrivate(controller, "queue").size;
+   return controller.@strategy.highWaterMark - controller.@queue.size;
 }
 
 
@@ -358,7 +348,7 @@ function readableStreamReaderGenericCancel(reader, reason)
 {
     "use strict";
 
-    const stream = @getByIdDirectPrivate(reader, "ownerReadableStream");
+    const stream = reader.@ownerReadableStream;
     @assert(!!stream);
     return @readableStreamCancel(stream, reason);
 }
@@ -367,32 +357,31 @@ function readableStreamCancel(stream, reason)
 {
     "use strict";
 
-    @putByIdDirectPrivate(stream, "disturbed", true);
-    const state = @getByIdDirectPrivate(stream, "state");
-    if (state === @streamClosed)
+    stream.@disturbed = true;
+    if (stream.@state === @streamClosed)
         return @Promise.@resolve();
-    if (state === @streamErrored)
-        return @Promise.@reject(@getByIdDirectPrivate(stream, "storedError"));
+    if (stream.@state === @streamErrored)
+        return @Promise.@reject(stream.@storedError);
     @readableStreamClose(stream);
-    return @getByIdDirectPrivate(stream, "readableStreamController").@cancel(@getByIdDirectPrivate(stream, "readableStreamController"), reason).@then(function() {  });
+    return stream.@readableStreamController.@cancel(stream.@readableStreamController, reason).@then(function() {  });
 }
 
 function readableStreamDefaultControllerCancel(controller, reason)
 {
     "use strict";
 
-    @putByIdDirectPrivate(controller, "queue", @newQueue());
-    return @promiseInvokeOrNoop(@getByIdDirectPrivate(controller, "underlyingSource"), "cancel", [reason]);
+    controller.@queue = @newQueue();
+    return @promiseInvokeOrNoop(controller.@underlyingSource, "cancel", [reason]);
 }
 
 function readableStreamDefaultControllerPull(controller)
 {
     "use strict";
 
-    const stream = @getByIdDirectPrivate(controller, "controlledReadableStream");
-    if (@getByIdDirectPrivate(controller, "queue").content.length) {
-        const chunk = @dequeueValue(@getByIdDirectPrivate(controller, "queue"));
-        if (@getByIdDirectPrivate(controller, "closeRequested") && @getByIdDirectPrivate(controller, "queue").content.length === 0)
+    const stream = controller.@controlledReadableStream;
+    if (controller.@queue.content.length) {
+        const chunk = @dequeueValue(controller.@queue);
+        if (controller.@closeRequested && controller.@queue.content.length === 0)
             @readableStreamClose(stream);
         else
             @readableStreamDefaultControllerCallPullIfNeeded(controller);
@@ -407,48 +396,51 @@ function readableStreamDefaultControllerClose(controller)
 {
     "use strict";
 
-    @assert(@readableStreamDefaultControllerCanCloseOrEnqueue(controller));
-    @putByIdDirectPrivate(controller, "closeRequested", true);
-    if (@getByIdDirectPrivate(controller, "queue").content.length === 0)
-        @readableStreamClose(@getByIdDirectPrivate(controller, "controlledReadableStream"));
+    const stream = controller.@controlledReadableStream;
+    @assert(!controller.@closeRequested);
+    @assert(stream.@state === @streamReadable);
+    controller.@closeRequested = true;
+    if (controller.@queue.content.length === 0)
+        @readableStreamClose(stream);
 }
 
 function readableStreamClose(stream)
 {
     "use strict";
 
-    @assert(@getByIdDirectPrivate(stream, "state") === @streamReadable);
-    @putByIdDirectPrivate(stream, "state", @streamClosed);
-    const reader = @getByIdDirectPrivate(stream, "reader");
+    @assert(stream.@state === @streamReadable);
+    stream.@state = @streamClosed;
+    const reader = stream.@reader;
 
     if (!reader)
         return;
 
     if (@isReadableStreamDefaultReader(reader)) {
-        const requests = @getByIdDirectPrivate(reader, "readRequests");
+        const requests = reader.@readRequests;
         for (let index = 0, length = requests.length; index < length; ++index)
             requests[index].@resolve.@call(@undefined, {value:@undefined, done: true});
-        @putByIdDirectPrivate(reader, "readRequests", []);
+        reader.@readRequests = [];
     }
 
-    @getByIdDirectPrivate(reader, "closedPromiseCapability").@resolve.@call();
+    reader.@closedPromiseCapability.@resolve.@call();
 }
 
 function readableStreamFulfillReadRequest(stream, chunk, done)
 {
     "use strict";
 
-    @getByIdDirectPrivate(@getByIdDirectPrivate(stream, "reader"), "readRequests").@shift().@resolve.@call(@undefined, {value: chunk, done: done});
+    stream.@reader.@readRequests.@shift().@resolve.@call(@undefined, {value: chunk, done: done});
 }
 
 function readableStreamDefaultControllerEnqueue(controller, chunk)
 {
     "use strict";
 
-    const stream = @getByIdDirectPrivate(controller, "controlledReadableStream");
-    @assert(@readableStreamDefaultControllerCanCloseOrEnqueue(controller));
+    const stream = controller.@controlledReadableStream;
+    @assert(!controller.@closeRequested);
+    @assert(stream.@state === @streamReadable);
 
-    if (@isReadableStreamLocked(stream) && @getByIdDirectPrivate(@getByIdDirectPrivate(stream, "reader"), "readRequests").length) {
+    if (@isReadableStreamLocked(stream) && stream.@reader.@readRequests.length) {
         @readableStreamFulfillReadRequest(stream, chunk, false);
         @readableStreamDefaultControllerCallPullIfNeeded(controller);
         return;
@@ -456,12 +448,13 @@ function readableStreamDefaultControllerEnqueue(controller, chunk)
 
     try {
         let chunkSize = 1;
-        if (@getByIdDirectPrivate(controller, "strategy").size !== @undefined)
-            chunkSize = @getByIdDirectPrivate(controller, "strategy").size(chunk);
-        @enqueueValueWithSize(@getByIdDirectPrivate(controller, "queue"), chunk, chunkSize);
+        if (controller.@strategy.size !== @undefined)
+            chunkSize = controller.@strategy.size(chunk);
+        @enqueueValueWithSize(controller.@queue, chunk, chunkSize);
     }
     catch(error) {
-        @readableStreamDefaultControllerError(controller, error);
+        if (stream.@state === @streamReadable)
+            @readableStreamDefaultControllerError(controller, error);
         throw error;
     }
     @readableStreamDefaultControllerCallPullIfNeeded(controller);
@@ -471,29 +464,28 @@ function readableStreamDefaultReaderRead(reader)
 {
     "use strict";
 
-    const stream = @getByIdDirectPrivate(reader, "ownerReadableStream");
+    const stream = reader.@ownerReadableStream;
     @assert(!!stream);
-    const state = @getByIdDirectPrivate(stream, "state");
 
-    @putByIdDirectPrivate(stream, "disturbed", true);
-    if (state === @streamClosed)
+    stream.@disturbed = true;
+    if (stream.@state === @streamClosed)
         return @Promise.@resolve({value: @undefined, done: true});
-    if (state === @streamErrored)
-        return @Promise.@reject(@getByIdDirectPrivate(stream, "storedError"));
-    @assert(state === @streamReadable);
+    if (stream.@state === @streamErrored)
+        return @Promise.@reject(stream.@storedError);
+    @assert(stream.@state === @streamReadable);
 
-    return @getByIdDirectPrivate(stream, "readableStreamController").@pull(@getByIdDirectPrivate(stream, "readableStreamController"));
+    return stream.@readableStreamController.@pull(stream.@readableStreamController);
 }
 
 function readableStreamAddReadRequest(stream)
 {
     "use strict";
 
-    @assert(@isReadableStreamDefaultReader(@getByIdDirectPrivate(stream, "reader")));
-    @assert(@getByIdDirectPrivate(stream, "state") == @streamReadable);
+    @assert(@isReadableStreamDefaultReader(stream.@reader));
+    @assert(stream.@state == @streamReadable);
 
     const readRequest = @newPromiseCapability(@Promise);
-    @getByIdDirectPrivate(@getByIdDirectPrivate(stream, "reader"), "readRequests").@push(readRequest);
+    stream.@reader.@readRequests.@push(readRequest);
 
     return readRequest.@promise;
 }
@@ -503,29 +495,22 @@ function isReadableStreamDisturbed(stream)
     "use strict";
 
     @assert(@isReadableStream(stream));
-    return @getByIdDirectPrivate(stream, "disturbed");
+    return stream.@disturbed;
 }
 
 function readableStreamReaderGenericRelease(reader)
 {
     "use strict";
 
-    @assert(!!@getByIdDirectPrivate(reader, "ownerReadableStream"));
-    @assert(@getByIdDirectPrivate(@getByIdDirectPrivate(reader, "ownerReadableStream"), "reader") === reader);
+    @assert(!!reader.@ownerReadableStream);
+    @assert(reader.@ownerReadableStream.@reader === reader);
 
-    if (@getByIdDirectPrivate(@getByIdDirectPrivate(reader, "ownerReadableStream"), "state") === @streamReadable)
-        @getByIdDirectPrivate(reader, "closedPromiseCapability").@reject.@call(@undefined, new @TypeError("releasing lock of reader whose stream is still in readable state"));
+    if (reader.@ownerReadableStream.@state === @streamReadable)
+        reader.@closedPromiseCapability.@reject.@call(@undefined, new @TypeError("releasing lock of reader whose stream is still in readable state"));
     else
-        @putByIdDirectPrivate(reader, "closedPromiseCapability", { @promise: @newHandledRejectedPromise(new @TypeError("reader released lock")) });
+        reader.@closedPromiseCapability = { @promise: @newHandledRejectedPromise(new @TypeError("reader released lock")) };
 
-    @putByIdDirectPrivate(@getByIdDirectPrivate(reader, "closedPromiseCapability").@promise, "promiseIsHandled", true);
-    @putByIdDirectPrivate(@getByIdDirectPrivate(reader, "ownerReadableStream"), "reader", @undefined);
-    @putByIdDirectPrivate(reader, "ownerReadableStream", @undefined);
-}
-
-function readableStreamDefaultControllerCanCloseOrEnqueue(controller)
-{
-    "use strict";
-
-    return !@getByIdDirectPrivate(controller, "closeRequested") && @getByIdDirectPrivate(@getByIdDirectPrivate(controller, "controlledReadableStream"), "state") === @streamReadable;
+    reader.@closedPromiseCapability.@promise.@promiseIsHandled = true;
+    reader.@ownerReadableStream.@reader = @undefined;
+    reader.@ownerReadableStream = @undefined;
 }

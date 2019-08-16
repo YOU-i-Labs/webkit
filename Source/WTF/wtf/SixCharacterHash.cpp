@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include <wtf/SixCharacterHash.h>
+#include "SixCharacterHash.h"
 
 #include <wtf/ASCIICType.h>
 

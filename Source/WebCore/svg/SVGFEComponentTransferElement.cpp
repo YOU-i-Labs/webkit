@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,17 +29,22 @@
 #include "SVGFEFuncRElement.h"
 #include "SVGFilterBuilder.h"
 #include "SVGNames.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(SVGFEComponentTransferElement);
+// Animated property definitions
+DEFINE_ANIMATED_STRING(SVGFEComponentTransferElement, SVGNames::inAttr, In1, in1)
+
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGFEComponentTransferElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(in1)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGFilterPrimitiveStandardAttributes)
+END_REGISTER_ANIMATED_PROPERTIES
 
 inline SVGFEComponentTransferElement::SVGFEComponentTransferElement(const QualifiedName& tagName, Document& document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
 {
     ASSERT(hasTagName(SVGNames::feComponentTransferTag));
-    registerAttributes();
+    registerAnimatedPropertiesForSVGFEComponentTransferElement();
 }
 
 Ref<SVGFEComponentTransferElement> SVGFEComponentTransferElement::create(const QualifiedName& tagName, Document& document)
@@ -48,18 +52,10 @@ Ref<SVGFEComponentTransferElement> SVGFEComponentTransferElement::create(const Q
     return adoptRef(*new SVGFEComponentTransferElement(tagName, document));
 }
 
-void SVGFEComponentTransferElement::registerAttributes()
-{
-    auto& registry = attributeRegistry();
-    if (!registry.isEmpty())
-        return;
-    registry.registerAttribute<SVGNames::inAttr, &SVGFEComponentTransferElement::m_in1>();
-}
-
 void SVGFEComponentTransferElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == SVGNames::inAttr) {
-        m_in1.setValue(value);
+        setIn1BaseValue(value);
         return;
     }
 
@@ -68,7 +64,7 @@ void SVGFEComponentTransferElement::parseAttribute(const QualifiedName& name, co
 
 RefPtr<FilterEffect> SVGFEComponentTransferElement::build(SVGFilterBuilder* filterBuilder, Filter& filter)
 {
-    auto input1 = filterBuilder->getEffectById(in1());
+    FilterEffect* input1 = filterBuilder->getEffectById(in1());
     
     if (!input1)
         return nullptr;
@@ -89,9 +85,9 @@ RefPtr<FilterEffect> SVGFEComponentTransferElement::build(SVGFilterBuilder* filt
             alpha = downcast<SVGFEFuncAElement>(child).transferFunction();
     }
     
-    auto effect = FEComponentTransfer::create(filter, red, green, blue, alpha);
+    RefPtr<FilterEffect> effect = FEComponentTransfer::create(filter, red, green, blue, alpha);
     effect->inputEffects().append(input1);
-    return WTFMove(effect);
+    return effect;
 }
 
 }

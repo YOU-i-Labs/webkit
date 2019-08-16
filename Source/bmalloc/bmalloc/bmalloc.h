@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,95 +23,75 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
-
 #include "AvailableMemory.h"
 #include "Cache.h"
-#include "Gigacage.h"
 #include "Heap.h"
-#include "IsoTLS.h"
-#include "Mutex.h"
-#include "PerHeapKind.h"
-#include "Scavenger.h"
+#include "PerProcess.h"
+#include "StaticMutex.h"
 
 namespace bmalloc {
 namespace api {
 
 // Returns null on failure.
-inline void* tryMalloc(size_t size, HeapKind kind = HeapKind::Primary)
+inline void* tryMalloc(size_t size)
 {
-    return Cache::tryAllocate(kind, size);
+    return Cache::tryAllocate(size);
 }
 
 // Crashes on failure.
-inline void* malloc(size_t size, HeapKind kind = HeapKind::Primary)
+inline void* malloc(size_t size)
 {
-    return Cache::allocate(kind, size);
+    return Cache::allocate(size);
 }
 
-BEXPORT void* mallocOutOfLine(size_t size, HeapKind kind = HeapKind::Primary);
-
 // Returns null on failure.
-inline void* tryMemalign(size_t alignment, size_t size, HeapKind kind = HeapKind::Primary)
+inline void* tryMemalign(size_t alignment, size_t size)
 {
-    return Cache::tryAllocate(kind, alignment, size);
+    return Cache::tryAllocate(alignment, size);
 }
 
 // Crashes on failure.
-inline void* memalign(size_t alignment, size_t size, HeapKind kind = HeapKind::Primary)
+inline void* memalign(size_t alignment, size_t size)
 {
-    return Cache::allocate(kind, alignment, size);
-}
-
-// Returns null on failure.
-inline void* tryRealloc(void* object, size_t newSize, HeapKind kind = HeapKind::Primary)
-{
-    return Cache::tryReallocate(kind, object, newSize);
+    return Cache::allocate(alignment, size);
 }
 
 // Crashes on failure.
-inline void* realloc(void* object, size_t newSize, HeapKind kind = HeapKind::Primary)
+inline void* realloc(void* object, size_t newSize)
 {
-    return Cache::reallocate(kind, object, newSize);
+    return Cache::reallocate(object, newSize);
 }
 
-// Returns null on failure.
-// This API will give you zeroed pages that are ready to be used. These pages
-// will page fault on first access. It returns to you memory that initially only
-// uses up virtual address space, not `size` bytes of physical memory.
-BEXPORT void* tryLargeZeroedMemalignVirtual(size_t alignment, size_t size, HeapKind kind = HeapKind::Primary);
-
-inline void free(void* object, HeapKind kind = HeapKind::Primary)
+inline void free(void* object)
 {
-    Cache::deallocate(kind, object);
+    Cache::deallocate(object);
 }
-
-BEXPORT void freeOutOfLine(void* object, HeapKind kind = HeapKind::Primary);
-
-BEXPORT void freeLargeVirtual(void* object, size_t, HeapKind kind = HeapKind::Primary);
 
 inline void scavengeThisThread()
 {
-    for (unsigned i = numHeaps; i--;)
-        Cache::scavenge(static_cast<HeapKind>(i));
-    IsoTLS::scavenge();
+    Cache::scavenge();
 }
 
-BEXPORT void scavenge();
+inline void scavenge()
+{
+    scavengeThisThread();
 
-BEXPORT bool isEnabled(HeapKind kind = HeapKind::Primary);
+    std::lock_guard<StaticMutex> lock(PerProcess<Heap>::mutex());
+    PerProcess<Heap>::get()->scavenge(lock);
+}
 
-// ptr must be aligned to vmPageSizePhysical and size must be divisible 
-// by vmPageSizePhysical.
-BEXPORT void decommitAlignedPhysical(void* object, size_t, HeapKind = HeapKind::Primary);
-BEXPORT void commitAlignedPhysical(void* object, size_t, HeapKind = HeapKind::Primary);
+inline bool isEnabled()
+{
+    std::unique_lock<StaticMutex> lock(PerProcess<Heap>::mutex());
+    return !PerProcess<Heap>::getFastCase()->debugHeap();
+}
     
 inline size_t availableMemory()
 {
     return bmalloc::availableMemory();
 }
     
-#if BPLATFORM(IOS_FAMILY)
+#if BPLATFORM(IOS)
 inline size_t memoryFootprint()
 {
     return bmalloc::memoryFootprint();
@@ -124,10 +104,12 @@ inline double percentAvailableMemoryInUse()
 #endif
 
 #if BOS(DARWIN)
-BEXPORT void setScavengerThreadQOSClass(qos_class_t overrideClass);
+inline void setScavengerThreadQOSClass(qos_class_t overrideClass)
+{
+    std::unique_lock<StaticMutex> lock(PerProcess<Heap>::mutex());
+    PerProcess<Heap>::getFastCase()->setScavengerThreadQOSClass(overrideClass);
+}
 #endif
-
-BEXPORT void enableMiniMode();
 
 } // namespace api
 } // namespace bmalloc

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,20 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.FlexibleSpaceNavigationItem = class FlexibleSpaceNavigationItem extends WI.NavigationItem
+WebInspector.FlexibleSpaceNavigationItem = class FlexibleSpaceNavigationItem extends WebInspector.NavigationItem
 {
-    constructor(navigationItem, alignItem)
+    constructor(identifier)
     {
-        super();
-
-        console.assert(!navigationItem || navigationItem instanceof WI.NavigationItem);
-
-        this._navigationItem = navigationItem || null;
-
-        if (this._navigationItem) {
-            this._navigationItem = navigationItem;
-            this.element.classList.add(alignItem || WI.FlexibleSpaceNavigationItem.Align.Start);
-        }
+        super(identifier);
     }
 
     // Protected
@@ -45,32 +36,4 @@ WI.FlexibleSpaceNavigationItem = class FlexibleSpaceNavigationItem extends WI.Na
     {
         return ["flexible-space"];
     }
-
-    updateLayout(expandOnly)
-    {
-        super.updateLayout(expandOnly);
-
-        if (!this._navigationItem)
-            return;
-
-        if (expandOnly) {
-            let flexibleWidth = this.width;
-            if (!flexibleWidth)
-                return;
-
-            this.element.appendChild(this._navigationItem.element);
-
-            this._navigationItem.updateLayout(true);
-            let itemWidth = this._navigationItem.width;
-
-            let remainingWidth = flexibleWidth - itemWidth;
-            if (remainingWidth <= 0)
-                this.element.removeChild(this._navigationItem.element);
-        }
-    }
-};
-
-WI.FlexibleSpaceNavigationItem.Align = {
-    Start: "align-start",
-    End: "align-end",
 };

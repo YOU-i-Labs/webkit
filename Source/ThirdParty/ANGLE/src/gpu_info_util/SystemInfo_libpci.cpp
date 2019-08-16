@@ -25,7 +25,7 @@ namespace angle
 namespace
 {
 
-struct LibPCI : private angle::NonCopyable
+struct LibPCI : angle::NonCopyable
 {
     LibPCI()
     {

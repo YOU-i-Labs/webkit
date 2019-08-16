@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -113,22 +113,21 @@ SlowPathCallContext::~SlowPathCallContext()
     m_jit.addPtr(CCallHelpers::TrustedImm32(m_stackBytesNeeded), CCallHelpers::stackPointerRegister);
 }
 
-SlowPathCallKey SlowPathCallContext::keyWithTarget(FunctionPtr<CFunctionPtrTag> callTarget) const
+SlowPathCallKey SlowPathCallContext::keyWithTarget(void* callTarget) const
 {
     return SlowPathCallKey(m_thunkSaveSet, callTarget, m_argumentRegisters, m_offset);
 }
 
-SlowPathCall SlowPathCallContext::makeCall(VM& vm, FunctionPtr<CFunctionPtrTag> callTarget)
+SlowPathCall SlowPathCallContext::makeCall(VM& vm, void* callTarget)
 {
-    SlowPathCallKey key = keyWithTarget(callTarget);
-    SlowPathCall result = SlowPathCall(m_jit.call(OperationPtrTag), key);
+    SlowPathCall result = SlowPathCall(m_jit.call(), keyWithTarget(callTarget));
 
     m_jit.addLinkTask(
         [result, &vm] (LinkBuffer& linkBuffer) {
-            MacroAssemblerCodeRef<JITThunkPtrTag> thunk =
+            MacroAssemblerCodeRef thunk =
                 vm.ftlThunks->getSlowPathCallThunk(result.key());
 
-            linkBuffer.link(result.call(), CodeLocationLabel<OperationPtrTag>(thunk.retaggedCode<OperationPtrTag>()));
+            linkBuffer.link(result.call(), CodeLocationLabel(thunk.code()));
         });
     
     return result;

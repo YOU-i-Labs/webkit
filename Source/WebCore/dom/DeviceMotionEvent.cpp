@@ -30,7 +30,9 @@
 
 namespace WebCore {
 
-DeviceMotionEvent::~DeviceMotionEvent() = default;
+DeviceMotionEvent::~DeviceMotionEvent()
+{
+}
 
 DeviceMotionEvent::DeviceMotionEvent()
     : m_deviceMotionData(DeviceMotionData::create())
@@ -38,28 +40,28 @@ DeviceMotionEvent::DeviceMotionEvent()
 }
 
 DeviceMotionEvent::DeviceMotionEvent(const AtomicString& eventType, DeviceMotionData* deviceMotionData)
-    : Event(eventType, CanBubble::No, IsCancelable::No)
+    : Event(eventType, false, false) // Can't bubble, not cancelable
     , m_deviceMotionData(deviceMotionData)
 {
 }
 
-static Optional<DeviceMotionEvent::Acceleration> convert(const DeviceMotionData::Acceleration* acceleration)
+static std::optional<DeviceMotionEvent::Acceleration> convert(const DeviceMotionData::Acceleration* acceleration)
 {
     if (!acceleration)
-        return WTF::nullopt;
+        return std::nullopt;
 
     return DeviceMotionEvent::Acceleration { acceleration->x(), acceleration->y(), acceleration->z() };
 }
 
-static Optional<DeviceMotionEvent::RotationRate> convert(const DeviceMotionData::RotationRate* rotationRate)
+static std::optional<DeviceMotionEvent::RotationRate> convert(const DeviceMotionData::RotationRate* rotationRate)
 {
     if (!rotationRate)
-        return WTF::nullopt;
+        return std::nullopt;
 
     return DeviceMotionEvent::RotationRate { rotationRate->alpha(), rotationRate->beta(), rotationRate->gamma() };
 }
 
-static RefPtr<DeviceMotionData::Acceleration> convert(Optional<DeviceMotionEvent::Acceleration>&& acceleration)
+static RefPtr<DeviceMotionData::Acceleration> convert(std::optional<DeviceMotionEvent::Acceleration>&& acceleration)
 {
     if (!acceleration)
         return nullptr;
@@ -70,7 +72,7 @@ static RefPtr<DeviceMotionData::Acceleration> convert(Optional<DeviceMotionEvent
     return DeviceMotionData::Acceleration::create(acceleration->x, acceleration->y, acceleration->z);
 }
 
-static RefPtr<DeviceMotionData::RotationRate> convert(Optional<DeviceMotionEvent::RotationRate>&& rotationRate)
+static RefPtr<DeviceMotionData::RotationRate> convert(std::optional<DeviceMotionEvent::RotationRate>&& rotationRate)
 {
     if (!rotationRate)
         return nullptr;
@@ -81,29 +83,29 @@ static RefPtr<DeviceMotionData::RotationRate> convert(Optional<DeviceMotionEvent
     return DeviceMotionData::RotationRate::create(rotationRate->alpha, rotationRate->beta, rotationRate->gamma);
 }
 
-Optional<DeviceMotionEvent::Acceleration> DeviceMotionEvent::acceleration() const
+std::optional<DeviceMotionEvent::Acceleration> DeviceMotionEvent::acceleration() const
 {
     return convert(m_deviceMotionData->acceleration());
 }
 
-Optional<DeviceMotionEvent::Acceleration> DeviceMotionEvent::accelerationIncludingGravity() const
+std::optional<DeviceMotionEvent::Acceleration> DeviceMotionEvent::accelerationIncludingGravity() const
 {
     return convert(m_deviceMotionData->accelerationIncludingGravity());
 }
 
-Optional<DeviceMotionEvent::RotationRate> DeviceMotionEvent::rotationRate() const
+std::optional<DeviceMotionEvent::RotationRate> DeviceMotionEvent::rotationRate() const
 {
     return convert(m_deviceMotionData->rotationRate());
 }
 
-Optional<double> DeviceMotionEvent::interval() const
+std::optional<double> DeviceMotionEvent::interval() const
 {
     return m_deviceMotionData->interval();
 }
 
-void DeviceMotionEvent::initDeviceMotionEvent(const AtomicString& type, bool bubbles, bool cancelable, Optional<DeviceMotionEvent::Acceleration>&& acceleration, Optional<DeviceMotionEvent::Acceleration>&& accelerationIncludingGravity, Optional<DeviceMotionEvent::RotationRate>&& rotationRate, Optional<double> interval)
+void DeviceMotionEvent::initDeviceMotionEvent(const AtomicString& type, bool bubbles, bool cancelable, std::optional<DeviceMotionEvent::Acceleration>&& acceleration, std::optional<DeviceMotionEvent::Acceleration>&& accelerationIncludingGravity, std::optional<DeviceMotionEvent::RotationRate>&& rotationRate, std::optional<double> interval)
 {
-    if (isBeingDispatched())
+    if (dispatched())
         return;
 
     initEvent(type, bubbles, cancelable);

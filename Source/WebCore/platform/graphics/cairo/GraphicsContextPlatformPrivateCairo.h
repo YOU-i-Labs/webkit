@@ -25,7 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef GraphicsContextPlatformPrivateCairo_h
+#define GraphicsContextPlatformPrivateCairo_h
 
 #include "GraphicsContext.h"
 
@@ -35,7 +36,6 @@
 #include "RefPtrCairo.h"
 #include <cairo.h>
 #include <math.h>
-#include <memory>
 #include <stdio.h>
 
 #if PLATFORM(WIN)
@@ -46,14 +46,17 @@ namespace WebCore {
 
 class GraphicsContextPlatformPrivate {
 public:
-    GraphicsContextPlatformPrivate(PlatformContextCairo& platformContext)
-        : platformContext(platformContext)
+    GraphicsContextPlatformPrivate(PlatformContextCairo* newPlatformContext)
+        : platformContext(newPlatformContext)
+#if PLATFORM(WIN) || (PLATFORM(GTK) && OS(WINDOWS))
+        // NOTE:  These may note be needed: review and remove once Cairo implementation is complete
+        , m_hdc(0)
+        , m_shouldIncludeChildWindows(false)
+#endif
     {
     }
 
-    GraphicsContextPlatformPrivate(std::unique_ptr<PlatformContextCairo>&& platformContext)
-        : ownedPlatformContext(WTFMove(platformContext))
-        , platformContext(*ownedPlatformContext)
+    virtual ~GraphicsContextPlatformPrivate()
     {
     }
 
@@ -72,29 +75,47 @@ public:
     void syncContext(cairo_t* cr);
 #else
     // On everything else, we do nothing.
-    void save() { }
-    void restore() { }
-    void flush() { }
-    void clip(const FloatRect&) { }
-    void clip(const Path&) { }
-    void scale(const FloatSize&) { }
-    void rotate(float) { }
-    void translate(float, float) { }
-    void concatCTM(const AffineTransform&) { }
-    void setCTM(const AffineTransform&) { }
+    void save() {}
+    void restore() {}
+    void flush() {}
+    void clip(const FloatRect&) {}
+    void clip(const Path&) {}
+    void scale(const FloatSize&) {}
+    void rotate(float) {}
+    void translate(float, float) {}
+    void concatCTM(const AffineTransform&) {}
+    void setCTM(const AffineTransform&) {}
     void syncContext(cairo_t*) { }
 #endif
 
-    std::unique_ptr<PlatformContextCairo> ownedPlatformContext;
-    PlatformContextCairo& platformContext;
+    PlatformContextCairo* platformContext;
+    Vector<float> layers;
 
 #if PLATFORM(WIN) || (PLATFORM(GTK) && OS(WINDOWS))
-    // NOTE: These may note be needed: review and remove once Cairo implementation is complete
-    HDC m_hdc { 0 };
-    bool m_shouldIncludeChildWindows { false };
+    HDC m_hdc;
+    bool m_shouldIncludeChildWindows;
 #endif
 };
+
+// This is a specialized private section for the Cairo GraphicsContext, which knows how
+// to clean up the heap allocated PlatformContextCairo that we must use for the top-level
+// GraphicsContext.
+class GraphicsContextPlatformPrivateToplevel : public GraphicsContextPlatformPrivate {
+public:
+    GraphicsContextPlatformPrivateToplevel(PlatformContextCairo* platformContext)
+        : GraphicsContextPlatformPrivate(platformContext)
+    {
+    }
+
+    virtual ~GraphicsContextPlatformPrivateToplevel()
+    {
+        delete platformContext;
+    }
+};
+
 
 } // namespace WebCore
 
 #endif // USE(CAIRO)
+
+#endif // GraphicsContextPlatformPrivateCairo_h

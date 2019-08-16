@@ -23,11 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.GeneralTreeElement = class GeneralTreeElement extends WI.TreeElement
+WebInspector.GeneralTreeElement = class GeneralTreeElement extends WebInspector.TreeElement
 {
-    constructor(classNames, title, subtitle, representedObject, options)
+    constructor(classNames, title, subtitle, representedObject, hasChildren)
     {
-        super("", representedObject, options);
+        super("", representedObject, hasChildren);
 
         this.classNames = classNames;
 
@@ -48,11 +48,6 @@ WI.GeneralTreeElement = class GeneralTreeElement extends WI.TreeElement
     {
         this._createElementsIfNeeded();
         return this._iconElement;
-    }
-
-    get statusElement()
-    {
-        return this._statusElement;
     }
 
     get titlesElement()
@@ -135,7 +130,7 @@ WI.GeneralTreeElement = class GeneralTreeElement extends WI.TreeElement
         this._mainTitle = x;
         this._updateTitleElements();
         this.didChange();
-        this.dispatchEventToListeners(WI.GeneralTreeElement.Event.MainTitleDidChange);
+        this.dispatchEventToListeners(WebInspector.GeneralTreeElement.Event.MainTitleDidChange);
     }
 
     get subtitle()
@@ -169,7 +164,7 @@ WI.GeneralTreeElement = class GeneralTreeElement extends WI.TreeElement
 
         if (!this._statusElement) {
             this._statusElement = document.createElement("div");
-            this._statusElement.className = WI.GeneralTreeElement.StatusElementStyleClassName;
+            this._statusElement.className = WebInspector.GeneralTreeElement.StatusElementStyleClassName;
         }
 
         this._status = x;
@@ -217,7 +212,7 @@ WI.GeneralTreeElement = class GeneralTreeElement extends WI.TreeElement
 
     ondetach()
     {
-        // Overridden by subclasses.
+        // Overriden by subclasses.
     }
 
     onreveal()
@@ -242,11 +237,6 @@ WI.GeneralTreeElement = class GeneralTreeElement extends WI.TreeElement
         }
     }
 
-    customTitleTooltip()
-    {
-        // Implemented by subclasses.
-    }
-
     // Private
 
     _createElementsIfNeeded()
@@ -255,20 +245,20 @@ WI.GeneralTreeElement = class GeneralTreeElement extends WI.TreeElement
             return;
 
         this._disclosureButton = document.createElement("button");
-        this._disclosureButton.className = WI.GeneralTreeElement.DisclosureButtonStyleClassName;
+        this._disclosureButton.className = WebInspector.GeneralTreeElement.DisclosureButtonStyleClassName;
 
         // Don't allow the disclosure button to be keyboard focusable. The TreeOutline is focusable and has
         // its own keybindings for toggling expand and collapse.
         this._disclosureButton.tabIndex = -1;
 
         this._iconElement = document.createElement("img");
-        this._iconElement.className = WI.GeneralTreeElement.IconElementStyleClassName;
+        this._iconElement.className = WebInspector.GeneralTreeElement.IconElementStyleClassName;
 
         this._titlesElement = document.createElement("div");
-        this._titlesElement.className = WI.GeneralTreeElement.TitlesElementStyleClassName;
+        this._titlesElement.className = WebInspector.GeneralTreeElement.TitlesElementStyleClassName;
 
         this._mainTitleElement = document.createElement("span");
-        this._mainTitleElement.className = WI.GeneralTreeElement.MainTitleElementStyleClassName;
+        this._mainTitleElement.className = WebInspector.GeneralTreeElement.MainTitleElementStyleClassName;
         this._titlesElement.appendChild(this._mainTitleElement);
 
         this._createdElements = true;
@@ -280,7 +270,7 @@ WI.GeneralTreeElement = class GeneralTreeElement extends WI.TreeElement
             return;
 
         this._subtitleElement = document.createElement("span");
-        this._subtitleElement.className = WI.GeneralTreeElement.SubtitleElementStyleClassName;
+        this._subtitleElement.className = WebInspector.GeneralTreeElement.SubtitleElementStyleClassName;
         this._titlesElement.appendChild(this._subtitleElement);
     }
 
@@ -301,16 +291,15 @@ WI.GeneralTreeElement = class GeneralTreeElement extends WI.TreeElement
             this._createSubtitleElementIfNeeded();
             if (this._subtitleElement.textContent !== this._subtitle)
                 this._subtitleElement.textContent = this._subtitle;
-            this._titlesElement.classList.remove(WI.GeneralTreeElement.NoSubtitleStyleClassName);
+            this._titlesElement.classList.remove(WebInspector.GeneralTreeElement.NoSubtitleStyleClassName);
         } else if (this._subtitle instanceof Node) {
             this._createSubtitleElementIfNeeded();
             this._subtitleElement.removeChildren();
             this._subtitleElement.appendChild(this._subtitle);
-            this._titlesElement.classList.remove(WI.GeneralTreeElement.NoSubtitleStyleClassName);
         } else {
             if (this._subtitleElement)
                 this._subtitleElement.textContent = "";
-            this._titlesElement.classList.add(WI.GeneralTreeElement.NoSubtitleStyleClassName);
+            this._titlesElement.classList.add(WebInspector.GeneralTreeElement.NoSubtitleStyleClassName);
         }
 
         // Set a default tooltip if there isn't a custom one already assigned.
@@ -324,22 +313,17 @@ WI.GeneralTreeElement = class GeneralTreeElement extends WI.TreeElement
         if (!this._listItemNode)
             return;
 
-        let tooltip = this.customTitleTooltip();
-        if (!tooltip) {
-            // Get the textContent for the elements since they can contain other nodes,
-            // and the tool tip only cares about the text.
-            let mainTitleText = this._mainTitleElement.textContent;
-            let subtitleText = this._subtitleElement ? this._subtitleElement.textContent : "";
-            let large = this.treeOutline && this.treeOutline.large;
-            if (mainTitleText && subtitleText)
-                tooltip = mainTitleText + (large ? "\n" : " \u2014 ") + subtitleText;
-            else if (mainTitleText)
-                tooltip = mainTitleText;
-            else
-                tooltip = subtitleText;
-        }
-
-        this._listItemNode.title = tooltip;
+        // Get the textContent for the elements since they can contain other nodes,
+        // and the tool tip only cares about the text.
+        let mainTitleText = this._mainTitleElement.textContent;
+        let subtitleText = this._subtitleElement ? this._subtitleElement.textContent : "";
+        let large = this.treeOutline && this.treeOutline.large;
+        if (mainTitleText && subtitleText)
+            this._listItemNode.title = mainTitleText + (large ? "\n" : " \u2014 ") + subtitleText;
+        else if (mainTitleText)
+            this._listItemNode.title = mainTitleText;
+        else
+            this._listItemNode.title = subtitleText;
     }
 
     _updateStatusElement()
@@ -358,14 +342,14 @@ WI.GeneralTreeElement = class GeneralTreeElement extends WI.TreeElement
     }
 };
 
-WI.GeneralTreeElement.DisclosureButtonStyleClassName = "disclosure-button";
-WI.GeneralTreeElement.IconElementStyleClassName = "icon";
-WI.GeneralTreeElement.StatusElementStyleClassName = "status";
-WI.GeneralTreeElement.TitlesElementStyleClassName = "titles";
-WI.GeneralTreeElement.MainTitleElementStyleClassName = "title";
-WI.GeneralTreeElement.SubtitleElementStyleClassName = "subtitle";
-WI.GeneralTreeElement.NoSubtitleStyleClassName = "no-subtitle";
+WebInspector.GeneralTreeElement.DisclosureButtonStyleClassName = "disclosure-button";
+WebInspector.GeneralTreeElement.IconElementStyleClassName = "icon";
+WebInspector.GeneralTreeElement.StatusElementStyleClassName = "status";
+WebInspector.GeneralTreeElement.TitlesElementStyleClassName = "titles";
+WebInspector.GeneralTreeElement.MainTitleElementStyleClassName = "title";
+WebInspector.GeneralTreeElement.SubtitleElementStyleClassName = "subtitle";
+WebInspector.GeneralTreeElement.NoSubtitleStyleClassName = "no-subtitle";
 
-WI.GeneralTreeElement.Event = {
+WebInspector.GeneralTreeElement.Event = {
     MainTitleDidChange: "general-tree-element-main-title-did-change"
 };

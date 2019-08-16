@@ -39,20 +39,19 @@ class CSSSelector;
 
 class SelectorFilter {
 public:
+    void pushParentStackFrame(Element* parent);
+    void popParentStackFrame();
+
     void pushParent(Element* parent);
-    void pushParentInitializingIfNeeded(Element& parent);
-    void popParent();
-    void popParentsUntil(Element* parent);
+    void popParent() { popParentStackFrame(); }
     bool parentStackIsEmpty() const { return m_parentStack.isEmpty(); }
     bool parentStackIsConsistent(const ContainerNode* parentNode) const;
 
-    using Hashes = std::array<unsigned, 4>;
-    bool fastRejectSelector(const Hashes&) const;
-    static Hashes collectHashes(const CSSSelector&);
+    template <unsigned maximumIdentifierCount>
+    inline bool fastRejectSelector(const unsigned* identifierHashes) const;
+    static void collectIdentifierHashes(const CSSSelector*, unsigned* identifierHashes, unsigned maximumIdentifierCount);
 
 private:
-    void initializeParentStack(Element& parent);
-
     struct ParentStackFrame {
         ParentStackFrame() : element(0) { }
         ParentStackFrame(Element* element) : element(element) { }
@@ -66,12 +65,11 @@ private:
     CountingBloomFilter<bloomFilterKeyBits> m_ancestorIdentifierFilter;
 };
 
-inline bool SelectorFilter::fastRejectSelector(const Hashes& hashes) const
+template <unsigned maximumIdentifierCount>
+inline bool SelectorFilter::fastRejectSelector(const unsigned* identifierHashes) const
 {
-    for (auto& hash : hashes) {
-        if (!hash)
-            return false;
-        if (!m_ancestorIdentifierFilter.mayContain(hash))
+    for (unsigned n = 0; n < maximumIdentifierCount && identifierHashes[n]; ++n) {
+        if (!m_ancestorIdentifierFilter.mayContain(identifierHashes[n]))
             return true;
     }
     return false;

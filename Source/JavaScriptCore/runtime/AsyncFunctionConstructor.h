@@ -31,7 +31,7 @@ namespace JSC {
 
 class AsyncFunctionPrototype;
 
-class AsyncFunctionConstructor final : public InternalFunction {
+class AsyncFunctionConstructor : public InternalFunction {
 public:
     typedef InternalFunction Base;
 
@@ -46,12 +46,14 @@ public:
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(vm, globalObject, prototype, TypeInfo(InternalFunctionType, StructureFlags), info());
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
     }
 
 private:
     AsyncFunctionConstructor(VM&, Structure*);
     void finishCreation(VM&, AsyncFunctionPrototype*);
+    static ConstructType getConstructData(JSCell*, ConstructData&);
+    static CallType getCallData(JSCell*, CallData&);
 };
 
 } // namespace JSC

@@ -36,7 +36,6 @@
 #include "HTMLCanvasElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLParserIdioms.h"
-#include "HTMLPictureElement.h"
 #include "KeyboardEvent.h"
 #include "MouseEvent.h"
 #include "PingLoader.h"
@@ -50,12 +49,9 @@
 #include "SecurityPolicy.h"
 #include "Settings.h"
 #include "URLUtils.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLAnchorElement);
 
 using namespace HTMLNames;
 
@@ -122,7 +118,7 @@ static bool hasNonEmptyBox(RenderBoxModelObject* renderer)
     return false;
 }
 
-bool HTMLAnchorElement::isKeyboardFocusable(KeyboardEvent* event) const
+bool HTMLAnchorElement::isKeyboardFocusable(KeyboardEvent& event) const
 {
     if (!isLink())
         return HTMLElement::isKeyboardFocusable(event);
@@ -148,10 +144,13 @@ static void appendServerMapMousePosition(StringBuilder& url, Event& event)
         return;
     auto& mouseEvent = downcast<MouseEvent>(event);
 
-    if (!is<HTMLImageElement>(mouseEvent.target()))
+    ASSERT(mouseEvent.target());
+    auto* target = mouseEvent.target()->toNode();
+    ASSERT(target);
+    if (!is<HTMLImageElement>(*target))
         return;
 
-    auto& imageElement = downcast<HTMLImageElement>(*mouseEvent.target());
+    auto& imageElement = downcast<HTMLImageElement>(*target);
     if (!imageElement.isServerMap())
         return;
 
@@ -240,7 +239,7 @@ void HTMLAnchorElement::parseAttribute(const QualifiedName& name, const AtomicSt
             String parsedURL = stripLeadingAndTrailingHTMLSpaces(value);
             if (document().isDNSPrefetchEnabled() && document().frame()) {
                 if (protocolIsInHTTPFamily(parsedURL) || parsedURL.startsWith("//"))
-                    document().frame()->loader().client().prefetchDNS(document().completeURL(parsedURL).host().toString());
+                    document().frame()->loader().client().prefetchDNS(document().completeURL(parsedURL).host());
             }
         }
         invalidateCachedVisitedLinkHash();
@@ -250,15 +249,12 @@ void HTMLAnchorElement::parseAttribute(const QualifiedName& name, const AtomicSt
         // Update HTMLAnchorElement::relList() if more rel attributes values are supported.
         static NeverDestroyed<AtomicString> noReferrer("noreferrer", AtomicString::ConstructFromLiteral);
         static NeverDestroyed<AtomicString> noOpener("noopener", AtomicString::ConstructFromLiteral);
-        static NeverDestroyed<AtomicString> opener("opener", AtomicString::ConstructFromLiteral);
         const bool shouldFoldCase = true;
         SpaceSplitString relValue(value, shouldFoldCase);
         if (relValue.contains(noReferrer))
-            m_linkRelations.add(Relation::NoReferrer);
+            m_linkRelations |= Relation::NoReferrer;
         if (relValue.contains(noOpener))
-            m_linkRelations.add(Relation::NoOpener);
-        if (relValue.contains(opener))
-            m_linkRelations.add(Relation::Opener);
+            m_linkRelations |= Relation::NoOpener;
         if (m_relList)
             m_relList->associatedAttributeValueChanged(value);
     }
@@ -308,17 +304,12 @@ bool HTMLAnchorElement::hasRel(Relation relation) const
     return m_linkRelations.contains(relation);
 }
 
-DOMTokenList& HTMLAnchorElement::relList() const
+DOMTokenList& HTMLAnchorElement::relList()
 {
-    if (!m_relList) {
-        m_relList = std::make_unique<DOMTokenList>(const_cast<HTMLAnchorElement&>(*this), HTMLNames::relAttr, [](Document&, StringView token) {
-#if USE(SYSTEM_PREVIEW)
-            return equalIgnoringASCIICase(token, "noreferrer") || equalIgnoringASCIICase(token, "noopener") || equalIgnoringASCIICase(token, "ar");
-#else
+    if (!m_relList) 
+        m_relList = std::make_unique<DOMTokenList>(*this, HTMLNames::relAttr, [](StringView token) {
             return equalIgnoringASCIICase(token, "noreferrer") || equalIgnoringASCIICase(token, "noopener");
-#endif
         });
-    }
     return *m_relList;
 }
 
@@ -371,34 +362,11 @@ void HTMLAnchorElement::sendPings(const URL& destinationURL)
         PingLoader::sendPing(*document().frame(), document().completeURL(pingURLs[i]), destinationURL);
 }
 
-#if USE(SYSTEM_PREVIEW)
-bool HTMLAnchorElement::isSystemPreviewLink() const
-{
-    if (!RuntimeEnabledFeatures::sharedFeatures().systemPreviewEnabled())
-        return false;
-
-    static NeverDestroyed<AtomicString> systemPreviewRelValue("ar", AtomicString::ConstructFromLiteral);
-
-    if (!relList().contains(systemPreviewRelValue))
-        return false;
-
-    if (auto* child = firstElementChild()) {
-        if (is<HTMLImageElement>(child) || is<HTMLPictureElement>(child)) {
-            auto numChildren = childElementCount();
-            // FIXME: We've documented that it should be the only child, but some early demos have two children.
-            return numChildren == 1 || numChildren == 2;
-        }
-    }
-
-    return false;
-}
-#endif
-
 void HTMLAnchorElement::handleClick(Event& event)
 {
     event.setDefaultHandled();
 
-    RefPtr<Frame> frame = document().frame();
+    Frame* frame = document().frame();
     if (!frame)
         return;
 
@@ -419,37 +387,11 @@ void HTMLAnchorElement::handleClick(Event& event)
     }
 #endif
 
-    SystemPreviewInfo systemPreviewInfo;
-#if USE(SYSTEM_PREVIEW)
-    systemPreviewInfo.isSystemPreview = isSystemPreviewLink() && RuntimeEnabledFeatures::sharedFeatures().systemPreviewEnabled();
-
-    if (systemPreviewInfo.isSystemPreview) {
-        if (auto* child = firstElementChild())
-            systemPreviewInfo.systemPreviewRect = child->boundsInRootViewSpace();
-    }
-#endif
-
     ShouldSendReferrer shouldSendReferrer = hasRel(Relation::NoReferrer) ? NeverSendReferrer : MaybeSendReferrer;
-
-    auto effectiveTarget = this->effectiveTarget();
-    Optional<NewFrameOpenerPolicy> newFrameOpenerPolicy;
-    if (hasRel(Relation::Opener))
-        newFrameOpenerPolicy = NewFrameOpenerPolicy::Allow;
-    else if (hasRel(Relation::NoOpener) || (RuntimeEnabledFeatures::sharedFeatures().blankAnchorTargetImpliesNoOpenerEnabled() && equalIgnoringASCIICase(effectiveTarget, "_blank")))
-        newFrameOpenerPolicy = NewFrameOpenerPolicy::Suppress;
-
-    frame->loader().urlSelected(completedURL, effectiveTarget, &event, LockHistory::No, LockBackForwardList::No, shouldSendReferrer, document().shouldOpenExternalURLsPolicyToPropagate(), newFrameOpenerPolicy, downloadAttribute, systemPreviewInfo);
+    auto newFrameOpenerPolicy = hasRel(Relation::NoOpener) ? std::make_optional(NewFrameOpenerPolicy::Suppress) : std::nullopt;
+    frame->loader().urlSelected(completedURL, target(), &event, LockHistory::No, LockBackForwardList::No, shouldSendReferrer, document().shouldOpenExternalURLsPolicyToPropagate(), newFrameOpenerPolicy, downloadAttribute);
 
     sendPings(completedURL);
-}
-
-// Falls back to using <base> element's target if the anchor does not have one.
-String HTMLAnchorElement::effectiveTarget() const
-{
-    auto effectiveTarget = target();
-    if (effectiveTarget.isEmpty())
-        effectiveTarget = document().baseTarget();
-    return effectiveTarget;
 }
 
 HTMLAnchorElement::EventType HTMLAnchorElement::eventType(Event& event)

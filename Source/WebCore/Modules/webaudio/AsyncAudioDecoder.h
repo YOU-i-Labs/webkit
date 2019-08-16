@@ -54,7 +54,6 @@ public:
 private:
     class DecodingTask {
         WTF_MAKE_NONCOPYABLE(DecodingTask);
-        WTF_MAKE_FAST_ALLOCATED;
     public:
         DecodingTask(Ref<JSC::ArrayBuffer>&& audioData, float sampleRate, RefPtr<AudioBufferCallback>&& successCallback, RefPtr<AudioBufferCallback>&& errorCallback);
         void decode();
@@ -75,6 +74,7 @@ private:
         RefPtr<AudioBuffer> m_audioBuffer;
     };
     
+    static void threadEntry(void* threadData);
     void runLoop();
 
     RefPtr<Thread> m_thread;

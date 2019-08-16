@@ -36,12 +36,8 @@ class Text;
 #define ApplePasteAsQuotation     "Apple-paste-as-quotation"
 #define AppleStyleSpanClass       "Apple-style-span"
 #define AppleTabSpanClass         "Apple-tab-span"
-#define WebKitMSOListQuirksStyle  "WebKit-mso-list-quirks-style"
 
-// Controls whether a special BR which is removed upon paste in ReplaceSelectionCommand needs to be inserted
-// and making sequence of spaces not collapsible by inserting non-breaking spaces.
-// See https://trac.webkit.org/r8087 and https://trac.webkit.org/r8096.
-enum class AnnotateForInterchange : uint8_t { No, Yes };
+enum EAnnotateForInterchange { DoNotAnnotateForInterchange, AnnotateForInterchange };
 
 String convertHTMLTextToInterchangeFormat(const String&, const Text*);
 

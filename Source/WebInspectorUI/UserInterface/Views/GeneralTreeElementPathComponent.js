@@ -23,42 +23,45 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.GeneralTreeElementPathComponent = class GeneralTreeElementPathComponent extends WI.HierarchicalPathComponent
+WebInspector.GeneralTreeElementPathComponent = class GeneralTreeElementPathComponent extends WebInspector.HierarchicalPathComponent
 {
-    constructor(generalTreeElement)
+    constructor(generalTreeElement, representedObject)
     {
-        super(generalTreeElement.mainTitle, generalTreeElement.classNames, generalTreeElement.representedObject);
+        super(generalTreeElement.mainTitle, generalTreeElement.classNames, representedObject || generalTreeElement.representedObject);
 
         this._generalTreeElement = generalTreeElement;
-        this._generalTreeElement.addEventListener(WI.GeneralTreeElement.Event.MainTitleDidChange, this._mainTitleDidChange, this);
+        generalTreeElement.addEventListener(WebInspector.GeneralTreeElement.Event.MainTitleDidChange, this._mainTitleDidChange, this);
     }
 
     // Public
 
-    get generalTreeElement() { return this._generalTreeElement; }
+    get generalTreeElement()
+    {
+        return this._generalTreeElement;
+    }
 
     get previousSibling()
     {
-        let previousSibling = this._generalTreeElement.previousSibling;
+        var previousSibling = this._generalTreeElement.previousSibling;
         while (previousSibling && previousSibling.hidden)
             previousSibling = previousSibling.previousSibling;
 
         if (!previousSibling)
             return null;
 
-        return new WI.GeneralTreeElementPathComponent(previousSibling);
+        return new WebInspector.GeneralTreeElementPathComponent(previousSibling);
     }
 
     get nextSibling()
     {
-        let nextSibling = this._generalTreeElement.nextSibling;
+        var nextSibling = this._generalTreeElement.nextSibling;
         while (nextSibling && nextSibling.hidden)
             nextSibling = nextSibling.nextSibling;
 
         if (!nextSibling)
             return null;
 
-        return new WI.GeneralTreeElementPathComponent(nextSibling);
+        return new WebInspector.GeneralTreeElementPathComponent(nextSibling);
     }
 
     // Private

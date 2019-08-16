@@ -23,18 +23,15 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ObjectTreeBaseTreeElement = class ObjectTreeBaseTreeElement extends WI.GeneralTreeElement
+WebInspector.ObjectTreeBaseTreeElement = class ObjectTreeBaseTreeElement extends WebInspector.GeneralTreeElement
 {
     constructor(representedObject, propertyPath, property)
     {
         console.assert(representedObject);
-        console.assert(propertyPath instanceof WI.PropertyPath);
-        console.assert(!property || property instanceof WI.PropertyDescriptor);
+        console.assert(propertyPath instanceof WebInspector.PropertyPath);
+        console.assert(!property || property instanceof WebInspector.PropertyDescriptor);
 
-        const classNames = null;
-        const title = null;
-        const subtitle = null;
-        super(classNames, title, subtitle, representedObject);
+        super(null, null, null, representedObject, false);
 
         this._property = property;
         this._propertyPath = propertyPath;
@@ -72,9 +69,9 @@ WI.ObjectTreeBaseTreeElement = class ObjectTreeBaseTreeElement extends WI.Genera
     {
         console.assert(this._property);
         if (this._getterValue)
-            return this._propertyPath.appendPropertyDescriptor(this._getterValue, this._property, WI.PropertyPath.Type.Value);
+            return this._propertyPath.appendPropertyDescriptor(this._getterValue, this._property, WebInspector.PropertyPath.Type.Value);
         if (this._property.hasValue())
-            return this._propertyPath.appendPropertyDescriptor(this._property.value, this._property, WI.PropertyPath.Type.Value);
+            return this._propertyPath.appendPropertyDescriptor(this._property.value, this._property, WebInspector.PropertyPath.Type.Value);
         return null;
     }
 
@@ -94,18 +91,18 @@ WI.ObjectTreeBaseTreeElement = class ObjectTreeBaseTreeElement extends WI.Genera
     {
         console.assert(this._property);
         if (this._getterValue || this._property.hasValue())
-            return WI.PropertyPath.Type.Value;
+            return WebInspector.PropertyPath.Type.Value;
         if (this._property.hasGetter())
-            return WI.PropertyPath.Type.Getter;
+            return WebInspector.PropertyPath.Type.Getter;
         if (this._property.hasSetter())
-            return WI.PropertyPath.Type.Setter;
-        return WI.PropertyPath.Type.Value;
+            return WebInspector.PropertyPath.Type.Setter;
+        return WebInspector.PropertyPath.Type.Value;
     }
 
     propertyPathString(propertyPath)
     {
         if (propertyPath.isFullPathImpossible())
-            return WI.UIString("Unable to determine path to property from root");
+            return WebInspector.UIString("Unable to determine path to property from root");
 
         return propertyPath.displayPath(this.propertyPathType());
     }
@@ -117,11 +114,11 @@ WI.ObjectTreeBaseTreeElement = class ObjectTreeBaseTreeElement extends WI.Genera
 
         if (!interactive) {
             getterElement.classList.add("disabled");
-            getterElement.title = WI.UIString("Getter");
+            getterElement.title = WebInspector.UIString("Getter");
             return getterElement;
         }
 
-        getterElement.title = WI.UIString("Invoke getter");
+        getterElement.title = WebInspector.UIString("Invoke getter");
         getterElement.addEventListener("click", (event) => {
             event.stopPropagation();
             var lastNonPrototypeObject = this._propertyPath.lastNonPrototypeObject;
@@ -141,7 +138,7 @@ WI.ObjectTreeBaseTreeElement = class ObjectTreeBaseTreeElement extends WI.Genera
     {
         var setterElement = document.createElement("img");
         setterElement.className = "setter";
-        setterElement.title = WI.UIString("Setter");
+        setterElement.title = WebInspector.UIString("Setter");
 
         if (!interactive)
             setterElement.classList.add("disabled");
@@ -169,14 +166,14 @@ WI.ObjectTreeBaseTreeElement = class ObjectTreeBaseTreeElement extends WI.Genera
             return;
 
         if (this._property && this._property.symbol)
-            contextMenu.appendItem(WI.UIString("Log Symbol"), this._logSymbolProperty.bind(this));
+            contextMenu.appendItem(WebInspector.UIString("Log Symbol"), this._logSymbolProperty.bind(this));
 
-        contextMenu.appendItem(WI.UIString("Log Value"), this._logValue.bind(this));
+        contextMenu.appendItem(WebInspector.UIString("Log Value"), this._logValue.bind(this));
 
         let propertyPath = this.resolvedValuePropertyPath();
         if (propertyPath && !propertyPath.isFullPathImpossible()) {
-            contextMenu.appendItem(WI.UIString("Copy Path to Property"), () => {
-                InspectorFrontendHost.copyText(propertyPath.displayPath(WI.PropertyPath.Type.Value));
+            contextMenu.appendItem(WebInspector.UIString("Copy Path to Property"), () => {
+                InspectorFrontendHost.copyText(propertyPath.displayPath(WebInspector.PropertyPath.Type.Value));
             });
         }
 
@@ -195,8 +192,8 @@ WI.ObjectTreeBaseTreeElement = class ObjectTreeBaseTreeElement extends WI.Genera
         if (!symbol)
             return;
 
-        var text = WI.UIString("Selected Symbol");
-        WI.consoleLogViewController.appendImmediateExecutionWithResult(text, symbol, true);
+        var text = WebInspector.UIString("Selected Symbol");
+        WebInspector.consoleLogViewController.appendImmediateExecutionWithResult(text, symbol, true);
     }
 
     _logValue(value)
@@ -207,12 +204,12 @@ WI.ObjectTreeBaseTreeElement = class ObjectTreeBaseTreeElement extends WI.Genera
 
         var propertyPath = this.resolvedValuePropertyPath();
         var isImpossible = propertyPath.isFullPathImpossible();
-        var text = isImpossible ? WI.UIString("Selected Value") : propertyPath.displayPath(this.propertyPathType());
+        var text = isImpossible ? WebInspector.UIString("Selected Value") : propertyPath.displayPath(this.propertyPathType());
 
         if (!isImpossible)
-            WI.quickConsole.prompt.pushHistoryItem(text);
+            WebInspector.quickConsole.prompt.pushHistoryItem(text);
 
-        WI.consoleLogViewController.appendImmediateExecutionWithResult(text, resolvedValue, isImpossible);
+        WebInspector.consoleLogViewController.appendImmediateExecutionWithResult(text, resolvedValue, isImpossible);
     }
 
     _appendMenusItemsForObject(contextMenu, resolvedValue)
@@ -220,13 +217,13 @@ WI.ObjectTreeBaseTreeElement = class ObjectTreeBaseTreeElement extends WI.Genera
         if (resolvedValue.type === "function") {
             // FIXME: We should better handle bound functions.
             if (!isFunctionStringNativeCode(resolvedValue.description)) {
-                contextMenu.appendItem(WI.UIString("Jump to Definition"), function() {
+                contextMenu.appendItem(WebInspector.UIString("Jump to Definition"), function() {
                     resolvedValue.target.DebuggerAgent.getFunctionDetails(resolvedValue.objectId, function(error, response) {
                         if (error)
                             return;
 
                         let location = response.location;
-                        let sourceCode = WI.debuggerManager.scriptForIdentifier(location.scriptId, resolvedValue.target);
+                        let sourceCode = WebInspector.debuggerManager.scriptForIdentifier(location.scriptId, resolvedValue.target);
                         if (!sourceCode)
                             return;
 
@@ -236,7 +233,7 @@ WI.ObjectTreeBaseTreeElement = class ObjectTreeBaseTreeElement extends WI.Genera
                             ignoreNetworkTab: true,
                             ignoreSearchTab: true,
                         };
-                        WI.showSourceCodeLocation(sourceCodeLocation, options);
+                        WebInspector.showSourceCodeLocation(sourceCodeLocation, options);
                     });
                 });
             }
@@ -244,22 +241,22 @@ WI.ObjectTreeBaseTreeElement = class ObjectTreeBaseTreeElement extends WI.Genera
         }
 
         if (resolvedValue.subtype === "node") {
-            contextMenu.appendItem(WI.UIString("Copy as HTML"), function() {
+            contextMenu.appendItem(WebInspector.UIString("Copy as HTML"), function() {
                 resolvedValue.pushNodeToFrontend(function(nodeId) {
-                    WI.domManager.nodeForId(nodeId).copyNode();
+                    WebInspector.domTreeManager.nodeForId(nodeId).copyNode();
                 });
             });
 
-            contextMenu.appendItem(WI.UIString("Scroll Into View"), function() {
+            contextMenu.appendItem(WebInspector.UIString("Scroll Into View"), function() {
                 function scrollIntoView() { this.scrollIntoViewIfNeeded(true); }
                 resolvedValue.callFunction(scrollIntoView, undefined, false, function() {});
             });
 
             contextMenu.appendSeparator();
 
-            contextMenu.appendItem(WI.UIString("Reveal in DOM Tree"), function() {
+            contextMenu.appendItem(WebInspector.UIString("Reveal in DOM Tree"), function() {
                 resolvedValue.pushNodeToFrontend(function(nodeId) {
-                    WI.domManager.inspectElement(nodeId);
+                    WebInspector.domTreeManager.inspectElement(nodeId);
                 });
             });
             return;

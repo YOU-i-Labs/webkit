@@ -29,6 +29,9 @@
  */
 
 #include "config.h"
+
+#if ENABLE(WEB_SOCKETS)
+
 #include "WebSocketDeflateFramer.h"
 
 #include <wtf/HashMap.h>
@@ -41,7 +44,7 @@ class WebSocketExtensionDeflateFrame : public WebSocketExtensionProcessor {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     explicit WebSocketExtensionDeflateFrame(WebSocketDeflateFramer*);
-    virtual ~WebSocketExtensionDeflateFrame() = default;
+    virtual ~WebSocketExtensionDeflateFrame() { }
 
     String handshakeString() override;
     bool processResponse(const HashMap<String, String>&) override;
@@ -250,3 +253,5 @@ void WebSocketDeflateFramer::didFail()
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_SOCKETS)

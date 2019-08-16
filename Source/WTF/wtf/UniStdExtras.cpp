@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include <wtf/UniStdExtras.h>
+#include "UniStdExtras.h"
 
 #include <fcntl.h>
 

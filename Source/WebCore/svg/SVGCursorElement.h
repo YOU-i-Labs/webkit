@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -33,8 +32,7 @@ namespace WebCore {
 
 class CSSCursorImageValue;
 
-class SVGCursorElement final : public SVGElement, public SVGExternalResourcesRequired, public SVGTests, public SVGURIReference {
-    WTF_MAKE_ISO_ALLOCATED(SVGCursorElement);
+class SVGCursorElement final : public SVGElement, public SVGTests, public SVGExternalResourcesRequired, public SVGURIReference {
 public:
     static Ref<SVGCursorElement> create(const QualifiedName&, Document&);
 
@@ -43,32 +41,36 @@ public:
     void addClient(CSSCursorImageValue&);
     void removeClient(CSSCursorImageValue&);
 
-    const SVGLengthValue& x() const { return m_x.currentValue(attributeOwnerProxy()); }
-    const SVGLengthValue& y() const { return m_y.currentValue(attributeOwnerProxy()); }
-
-    RefPtr<SVGAnimatedLength> xAnimated() { return m_x.animatedProperty(attributeOwnerProxy()); }
-    RefPtr<SVGAnimatedLength> yAnimated() { return m_y.animatedProperty(attributeOwnerProxy()); }
+    // SVGTests
+    Ref<SVGStringList> requiredFeatures();
+    Ref<SVGStringList> requiredExtensions();
+    Ref<SVGStringList> systemLanguage();
 
 private:
     SVGCursorElement(const QualifiedName&, Document&);
 
-    using AttributeOwnerProxy = SVGAttributeOwnerProxyImpl<SVGCursorElement, SVGElement, SVGExternalResourcesRequired, SVGTests, SVGURIReference>;
-    static AttributeOwnerProxy::AttributeRegistry& attributeRegistry() { return AttributeOwnerProxy::attributeRegistry(); }
-    static bool isKnownAttribute(const QualifiedName& attributeName) { return AttributeOwnerProxy::isKnownAttribute(attributeName); }
-    static void registerAttributes();
+    bool isValid() const final { return SVGTests::isValid(); }
 
-    const SVGAttributeOwnerProxy& attributeOwnerProxy() const final { return m_attributeOwnerProxy; }
+    static bool isSupportedAttribute(const QualifiedName&);
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
     void svgAttributeChanged(const QualifiedName&) final;
 
-    bool isValid() const final { return SVGTests::isValid(); }
     bool rendererIsNeeded(const RenderStyle&) final { return false; }
 
     void addSubresourceAttributeURLs(ListHashSet<URL>&) const final;
 
-    AttributeOwnerProxy m_attributeOwnerProxy { *this };
-    SVGAnimatedLengthAttribute m_x { LengthModeWidth };
-    SVGAnimatedLengthAttribute m_y { LengthModeHeight };
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGCursorElement)
+        DECLARE_ANIMATED_LENGTH(X, x)
+        DECLARE_ANIMATED_LENGTH(Y, y)
+        DECLARE_ANIMATED_STRING_OVERRIDE(Href, href)
+        DECLARE_ANIMATED_BOOLEAN_OVERRIDE(ExternalResourcesRequired, externalResourcesRequired)
+    END_DECLARE_ANIMATED_PROPERTIES
+
+    // SVGTests
+    void synchronizeRequiredFeatures() final { SVGTests::synchronizeRequiredFeatures(*this); }
+    void synchronizeRequiredExtensions() final { SVGTests::synchronizeRequiredExtensions(*this); }
+    void synchronizeSystemLanguage() final { SVGTests::synchronizeSystemLanguage(*this); }
+
     HashSet<CSSCursorImageValue*> m_clients;
 };
 

@@ -66,7 +66,9 @@ RenderScrollbar::RenderScrollbar(ScrollableArea& scrollableArea, ScrollbarOrient
     setFrameRect(IntRect(0, 0, width, height));
 }
 
-RenderScrollbar::~RenderScrollbar() = default;
+RenderScrollbar::~RenderScrollbar()
+{
+}
 
 RenderBox* RenderScrollbar::owningRenderer() const
 {
@@ -102,7 +104,7 @@ void RenderScrollbar::styleChanged()
 
 void RenderScrollbar::paint(GraphicsContext& context, const IntRect& damageRect, Widget::SecurityOriginPaintPolicy)
 {
-    if (context.invalidatingControlTints()) {
+    if (context.updatingControlTints()) {
         updateScrollbarParts();
         return;
     }
@@ -188,22 +190,22 @@ static PseudoId pseudoForScrollbarPart(ScrollbarPart part)
         case ForwardButtonStartPart:
         case BackButtonEndPart:
         case ForwardButtonEndPart:
-            return PseudoId::ScrollbarButton;
+            return SCROLLBAR_BUTTON;
         case BackTrackPart:
         case ForwardTrackPart:
-            return PseudoId::ScrollbarTrackPiece;
+            return SCROLLBAR_TRACK_PIECE;
         case ThumbPart:
-            return PseudoId::ScrollbarThumb;
+            return SCROLLBAR_THUMB;
         case TrackBGPart:
-            return PseudoId::ScrollbarTrack;
+            return SCROLLBAR_TRACK;
         case ScrollbarBGPart:
-            return PseudoId::Scrollbar;
+            return SCROLLBAR;
         case NoPart:
         case AllParts:
             break;
     }
     ASSERT_NOT_REACHED();
-    return PseudoId::Scrollbar;
+    return SCROLLBAR;
 }
 
 void RenderScrollbar::updateScrollbarPart(ScrollbarPart partType)
@@ -212,9 +214,9 @@ void RenderScrollbar::updateScrollbarPart(ScrollbarPart partType)
         return;
 
     std::unique_ptr<RenderStyle> partStyle = getScrollbarPseudoStyle(partType, pseudoForScrollbarPart(partType));
-    bool needRenderer = partStyle && partStyle->display() != DisplayType::None;
+    bool needRenderer = partStyle && partStyle->display() != NONE;
 
-    if (needRenderer && partStyle->display() != DisplayType::Block) {
+    if (needRenderer && partStyle->display() != BLOCK) {
         // See if we are a button that should not be visible according to OS settings.
         ScrollbarButtonsPlacement buttonsPlacement = theme().buttonsPlacement();
         switch (partType) {

@@ -32,16 +32,16 @@
 #include "config.h"
 #include "ScrollableArea.h"
 
-#include "FloatPoint.h"
 #include "GraphicsContext.h"
 #include "GraphicsLayer.h"
+#include "FloatPoint.h"
 #include "LayoutRect.h"
 #include "Logging.h"
 #include "PlatformWheelEvent.h"
 #include "ScrollAnimator.h"
 #include "ScrollAnimatorMock.h"
 #include "ScrollbarTheme.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 
@@ -70,7 +70,9 @@ ScrollableArea::ScrollableArea()
 {
 }
 
-ScrollableArea::~ScrollableArea() = default;
+ScrollableArea::~ScrollableArea()
+{
+}
 
 ScrollAnimator& ScrollableArea::scrollAnimator() const
 {
@@ -127,6 +129,7 @@ bool ScrollableArea::scroll(ScrollDirection direction, ScrollGranularity granula
         step = scrollbar->totalSize();
         break;
     case ScrollByPixel:
+    case ScrollByPrecisePixel:
         step = scrollbar->pixelStep();
         break;
     }
@@ -138,10 +141,10 @@ bool ScrollableArea::scroll(ScrollDirection direction, ScrollGranularity granula
     return scrollAnimator().scroll(orientation, granularity, step, multiplier);
 }
 
-void ScrollableArea::scrollToOffsetWithoutAnimation(const FloatPoint& offset, ScrollClamping clamping)
+void ScrollableArea::scrollToOffsetWithoutAnimation(const FloatPoint& offset)
 {
     LOG_WITH_STREAM(Scrolling, stream << "ScrollableArea " << this << " scrollToOffsetWithoutAnimation " << offset);
-    scrollAnimator().scrollToOffsetWithoutAnimation(offset, clamping);
+    scrollAnimator().scrollToOffsetWithoutAnimation(offset);
 }
 
 void ScrollableArea::scrollToOffsetWithoutAnimation(ScrollbarOrientation orientation, float offset)
@@ -367,12 +370,6 @@ void ScrollableArea::setScrollbarOverlayStyle(ScrollbarOverlayStyle overlayStyle
     }
 }
 
-bool ScrollableArea::useDarkAppearanceForScrollbars() const
-{
-    // If dark appearance is used or the overlay style is light (because of a dark page background), set the dark appearance.
-    return useDarkAppearance() || scrollbarOverlayStyle() == WebCore::ScrollbarOverlayStyleLight;
-}
-
 void ScrollableArea::invalidateScrollbar(Scrollbar& scrollbar, const IntRect& rect)
 {
     if (&scrollbar == horizontalScrollbar()) {
@@ -571,7 +568,7 @@ void ScrollableArea::serviceScrollAnimations()
         scrollAnimator->serviceScrollAnimations();
 }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 bool ScrollableArea::isPinnedInBothDirections(const IntSize& scrollDelta) const
 {
     return isPinnedHorizontallyInDirection(scrollDelta.width()) && isPinnedVerticallyInDirection(scrollDelta.height());
@@ -594,7 +591,7 @@ bool ScrollableArea::isPinnedVerticallyInDirection(int verticalScrollDelta) cons
         return true;
     return false;
 }
-#endif // PLATFORM(IOS_FAMILY)
+#endif // PLATFORM(IOS)
 
 int ScrollableArea::horizontalScrollbarIntrusion() const
 {
@@ -722,9 +719,9 @@ LayoutPoint ScrollableArea::constrainScrollPositionForOverhang(const LayoutRect&
         // If we still clip, push our rect "up" from the bottom right.
         scrollRect.intersect(documentRect);
         if (scrollRect.width() < idealScrollRectSize.width())
-            scrollRect.move(-(idealScrollRectSize.width() - scrollRect.width()), 0_lu);
+            scrollRect.move(-(idealScrollRectSize.width() - scrollRect.width()), 0);
         if (scrollRect.height() < idealScrollRectSize.height())
-            scrollRect.move(0_lu, -(idealScrollRectSize.height() - scrollRect.height()));
+            scrollRect.move(0, -(idealScrollRectSize.height() - scrollRect.height()));
     }
 
     return scrollRect.location() - toLayoutSize(scrollOrigin);

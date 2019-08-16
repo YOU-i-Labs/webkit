@@ -29,7 +29,6 @@
 namespace WebCore {
 
 class FTPDirectoryDocument final : public HTMLDocument {
-    WTF_MAKE_ISO_ALLOCATED(FTPDirectoryDocument);
 public:
     static Ref<FTPDirectoryDocument> create(Frame* frame, const URL& url)
     {

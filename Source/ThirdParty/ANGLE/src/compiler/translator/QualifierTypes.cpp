@@ -308,11 +308,9 @@ bool JoinVariableStorageQualifier(TQualifier *joinedQualifier, TQualifier storag
                     *joinedQualifier = EvqCentroid;
                     break;
                 case EvqVertexOut:
-                case EvqGeometryOut:
                     *joinedQualifier = EvqSmoothOut;
                     break;
                 case EvqFragmentIn:
-                case EvqGeometryIn:
                     *joinedQualifier = EvqSmoothIn;
                     break;
                 default:
@@ -328,11 +326,9 @@ bool JoinVariableStorageQualifier(TQualifier *joinedQualifier, TQualifier storag
                     *joinedQualifier = EvqFlat;
                     break;
                 case EvqVertexOut:
-                case EvqGeometryOut:
                     *joinedQualifier = EvqFlatOut;
                     break;
                 case EvqFragmentIn:
-                case EvqGeometryIn:
                     *joinedQualifier = EvqFlatIn;
                     break;
                 default:
@@ -345,11 +341,9 @@ bool JoinVariableStorageQualifier(TQualifier *joinedQualifier, TQualifier storag
             switch (storageQualifier)
             {
                 case EvqVertexOut:
-                case EvqGeometryOut:
                     *joinedQualifier = EvqCentroidOut;
                     break;
                 case EvqFragmentIn:
-                case EvqGeometryIn:
                     *joinedQualifier = EvqCentroidIn;
                     break;
                 default:
@@ -574,10 +568,6 @@ TLayoutQualifier JoinLayoutQualifiers(TLayoutQualifier leftQualifier,
     {
         joinedQualifier.binding = rightQualifier.binding;
     }
-    if (rightQualifier.offset != -1)
-    {
-        joinedQualifier.offset = rightQualifier.offset;
-    }
     if (rightQualifier.matrixPacking != EmpUnspecified)
     {
         joinedQualifier.matrixPacking = rightQualifier.matrixPacking;
@@ -610,42 +600,6 @@ TLayoutQualifier JoinLayoutQualifiers(TLayoutQualifier leftQualifier,
     if (rightQualifier.imageInternalFormat != EiifUnspecified)
     {
         joinedQualifier.imageInternalFormat = rightQualifier.imageInternalFormat;
-    }
-
-    if (rightQualifier.primitiveType != EptUndefined)
-    {
-        if (joinedQualifier.primitiveType != EptUndefined &&
-            joinedQualifier.primitiveType != rightQualifier.primitiveType)
-        {
-            diagnostics->error(rightQualifierLocation,
-                               "Cannot have multiple different primitive specifiers",
-                               getGeometryShaderPrimitiveTypeString(rightQualifier.primitiveType));
-        }
-        joinedQualifier.primitiveType = rightQualifier.primitiveType;
-    }
-
-    if (rightQualifier.invocations != 0)
-    {
-        if (joinedQualifier.invocations != 0 &&
-            joinedQualifier.invocations != rightQualifier.invocations)
-        {
-            diagnostics->error(rightQualifierLocation,
-                               "Cannot have multiple different invocations specifiers",
-                               "invocations");
-        }
-        joinedQualifier.invocations = rightQualifier.invocations;
-    }
-
-    if (rightQualifier.maxVertices != -1)
-    {
-        if (joinedQualifier.maxVertices != -1 &&
-            joinedQualifier.maxVertices != rightQualifier.maxVertices)
-        {
-            diagnostics->error(rightQualifierLocation,
-                               "Cannot have multiple different max_vertices specifiers",
-                               "max_vertices");
-        }
-        joinedQualifier.maxVertices = rightQualifier.maxVertices;
     }
 
     return joinedQualifier;
@@ -691,8 +645,8 @@ unsigned int TPrecisionQualifierWrapper::getRank() const
 }
 
 TTypeQualifier::TTypeQualifier(TQualifier scope, const TSourceLoc &loc)
-    : layoutQualifier(TLayoutQualifier::Create()),
-      memoryQualifier(TMemoryQualifier::Create()),
+    : layoutQualifier(TLayoutQualifier::create()),
+      memoryQualifier(TMemoryQualifier::create()),
       precision(EbpUndefined),
       qualifier(scope),
       invariant(false),

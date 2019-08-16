@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include "ActiveDOMObject.h"
 #include "AudioBus.h"
 #include "AudioNode.h"
 #include "EventListener.h"
@@ -44,7 +45,7 @@ class AudioProcessingEvent;
 // The "onaudioprocess" attribute is an event listener which will get called periodically with an AudioProcessingEvent which has
 // AudioBuffers for each input and output.
 
-class ScriptProcessorNode final : public AudioNode {
+class ScriptProcessorNode : public AudioNode {
 public:
     // bufferSize must be one of the following values: 256, 512, 1024, 2048, 4096, 8192, 16384.
     // This value controls how frequently the onaudioprocess event handler is called and how many sample-frames need to be processed each call.

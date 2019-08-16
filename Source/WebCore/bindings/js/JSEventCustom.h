@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2016 Apple Inc. All rights reserved.
- * Copyright (C) 2018 Yusuke Suzuki <utatane.tea@gmail.com>.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,19 +26,13 @@
 #pragma once
 
 #include "JSDOMBinding.h"
-#include "JSEvent.h"
 
-namespace JSC {
-namespace JSCastingHelpers {
+namespace WebCore {
 
-template<>
-struct InheritsTraits<WebCore::JSEvent> {
-    template<typename From>
-    static inline bool inherits(VM&, From* from)
-    {
-        return from->type() == WebCore::JSEventType;
-    }
-};
+template<typename From>
+ALWAYS_INLINE JSDynamicCastResult<JSEvent, From> jsEventCast(From* value)
+{
+    return value->type() == JSEventType ? JSC::jsCast<JSDynamicCastResult<JSEvent, From>>(value) : nullptr;
+}
 
-} // namespace JSCastingHelpers
-} // namespace JSC
+} // namespace WebCore

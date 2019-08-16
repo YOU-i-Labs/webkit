@@ -37,7 +37,7 @@ class GeneratorFunctionPrototype;
 
 // %GeneratorFunction% intrinsic.
 // https://tc39.github.io/ecma262/#sec-generatorfunction-constructor
-class GeneratorFunctionConstructor final : public InternalFunction {
+class GeneratorFunctionConstructor : public InternalFunction {
 public:
     typedef InternalFunction Base;
 
@@ -52,12 +52,14 @@ public:
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(vm, globalObject, prototype, TypeInfo(InternalFunctionType, StructureFlags), info());
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
     }
 
 private:
     GeneratorFunctionConstructor(VM&, Structure*);
     void finishCreation(VM&, GeneratorFunctionPrototype*);
+    static ConstructType getConstructData(JSCell*, ConstructData&);
+    static CallType getCallData(JSCell*, CallData&);
 };
 
 } // namespace JSC

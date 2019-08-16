@@ -29,7 +29,7 @@
 
 #include "ContentSecurityPolicy.h"
 #include "ContentSecurityPolicyDirectiveList.h"
-#include <wtf/URL.h>
+#include "URL.h"
 
 namespace WebCore {
 

@@ -95,11 +95,13 @@ HitTestResult::HitTestResult(const HitTestResult& other)
     , m_scrollbar(other.scrollbar())
     , m_isOverWidget(other.isOverWidget())
 {
-    // Only copy the NodeSet in case of list hit test.
-    m_listBasedTestResult = other.m_listBasedTestResult ? std::make_unique<NodeSet>(*other.m_listBasedTestResult) : nullptr;
+    // Only copy the NodeSet in case of rect hit test.
+    m_rectBasedTestResult = other.m_rectBasedTestResult ? std::make_unique<NodeSet>(*other.m_rectBasedTestResult) : nullptr;
 }
 
-HitTestResult::~HitTestResult() = default;
+HitTestResult::~HitTestResult()
+{
+}
 
 HitTestResult& HitTestResult::operator=(const HitTestResult& other)
 {
@@ -112,8 +114,8 @@ HitTestResult& HitTestResult::operator=(const HitTestResult& other)
     m_scrollbar = other.scrollbar();
     m_isOverWidget = other.isOverWidget();
 
-    // Only copy the NodeSet in case of list hit test.
-    m_listBasedTestResult = other.m_listBasedTestResult ? std::make_unique<NodeSet>(*other.m_listBasedTestResult) : nullptr;
+    // Only copy the NodeSet in case of rect hit test.
+    m_rectBasedTestResult = other.m_rectBasedTestResult ? std::make_unique<NodeSet>(*other.m_rectBasedTestResult) : nullptr;
 
     return *this;
 }
@@ -177,13 +179,13 @@ Frame* HitTestResult::innerNodeFrame() const
 Frame* HitTestResult::targetFrame() const
 {
     if (!m_innerURLElement)
-        return nullptr;
+        return 0;
 
     Frame* frame = m_innerURLElement->document().frame();
     if (!frame)
-        return nullptr;
+        return 0;
 
-    return frame->tree().find(m_innerURLElement->target(), *frame);
+    return frame->tree().find(m_innerURLElement->target());
 }
 
 bool HitTestResult::isSelected() const
@@ -220,7 +222,7 @@ String HitTestResult::selectedText() const
 
 String HitTestResult::spellingToolTip(TextDirection& dir) const
 {
-    dir = TextDirection::LTR;
+    dir = LTR;
     // Return the tool tip string associated with this point, if any. Only markers associated with bad grammar
     // currently supply strings, but maybe someday markers associated with misspelled words will also.
     if (!m_innerNonSharedNode)
@@ -251,7 +253,7 @@ String HitTestResult::replacedString() const
     
 String HitTestResult::title(TextDirection& dir) const
 {
-    dir = TextDirection::LTR;
+    dir = LTR;
     // Find the title in the nearest enclosing DOM node.
     // For <area> tags in image maps, walk the tree for the <area>, not the <img> using it.
     for (Node* titleNode = m_innerNode.get(); titleNode; titleNode = titleNode->parentInComposedTree()) {
@@ -277,7 +279,7 @@ String HitTestResult::innerTextIfTruncated(TextDirection& dir) const
         if (auto renderer = downcast<Element>(*truncatedNode).renderer()) {
             if (is<RenderBlockFlow>(*renderer)) {
                 RenderBlockFlow& block = downcast<RenderBlockFlow>(*renderer);
-                if (block.style().textOverflow() == TextOverflow::Ellipsis) {
+                if (block.style().textOverflow()) {
                     for (RootInlineBox* line = block.firstRootBox(); line; line = line->nextRootBox()) {
                         if (line->hasEllipsisBox()) {
                             dir = block.style().direction();
@@ -290,7 +292,7 @@ String HitTestResult::innerTextIfTruncated(TextDirection& dir) const
         }
     }
 
-    dir = TextDirection::LTR;
+    dir = LTR;
     return String();
 }
 
@@ -341,6 +343,25 @@ IntRect HitTestResult::imageRect() const
     return m_innerNonSharedNode->renderBox()->absoluteContentQuad().enclosingBoundingBox();
 }
 
+#if ENABLE(ATTACHMENT_ELEMENT)
+URL HitTestResult::absoluteAttachmentURL() const
+{
+    if (!m_innerNonSharedNode)
+        return URL();
+    
+    if (!(m_innerNonSharedNode->renderer() && m_innerNonSharedNode->renderer()->isAttachment()))
+        return URL();
+    
+    if (!is<HTMLAttachmentElement>(*m_innerNonSharedNode))
+        return URL();
+    File* attachmentFile = downcast<HTMLAttachmentElement>(*m_innerNonSharedNode).file();
+    if (!attachmentFile)
+        return URL();
+    
+    return URL::fileURLWithFileSystemPath(attachmentFile->path());
+}
+#endif
+
 URL HitTestResult::absoluteImageURL() const
 {
     if (!m_innerNonSharedNode)
@@ -375,7 +396,7 @@ URL HitTestResult::absolutePDFURL() const
     if (!url.isValid())
         return URL();
 
-    if (element.serviceType() == "application/pdf" || (element.serviceType().isEmpty() && url.path().endsWithIgnoringASCIICase(".pdf")))
+    if (element.serviceType() == "application/pdf" || (element.serviceType().isEmpty() && url.path().endsWith(".pdf", false)))
         return url;
     return URL();
 }
@@ -553,7 +574,7 @@ bool HitTestResult::isOverTextInsideFormControlElement() const
     if (!node)
         return false;
 
-    if (!is<Element>(*node) || !downcast<Element>(*node).isTextField())
+    if (!is<HTMLTextFormControlElement>(*node))
         return false;
 
     Frame* frame = node->document().frame();
@@ -573,6 +594,21 @@ bool HitTestResult::isOverTextInsideFormControlElement() const
         return false;
 
     return !wordRange->text().isEmpty();
+}
+
+bool HitTestResult::allowsCopy() const
+{
+    Node* node = innerNode();
+    if (!node)
+        return false;
+
+    RenderObject* renderer = node->renderer();
+    if (!renderer)
+        return false;
+
+    bool isUserSelectNone = renderer->style().userSelect() == SELECT_NONE;
+    bool isPasswordField = is<HTMLInputElement>(node) && downcast<HTMLInputElement>(*node).isPasswordField();
+    return !isPasswordField && !isUserSelectNone;
 }
 
 URL HitTestResult::absoluteLinkURL() const
@@ -620,55 +656,51 @@ bool HitTestResult::isContentEditable() const
     return m_innerNonSharedNode->hasEditableStyle();
 }
 
-HitTestProgress HitTestResult::addNodeToListBasedTestResult(Node* node, const HitTestRequest& request, const HitTestLocation& locationInContainer, const LayoutRect& rect)
+bool HitTestResult::addNodeToRectBasedTestResult(Node* node, const HitTestRequest& request, const HitTestLocation& locationInContainer, const LayoutRect& rect)
 {
-    // If it is not a list-based hit test, this method has to be no-op.
-    if (!request.resultIsElementList()) {
-        ASSERT(!isRectBasedTest());
-        return HitTestProgress::Stop;
-    }
+    // If it is not a rect-based hit test, this method has to be no-op.
+    // Return false, so the hit test stops.
+    if (!isRectBasedTest())
+        return false;
 
+    // If node is null, return true so the hit test can continue.
     if (!node)
-        return HitTestProgress::Continue;
+        return true;
 
-    if (request.disallowsUserAgentShadowContent() && node->isInUserAgentShadowTree())
+    // FIXME: This moves out of a author shadow tree.
+    if (request.disallowsUserAgentShadowContent())
         node = node->document().ancestorNodeInThisScope(node);
 
-    mutableListBasedTestResult().add(node);
-
-    if (request.includesAllElementsUnderPoint())
-        return HitTestProgress::Continue;
+    mutableRectBasedTestResult().add(node);
 
     bool regionFilled = rect.contains(locationInContainer.boundingBox());
-    return regionFilled ? HitTestProgress::Stop : HitTestProgress::Continue;
+    return !regionFilled;
 }
 
-HitTestProgress HitTestResult::addNodeToListBasedTestResult(Node* node, const HitTestRequest& request, const HitTestLocation& locationInContainer, const FloatRect& rect)
+bool HitTestResult::addNodeToRectBasedTestResult(Node* node, const HitTestRequest& request, const HitTestLocation& locationInContainer, const FloatRect& rect)
 {
-    // If it is not a list-based hit test, this method has to be no-op.
-    if (!request.resultIsElementList()) {
-        ASSERT(!isRectBasedTest());
-        return HitTestProgress::Stop;
-    }
+    // If it is not a rect-based hit test, this method has to be no-op.
+    // Return false, so the hit test stops.
+    if (!isRectBasedTest())
+        return false;
 
+    // If node is null, return true so the hit test can continue.
     if (!node)
-        return HitTestProgress::Continue;
+        return true;
 
-    if (request.disallowsUserAgentShadowContent() && node->isInUserAgentShadowTree())
+    // FIXME: This moves out of a author shadow tree.
+    if (request.disallowsUserAgentShadowContent())
         node = node->document().ancestorNodeInThisScope(node);
 
-    mutableListBasedTestResult().add(node);
-
-    if (request.includesAllElementsUnderPoint())
-        return HitTestProgress::Continue;
+    mutableRectBasedTestResult().add(node);
 
     bool regionFilled = rect.contains(locationInContainer.boundingBox());
-    return regionFilled ? HitTestProgress::Stop : HitTestProgress::Continue;
+    return !regionFilled;
 }
 
-void HitTestResult::append(const HitTestResult& other, const HitTestRequest& request)
+void HitTestResult::append(const HitTestResult& other)
 {
-    ASSERT_UNUSED(request, request.resultIsElementList());
+    ASSERT(isRectBasedTest() && other.isRectBasedTest());
 
     if (!m_innerNode && other.innerNode()) {
         m_innerNode = other.innerNode();
@@ -680,25 +712,25 @@ void HitTestResult::append(const HitTestResult& other, const HitTestRequest& req
         m_isOverWidget = other.isOverWidget();
     }
 
-    if (other.m_listBasedTestResult) {
-        NodeSet& set = mutableListBasedTestResult();
-        for (const auto& node : *other.m_listBasedTestResult)
-            set.add(node.get());
+    if (other.m_rectBasedTestResult) {
+        NodeSet& set = mutableRectBasedTestResult();
+        for (NodeSet::const_iterator it = other.m_rectBasedTestResult->begin(), last = other.m_rectBasedTestResult->end(); it != last; ++it)
+            set.add(it->get());
     }
 }
 
-const HitTestResult::NodeSet& HitTestResult::listBasedTestResult() const
+const HitTestResult::NodeSet& HitTestResult::rectBasedTestResult() const
 {
-    if (!m_listBasedTestResult)
-        m_listBasedTestResult = std::make_unique<NodeSet>();
-    return *m_listBasedTestResult;
+    if (!m_rectBasedTestResult)
+        m_rectBasedTestResult = std::make_unique<NodeSet>();
+    return *m_rectBasedTestResult;
 }
 
-HitTestResult::NodeSet& HitTestResult::mutableListBasedTestResult()
+HitTestResult::NodeSet& HitTestResult::mutableRectBasedTestResult()
 {
-    if (!m_listBasedTestResult)
-        m_listBasedTestResult = std::make_unique<NodeSet>();
-    return *m_listBasedTestResult;
+    if (!m_rectBasedTestResult)
+        m_rectBasedTestResult = std::make_unique<NodeSet>();
+    return *m_rectBasedTestResult;
 }
 
 Vector<String> HitTestResult::dictationAlternatives() const
@@ -756,7 +788,7 @@ String HitTestResult::linkSuggestedFilename() const
 {
     auto* urlElement = URLElement();
     if (!is<HTMLAnchorElement>(urlElement))
-        return nullAtom();
+        return nullAtom;
     return ResourceResponse::sanitizeSuggestedFilename(urlElement->attributeWithoutSynchronization(HTMLNames::downloadAttr));
 }
 

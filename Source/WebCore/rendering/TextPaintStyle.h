@@ -42,9 +42,6 @@ struct TextPaintStyle {
     TextPaintStyle() { }
     TextPaintStyle(const Color&);
 
-    bool operator==(const TextPaintStyle&) const;
-    bool operator!=(const TextPaintStyle& other) const { return !(*this == other); }
-
     Color fillColor;
     Color strokeColor;
     Color emphasisMarkColor;
@@ -58,9 +55,8 @@ struct TextPaintStyle {
     float miterLimit { defaultMiterLimit };
 };
 
-bool textColorIsLegibleAgainstBackgroundColor(const Color& textColor, const Color& backgroundColor);
 TextPaintStyle computeTextPaintStyle(const Frame&, const RenderStyle&, const PaintInfo&);
-TextPaintStyle computeTextSelectionPaintStyle(const TextPaintStyle&, const RenderText&, const RenderStyle&, const PaintInfo&, Optional<ShadowData>& selectionShadow);
+TextPaintStyle computeTextSelectionPaintStyle(const TextPaintStyle&, const RenderText&, const RenderStyle&, const PaintInfo&, bool& paintSelectedTextOnly, bool& paintSelectedTextSeparately, bool& paintNonSelectedTextOnly, const ShadowData*& selectionShadow);
 
 enum FillColorType { UseNormalFillColor, UseEmphasisMarkColor };
 void updateGraphicsContext(GraphicsContext&, const TextPaintStyle&, FillColorType = UseNormalFillColor);

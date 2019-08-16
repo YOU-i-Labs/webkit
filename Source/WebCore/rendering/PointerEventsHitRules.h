@@ -32,7 +32,7 @@ public:
         SVG_TEXT_HITTESTING
     };
 
-    PointerEventsHitRules(EHitTesting, const HitTestRequest&, PointerEvents);
+    PointerEventsHitRules(EHitTesting, const HitTestRequest&, EPointerEvents);
 
     bool requireVisible;
     bool requireFill;

@@ -33,7 +33,7 @@ function initializeReadableStream(underlyingSource, strategy)
      if (underlyingSource === @undefined)
          underlyingSource = { };
      if (strategy === @undefined)
-         strategy = { };
+         strategy = { highWaterMark: 1, size: function() { return 1; } };
 
     if (!@isObject(underlyingSource))
         @throwTypeError("ReadableStream constructor takes an object as first argument");
@@ -41,15 +41,15 @@ function initializeReadableStream(underlyingSource, strategy)
     if (strategy !== @undefined && !@isObject(strategy))
         @throwTypeError("ReadableStream constructor takes an object as second argument, if any");
 
-    @putByIdDirectPrivate(this, "state", @streamReadable);
-    @putByIdDirectPrivate(this, "reader", @undefined);
-    @putByIdDirectPrivate(this, "storedError", @undefined);
-    @putByIdDirectPrivate(this, "disturbed", false);
+    this.@state = @streamReadable;
+    this.@reader = @undefined;
+    this.@storedError = @undefined;
+    this.@disturbed = false;
     // Initialized with null value to enable distinction with undefined case.
-    @putByIdDirectPrivate(this, "readableStreamController", null);
+    this.@readableStreamController = null;
 
     const type = underlyingSource.type;
-    const typeString = @toString(type);
+    const typeString = @String(type);
 
     if (typeString === "bytes") {
         if (!@readableByteStreamAPIEnabled())
@@ -57,15 +57,13 @@ function initializeReadableStream(underlyingSource, strategy)
 
         if (strategy.highWaterMark === @undefined)
             strategy.highWaterMark = 0;
-        if (strategy.size !== @undefined)
-            @throwRangeError("Strategy for a ReadableByteStreamController cannot have a size");
 
         let readableByteStreamControllerConstructor = @ReadableByteStreamController;
-        @putByIdDirectPrivate(this, "readableStreamController", new @ReadableByteStreamController(this, underlyingSource, strategy.highWaterMark, @isReadableStream));
+        this.@readableStreamController = new @ReadableByteStreamController(this, underlyingSource, strategy.highWaterMark);
     } else if (type === @undefined) {
         if (strategy.highWaterMark === @undefined)
             strategy.highWaterMark = 1;
-        @putByIdDirectPrivate(this, "readableStreamController", new @ReadableStreamDefaultController(this, underlyingSource, strategy.size, strategy.highWaterMark, @isReadableStream));
+        this.@readableStreamController = new @ReadableStreamDefaultController(this, underlyingSource, strategy.size, strategy.highWaterMark);
     } else
         @throwRangeError("Invalid type for underlying source");
 
@@ -113,7 +111,7 @@ function pipeThrough(streams, options)
     const readable = streams.readable;
     const promise = this.pipeTo(writable, options);
     if (@isPromise(promise))
-        @putByIdDirectPrivate(promise, "promiseIsHandled", true);
+        promise.@promiseIsHandled = true;
     return readable;
 }
 
@@ -218,7 +216,6 @@ function tee()
     return @readableStreamTee(this, false);
 }
 
-@getter
 function locked()
 {
     "use strict";

@@ -28,31 +28,30 @@
 #include "FormController.h"
 #include "Frame.h"
 #include "HTMLFormElement.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLFormControlElementWithState);
 
 HTMLFormControlElementWithState::HTMLFormControlElementWithState(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
     : HTMLFormControlElement(tagName, document, form)
 {
 }
 
-HTMLFormControlElementWithState::~HTMLFormControlElementWithState() = default;
-
-Node::InsertedIntoAncestorResult HTMLFormControlElementWithState::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
+HTMLFormControlElementWithState::~HTMLFormControlElementWithState()
 {
-    if (insertionType.connectedToDocument && !containingShadowRoot())
-        document().formController().registerFormElementWithState(*this);
-    return HTMLFormControlElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
 }
 
-void HTMLFormControlElementWithState::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
+Node::InsertionNotificationRequest HTMLFormControlElementWithState::insertedInto(ContainerNode& insertionPoint)
 {
-    if (removalType.disconnectedFromDocument && !containingShadowRoot() && !oldParentOfRemovedTree.containingShadowRoot())
-        document().formController().unregisterFormElementWithState(*this);
-    HTMLFormControlElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
+    if (insertionPoint.isConnected() && !containingShadowRoot())
+        document().formController().registerFormElementWithState(this);
+    return HTMLFormControlElement::insertedInto(insertionPoint);
+}
+
+void HTMLFormControlElementWithState::removedFrom(ContainerNode& insertionPoint)
+{
+    if (insertionPoint.isConnected() && !containingShadowRoot() && !insertionPoint.containingShadowRoot())
+        document().formController().unregisterFormElementWithState(this);
+    HTMLFormControlElement::removedFrom(insertionPoint);
 }
 
 bool HTMLFormControlElementWithState::shouldAutocomplete() const

@@ -100,13 +100,13 @@ public:
 
     // FIXME: These functions below should be decoupled from the text iterator.
     float textWidth(unsigned startPosition, unsigned endPosition, float xPosition) const;
-    Optional<unsigned> lastHyphenPosition(const TextFragmentIterator::TextFragment& run, unsigned beforeIndex) const;
+    std::optional<unsigned> lastHyphenPosition(const TextFragmentIterator::TextFragment& run, unsigned beforeIndex) const;
 
     struct Style {
-        explicit Style(const RenderStyle&);
+        explicit Style(const RenderStyle&, bool useSimplifiedTextMeasuring);
 
         const FontCascade& font;
-        TextAlignMode textAlign;
+        ETextAlign textAlign;
         bool hasKerningOrLigatures;
         bool collapseWhitespace;
         bool preserveNewline;
@@ -122,7 +122,7 @@ public:
         unsigned hyphenLimitBefore;
         unsigned hyphenLimitAfter;
         AtomicString locale;
-        Optional<unsigned> hyphenLimitLines;
+        std::optional<unsigned> hyphenLimitLines;
     };
     const Style& style() const { return m_style; }
 

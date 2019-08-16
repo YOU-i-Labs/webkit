@@ -32,21 +32,21 @@ class Frame;
 
 class DOMWindowProperty {
 public:
-    explicit DOMWindowProperty(DOMWindow*);
+    explicit DOMWindowProperty(Frame*);
 
-    virtual void suspendForPageCache();
-    virtual void resumeFromPageCache();
+    virtual void disconnectFrameForDocumentSuspension();
+    virtual void reconnectFrameFromDocumentSuspension(Frame*);
     virtual void willDestroyGlobalObjectInCachedFrame();
     virtual void willDestroyGlobalObjectInFrame();
     virtual void willDetachGlobalObjectFromFrame();
 
-    WEBCORE_EXPORT Frame* frame() const;
-    DOMWindow* window() const { return m_window; }
+    Frame* frame() const { return m_frame; }
 
 protected:
     virtual ~DOMWindowProperty();
 
-    DOMWindow* m_window;
+    Frame* m_frame;
+    DOMWindow* m_associatedDOMWindow;
 };
 
 } // namespace WebCore

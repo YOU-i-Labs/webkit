@@ -24,9 +24,9 @@
  */
 
 #include "config.h"
-#include <wtf/threads/Signals.h>
+#include "Signals.h"
 
-#if USE(PTHREADS) && HAVE(MACHINE_CONTEXT)
+#if USE(PTHREADS)
 
 #if HAVE(MACH_EXCEPTIONS)
 extern "C" {
@@ -46,9 +46,9 @@ extern "C" {
 
 #include <wtf/Atomics.h>
 #include <wtf/DataLog.h>
+#include <wtf/HashSet.h>
 #include <wtf/LocklessBag.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/ThreadGroup.h>
 #include <wtf/ThreadMessage.h>
 #include <wtf/Threading.h>
 
@@ -73,24 +73,42 @@ static void startMachExceptionHandlerThread()
 {
     static std::once_flag once;
     std::call_once(once, [] {
-        kern_return_t kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &exceptionPort);
-        RELEASE_ASSERT(kr == KERN_SUCCESS);
-        kr = mach_port_insert_right(mach_task_self(), exceptionPort, exceptionPort, MACH_MSG_TYPE_MAKE_SEND);
-        RELEASE_ASSERT(kr == KERN_SUCCESS);
+        if (mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &exceptionPort) != KERN_SUCCESS)
+            CRASH();
 
-        dispatch_source_t source = dispatch_source_create(
-            DISPATCH_SOURCE_TYPE_MACH_RECV, exceptionPort, 0, DISPATCH_TARGET_QUEUE_DEFAULT);
-        RELEASE_ASSERT(source);
+        if (mach_port_insert_right(mach_task_self(), exceptionPort, exceptionPort, MACH_MSG_TYPE_MAKE_SEND) != KERN_SUCCESS)
+            CRASH();
 
+        // It's not clear that this needs to be the high priority queue but it should be rare and it might be
+        // handling exceptions from high priority threads. Anyway, our handlers should be very fast anyway so it's
+        // probably not the end of the world if we handle a low priority exception on a high priority queue.
+        dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0);
+        dispatch_source_t source = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, exceptionPort, 0, queue);
+        RELEASE_ASSERT_WITH_MESSAGE(source, "We need to ensure our source was created.");
+
+        // We should never cancel our handler since it's a permanent thing so we don't add a cancel handler.
         dispatch_source_set_event_handler(source, ^{
-            UNUSED_PARAM(source); // Capture a pointer to source in user space to silence the leaks tool.
+            // the leaks tool will get mad at us if we don't pretend to watch the source.
+            UNUSED_PARAM(source);
+            union Message {
+                mach_msg_header_t header;
+                char data[maxMessageSize];
+            };
+            Message messageHeaderIn;
+            Message messageHeaderOut;
 
-            kern_return_t kr = mach_msg_server_once(
-                mach_exc_server, maxMessageSize, exceptionPort, MACH_MSG_TIMEOUT_NONE);
-            RELEASE_ASSERT(kr == KERN_SUCCESS);
+            kern_return_t messageResult = mach_msg(&messageHeaderIn.header, MACH_RCV_MSG, 0, maxMessageSize, exceptionPort, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
+            if (messageResult == KERN_SUCCESS) {
+                if (!mach_exc_server(&messageHeaderIn.header, &messageHeaderOut.header))
+                    CRASH();
+
+                messageResult = mach_msg(&messageHeaderOut.header, MACH_SEND_MSG, messageHeaderOut.header.msgh_size, 0, messageHeaderOut.header.msgh_local_port, 0, MACH_PORT_NULL);
+                RELEASE_ASSERT(messageResult == KERN_SUCCESS);
+            } else {
+                dataLogLn("Failed to receive mach message due to ", mach_error_string(messageResult));
+                RELEASE_ASSERT_NOT_REACHED();
+            }
         });
-
-        // No need for a cancel handler because we never destroy exceptionPort.
 
         dispatch_resume(source);
     });
@@ -99,8 +117,9 @@ static void startMachExceptionHandlerThread()
 static Signal fromMachException(exception_type_t type)
 {
     switch (type) {
-    case EXC_BAD_ACCESS: return Signal::BadAccess;
+    case EXC_BAD_ACCESS: return Signal::SegV;
     case EXC_BAD_INSTRUCTION: return Signal::Ill;
+    case EXC_BREAKPOINT: return Signal::Trap;
     default: break;
     }
     return Signal::Unknown;
@@ -109,8 +128,9 @@ static Signal fromMachException(exception_type_t type)
 static exception_mask_t toMachMask(Signal signal)
 {
     switch (signal) {
-    case Signal::BadAccess: return EXC_MASK_BAD_ACCESS;
+    case Signal::SegV: return EXC_MASK_BAD_ACCESS;
     case Signal::Ill: return EXC_MASK_BAD_INSTRUCTION;
+    case Signal::Trap: return EXC_MASK_BREAKPOINT;
     default: break;
     }
     RELEASE_ASSERT_NOT_REACHED();
@@ -146,11 +166,6 @@ kern_return_t catch_mach_exception_raise_state(
     mach_msg_type_number_t* outStateCount)
 {
     RELEASE_ASSERT(port == exceptionPort);
-    // If we wanted to distinguish between SIGBUS and SIGSEGV for EXC_BAD_ACCESS on Darwin we could do:
-    // if (exceptionData[0] == KERN_INVALID_ADDRESS)
-    //    signal = SIGSEGV;
-    // else
-    //    signal = SIGBUS;
     Signal signal = fromMachException(exceptionType);
     RELEASE_ASSERT(signal != Signal::Unknown);
 
@@ -172,7 +187,7 @@ kern_return_t catch_mach_exception_raise_state(
 #endif
 
     SigInfo info;
-    if (signal == Signal::BadAccess) {
+    if (signal == Signal::SegV) {
         ASSERT_UNUSED(dataCount, dataCount == 2);
         info.faultingAddress = reinterpret_cast<void*>(exceptionData[1]);
     }
@@ -197,46 +212,42 @@ void handleSignalsWithMach()
 }
 
 
+static StaticLock threadLock;
 exception_mask_t activeExceptions { 0 };
 
-inline void setExceptionPorts(const AbstractLocker& threadGroupLocker, Thread& thread)
+inline void setExceptionPorts(const AbstractLocker&, Thread* thread)
 {
-    UNUSED_PARAM(threadGroupLocker);
-    kern_return_t result = thread_set_exception_ports(thread.machThread(), activeExceptions, exceptionPort, EXCEPTION_STATE | MACH_EXCEPTION_CODES, MACHINE_THREAD_STATE);
+    kern_return_t result = thread_set_exception_ports(thread->machThread(), activeExceptions, exceptionPort, EXCEPTION_STATE | MACH_EXCEPTION_CODES, MACHINE_THREAD_STATE);
     if (result != KERN_SUCCESS) {
         dataLogLn("thread set port failed due to ", mach_error_string(result));
         CRASH();
     }
 }
 
-static ThreadGroup& activeThreads()
+inline HashSet<Thread*>& activeThreads(const AbstractLocker&)
 {
-    static std::once_flag initializeKey;
-    static ThreadGroup* activeThreadsPtr = nullptr;
-    std::call_once(initializeKey, [&] {
-        static NeverDestroyed<std::shared_ptr<ThreadGroup>> activeThreads { ThreadGroup::create() };
-        activeThreadsPtr = activeThreads.get().get();
-    });
-    return *activeThreadsPtr;
+    static NeverDestroyed<HashSet<Thread*>> activeThreads;
+    return activeThreads;
 }
 
-void registerThreadForMachExceptionHandling(Thread& thread)
+void registerThreadForMachExceptionHandling(Thread* thread)
 {
-    auto locker = holdLock(activeThreads().getLock());
-    if (activeThreads().add(locker, thread) == ThreadGroupAddResult::NewlyAdded)
+    auto locker = holdLock(threadLock);
+    auto result = activeThreads(locker).add(thread);
+
+    if (result.isNewEntry)
         setExceptionPorts(locker, thread);
+}
+
+void unregisterThreadForMachExceptionHandling(Thread* thread)
+{
+    auto locker = holdLock(threadLock);
+    activeThreads(locker).remove(thread);
 }
 
 #else
 static constexpr bool useMach = false;
 #endif // HAVE(MACH_EXCEPTIONS)
-
-
-inline size_t offsetForSystemSignal(int sig)
-{
-    Signal signal = fromSystemSignal(sig);
-    return static_cast<size_t>(signal) + (sig == SIGBUS);
-}
 
 static void jscSignalHandler(int, siginfo_t*, void*);
 
@@ -244,6 +255,12 @@ void installSignalHandler(Signal signal, SignalHandler&& handler)
 {
     ASSERT(signal < Signal::Unknown);
 #if HAVE(MACH_EXCEPTIONS)
+    // Since mach only has EXC_BAD_ACCESS, which covers both SegV and Bus, we arbitarily choose to make
+    // mach EXC_BAD_ACCESSes map to SegV.
+    // FIXME: We should just use a single Signal::BadAccess value instead of SegV/Bus.
+    // See: https://bugs.webkit.org/show_bug.cgi?id=172063
+    if (signal == Signal::Bus && useMach)
+        return;
     ASSERT(!useMach || signal != Signal::Usr);
 
     if (useMach)
@@ -259,10 +276,7 @@ void installSignalHandler(Signal signal, SignalHandler&& handler)
             auto result = sigfillset(&action.sa_mask);
             RELEASE_ASSERT(!result);
             action.sa_flags = SA_SIGINFO;
-            auto systemSignals = toSystemSignal(signal);
-            result = sigaction(std::get<0>(systemSignals), &action, &oldActions[offsetForSystemSignal(std::get<0>(systemSignals))]);
-            if (std::get<1>(systemSignals))
-                result |= sigaction(*std::get<1>(systemSignals), &action, &oldActions[offsetForSystemSignal(*std::get<1>(systemSignals))]);
+            result = sigaction(toSystemSignal(signal), &action, &oldActions[static_cast<size_t>(signal)]);
             RELEASE_ASSERT(!result);
         }
 
@@ -271,12 +285,12 @@ void installSignalHandler(Signal signal, SignalHandler&& handler)
     handlers[static_cast<size_t>(signal)]->add(WTFMove(handler));
 
 #if HAVE(MACH_EXCEPTIONS)
-    auto locker = holdLock(activeThreads().getLock());
+    auto locker = holdLock(threadLock);
     if (useMach) {
         activeExceptions |= toMachMask(signal);
 
-        for (auto& thread : activeThreads().threads(locker))
-            setExceptionPorts(locker, thread.get());
+        for (Thread* thread : activeThreads(locker))
+            setExceptionPorts(locker, thread);
     }
 #endif
 }
@@ -302,7 +316,7 @@ void jscSignalHandler(int sig, siginfo_t* info, void* ucontext)
     }
 
     SigInfo sigInfo;
-    if (signal == Signal::BadAccess)
+    if (signal == Signal::SegV || signal == Signal::Bus)
         sigInfo.faultingAddress = info->si_addr;
 
     PlatformRegisters& registers = registersFromUContext(reinterpret_cast<ucontext_t*>(ucontext));
@@ -327,8 +341,7 @@ void jscSignalHandler(int sig, siginfo_t* info, void* ucontext)
         return;
     }
 
-    unsigned oldActionIndex = static_cast<size_t>(signal) + (sig == SIGBUS);
-    struct sigaction& oldAction = oldActions[static_cast<size_t>(oldActionIndex)];
+    struct sigaction& oldAction = oldActions[static_cast<size_t>(signal)];
     if (signal == Signal::Usr) {
         if (oldAction.sa_sigaction)
             oldAction.sa_sigaction(sig, info, ucontext);
@@ -348,4 +361,4 @@ void jscSignalHandler(int sig, siginfo_t* info, void* ucontext)
 
 } // namespace WTF
 
-#endif // USE(PTHREADS) && HAVE(MACHINE_CONTEXT)
+#endif // USE(PTHREADS)

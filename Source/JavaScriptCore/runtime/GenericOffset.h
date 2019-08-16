@@ -95,11 +95,11 @@ public:
     }
     T& operator+=(int value)
     {
-        return *static_cast<T*>(this) = *this + value;
+        return *this = *this + value;
     }
     T& operator-=(int value)
     {
-        return *static_cast<T*>(this) = *this - value;
+        return *this = *this - value;
     }
     
 private:

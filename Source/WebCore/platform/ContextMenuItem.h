@@ -33,6 +33,7 @@ namespace WebCore {
 
 class ContextMenu;
 class Image;
+class URL;
 
 enum ContextMenuAction {
     ContextMenuItemTagNoAction,
@@ -177,7 +178,7 @@ public:
 
     void setSubMenu(ContextMenu*);
 
-    WEBCORE_EXPORT ContextMenuItem(ContextMenuAction, const String&, bool enabled, bool checked, const Vector<ContextMenuItem>& subMenuItems);
+    ContextMenuItem(ContextMenuAction, const String&, bool enabled, bool checked, const Vector<ContextMenuItem>& subMenuItems);
     ContextMenuItem();
 
     bool isNull() const;

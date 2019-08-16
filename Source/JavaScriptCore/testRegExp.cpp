@@ -21,6 +21,7 @@
 #include "config.h"
 #include "RegExp.h"
 
+#include <wtf/CurrentTime.h>
 #include "InitializeThreading.h"
 #include "JSCInlines.h"
 #include "JSGlobalObject.h"
@@ -28,7 +29,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <wtf/Vector.h>
 #include <wtf/text/StringBuilder.h>
 
 #if !OS(WINDOWS)
@@ -70,23 +70,23 @@ public:
     long getElapsedMS(); // call stop() first
 
 private:
-    MonotonicTime m_startTime;
-    MonotonicTime m_stopTime;
+    double m_startTime;
+    double m_stopTime;
 };
 
 void StopWatch::start()
 {
-    m_startTime = MonotonicTime::now();
+    m_startTime = monotonicallyIncreasingTime();
 }
 
 void StopWatch::stop()
 {
-    m_stopTime = MonotonicTime::now();
+    m_stopTime = monotonicallyIncreasingTime();
 }
 
 long StopWatch::getElapsedMS()
 {
-    return (m_stopTime - m_startTime).millisecondsAs<long>();
+    return static_cast<long>((m_stopTime - m_startTime) * 1000);
 }
 
 struct RegExpTest {
@@ -315,10 +315,10 @@ static int scanString(char* buffer, int bufferLength, StringBuilder& builder, ch
     return -1;
 }
 
-static RegExp* parseRegExpLine(VM& vm, char* line, int lineLength, const char** regexpError)
+static RegExp* parseRegExpLine(VM& vm, char* line, int lineLength)
 {
     StringBuilder pattern;
-
+    
     if (line[0] != '/')
         return 0;
 
@@ -330,11 +330,9 @@ static RegExp* parseRegExpLine(VM& vm, char* line, int lineLength, const char** 
     ++i;
 
     RegExp* r = RegExp::create(vm, pattern.toString(), regExpFlags(line + i));
-    if (!r->isValid()) {
-        *regexpError = r->errorMessage();
-        return nullptr;
-    }
-    return r;
+    if (r->isValid())
+        return r;
+    return nullptr;
 }
 
 static RegExpTest* parseTestLine(char* line, int lineLength)
@@ -416,7 +414,7 @@ static bool runFromFiles(GlobalObject* globalObject, const Vector<String>& files
     Vector<char> scriptBuffer;
     unsigned tests = 0;
     unsigned failures = 0;
-    Vector<char> lineBuffer(MaxLineLength + 1);
+    char* lineBuffer = new char[MaxLineLength + 1];
 
     VM& vm = globalObject->vm();
 
@@ -433,9 +431,8 @@ static bool runFromFiles(GlobalObject* globalObject, const Vector<String>& files
         size_t lineLength = 0;
         char* linePtr = 0;
         unsigned int lineNumber = 0;
-        const char* regexpError = nullptr;
 
-        while ((linePtr = fgets(lineBuffer.data(), MaxLineLength, testCasesFile))) {
+        while ((linePtr = fgets(&lineBuffer[0], MaxLineLength, testCasesFile))) {
             lineLength = strlen(linePtr);
             if (linePtr[lineLength - 1] == '\n') {
                 linePtr[lineLength - 1] = '\0';
@@ -447,11 +444,7 @@ static bool runFromFiles(GlobalObject* globalObject, const Vector<String>& files
                 continue;
 
             if (linePtr[0] == '/') {
-                regexp = parseRegExpLine(vm, linePtr, lineLength, &regexpError);
-                if (!regexp) {
-                    failures++;
-                    fprintf(stderr, "Failure on line %u. '%s' %s\n", lineNumber, linePtr, regexpError);
-                }
+                regexp = parseRegExpLine(vm, linePtr, lineLength);
             } else if (linePtr[0] == ' ') {
                 RegExpTest* regExpTest = parseTestLine(linePtr, lineLength);
                 
@@ -468,10 +461,10 @@ static bool runFromFiles(GlobalObject* globalObject, const Vector<String>& files
             } else if (linePtr[0] == '-') {
                 tests++;
                 regexp = 0; // Reset the live regexp to avoid confusing other subsequent tests
-                bool successfullyParsed = parseRegExpLine(vm, linePtr + 1, lineLength - 1, &regexpError);
+                bool successfullyParsed = parseRegExpLine(vm, linePtr + 1, lineLength - 1);
                 if (successfullyParsed) {
                     failures++;
-                    fprintf(stderr, "Failure on line %u. '%s' %s\n", lineNumber, linePtr + 1, regexpError);
+                    fprintf(stderr, "Failure on line %u. '%s' is not a valid regexp\n", lineNumber, linePtr + 1);
                 }
             }
         }
@@ -483,6 +476,8 @@ static bool runFromFiles(GlobalObject* globalObject, const Vector<String>& files
         printf("%u tests run, %u failures\n", tests, failures);
     else
         printf("%u tests passed\n", tests);
+
+    delete[] lineBuffer;
 
 #if ENABLE(REGEXP_TRACING)
     vm.dumpRegExpTrace();

@@ -43,10 +43,9 @@ JSValue InjectedScriptHost::wrapper(ExecState* exec, JSGlobalObject* globalObjec
     if (value)
         return value;
 
-    VM& vm = exec->vm();
-    JSObject* prototype = JSInjectedScriptHost::createPrototype(vm, globalObject);
-    Structure* structure = JSInjectedScriptHost::createStructure(vm, globalObject, prototype);
-    JSInjectedScriptHost* injectedScriptHost = JSInjectedScriptHost::create(vm, structure, makeRef(*this));
+    JSObject* prototype = JSInjectedScriptHost::createPrototype(exec->vm(), globalObject);
+    Structure* structure = JSInjectedScriptHost::createStructure(exec->vm(), globalObject, prototype);
+    JSInjectedScriptHost* injectedScriptHost = JSInjectedScriptHost::create(exec->vm(), structure, makeRef(*this));
     m_wrappers.addWrapper(globalObject, injectedScriptHost);
 
     return injectedScriptHost;

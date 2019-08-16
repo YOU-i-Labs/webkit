@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef DisplayListReplayer_h
+#define DisplayListReplayer_h
 
 #include "DisplayList.h"
 #include <wtf/Noncopyable.h>
@@ -42,7 +43,7 @@ public:
     Replayer(GraphicsContext&, const DisplayList&);
     ~Replayer();
 
-    std::unique_ptr<DisplayList> replay(const FloatRect& initialClip = { }, bool trackReplayList = false);
+    std::unique_ptr<DisplayList> replay(const FloatRect& initialClip, bool trackReplayList = false);
     
 private:
     const DisplayList& m_displayList;
@@ -52,3 +53,4 @@ private:
 }
 }
 
+#endif // DisplayListReplayer_h

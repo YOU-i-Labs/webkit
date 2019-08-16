@@ -157,7 +157,7 @@ Error Stream::createConsumerGLTextureExternal(const AttributeMap &attributes, gl
     mContext = context;
     mState   = EGL_STREAM_STATE_CONNECTING_KHR;
 
-    return NoError();
+    return Error(EGL_SUCCESS);
 }
 
 Error Stream::createProducerD3D11TextureNV12(const AttributeMap &attributes)
@@ -172,11 +172,11 @@ Error Stream::createProducerD3D11TextureNV12(const AttributeMap &attributes)
     mProducerType = ProducerType::D3D11TextureNV12;
     mState        = EGL_STREAM_STATE_EMPTY_KHR;
 
-    return NoError();
+    return Error(EGL_SUCCESS);
 }
 
 // Called when the consumer of this stream starts using the stream
-Error Stream::consumerAcquire(const gl::Context *context)
+Error Stream::consumerAcquire()
 {
     ASSERT(mState == EGL_STREAM_STATE_NEW_FRAME_AVAILABLE_KHR ||
            mState == EGL_STREAM_STATE_OLD_FRAME_AVAILABLE_KHR);
@@ -192,15 +192,15 @@ Error Stream::consumerAcquire(const gl::Context *context)
     {
         if (mPlanes[i].texture != nullptr)
         {
-            ANGLE_TRY(mPlanes[i].texture->acquireImageFromStream(
-                context, mProducerImplementation->getGLFrameDescription(i)));
+            mPlanes[i].texture->acquireImageFromStream(
+                mProducerImplementation->getGLFrameDescription(i));
         }
     }
 
-    return NoError();
+    return Error(EGL_SUCCESS);
 }
 
-Error Stream::consumerRelease(const gl::Context *context)
+Error Stream::consumerRelease()
 {
     ASSERT(mState == EGL_STREAM_STATE_NEW_FRAME_AVAILABLE_KHR ||
            mState == EGL_STREAM_STATE_OLD_FRAME_AVAILABLE_KHR);
@@ -213,11 +213,11 @@ Error Stream::consumerRelease(const gl::Context *context)
     {
         if (mPlanes[i].texture != nullptr)
         {
-            ANGLE_TRY(mPlanes[i].texture->releaseImageFromStream(context));
+            mPlanes[i].texture->releaseImageFromStream();
         }
     }
 
-    return NoError();
+    return Error(EGL_SUCCESS);
 }
 
 bool Stream::isConsumerBoundToContext(const gl::Context *context) const
@@ -247,7 +247,7 @@ Error Stream::postD3D11NV12Texture(void *texture, const AttributeMap &attributes
 
     mState = EGL_STREAM_STATE_NEW_FRAME_AVAILABLE_KHR;
 
-    return NoError();
+    return Error(EGL_SUCCESS);
 }
 
 // This is called when a texture object associated with this stream is destroyed. Even if multiple

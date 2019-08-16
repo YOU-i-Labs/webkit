@@ -37,17 +37,12 @@
 #include <libgen.h>
 #include <stdio.h>
 #include <sys/stat.h>
-#include <sys/statvfs.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <wtf/EnumTraits.h>
 #include <wtf/text/CString.h>
-#include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
-
-namespace FileSystem {
 
 bool fileExists(const String& path)
 {
@@ -59,7 +54,10 @@ bool fileExists(const String& path)
     if (!fsRep.data() || fsRep.data()[0] == '\0')
         return false;
 
-    return access(fsRep.data(), F_OK) != -1;
+    struct stat fileInfo;
+
+    // stat(...) returns 0 on successful stat'ing of the file, and non-zero in any case where the file doesn't exist or cannot be accessed
+    return !stat(fsRep.data(), &fileInfo);
 }
 
 bool deleteFile(const String& path)
@@ -81,15 +79,10 @@ PlatformFileHandle openFile(const String& path, FileOpenMode mode)
         return invalidPlatformFileHandle;
 
     int platformFlag = 0;
-    if (mode == FileOpenMode::Read)
+    if (mode == OpenForRead)
         platformFlag |= O_RDONLY;
-    else if (mode == FileOpenMode::Write)
+    else if (mode == OpenForWrite)
         platformFlag |= (O_WRONLY | O_CREAT | O_TRUNC);
-#if OS(DARWIN)
-    else if (mode == FileOpenMode::EventsOnly)
-        platformFlag |= O_EVTONLY;
-#endif
-
     return open(fsRep.data(), platformFlag, 0666);
 }
 
@@ -105,13 +98,13 @@ long long seekFile(PlatformFileHandle handle, long long offset, FileSeekOrigin o
 {
     int whence = SEEK_SET;
     switch (origin) {
-    case FileSeekOrigin::Beginning:
+    case SeekFromBeginning:
         whence = SEEK_SET;
         break;
-    case FileSeekOrigin::Current:
+    case SeekFromCurrent:
         whence = SEEK_CUR;
         break;
-    case FileSeekOrigin::End:
+    case SeekFromEnd:
         whence = SEEK_END;
         break;
     default:
@@ -147,12 +140,12 @@ int readFromFile(PlatformFileHandle handle, char* data, int length)
 }
 
 #if USE(FILE_LOCK)
-bool lockFile(PlatformFileHandle handle, OptionSet<FileLockMode> lockMode)
+bool lockFile(PlatformFileHandle handle, FileLockMode lockMode)
 {
-    COMPILE_ASSERT(LOCK_SH == WTF::enumToUnderlyingType(FileLockMode::Shared), LockSharedEncodingIsAsExpected);
-    COMPILE_ASSERT(LOCK_EX == WTF::enumToUnderlyingType(FileLockMode::Exclusive), LockExclusiveEncodingIsAsExpected);
-    COMPILE_ASSERT(LOCK_NB == WTF::enumToUnderlyingType(FileLockMode::Nonblocking), LockNonblockingEncodingIsAsExpected);
-    int result = flock(handle, lockMode.toRaw());
+    COMPILE_ASSERT(LOCK_SH == LockShared, LockSharedEncodingIsAsExpected);
+    COMPILE_ASSERT(LOCK_EX == LockExclusive, LockExclusiveEncodingIsAsExpected);
+    COMPILE_ASSERT(LOCK_NB == LockNonBlocking, LockNonBlockingEncodingIsAsExpected);
+    int result = flock(handle, lockMode);
     return (result != -1);
 }
 
@@ -202,92 +195,59 @@ bool getFileSize(PlatformFileHandle handle, long long& result)
     return true;
 }
 
-Optional<WallTime> getFileCreationTime(const String& path)
+bool getFileCreationTime(const String& path, time_t& result)
 {
 #if OS(DARWIN) || OS(OPENBSD) || OS(NETBSD) || OS(FREEBSD)
     CString fsRep = fileSystemRepresentation(path);
 
     if (!fsRep.data() || fsRep.data()[0] == '\0')
-        return WTF::nullopt;
+        return false;
 
     struct stat fileInfo;
 
     if (stat(fsRep.data(), &fileInfo))
-        return WTF::nullopt;
+        return false;
 
-    return WallTime::fromRawSeconds(fileInfo.st_birthtime);
+    result = fileInfo.st_birthtime;
+    return true;
 #else
     UNUSED_PARAM(path);
-    return WTF::nullopt;
+    UNUSED_PARAM(result);
+    return false;
 #endif
 }
 
-Optional<WallTime> getFileModificationTime(const String& path)
+bool getFileModificationTime(const String& path, time_t& result)
 {
     CString fsRep = fileSystemRepresentation(path);
 
     if (!fsRep.data() || fsRep.data()[0] == '\0')
-        return WTF::nullopt;
+        return false;
 
     struct stat fileInfo;
 
     if (stat(fsRep.data(), &fileInfo))
-        return WTF::nullopt;
+        return false;
 
-    return WallTime::fromRawSeconds(fileInfo.st_mtime);
+    result = fileInfo.st_mtime;
+    return true;
 }
 
-static FileMetadata::Type toFileMetataType(struct stat fileInfo)
-{
-    if (S_ISDIR(fileInfo.st_mode))
-        return FileMetadata::Type::Directory;
-    if (S_ISLNK(fileInfo.st_mode))
-        return FileMetadata::Type::SymbolicLink;
-    return FileMetadata::Type::File;
-}
-
-static Optional<FileMetadata> fileMetadataUsingFunction(const String& path, int (*statFunc)(const char*, struct stat*))
+bool getFileMetadata(const String& path, FileMetadata& metadata)
 {
     CString fsRep = fileSystemRepresentation(path);
 
     if (!fsRep.data() || fsRep.data()[0] == '\0')
-        return WTF::nullopt;
+        return false;
 
     struct stat fileInfo;
-    if (statFunc(fsRep.data(), &fileInfo))
-        return WTF::nullopt;
-
-    String filename = pathGetFileName(path);
-    bool isHidden = !filename.isEmpty() && filename[0] == '.';
-    return FileMetadata {
-        WallTime::fromRawSeconds(fileInfo.st_mtime),
-        fileInfo.st_size,
-        isHidden,
-        toFileMetataType(fileInfo)
-    };
-}
-
-Optional<FileMetadata> fileMetadata(const String& path)
-{
-    return fileMetadataUsingFunction(path, &lstat);
-}
-
-Optional<FileMetadata> fileMetadataFollowingSymlinks(const String& path)
-{
-    return fileMetadataUsingFunction(path, &stat);
-}
-
-bool createSymbolicLink(const String& targetPath, const String& symbolicLinkPath)
-{
-    CString targetPathFSRep = fileSystemRepresentation(targetPath);
-    if (!targetPathFSRep.data() || targetPathFSRep.data()[0] == '\0')
+    if (stat(fsRep.data(), &fileInfo))
         return false;
 
-    CString symbolicLinkPathFSRep = fileSystemRepresentation(symbolicLinkPath);
-    if (!symbolicLinkPathFSRep.data() || symbolicLinkPathFSRep.data()[0] == '\0')
-        return false;
-
-    return !symlink(targetPathFSRep.data(), symbolicLinkPathFSRep.data());
+    metadata.modificationTime = fileInfo.st_mtime;
+    metadata.length = fileInfo.st_size;
+    metadata.type = S_ISDIR(fileInfo.st_mode) ? FileMetadata::TypeDirectory : FileMetadata::TypeFile;
+    return true;
 }
 
 String pathByAppendingComponent(const String& path, const String& component)
@@ -295,17 +255,6 @@ String pathByAppendingComponent(const String& path, const String& component)
     if (path.endsWith('/'))
         return path + component;
     return path + "/" + component;
-}
-
-String pathByAppendingComponents(StringView path, const Vector<StringView>& components)
-{
-    StringBuilder builder;
-    builder.append(path);
-    for (auto& component : components) {
-        builder.append('/');
-        builder.append(component);
-    }
-    return builder.toString();
 }
 
 bool makeAllDirectories(const String& path)
@@ -346,7 +295,7 @@ String directoryName(const String& path)
     if (!fsRep.data() || fsRep.data()[0] == '\0')
         return String();
 
-    return String::fromUTF8(dirname(fsRep.mutableData()));
+    return dirname(fsRep.mutableData());
 }
 
 Vector<String> listDirectory(const String& path, const String& filter)
@@ -379,45 +328,7 @@ Vector<String> listDirectory(const String& path, const String& filter)
     return entries;
 }
 
-#if !PLATFORM(COCOA)
-String stringFromFileSystemRepresentation(const char* path)
-{
-    if (!path)
-        return String();
-
-    return String::fromUTF8(path);
-}
-
-CString fileSystemRepresentation(const String& path)
-{
-    return path.utf8();
-}
-
-bool moveFile(const String& oldPath, const String& newPath)
-{
-    auto oldFilename = fileSystemRepresentation(oldPath);
-    if (oldFilename.isNull())
-        return false;
-
-    auto newFilename = fileSystemRepresentation(newPath);
-    if (newFilename.isNull())
-        return false;
-
-    return rename(oldFilename.data(), newFilename.data()) != -1;
-}
-
-bool getVolumeFreeSpace(const String& path, uint64_t& freeSpace)
-{
-    struct statvfs fileSystemStat;
-    if (statvfs(fileSystemRepresentation(path).data(), &fileSystemStat)) {
-        freeSpace = fileSystemStat.f_bavail * fileSystemStat.f_frsize;
-        return true;
-    }
-    return false;
-}
-#endif
-
-#if !OS(DARWIN)
+#if !OS(DARWIN) || PLATFORM(GTK)
 String openTemporaryFile(const String& prefix, PlatformFileHandle& handle)
 {
     char buffer[PATH_MAX];
@@ -472,22 +383,13 @@ bool hardLinkOrCopyFile(const String& source, const String& destination)
     return appendResult;
 }
 
-Optional<int32_t> getFileDeviceId(const CString& fsFile)
+std::optional<int32_t> getFileDeviceId(const CString& fsFile)
 {
     struct stat fileStat;
     if (stat(fsFile.data(), &fileStat) == -1)
-        return WTF::nullopt;
+        return std::nullopt;
 
     return fileStat.st_dev;
 }
 
-String realPath(const String& filePath)
-{
-    CString fsRep = fileSystemRepresentation(filePath);
-    char resolvedName[PATH_MAX];
-    const char* result = realpath(fsRep.data(), resolvedName);
-    return result ? String::fromUTF8(result) : filePath;
-}
-
-} // namespace FileSystem
 } // namespace WebCore

@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.LayoutTimelineOverviewGraph = class LayoutTimelineOverviewGraph extends WI.TimelineOverviewGraph
+WebInspector.LayoutTimelineOverviewGraph = class LayoutTimelineOverviewGraph extends WebInspector.TimelineOverviewGraph
 {
     constructor(timeline, timelineOverview)
     {
@@ -32,7 +32,7 @@ WI.LayoutTimelineOverviewGraph = class LayoutTimelineOverviewGraph extends WI.Ti
         this.element.classList.add("layout");
 
         this._layoutTimeline = timeline;
-        this._layoutTimeline.addEventListener(WI.Timeline.Event.RecordAdded, this._layoutTimelineRecordAdded, this);
+        this._layoutTimeline.addEventListener(WebInspector.Timeline.Event.RecordAdded, this._layoutTimelineRecordAdded, this);
 
         this.reset();
     }
@@ -68,22 +68,6 @@ WI.LayoutTimelineOverviewGraph = class LayoutTimelineOverviewGraph extends WI.Ti
         this._updateRowLayout(this._timelineLayoutRecordRow);
     }
 
-    updateSelectedRecord()
-    {
-        super.updateSelectedRecord();
-
-        for (let recordRow of [this._timelineLayoutRecordRow, this._timelinePaintRecordRow]) {
-            for (let recordBar of recordRow.recordBars) {
-                if (recordBar.records.includes(this.selectedRecord)) {
-                    this.selectedRecordBar = recordBar;
-                    return;
-                }
-            }
-        }
-
-        this.selectedRecordBar = null;
-    }
-
     // Private
 
     _updateRowLayout(row)
@@ -95,7 +79,7 @@ WI.LayoutTimelineOverviewGraph = class LayoutTimelineOverviewGraph extends WI.Ti
         {
             var timelineRecordBar = row.recordBars[recordBarIndex];
             if (!timelineRecordBar)
-                timelineRecordBar = row.recordBars[recordBarIndex] = new WI.TimelineRecordBar(this, records, renderMode);
+                timelineRecordBar = row.recordBars[recordBarIndex] = new WebInspector.TimelineRecordBar(records, renderMode);
             else {
                 timelineRecordBar.renderMode = renderMode;
                 timelineRecordBar.records = records;
@@ -107,7 +91,7 @@ WI.LayoutTimelineOverviewGraph = class LayoutTimelineOverviewGraph extends WI.Ti
             ++recordBarIndex;
         }
 
-        WI.TimelineRecordBar.createCombinedBars(row.records, secondsPerPixel, this, createBar.bind(this));
+        WebInspector.TimelineRecordBar.createCombinedBars(row.records, secondsPerPixel, this, createBar.bind(this));
 
         // Remove the remaining unused TimelineRecordBars.
         for (; recordBarIndex < row.recordBars.length; ++recordBarIndex) {
@@ -119,9 +103,9 @@ WI.LayoutTimelineOverviewGraph = class LayoutTimelineOverviewGraph extends WI.Ti
     _layoutTimelineRecordAdded(event)
     {
         var layoutTimelineRecord = event.data.record;
-        console.assert(layoutTimelineRecord instanceof WI.LayoutTimelineRecord);
+        console.assert(layoutTimelineRecord instanceof WebInspector.LayoutTimelineRecord);
 
-        if (layoutTimelineRecord.eventType === WI.LayoutTimelineRecord.EventType.Paint || layoutTimelineRecord.eventType === WI.LayoutTimelineRecord.EventType.Composite)
+        if (layoutTimelineRecord.eventType === WebInspector.LayoutTimelineRecord.EventType.Paint || layoutTimelineRecord.eventType === WebInspector.LayoutTimelineRecord.EventType.Composite)
             this._timelinePaintRecordRow.records.push(layoutTimelineRecord);
         else
             this._timelineLayoutRecordRow.records.push(layoutTimelineRecord);

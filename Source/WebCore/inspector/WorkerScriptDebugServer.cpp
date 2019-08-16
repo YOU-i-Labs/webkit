@@ -37,11 +37,11 @@
 #include "WorkerGlobalScope.h"
 #include "WorkerRunLoop.h"
 #include "WorkerThread.h"
-#include <JavaScriptCore/VM.h>
-
-namespace WebCore {
+#include <runtime/VM.h>
 
 using namespace Inspector;
+
+namespace WebCore {
 
 WorkerScriptDebugServer::WorkerScriptDebugServer(WorkerGlobalScope& context)
     : ScriptDebugServer(context.script()->vm())

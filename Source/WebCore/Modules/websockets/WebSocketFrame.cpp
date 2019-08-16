@@ -22,7 +22,10 @@
 
 #include "config.h"
 
+#if ENABLE(WEB_SOCKETS)
+
 #include "WebSocketFrame.h"
+
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/MathExtras.h>
 
@@ -181,3 +184,5 @@ WebSocketFrame::WebSocketFrame(OpCode opCode, bool final, bool compress, bool ma
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_SOCKETS)

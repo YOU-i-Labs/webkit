@@ -23,14 +23,16 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.PropertyPreview = class PropertyPreview
+WebInspector.PropertyPreview = class PropertyPreview extends WebInspector.Object
 {
     constructor(name, type, subtype, value, valuePreview, isInternalProperty)
     {
+        super();
+
         console.assert(typeof name === "string");
         console.assert(type);
         console.assert(!value || typeof value === "string");
-        console.assert(!valuePreview || valuePreview instanceof WI.ObjectPreview);
+        console.assert(!valuePreview || valuePreview instanceof WebInspector.ObjectPreview);
 
         this._name = name;
         this._type = type;
@@ -46,9 +48,9 @@ WI.PropertyPreview = class PropertyPreview
     static fromPayload(payload)
     {
         if (payload.valuePreview)
-            payload.valuePreview = WI.ObjectPreview.fromPayload(payload.valuePreview);
+            payload.valuePreview = WebInspector.ObjectPreview.fromPayload(payload.valuePreview);
 
-        return new WI.PropertyPreview(payload.name, payload.type, payload.subtype, payload.value, payload.valuePreview, payload.internal);
+        return new WebInspector.PropertyPreview(payload.name, payload.type, payload.subtype, payload.value, payload.valuePreview, payload.internal);
     }
 
     // Public

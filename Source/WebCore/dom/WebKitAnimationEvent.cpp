@@ -36,13 +36,15 @@ WebKitAnimationEvent::WebKitAnimationEvent(const AtomicString& type, const Init&
 }
 
 WebKitAnimationEvent::WebKitAnimationEvent(const AtomicString& type, const String& animationName, double elapsedTime)
-    : Event(type, CanBubble::Yes, IsCancelable::Yes)
+    : Event(type, true, true)
     , m_animationName(animationName)
     , m_elapsedTime(elapsedTime)
 {
 }
 
-WebKitAnimationEvent::~WebKitAnimationEvent() = default;
+WebKitAnimationEvent::~WebKitAnimationEvent()
+{
+}
 
 const String& WebKitAnimationEvent::animationName() const
 {

@@ -26,7 +26,7 @@
 
 #if ENABLE(MEDIA_STREAM)
 
-#include "CanvasBase.h"
+#include "HTMLCanvasElement.h"
 #include "MediaStreamTrack.h"
 #include "Timer.h"
 #include <wtf/TypeCasts.h>
@@ -39,54 +39,51 @@ class ScriptExecutionContext;
 
 class CanvasCaptureMediaStreamTrack final : public MediaStreamTrack {
 public:
-    static Ref<CanvasCaptureMediaStreamTrack> create(ScriptExecutionContext&, Ref<HTMLCanvasElement>&&, Optional<double>&& frameRequestRate);
+    static Ref<CanvasCaptureMediaStreamTrack> create(ScriptExecutionContext&, Ref<HTMLCanvasElement>&&, std::optional<double>&& frameRequestRate);
 
     HTMLCanvasElement& canvas() { return m_canvas.get(); }
-    void requestFrame() { static_cast<Source&>(source()).requestFrame(); }
-
-    RefPtr<MediaStreamTrack> clone() final;
+    void requestFrame() { m_source->requestFrame(); }
 
 private:
     class Source final : public RealtimeMediaSource, private CanvasObserver {
     public:
-        static Ref<Source> create(HTMLCanvasElement&, Optional<double>&& frameRequestRate);
+        static Ref<Source> create(HTMLCanvasElement&, std::optional<double>&& frameRequestRate);
         
         void requestFrame() { m_shouldEmitFrame = true; }
-        Optional<double> frameRequestRate() const { return m_frameRequestRate; }
 
     private:
-        Source(HTMLCanvasElement&, Optional<double>&&);
+        Source(HTMLCanvasElement&, std::optional<double>&&);
 
         // CanvasObserver API
-        void canvasChanged(CanvasBase&, const FloatRect&) final;
-        void canvasResized(CanvasBase&) final;
-        void canvasDestroyed(CanvasBase&) final;
+        void canvasChanged(HTMLCanvasElement&, const FloatRect&) final;
+        void canvasResized(HTMLCanvasElement&) final;
+        void canvasDestroyed(HTMLCanvasElement&) final;
 
         // RealtimeMediaSource API
         void startProducingData() final;
         void stopProducingData()  final;
-        const RealtimeMediaSourceCapabilities& capabilities() final { return RealtimeMediaSourceCapabilities::emptyCapabilities(); }
-        const RealtimeMediaSourceSettings& settings() final;
-        void settingsDidChange(OptionSet<RealtimeMediaSourceSettings::Flag>) final;
+        const RealtimeMediaSourceCapabilities& capabilities() const final { return RealtimeMediaSourceCapabilities::emptyCapabilities(); }
+        const RealtimeMediaSourceSettings& settings() const final { return m_settings; }
+        bool applySize(const IntSize&) final { return true; }
 
         void captureCanvas();
         void requestFrameTimerFired();
 
         bool m_shouldEmitFrame { true };
-        Optional<double> m_frameRequestRate;
+        std::optional<double> m_frameRequestRate;
         Timer m_requestFrameTimer;
         Timer m_canvasChangedTimer;
-        Optional<RealtimeMediaSourceSettings> m_currentSettings;
+        RealtimeMediaSourceSettings m_settings;
         HTMLCanvasElement* m_canvas;
         RefPtr<Image> m_currentImage;
     };
 
     CanvasCaptureMediaStreamTrack(ScriptExecutionContext&, Ref<HTMLCanvasElement>&&, Ref<Source>&&);
-    CanvasCaptureMediaStreamTrack(ScriptExecutionContext&, Ref<HTMLCanvasElement>&&, Ref<MediaStreamTrackPrivate>&&);
 
     bool isCanvas() const final { return true; }
-
+    
     Ref<HTMLCanvasElement> m_canvas;
+    Ref<Source> m_source;
 };
 
 }

@@ -36,31 +36,33 @@
 namespace WebCore {
 
 class DOMWindow;
+class Frame;
+class URL;
 
 class Location : public ScriptWrappable, public RefCounted<Location>, public DOMWindowProperty {
 public:
-    static Ref<Location> create(DOMWindow& window) { return adoptRef(*new Location(window)); }
+    static Ref<Location> create(Frame* frame) { return adoptRef(*new Location(frame)); }
 
-    ExceptionOr<void> setHref(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
+    void setHref(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
     String href() const;
 
-    ExceptionOr<void> assign(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
+    void assign(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
     void replace(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
     void reload(DOMWindow& activeWindow);
 
     ExceptionOr<void> setProtocol(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
     String protocol() const;
-    ExceptionOr<void> setHost(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
+    void setHost(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
     String host() const;
-    ExceptionOr<void> setHostname(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
+    void setHostname(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
     String hostname() const;
-    ExceptionOr<void> setPort(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
+    void setPort(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
     String port() const;
-    ExceptionOr<void> setPathname(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
+    void setPathname(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
     String pathname() const;
-    ExceptionOr<void> setSearch(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
+    void setSearch(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
     String search() const;
-    ExceptionOr<void> setHash(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
+    void setHash(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
     String hash() const;
     String origin() const;
 
@@ -69,9 +71,9 @@ public:
     Ref<DOMStringList> ancestorOrigins() const;
 
 private:
-    explicit Location(DOMWindow&);
+    explicit Location(Frame*);
 
-    ExceptionOr<void> setLocation(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
+    void setLocation(DOMWindow& activeWindow, DOMWindow& firstWindow, const String&);
 
     const URL& url() const;
 };

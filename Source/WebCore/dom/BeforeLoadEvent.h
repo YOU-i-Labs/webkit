@@ -53,7 +53,7 @@ public:
 
 private:
     explicit BeforeLoadEvent(const String& url)
-        : Event(eventNames().beforeloadEvent, CanBubble::No, IsCancelable::Yes)
+        : Event(eventNames().beforeloadEvent, false, true)
         , m_url(url)
     {
     }

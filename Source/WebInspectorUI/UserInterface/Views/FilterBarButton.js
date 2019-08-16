@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.FilterBarButton = class FilterBarButton extends WI.ActivateButtonNavigationItem
+WebInspector.FilterBarButton = class FilterBarButton extends WebInspector.ActivateButtonNavigationItem
 {
     constructor(identifier, filterFunction, activatedByDefault, defaultToolTip, activatedToolTip, image, imageWidth, imageHeight, role)
     {
@@ -31,7 +31,7 @@ WI.FilterBarButton = class FilterBarButton extends WI.ActivateButtonNavigationIt
 
         this._filterFunction = filterFunction;
 
-        this._activatedSetting = new WI.Setting(identifier, activatedByDefault);
+        this._activatedSetting = new WebInspector.Setting(identifier, activatedByDefault);
 
         this.activated = !!this._activatedSetting.value;
     }
@@ -43,14 +43,14 @@ WI.FilterBarButton = class FilterBarButton extends WI.ActivateButtonNavigationIt
         return this._filterFunction;
     }
 
-    toggle(value)
+    toggle()
     {
-        this.activated = value === undefined ? !this.activated : value;
+        this.activated = !this.activated;
         this._activatedSetting.value = this.activated;
-        this.dispatchEventToListeners(WI.FilterBarButton.Event.ActivatedStateToggled);
+        this.dispatchEventToListeners(WebInspector.FilterBarButton.Event.ActivatedStateToggled);
     }
 };
 
-WI.FilterBarButton.Event = {
+WebInspector.FilterBarButton.Event = {
     ActivatedStateToggled: "filter-bar-activated-state-toggled"
 };

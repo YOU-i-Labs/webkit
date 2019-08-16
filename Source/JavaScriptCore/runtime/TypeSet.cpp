@@ -41,17 +41,14 @@ TypeSet::TypeSet()
 {
 }
 
-void TypeSet::addTypeInformation(RuntimeType type, RefPtr<StructureShape>&& passedNewShape, Structure* structure, bool sawPolyProtoStructure)
+void TypeSet::addTypeInformation(RuntimeType type, RefPtr<StructureShape>&& passedNewShape, Structure* structure)
 {
     m_seenTypes = m_seenTypes | type;
 
     if (structure && passedNewShape && !runtimeTypeIsPrimitive(type)) {
         Ref<StructureShape> newShape = passedNewShape.releaseNonNull();
-        // FIXME: TypeSet should be able to cache poly proto chains
-        // just by caching the prototype chain:
-        // https://bugs.webkit.org/show_bug.cgi?id=177627
-        if (sawPolyProtoStructure || !m_structureSet.contains(structure)) {
-            if (!sawPolyProtoStructure) {
+        if (!m_structureSet.contains(structure)) {
+            {
                 ConcurrentJSLocker locker(m_lock);
                 m_structureSet.add(structure);
             }
@@ -89,7 +86,7 @@ void TypeSet::invalidateCache()
 String TypeSet::dumpTypes() const
 {
     if (m_seenTypes == TypeNothing)
-        return "(Unreached Statement)"_s;
+        return ASCIILiteral("(Unreached Statement)");
 
     StringBuilder seen;
 
@@ -172,44 +169,44 @@ String TypeSet::displayName() const
     // Therefore, more specific types must be checked first.
 
     if (doesTypeConformTo(TypeFunction))
-        return "Function"_s;
+        return ASCIILiteral("Function");
     if (doesTypeConformTo(TypeUndefined))
-        return "Undefined"_s;
+        return ASCIILiteral("Undefined");
     if (doesTypeConformTo(TypeNull))
-        return "Null"_s;
+        return ASCIILiteral("Null");
     if (doesTypeConformTo(TypeBoolean))
-        return "Boolean"_s;
+        return ASCIILiteral("Boolean");
     if (doesTypeConformTo(TypeAnyInt))
-        return "Integer"_s;
+        return ASCIILiteral("Integer");
     if (doesTypeConformTo(TypeNumber | TypeAnyInt))
-        return "Number"_s;
+        return ASCIILiteral("Number");
     if (doesTypeConformTo(TypeString))
-        return "String"_s;
+        return ASCIILiteral("String");
     if (doesTypeConformTo(TypeSymbol))
-        return "Symbol"_s;
+        return ASCIILiteral("Symbol");
 
     if (doesTypeConformTo(TypeNull | TypeUndefined))
-        return "(?)"_s;
+        return ASCIILiteral("(?)");
 
     if (doesTypeConformTo(TypeFunction | TypeNull | TypeUndefined))
-        return "Function?"_s;
+        return ASCIILiteral("Function?");
     if (doesTypeConformTo(TypeBoolean | TypeNull | TypeUndefined))
-        return "Boolean?"_s;
+        return ASCIILiteral("Boolean?");
     if (doesTypeConformTo(TypeAnyInt | TypeNull | TypeUndefined))
-        return "Integer?"_s;
+        return ASCIILiteral("Integer?");
     if (doesTypeConformTo(TypeNumber | TypeAnyInt | TypeNull | TypeUndefined))
-        return "Number?"_s;
+        return ASCIILiteral("Number?");
     if (doesTypeConformTo(TypeString | TypeNull | TypeUndefined))
-        return "String?"_s;
+        return ASCIILiteral("String?");
     if (doesTypeConformTo(TypeSymbol | TypeNull | TypeUndefined))
-        return "Symbol?"_s;
+        return ASCIILiteral("Symbol?");
    
     if (doesTypeConformTo(TypeObject | TypeFunction | TypeString))
-        return "Object"_s;
+        return ASCIILiteral("Object");
     if (doesTypeConformTo(TypeObject | TypeFunction | TypeString | TypeNull | TypeUndefined))
-        return "Object?"_s;
+        return ASCIILiteral("Object?");
 
-    return "(many)"_s;
+    return ASCIILiteral("(many)");
 }
 
 String TypeSet::leastCommonAncestor() const
@@ -217,9 +214,9 @@ String TypeSet::leastCommonAncestor() const
     return StructureShape::leastCommonAncestor(m_structureHistory);
 }
 
-Ref<JSON::ArrayOf<Inspector::Protocol::Runtime::StructureDescription>> TypeSet::allStructureRepresentations() const
+Ref<Inspector::Protocol::Array<Inspector::Protocol::Runtime::StructureDescription>> TypeSet::allStructureRepresentations() const
 {
-    auto description = JSON::ArrayOf<Inspector::Protocol::Runtime::StructureDescription>::create();
+    auto description = Inspector::Protocol::Array<Inspector::Protocol::Runtime::StructureDescription>::create();
 
     for (auto& shape : m_structureHistory)
         description->addItem(shape->inspectorRepresentation());
@@ -388,7 +385,7 @@ String StructureShape::leastCommonAncestor(const Vector<Ref<StructureShape>>& sh
                 // This is unlikely to happen, because we usually bottom out at "Object", but there are some sets of Objects
                 // that may cause this behavior. We fall back to "Object" because it's our version of Top.
                 if (!origin->m_proto)
-                    return "Object"_s;
+                    return ASCIILiteral("Object");
                 origin = origin->m_proto.get();
             }
         }
@@ -504,8 +501,8 @@ Ref<Inspector::Protocol::Runtime::StructureDescription> StructureShape::inspecto
     RefPtr<StructureShape> currentShape(this);
 
     while (currentShape) {
-        auto fields = JSON::ArrayOf<String>::create();
-        auto optionalFields = JSON::ArrayOf<String>::create();
+        auto fields = Inspector::Protocol::Array<String>::create();
+        auto optionalFields = Inspector::Protocol::Array<String>::create();
         for (auto field : currentShape->m_fields)
             fields->addItem(field.get());
         for (auto field : currentShape->m_optionalFields)

@@ -27,8 +27,6 @@
 
 #include "CSSValue.h"
 #include "CachedResourceHandle.h"
-#include "ResourceLoaderOptions.h"
-#include <wtf/Function.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -39,13 +37,13 @@ class SVGFontFaceElement;
 
 class CSSFontFaceSrcValue final : public CSSValue {
 public:
-    static Ref<CSSFontFaceSrcValue> create(const String& resource, LoadedFromOpaqueSource loadedFromOpaqueSource)
+    static Ref<CSSFontFaceSrcValue> create(const String& resource)
     {
-        return adoptRef(*new CSSFontFaceSrcValue(resource, false, loadedFromOpaqueSource));
+        return adoptRef(*new CSSFontFaceSrcValue(resource, false));
     }
     static Ref<CSSFontFaceSrcValue> createLocal(const String& resource)
     {
-        return adoptRef(*new CSSFontFaceSrcValue(resource, true, LoadedFromOpaqueSource::No));
+        return adoptRef(*new CSSFontFaceSrcValue(resource, true));
     }
 
     const String& resource() const { return m_resource; }
@@ -66,18 +64,17 @@ public:
 
     String customCSSText() const;
 
-    bool traverseSubresources(const WTF::Function<bool (const CachedResource&)>& handler) const;
+    bool traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const;
 
     CachedFont* cachedFont(Document*, bool isSVG, bool isInitiatingElementInUserAgentShadowTree);
 
     bool equals(const CSSFontFaceSrcValue&) const;
 
 private:
-    CSSFontFaceSrcValue(const String& resource, bool local, LoadedFromOpaqueSource loadedFromOpaqueSource)
+    CSSFontFaceSrcValue(const String& resource, bool local)
         : CSSValue(FontFaceSrcClass)
         , m_resource(resource)
         , m_isLocal(local)
-        , m_loadedFromOpaqueSource(loadedFromOpaqueSource)
 #if ENABLE(SVG_FONTS)
         , m_svgFontFaceElement(0)
 #endif
@@ -87,7 +84,6 @@ private:
     String m_resource;
     String m_format;
     bool m_isLocal;
-    LoadedFromOpaqueSource m_loadedFromOpaqueSource { LoadedFromOpaqueSource::No };
 
     CachedResourceHandle<CachedFont> m_cachedFont;
 

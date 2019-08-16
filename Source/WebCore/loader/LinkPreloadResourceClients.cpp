@@ -33,7 +33,7 @@ namespace WebCore {
 
 LinkPreloadResourceClient::LinkPreloadResourceClient(LinkLoader& loader, CachedResource& resource)
 {
-    m_loader = makeWeakPtr(loader);
+    m_loader = loader.createWeakPtr();
     m_resource = &resource;
 }
 

@@ -22,6 +22,7 @@
 
 #include "CSSSelector.h"
 #include "CSSValueKeywords.h"
+#include "CSSValueList.h"
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/AtomicStringHash.h>
 #include <wtf/text/WTFString.h>
@@ -34,6 +35,9 @@ class QualifiedName;
 enum class CSSParserSelectorCombinator {
     Child,
     DescendantSpace,
+#if ENABLE(CSS_SELECTORS_LEVEL4)
+    DescendantDoubleChild,
+#endif
     DirectAdjacent,
     IndirectAdjacent
 };
@@ -52,7 +56,11 @@ public:
     std::unique_ptr<CSSSelector> releaseSelector() { return WTFMove(m_selector); }
 
     void setValue(const AtomicString& value, bool matchLowerCase = false) { m_selector->setValue(value, matchLowerCase); }
-
+    
+    // FIXME-NEWPARSER: These two methods can go away once old parser is gone.
+    void setAttribute(const QualifiedName& value, bool isCaseInsensitive) { m_selector->setAttribute(value, isCaseInsensitive); }
+    void setAttributeValueMatchingIsCaseInsensitive(bool isCaseInsensitive) { m_selector->setAttributeValueMatchingIsCaseInsensitive(isCaseInsensitive); }
+    
     void setAttribute(const QualifiedName& value, bool convertToLowercase, CSSSelector::AttributeMatchType type) { m_selector->setAttribute(value, convertToLowercase, type); }
     
     void setArgument(const AtomicString& value) { m_selector->setArgument(value); }
@@ -67,7 +75,7 @@ public:
     
     void setPseudoElementType(CSSSelector::PseudoElementType type) { m_selector->setPseudoElementType(type); }
 
-    void adoptSelectorVector(Vector<std::unique_ptr<CSSParserSelector>>&&);
+    void adoptSelectorVector(Vector<std::unique_ptr<CSSParserSelector>>& selectorVector);
     void setLangArgumentList(std::unique_ptr<Vector<AtomicString>>);
     void setSelectorList(std::unique_ptr<CSSSelectorList>);
 
@@ -117,6 +125,7 @@ inline bool CSSParserSelector::needsImplicitShadowCombinatorForMatching() const
 {
     return match() == CSSSelector::PseudoElement
         && (pseudoElementType() == CSSSelector::PseudoElementWebKitCustom
+            || pseudoElementType() == CSSSelector::PseudoElementUserAgentCustom
 #if ENABLE(VIDEO_TRACK)
             || pseudoElementType() == CSSSelector::PseudoElementCue
 #endif

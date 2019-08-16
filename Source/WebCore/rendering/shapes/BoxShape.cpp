@@ -66,7 +66,7 @@ RoundedRect computeRoundedRectForBoxShape(CSSBoxType box, const RenderBox& rende
 {
     const RenderStyle& style = renderer.style();
     switch (box) {
-    case CSSBoxType::MarginBox: {
+    case MarginBox: {
         if (!style.hasBorderRadius())
             return RoundedRect(renderer.marginBoxRect(), RoundedRect::Radii());
 
@@ -75,18 +75,18 @@ RoundedRect computeRoundedRectForBoxShape(CSSBoxType box, const RenderBox& rende
         radii.scale(calcBorderRadiiConstraintScaleFor(marginBox, radii));
         return RoundedRect(marginBox, radii);
     }
-    case CSSBoxType::PaddingBox:
+    case PaddingBox:
         return style.getRoundedInnerBorderFor(renderer.borderBoxRect());
-    case CSSBoxType::ContentBox:
+    case ContentBox:
         return style.getRoundedInnerBorderFor(renderer.borderBoxRect(),
             renderer.paddingTop() + renderer.borderTop(), renderer.paddingBottom() + renderer.borderBottom(),
             renderer.paddingLeft() + renderer.borderLeft(), renderer.paddingRight() + renderer.borderRight());
     // fill, stroke, view-box compute to border-box for HTML elements.
-    case CSSBoxType::BorderBox:
-    case CSSBoxType::FillBox:
-    case CSSBoxType::StrokeBox:
-    case CSSBoxType::ViewBox:
-    case CSSBoxType::BoxMissing:
+    case BorderBox:
+    case Fill:
+    case Stroke:
+    case ViewBox:
+    case BoxMissing:
         return style.getRoundedBorderFor(renderer.borderBoxRect());
     }
 

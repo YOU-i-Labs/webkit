@@ -66,7 +66,7 @@ struct ViewportArguments {
     enum Type {
         // These are ordered in increasing importance.
         Implicit,
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
         PluginDocument,
         ImageDocument,
 #endif
@@ -141,10 +141,10 @@ WEBCORE_EXPORT ViewportAttributes computeViewportAttributes(ViewportArguments ar
 
 WEBCORE_EXPORT void restrictMinimumScaleFactorToViewportSize(ViewportAttributes& result, IntSize visibleViewport, float devicePixelRatio);
 WEBCORE_EXPORT void restrictScaleFactorToInitialScaleIfNotUserScalable(ViewportAttributes& result);
-WEBCORE_EXPORT float computeMinimumScaleFactorForContentContained(const ViewportAttributes& result, const IntSize& viewportSize, const IntSize& contentSize);
+float computeMinimumScaleFactorForContentContained(const ViewportAttributes& result, const IntSize& viewportSize, const IntSize& contentSize);
 
 void setViewportFeature(ViewportArguments&, Document&, StringView key, StringView value);
 
-WTF::TextStream& operator<<(WTF::TextStream&, const ViewportArguments&);
+TextStream& operator<<(TextStream&, const ViewportArguments&);
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #include "config.h"
 
 #include "RefLogger.h"
+#include <wtf/Ref.h>
 #include <wtf/RefPtr.h>
 
 namespace TestWebKitAPI {
@@ -35,18 +36,18 @@ TEST(WTF_Ref, Basic)
     DerivedRefLogger a("a");
 
     {
-        Ref<RefLogger> ref(a);
-        EXPECT_EQ(&a, ref.ptr());
-        EXPECT_EQ(&a.name, &ref->name);
+        Ref<RefLogger> ptr(a);
+        ASSERT_EQ(&a, ptr.ptr());
+        ASSERT_EQ(&a.name, &ptr->name);
     }
-    EXPECT_STREQ("ref(a) deref(a) ", takeLogStr().c_str());
+    ASSERT_STREQ("ref(a) deref(a) ", takeLogStr().c_str());
 
     {
-        Ref<RefLogger> ref(adoptRef(a));
-        EXPECT_EQ(&a, ref.ptr());
-        EXPECT_EQ(&a.name, &ref->name);
+        Ref<RefLogger> ptr(adoptRef(a));
+        ASSERT_EQ(&a, ptr.ptr());
+        ASSERT_EQ(&a.name, &ptr->name);
     }
-    EXPECT_STREQ("deref(a) ", takeLogStr().c_str());
+    ASSERT_STREQ("deref(a) ", takeLogStr().c_str());
 }
 
 TEST(WTF_Ref, Assignment)
@@ -56,44 +57,44 @@ TEST(WTF_Ref, Assignment)
     DerivedRefLogger c("c");
 
     {
-        Ref<RefLogger> ref(a);
-        EXPECT_EQ(&a, ref.ptr());
+        Ref<RefLogger> ptr(a);
+        ASSERT_EQ(&a, ptr.ptr());
         log() << "| ";
-        ref = b;
-        EXPECT_EQ(&b, ref.ptr());
+        ptr = b;
+        ASSERT_EQ(&b, ptr.ptr());
         log() << "| ";
     }
-    EXPECT_STREQ("ref(a) | ref(b) deref(a) | deref(b) ", takeLogStr().c_str());
+    ASSERT_STREQ("ref(a) | ref(b) deref(a) | deref(b) ", takeLogStr().c_str());
 
     {
-        Ref<RefLogger> ref(a);
-        EXPECT_EQ(&a, ref.ptr());
+        Ref<RefLogger> ptr(a);
+        ASSERT_EQ(&a, ptr.ptr());
         log() << "| ";
-        ref = c;
-        EXPECT_EQ(&c, ref.ptr());
+        ptr = c;
+        ASSERT_EQ(&c, ptr.ptr());
         log() << "| ";
     }
-    EXPECT_STREQ("ref(a) | ref(c) deref(a) | deref(c) ", takeLogStr().c_str());
+    ASSERT_STREQ("ref(a) | ref(c) deref(a) | deref(c) ", takeLogStr().c_str());
 
     {
-        Ref<RefLogger> ref(a);
-        EXPECT_EQ(&a, ref.ptr());
+        Ref<RefLogger> ptr(a);
+        ASSERT_EQ(&a, ptr.ptr());
         log() << "| ";
-        ref = adoptRef(b);
-        EXPECT_EQ(&b, ref.ptr());
+        ptr = adoptRef(b);
+        ASSERT_EQ(&b, ptr.ptr());
         log() << "| ";
     }
-    EXPECT_STREQ("ref(a) | deref(a) | deref(b) ", takeLogStr().c_str());
+    ASSERT_STREQ("ref(a) | deref(a) | deref(b) ", takeLogStr().c_str());
 
     {
-        Ref<RefLogger> ref(a);
-        EXPECT_EQ(&a, ref.ptr());
+        Ref<RefLogger> ptr(a);
+        ASSERT_EQ(&a, ptr.ptr());
         log() << "| ";
-        ref = adoptRef(c);
-        EXPECT_EQ(&c, ref.ptr());
+        ptr = adoptRef(c);
+        ASSERT_EQ(&c, ptr.ptr());
         log() << "| ";
     }
-    EXPECT_STREQ("ref(a) | deref(a) | deref(c) ", takeLogStr().c_str());
+    ASSERT_STREQ("ref(a) | deref(a) | deref(c) ", takeLogStr().c_str());
 }
 
 static Ref<RefLogger> passWithRef(Ref<RefLogger>&& reference)
@@ -108,168 +109,42 @@ TEST(WTF_Ref, ReturnValue)
     DerivedRefLogger c("c");
 
     {
-        Ref<RefLogger> ref(passWithRef(Ref<RefLogger>(a)));
-        EXPECT_EQ(&a, ref.ptr());
+        Ref<RefLogger> ptr(passWithRef(Ref<RefLogger>(a)));
+        ASSERT_EQ(&a, ptr.ptr());
     }
-    EXPECT_STREQ("ref(a) deref(a) ", takeLogStr().c_str());
+    ASSERT_STREQ("ref(a) deref(a) ", takeLogStr().c_str());
 
     {
-        Ref<RefLogger> ref(a);
-        EXPECT_EQ(&a, ref.ptr());
+        Ref<RefLogger> ptr(a);
+        ASSERT_EQ(&a, ptr.ptr());
         log() << "| ";
-        ref = passWithRef(b);
-        EXPECT_EQ(&b, ref.ptr());
+        ptr = passWithRef(b);
+        ASSERT_EQ(&b, ptr.ptr());
         log() << "| ";
     }
-    EXPECT_STREQ("ref(a) | ref(b) deref(a) | deref(b) ", takeLogStr().c_str());
+    ASSERT_STREQ("ref(a) | ref(b) deref(a) | deref(b) ", takeLogStr().c_str());
 
     {
         RefPtr<RefLogger> ptr(passWithRef(a));
-        EXPECT_EQ(&a, ptr.get());
+        ASSERT_EQ(&a, ptr.get());
     }
-    EXPECT_STREQ("ref(a) deref(a) ", takeLogStr().c_str());
+    ASSERT_STREQ("ref(a) deref(a) ", takeLogStr().c_str());
 
     {
         RefPtr<DerivedRefLogger> ptr(&a);
         RefPtr<RefLogger> ptr2(WTFMove(ptr));
-        EXPECT_EQ(nullptr, ptr.get());
-        EXPECT_EQ(&a, ptr2.get());
+        ASSERT_EQ(nullptr, ptr.get());
+        ASSERT_EQ(&a, ptr2.get());
     }
-    EXPECT_STREQ("ref(a) deref(a) ", takeLogStr().c_str());
+    ASSERT_STREQ("ref(a) deref(a) ", takeLogStr().c_str());
 
     {
         Ref<DerivedRefLogger> derivedReference(a);
         Ref<RefLogger> baseReference(passWithRef(derivedReference.copyRef()));
-        EXPECT_EQ(&a, derivedReference.ptr());
-        EXPECT_EQ(&a, baseReference.ptr());
+        ASSERT_EQ(&a, derivedReference.ptr());
+        ASSERT_EQ(&a, baseReference.ptr());
     }
-    EXPECT_STREQ("ref(a) ref(a) deref(a) deref(a) ", takeLogStr().c_str());
-}
-
-TEST(WTF_Ref, Swap)
-{
-    RefLogger a("a");
-    RefLogger b("b");
-
-    {
-        Ref<RefLogger> p1(a);
-        Ref<RefLogger> p2(b);
-        log() << "| ";
-        EXPECT_EQ(&a, p1.ptr());
-        EXPECT_EQ(&b, p2.ptr());
-        p1.swap(p2);
-        EXPECT_EQ(&b, p1.ptr());
-        EXPECT_EQ(&a, p2.ptr());
-        log() << "| ";
-    }
-    EXPECT_STREQ("ref(a) ref(b) | | deref(a) deref(b) ", takeLogStr().c_str());
-
-    {
-        Ref<RefLogger> p1(a);
-        Ref<RefLogger> p2(b);
-        log() << "| ";
-        EXPECT_EQ(&a, p1.ptr());
-        EXPECT_EQ(&b, p2.ptr());
-        std::swap(p1, p2);
-        EXPECT_EQ(&b, p1.ptr());
-        EXPECT_EQ(&a, p2.ptr());
-        log() << "| ";
-    }
-    EXPECT_STREQ("ref(a) ref(b) | | deref(a) deref(b) ", takeLogStr().c_str());
-}
-
-struct RefCheckingRefLogger : RefLogger {
-    RefCheckingRefLogger(const char* name);
-    void ref();
-    void deref();
-    const Ref<RefCheckingRefLogger>* slotToCheck { nullptr };
-};
-
-struct DerivedRefCheckingRefLogger : RefCheckingRefLogger {
-    DerivedRefCheckingRefLogger(const char* name);
-};
-
-RefCheckingRefLogger::RefCheckingRefLogger(const char* name)
-    : RefLogger { name }
-{
-}
-
-void RefCheckingRefLogger::ref()
-{
-    if (slotToCheck)
-        log() << "slot=" << slotToCheck->get().name << " ";
-    RefLogger::ref();
-}
-
-void RefCheckingRefLogger::deref()
-{
-    if (slotToCheck)
-        log() << "slot=" << slotToCheck->get().name << " ";
-    RefLogger::deref();
-}
-
-DerivedRefCheckingRefLogger::DerivedRefCheckingRefLogger(const char* name)
-    : RefCheckingRefLogger { name }
-{
-}
-
-TEST(WTF_Ref, AssignBeforeDeref)
-{
-    DerivedRefCheckingRefLogger a("a");
-    RefCheckingRefLogger b("b");
-    DerivedRefCheckingRefLogger c("c");
-
-    {
-        Ref<RefCheckingRefLogger> ref(a);
-        EXPECT_EQ(&a, ref.ptr());
-        log() << "| ";
-        a.slotToCheck = &ref;
-        b.slotToCheck = &ref;
-        ref = b;
-        a.slotToCheck = nullptr;
-        b.slotToCheck = nullptr;
-        EXPECT_EQ(&b, ref.ptr());
-        log() << "| ";
-    }
-    EXPECT_STREQ("ref(a) | slot=a ref(b) slot=b deref(a) | deref(b) ", takeLogStr().c_str());
-
-    {
-        Ref<RefCheckingRefLogger> ref(a);
-        EXPECT_EQ(&a, ref.ptr());
-        log() << "| ";
-        a.slotToCheck = &ref;
-        c.slotToCheck = &ref;
-        ref = c;
-        a.slotToCheck = nullptr;
-        c.slotToCheck = nullptr;
-        EXPECT_EQ(&c, ref.ptr());
-        log() << "| ";
-    }
-    EXPECT_STREQ("ref(a) | slot=a ref(c) slot=c deref(a) | deref(c) ", takeLogStr().c_str());
-
-    {
-        Ref<RefCheckingRefLogger> ref(a);
-        EXPECT_EQ(&a, ref.ptr());
-        log() << "| ";
-        a.slotToCheck = &ref;
-        ref = adoptRef(b);
-        a.slotToCheck = nullptr;
-        EXPECT_EQ(&b, ref.ptr());
-        log() << "| ";
-    }
-    EXPECT_STREQ("ref(a) | slot=b deref(a) | deref(b) ", takeLogStr().c_str());
-
-    {
-        Ref<RefCheckingRefLogger> ref(a);
-        EXPECT_EQ(&a, ref.ptr());
-        log() << "| ";
-        a.slotToCheck = &ref;
-        ref = adoptRef(c);
-        a.slotToCheck = nullptr;
-        EXPECT_EQ(&c, ref.ptr());
-        log() << "| ";
-    }
-    EXPECT_STREQ("ref(a) | slot=c deref(a) | deref(c) ", takeLogStr().c_str());
+    ASSERT_STREQ("ref(a) ref(a) deref(a) deref(a) ", takeLogStr().c_str());
 }
 
 } // namespace TestWebKitAPI

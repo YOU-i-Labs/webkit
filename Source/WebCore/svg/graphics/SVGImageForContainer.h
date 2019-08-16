@@ -30,20 +30,22 @@
 #include "FloatSize.h"
 #include "Image.h"
 #include "SVGImage.h"
-#include <wtf/URL.h>
+#include "URL.h"
 
 namespace WebCore {
 
 class SVGImageForContainer final : public Image {
 public:
-    static Ref<SVGImageForContainer> create(SVGImage* image, const FloatSize& containerSize, float containerZoom, const URL& initialFragmentURL)
+    static Ref<SVGImageForContainer> create(SVGImage* image, const FloatSize& containerSize, float zoom)
     {
-        return adoptRef(*new SVGImageForContainer(image, containerSize, containerZoom, initialFragmentURL));
+        return adoptRef(*new SVGImageForContainer(image, containerSize, zoom));
     }
 
     bool isSVGImage() const final { return true; }
 
     FloatSize size() const final;
+
+    void setURL(const URL& url) { m_image->setURL(url); }
 
     bool usesContainerSize() const final { return m_image->usesContainerSize(); }
     bool hasRelativeWidth() const final { return m_image->hasRelativeWidth(); }
@@ -53,7 +55,7 @@ public:
         m_image->computeIntrinsicDimensions(intrinsicWidth, intrinsicHeight, intrinsicRatio);
     }
 
-    ImageDrawResult draw(GraphicsContext&, const FloatRect&, const FloatRect&, CompositeOperator, BlendMode, DecodingMode, ImageOrientationDescription) final;
+    void draw(GraphicsContext&, const FloatRect&, const FloatRect&, CompositeOperator, BlendMode, DecodingMode, ImageOrientationDescription) final;
 
     void drawPattern(GraphicsContext&, const FloatRect&, const FloatRect&, const AffineTransform&, const FloatPoint&, const FloatSize&, CompositeOperator, BlendMode) final;
 
@@ -63,11 +65,10 @@ public:
     NativeImagePtr nativeImageForCurrentFrame(const GraphicsContext* = nullptr) final;
 
 private:
-    SVGImageForContainer(SVGImage* image, const FloatSize& containerSize, float containerZoom, const URL& initialFragmentURL)
+    SVGImageForContainer(SVGImage* image, const FloatSize& containerSize, float zoom)
         : m_image(image)
         , m_containerSize(containerSize)
-        , m_containerZoom(containerZoom)
-        , m_initialFragmentURL(initialFragmentURL)
+        , m_zoom(zoom)
     {
     }
 
@@ -75,8 +76,7 @@ private:
 
     SVGImage* m_image;
     const FloatSize m_containerSize;
-    const float m_containerZoom;
-    const URL m_initialFragmentURL;
+    const float m_zoom;
 };
 
 } // namespace WebCore

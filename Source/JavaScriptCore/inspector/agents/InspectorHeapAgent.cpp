@@ -27,7 +27,6 @@
 #include "InspectorHeapAgent.h"
 
 #include "HeapProfiler.h"
-#include "HeapSnapshot.h"
 #include "InjectedScript.h"
 #include "InjectedScriptManager.h"
 #include "InspectorEnvironment.h"
@@ -40,7 +39,7 @@ using namespace JSC;
 namespace Inspector {
 
 InspectorHeapAgent::InspectorHeapAgent(AgentContext& context)
-    : InspectorAgentBase("Heap"_s)
+    : InspectorAgentBase(ASCIILiteral("Heap"))
     , m_injectedScriptManager(context.injectedScriptManager)
     , m_frontendDispatcher(std::make_unique<HeapFrontendDispatcher>(context.frontendRouter))
     , m_backendDispatcher(HeapBackendDispatcher::create(context.backendDispatcher, this))
@@ -103,7 +102,7 @@ void InspectorHeapAgent::snapshot(ErrorString&, double* timestamp, String* snaps
     HeapSnapshotBuilder snapshotBuilder(vm.ensureHeapProfiler());
     snapshotBuilder.buildSnapshot();
 
-    *timestamp = m_environment.executionStopwatch()->elapsedTime().seconds();
+    *timestamp = m_environment.executionStopwatch()->elapsedTime();
     *snapshotData = snapshotBuilder.json([&] (const HeapSnapshotNode& node) {
         if (Structure* structure = node.cell->structure(vm)) {
             if (JSGlobalObject* globalObject = structure->globalObject()) {
@@ -143,30 +142,30 @@ void InspectorHeapAgent::stopTracking(ErrorString& errorString)
     m_frontendDispatcher->trackingComplete(timestamp, snapshotData);
 }
 
-Optional<HeapSnapshotNode> InspectorHeapAgent::nodeForHeapObjectIdentifier(ErrorString& errorString, unsigned heapObjectIdentifier)
+std::optional<HeapSnapshotNode> InspectorHeapAgent::nodeForHeapObjectIdentifier(ErrorString& errorString, unsigned heapObjectIdentifier)
 {
     HeapProfiler* heapProfiler = m_environment.vm().heapProfiler();
     if (!heapProfiler) {
-        errorString = "No heap snapshot"_s;
-        return WTF::nullopt;
+        errorString = ASCIILiteral("No heap snapshot");
+        return std::nullopt;
     }
 
     HeapSnapshot* snapshot = heapProfiler->mostRecentSnapshot();
     if (!snapshot) {
-        errorString = "No heap snapshot"_s;
-        return WTF::nullopt;
+        errorString = ASCIILiteral("No heap snapshot");
+        return std::nullopt;
     }
 
-    const Optional<HeapSnapshotNode> optionalNode = snapshot->nodeForObjectIdentifier(heapObjectIdentifier);
+    const std::optional<HeapSnapshotNode> optionalNode = snapshot->nodeForObjectIdentifier(heapObjectIdentifier);
     if (!optionalNode) {
-        errorString = "No object for identifier, it may have been collected"_s;
-        return WTF::nullopt;
+        errorString = ASCIILiteral("No object for identifier, it may have been collected");
+        return std::nullopt;
     }
 
     return optionalNode;
 }
 
-void InspectorHeapAgent::getPreview(ErrorString& errorString, int heapObjectId, Optional<String>& resultString, RefPtr<Protocol::Debugger::FunctionDetails>& functionDetails, RefPtr<Protocol::Runtime::ObjectPreview>& objectPreview)
+void InspectorHeapAgent::getPreview(ErrorString& errorString, int heapObjectId, Inspector::Protocol::OptOutput<String>* resultString, RefPtr<Inspector::Protocol::Debugger::FunctionDetails>& functionDetails, RefPtr<Inspector::Protocol::Runtime::ObjectPreview>& objectPreview)
 {
     // Prevent the cell from getting collected as we look it up.
     VM& vm = m_environment.vm();
@@ -174,14 +173,14 @@ void InspectorHeapAgent::getPreview(ErrorString& errorString, int heapObjectId, 
     DeferGC deferGC(vm.heap);
 
     unsigned heapObjectIdentifier = static_cast<unsigned>(heapObjectId);
-    const Optional<HeapSnapshotNode> optionalNode = nodeForHeapObjectIdentifier(errorString, heapObjectIdentifier);
+    const std::optional<HeapSnapshotNode> optionalNode = nodeForHeapObjectIdentifier(errorString, heapObjectIdentifier);
     if (!optionalNode)
         return;
 
     // String preview.
     JSCell* cell = optionalNode->cell;
     if (cell->isString()) {
-        resultString = asString(cell)->tryGetValue();
+        *resultString = asString(cell)->tryGetValue();
         return;
     }
 
@@ -189,25 +188,25 @@ void InspectorHeapAgent::getPreview(ErrorString& errorString, int heapObjectId, 
 
     Structure* structure = cell->structure(vm);
     if (!structure) {
-        errorString = "Unable to get object details - Structure"_s;
+        errorString = ASCIILiteral("Unable to get object details - Structure");
         return;
     }
 
     JSGlobalObject* globalObject = structure->globalObject();
     if (!globalObject) {
-        errorString = "Unable to get object details - GlobalObject"_s;
+        errorString = ASCIILiteral("Unable to get object details - GlobalObject");
         return;
     }
 
     InjectedScript injectedScript = m_injectedScriptManager.injectedScriptFor(globalObject->globalExec());
     if (injectedScript.hasNoValue()) {
-        errorString = "Unable to get object details - InjectedScript"_s;
+        errorString = ASCIILiteral("Unable to get object details - InjectedScript");
         return;
     }
 
     // Function preview.
-    if (cell->inherits<JSFunction>(vm)) {
-        injectedScript.functionDetails(errorString, cell, functionDetails);
+    if (cell->inherits(vm, JSFunction::info())) {
+        injectedScript.functionDetails(errorString, cell, &functionDetails);
         return;
     }
 
@@ -215,7 +214,7 @@ void InspectorHeapAgent::getPreview(ErrorString& errorString, int heapObjectId, 
     objectPreview = injectedScript.previewValue(cell);
 }
 
-void InspectorHeapAgent::getRemoteObject(ErrorString& errorString, int heapObjectId, const String* optionalObjectGroup, RefPtr<Protocol::Runtime::RemoteObject>& result)
+void InspectorHeapAgent::getRemoteObject(ErrorString& errorString, int heapObjectId, const String* const optionalObjectGroup, RefPtr<Inspector::Protocol::Runtime::RemoteObject>& result)
 {
     // Prevent the cell from getting collected as we look it up.
     VM& vm = m_environment.vm();
@@ -223,26 +222,26 @@ void InspectorHeapAgent::getRemoteObject(ErrorString& errorString, int heapObjec
     DeferGC deferGC(vm.heap);
 
     unsigned heapObjectIdentifier = static_cast<unsigned>(heapObjectId);
-    const Optional<HeapSnapshotNode> optionalNode = nodeForHeapObjectIdentifier(errorString, heapObjectIdentifier);
+    const std::optional<HeapSnapshotNode> optionalNode = nodeForHeapObjectIdentifier(errorString, heapObjectIdentifier);
     if (!optionalNode)
         return;
 
     JSCell* cell = optionalNode->cell;
     Structure* structure = cell->structure(vm);
     if (!structure) {
-        errorString = "Unable to get object details"_s;
+        errorString = ASCIILiteral("Unable to get object details");
         return;
     }
 
     JSGlobalObject* globalObject = structure->globalObject();
     if (!globalObject) {
-        errorString = "Unable to get object details"_s;
+        errorString = ASCIILiteral("Unable to get object details");
         return;
     }
 
     InjectedScript injectedScript = m_injectedScriptManager.injectedScriptFor(globalObject->globalExec());
     if (injectedScript.hasNoValue()) {
-        errorString = "Unable to get object details - InjectedScript"_s;
+        errorString = ASCIILiteral("Unable to get object details - InjectedScript");
         return;
     }
 
@@ -250,16 +249,16 @@ void InspectorHeapAgent::getRemoteObject(ErrorString& errorString, int heapObjec
     result = injectedScript.wrapObject(cell, objectGroup, true);
 }
 
-static Protocol::Heap::GarbageCollection::Type protocolTypeForHeapOperation(CollectionScope scope)
+static Inspector::Protocol::Heap::GarbageCollection::Type protocolTypeForHeapOperation(CollectionScope scope)
 {
     switch (scope) {
     case CollectionScope::Full:
-        return Protocol::Heap::GarbageCollection::Type::Full;
+        return Inspector::Protocol::Heap::GarbageCollection::Type::Full;
     case CollectionScope::Eden:
-        return Protocol::Heap::GarbageCollection::Type::Partial;
+        return Inspector::Protocol::Heap::GarbageCollection::Type::Partial;
     }
     ASSERT_NOT_REACHED();
-    return Protocol::Heap::GarbageCollection::Type::Full;
+    return Inspector::Protocol::Heap::GarbageCollection::Type::Full;
 }
 
 void InspectorHeapAgent::willGarbageCollect()
@@ -273,7 +272,7 @@ void InspectorHeapAgent::willGarbageCollect()
 void InspectorHeapAgent::didGarbageCollect(CollectionScope scope)
 {
     if (!m_enabled) {
-        m_gcStartTime = Seconds::nan();
+        m_gcStartTime = NAN;
         return;
     }
 
@@ -284,10 +283,10 @@ void InspectorHeapAgent::didGarbageCollect(CollectionScope scope)
 
     // FIXME: Include number of bytes freed by collection.
 
-    Seconds endTime = m_environment.executionStopwatch()->elapsedTime();
+    double endTime = m_environment.executionStopwatch()->elapsedTime();
     dispatchGarbageCollectedEvent(protocolTypeForHeapOperation(scope), m_gcStartTime, endTime);
 
-    m_gcStartTime = Seconds::nan();
+    m_gcStartTime = NAN;
 }
 
 void InspectorHeapAgent::clearHeapSnapshots()
@@ -301,12 +300,12 @@ void InspectorHeapAgent::clearHeapSnapshots()
     }
 }
 
-void InspectorHeapAgent::dispatchGarbageCollectedEvent(Protocol::Heap::GarbageCollection::Type type, Seconds startTime, Seconds endTime)
+void InspectorHeapAgent::dispatchGarbageCollectedEvent(Inspector::Protocol::Heap::GarbageCollection::Type type, double startTime, double endTime)
 {
-    auto protocolObject = Protocol::Heap::GarbageCollection::create()
+    auto protocolObject = Inspector::Protocol::Heap::GarbageCollection::create()
         .setType(type)
-        .setStartTime(startTime.seconds())
-        .setEndTime(endTime.seconds())
+        .setStartTime(startTime)
+        .setEndTime(endTime)
         .release();
 
     m_frontendDispatcher->garbageCollected(WTFMove(protocolObject));

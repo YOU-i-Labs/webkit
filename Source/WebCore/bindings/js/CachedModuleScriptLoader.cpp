@@ -31,7 +31,6 @@
 #include "DOMWrapperWorld.h"
 #include "Frame.h"
 #include "JSDOMBinding.h"
-#include "ModuleFetchParameters.h"
 #include "ResourceLoaderOptions.h"
 #include "ScriptController.h"
 #include "ScriptModuleLoader.h"
@@ -39,16 +38,15 @@
 
 namespace WebCore {
 
-Ref<CachedModuleScriptLoader> CachedModuleScriptLoader::create(CachedModuleScriptLoaderClient& client, DeferredPromise& promise, CachedScriptFetcher& scriptFetcher, RefPtr<ModuleFetchParameters>&& parameters)
+Ref<CachedModuleScriptLoader> CachedModuleScriptLoader::create(CachedModuleScriptLoaderClient& client, DeferredPromise& promise, CachedScriptFetcher& scriptFetcher)
 {
-    return adoptRef(*new CachedModuleScriptLoader(client, promise, scriptFetcher, WTFMove(parameters)));
+    return adoptRef(*new CachedModuleScriptLoader(client, promise, scriptFetcher));
 }
 
-CachedModuleScriptLoader::CachedModuleScriptLoader(CachedModuleScriptLoaderClient& client, DeferredPromise& promise, CachedScriptFetcher& scriptFetcher, RefPtr<ModuleFetchParameters>&& parameters)
+CachedModuleScriptLoader::CachedModuleScriptLoader(CachedModuleScriptLoaderClient& client, DeferredPromise& promise, CachedScriptFetcher& scriptFetcher)
     : m_client(&client)
     , m_promise(&promise)
     , m_scriptFetcher(scriptFetcher)
-    , m_parameters(WTFMove(parameters))
 {
 }
 
@@ -63,8 +61,7 @@ CachedModuleScriptLoader::~CachedModuleScriptLoader()
 bool CachedModuleScriptLoader::load(Document& document, const URL& sourceURL)
 {
     ASSERT(!m_cachedScript);
-    String integrity = m_parameters ? m_parameters->integrity() : String { };
-    m_cachedScript = m_scriptFetcher->requestModuleScript(document, sourceURL, WTFMove(integrity));
+    m_cachedScript = m_scriptFetcher->requestModuleScript(document, sourceURL);
     if (!m_cachedScript)
         return false;
 

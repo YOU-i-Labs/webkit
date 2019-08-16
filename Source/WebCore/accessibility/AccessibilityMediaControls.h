@@ -38,7 +38,7 @@ namespace WebCore {
 class AccessibilityMediaControl : public AccessibilityRenderObject {
 public:
     static Ref<AccessibilityObject> create(RenderObject*);
-    virtual ~AccessibilityMediaControl() = default;
+    virtual ~AccessibilityMediaControl() { }
 
     AccessibilityRole roleValue() const override;
 
@@ -60,7 +60,7 @@ private:
 class AccessibilityMediaTimeline final : public AccessibilitySlider {
 public:
     static Ref<AccessibilityObject> create(RenderObject*);
-    virtual ~AccessibilityMediaTimeline() = default;
+    virtual ~AccessibilityMediaTimeline() { }
 
     String helpText() const override;
     String valueDescription() const override;
@@ -76,9 +76,9 @@ private:
 class AccessibilityMediaControlsContainer final : public AccessibilityMediaControl {
 public:
     static Ref<AccessibilityObject> create(RenderObject*);
-    virtual ~AccessibilityMediaControlsContainer() = default;
+    virtual ~AccessibilityMediaControlsContainer() { }
 
-    AccessibilityRole roleValue() const override { return AccessibilityRole::Toolbar; }
+    AccessibilityRole roleValue() const override { return ToolbarRole; }
 
     String helpText() const override;
     String accessibilityDescription() const override;
@@ -94,9 +94,9 @@ private:
 class AccessibilityMediaTimeDisplay final : public AccessibilityMediaControl {
 public:
     static Ref<AccessibilityObject> create(RenderObject*);
-    virtual ~AccessibilityMediaTimeDisplay() = default;
+    virtual ~AccessibilityMediaTimeDisplay() { }
 
-    AccessibilityRole roleValue() const override { return AccessibilityRole::ApplicationTimer; }
+    AccessibilityRole roleValue() const override { return ApplicationTimerRole; }
 
     String stringValue() const override;
     String accessibilityDescription() const override;

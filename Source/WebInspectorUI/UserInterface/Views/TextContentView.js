@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TextContentView = class TextContentView extends WI.ContentView
+WebInspector.TextContentView = class TextContentView extends WebInspector.ContentView
 {
     constructor(string, mimeType)
     {
@@ -31,34 +31,31 @@ WI.TextContentView = class TextContentView extends WI.ContentView
 
         this.element.classList.add("text");
 
-        this._textEditor = new WI.TextEditor;
-        this._textEditor.addEventListener(WI.TextEditor.Event.NumberOfSearchResultsDidChange, this._numberOfSearchResultsDidChange, this);
-        this._textEditor.addEventListener(WI.TextEditor.Event.FormattingDidChange, this._textEditorFormattingDidChange, this);
-        this._textEditor.addEventListener(WI.TextEditor.Event.MIMETypeChanged, this._handleTextEditorMIMETypeChanged, this);
+        this._textEditor = new WebInspector.TextEditor;
+        this._textEditor.addEventListener(WebInspector.TextEditor.Event.NumberOfSearchResultsDidChange, this._numberOfSearchResultsDidChange, this);
+        this._textEditor.addEventListener(WebInspector.TextEditor.Event.FormattingDidChange, this._textEditorFormattingDidChange, this);
+
         this.addSubview(this._textEditor);
-
-        var toolTip = WI.UIString("Pretty print");
-        var activatedToolTip = WI.UIString("Original formatting");
-        this._prettyPrintButtonNavigationItem = new WI.ActivateButtonNavigationItem("pretty-print", toolTip, activatedToolTip, "Images/NavigationItemCurleyBraces.svg", 13, 13);
-        this._prettyPrintButtonNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._togglePrettyPrint, this);
-        this._prettyPrintButtonNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
-
-        var toolTipTypes = WI.UIString("Show type information");
-        var activatedToolTipTypes = WI.UIString("Hide type information");
-        this._showTypesButtonNavigationItem = new WI.ActivateButtonNavigationItem("show-types", toolTipTypes, activatedToolTipTypes, "Images/NavigationItemTypes.svg", 13, 14);
-        this._showTypesButtonNavigationItem.enabled = false;
-        this._showTypesButtonNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
-
-        let toolTipCodeCoverage = WI.UIString("Fade unexecuted code");
-        let activatedToolTipCodeCoverage = WI.UIString("Do not fade unexecuted code");
-        this._codeCoverageButtonNavigationItem = new WI.ActivateButtonNavigationItem("code-coverage", toolTipCodeCoverage, activatedToolTipCodeCoverage, "Images/NavigationItemCodeCoverage.svg", 13, 14);
-        this._codeCoverageButtonNavigationItem.enabled = false;
-        this._codeCoverageButtonNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
 
         this._textEditor.readOnly = true;
         this._textEditor.mimeType = mimeType;
         this._textEditor.string = string;
+
+        var toolTip = WebInspector.UIString("Pretty print");
+        var activatedToolTip = WebInspector.UIString("Original formatting");
+        this._prettyPrintButtonNavigationItem = new WebInspector.ActivateButtonNavigationItem("pretty-print", toolTip, activatedToolTip, "Images/NavigationItemCurleyBraces.svg", 13, 13);
+        this._prettyPrintButtonNavigationItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._togglePrettyPrint, this);
         this._prettyPrintButtonNavigationItem.enabled = this._textEditor.canBeFormatted();
+
+        var toolTipTypes = WebInspector.UIString("Show type information");
+        var activatedToolTipTypes = WebInspector.UIString("Hide type information");
+        this._showTypesButtonNavigationItem = new WebInspector.ActivateButtonNavigationItem("show-types", toolTipTypes, activatedToolTipTypes, "Images/NavigationItemTypes.svg", 13, 14);
+        this._showTypesButtonNavigationItem.enabled = false;
+
+        let toolTipCodeCoverage = WebInspector.UIString("Fade unexecuted code");
+        let activatedToolTipCodeCoverage = WebInspector.UIString("Do not fade unexecuted code");
+        this._codeCoverageButtonNavigationItem = new WebInspector.ActivateButtonNavigationItem("code-coverage", toolTipCodeCoverage, activatedToolTipCodeCoverage, "Images/NavigationItemCodeCoverage.svg", 13, 14);
+        this._codeCoverageButtonNavigationItem.enabled = false;
     }
 
     // Public
@@ -106,7 +103,7 @@ WI.TextContentView = class TextContentView extends WI.ContentView
 
     get saveData()
     {
-        var url = "web-inspector:///" + encodeURI(WI.UIString("Untitled")) + ".txt";
+        var url = "web-inspector:///" + encodeURI(WebInspector.UIString("Untitled")) + ".txt";
         return {url, content: this._textEditor.string, forceSaveAs: true};
     }
 
@@ -168,13 +165,8 @@ WI.TextContentView = class TextContentView extends WI.ContentView
         this._prettyPrintButtonNavigationItem.activated = this._textEditor.formatted;
     }
 
-    _handleTextEditorMIMETypeChanged(event)
-    {
-        this._prettyPrintButtonNavigationItem.enabled = this._textEditor.canBeFormatted();
-    }
-
     _numberOfSearchResultsDidChange(event)
     {
-        this.dispatchEventToListeners(WI.ContentView.Event.NumberOfSearchResultsDidChange);
+        this.dispatchEventToListeners(WebInspector.ContentView.Event.NumberOfSearchResultsDidChange);
     }
 };

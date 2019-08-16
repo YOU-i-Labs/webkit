@@ -26,29 +26,30 @@
 #pragma once
 
 #include "JSRunLoopTimer.h"
+#include <wtf/Vector.h>
 
 namespace JSC {
 
 class Heap;
-class BlockDirectory;
+class MarkedAllocator;
 
 class IncrementalSweeper : public JSRunLoopTimer {
 public:
     using Base = JSRunLoopTimer;
     JS_EXPORT_PRIVATE explicit IncrementalSweeper(Heap*);
 
-    JS_EXPORT_PRIVATE void startSweeping(Heap&);
+    JS_EXPORT_PRIVATE void startSweeping();
     void freeFastMallocMemoryAfterSweeping() { m_shouldFreeFastMallocMemoryAfterSweeping = true; }
 
-    void doWork(VM&) override;
-    void stopSweeping();
+    JS_EXPORT_PRIVATE void doWork() override;
+    bool sweepNextBlock();
+    JS_EXPORT_PRIVATE void stopSweeping();
 
 private:
-    bool sweepNextBlock(VM&);
-    void doSweep(VM&, MonotonicTime startTime);
+    void doSweep(MonotonicTime startTime);
     void scheduleTimer();
     
-    BlockDirectory* m_currentDirectory;
+    MarkedAllocator* m_currentAllocator;
     bool m_shouldFreeFastMallocMemoryAfterSweeping { false };
 };
 

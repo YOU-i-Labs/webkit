@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,29 +23,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef WritingDirection_h
+#define WritingDirection_h
 
-#include <wtf/Forward.h>
+enum WritingDirection { NaturalWritingDirection, LeftToRightWritingDirection, RightToLeftWritingDirection };
 
-namespace WebCore {
-
-enum class WritingDirection : uint8_t {
-    Natural,
-    LeftToRight,
-    RightToLeft
-};
-
-} // namespace WebCore
-
-namespace WTF {
-
-template<> struct EnumTraits<WebCore::WritingDirection> {
-    using values = EnumValues<
-        WebCore::WritingDirection,
-        WebCore::WritingDirection::Natural,
-        WebCore::WritingDirection::LeftToRight,
-        WebCore::WritingDirection::RightToLeft
-    >;
-};
-
-} // namespace WTF
+#endif

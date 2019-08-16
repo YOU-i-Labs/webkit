@@ -30,15 +30,8 @@ class MediaControllerSupport
     {
         this.mediaController = mediaController;
 
-        this.enable();
-    }
-
-    // Public
-
-    enable()
-    {
         for (let eventType of this.mediaEvents)
-            this.mediaController.media.addEventListener(eventType, this, true);
+            mediaController.media.addEventListener(eventType, this);
 
         for (let tracks of this.tracksToMonitor) {
             for (let eventType of ["change", "addtrack", "removetrack"])
@@ -48,14 +41,18 @@ class MediaControllerSupport
         if (!this.control)
             return;
 
-        this.control.uiDelegate = this;
         this.syncControl();
+
+        this.control.uiDelegate = this;
     }
 
-    disable()
+    // Public
+
+    destroy()
     {
+        const media = this.mediaController.media;
         for (let eventType of this.mediaEvents)
-            this.mediaController.media.removeEventListener(eventType, this, true);
+            media.removeEventListener(eventType, this);
 
         for (let tracks of this.tracksToMonitor) {
             for (let eventType of ["change", "addtrack", "removetrack"])
@@ -88,11 +85,6 @@ class MediaControllerSupport
     buttonWasPressed(control)
     {
         // Implemented by subclasses.
-    }
-
-    controlsUserVisibilityDidChange()
-    {
-        // Implement by subclasses.
     }
 
     handleEvent(event)

@@ -27,7 +27,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ConsoleGroup = class ConsoleGroup extends WI.Object
+WebInspector.ConsoleGroup = class ConsoleGroup extends WebInspector.Object
 {
     constructor(parentGroup)
     {
@@ -51,11 +51,11 @@ WI.ConsoleGroup = class ConsoleGroup extends WI.Object
         this.element = groupElement;
 
         var titleElement = messageView.element;
-        titleElement.classList.add(WI.LogContentView.ItemWrapperStyleClassName);
+        titleElement.classList.add(WebInspector.LogContentView.ItemWrapperStyleClassName);
         titleElement.addEventListener("click", this._titleClicked.bind(this));
         titleElement.addEventListener("mousedown", this._titleMouseDown.bind(this));
 
-        if (groupElement && messageView.message.type === WI.ConsoleMessage.MessageType.StartGroupCollapsed)
+        if (groupElement && messageView.message.type === WebInspector.ConsoleMessage.MessageType.StartGroupCollapsed)
             groupElement.classList.add("collapsed");
 
         groupElement.appendChild(titleElement);
@@ -71,7 +71,7 @@ WI.ConsoleGroup = class ConsoleGroup extends WI.Object
     addMessageView(messageView)
     {
         var element = messageView.element;
-        element.classList.add(WI.LogContentView.ItemWrapperStyleClassName);
+        element.classList.add(WebInspector.LogContentView.ItemWrapperStyleClassName);
         this.append(element);
     }
 

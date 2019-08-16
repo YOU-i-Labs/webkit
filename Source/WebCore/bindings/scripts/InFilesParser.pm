@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl -w
 
 # Copyright (C) 2008 Julien Chaffraix <jchaffraix@webkit.org>
 #
@@ -25,7 +25,6 @@
 #
 
 use strict;
-use warnings;
 
 package InFilesParser;
 

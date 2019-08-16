@@ -29,10 +29,11 @@
 #if ENABLE(INDEXED_DATABASE)
 
 #include "IDBIndex.h"
-#include <JavaScriptCore/HeapInlines.h>
+#include <heap/HeapInlines.h>
+
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 
 void JSIDBIndex::visitAdditionalChildren(SlotVisitor& visitor)
 {

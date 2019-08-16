@@ -23,52 +23,58 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.CSSObserver = class CSSObserver
+WebInspector.CSSObserver = class CSSObserver
 {
     // Events defined by the "CSS" domain.
 
     mediaQueryResultChanged()
     {
-        WI.cssManager.mediaQueryResultChanged();
+        WebInspector.cssStyleManager.mediaQueryResultChanged();
     }
 
     styleSheetChanged(styleSheetId)
     {
-        WI.cssManager.styleSheetChanged(styleSheetId);
+        WebInspector.cssStyleManager.styleSheetChanged(styleSheetId);
     }
 
     styleSheetAdded(styleSheetInfo)
     {
-        WI.cssManager.styleSheetAdded(styleSheetInfo);
+        WebInspector.cssStyleManager.styleSheetAdded(styleSheetInfo);
     }
 
     styleSheetRemoved(id)
     {
-        WI.cssManager.styleSheetRemoved(id);
+        WebInspector.cssStyleManager.styleSheetRemoved(id);
     }
 
     namedFlowCreated(namedFlow)
     {
-        // COMPATIBILITY (iOS 10): Removed after iOS 10. Ignore for iOS 10 and earlier.
+        WebInspector.domTreeManager.namedFlowCreated(namedFlow);
     }
 
     namedFlowRemoved(documentNodeId, flowName)
     {
-        // COMPATIBILITY (iOS 10): Removed after iOS 10. Ignore for iOS 10 and earlier.
+        WebInspector.domTreeManager.namedFlowRemoved(documentNodeId, flowName);
+    }
+
+    // COMPATIBILITY (iOS 7): regionLayoutUpdated was removed and replaced by regionOversetChanged.
+    regionLayoutUpdated(namedFlow)
+    {
+        this.regionOversetChanged(namedFlow);
     }
 
     regionOversetChanged(namedFlow)
     {
-        // COMPATIBILITY (iOS 10): Removed after iOS 10. Ignore for iOS 10 and earlier.
+        WebInspector.domTreeManager.regionOversetChanged(namedFlow);
     }
 
     registeredNamedFlowContentElement(documentNodeId, flowName, contentNodeId, nextContentElementNodeId)
     {
-        // COMPATIBILITY (iOS 10): Removed after iOS 10. Ignore for iOS 10 and earlier.
+        WebInspector.domTreeManager.registeredNamedFlowContentElement(documentNodeId, flowName, contentNodeId, nextContentElementNodeId);
     }
 
     unregisteredNamedFlowContentElement(documentNodeId, flowName, contentNodeId)
     {
-        // COMPATIBILITY (iOS 10): Removed after iOS 10. Ignore for iOS 10 and earlier.
+        WebInspector.domTreeManager.unregisteredNamedFlowContentElement(documentNodeId, flowName, contentNodeId);
     }
 };

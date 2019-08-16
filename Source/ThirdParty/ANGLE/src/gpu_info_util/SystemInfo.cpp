@@ -17,18 +17,6 @@
 namespace angle
 {
 
-GPUDeviceInfo::GPUDeviceInfo() = default;
-
-GPUDeviceInfo::~GPUDeviceInfo() = default;
-
-GPUDeviceInfo::GPUDeviceInfo(const GPUDeviceInfo &other) = default;
-
-SystemInfo::SystemInfo() = default;
-
-SystemInfo::~SystemInfo() = default;
-
-SystemInfo::SystemInfo(const SystemInfo &other) = default;
-
 bool IsAMD(VendorID vendorId)
 {
     return vendorId == kVendorID_AMD;

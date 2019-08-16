@@ -27,14 +27,11 @@
 
 #include <wtf/Function.h>
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
+
 #include <wtf/RetainPtr.h>
 OBJC_CLASS WebLowPowerModeObserver;
-#endif
 
-#if USE(GLIB)
-#include <wtf/glib/GRefPtr.h>
-typedef struct _GDBusProxy GDBusProxy;
 #endif
 
 namespace WebCore {
@@ -43,26 +40,16 @@ class LowPowerModeNotifier {
 public:
     using LowPowerModeChangeCallback = WTF::Function<void(bool isLowPowerModeEnabled)>;
     WEBCORE_EXPORT explicit LowPowerModeNotifier(LowPowerModeChangeCallback&&);
-    WEBCORE_EXPORT ~LowPowerModeNotifier();
 
     WEBCORE_EXPORT bool isLowPowerModeEnabled() const;
 
 private:
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     void notifyLowPowerModeChanged(bool);
-    friend void notifyLowPowerModeChanged(LowPowerModeNotifier&, bool);
+    friend void notifyLowPowerModeChanged(LowPowerModeNotifier*, bool);
 
     RetainPtr<WebLowPowerModeObserver> m_observer;
     LowPowerModeChangeCallback m_callback;
-#elif USE(GLIB)
-    void updateWarningLevel();
-    void warningLevelChanged();
-    static void gPropertiesChangedCallback(LowPowerModeNotifier*, GVariant* changedProperties);
-
-    GRefPtr<GDBusProxy> m_displayDeviceProxy;
-    GRefPtr<GCancellable> m_cancellable;
-    LowPowerModeChangeCallback m_callback;
-    bool m_lowPowerModeEnabled { false };
 #endif
 };
 

@@ -31,13 +31,18 @@
 #include "HTMLParserIdioms.h"
 #include "SecurityOrigin.h"
 #include "SecurityOriginPolicy.h"
+#include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
-SecurityContext::SecurityContext() = default;
+SecurityContext::SecurityContext()
+{
+}
 
-SecurityContext::~SecurityContext() = default;
+SecurityContext::~SecurityContext()
+{
+}
 
 void SecurityContext::setSecurityOriginPolicy(RefPtr<SecurityOriginPolicy>&& securityOriginPolicy)
 {
@@ -81,7 +86,7 @@ void SecurityContext::enforceSandboxFlags(SandboxFlags mask)
 bool SecurityContext::isSupportedSandboxPolicy(StringView policy)
 {
     static const char* const supportedPolicies[] = {
-        "allow-forms", "allow-same-origin", "allow-scripts", "allow-top-navigation", "allow-pointer-lock", "allow-popups", "allow-popups-to-escape-sandbox", "allow-top-navigation-by-user-activation", "allow-modals", "allow-storage-access-by-user-activation"
+        "allow-forms", "allow-same-origin", "allow-scripts", "allow-top-navigation", "allow-pointer-lock", "allow-popups", "allow-popups-to-escape-sandbox"
     };
 
     for (auto* supportedPolicy : supportedPolicies) {
@@ -119,21 +124,14 @@ SandboxFlags SecurityContext::parseSandboxPolicy(const String& policy, String& i
         else if (equalLettersIgnoringASCIICase(sandboxToken, "allow-scripts")) {
             flags &= ~SandboxScripts;
             flags &= ~SandboxAutomaticFeatures;
-        } else if (equalLettersIgnoringASCIICase(sandboxToken, "allow-top-navigation")) {
+        } else if (equalLettersIgnoringASCIICase(sandboxToken, "allow-top-navigation"))
             flags &= ~SandboxTopNavigation;
-            flags &= ~SandboxTopNavigationByUserActivation;
-        } else if (equalLettersIgnoringASCIICase(sandboxToken, "allow-popups"))
+        else if (equalLettersIgnoringASCIICase(sandboxToken, "allow-popups"))
             flags &= ~SandboxPopups;
         else if (equalLettersIgnoringASCIICase(sandboxToken, "allow-pointer-lock"))
             flags &= ~SandboxPointerLock;
         else if (equalLettersIgnoringASCIICase(sandboxToken, "allow-popups-to-escape-sandbox"))
             flags &= ~SandboxPropagatesToAuxiliaryBrowsingContexts;
-        else if (equalLettersIgnoringASCIICase(sandboxToken, "allow-top-navigation-by-user-activation"))
-            flags &= ~SandboxTopNavigationByUserActivation;
-        else if (equalLettersIgnoringASCIICase(sandboxToken, "allow-modals"))
-            flags &= ~SandboxModals;
-        else if (equalLettersIgnoringASCIICase(sandboxToken, "allow-storage-access-by-user-activation"))
-            flags &= ~SandboxStorageAccessByUserActivation;
         else {
             if (numberOfTokenErrors)
                 tokenErrors.appendLiteral(", '");

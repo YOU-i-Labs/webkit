@@ -34,11 +34,13 @@
 namespace WebCore {
 
 ScrollingTreeOverflowScrollingNode::ScrollingTreeOverflowScrollingNode(ScrollingTree& scrollingTree, ScrollingNodeID nodeID)
-    : ScrollingTreeScrollingNode(scrollingTree, ScrollingNodeType::Overflow, nodeID)
+    : ScrollingTreeScrollingNode(scrollingTree, OverflowScrollingNode, nodeID)
 {
 }
 
-ScrollingTreeOverflowScrollingNode::~ScrollingTreeOverflowScrollingNode() = default;
+ScrollingTreeOverflowScrollingNode::~ScrollingTreeOverflowScrollingNode()
+{
+}
 
 } // namespace WebCore
 

@@ -27,7 +27,6 @@
 #include "config.h"
 #include "PlatformMouseEvent.h"
 
-#include "GtkUtilities.h"
 #include "PlatformKeyboardEvent.h"
 #include <gdk/gdk.h>
 #include <wtf/Assertions.h>
@@ -39,7 +38,7 @@ namespace WebCore {
 // Keep this in sync with the other platform event constructors
 PlatformMouseEvent::PlatformMouseEvent(GdkEventButton* event)
 {
-    m_timestamp = wallTimeForEvent(event);
+    m_timestamp = event->time;
     m_position = IntPoint((int)event->x, (int)event->y);
     m_globalPosition = IntPoint((int)event->x_root, (int)event->y_root);
     m_button = NoButton;
@@ -47,15 +46,15 @@ PlatformMouseEvent::PlatformMouseEvent(GdkEventButton* event)
     m_modifierFlags = 0;
 
     if (event->state & GDK_SHIFT_MASK)
-        m_modifiers.add(PlatformEvent::Modifier::ShiftKey);
+        m_modifiers |= PlatformEvent::Modifier::ShiftKey;
     if (event->state & GDK_CONTROL_MASK)
-        m_modifiers.add(PlatformEvent::Modifier::CtrlKey);
+        m_modifiers |= PlatformEvent::Modifier::CtrlKey;
     if (event->state & GDK_MOD1_MASK)
-        m_modifiers.add(PlatformEvent::Modifier::AltKey);
+        m_modifiers |= PlatformEvent::Modifier::AltKey;
     if (event->state & GDK_META_MASK)
-        m_modifiers.add(PlatformEvent::Modifier::MetaKey);
+        m_modifiers |= PlatformEvent::Modifier::MetaKey;
     if (PlatformKeyboardEvent::modifiersContainCapsLock(event->state))
-        m_modifiers.add(PlatformEvent::Modifier::CapsLockKey);
+        m_modifiers |= PlatformEvent::Modifier::CapsLockKey;
 
     switch (event->type) {
     case GDK_BUTTON_PRESS:
@@ -88,7 +87,7 @@ PlatformMouseEvent::PlatformMouseEvent(GdkEventButton* event)
 
 PlatformMouseEvent::PlatformMouseEvent(GdkEventMotion* motion)
 {
-    m_timestamp = wallTimeForEvent(motion);
+    m_timestamp = motion->time;
     m_position = IntPoint((int)motion->x, (int)motion->y);
     m_globalPosition = IntPoint((int)motion->x_root, (int)motion->y_root);
     m_button = NoButton;
@@ -96,15 +95,15 @@ PlatformMouseEvent::PlatformMouseEvent(GdkEventMotion* motion)
     m_modifierFlags = 0;
 
     if (motion->state & GDK_SHIFT_MASK)
-        m_modifiers.add(PlatformEvent::Modifier::ShiftKey);
+        m_modifiers |= PlatformEvent::Modifier::ShiftKey;
     if (motion->state & GDK_CONTROL_MASK)
-        m_modifiers.add(PlatformEvent::Modifier::CtrlKey);
+        m_modifiers |= PlatformEvent::Modifier::CtrlKey;
     if (motion->state & GDK_MOD1_MASK)
-        m_modifiers.add(PlatformEvent::Modifier::AltKey);
+        m_modifiers |= PlatformEvent::Modifier::AltKey;
     if (motion->state & GDK_META_MASK)
-        m_modifiers.add(PlatformEvent::Modifier::MetaKey);
+        m_modifiers |= PlatformEvent::Modifier::MetaKey;
     if (PlatformKeyboardEvent::modifiersContainCapsLock(motion->state))
-        m_modifiers.add(PlatformEvent::Modifier::CapsLockKey);
+        m_modifiers |= PlatformEvent::Modifier::CapsLockKey;
 
     switch (motion->type) {
     case GDK_MOTION_NOTIFY:

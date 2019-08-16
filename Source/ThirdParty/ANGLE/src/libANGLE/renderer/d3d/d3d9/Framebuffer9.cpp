@@ -8,19 +8,18 @@
 
 #include "libANGLE/renderer/d3d/d3d9/Framebuffer9.h"
 
-#include "libANGLE/Context.h"
 #include "libANGLE/Framebuffer.h"
 #include "libANGLE/FramebufferAttachment.h"
 #include "libANGLE/Texture.h"
 #include "libANGLE/formatutils.h"
 #include "libANGLE/renderer/ContextImpl.h"
+#include "libANGLE/renderer/renderer_utils.h"
 #include "libANGLE/renderer/d3d/TextureD3D.h"
-#include "libANGLE/renderer/d3d/d3d9/RenderTarget9.h"
 #include "libANGLE/renderer/d3d/d3d9/Renderer9.h"
+#include "libANGLE/renderer/d3d/d3d9/RenderTarget9.h"
 #include "libANGLE/renderer/d3d/d3d9/TextureStorage9.h"
 #include "libANGLE/renderer/d3d/d3d9/formatutils9.h"
 #include "libANGLE/renderer/d3d/d3d9/renderer9_utils.h"
-#include "libANGLE/renderer/renderer_utils.h"
 
 namespace rx
 {
@@ -35,36 +34,38 @@ Framebuffer9::~Framebuffer9()
 {
 }
 
-gl::Error Framebuffer9::discard(const gl::Context *context, size_t, const GLenum *)
+gl::Error Framebuffer9::discard(size_t, const GLenum *)
 {
     // Extension not implemented in D3D9 renderer
     UNREACHABLE();
     return gl::NoError();
 }
 
-gl::Error Framebuffer9::invalidate(const gl::Context *context, size_t, const GLenum *)
+gl::Error Framebuffer9::invalidate(size_t, const GLenum *)
 {
     // Shouldn't ever reach here in D3D9
     UNREACHABLE();
     return gl::NoError();
 }
 
-gl::Error Framebuffer9::invalidateSub(const gl::Context *context,
-                                      size_t,
-                                      const GLenum *,
-                                      const gl::Rectangle &)
+gl::Error Framebuffer9::invalidateSub(size_t, const GLenum *, const gl::Rectangle &)
 {
     // Shouldn't ever reach here in D3D9
     UNREACHABLE();
     return gl::NoError();
 }
 
-gl::Error Framebuffer9::clearImpl(const gl::Context *context, const ClearParameters &clearParams)
+gl::Error Framebuffer9::clearImpl(ContextImpl *context, const ClearParameters &clearParams)
 {
     const gl::FramebufferAttachment *colorAttachment        = mState.getColorAttachment(0);
     const gl::FramebufferAttachment *depthStencilAttachment = mState.getDepthOrStencilAttachment();
 
-    ANGLE_TRY(mRenderer->applyRenderTarget(context, colorAttachment, depthStencilAttachment));
+    gl::Error error =
+        mRenderer->applyRenderTarget(context, colorAttachment, depthStencilAttachment);
+    if (error.isError())
+    {
+        return error;
+    }
 
     const gl::State &glState = context->getGLState();
     float nearZ              = glState.getNearPlane();
@@ -74,22 +75,27 @@ gl::Error Framebuffer9::clearImpl(const gl::Context *context, const ClearParamet
 
     mRenderer->setScissorRectangle(glState.getScissor(), glState.isScissorTestEnabled());
 
-    return mRenderer->clear(context, clearParams, colorAttachment, depthStencilAttachment);
+    return mRenderer->clear(clearParams, colorAttachment, depthStencilAttachment);
 }
 
-gl::Error Framebuffer9::readPixelsImpl(const gl::Context *context,
-                                       const gl::Rectangle &area,
+gl::Error Framebuffer9::readPixelsImpl(const gl::Rectangle &area,
                                        GLenum format,
                                        GLenum type,
                                        size_t outputPitch,
                                        const gl::PixelPackState &pack,
-                                       uint8_t *pixels)
+                                       uint8_t *pixels) const
 {
+    ASSERT(pack.pixelBuffer.get() == nullptr);
+
     const gl::FramebufferAttachment *colorbuffer = mState.getColorAttachment(0);
     ASSERT(colorbuffer);
 
     RenderTarget9 *renderTarget = nullptr;
-    ANGLE_TRY(colorbuffer->getRenderTarget(context, &renderTarget));
+    gl::Error error = colorbuffer->getRenderTarget(&renderTarget);
+    if (error.isError())
+    {
+        return error;
+    }
     ASSERT(renderTarget);
 
     IDirect3DSurface9 *surface = renderTarget->getSurface();
@@ -102,8 +108,7 @@ gl::Error Framebuffer9::readPixelsImpl(const gl::Context *context,
     {
         UNIMPLEMENTED();   // FIXME: Requires resolve using StretchRect into non-multisampled render target
         SafeRelease(surface);
-        return gl::OutOfMemory()
-               << "ReadPixels is unimplemented for multisampled framebuffer attachments.";
+        return gl::Error(GL_OUT_OF_MEMORY, "ReadPixels is unimplemented for multisampled framebuffer attachments.");
     }
 
     IDirect3DDevice9 *device = mRenderer->getDevice();
@@ -135,7 +140,7 @@ gl::Error Framebuffer9::readPixelsImpl(const gl::Context *context,
         {
             ASSERT(result == D3DERR_OUTOFVIDEOMEMORY || result == E_OUTOFMEMORY);
             SafeRelease(surface);
-            return gl::OutOfMemory() << "Failed to allocate internal texture for ReadPixels.";
+            return gl::Error(GL_OUT_OF_MEMORY, "Failed to allocate internal texture for ReadPixels.");
         }
     }
 
@@ -157,7 +162,7 @@ gl::Error Framebuffer9::readPixelsImpl(const gl::Context *context,
             UNREACHABLE();
         }
 
-        return gl::OutOfMemory() << "Failed to read internal render target data.";
+        return gl::Error(GL_OUT_OF_MEMORY, "Failed to read internal render target data.");
     }
 
     if (directToPixels)
@@ -180,7 +185,7 @@ gl::Error Framebuffer9::readPixelsImpl(const gl::Context *context,
         UNREACHABLE();
         SafeRelease(systemSurface);
 
-        return gl::OutOfMemory() << "Failed to lock internal render target.";
+        return gl::Error(GL_OUT_OF_MEMORY, "Failed to lock internal render target.");
     }
 
     uint8_t *source = reinterpret_cast<uint8_t *>(lock.pBits);
@@ -189,6 +194,7 @@ gl::Error Framebuffer9::readPixelsImpl(const gl::Context *context,
     const d3d9::D3DFormat &d3dFormatInfo = d3d9::GetD3DFormatInfo(desc.Format);
     gl::FormatType formatType(format, type);
 
+    // TODO(jmadill): Maybe we can avoid a copy of pack parameters here?
     PackPixelsParams packParams;
     packParams.area.x      = rect.left;
     packParams.area.y      = rect.top;
@@ -207,8 +213,7 @@ gl::Error Framebuffer9::readPixelsImpl(const gl::Context *context,
     return gl::NoError();
 }
 
-gl::Error Framebuffer9::blitImpl(const gl::Context *context,
-                                 const gl::Rectangle &sourceArea,
+gl::Error Framebuffer9::blitImpl(const gl::Rectangle &sourceArea,
                                  const gl::Rectangle &destArea,
                                  const gl::Rectangle *scissor,
                                  bool blitRenderTarget,
@@ -230,7 +235,7 @@ gl::Error Framebuffer9::blitImpl(const gl::Context *context,
         ASSERT(readBuffer);
 
         RenderTarget9 *readRenderTarget = nullptr;
-        gl::Error error                 = readBuffer->getRenderTarget(context, &readRenderTarget);
+        gl::Error error = readBuffer->getRenderTarget(&readRenderTarget);
         if (error.isError())
         {
             return error;
@@ -241,7 +246,7 @@ gl::Error Framebuffer9::blitImpl(const gl::Context *context,
         ASSERT(drawBuffer);
 
         RenderTarget9 *drawRenderTarget = nullptr;
-        error                           = drawBuffer->getRenderTarget(context, &drawRenderTarget);
+        error = drawBuffer->getRenderTarget(&drawRenderTarget);
         if (error.isError())
         {
             return error;
@@ -346,7 +351,7 @@ gl::Error Framebuffer9::blitImpl(const gl::Context *context,
 
         if (FAILED(result))
         {
-            return gl::OutOfMemory() << "Internal blit failed, StretchRect " << gl::FmtHR(result);
+            return gl::Error(GL_OUT_OF_MEMORY, "Internal blit failed, StretchRect returned 0x%X.", result);
         }
     }
 
@@ -356,7 +361,7 @@ gl::Error Framebuffer9::blitImpl(const gl::Context *context,
         ASSERT(readBuffer);
 
         RenderTarget9 *readDepthStencil = nullptr;
-        gl::Error error                 = readBuffer->getRenderTarget(context, &readDepthStencil);
+        gl::Error error = readBuffer->getRenderTarget(&readDepthStencil);
         if (error.isError())
         {
             return error;
@@ -367,7 +372,7 @@ gl::Error Framebuffer9::blitImpl(const gl::Context *context,
         ASSERT(drawBuffer);
 
         RenderTarget9 *drawDepthStencil = nullptr;
-        error                           = drawBuffer->getRenderTarget(context, &drawDepthStencil);
+        error = drawBuffer->getRenderTarget(&drawDepthStencil);
         if (error.isError())
         {
             return error;
@@ -388,7 +393,7 @@ gl::Error Framebuffer9::blitImpl(const gl::Context *context,
 
         if (FAILED(result))
         {
-            return gl::OutOfMemory() << "Internal blit failed, StretchRect " << gl::FmtHR(result);
+            return gl::Error(GL_OUT_OF_MEMORY, "Internal blit failed, StretchRect returned 0x%X.", result);
         }
     }
 
@@ -400,12 +405,6 @@ GLenum Framebuffer9::getRenderTargetImplementationFormat(RenderTargetD3D *render
     RenderTarget9 *renderTarget9 = GetAs<RenderTarget9>(renderTarget);
     const d3d9::D3DFormat &d3dFormatInfo = d3d9::GetD3DFormatInfo(renderTarget9->getD3DFormat());
     return d3dFormatInfo.info().glInternalFormat;
-}
-
-gl::Error Framebuffer9::getSamplePosition(size_t index, GLfloat *xy) const
-{
-    UNREACHABLE();
-    return gl::InternalError() << "getSamplePosition is unsupported to d3d9.";
 }
 
 }  // namespace rx

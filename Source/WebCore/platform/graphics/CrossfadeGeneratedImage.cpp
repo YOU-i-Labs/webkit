@@ -29,7 +29,7 @@
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 
@@ -61,7 +61,7 @@ static void drawCrossfadeSubimage(GraphicsContext& context, Image& image, Compos
         context.setAlpha(opacity);
 
     if (targetSize != imageSize)
-        context.scale(targetSize / imageSize);
+        context.scale(FloatSize(targetSize.width() / imageSize.width(), targetSize.height() / imageSize.height()));
 
     context.drawImage(image, IntPoint(), ImagePaintingOptions(drawImageOperation));
 
@@ -86,18 +86,17 @@ void CrossfadeGeneratedImage::drawCrossfade(GraphicsContext& context)
     context.endTransparencyLayer();
 }
 
-ImageDrawResult CrossfadeGeneratedImage::draw(GraphicsContext& context, const FloatRect& dstRect, const FloatRect& srcRect, CompositeOperator compositeOp, BlendMode blendMode, DecodingMode, ImageOrientationDescription)
+void CrossfadeGeneratedImage::draw(GraphicsContext& context, const FloatRect& dstRect, const FloatRect& srcRect, CompositeOperator compositeOp, BlendMode blendMode, DecodingMode, ImageOrientationDescription)
 {
     GraphicsContextStateSaver stateSaver(context);
     context.setCompositeOperation(compositeOp, blendMode);
     context.clip(dstRect);
-    context.translate(dstRect.location());
+    context.translate(dstRect.x(), dstRect.y());
     if (dstRect.size() != srcRect.size())
-        context.scale(dstRect.size() / srcRect.size());
-    context.translate(-srcRect.location());
+        context.scale(FloatSize(dstRect.width() / srcRect.width(), dstRect.height() / srcRect.height()));
+    context.translate(-srcRect.x(), -srcRect.y());
     
     drawCrossfade(context);
-    return ImageDrawResult::DidDraw;
 }
 
 void CrossfadeGeneratedImage::drawPattern(GraphicsContext& context, const FloatRect& dstRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, CompositeOperator compositeOp, BlendMode blendMode)

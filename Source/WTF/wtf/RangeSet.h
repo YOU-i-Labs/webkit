@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef WTF_RangeSet_h
+#define WTF_RangeSet_h
 
 #include <wtf/ListDump.h>
 #include <wtf/MathExtras.h>
@@ -55,8 +56,6 @@ public:
     typedef RangeType Range;
     typedef typename Range::Type Type;
 
-    typedef Vector<Range, 8> VectorType;
-    
     RangeSet()
     {
     }
@@ -126,23 +125,8 @@ public:
     {
         out.print("{", listDump(m_ranges), ", isCompact = ", m_isCompact, "}");
     }
-    
-    typename VectorType::const_iterator begin() const
-    {
-        return m_ranges.begin();
-    }
-    
-    typename VectorType::const_iterator end() const
-    {
-        return m_ranges.end();
-    }
-    
-    void addAll(const RangeSet& other)
-    {
-        for (Range range : other)
-            add(range);
-    }
 
+private:
     void compact()
     {
         if (m_isCompact)
@@ -175,12 +159,11 @@ public:
             lastRange = &m_ranges[dstIndex++];
             *lastRange = range;
         }
-        m_ranges.shrink(dstIndex);
+        m_ranges.resize(dstIndex);
 
         m_isCompact = true;
     }
     
-private:
     static bool overlapsNonEmpty(const Range& a, const Range& b)
     {
         return nonEmptyRangesOverlap(a.begin(), a.end(), b.begin(), b.end());
@@ -204,10 +187,13 @@ private:
         return UINT_MAX;
     }
     
-    VectorType m_ranges;
+    Vector<Range, 8> m_ranges;
     bool m_isCompact { true };
 };
 
 } // namespace WTF
 
 using WTF::RangeSet;
+
+#endif // WTF_RangeSet_h
+

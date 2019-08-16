@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Joseph Pecoraro. All rights reserved.
- * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,7 +26,7 @@
 
 #pragma once
 
-#include <wtf/URL.h>
+#include "URL.h"
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
@@ -34,21 +34,32 @@
 #include <objc/objc.h>
 #endif
 
-#if USE(SOUP)
-typedef struct _SoupCookie SoupCookie;
-#endif
-
 namespace WebCore {
 
 struct Cookie {
-    Cookie() = default;
+    Cookie() { }
+    
     Cookie(WTF::HashTableDeletedValueType)
         : name(WTF::HashTableDeletedValue)
+    { }
+
+    Cookie(const String& name, const String& value, const String& domain, const String& path, double expires, bool httpOnly, bool secure, bool session, const String& comment, const URL& commentURL, const Vector<uint16_t> ports)
+        : name(name)
+        , value(value)
+        , domain(domain)
+        , path(path)
+        , expires(expires)
+        , httpOnly(httpOnly)
+        , secure(secure)
+        , session(session)
+        , comment(comment)
+        , commentURL(commentURL)
+        , ports(ports)
     {
     }
 
     template<class Encoder> void encode(Encoder&) const;
-    template<class Decoder> static Optional<Cookie> decode(Decoder&);
+    template<class Decoder> static bool decode(Decoder&, Cookie&);
 
     WEBCORE_EXPORT bool operator==(const Cookie&) const;
     WEBCORE_EXPORT unsigned hash() const;
@@ -56,32 +67,27 @@ struct Cookie {
 #ifdef __OBJC__
     WEBCORE_EXPORT Cookie(NSHTTPCookie *);
     WEBCORE_EXPORT operator NSHTTPCookie *() const;
-#elif USE(SOUP)
-    explicit Cookie(SoupCookie*);
-    SoupCookie* toSoupCookie() const;
 #endif
 
     bool isNull() const
     {
         return name.isNull()
-            && value.isNull()
-            && domain.isNull()
-            && path.isNull()
-            && !created
-            && !expires
-            && !httpOnly
-            && !secure
-            && !session
-            && comment.isNull()
-            && commentURL.isNull();
+        && value.isNull()
+        && domain.isNull()
+        && path.isNull()
+        && expires == 0
+        && !httpOnly
+        && !secure
+        && !session
+        && comment.isNull()
+        && commentURL.isNull();
     }
     
     String name;
     String value;
     String domain;
     String path;
-    // Creation and expiration dates are expressed as milliseconds since the UNIX epoch.
-    double created { 0 };
+    // Expiration date, expressed as milliseconds since the UNIX epoch.
     double expires { 0 };
     bool httpOnly { false };
     bool secure { false };
@@ -89,9 +95,6 @@ struct Cookie {
     String comment;
     URL commentURL;
     Vector<uint16_t> ports;
-
-    enum class SameSitePolicy { None, Lax, Strict };
-    SameSitePolicy sameSite { SameSitePolicy::None };
 };
 
 struct CookieHash {
@@ -110,52 +113,36 @@ struct CookieHash {
 template<class Encoder>
 void Cookie::encode(Encoder& encoder) const
 {
-    encoder << name;
-    encoder << value;
-    encoder << domain;
-    encoder << path;
-    encoder << created;
-    encoder << expires;
-    encoder << httpOnly;
-    encoder << secure;
-    encoder << session;
-    encoder << comment;
-    encoder << commentURL;
-    encoder << ports;
-    encoder << sameSite;
+    encoder << name << value << domain << path << expires << httpOnly << secure << session << comment << commentURL << ports;
 }
 
 template<class Decoder>
-Optional<Cookie> Cookie::decode(Decoder& decoder)
+bool Cookie::decode(Decoder& decoder, Cookie& cookie)
 {
-    Cookie cookie;
     if (!decoder.decode(cookie.name))
-        return WTF::nullopt;
+        return false;
     if (!decoder.decode(cookie.value))
-        return WTF::nullopt;
+        return false;
     if (!decoder.decode(cookie.domain))
-        return WTF::nullopt;
+        return false;
     if (!decoder.decode(cookie.path))
-        return WTF::nullopt;
-    if (!decoder.decode(cookie.created))
-        return WTF::nullopt;
+        return false;
     if (!decoder.decode(cookie.expires))
-        return WTF::nullopt;
+        return false;
     if (!decoder.decode(cookie.httpOnly))
-        return WTF::nullopt;
+        return false;
     if (!decoder.decode(cookie.secure))
-        return WTF::nullopt;
+        return false;
     if (!decoder.decode(cookie.session))
-        return WTF::nullopt;
+        return false;
     if (!decoder.decode(cookie.comment))
-        return WTF::nullopt;
+        return false;
     if (!decoder.decode(cookie.commentURL))
-        return WTF::nullopt;
+        return false;
     if (!decoder.decode(cookie.ports))
-        return WTF::nullopt;
-    if (!decoder.decode(cookie.sameSite))
-        return WTF::nullopt;
-    return cookie;
+        return false;
+
+    return true;
 }
 
 }
@@ -170,12 +157,4 @@ namespace WTF {
         static void constructDeletedValue(WebCore::Cookie& slot) { slot = WebCore::Cookie(WTF::HashTableDeletedValue); }
         static bool isDeletedValue(const WebCore::Cookie& slot) { return slot.name.isHashTableDeletedValue(); }
     };
-    template<> struct EnumTraits<WebCore::Cookie::SameSitePolicy> {
-    using values = EnumValues<
-        WebCore::Cookie::SameSitePolicy,
-        WebCore::Cookie::SameSitePolicy::None,
-        WebCore::Cookie::SameSitePolicy::Lax,
-        WebCore::Cookie::SameSitePolicy::Strict
-    >;
-};
 }

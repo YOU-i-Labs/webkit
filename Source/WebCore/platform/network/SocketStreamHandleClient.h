@@ -31,6 +31,7 @@
 
 #pragma once
 
+#include <wtf/Optional.h>
 
 namespace WebCore {
 
@@ -39,7 +40,7 @@ class SocketStreamHandle;
 
 class SocketStreamHandleClient {
 public:
-    virtual ~SocketStreamHandleClient() = default;
+    virtual ~SocketStreamHandleClient() { }
 
     virtual void didOpenSocketStream(SocketStreamHandle&) = 0;
     virtual void didCloseSocketStream(SocketStreamHandle&) = 0;

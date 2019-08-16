@@ -25,7 +25,7 @@
 
 #include <wtf/Platform.h>
 
-#include <pal/ExportMacros.h>
+#include <wtf/ExportMacros.h>
 
 #ifdef __cplusplus
 

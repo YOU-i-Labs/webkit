@@ -31,11 +31,8 @@
 #include "HTMLParserIdioms.h"
 #include "HTMLTableElement.h"
 #include "RenderTableCell.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLTableCellElement);
 
 using namespace HTMLNames;
 
@@ -131,7 +128,7 @@ void HTMLTableCellElement::parseAttribute(const QualifiedName& name, const Atomi
 
 const StyleProperties* HTMLTableCellElement::additionalPresentationAttributeStyle() const
 {
-    if (RefPtr<HTMLTableElement> table = findParentTable())
+    if (HTMLTableElement* table = findParentTable())
         return table->additionalCellStyle();
     return 0;
 }
@@ -184,7 +181,7 @@ const AtomicString& HTMLTableCellElement::scope() const
         return rowgroup;
     if (equalIgnoringASCIICase(value, colgroup))
         return colgroup;
-    return emptyAtom();
+    return emptyAtom;
 }
 
 void HTMLTableCellElement::setScope(const AtomicString& scope)

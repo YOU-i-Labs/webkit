@@ -28,11 +28,10 @@ var enDash = "\u2013";
 var figureDash = "\u2012";
 var ellipsis = "\u2026";
 var zeroWidthSpace = "\u200b";
-var multiplicationSign = "\u00d7";
 
 Object.defineProperty(Object, "shallowCopy",
 {
-    value(object)
+    value: function(object)
     {
         // Make a new object and copy all the key/values. The values are not copied.
         var copy = {};
@@ -45,34 +44,41 @@ Object.defineProperty(Object, "shallowCopy",
 
 Object.defineProperty(Object, "shallowEqual",
 {
-    value(a, b)
+    value: function(a, b)
     {
         // Checks if two objects have the same top-level properties.
 
+        // Only objects can proceed.
         if (!(a instanceof Object) || !(b instanceof Object))
             return false;
 
+        // Check for strict equality in case they are the same object.
         if (a === b)
             return true;
 
-        if (Array.shallowEqual(a, b))
-            return true;
+        // Use an optimized version of shallowEqual for arrays.
+        if (Array.isArray(a) && Array.isArray(b))
+            return Array.shallowEqual(a, b);
 
         if (a.constructor !== b.constructor)
             return false;
 
-        let aKeys = Object.keys(a);
-        let bKeys = Object.keys(b);
+        var aKeys = Object.keys(a);
+        var bKeys = Object.keys(b);
+
+        // Check that each object has the same number of keys.
         if (aKeys.length !== bKeys.length)
             return false;
 
-        for (let aKey of aKeys) {
-            if (!(aKey in b))
+        // Check if all the keys and their values are equal.
+        for (var i = 0; i < aKeys.length; ++i) {
+            // Check that b has the same key as a.
+            if (!(aKeys[i] in b))
                 return false;
 
-            let aValue = a[aKey];
-            let bValue = b[aKey];
-            if (aValue !== bValue && !Array.shallowEqual(aValue, bValue))
+            // Check that the values are strict equal since this is only
+            // a shallow check, not a recursive one.
+            if (a[aKeys[i]] !== b[aKeys[i]])
                 return false;
         }
 
@@ -80,9 +86,23 @@ Object.defineProperty(Object, "shallowEqual",
     }
 });
 
+Object.defineProperty(Object, "shallowMerge",
+{
+    value(a, b)
+    {
+        let result = Object.shallowCopy(a);
+        let keys = Object.keys(b);
+        for (let i = 0; i < keys.length; ++i) {
+            console.assert(!result.hasOwnProperty(keys[i]) || result[keys[i]] === b[keys[i]], keys[i]);
+            result[keys[i]] = b[keys[i]];
+        }
+        return result;
+    }
+});
+
 Object.defineProperty(Object.prototype, "valueForCaseInsensitiveKey",
 {
-    value(key)
+    value: function(key)
     {
         if (this.hasOwnProperty(key))
             return this[key];
@@ -99,7 +119,7 @@ Object.defineProperty(Object.prototype, "valueForCaseInsensitiveKey",
 
 Object.defineProperty(Map, "fromObject",
 {
-    value(object)
+    value: function(object)
     {
         let map = new Map;
         for (let key in object)
@@ -110,7 +130,7 @@ Object.defineProperty(Map, "fromObject",
 
 Object.defineProperty(Map.prototype, "take",
 {
-    value(key)
+    value: function(key)
     {
         var deletedValue = this.get(key);
         this.delete(key);
@@ -118,57 +138,25 @@ Object.defineProperty(Map.prototype, "take",
     }
 });
 
-Object.defineProperty(Set.prototype, "intersects",
-{
-    value(other)
-    {
-        if (!this.size || !other.size)
-            return false;
-
-        for (let item of this) {
-            if (other.has(item))
-                return true;
-        }
-
-        return false;
-    }
-});
-
-Object.defineProperty(Set.prototype, "isSubsetOf",
-{
-    value(other)
-    {
-        for (let item of this) {
-            if (!other.has(item))
-                return false;
-        }
-
-        return true;
-    }
-});
-
 Object.defineProperty(Node.prototype, "enclosingNodeOrSelfWithClass",
 {
-    value(className)
+    value: function(className)
     {
-        for (let node = this; node; node = node.parentElement) {
+        for (var node = this; node && node !== this.ownerDocument; node = node.parentNode)
             if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains(className))
                 return node;
-        }
-
         return null;
     }
 });
 
 Object.defineProperty(Node.prototype, "enclosingNodeOrSelfWithNodeNameInArray",
 {
-    value(nodeNames)
+    value: function(nameArray)
     {
-        let upperCaseNodeNames = nodeNames.map((name) => name.toUpperCase());
-
-        for (let node = this; node; node = node.parentElement) {
-            for (let nodeName of upperCaseNodeNames) {
-                if (node.nodeName === nodeName)
+        var lowerCaseNameArray = nameArray.map(function(name) { return name.toLowerCase(); });
+        for (var node = this; node && node !== this.ownerDocument; node = node.parentNode) {
+            for (var i = 0; i < nameArray.length; ++i) {
+                if (node.nodeName.toLowerCase() === lowerCaseNameArray[i])
                     return node;
             }
         }
@@ -179,15 +167,59 @@ Object.defineProperty(Node.prototype, "enclosingNodeOrSelfWithNodeNameInArray",
 
 Object.defineProperty(Node.prototype, "enclosingNodeOrSelfWithNodeName",
 {
-    value(nodeName)
+    value: function(nodeName)
     {
         return this.enclosingNodeOrSelfWithNodeNameInArray([nodeName]);
     }
 });
 
+Object.defineProperty(Node.prototype, "isAncestor",
+{
+    value: function(node)
+    {
+        if (!node)
+            return false;
+
+        var currentNode = node.parentNode;
+        while (currentNode) {
+            if (this === currentNode)
+                return true;
+            currentNode = currentNode.parentNode;
+        }
+
+        return false;
+    }
+});
+
+Object.defineProperty(Node.prototype, "isDescendant",
+{
+    value: function(descendant)
+    {
+        return !!descendant && descendant.isAncestor(this);
+    }
+});
+
+
+Object.defineProperty(Node.prototype, "isSelfOrAncestor",
+{
+    value: function(node)
+    {
+        return !!node && (node === this || this.isAncestor(node));
+    }
+});
+
+
+Object.defineProperty(Node.prototype, "isSelfOrDescendant",
+{
+    value: function(node)
+    {
+        return !!node && (node === this || this.isDescendant(node));
+    }
+});
+
 Object.defineProperty(Node.prototype, "traverseNextNode",
 {
-    value(stayWithin)
+    value: function(stayWithin)
     {
         var node = this.firstChild;
         if (node)
@@ -212,7 +244,7 @@ Object.defineProperty(Node.prototype, "traverseNextNode",
 
 Object.defineProperty(Node.prototype, "traversePreviousNode",
 {
-    value(stayWithin)
+    value: function(stayWithin)
     {
        if (stayWithin && this === stayWithin)
             return null;
@@ -228,7 +260,7 @@ Object.defineProperty(Node.prototype, "traversePreviousNode",
 
 Object.defineProperty(Node.prototype, "rangeOfWord",
 {
-    value(offset, stopCharacters, stayWithinNode, direction)
+    value: function(offset, stopCharacters, stayWithinNode, direction)
     {
         var startNode;
         var startOffset = 0;
@@ -248,7 +280,7 @@ Object.defineProperty(Node.prototype, "rangeOfWord",
                 }
 
                 if (node.nodeType === Node.TEXT_NODE) {
-                    let start = node === this ? (offset - 1) : (node.nodeValue.length - 1);
+                    var start = (node === this ? (offset - 1) : (node.nodeValue.length - 1));
                     for (var i = start; i >= 0; --i) {
                         if (stopCharacters.indexOf(node.nodeValue[i]) !== -1) {
                             startNode = node;
@@ -283,7 +315,7 @@ Object.defineProperty(Node.prototype, "rangeOfWord",
                 }
 
                 if (node.nodeType === Node.TEXT_NODE) {
-                    let start = node === this ? offset : 0;
+                    var start = (node === this ? offset : 0);
                     for (var i = start; i < node.nodeValue.length; ++i) {
                         if (stopCharacters.indexOf(node.nodeValue[i]) !== -1) {
                             endNode = node;
@@ -319,7 +351,7 @@ Object.defineProperty(Node.prototype, "rangeOfWord",
 
 Object.defineProperty(Element.prototype, "realOffsetWidth",
 {
-    get()
+    get: function()
     {
         return this.getBoundingClientRect().width;
     }
@@ -327,7 +359,7 @@ Object.defineProperty(Element.prototype, "realOffsetWidth",
 
 Object.defineProperty(Element.prototype, "realOffsetHeight",
 {
-    get()
+    get: function()
     {
         return this.getBoundingClientRect().height;
     }
@@ -335,7 +367,7 @@ Object.defineProperty(Element.prototype, "realOffsetHeight",
 
 Object.defineProperty(Element.prototype, "totalOffsetLeft",
 {
-    get()
+    get: function()
     {
         return this.getBoundingClientRect().left;
     }
@@ -343,7 +375,7 @@ Object.defineProperty(Element.prototype, "totalOffsetLeft",
 
 Object.defineProperty(Element.prototype, "totalOffsetRight",
 {
-    get()
+    get: function()
     {
         return this.getBoundingClientRect().right;
     }
@@ -351,7 +383,7 @@ Object.defineProperty(Element.prototype, "totalOffsetRight",
 
 Object.defineProperty(Element.prototype, "totalOffsetTop",
 {
-    get()
+    get: function()
     {
         return this.getBoundingClientRect().top;
     }
@@ -359,7 +391,7 @@ Object.defineProperty(Element.prototype, "totalOffsetTop",
 
 Object.defineProperty(Element.prototype, "removeChildren",
 {
-    value()
+    value: function()
     {
         // This has been tested to be the fastest removal method.
         if (this.firstChild)
@@ -369,19 +401,29 @@ Object.defineProperty(Element.prototype, "removeChildren",
 
 Object.defineProperty(Element.prototype, "isInsertionCaretInside",
 {
-    value()
+    value: function()
     {
         var selection = window.getSelection();
         if (!selection.rangeCount || !selection.isCollapsed)
             return false;
         var selectionRange = selection.getRangeAt(0);
-        return selectionRange.startContainer === this || this.contains(selectionRange.startContainer);
+        return selectionRange.startContainer === this || selectionRange.startContainer.isDescendant(this);
+    }
+});
+
+Object.defineProperty(Element.prototype, "removeMatchingStyleClasses",
+{
+    value: function(classNameRegex)
+    {
+        var regex = new RegExp("(^|\\s+)" + classNameRegex + "($|\\s+)");
+        if (regex.test(this.className))
+            this.className = this.className.replace(regex, " ");
     }
 });
 
 Object.defineProperty(Element.prototype, "createChild",
 {
-    value(elementName, className)
+    value: function(elementName, className)
     {
         var element = this.ownerDocument.createElement(elementName);
         if (className)
@@ -393,7 +435,7 @@ Object.defineProperty(Element.prototype, "createChild",
 
 Object.defineProperty(Element.prototype, "isScrolledToBottom",
 {
-    value()
+    value: function()
     {
         // This code works only for 0-width border
         return this.scrollTop + this.clientHeight === this.scrollHeight;
@@ -402,7 +444,7 @@ Object.defineProperty(Element.prototype, "isScrolledToBottom",
 
 Object.defineProperty(Element.prototype, "recalculateStyles",
 {
-    value()
+    value: function()
     {
         this.ownerDocument.defaultView.getComputedStyle(this);
     }
@@ -413,60 +455,11 @@ Object.defineProperty(DocumentFragment.prototype, "createChild",
     value: Element.prototype.createChild
 });
 
-Object.defineProperty(Event.prototype, "stop",
-{
-    value()
-    {
-        this.stopImmediatePropagation();
-        this.preventDefault();
-    }
-});
-
-Object.defineProperty(KeyboardEvent.prototype, "commandOrControlKey",
-{
-    get()
-    {
-        return WI.Platform.name === "mac" ? this.metaKey : this.ctrlKey;
-    }
-});
-
-Object.defineProperty(MouseEvent.prototype, "commandOrControlKey",
-{
-    get()
-    {
-        return WI.Platform.name === "mac" ? this.metaKey : this.ctrlKey;
-    }
-});
-
-Object.defineProperty(Array, "isTypedArray",
-{
-    value(array)
-    {
-        if (!array)
-            return false;
-
-        let constructor = array.constructor;
-        return constructor === Int8Array
-            || constructor === Int16Array
-            || constructor === Int32Array
-            || constructor === Uint8Array
-            || constructor === Uint8ClampedArray
-            || constructor === Uint16Array
-            || constructor === Uint32Array
-            || constructor === Float32Array
-            || constructor === Float64Array;
-    }
-});
-
 Object.defineProperty(Array, "shallowEqual",
 {
-    value(a, b)
+    value: function(a, b)
     {
-        function isArrayLike(x) {
-            return Array.isArray(x) || Array.isTypedArray(x);
-        }
-
-        if (!isArrayLike(a) || !isArrayLike(b))
+        if (!Array.isArray(a) || !Array.isArray(b))
             return false;
 
         if (a === b)
@@ -491,7 +484,7 @@ Object.defineProperty(Array, "shallowEqual",
 
 Object.defineProperty(Array.prototype, "lastValue",
 {
-    get()
+    get: function()
     {
         if (!this.length)
             return undefined;
@@ -499,41 +492,23 @@ Object.defineProperty(Array.prototype, "lastValue",
     }
 });
 
-Object.defineProperty(Array.prototype, "adjacencies",
-{
-    value: function*() {
-        for (let i = 1; i < this.length; ++i)
-            yield [this[i - 1], this[i]];
-    }
-});
-
 Object.defineProperty(Array.prototype, "remove",
 {
-    value(value)
+    value: function(value, onlyFirst)
     {
-        for (let i = 0; i < this.length; ++i) {
+        for (var i = this.length - 1; i >= 0; --i) {
             if (this[i] === value) {
                 this.splice(i, 1);
-                return;
+                if (onlyFirst)
+                    return;
             }
-        }
-    }
-});
-
-Object.defineProperty(Array.prototype, "removeAll",
-{
-    value(value)
-    {
-        for (let i = this.length - 1; i >= 0; --i) {
-            if (this[i] === value)
-                this.splice(i, 1);
         }
     }
 });
 
 Object.defineProperty(Array.prototype, "toggleIncludes",
 {
-    value(value, force)
+    value: function(value, force)
     {
         let exists = this.includes(value);
         if (exists === !!force)
@@ -548,7 +523,7 @@ Object.defineProperty(Array.prototype, "toggleIncludes",
 
 Object.defineProperty(Array.prototype, "insertAtIndex",
 {
-    value(value, index)
+    value: function(value, index)
     {
         this.splice(index, 0, value);
     }
@@ -556,7 +531,7 @@ Object.defineProperty(Array.prototype, "insertAtIndex",
 
 Object.defineProperty(Array.prototype, "keySet",
 {
-    value()
+    value: function()
     {
         let keys = Object.create(null);
         for (var i = 0; i < this.length; ++i)
@@ -567,7 +542,7 @@ Object.defineProperty(Array.prototype, "keySet",
 
 Object.defineProperty(Array.prototype, "partition",
 {
-    value(callback)
+    value: function(callback)
     {
         let positive = [];
         let negative = [];
@@ -584,7 +559,7 @@ Object.defineProperty(Array.prototype, "partition",
 
 Object.defineProperty(String.prototype, "isLowerCase",
 {
-    value()
+    value: function()
     {
         return String(this) === this.toLowerCase();
     }
@@ -592,30 +567,16 @@ Object.defineProperty(String.prototype, "isLowerCase",
 
 Object.defineProperty(String.prototype, "isUpperCase",
 {
-    value()
+    value: function()
     {
         return String(this) === this.toUpperCase();
     }
 });
 
-Object.defineProperty(String.prototype, "truncateStart",
+Object.defineProperty(String.prototype, "trimMiddle",
 {
-    value(maxLength)
+    value: function(maxLength)
     {
-        "use strict";
-
-        if (this.length <= maxLength)
-            return this;
-        return ellipsis + this.substr(this.length - maxLength + 1);
-    }
-});
-
-Object.defineProperty(String.prototype, "truncateMiddle",
-{
-    value(maxLength)
-    {
-        "use strict";
-
         if (this.length <= maxLength)
             return this;
         var leftHalf = maxLength >> 1;
@@ -624,12 +585,10 @@ Object.defineProperty(String.prototype, "truncateMiddle",
     }
 });
 
-Object.defineProperty(String.prototype, "truncateEnd",
+Object.defineProperty(String.prototype, "trimEnd",
 {
-    value(maxLength)
+    value: function(maxLength)
     {
-        "use strict";
-
         if (this.length <= maxLength)
             return this;
         return this.substr(0, maxLength - 1) + ellipsis;
@@ -638,7 +597,7 @@ Object.defineProperty(String.prototype, "truncateEnd",
 
 Object.defineProperty(String.prototype, "truncate",
 {
-    value(maxLength)
+    value: function(maxLength)
     {
         "use strict";
 
@@ -656,7 +615,7 @@ Object.defineProperty(String.prototype, "truncate",
 
 Object.defineProperty(String.prototype, "collapseWhitespace",
 {
-    value()
+    value: function()
     {
         return this.replace(/[\s\xA0]+/g, " ");
     }
@@ -664,7 +623,7 @@ Object.defineProperty(String.prototype, "collapseWhitespace",
 
 Object.defineProperty(String.prototype, "removeWhitespace",
 {
-    value()
+    value: function()
     {
         return this.replace(/[\s\xA0]+/g, "");
     }
@@ -672,38 +631,33 @@ Object.defineProperty(String.prototype, "removeWhitespace",
 
 Object.defineProperty(String.prototype, "escapeCharacters",
 {
-    value(charactersToEscape)
+    value: function(chars)
     {
-        if (!charactersToEscape)
-            return this.valueOf();
-
-        let charactersToEscapeSet = new Set(charactersToEscape);
-
-        let foundCharacter = false;
-        for (let c of this) {
-            if (!charactersToEscapeSet.has(c))
-                continue;
-            foundCharacter = true;
-            break;
+        var foundChar = false;
+        for (var i = 0; i < chars.length; ++i) {
+            if (this.indexOf(chars.charAt(i)) !== -1) {
+                foundChar = true;
+                break;
+            }
         }
 
-        if (!foundCharacter)
-            return this.valueOf();
+        if (!foundChar)
+            return this;
 
-        let result = "";
-        for (let c of this) {
-            if (charactersToEscapeSet.has(c))
+        var result = "";
+        for (var i = 0; i < this.length; ++i) {
+            if (chars.indexOf(this.charAt(i)) !== -1)
                 result += "\\";
-            result += c;
+            result += this.charAt(i);
         }
 
-        return result.valueOf();
+        return result;
     }
 });
 
 Object.defineProperty(String.prototype, "escapeForRegExp",
 {
-    value()
+    value: function()
     {
         return this.escapeCharacters("^[]{}()\\.$*+?|");
     }
@@ -711,23 +665,15 @@ Object.defineProperty(String.prototype, "escapeForRegExp",
 
 Object.defineProperty(String.prototype, "capitalize",
 {
-    value()
+    value: function()
     {
         return this.charAt(0).toUpperCase() + this.slice(1);
     }
 });
 
-Object.defineProperty(String.prototype, "extendedLocaleCompare",
-{
-    value(other)
-    {
-        return this.localeCompare(other, undefined, {numeric: true});
-    }
-});
-
 Object.defineProperty(String, "tokenizeFormatString",
 {
-    value(format)
+    value: function(format)
     {
         var tokens = [];
         var substitutionIndex = 0;
@@ -795,42 +741,9 @@ Object.defineProperty(String, "tokenizeFormatString",
     }
 });
 
-Object.defineProperty(String.prototype, "lineCount",
-{
-    get()
-    {
-        "use strict";
-
-        let lineCount = 1;
-        let index = 0;
-        while (true) {
-            index = this.indexOf("\n", index);
-            if (index === -1)
-                return lineCount;
-
-            index += "\n".length;
-            lineCount++;
-        }
-    }
-});
-
-Object.defineProperty(String.prototype, "lastLine",
-{
-    get()
-    {
-        "use strict";
-
-        let index = this.lastIndexOf("\n");
-        if (index === -1)
-            return this;
-
-        return this.slice(index + "\n".length);
-    }
-});
-
 Object.defineProperty(String.prototype, "hash",
 {
-    get()
+    get: function()
     {
         // Matches the wtf/Hasher.h (SuperFastHash) algorithm.
 
@@ -903,7 +816,7 @@ Object.defineProperty(String, "standardFormatters",
 
 Object.defineProperty(String, "format",
 {
-    value(format, substitutions, formatters, initialValue, append)
+    value: function(format, substitutions, formatters, initialValue, append)
     {
         if (!format || !substitutions || !substitutions.length)
             return {formattedResult: append(initialValue, format), unusedSubstitutions: substitutions};
@@ -973,7 +886,7 @@ Object.defineProperty(String, "format",
 
 Object.defineProperty(String.prototype, "format",
 {
-    value()
+    value: function()
     {
         return String.format(this, arguments, String.standardFormatters, "", function(a, b) { return a + b; }).formattedResult;
     }
@@ -981,7 +894,7 @@ Object.defineProperty(String.prototype, "format",
 
 Object.defineProperty(String.prototype, "insertWordBreakCharacters",
 {
-    value()
+    value: function()
     {
         // Add zero width spaces after characters that are good to break after.
         // Otherwise a string with no spaces will not break and overflow its container.
@@ -992,16 +905,32 @@ Object.defineProperty(String.prototype, "insertWordBreakCharacters",
 
 Object.defineProperty(String.prototype, "removeWordBreakCharacters",
 {
-    value()
+    value: function()
     {
         // Undoes what insertWordBreakCharacters did.
         return this.replace(/\u200b/g, "");
     }
 });
 
+Object.defineProperty(String.prototype, "getMatchingIndexes",
+{
+    value: function(needle)
+    {
+        var indexesOfNeedle = [];
+        var index = this.indexOf(needle);
+
+        while (index >= 0) {
+            indexesOfNeedle.push(index);
+            index = this.indexOf(needle, index + 1);
+        }
+
+        return indexesOfNeedle;
+    }
+});
+
 Object.defineProperty(String.prototype, "levenshteinDistance",
 {
-    value(s)
+    value: function(s)
     {
         var m = this.length;
         var n = s.length;
@@ -1034,7 +963,7 @@ Object.defineProperty(String.prototype, "levenshteinDistance",
 
 Object.defineProperty(String.prototype, "toCamelCase",
 {
-    value()
+    value: function()
     {
         return this.toLowerCase().replace(/[^\w]+(\w)/g, (match, group) => group.toUpperCase());
     }
@@ -1042,7 +971,7 @@ Object.defineProperty(String.prototype, "toCamelCase",
 
 Object.defineProperty(String.prototype, "hasMatchingEscapedQuotes",
 {
-    value()
+    value: function()
     {
         return /^\"(?:[^\"\\]|\\.)*\"$/.test(this) || /^\'(?:[^\'\\]|\\.)*\'$/.test(this);
     }
@@ -1050,7 +979,7 @@ Object.defineProperty(String.prototype, "hasMatchingEscapedQuotes",
 
 Object.defineProperty(Math, "roundTo",
 {
-    value(num, step)
+    value: function(num, step)
     {
         return Math.round(num / step) * step;
     }
@@ -1058,9 +987,9 @@ Object.defineProperty(Math, "roundTo",
 
 Object.defineProperty(Number, "constrain",
 {
-    value(num, min, max)
+    value: function(num, min, max)
     {
-        if (isNaN(num) || max < min)
+        if (max < min)
             return min;
 
         if (num < min)
@@ -1073,7 +1002,7 @@ Object.defineProperty(Number, "constrain",
 
 Object.defineProperty(Number, "percentageString",
 {
-    value(fraction, precision = 1)
+    value: function(fraction, precision = 1)
     {
         return fraction.toLocaleString(undefined, {minimumFractionDigits: precision, style: "percent"});
     }
@@ -1081,127 +1010,97 @@ Object.defineProperty(Number, "percentageString",
 
 Object.defineProperty(Number, "secondsToMillisecondsString",
 {
-    value(seconds, higherResolution)
+    value: function(seconds, higherResolution)
     {
         let ms = seconds * 1000;
 
         if (higherResolution)
-            return WI.UIString("%.2fms").format(ms);
-        return WI.UIString("%.1fms").format(ms);
+            return WebInspector.UIString("%.2fms").format(ms);
+        return WebInspector.UIString("%.1fms").format(ms);
     }
 });
 
 Object.defineProperty(Number, "secondsToString",
 {
-    value(seconds, higherResolution)
+    value: function(seconds, higherResolution)
     {
         let ms = seconds * 1000;
         if (!ms)
-            return WI.UIString("%.0fms").format(0);
+            return WebInspector.UIString("%.0fms").format(0);
 
-        const epsilon = 0.0001;
-
-        if (Math.abs(ms) < (10 + epsilon)) {
+        if (Math.abs(ms) < 10) {
             if (higherResolution)
-                return WI.UIString("%.3fms").format(ms);
-            return WI.UIString("%.2fms").format(ms);
+                return WebInspector.UIString("%.3fms").format(ms);
+            return WebInspector.UIString("%.2fms").format(ms);
         }
 
-        if (Math.abs(ms) < (100 + epsilon)) {
+        if (Math.abs(ms) < 100) {
             if (higherResolution)
-                return WI.UIString("%.2fms").format(ms);
-            return WI.UIString("%.1fms").format(ms);
+                return WebInspector.UIString("%.2fms").format(ms);
+            return WebInspector.UIString("%.1fms").format(ms);
         }
 
-        if (Math.abs(ms) < (1000 + epsilon)) {
+        if (Math.abs(ms) < 1000) {
             if (higherResolution)
-                return WI.UIString("%.1fms").format(ms);
-            return WI.UIString("%.0fms").format(ms);
+                return WebInspector.UIString("%.1fms").format(ms);
+            return WebInspector.UIString("%.0fms").format(ms);
         }
 
         // Do not go over seconds when in high resolution mode.
         if (higherResolution || Math.abs(seconds) < 60)
-            return WI.UIString("%.2fs").format(seconds);
+            return WebInspector.UIString("%.2fs").format(seconds);
 
         let minutes = seconds / 60;
         if (Math.abs(minutes) < 60)
-            return WI.UIString("%.1fmin").format(minutes);
+            return WebInspector.UIString("%.1fmin").format(minutes);
 
         let hours = minutes / 60;
         if (Math.abs(hours) < 24)
-            return WI.UIString("%.1fhrs").format(hours);
+            return WebInspector.UIString("%.1fhrs").format(hours);
 
         let days = hours / 24;
-        return WI.UIString("%.1f days").format(days);
+        return WebInspector.UIString("%.1f days").format(days);
     }
 });
 
 Object.defineProperty(Number, "bytesToString",
 {
-    value(bytes, higherResolution)
+    value: function(bytes, higherResolution)
     {
         if (higherResolution === undefined)
             higherResolution = true;
 
         if (Math.abs(bytes) < 1024)
-            return WI.UIString("%.0f B").format(bytes);
+            return WebInspector.UIString("%.0f B").format(bytes);
 
         let kilobytes = bytes / 1024;
         if (Math.abs(kilobytes) < 1024) {
             if (higherResolution || Math.abs(kilobytes) < 10)
-                return WI.UIString("%.2f KB").format(kilobytes);
-            return WI.UIString("%.1f KB").format(kilobytes);
+                return WebInspector.UIString("%.2f KB").format(kilobytes);
+            return WebInspector.UIString("%.1f KB").format(kilobytes);
         }
 
         let megabytes = kilobytes / 1024;
-        if (Math.abs(megabytes) < 1024) {
-            if (higherResolution || Math.abs(megabytes) < 10)
-                return WI.UIString("%.2f MB").format(megabytes);
-            return WI.UIString("%.1f MB").format(megabytes);
-        }
-
-        let gigabytes = megabytes / 1024;
-        if (higherResolution || Math.abs(gigabytes) < 10)
-            return WI.UIString("%.2f GB").format(gigabytes);
-        return WI.UIString("%.1f GB").format(gigabytes);
+        if (higherResolution || Math.abs(megabytes) < 10)
+            return WebInspector.UIString("%.2f MB").format(megabytes);
+        return WebInspector.UIString("%.1f MB").format(megabytes);
     }
 });
 
 Object.defineProperty(Number, "abbreviate",
 {
-    value(num)
+    value: function(num)
     {
         if (num < 1000)
             return num.toLocaleString();
 
         if (num < 1000000)
-            return WI.UIString("%.1fK").format(Math.round(num / 100) / 10);
+            return WebInspector.UIString("%.1fK").format(Math.round(num / 100) / 10);
 
         if (num < 1000000000)
-            return WI.UIString("%.1fM").format(Math.round(num / 100000) / 10);
+            return WebInspector.UIString("%.1fM").format(Math.round(num / 100000) / 10);
 
-        return WI.UIString("%.1fB").format(Math.round(num / 100000000) / 10);
-    }
-});
-
-Object.defineProperty(Number, "zeroPad",
-{
-    value(num, length)
-    {
-        let string = num.toLocaleString();
-        return string.padStart(length, "0");
-    },
-});
-
-Object.defineProperty(Number, "countDigits",
-{
-    value(num)
-    {
-        if (num === 0)
-            return 1;
-
-        num = Math.abs(num);
-        return Math.floor(Math.log(num) * Math.LOG10E) + 1;
+        return WebInspector.UIString("%.1fB").format(Math.round(num / 100000000) / 10);
     }
 });
 
@@ -1216,7 +1115,7 @@ Object.defineProperty(Number.prototype, "maxDecimals",
 
 Object.defineProperty(Uint32Array, "isLittleEndian",
 {
-    value()
+    value: function()
     {
         if ("_isLittleEndian" in this)
             return this._isLittleEndian;
@@ -1345,7 +1244,7 @@ Object.defineProperty(Array.prototype, "lowerBound",
     // than the specimen object. If there's no such element (i.e. all
     // elements are smaller than the specimen) returns array.length.
     // The function works for sorted array.
-    value(object, comparator)
+    value: function(object, comparator)
     {
         function defaultComparator(a, b)
         {
@@ -1371,7 +1270,7 @@ Object.defineProperty(Array.prototype, "upperBound",
     // than the specimen object. If there's no such element (i.e. all
     // elements are smaller than the specimen) returns array.length.
     // The function works for sorted array.
-    value(object, comparator)
+    value: function(object, comparator)
     {
         function defaultComparator(a, b)
         {
@@ -1393,29 +1292,10 @@ Object.defineProperty(Array.prototype, "upperBound",
 
 Object.defineProperty(Array.prototype, "binaryIndexOf",
 {
-    value(value, comparator)
+    value: function(value, comparator)
     {
         var index = this.lowerBound(value, comparator);
         return index < this.length && comparator(value, this[index]) === 0 ? index : -1;
-    }
-});
-
-Object.defineProperty(Promise, "chain",
-{
-    async value(callbacks, initialValue)
-    {
-        let results = [];
-        for (let i = 0; i < callbacks.length; ++i)
-            results.push(await callbacks[i](results.lastValue || initialValue || null, i));
-        return results;
-    }
-});
-
-Object.defineProperty(Promise, "delay",
-{
-    value(delay)
-    {
-        return new Promise((resolve) => setTimeout(resolve, delay || 0));
     }
 });
 
@@ -1432,7 +1312,7 @@ Object.defineProperty(Promise, "delay",
 
     Object.defineProperty(Object.prototype, "soon",
     {
-        get()
+        get: function()
         {
             if (!this[debounceSoonProxySymbol])
                 this[debounceSoonProxySymbol] = this.debounce(0);
@@ -1442,7 +1322,7 @@ Object.defineProperty(Promise, "delay",
 
     Object.defineProperty(Object.prototype, "debounce",
     {
-        value(delay)
+        value: function(delay)
         {
             console.assert(delay >= 0);
 
@@ -1469,7 +1349,7 @@ Object.defineProperty(Promise, "delay",
 
     Object.defineProperty(Function.prototype, "cancelDebounce",
     {
-        value()
+        value: function()
         {
             if (!this[debounceTimeoutSymbol])
                 return;
@@ -1484,7 +1364,7 @@ Object.defineProperty(Promise, "delay",
 
     Object.defineProperty(Object.prototype, "onNextFrame",
     {
-        get()
+        get: function()
         {
             if (!this[requestAnimationFrameProxySymbol]) {
                 this[requestAnimationFrameProxySymbol] = new Proxy(this, {
@@ -1508,62 +1388,6 @@ Object.defineProperty(Promise, "delay",
             }
 
             return this[requestAnimationFrameProxySymbol];
-        }
-    });
-
-    const throttleTimeoutSymbol = Symbol("throttle-timeout");
-
-    Object.defineProperty(Object.prototype, "throttle",
-    {
-        value(delay)
-        {
-            console.assert(delay >= 0);
-
-            let lastFireTime = NaN;
-            let mostRecentArguments = null;
-
-            return new Proxy(this, {
-                get(target, property, receiver) {
-                    return (...args) => {
-                        let original = target[property];
-                        console.assert(typeof original === "function");
-                        mostRecentArguments = args;
-
-                        function performWork() {
-                            lastFireTime = Date.now();
-                            original[throttleTimeoutSymbol] = undefined;
-                            original.apply(target, mostRecentArguments);
-                        }
-
-                        if (isNaN(lastFireTime)) {
-                            performWork();
-                            return;
-                        }
-
-                        let remaining = delay - (Date.now() - lastFireTime);
-                        if (remaining <= 0) {
-                            original.cancelThrottle();
-                            performWork();
-                            return;
-                        }
-
-                        if (!original[throttleTimeoutSymbol])
-                            original[throttleTimeoutSymbol] = setTimeout(performWork, remaining);
-                    };
-                }
-            });
-        }
-    });
-
-    Object.defineProperty(Function.prototype, "cancelThrottle",
-    {
-        value()
-        {
-            if (!this[throttleTimeoutSymbol])
-                return;
-
-            clearTimeout(this[throttleTimeoutSymbol]);
-            this[throttleTimeoutSymbol] = undefined;
         }
     });
 })();
@@ -1613,13 +1437,17 @@ function isFunctionStringNativeCode(str)
     return str.endsWith("{\n    [native code]\n}");
 }
 
-function whitespaceRatio(content, start, end)
+function isTextLikelyMinified(content)
 {
-    let whitespaceScore = 0;
-    let size = end - start;
+    const autoFormatMaxCharactersToCheck = 5000;
+    const autoFormatWhitespaceRatio = 0.2;
 
-    for (let i = start; i < end; i++) {
+    let whitespaceScore = 0;
+    let size = Math.min(autoFormatMaxCharactersToCheck, content.length);
+
+    for (let i = 0; i < size; i++) {
         let char = content[i];
+
         if (char === " ")
             whitespaceScore++;
         else if (char === "\t")
@@ -1629,28 +1457,7 @@ function whitespaceRatio(content, start, end)
     }
 
     let ratio = whitespaceScore / size;
-    return ratio;
-}
-
-function isTextLikelyMinified(content)
-{
-    const autoFormatMaxCharactersToCheck = 2500;
-    const autoFormatWhitespaceRatio = 0.2;
-
-    if (content.length <= autoFormatMaxCharactersToCheck) {
-        let ratio = whitespaceRatio(content, 0, content.length);
-        return ratio < autoFormatWhitespaceRatio;
-    }
-
-    let startRatio = whitespaceRatio(content, 0, autoFormatMaxCharactersToCheck);
-    if (startRatio < autoFormatWhitespaceRatio)
-        return true;
-
-    let endRatio = whitespaceRatio(content, content.length - autoFormatMaxCharactersToCheck, content.length)
-    if (endRatio < autoFormatWhitespaceRatio)
-        return true;
-
-    return false;
+    return ratio < autoFormatWhitespaceRatio;
 }
 
 function doubleQuotedString(str)
@@ -1674,7 +1481,7 @@ function insertObjectIntoSortedArray(object, array, comparator)
 
 function decodeBase64ToBlob(base64Data, mimeType)
 {
-    mimeType = mimeType || "";
+    mimeType = mimeType || '';
 
     const sliceSize = 1024;
     var byteCharacters = atob(base64Data);
@@ -1687,7 +1494,7 @@ function decodeBase64ToBlob(base64Data, mimeType)
         var end = Math.min(begin + sliceSize, bytesLength);
 
         var bytes = new Array(end - begin);
-        for (var offset = begin, i = 0; offset < end; ++i, ++offset)
+        for (var offset = begin, i = 0 ; offset < end; ++i, ++offset)
             bytes[i] = byteCharacters[offset].charCodeAt(0);
 
         byteArrays[sliceIndex] = new Uint8Array(bytes);
@@ -1696,17 +1503,10 @@ function decodeBase64ToBlob(base64Data, mimeType)
     return new Blob(byteArrays, {type: mimeType});
 }
 
-function textToBlob(text, mimeType)
+// FIXME: This can be removed when WEB_TIMING is enabled for all platforms.
+function timestamp()
 {
-    return new Blob([text], {type: mimeType});
-}
-
-function blobAsText(blob, callback)
-{
-    console.assert(blob instanceof Blob);
-    let fileReader = new FileReader;
-    fileReader.addEventListener("loadend", () => { callback(fileReader.result); });
-    fileReader.readAsText(blob);
+    return window.performance ? performance.now() : Date.now();
 }
 
 if (!window.handlePromiseException) {

@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TextNavigationItem = class TextNavigationItem extends WI.NavigationItem
+WebInspector.TextNavigationItem = class TextNavigationItem extends WebInspector.NavigationItem
 {
     constructor(identifier, label)
     {

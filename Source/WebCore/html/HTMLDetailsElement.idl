@@ -18,6 +18,6 @@
  */
 
 interface HTMLDetailsElement : HTMLElement {
-    [CEReactions=NotNeeded, Reflect] attribute boolean open;
+    [Reflect] attribute boolean open;
 };
 

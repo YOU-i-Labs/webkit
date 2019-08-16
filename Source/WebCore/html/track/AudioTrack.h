@@ -37,7 +37,7 @@ class AudioTrack;
 
 class AudioTrackClient {
 public:
-    virtual ~AudioTrackClient() = default;
+    virtual ~AudioTrackClient() { }
     virtual void audioTrackEnabledChanged(AudioTrack&) = 0;
 };
 
@@ -65,7 +65,6 @@ public:
     size_t inbandTrackIndex() const;
 
     void setPrivate(AudioTrackPrivate&);
-    void setMediaElement(HTMLMediaElement*) override;
 
 private:
     AudioTrack(AudioTrackClient&, AudioTrackPrivate&);
@@ -83,13 +82,10 @@ private:
 
     void updateKindFromPrivate();
 
-#if !RELEASE_LOG_DISABLED
-    const char* logClassName() const final { return "AudioTrack"; }
-#endif
+    bool m_enabled;
+    AudioTrackClient* m_client;
 
-    AudioTrackClient* m_client { nullptr };
     Ref<AudioTrackPrivate> m_private;
-    bool m_enabled { false };
 };
 
 } // namespace WebCore

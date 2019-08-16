@@ -32,7 +32,7 @@
 
 namespace WebCore {
 
-class Page;
+class MainFrame;
 
 class MockPageOverlayClient final : public PageOverlay::Client {
     friend class NeverDestroyed<MockPageOverlayClient>;
@@ -41,12 +41,12 @@ public:
 
     explicit MockPageOverlayClient();
 
-    Ref<MockPageOverlay> installOverlay(Page&, PageOverlay::OverlayType);
+    Ref<MockPageOverlay> installOverlay(MainFrame&, PageOverlay::OverlayType);
     void uninstallAllOverlays();
 
-    String layerTreeAsText(Page&, LayerTreeFlags);
+    String layerTreeAsText(MainFrame&, LayerTreeFlags);
 
-    virtual ~MockPageOverlayClient() = default;
+    virtual ~MockPageOverlayClient() { }
 
 private:
     void willMoveToPage(PageOverlay&, Page*) override;

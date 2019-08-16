@@ -44,7 +44,9 @@ WorkerGlobalScopeIndexedDatabase::WorkerGlobalScopeIndexedDatabase(WorkerGlobalS
 {
 }
 
-WorkerGlobalScopeIndexedDatabase::~WorkerGlobalScopeIndexedDatabase() = default;
+WorkerGlobalScopeIndexedDatabase::~WorkerGlobalScopeIndexedDatabase()
+{
+}
 
 const char* WorkerGlobalScopeIndexedDatabase::supplementName()
 {

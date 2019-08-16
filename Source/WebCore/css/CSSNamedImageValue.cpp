@@ -26,6 +26,7 @@
 #include "config.h"
 #include "CSSNamedImageValue.h"
 
+#include "ImageBuffer.h"
 #include "NamedImageGeneratedImage.h"
 
 namespace WebCore {

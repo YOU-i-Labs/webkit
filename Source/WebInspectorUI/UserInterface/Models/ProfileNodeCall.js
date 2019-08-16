@@ -23,10 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ProfileNodeCall = class ProfileNodeCall
+WebInspector.ProfileNodeCall = class ProfileNodeCall extends WebInspector.Object
 {
     constructor(startTime, totalTime)
     {
+        super();
+
         console.assert(startTime);
 
         this._startTime = startTime;

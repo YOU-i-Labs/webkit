@@ -26,6 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+typedef (ArrayBufferView or ArrayBuffer) BufferSource;
 // FIXME: Add URLSearchParams and ReadableStream to the union when supported.
 typedef (Blob or BufferSource or DOMFormData or USVString) BodyInit;
 
@@ -43,11 +44,12 @@ enum XMLHttpRequestResponseType {
     Constructor,
     ConstructorCallWith=ScriptExecutionContext,
     ExportMacro=WEBCORE_EXPORT,
-    Exposed=(Window,DedicatedWorker),
+    Exposed=(Window,Worker),
     JSCustomMarkFunction,
     JSGenerateToJSObject,
     JSGenerateToNativeObject,
-    ReportExtraMemoryCost,
+    PrivateIdentifier,
+    PublicIdentifier,
 ] interface XMLHttpRequest : XMLHttpRequestEventTarget {
     // event handler
     attribute EventHandler onreadystatechange;
@@ -64,10 +66,10 @@ enum XMLHttpRequestResponseType {
     [MayThrowException] void open(ByteString method, DOMString url); // FIXME: url should be a USVString.
     [MayThrowException] void open(ByteString method, DOMString url, boolean async, optional DOMString? user = null, optional DOMString? password = null); // FIXME: url/user/password should all be a USVStrings.
     [MayThrowException] void setRequestHeader(ByteString header, ByteString value);
-    attribute unsigned long timeout;
-    attribute boolean withCredentials;
+    [SetterMayThrowException] attribute unsigned long timeout;
+    [SetterMayThrowException] attribute boolean withCredentials;
     readonly attribute XMLHttpRequestUpload upload;
-    [MayThrowException] void send(optional (Document or BodyInit)? body = null);
+    [CallWith=ScriptState, MayThrowException] void send(optional (Document or BodyInit)? body = null);
     void abort();
 
     // response
@@ -77,8 +79,14 @@ enum XMLHttpRequestResponseType {
     ByteString? getResponseHeader(ByteString name);
     ByteString getAllResponseHeaders();
     [MayThrowException] void overrideMimeType(DOMString mime);
-    attribute XMLHttpRequestResponseType responseType;
-    [CachedAttribute, CustomGetter] readonly attribute any response;
-    readonly attribute USVString responseText;
-    [Exposed=Window] readonly attribute Document? responseXML;
+    [SetterMayThrowException] attribute XMLHttpRequestResponseType responseType;
+    [JSBuiltin] readonly attribute any response;
+    [GetterMayThrowException, CustomGetter] readonly attribute USVString? responseText;
+    // FIXME: responseXML should be annotated with [Exposed=Window].
+    [GetterMayThrowException] readonly attribute Document? responseXML;
+
+    // internals
+    [PrivateIdentifier] boolean responseCacheIsValid();
+    [PrivateIdentifier, Custom] any retrieveResponse();
+
 };

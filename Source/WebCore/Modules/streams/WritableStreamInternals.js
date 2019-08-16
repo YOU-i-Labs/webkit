@@ -31,27 +31,26 @@ function isWritableStream(stream)
 {
     "use strict";
 
-    return @isObject(stream) && !!@getByIdDirectPrivate(stream, "underlyingSink");
+    return @isObject(stream) && !!stream.@underlyingSink;
 }
 
 function syncWritableStreamStateWithQueue(stream)
 {
     "use strict";
 
-    const state = @getByIdDirectPrivate(stream, "state");
-    if (state === @streamClosing)
+    if (stream.@state === @streamClosing)
         return;
 
-    @assert(state === @streamWritable || state === @streamWaiting);
+    @assert(stream.@state === @streamWritable || stream.@state === @streamWaiting);
 
-    const shouldApplyBackpressure = @getByIdDirectPrivate(stream, "queue").size > @getByIdDirectPrivate(stream, "strategy").highWaterMark;
-    if (shouldApplyBackpressure && state === @streamWritable) {
-        @putByIdDirectPrivate(stream, "state", @streamWaiting);
-        @putByIdDirectPrivate(stream, "readyPromiseCapability", @newPromiseCapability(@Promise));
+    const shouldApplyBackpressure = stream.@queue.size > stream.@strategy.highWaterMark;
+    if (shouldApplyBackpressure && stream.@state === @streamWritable) {
+        stream.@state = @streamWaiting;
+        stream.@readyPromiseCapability = @newPromiseCapability(@Promise);
     }
-    if (!shouldApplyBackpressure && state === @streamWaiting) {
-        @putByIdDirectPrivate(stream, "state", @streamWritable);
-        @getByIdDirectPrivate(stream, "readyPromiseCapability").@resolve.@call();
+    if (!shouldApplyBackpressure && stream.@state === @streamWaiting) {
+        stream.@state = @streamWritable;
+        stream.@readyPromiseCapability.@resolve.@call();
     }
 }
 
@@ -59,27 +58,26 @@ function errorWritableStream(stream, e)
 {
     "use strict";
 
-    const state = @getByIdDirectPrivate(stream, "state");
-    if (state === @streamClosed || state === @streamErrored)
+    if (stream.@state === @streamClosed || stream.@state === @streamErrored)
         return;
-    while (@getByIdDirectPrivate(stream, "queue").content.length > 0) {
-        const writeRecord = @dequeueValue(@getByIdDirectPrivate(stream, "queue"));
+    while (stream.@queue.content.length > 0) {
+        const writeRecord = @dequeueValue(stream.@queue);
         if (writeRecord !== "close")
             writeRecord.promiseCapability.@reject.@call(@undefined, e);
     }
-    @putByIdDirectPrivate(stream, "storedError", e);
-    if (state === @streamWaiting)
-        @getByIdDirectPrivate(stream, "readyPromiseCapability").@resolve.@call();
-    @getByIdDirectPrivate(stream, "closedPromiseCapability").@reject.@call(@undefined, e);
-    @putByIdDirectPrivate(stream, "state", @streamErrored);
+    stream.@storedError = e;
+    if (stream.@state === @streamWaiting)
+        stream.@readyPromiseCapability.@resolve.@call();
+    stream.@closedPromiseCapability.@reject.@call(@undefined, e);
+    stream.@state = @streamErrored;
 }
 
 function callOrScheduleWritableStreamAdvanceQueue(stream)
 {
     "use strict";
 
-    if (!@getByIdDirectPrivate(stream, "started"))
-        @getByIdDirectPrivate(stream, "startedPromise").@then(function() { @writableStreamAdvanceQueue(stream); });
+    if (!stream.@started)
+        stream.@startedPromise.@then(function() { @writableStreamAdvanceQueue(stream); });
     else
         @writableStreamAdvanceQueue(stream);
 }
@@ -88,26 +86,26 @@ function writableStreamAdvanceQueue(stream)
 {
     "use strict";
 
-    if (@getByIdDirectPrivate(stream, "queue").content.length === 0 || @getByIdDirectPrivate(stream, "writing"))
+    if (stream.@queue.content.length === 0 || stream.@writing)
         return;
 
-    const writeRecord = @peekQueueValue(@getByIdDirectPrivate(stream, "queue"));
+    const writeRecord = @peekQueueValue(stream.@queue);
     if (writeRecord === "close") {
-        @assert(@getByIdDirectPrivate(stream, "state") === @streamClosing);
-        @dequeueValue(@getByIdDirectPrivate(stream, "queue"));
-        @assert(@getByIdDirectPrivate(stream, "queue").content.length === 0);
+        @assert(stream.@state === @streamClosing);
+        @dequeueValue(stream.@queue);
+        @assert(stream.@queue.content.length === 0);
         @closeWritableStream(stream);
         return;
     }
 
-    @putByIdDirectPrivate(stream, "writing", true);
-    @promiseInvokeOrNoop(@getByIdDirectPrivate(stream, "underlyingSink"), "write", [writeRecord.chunk]).@then(
+    stream.@writing = true;
+    @promiseInvokeOrNoop(stream.@underlyingSink, "write", [writeRecord.chunk]).@then(
         function() {
-            if (@getByIdDirectPrivate(stream, "state") === @streamErrored)
+            if (stream.@state === @streamErrored)
                 return;
-            @putByIdDirectPrivate(stream, "writing", false);
+            stream.@writing = false;
             writeRecord.promiseCapability.@resolve.@call();
-            @dequeueValue(@getByIdDirectPrivate(stream, "queue"));
+            @dequeueValue(stream.@queue);
             @syncWritableStreamStateWithQueue(stream);
             @writableStreamAdvanceQueue(stream);
         },
@@ -121,14 +119,14 @@ function closeWritableStream(stream)
 {
     "use strict";
 
-    @assert(@getByIdDirectPrivate(stream, "state") === @streamClosing);
-    @promiseInvokeOrNoop(@getByIdDirectPrivate(stream, "underlyingSink"), "close").@then(
+    @assert(stream.@state === @streamClosing);
+    @promiseInvokeOrNoop(stream.@underlyingSink, "close").@then(
         function() {
-            if (@getByIdDirectPrivate(stream, "state") === @streamErrored)
+            if (stream.@state === @streamErrored)
                 return;
-            @assert(@getByIdDirectPrivate(stream, "state") === @streamClosing);
-            @getByIdDirectPrivate(stream, "closedPromiseCapability").@resolve.@call();
-            @putByIdDirectPrivate(stream, "state", @streamClosed);
+            @assert(stream.@state === @streamClosing);
+            stream.@closedPromiseCapability.@resolve.@call();
+            stream.@state = @streamClosed;
         },
         function(r) {
             @errorWritableStream(stream, r);

@@ -29,7 +29,6 @@
 #if ENABLE(GAMEPAD)
 
 #include <wtf/NeverDestroyed.h>
-#include <wtf/Vector.h>
 
 namespace WebCore {
 

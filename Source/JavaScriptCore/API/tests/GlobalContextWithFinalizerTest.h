@@ -32,7 +32,7 @@ extern "C" {
 #endif
 
 /* Returns 1 if failures were encountered.  Else, returns 0. */
-int testGlobalContextWithFinalizer(void);
+int testGlobalContextWithFinalizer();
     
 #ifdef __cplusplus
 } /* extern "C" */

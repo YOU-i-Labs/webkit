@@ -38,15 +38,16 @@
 #include "npruntime_impl.h"
 #include "runtime_method.h"
 #include "runtime_root.h"
-#include <JavaScriptCore/ArgList.h>
-#include <JavaScriptCore/CallFrame.h>
-#include <JavaScriptCore/Error.h>
-#include <JavaScriptCore/FunctionPrototype.h>
-#include <JavaScriptCore/JSLock.h>
-#include <JavaScriptCore/PropertyNameArray.h>
+#include <interpreter/CallFrame.h>
+#include <runtime/ArgList.h>
+#include <runtime/Error.h>
+#include <runtime/FunctionPrototype.h>
+#include <runtime/JSLock.h>
+#include <runtime/PropertyNameArray.h>
 #include <wtf/Assertions.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/StringExtras.h>
 #include <wtf/Vector.h>
 
 using namespace WebCore;
@@ -116,18 +117,17 @@ public:
 
     static CRuntimeMethod* create(ExecState* exec, JSGlobalObject* globalObject, const String& name, Bindings::Method* method)
     {
-        VM& vm = globalObject->vm();
         // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
         // We need to pass in the right global object for "i".
         Structure* domStructure = WebCore::deprecatedGetDOMStructure<CRuntimeMethod>(exec);
-        CRuntimeMethod* runtimeMethod = new (NotNull, allocateCell<CRuntimeMethod>(vm.heap)) CRuntimeMethod(globalObject, domStructure, method);
-        runtimeMethod->finishCreation(vm, name);
+        CRuntimeMethod* runtimeMethod = new (NotNull, allocateCell<CRuntimeMethod>(*exec->heap())) CRuntimeMethod(globalObject, domStructure, method);
+        runtimeMethod->finishCreation(exec->vm(), name);
         return runtimeMethod;
     }
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(vm, globalObject, prototype, TypeInfo(InternalFunctionType, StructureFlags), info());
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
     }
 
     DECLARE_INFO;
@@ -159,8 +159,8 @@ JSValue CInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod)
     VM& vm = exec->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    if (!asObject(runtimeMethod)->inherits<CRuntimeMethod>(vm))
-        return throwTypeError(exec, scope, "Attempt to invoke non-plug-in method on plug-in object."_s);
+    if (!asObject(runtimeMethod)->inherits(vm, CRuntimeMethod::info()))
+        return throwTypeError(exec, scope, ASCIILiteral("Attempt to invoke non-plug-in method on plug-in object."));
 
     CMethod* method = static_cast<CMethod*>(runtimeMethod->method());
     ASSERT(method);
@@ -189,7 +189,7 @@ JSValue CInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod)
     }
 
     if (!retval)
-        throwException(exec, scope, createError(exec, "Error calling method on NPObject."_s));
+        throwException(exec, scope, createError(exec, ASCIILiteral("Error calling method on NPObject.")));
 
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
@@ -227,7 +227,7 @@ JSValue CInstance::invokeDefaultMethod(ExecState* exec)
     }
 
     if (!retval)
-        throwException(exec, scope, createError(exec, "Error calling method on NPObject."_s));
+        throwException(exec, scope, createError(exec, ASCIILiteral("Error calling method on NPObject.")));
 
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
@@ -269,7 +269,7 @@ JSValue CInstance::invokeConstruct(ExecState* exec, const ArgList& args)
     }
 
     if (!retval)
-        throwException(exec, scope, createError(exec, "Error calling method on NPObject."_s));
+        throwException(exec, scope, createError(exec, ASCIILiteral("Error calling method on NPObject.")));
 
     for (i = 0; i < count; i++)
         _NPN_ReleaseVariantValue(&cArgs[i]);
@@ -295,7 +295,7 @@ JSValue CInstance::stringValue(ExecState* exec) const
         return value;
 
     // Fallback to default implementation.
-    return jsNontrivialString(exec, "NPObject"_s);
+    return jsNontrivialString(exec, ASCIILiteral("NPObject"));
 }
 
 JSValue CInstance::numberValue(ExecState*) const
@@ -342,7 +342,7 @@ bool CInstance::toJSPrimitive(ExecState* exec, const char* name, JSValue& result
     }
 
     if (!retval)
-        throwException(exec, scope, createError(exec, "Error calling method on NPObject."_s));
+        throwException(exec, scope, createError(exec, ASCIILiteral("Error calling method on NPObject.")));
 
     resultValue = convertNPVariantToValue(exec, &resultVariant, m_rootObject.get());
     _NPN_ReleaseVariantValue(&resultVariant);

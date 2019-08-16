@@ -40,7 +40,7 @@ public:
         return adoptRef(*new FileList);
     }
 
-    static Ref<FileList> create(Vector<Ref<File>>&& files)
+    static Ref<FileList> create(Vector<RefPtr<File>>&& files)
     {
         return adoptRef(*new FileList(WTFMove(files)));
     }
@@ -51,23 +51,19 @@ public:
     bool isEmpty() const { return m_files.isEmpty(); }
     Vector<String> paths() const;
 
-    const Vector<Ref<File>>& files() const { return m_files; }
-    const File& file(unsigned index) const { return m_files[index].get(); }
-
 private:
-    FileList() = default;
-    FileList(Vector<Ref<File>>&& files)
+    FileList();
+    FileList(Vector<RefPtr<File>>&& files)
         : m_files(WTFMove(files))
-    {
-    }
+    { }
 
     // FileLists can only be changed by their owners.
     friend class DataTransfer;
     friend class FileInputType;
-    void append(Ref<File>&& file) { m_files.append(WTFMove(file)); }
+    void append(RefPtr<File>&& file) { m_files.append(WTFMove(file)); }
     void clear() { m_files.clear(); }
 
-    Vector<Ref<File>> m_files;
+    Vector<RefPtr<File>> m_files;
 };
 
 } // namespace WebCore

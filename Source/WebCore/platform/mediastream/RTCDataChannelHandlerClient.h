@@ -35,7 +35,7 @@ namespace WebCore {
 
 class RTCDataChannelHandlerClient : public ThreadSafeRefCounted<RTCDataChannelHandlerClient> {
 public:
-    virtual ~RTCDataChannelHandlerClient() = default;
+    virtual ~RTCDataChannelHandlerClient() { }
 
     virtual void didChangeReadyState(RTCDataChannelState) = 0;
     virtual void didReceiveStringData(const String&) = 0;

@@ -33,12 +33,12 @@
 
 namespace WebCore {
 
-static const Seconds releaseUnusedSecondsTolerance { 3_s };
+static const double releaseUnusedSecondsTolerance = 3;
 static const Seconds releaseUnusedTexturesTimerInterval { 500_ms };
 
 #if USE(TEXTURE_MAPPER_GL)
-BitmapTexturePool::BitmapTexturePool(const TextureMapperContextAttributes& contextAttributes)
-    : m_contextAttributes(contextAttributes)
+BitmapTexturePool::BitmapTexturePool(RefPtr<GraphicsContext3D>&& context3D)
+    : m_context3D(WTFMove(context3D))
     , m_releaseUnusedTexturesTimer(RunLoop::current(), this, &BitmapTexturePool::releaseUnusedTexturesTimerFired)
 {
 }
@@ -46,12 +46,14 @@ BitmapTexturePool::BitmapTexturePool(const TextureMapperContextAttributes& conte
 
 RefPtr<BitmapTexture> BitmapTexturePool::acquireTexture(const IntSize& size, const BitmapTexture::Flags flags)
 {
-    Entry* selectedEntry = std::find_if(m_textures.begin(), m_textures.end(),
+    Vector<Entry>& list = flags & BitmapTexture::FBOAttachment ? m_attachmentTextures : m_textures;
+
+    Entry* selectedEntry = std::find_if(list.begin(), list.end(),
         [&size](Entry& entry) { return entry.m_texture->refCount() == 1 && entry.m_texture->size() == size; });
 
-    if (selectedEntry == m_textures.end()) {
-        m_textures.append(Entry(createTexture(flags)));
-        selectedEntry = &m_textures.last();
+    if (selectedEntry == list.end()) {
+        list.append(Entry(createTexture(flags)));
+        selectedEntry = &list.last();
     }
 
     scheduleReleaseUnusedTextures();
@@ -69,24 +71,29 @@ void BitmapTexturePool::scheduleReleaseUnusedTextures()
 
 void BitmapTexturePool::releaseUnusedTexturesTimerFired()
 {
-    if (m_textures.isEmpty())
-        return;
-
     // Delete entries, which have been unused in releaseUnusedSecondsTolerance.
-    MonotonicTime minUsedTime = MonotonicTime::now() - releaseUnusedSecondsTolerance;
+    double minUsedTime = monotonicallyIncreasingTime() - releaseUnusedSecondsTolerance;
 
-    m_textures.removeAllMatching([&minUsedTime](const Entry& entry) {
-        return entry.canBeReleased(minUsedTime);
-    });
+    if (!m_textures.isEmpty()) {
+        m_textures.removeAllMatching([&minUsedTime](const Entry& entry) {
+            return entry.canBeReleased(minUsedTime);
+        });
+    }
 
-    if (!m_textures.isEmpty())
+    if (!m_attachmentTextures.isEmpty()) {
+        m_attachmentTextures.removeAllMatching([&minUsedTime](const Entry& entry) {
+            return entry.canBeReleased(minUsedTime);
+        });
+    }
+
+    if (!m_textures.isEmpty() || !m_attachmentTextures.isEmpty())
         scheduleReleaseUnusedTextures();
 }
 
 RefPtr<BitmapTexture> BitmapTexturePool::createTexture(const BitmapTexture::Flags flags)
 {
 #if USE(TEXTURE_MAPPER_GL)
-    return BitmapTextureGL::create(m_contextAttributes, flags);
+    return BitmapTextureGL::create(*m_context3D, flags);
 #else
     UNUSED_PARAM(flags);
     return nullptr;

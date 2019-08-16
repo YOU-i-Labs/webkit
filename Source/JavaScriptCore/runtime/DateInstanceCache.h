@@ -25,9 +25,9 @@
 
 #pragma once
 
-#include "PureNaN.h"
+#include "JSCJSValue.h"
+#include "JSDateMath.h"
 #include <array>
-#include <wtf/GregorianDateTime.h>
 #include <wtf/HashFunctions.h>
 #include <wtf/RefCounted.h>
 

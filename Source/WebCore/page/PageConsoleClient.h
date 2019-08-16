@@ -28,13 +28,9 @@
 
 #pragma once
 
-#include <JavaScriptCore/ConsoleClient.h>
-#include <JavaScriptCore/ScriptCallStack.h>
+#include <inspector/ScriptCallStack.h>
+#include <runtime/ConsoleClient.h>
 #include <wtf/Forward.h>
-
-namespace Inspector {
-class ConsoleMessage;
-}
 
 namespace JSC {
 class ExecState;
@@ -57,10 +53,6 @@ public:
     static void mute();
     static void unmute();
 
-    void addMessage(std::unique_ptr<Inspector::ConsoleMessage>&&);
-
-    // The following addMessage function are deprecated.
-    // Callers should try to create the ConsoleMessage themselves.
     void addMessage(MessageSource, MessageLevel, const String& message, const String& sourceURL, unsigned lineNumber, unsigned columnNumber, RefPtr<Inspector::ScriptCallStack>&& = nullptr, JSC::ExecState* = nullptr, unsigned long requestIdentifier = 0);
     void addMessage(MessageSource, MessageLevel, const String& message, Ref<Inspector::ScriptCallStack>&&);
     void addMessage(MessageSource, MessageLevel, const String& message, unsigned long requestIdentifier = 0, Document* = nullptr);
@@ -74,8 +66,6 @@ protected:
     void time(JSC::ExecState*, const String& title) override;
     void timeEnd(JSC::ExecState*, const String& title) override;
     void timeStamp(JSC::ExecState*, Ref<Inspector::ScriptArguments>&&) override;
-    void record(JSC::ExecState*, Ref<Inspector::ScriptArguments>&&) override;
-    void recordEnd(JSC::ExecState*, Ref<Inspector::ScriptArguments>&&) override;
 
 private:
     Page& m_page;

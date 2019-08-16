@@ -316,8 +316,7 @@ void IDBConnectionProxy::didStartTransaction(const IDBResourceIdentifier& transa
         transaction = m_pendingTransactions.take(transactionIdentifier);
     }
 
-    if (!transaction)
-        return;
+    ASSERT(transaction);
 
     transaction->performCallbackOnOriginThread(*transaction, &IDBTransaction::didStart, error);
 }
@@ -423,7 +422,7 @@ void IDBConnectionProxy::connectionToServerLost(const IDBError& error)
     Vector<uint64_t> databaseConnectionIdentifiers;
     {
         Locker<Lock> locker(m_databaseConnectionMapLock);
-        databaseConnectionIdentifiers = copyToVector(m_databaseConnectionMap.keys());
+        copyKeysToVector(m_databaseConnectionMap, databaseConnectionIdentifiers);
     }
 
     for (auto connectionIdentifier : databaseConnectionIdentifiers) {
@@ -442,7 +441,7 @@ void IDBConnectionProxy::connectionToServerLost(const IDBError& error)
     Vector<IDBResourceIdentifier> openDBRequestIdentifiers;
     {
         Locker<Lock> locker(m_openDBRequestMapLock);
-        openDBRequestIdentifiers = copyToVector(m_openDBRequestMap.keys());
+        copyKeysToVector(m_openDBRequestMap, openDBRequestIdentifiers);
     }
 
     for (auto& requestIdentifier : openDBRequestIdentifiers) {
@@ -520,12 +519,12 @@ void IDBConnectionProxy::forgetActiveOperations(const Vector<RefPtr<TransactionO
 template<typename KeyType, typename ValueType>
 void removeItemsMatchingCurrentThread(HashMap<KeyType, ValueType>& map)
 {
-    auto& currentThread = Thread::current();
+    auto currentThreadID = currentThread();
 
     Vector<KeyType> keys;
     keys.reserveInitialCapacity(map.size());
     for (auto& iterator : map) {
-        if (&iterator.value->originThread() == &currentThread)
+        if (iterator.value->originThreadID() == currentThreadID)
             keys.uncheckedAppend(iterator.key);
     }
 

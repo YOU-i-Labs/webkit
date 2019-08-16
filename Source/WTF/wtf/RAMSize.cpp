@@ -24,10 +24,10 @@
  */
 
 #include "config.h"
-#include <wtf/RAMSize.h>
+#include "RAMSize.h"
 
+#include "StdLibExtras.h"
 #include <mutex>
-#include <wtf/StdLibExtras.h>
 
 #if OS(WINDOWS)
 #include <windows.h>

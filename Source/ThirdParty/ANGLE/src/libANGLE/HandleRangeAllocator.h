@@ -25,7 +25,6 @@ class HandleRangeAllocator final : angle::NonCopyable
     static const GLuint kInvalidHandle;
 
     HandleRangeAllocator();
-    ~HandleRangeAllocator();
 
     // Allocates a new path handle.
     GLuint allocate();

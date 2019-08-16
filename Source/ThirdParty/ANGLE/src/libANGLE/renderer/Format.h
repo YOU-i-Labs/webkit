@@ -12,12 +12,13 @@
 #ifndef LIBANGLE_RENDERER_FORMAT_H_
 #define LIBANGLE_RENDERER_FORMAT_H_
 
+#include "libANGLE/formatutils.h"
 #include "libANGLE/renderer/renderer_utils.h"
 
 namespace angle
 {
 
-struct Format final : private angle::NonCopyable
+struct Format final : angle::NonCopyable
 {
     enum class ID;
 
@@ -27,7 +28,6 @@ struct Format final : private angle::NonCopyable
                      rx::MipGenerationFunction mipGen,
                      const rx::FastCopyFunctionMap &fastCopyFunctions,
                      rx::ColorReadFunction colorRead,
-                     rx::ColorWriteFunction colorWrite,
                      GLenum componentType,
                      GLuint redBits,
                      GLuint greenBits,
@@ -37,7 +37,6 @@ struct Format final : private angle::NonCopyable
                      GLuint stencilBits);
 
     static const Format &Get(ID id);
-    static ID InternalFormatToID(GLenum internalFormat);
 
     ID id;
 
@@ -52,7 +51,6 @@ struct Format final : private angle::NonCopyable
 
     rx::MipGenerationFunction mipGenerationFunction;
     rx::ColorReadFunction colorReadFunction;
-    rx::ColorWriteFunction colorWriteFunction;
 
     // A map from a gl::FormatType to a fast pixel copy function for this format.
     const rx::FastCopyFunctionMap &fastCopyFunctions;
@@ -73,7 +71,6 @@ constexpr Format::Format(ID id,
                          rx::MipGenerationFunction mipGen,
                          const rx::FastCopyFunctionMap &fastCopyFunctions,
                          rx::ColorReadFunction colorRead,
-                         rx::ColorWriteFunction colorWrite,
                          GLenum componentType,
                          GLuint redBits,
                          GLuint greenBits,
@@ -86,7 +83,6 @@ constexpr Format::Format(ID id,
       fboImplementationInternalFormat(fboFormat),
       mipGenerationFunction(mipGen),
       colorReadFunction(colorRead),
-      colorWriteFunction(colorWrite),
       fastCopyFunctions(fastCopyFunctions),
       componentType(componentType),
       redBits(redBits),

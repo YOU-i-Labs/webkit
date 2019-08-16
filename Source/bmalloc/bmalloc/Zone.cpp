@@ -115,7 +115,7 @@ static const malloc_introspection_t zoneIntrospect = {
     .statistics = bmalloc::statistics
 };
 
-Zone::Zone(std::lock_guard<Mutex>&)
+Zone::Zone()
 {
     malloc_zone_t::size = &bmalloc::zoneSize;
     malloc_zone_t::zone_name = "WebKit Malloc";

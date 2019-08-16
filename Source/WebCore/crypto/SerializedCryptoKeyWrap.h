@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include <wtf/Forward.h>
+#include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 namespace WebCore {
 
@@ -47,4 +47,4 @@ WEBCORE_EXPORT bool unwrapSerializedCryptoKey(const Vector<uint8_t>& masterKey, 
 
 } // namespace WebCore
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

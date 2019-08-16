@@ -35,29 +35,32 @@ namespace WebCore {
 class AudioContext;
 class MediaStreamAudioSource;
 
-class MediaStreamAudioDestinationNode final : public AudioBasicInspectorNode {
+class MediaStreamAudioDestinationNode : public AudioBasicInspectorNode {
 public:
     static Ref<MediaStreamAudioDestinationNode> create(AudioContext&, size_t numberOfChannels);
 
     virtual ~MediaStreamAudioDestinationNode();
 
-    MediaStream& stream() { return m_stream.get(); }
+    MediaStream* stream() { return m_stream.get(); }
 
     // AudioNode.
-    void process(size_t framesToProcess) final;
-    void reset() final;
+    void process(size_t framesToProcess) override;
+    void reset() override;
     
+    RealtimeMediaSource* mediaStreamSource();
+
 private:
     MediaStreamAudioDestinationNode(AudioContext&, size_t numberOfChannels);
 
-    double tailTime() const final { return 0; }
-    double latencyTime() const final { return 0; }
+    double tailTime() const override { return 0; }
+    double latencyTime() const override { return 0; }
 
     // As an audio source, we will never propagate silence.
-    bool propagatesSilence() const final { return false; }
+    bool propagatesSilence() const override { return false; }
 
-    Ref<MediaStreamAudioSource> m_source;
-    Ref<MediaStream> m_stream;
+    RefPtr<MediaStream> m_stream;
+    RefPtr<MediaStreamAudioSource> m_source;
+    RefPtr<AudioBus> m_mixBus;
 };
 
 } // namespace WebCore

@@ -41,10 +41,9 @@ class Page;
 
 class InspectorClient {
 public:
-    virtual ~InspectorClient() = default;
+    virtual ~InspectorClient() { }
 
     virtual void inspectedPageDestroyed() = 0;
-    virtual void frontendCountChanged(unsigned) { }
 
     virtual Inspector::FrontendChannel* openLocalFrontend(InspectorController*) = 0;
     virtual void bringFrontendToFront() = 0;
@@ -61,10 +60,6 @@ public:
     virtual void showPaintRect(const FloatRect&) { }
     virtual void didSetSearchingForNode(bool) { }
     virtual void elementSelectionChanged(bool) { }
-
-#if ENABLE(REMOTE_INSPECTOR)
-    virtual bool allowRemoteInspectionToPageDirectly() const { return false; }
-#endif
 
     WEBCORE_EXPORT static void doDispatchMessageOnFrontendPage(Page* frontendPage, const String& message);
 };

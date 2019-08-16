@@ -20,10 +20,11 @@
  *
  */
 
-#pragma once
+#ifndef WTF_AtomicStringTable_h
+#define WTF_AtomicStringTable_h
 
 #include <wtf/HashSet.h>
-#include <wtf/text/StringImpl.h>
+#include <wtf/WTFThreadData.h>
 
 namespace WTF {
 
@@ -34,11 +35,15 @@ class AtomicStringTable {
 public:
     WTF_EXPORT_PRIVATE ~AtomicStringTable();
 
+    static void create(WTFThreadData&);
     HashSet<StringImpl*>& table() { return m_table; }
 
 private:
+    static void destroy(AtomicStringTable*);
+
     HashSet<StringImpl*> m_table;
 };
 
 }
-using WTF::AtomicStringTable;
+
+#endif

@@ -44,8 +44,8 @@ Ref<AccessibilityMenuList> AccessibilityMenuList::create(RenderMenuList* rendere
 
 bool AccessibilityMenuList::press()
 {
-#if !PLATFORM(IOS_FAMILY)
-    RenderMenuList* menuList = static_cast<RenderMenuList*>(renderer());
+#if !PLATFORM(IOS)
+    RenderMenuList* menuList = static_cast<RenderMenuList*>(m_renderer);
     if (menuList->popupIsVisible())
         menuList->hidePopup();
     else
@@ -65,7 +65,7 @@ void AccessibilityMenuList::addChildren()
     if (!cache)
         return;
     
-    AccessibilityObject* list = cache->getOrCreate(AccessibilityRole::MenuListPopup);
+    AccessibilityObject* list = cache->getOrCreate(MenuListPopupRole);
     if (!list)
         return;
 
@@ -92,8 +92,8 @@ void AccessibilityMenuList::childrenChanged()
 
 bool AccessibilityMenuList::isCollapsed() const
 {
-#if !PLATFORM(IOS_FAMILY)
-    return !static_cast<RenderMenuList*>(renderer())->popupIsVisible();
+#if !PLATFORM(IOS)
+    return !static_cast<RenderMenuList*>(m_renderer)->popupIsVisible();
 #else
     return true;
 #endif

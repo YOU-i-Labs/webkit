@@ -27,7 +27,7 @@
 
 #if ENABLE(APPLE_PAY)
 
-#include <wtf/Forward.h>
+#include <wtf/EnumTraits.h>
 
 namespace WebCore {
 

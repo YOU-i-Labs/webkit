@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include "PlatformExportMacros.h"
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {

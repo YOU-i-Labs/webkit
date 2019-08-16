@@ -20,17 +20,41 @@
 #include "config.h"
 #include "JSDocument.h"
 
+#include "ExceptionCode.h"
 #include "Frame.h"
+#include "FrameLoader.h"
+#include "HTMLDocument.h"
+#include "JSCanvasRenderingContext2D.h"
+#include "JSDOMConvertNumbers.h"
 #include "JSDOMWindowCustom.h"
 #include "JSHTMLDocument.h"
+#include "JSLocation.h"
 #include "JSXMLDocument.h"
 #include "NodeTraversal.h"
 #include "SVGDocument.h"
-#include <JavaScriptCore/HeapSnapshotBuilder.h>
+#include "ScriptController.h"
+#include "XMLDocument.h"
+#include <wtf/GetPtr.h>
 
+#if ENABLE(WEBGL)
+#include "JSWebGLRenderingContext.h"
+#if ENABLE(WEBGL2)
+#include "JSWebGL2RenderingContext.h"
+#endif
+#endif
+
+#if ENABLE(WEBGPU)
+#include "JSWebGPURenderingContext.h"
+#endif
+
+#if ENABLE(TOUCH_EVENTS)
+#include "JSTouch.h"
+#include "JSTouchList.h"
+#endif
+
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 
 static inline JSValue createNewDocumentWrapper(ExecState& state, JSDOMGlobalObject& globalObject, Ref<Document>&& passedDocument)
 {
@@ -57,12 +81,8 @@ JSObject* cachedDocumentWrapper(ExecState& state, JSDOMGlobalObject& globalObjec
     if (!window)
         return nullptr;
 
-    auto* documentGlobalObject = toJSDOMWindow(state.vm(), toJS(&state, *window));
-    if (!documentGlobalObject)
-        return nullptr;
-
     // Creating a wrapper for domWindow might have created a wrapper for document as well.
-    return getCachedWrapper(documentGlobalObject->world(), document);
+    return getCachedWrapper(toJSDOMWindow(state.vm(), toJS(&state, *window))->world(), document);
 }
 
 void reportMemoryForDocumentIfFrameless(ExecState& state, Document& document)
@@ -71,14 +91,13 @@ void reportMemoryForDocumentIfFrameless(ExecState& state, Document& document)
     if (document.frame())
         return;
 
-    VM& vm = state.vm();
     size_t memoryCost = 0;
     for (Node* node = &document; node; node = NodeTraversal::next(*node))
         memoryCost += node->approximateMemoryCost();
 
     // FIXME: Adopt reportExtraMemoryVisited, and switch to reportExtraMemoryAllocated.
     // https://bugs.webkit.org/show_bug.cgi?id=142595
-    vm.heap.deprecatedReportExtraMemory(memoryCost);
+    state.heap()->deprecatedReportExtraMemory(memoryCost);
 }
 
 JSValue toJSNewlyCreated(ExecState* state, JSDOMGlobalObject* globalObject, Ref<Document>&& document)
@@ -93,16 +112,64 @@ JSValue toJS(ExecState* state, JSDOMGlobalObject* globalObject, Document& docume
     return toJSNewlyCreated(state, globalObject, Ref<Document>(document));
 }
 
+#if ENABLE(TOUCH_EVENTS)
+JSValue JSDocument::createTouchList(ExecState& state)
+{
+    VM& vm = state.vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    auto touchList = TouchList::create();
+
+    for (size_t i = 0; i < state.argumentCount(); ++i) {
+        auto* item = JSTouch::toWrapped(vm, state.uncheckedArgument(i));
+        if (!item)
+            return JSValue::decode(throwArgumentTypeError(state, scope, i, "touches", "Document", "createTouchList", "Touch"));
+
+        touchList->append(*item);
+    }
+    return toJSNewlyCreated(&state, globalObject(), WTFMove(touchList));
+}
+#endif
+
+JSValue JSDocument::getCSSCanvasContext(JSC::ExecState& state)
+{
+    VM& vm = state.vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    if (UNLIKELY(state.argumentCount() < 4))
+        return throwException(&state, scope, createNotEnoughArgumentsError(&state));
+    auto contextId = state.uncheckedArgument(0).toWTFString(&state);
+    RETURN_IF_EXCEPTION(scope, JSValue());
+    auto name = state.uncheckedArgument(1).toWTFString(&state);
+    RETURN_IF_EXCEPTION(scope, JSValue());
+    auto width = convert<IDLLong>(state, state.uncheckedArgument(2));
+    RETURN_IF_EXCEPTION(scope, JSValue());
+    auto height = convert<IDLLong>(state, state.uncheckedArgument(3));
+    RETURN_IF_EXCEPTION(scope, JSValue());
+
+    auto* context = wrapped().getCSSCanvasContext(WTFMove(contextId), WTFMove(name), WTFMove(width), WTFMove(height));
+    if (!context)
+        return jsNull();
+
+#if ENABLE(WEBGL)
+    if (is<WebGLRenderingContext>(*context))
+        return toJS(&state, globalObject(), downcast<WebGLRenderingContext>(*context));
+#if ENABLE(WEBGL2)
+    if (is<WebGL2RenderingContext>(*context))
+        return toJS(&state, globalObject(), downcast<WebGL2RenderingContext>(*context));
+#endif
+#endif
+#if ENABLE(WEBGPU)
+    if (is<WebGPURenderingContext>(*context))
+        return toJS(&state, globalObject(), downcast<WebGPURenderingContext>(*context));
+#endif
+
+    return toJS(&state, globalObject(), downcast<CanvasRenderingContext2D>(*context));
+}
+
 void JSDocument::visitAdditionalChildren(SlotVisitor& visitor)
 {
     visitor.addOpaqueRoot(static_cast<ScriptExecutionContext*>(&wrapped()));
-}
-
-void JSDocument::heapSnapshot(JSCell* cell, HeapSnapshotBuilder& builder)
-{
-    Base::heapSnapshot(cell, builder);
-    auto* thisObject = jsCast<JSDocument*>(cell);
-    builder.setLabelForCell(cell, thisObject->wrapped().url().string());
 }
 
 } // namespace WebCore

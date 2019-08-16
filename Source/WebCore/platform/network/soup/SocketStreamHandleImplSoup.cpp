@@ -34,17 +34,13 @@
 
 #if USE(SOUP)
 
-#include "DeprecatedGlobalSettings.h"
 #include "Logging.h"
-#include "NetworkStorageSession.h"
-#include "ResourceError.h"
+#include "Settings.h"
 #include "SocketStreamError.h"
 #include "SocketStreamHandleClient.h"
-#include "SoupNetworkSession.h"
-#include "URLSoup.h"
+#include "URL.h"
 #include <gio/gio.h>
 #include <glib.h>
-#include <wtf/URL.h>
 #include <wtf/Vector.h>
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
@@ -54,61 +50,44 @@
 
 namespace WebCore {
 
-static gboolean acceptCertificateCallback(GTlsConnection*, GTlsCertificate* certificate, GTlsCertificateFlags errors, SocketStreamHandleImpl* handle)
+static gboolean wssConnectionAcceptCertificateCallback(GTlsConnection*, GTlsCertificate*, GTlsCertificateFlags)
 {
-    // FIXME: Using DeprecatedGlobalSettings from here is a layering violation.
-    if (DeprecatedGlobalSettings::allowsAnySSLCertificate())
-        return TRUE;
-
-    return !SoupNetworkSession::checkTLSErrors(handle->url(), certificate, errors);
+    return TRUE;
 }
 
-#if SOUP_CHECK_VERSION(2, 61, 90)
-static void connectProgressCallback(SoupSession*, GSocketClientEvent event, GIOStream* connection, SocketStreamHandleImpl* handle)
+static void wssSocketClientEventCallback(GSocketClient*, GSocketClientEvent event, GSocketConnectable*, GIOStream* connection)
 {
     if (event != G_SOCKET_CLIENT_TLS_HANDSHAKING)
         return;
 
-    g_signal_connect(connection, "accept-certificate", G_CALLBACK(acceptCertificateCallback), handle);
+    g_signal_connect(connection, "accept-certificate", G_CALLBACK(wssConnectionAcceptCertificateCallback), nullptr);
 }
-#else
-static void socketClientEventCallback(GSocketClient*, GSocketClientEvent event, GSocketConnectable*, GIOStream* connection, SocketStreamHandleImpl* handle)
-{
-    if (event != G_SOCKET_CLIENT_TLS_HANDSHAKING)
-        return;
 
-    g_signal_connect(connection, "accept-certificate", G_CALLBACK(acceptCertificateCallback), handle);
-}
-#endif
-
-Ref<SocketStreamHandleImpl> SocketStreamHandleImpl::create(const URL& url, SocketStreamHandleClient& client, PAL::SessionID sessionID, const String&, SourceApplicationAuditToken&&)
+Ref<SocketStreamHandleImpl> SocketStreamHandleImpl::create(const URL& url, SocketStreamHandleClient& client, SessionID, const String&, SourceApplicationAuditToken&&)
 {
     Ref<SocketStreamHandleImpl> socket = adoptRef(*new SocketStreamHandleImpl(url, client));
 
-#if SOUP_CHECK_VERSION(2, 61, 90)
-    auto* networkStorageSession = NetworkStorageSession::storageSession(sessionID);
-    if (!networkStorageSession)
-        return socket;
-
-    auto uri = urlToSoupURI(url);
-    Ref<SocketStreamHandle> protectedSocketStreamHandle = socket.copyRef();
-    soup_session_connect_async(networkStorageSession->getOrCreateSoupNetworkSession().soupSession(), uri.get(), socket->m_cancellable.get(),
-        url.protocolIs("wss") ? reinterpret_cast<SoupSessionConnectProgressCallback>(connectProgressCallback) : nullptr,
-        reinterpret_cast<GAsyncReadyCallback>(connectedCallback), &protectedSocketStreamHandle.leakRef());
-#else
-    UNUSED_PARAM(sessionID);
     unsigned port = url.port() ? url.port().value() : (url.protocolIs("wss") ? 443 : 80);
     GRefPtr<GSocketClient> socketClient = adoptGRef(g_socket_client_new());
     if (url.protocolIs("wss")) {
         g_socket_client_set_tls(socketClient.get(), TRUE);
-        g_signal_connect(socketClient.get(), "event", G_CALLBACK(socketClientEventCallback), socket.ptr());
+        // FIXME: this is only used by tests, but using Settings from here is a layering violation.
+        if (Settings::allowsAnySSLCertificate())
+            g_signal_connect(socketClient.get(), "event", G_CALLBACK(wssSocketClientEventCallback), nullptr);
     }
     Ref<SocketStreamHandle> protectedSocketStreamHandle = socket.copyRef();
     g_socket_client_connect_to_host_async(socketClient.get(), url.host().utf8().data(), port, socket->m_cancellable.get(),
         reinterpret_cast<GAsyncReadyCallback>(connectedCallback), &protectedSocketStreamHandle.leakRef());
-#endif
-
     return socket;
+}
+
+Ref<SocketStreamHandle> SocketStreamHandleImpl::create(GSocketConnection* socketConnection, SocketStreamHandleClient& client)
+{
+    Ref<SocketStreamHandleImpl> socket = adoptRef(*new SocketStreamHandleImpl(URL(), client));
+
+    GRefPtr<GSocketConnection> connection = socketConnection;
+    socket->connected(WTFMove(connection));
+    return WTFMove(socket);
 }
 
 SocketStreamHandleImpl::SocketStreamHandleImpl(const URL& url, SocketStreamHandleClient& client)
@@ -123,12 +102,12 @@ SocketStreamHandleImpl::~SocketStreamHandleImpl()
     LOG(Network, "SocketStreamHandle %p delete", this);
 }
 
-void SocketStreamHandleImpl::connected(GRefPtr<GIOStream>&& stream)
+void SocketStreamHandleImpl::connected(GRefPtr<GSocketConnection>&& socketConnection)
 {
-    m_stream = WTFMove(stream);
-    m_outputStream = G_POLLABLE_OUTPUT_STREAM(g_io_stream_get_output_stream(m_stream.get()));
-    m_inputStream = g_io_stream_get_input_stream(m_stream.get());
-    m_readBuffer = makeUniqueArray<char>(READ_BUFFER_SIZE);
+    m_socketConnection = WTFMove(socketConnection);
+    m_outputStream = G_POLLABLE_OUTPUT_STREAM(g_io_stream_get_output_stream(G_IO_STREAM(m_socketConnection.get())));
+    m_inputStream = g_io_stream_get_input_stream(G_IO_STREAM(m_socketConnection.get()));
+    m_readBuffer = std::make_unique<char[]>(READ_BUFFER_SIZE);
 
     RefPtr<SocketStreamHandleImpl> protectedThis(this);
     g_input_stream_read_async(m_inputStream.get(), m_readBuffer.get(), READ_BUFFER_SIZE, RunLoopSourcePriority::AsyncIONetwork, m_cancellable.get(),
@@ -138,29 +117,25 @@ void SocketStreamHandleImpl::connected(GRefPtr<GIOStream>&& stream)
     m_client.didOpenSocketStream(*this);
 }
 
-void SocketStreamHandleImpl::connectedCallback(GObject* object, GAsyncResult* result, SocketStreamHandleImpl* handle)
+void SocketStreamHandleImpl::connectedCallback(GSocketClient* client, GAsyncResult* result, SocketStreamHandleImpl* handle)
 {
     RefPtr<SocketStreamHandle> protectedThis = adoptRef(handle);
 
     // Always finish the connection, even if this SocketStreamHandle was cancelled earlier.
     GUniqueOutPtr<GError> error;
-#if SOUP_CHECK_VERSION(2, 61, 90)
-    GRefPtr<GIOStream> stream = adoptGRef(soup_session_connect_finish(SOUP_SESSION(object), result, &error.outPtr()));
-#else
-    GRefPtr<GIOStream> stream = adoptGRef(G_IO_STREAM(g_socket_client_connect_to_host_finish(G_SOCKET_CLIENT(object), result, &error.outPtr())));
-#endif
+    GRefPtr<GSocketConnection> socketConnection = adoptGRef(g_socket_client_connect_to_host_finish(client, result, &error.outPtr()));
 
     // The SocketStreamHandle has been cancelled, so just close the connection, ignoring errors.
     if (g_cancellable_is_cancelled(handle->m_cancellable.get())) {
-        if (stream)
-            g_io_stream_close(stream.get(), nullptr, nullptr);
+        if (socketConnection)
+            g_io_stream_close(G_IO_STREAM(socketConnection.get()), nullptr, nullptr);
         return;
     }
 
     if (error)
-        handle->didFail(SocketStreamError(error->code, { }, error->message));
+        handle->didFail(SocketStreamError(error->code, String(), error->message));
     else
-        handle->connected(WTFMove(stream));
+        handle->connected(WTFMove(socketConnection));
 }
 
 void SocketStreamHandleImpl::readBytes(gssize bytesRead)
@@ -216,20 +191,20 @@ void SocketStreamHandleImpl::writeReady()
     sendPendingData();
 }
 
-Optional<size_t> SocketStreamHandleImpl::platformSendInternal(const uint8_t* data, size_t length)
+std::optional<size_t> SocketStreamHandleImpl::platformSendInternal(const char* data, size_t length)
 {
     LOG(Network, "SocketStreamHandle %p platformSend", this);
     if (!m_outputStream || !data)
         return 0;
 
     GUniqueOutPtr<GError> error;
-    gssize written = g_pollable_output_stream_write_nonblocking(m_outputStream.get(), reinterpret_cast<const char*>(data), length, m_cancellable.get(), &error.outPtr());
+    gssize written = g_pollable_output_stream_write_nonblocking(m_outputStream.get(), data, length, m_cancellable.get(), &error.outPtr());
     if (error) {
         if (g_error_matches(error.get(), G_IO_ERROR, G_IO_ERROR_WOULD_BLOCK))
             beginWaitingForSocketWritability();
         else
             didFail(SocketStreamError(error->code, String(), error->message));
-        return WTF::nullopt;
+        return std::nullopt;
     }
 
     // If we did not send all the bytes we were given, we know that
@@ -238,7 +213,7 @@ Optional<size_t> SocketStreamHandleImpl::platformSendInternal(const uint8_t* dat
         beginWaitingForSocketWritability();
 
     if (written == -1)
-        return WTF::nullopt;
+        return std::nullopt;
 
     return static_cast<size_t>(written);
 }
@@ -250,12 +225,12 @@ void SocketStreamHandleImpl::platformClose()
     g_cancellable_cancel(m_cancellable.get());
     stopWaitingForSocketWritability();
 
-    if (m_stream) {
+    if (m_socketConnection) {
         GUniqueOutPtr<GError> error;
-        g_io_stream_close(m_stream.get(), nullptr, &error.outPtr());
+        g_io_stream_close(G_IO_STREAM(m_socketConnection.get()), nullptr, &error.outPtr());
         if (error)
-            didFail(SocketStreamError(error->code, { }, error->message));
-        m_stream = nullptr;
+            didFail(SocketStreamError(error->code, String(), error->message));
+        m_socketConnection = nullptr;
     }
 
     m_outputStream = nullptr;
@@ -272,7 +247,7 @@ void SocketStreamHandleImpl::beginWaitingForSocketWritability()
 
     m_writeReadySource = adoptGRef(g_pollable_output_stream_create_source(m_outputStream.get(), m_cancellable.get()));
     ref();
-    g_source_set_callback(m_writeReadySource.get(), reinterpret_cast<GSourceFunc>(reinterpret_cast<GCallback>(writeReadyCallback)), this, [](gpointer handle) {
+    g_source_set_callback(m_writeReadySource.get(), reinterpret_cast<GSourceFunc>(writeReadyCallback), this, [](gpointer handle) { 
         static_cast<SocketStreamHandleImpl*>(handle)->deref();
     });
     g_source_attach(m_writeReadySource.get(), g_main_context_get_thread_default());

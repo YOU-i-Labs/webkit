@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2016 Oleksandr Skachkov <gskachkov@gmail.com>.
  * Copyright (C) 2015 Jordan Harband. All rights reserved.
- * Copyright (C) 2018 Yusuke Suzuki <yusukesuzuki@slowstart.org>.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,35 +24,45 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-function entries(object)
+@globalPrivate
+function enumerableOwnProperties(object, kind)
 {
     "use strict";
 
-    var obj = @toObject(object, "Object.entries requires that input parameter not be null or undefined");
-    var names = @getOwnPropertyNames(obj);
-    var properties = [];
-    for (var i = 0, length = names.length; i < length; ++i) {
-        var name = names[i];
-        if (@propertyIsEnumerable(obj, name))
-            properties.@push([name, obj[name]]);
+    const obj = @Object(object);
+    const ownKeys = @Reflect.@ownKeys(obj);
+    const properties = [];
+    for (let i = 0, keysLength = ownKeys.length; i < keysLength; ++i) {
+        let nextKey = ownKeys[i];
+        if (typeof nextKey === 'string') {
+            if (@propertyIsEnumerable(obj, nextKey)) {
+                if (kind === @iterationKindValue)
+                    properties.@push(obj[nextKey]);
+                else if (kind === @iterationKindKeyValue)
+                    properties.@push([nextKey, obj[nextKey]]);
+            }
+        }
     }
-
+    
     return properties;
 }
 
-function fromEntries(iterable)
+function values(object)
 {
     "use strict";
+    
+    if (object == null)
+        @throwTypeError("Object.values requires that input parameter not be null or undefined");
 
-    let object = {};
+    return @enumerableOwnProperties(object, @iterationKindValue);
+}
 
-    for (let entry of iterable) {
-        if (!@isObject(entry))
-            @throwTypeError("Object.fromEntries requires the first iterable parameter yields objects");
-        let key = entry[0];
-        let value = entry[1];
-        @putByValDirect(object, key, value);
-    }
-
-    return object;
+function entries(object)
+{
+    "use strict";
+    
+    if (object == null)
+        @throwTypeError("Object.entries requires that input parameter not be null or undefined");
+    
+    return @enumerableOwnProperties(object, @iterationKindKeyValue);
 }

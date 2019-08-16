@@ -28,11 +28,12 @@
 
 #if USE(CAIRO)
 
-#include "CairoUtilities.h"
+#include "AffineTransform.h"
 #include "FloatRect.h"
-#include "GraphicsContextImplCairo.h"
+#include "GraphicsContext.h"
 #include "PlatformPathCairo.h"
 #include "StrokeStyleApplier.h"
+#include <cairo.h>
 #include <math.h>
 #include <wtf/MathExtras.h>
 #include <wtf/text/WTFString.h>
@@ -60,12 +61,6 @@ Path::Path(const Path& other)
     auto pathCopy = cairo_copy_path(other.platformPath()->context());
     cairo_append_path(cr, pathCopy);
     cairo_path_destroy(pathCopy);
-}
-    
-Path::Path(Path&& other)
-{
-    m_path = other.m_path;
-    other.m_path = nullptr;
 }
 
 PlatformPathPtr Path::ensurePlatformPath()
@@ -95,17 +90,6 @@ Path& Path::operator=(const Path& other)
 
     return *this;
 }
-    
-Path& Path::operator=(Path&& other)
-{
-    if (this == &other)
-        return *this;
-    if (m_path)
-        delete m_path;
-    m_path = other.m_path;
-    other.m_path = nullptr;
-    return *this;
-}
 
 void Path::clear()
 {
@@ -113,7 +97,6 @@ void Path::clear()
         return;
 
     cairo_t* cr = platformPath()->context();
-    cairo_identity_matrix(cr);
     cairo_new_path(cr);
 }
 
@@ -334,7 +317,7 @@ void Path::addPath(const Path& path, const AffineTransform& transform)
     if (path.isNull())
         return;
 
-    cairo_matrix_t matrix = toCairoMatrix(transform);
+    cairo_matrix_t matrix(transform);
     if (cairo_matrix_invert(&matrix) != CAIRO_STATUS_SUCCESS)
         return;
 
@@ -373,7 +356,7 @@ FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier) const
 
     cairo_t* cr = platformPath()->context();
     if (applier) {
-        GraphicsContext gc(GraphicsContextImplCairo::createFactory(cr));
+        GraphicsContext gc(cr);
         applier->strokeStyle(&gc);
     }
 
@@ -388,7 +371,7 @@ bool Path::contains(const FloatPoint& point, WindRule rule) const
         return false;
     cairo_t* cr = platformPath()->context();
     cairo_fill_rule_t cur = cairo_get_fill_rule(cr);
-    cairo_set_fill_rule(cr, rule == WindRule::EvenOdd ? CAIRO_FILL_RULE_EVEN_ODD : CAIRO_FILL_RULE_WINDING);
+    cairo_set_fill_rule(cr, rule == RULE_EVENODD ? CAIRO_FILL_RULE_EVEN_ODD : CAIRO_FILL_RULE_WINDING);
     bool contains = cairo_in_fill(cr, point.x(), point.y());
     cairo_set_fill_rule(cr, cur);
     return contains;
@@ -401,10 +384,8 @@ bool Path::strokeContains(StrokeStyleApplier* applier, const FloatPoint& point) 
 
     ASSERT(applier);
     cairo_t* cr = platformPath()->context();
-    {
-        GraphicsContext gc(GraphicsContextImplCairo::createFactory(cr));
-        applier->strokeStyle(&gc);
-    }
+    GraphicsContext gc(cr);
+    applier->strokeStyle(&gc);
 
     return cairo_in_stroke(cr, point.x(), point.y());
 }
@@ -450,12 +431,12 @@ void Path::apply(const PathApplierFunction& function) const
     cairo_path_destroy(pathCopy);
 }
 
-void Path::transform(const AffineTransform& transform)
+void Path::transform(const AffineTransform& trans)
 {
     cairo_t* cr = ensurePlatformPath()->context();
-    cairo_matrix_t matrix = toCairoMatrix(transform);
-    cairo_matrix_invert(&matrix);
-    cairo_transform(cr, &matrix);
+    cairo_matrix_t c_matrix = cairo_matrix_t(trans);
+    cairo_matrix_invert(&c_matrix);
+    cairo_transform(cr, &c_matrix);
 }
 
 } // namespace WebCore

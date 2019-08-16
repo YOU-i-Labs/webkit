@@ -31,9 +31,12 @@
 
 #pragma once
 
+#if ENABLE(WEB_TIMING)
+
 #include "Performance.h"
 #include <wtf/Optional.h>
 #include <wtf/RefCounted.h>
+#include <wtf/TypeCasts.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -56,7 +59,7 @@ public:
 
     Type type() const { return m_type; }
 
-    static Optional<Type> parseEntryTypeString(const String& entryType);
+    static std::optional<Type> parseEntryTypeString(const String& entryType);
 
     bool isResource() const { return m_type == Type::Resource; }
     bool isMark() const { return m_type == Type::Mark; }
@@ -79,3 +82,5 @@ private:
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_TIMING)

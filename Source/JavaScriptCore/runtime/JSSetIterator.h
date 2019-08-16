@@ -31,11 +31,10 @@
 
 namespace JSC {
 
-// Now, it is only used for serialization.
-class JSSetIterator final : public JSCell {
+class JSSetIterator : public JSNonFinalObject {
     typedef HashMapBucket<HashMapBucketDataKey> HashMapBucketType;
 public:
-    using Base = JSCell;
+    typedef JSNonFinalObject Base;
 
     DECLARE_EXPORT_INFO;
 
@@ -56,15 +55,14 @@ public:
         HashMapBucketType* prev = m_iter.get();
         if (!prev)
             return nullptr;
-        VM& vm = exec->vm();
         HashMapBucketType* bucket = m_iter->next();
         while (bucket && bucket->deleted())
             bucket = bucket->next();
         if (!bucket) {
-            setIterator(vm, nullptr);
+            setIterator(exec->vm(), nullptr);
             return nullptr;
         }
-        setIterator(vm, bucket); // We keep m_iter on the last value since the first thing we do in this function is call next().
+        setIterator(exec->vm(), bucket); // We keep m_iter on the last value since the first thing we do in this function is call next().
         return bucket;
     }
 
@@ -83,6 +81,7 @@ public:
 
     IterationKind kind() const { return m_kind; }
     JSValue iteratedValue() const { return m_set.get(); }
+    JSSetIterator* clone(ExecState*);
 
 private:
     JSSetIterator(VM& vm, Structure* structure, JSSet*, IterationKind kind)

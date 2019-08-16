@@ -32,11 +32,6 @@
 
 namespace WebCore {
 
-ContentType::ContentType(String&& contentType)
-    : m_type(WTFMove(contentType))
-{
-}
-
 ContentType::ContentType(const String& contentType)
     : m_type(contentType)
 {
@@ -44,13 +39,13 @@ ContentType::ContentType(const String& contentType)
 
 const String& ContentType::codecsParameter()
 {
-    static NeverDestroyed<String> codecs { "codecs"_s };
+    static NeverDestroyed<String> codecs { ASCIILiteral("codecs") };
     return codecs;
 }
 
 const String& ContentType::profilesParameter()
 {
-    static NeverDestroyed<String> profiles { "profiles"_s };
+    static NeverDestroyed<String> profiles { ASCIILiteral("profiles") };
     return profiles;
 }
 
@@ -62,7 +57,7 @@ String ContentType::parameter(const String& parameterName) const
     // a MIME type can have one or more "param=value" after a semi-colon, and separated from each other by semi-colons
     size_t semi = strippedType.find(';');
     if (semi != notFound) {
-        size_t start = strippedType.findIgnoringASCIICase(parameterName, semi + 1);
+        size_t start = strippedType.find(parameterName, semi + 1, false);
         if (start != notFound) {
             start = strippedType.find('=', start + parameterName.length());
             if (start != notFound) {
@@ -95,22 +90,19 @@ String ContentType::containerType() const
     return strippedType;
 }
 
-static inline Vector<String> splitParameters(StringView parametersView)
+static String stripHTMLWhiteSpace(const String& string)
 {
-    Vector<String> result;
-    for (auto view : parametersView.split(','))
-        result.append(view.stripLeadingAndTrailingMatchedCharacters(isHTMLSpace<UChar>).toString());
-    return result;
+    return string.stripWhiteSpace(isHTMLSpace);
 }
 
 Vector<String> ContentType::codecs() const
 {
-    return splitParameters(parameter(codecsParameter()));
+    return parameter(codecsParameter()).split(',').map(stripHTMLWhiteSpace);
 }
 
 Vector<String> ContentType::profiles() const
 {
-    return splitParameters(parameter(profilesParameter()));
+    return parameter(profilesParameter()).split(',').map(stripHTMLWhiteSpace);
 }
 
 } // namespace WebCore

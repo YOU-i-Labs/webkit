@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc.  All rights reserved.
+ * Copyright (C) 2016-2017 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,15 +27,10 @@
 #include "ResourceLoadStatistics.h"
 
 #include "KeyedCoding.h"
-#include "PublicSuffix.h"
-#include <wtf/MainThread.h>
-#include <wtf/text/ASCIILiteral.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
-
-static Seconds timestampResolution { 5_s };
 
 typedef WTF::HashMap<String, unsigned, StringHash, HashTraits<String>, HashTraits<unsigned>>::KeyValuePairType ResourceLoadStatisticsValue;
 
@@ -50,90 +45,45 @@ static void encodeHashCountedSet(KeyedEncoder& encoder, const String& label, con
     });
 }
 
-static void encodeHashSet(KeyedEncoder& encoder, const String& label,  const String& key, const HashSet<String>& hashSet)
-{
-    if (hashSet.isEmpty())
-        return;
-    
-    encoder.encodeObjects(label, hashSet.begin(), hashSet.end(), [&key](KeyedEncoder& encoderInner, const String& origin) {
-        encoderInner.encodeString(key, origin);
-    });
-}
-
-static void encodeOriginHashSet(KeyedEncoder& encoder, const String& label, const HashSet<String>& hashSet)
-{
-    encodeHashSet(encoder, label, "origin", hashSet);
-}
-
-template<typename T>
-static void encodeOptionSet(KeyedEncoder& encoder, const String& label, const OptionSet<T>& optionSet)
-{
-    if (optionSet.isEmpty())
-        return;
-    
-    uint64_t optionSetBitMask = optionSet.toRaw();
-    encoder.encodeUInt64(label, optionSetBitMask);
-}
-
-#if ENABLE(WEB_API_STATISTICS)
-static void encodeFontHashSet(KeyedEncoder& encoder, const String& label, const HashSet<String>& hashSet)
-{
-    encodeHashSet(encoder, label, "font", hashSet);
-}
-    
-static void encodeCanvasActivityRecord(KeyedEncoder& encoder, const String& label, const CanvasActivityRecord& canvasActivityRecord)
-{
-    encoder.encodeObject(label, canvasActivityRecord, [] (KeyedEncoder& encoderInner, const CanvasActivityRecord& canvasActivityRecord) {
-        encoderInner.encodeBool("wasDataRead", canvasActivityRecord.wasDataRead);
-        encoderInner.encodeObjects("textWritten", canvasActivityRecord.textWritten.begin(), canvasActivityRecord.textWritten.end(), [] (KeyedEncoder& encoderInner2, const String& text) {
-            encoderInner2.encodeString("text", text);
-        });
-    });
-}
-#endif
-
 void ResourceLoadStatistics::encode(KeyedEncoder& encoder) const
 {
     encoder.encodeString("PrevalentResourceOrigin", highLevelDomain);
     
-    encoder.encodeDouble("lastSeen", lastSeen.secondsSinceEpoch().value());
-    
     // User interaction
     encoder.encodeBool("hadUserInteraction", hadUserInteraction);
-    encoder.encodeDouble("mostRecentUserInteraction", mostRecentUserInteractionTime.secondsSinceEpoch().value());
+    encoder.encodeDouble("mostRecentUserInteraction", mostRecentUserInteraction);
     encoder.encodeBool("grandfathered", grandfathered);
-
-    // Storage access
-    encodeOriginHashSet(encoder, "storageAccessUnderTopFrameOrigins", storageAccessUnderTopFrameOrigins);
-
+    
     // Top frame stats
-    encodeHashCountedSet(encoder, "topFrameUniqueRedirectsTo", topFrameUniqueRedirectsTo);
-    encodeHashCountedSet(encoder, "topFrameUniqueRedirectsFrom", topFrameUniqueRedirectsFrom);
-
+    encoder.encodeBool("topFrameHasBeenNavigatedToBefore", topFrameHasBeenNavigatedToBefore);
+    encoder.encodeUInt32("topFrameHasBeenRedirectedTo", topFrameHasBeenRedirectedTo);
+    encoder.encodeUInt32("topFrameHasBeenRedirectedFrom", topFrameHasBeenRedirectedFrom);
+    encoder.encodeUInt32("topFrameInitialLoadCount", topFrameInitialLoadCount);
+    encoder.encodeUInt32("topFrameHasBeenNavigatedTo", topFrameHasBeenNavigatedTo);
+    encoder.encodeUInt32("topFrameHasBeenNavigatedFrom", topFrameHasBeenNavigatedFrom);
+    
     // Subframe stats
+    encoder.encodeBool("subframeHasBeenLoadedBefore", subframeHasBeenLoadedBefore);
+    encoder.encodeUInt32("subframeHasBeenRedirectedTo", subframeHasBeenRedirectedTo);
+    encoder.encodeUInt32("subframeHasBeenRedirectedFrom", subframeHasBeenRedirectedFrom);
+    encoder.encodeUInt32("subframeSubResourceCount", subframeSubResourceCount);
     encodeHashCountedSet(encoder, "subframeUnderTopFrameOrigins", subframeUnderTopFrameOrigins);
+    encodeHashCountedSet(encoder, "subframeUniqueRedirectsTo", subframeUniqueRedirectsTo);
+    encoder.encodeUInt32("subframeHasBeenNavigatedTo", subframeHasBeenNavigatedTo);
+    encoder.encodeUInt32("subframeHasBeenNavigatedFrom", subframeHasBeenNavigatedFrom);
     
     // Subresource stats
+    encoder.encodeUInt32("subresourceHasBeenRedirectedFrom", subresourceHasBeenRedirectedFrom);
+    encoder.encodeUInt32("subresourceHasBeenRedirectedTo", subresourceHasBeenRedirectedTo);
+    encoder.encodeUInt32("subresourceHasBeenSubresourceCount", subresourceHasBeenSubresourceCount);
+    encoder.encodeDouble("subresourceHasBeenSubresourceCountDividedByTotalNumberOfOriginsVisited", subresourceHasBeenSubresourceCountDividedByTotalNumberOfOriginsVisited);
     encodeHashCountedSet(encoder, "subresourceUnderTopFrameOrigins", subresourceUnderTopFrameOrigins);
     encodeHashCountedSet(encoder, "subresourceUniqueRedirectsTo", subresourceUniqueRedirectsTo);
-    encodeHashCountedSet(encoder, "subresourceUniqueRedirectsFrom", subresourceUniqueRedirectsFrom);
-
+    
     // Prevalent Resource
+    encodeHashCountedSet(encoder, "redirectedToOtherPrevalentResourceOrigins", redirectedToOtherPrevalentResourceOrigins);
     encoder.encodeBool("isPrevalentResource", isPrevalentResource);
-    encoder.encodeBool("isVeryPrevalentResource", isVeryPrevalentResource);
     encoder.encodeUInt32("dataRecordsRemoved", dataRecordsRemoved);
-
-    encoder.encodeUInt32("timesAccessedAsFirstPartyDueToUserInteraction", timesAccessedAsFirstPartyDueToUserInteraction);
-    encoder.encodeUInt32("timesAccessedAsFirstPartyDueToStorageAccessAPI", timesAccessedAsFirstPartyDueToStorageAccessAPI);
-
-#if ENABLE(WEB_API_STATISTICS)
-    encodeFontHashSet(encoder, "fontsFailedToLoad", fontsFailedToLoad);
-    encodeFontHashSet(encoder, "fontsSuccessfullyLoaded", fontsSuccessfullyLoaded);
-    encodeHashCountedSet(encoder, "topFrameRegistrableDomainsWhichAccessedWebAPIs", topFrameRegistrableDomainsWhichAccessedWebAPIs);
-    encodeCanvasActivityRecord(encoder, "canvasActivityRecord", canvasActivityRecord);
-    encodeOptionSet(encoder, "navigatorFunctionsAccessedBitMask", navigatorFunctionsAccessed);
-    encodeOptionSet(encoder, "screenFunctionsAccessedBitMask", screenFunctionsAccessed);
-#endif
 }
 
 static void decodeHashCountedSet(KeyedDecoder& decoder, const String& label, HashCountedSet<String>& hashCountedSet)
@@ -152,55 +102,7 @@ static void decodeHashCountedSet(KeyedDecoder& decoder, const String& label, Has
     });
 }
 
-static void decodeHashSet(KeyedDecoder& decoder, const String& label, const String& key, HashSet<String>& hashSet)
-{
-    Vector<String> ignore;
-    decoder.decodeObjects(label, ignore, [&hashSet, &key](KeyedDecoder& decoderInner, String& origin) {
-        if (!decoderInner.decodeString(key, origin))
-            return false;
-        
-        hashSet.add(origin);
-        return true;
-    });
-}
-
-static void decodeOriginHashSet(KeyedDecoder& decoder, const String& label, HashSet<String>& hashSet)
-{
-    decodeHashSet(decoder, label, "origin", hashSet);
-}
-
-template<typename T>
-static void decodeOptionSet(KeyedDecoder& decoder, const String& label, OptionSet<T>& optionSet)
-{
-    uint64_t optionSetBitMask = 0;
-    decoder.decodeUInt64(label, optionSetBitMask);
-    optionSet = OptionSet<T>::fromRaw(optionSetBitMask);
-}
-
-#if ENABLE(WEB_API_STATISTICS)
-static void decodeFontHashSet(KeyedDecoder& decoder, const String& label, HashSet<String>& hashSet)
-{
-    decodeHashSet(decoder, label, "font", hashSet);
-}
-    
-static void decodeCanvasActivityRecord(KeyedDecoder& decoder, const String& label, CanvasActivityRecord& canvasActivityRecord)
-{
-    decoder.decodeObject(label, canvasActivityRecord, [] (KeyedDecoder& decoderInner, CanvasActivityRecord& canvasActivityRecord) {
-        if (!decoderInner.decodeBool("wasDataRead", canvasActivityRecord.wasDataRead))
-            return false;
-        Vector<String> ignore;
-        decoderInner.decodeObjects("textWritten", ignore, [&canvasActivityRecord] (KeyedDecoder& decoderInner2, String& text) {
-            if (!decoderInner2.decodeString("text", text))
-                return false;
-            canvasActivityRecord.textWritten.add(text);
-            return true;
-        });
-        return true;
-    });
-}
-#endif
-
-bool ResourceLoadStatistics::decode(KeyedDecoder& decoder, unsigned modelVersion)
+bool ResourceLoadStatistics::decode(KeyedDecoder& decoder, unsigned version)
 {
     if (!decoder.decodeString("PrevalentResourceOrigin", highLevelDomain))
         return false;
@@ -208,74 +110,84 @@ bool ResourceLoadStatistics::decode(KeyedDecoder& decoder, unsigned modelVersion
     // User interaction
     if (!decoder.decodeBool("hadUserInteraction", hadUserInteraction))
         return false;
-
-    // Storage access
-    decodeOriginHashSet(decoder, "storageAccessUnderTopFrameOrigins", storageAccessUnderTopFrameOrigins);
-
+    
     // Top frame stats
-    if (modelVersion >= 11) {
-        decodeHashCountedSet(decoder, "topFrameUniqueRedirectsTo", topFrameUniqueRedirectsTo);
-        decodeHashCountedSet(decoder, "topFrameUniqueRedirectsFrom", topFrameUniqueRedirectsFrom);
-    }
-
+    if (!decoder.decodeBool("topFrameHasBeenNavigatedToBefore", topFrameHasBeenNavigatedToBefore))
+        return false;
+    
+    if (!decoder.decodeUInt32("topFrameHasBeenRedirectedTo", topFrameHasBeenRedirectedTo))
+        return false;
+    
+    if (!decoder.decodeUInt32("topFrameHasBeenRedirectedFrom", topFrameHasBeenRedirectedFrom))
+        return false;
+    
+    if (!decoder.decodeUInt32("topFrameInitialLoadCount", topFrameInitialLoadCount))
+        return false;
+    
+    if (!decoder.decodeUInt32("topFrameHasBeenNavigatedTo", topFrameHasBeenNavigatedTo))
+        return false;
+    
+    if (!decoder.decodeUInt32("topFrameHasBeenNavigatedFrom", topFrameHasBeenNavigatedFrom))
+        return false;
+    
     // Subframe stats
-    if (modelVersion >= 14)
-        decodeHashCountedSet(decoder, "subframeUnderTopFrameOrigins", subframeUnderTopFrameOrigins);
+    if (!decoder.decodeBool("subframeHasBeenLoadedBefore", subframeHasBeenLoadedBefore))
+        return false;
+    
+    if (!decoder.decodeUInt32("subframeHasBeenRedirectedTo", subframeHasBeenRedirectedTo))
+        return false;
+    
+    if (!decoder.decodeUInt32("subframeHasBeenRedirectedFrom", subframeHasBeenRedirectedFrom))
+        return false;
+    
+    if (!decoder.decodeUInt32("subframeSubResourceCount", subframeSubResourceCount))
+        return false;
 
+    decodeHashCountedSet(decoder, "subframeUnderTopFrameOrigins", subframeUnderTopFrameOrigins);
+    decodeHashCountedSet(decoder, "subframeUniqueRedirectsTo", subframeUniqueRedirectsTo);
+    
+    if (!decoder.decodeUInt32("subframeHasBeenNavigatedTo", subframeHasBeenNavigatedTo))
+        return false;
+    
+    if (!decoder.decodeUInt32("subframeHasBeenNavigatedFrom", subframeHasBeenNavigatedFrom))
+        return false;
+    
     // Subresource stats
+    if (!decoder.decodeUInt32("subresourceHasBeenRedirectedFrom", subresourceHasBeenRedirectedFrom))
+        return false;
+    
+    if (!decoder.decodeUInt32("subresourceHasBeenRedirectedTo", subresourceHasBeenRedirectedTo))
+        return false;
+    
+    if (!decoder.decodeUInt32("subresourceHasBeenSubresourceCount", subresourceHasBeenSubresourceCount))
+        return false;
+    
+    if (!decoder.decodeDouble("subresourceHasBeenSubresourceCountDividedByTotalNumberOfOriginsVisited", subresourceHasBeenSubresourceCountDividedByTotalNumberOfOriginsVisited))
+        return false;
+
     decodeHashCountedSet(decoder, "subresourceUnderTopFrameOrigins", subresourceUnderTopFrameOrigins);
     decodeHashCountedSet(decoder, "subresourceUniqueRedirectsTo", subresourceUniqueRedirectsTo);
-    if (modelVersion >= 11)
-        decodeHashCountedSet(decoder, "subresourceUniqueRedirectsFrom", subresourceUniqueRedirectsFrom);
-
+    
     // Prevalent Resource
+    decodeHashCountedSet(decoder, "redirectedToOtherPrevalentResourceOrigins", redirectedToOtherPrevalentResourceOrigins);
+    
     if (!decoder.decodeBool("isPrevalentResource", isPrevalentResource))
         return false;
 
-    if (modelVersion >= 12) {
-        if (!decoder.decodeBool("isVeryPrevalentResource", isVeryPrevalentResource))
-            return false;
-    }
-
-    // Trigger re-classification based on model 14.
-    if (modelVersion < 14) {
-        isPrevalentResource = false;
-        isVeryPrevalentResource = false;
-    }
+    if (version < 2)
+        return true;
 
     if (!decoder.decodeUInt32("dataRecordsRemoved", dataRecordsRemoved))
         return false;
 
-    double mostRecentUserInteractionTimeAsDouble;
-    if (!decoder.decodeDouble("mostRecentUserInteraction", mostRecentUserInteractionTimeAsDouble))
+    if (version < 3)
+        return true;
+
+    if (!decoder.decodeDouble("mostRecentUserInteraction", mostRecentUserInteraction))
         return false;
-    mostRecentUserInteractionTime = WallTime::fromRawSeconds(mostRecentUserInteractionTimeAsDouble);
 
     if (!decoder.decodeBool("grandfathered", grandfathered))
         return false;
-
-    double lastSeenTimeAsDouble;
-    if (!decoder.decodeDouble("lastSeen", lastSeenTimeAsDouble))
-        return false;
-    lastSeen = WallTime::fromRawSeconds(lastSeenTimeAsDouble);
-
-    if (modelVersion >= 11) {
-        if (!decoder.decodeUInt32("timesAccessedAsFirstPartyDueToUserInteraction", timesAccessedAsFirstPartyDueToUserInteraction))
-            timesAccessedAsFirstPartyDueToUserInteraction = 0;
-        if (!decoder.decodeUInt32("timesAccessedAsFirstPartyDueToStorageAccessAPI", timesAccessedAsFirstPartyDueToStorageAccessAPI))
-            timesAccessedAsFirstPartyDueToStorageAccessAPI = 0;
-    }
-
-#if ENABLE(WEB_API_STATISTICS)
-    if (modelVersion >= 13) {
-        decodeFontHashSet(decoder, "fontsFailedToLoad", fontsFailedToLoad);
-        decodeFontHashSet(decoder, "fontsSuccessfullyLoaded", fontsSuccessfullyLoaded);
-        decodeHashCountedSet(decoder, "topFrameRegistrableDomainsWhichAccessedWebAPIs", topFrameRegistrableDomainsWhichAccessedWebAPIs);
-        decodeCanvasActivityRecord(decoder, "canvasActivityRecord", canvasActivityRecord);
-        decodeOptionSet(decoder, "navigatorFunctionsAccessedBitMask", navigatorFunctionsAccessed);
-        decodeOptionSet(decoder, "screenFunctionsAccessedBitMask", screenFunctionsAccessed);
-    }
-#endif
 
     return true;
 }
@@ -306,146 +218,87 @@ static void appendHashCountedSet(StringBuilder& builder, const String& label, co
     }
 }
 
-static void appendHashSet(StringBuilder& builder, const String& label, const HashSet<String>& hashSet)
-{
-    if (hashSet.isEmpty())
-        return;
-    
-    builder.appendLiteral("    ");
-    builder.append(label);
-    builder.appendLiteral(":\n");
-    
-    for (auto& entry : hashSet) {
-        builder.appendLiteral("        ");
-        builder.append(entry);
-        builder.append('\n');
-    }
-}
-
-#if ENABLE(WEB_API_STATISTICS)
-static ASCIILiteral navigatorAPIEnumToString(ResourceLoadStatistics::NavigatorAPI navigatorEnum)
-{
-    switch (navigatorEnum) {
-    case ResourceLoadStatistics::NavigatorAPI::JavaEnabled:
-        return "javaEnabled"_s;
-    case ResourceLoadStatistics::NavigatorAPI::MimeTypes:
-        return "mimeTypes"_s;
-    case ResourceLoadStatistics::NavigatorAPI::CookieEnabled:
-        return "cookieEnabled"_s;
-    case ResourceLoadStatistics::NavigatorAPI::Plugins:
-        return "plugins"_s;
-    case ResourceLoadStatistics::NavigatorAPI::UserAgent:
-        return "userAgent"_s;
-    case ResourceLoadStatistics::NavigatorAPI::AppVersion:
-        return "appVersion"_s;
-    }
-    ASSERT_NOT_REACHED();
-    return "Invalid navigator API"_s;
-}
-
-static ASCIILiteral screenAPIEnumToString(ResourceLoadStatistics::ScreenAPI screenEnum)
-{
-    switch (screenEnum) {
-    case ResourceLoadStatistics::ScreenAPI::Height:
-        return "height"_s;
-    case ResourceLoadStatistics::ScreenAPI::Width:
-        return "width"_s;
-    case ResourceLoadStatistics::ScreenAPI::ColorDepth:
-        return "colorDepth"_s;
-    case ResourceLoadStatistics::ScreenAPI::PixelDepth:
-        return "pixelDepth"_s;
-    case ResourceLoadStatistics::ScreenAPI::AvailLeft:
-        return "availLeft"_s;
-    case ResourceLoadStatistics::ScreenAPI::AvailTop:
-        return "availTop"_s;
-    case ResourceLoadStatistics::ScreenAPI::AvailHeight:
-        return "availHeight"_s;
-    case ResourceLoadStatistics::ScreenAPI::AvailWidth:
-        return "availWidth"_s;
-    }
-    ASSERT_NOT_REACHED();
-    return "Invalid screen API"_s;
-}
-    
-static void appendNavigatorAPIOptionSet(StringBuilder& builder, const OptionSet<ResourceLoadStatistics::NavigatorAPI>& optionSet)
-{
-    if (optionSet.isEmpty())
-        return;
-    builder.appendLiteral("    navigatorFunctionsAccessed:\n");
-    for (auto navigatorAPI : optionSet) {
-        builder.appendLiteral("        ");
-        builder.append(navigatorAPIEnumToString(navigatorAPI).characters());
-        builder.append('\n');
-    }
-}
-    
-static void appendScreenAPIOptionSet(StringBuilder& builder, const OptionSet<ResourceLoadStatistics::ScreenAPI>& optionSet)
-{
-    if (optionSet.isEmpty())
-        return;
-    builder.appendLiteral("    screenFunctionsAccessed:\n");
-    for (auto screenAPI : optionSet) {
-        builder.appendLiteral("        ");
-        builder.append(screenAPIEnumToString(screenAPI).characters());
-        builder.append('\n');
-    }
-}
-#endif
-
 String ResourceLoadStatistics::toString() const
 {
     StringBuilder builder;
-    builder.appendLiteral("High level domain: ");
-    builder.append(highLevelDomain);
-    builder.append('\n');
-    builder.appendLiteral("    lastSeen: ");
-    builder.appendNumber(lastSeen.secondsSinceEpoch().value());
-    builder.append('\n');
     
     // User interaction
     appendBoolean(builder, "hadUserInteraction", hadUserInteraction);
     builder.append('\n');
     builder.appendLiteral("    mostRecentUserInteraction: ");
-    builder.appendNumber(mostRecentUserInteractionTime.secondsSinceEpoch().value());
+    builder.appendNumber(mostRecentUserInteraction);
     builder.append('\n');
-    appendBoolean(builder, "grandfathered", grandfathered);
+    appendBoolean(builder, "    grandfathered", grandfathered);
     builder.append('\n');
-
-    // Storage access
-    appendHashSet(builder, "storageAccessUnderTopFrameOrigins", storageAccessUnderTopFrameOrigins);
-
+    
     // Top frame stats
-    appendHashCountedSet(builder, "topFrameUniqueRedirectsTo", topFrameUniqueRedirectsTo);
-    appendHashCountedSet(builder, "topFrameUniqueRedirectsFrom", topFrameUniqueRedirectsFrom);
-
+    appendBoolean(builder, "topFrameHasBeenNavigatedToBefore", topFrameHasBeenNavigatedToBefore);
+    builder.append('\n');
+    builder.appendLiteral("    topFrameHasBeenRedirectedTo: ");
+    builder.appendNumber(topFrameHasBeenRedirectedTo);
+    builder.append('\n');
+    builder.appendLiteral("    topFrameHasBeenRedirectedFrom: ");
+    builder.appendNumber(topFrameHasBeenRedirectedFrom);
+    builder.append('\n');
+    builder.appendLiteral("    topFrameInitialLoadCount: ");
+    builder.appendNumber(topFrameInitialLoadCount);
+    builder.append('\n');
+    builder.appendLiteral("    topFrameHasBeenNavigatedTo: ");
+    builder.appendNumber(topFrameHasBeenNavigatedTo);
+    builder.append('\n');
+    builder.appendLiteral("    topFrameHasBeenNavigatedFrom: ");
+    builder.appendNumber(topFrameHasBeenNavigatedFrom);
+    builder.append('\n');
+    
     // Subframe stats
+    appendBoolean(builder, "subframeHasBeenLoadedBefore", subframeHasBeenLoadedBefore);
+    builder.append('\n');
+    builder.appendLiteral("    subframeHasBeenRedirectedTo: ");
+    builder.appendNumber(subframeHasBeenRedirectedTo);
+    builder.append('\n');
+    builder.appendLiteral("    subframeHasBeenRedirectedFrom: ");
+    builder.appendNumber(subframeHasBeenRedirectedFrom);
+    builder.append('\n');
+    builder.appendLiteral("    subframeSubResourceCount: ");
+    builder.appendNumber(subframeSubResourceCount);
+    builder.append('\n');
     appendHashCountedSet(builder, "subframeUnderTopFrameOrigins", subframeUnderTopFrameOrigins);
+    appendHashCountedSet(builder, "subframeUniqueRedirectsTo", subframeUniqueRedirectsTo);
+    builder.appendLiteral("    subframeHasBeenNavigatedTo: ");
+    builder.appendNumber(subframeHasBeenNavigatedTo);
+    builder.append('\n');
+    builder.appendLiteral("    subframeHasBeenNavigatedFrom: ");
+    builder.appendNumber(subframeHasBeenNavigatedFrom);
+    builder.append('\n');
     
     // Subresource stats
+    builder.appendLiteral("    subresourceHasBeenRedirectedFrom: ");
+    builder.appendNumber(subresourceHasBeenRedirectedFrom);
+    builder.append('\n');
+    builder.appendLiteral("    subresourceHasBeenRedirectedTo: ");
+    builder.appendNumber(subresourceHasBeenRedirectedTo);
+    builder.append('\n');
+    builder.appendLiteral("    subresourceHasBeenSubresourceCount: ");
+    builder.appendNumber(subresourceHasBeenSubresourceCount);
+    builder.append('\n');
+    builder.appendLiteral("    subresourceHasBeenSubresourceCountDividedByTotalNumberOfOriginsVisited: ");
+    builder.appendNumber(subresourceHasBeenSubresourceCountDividedByTotalNumberOfOriginsVisited);
+    builder.append('\n');
     appendHashCountedSet(builder, "subresourceUnderTopFrameOrigins", subresourceUnderTopFrameOrigins);
     appendHashCountedSet(builder, "subresourceUniqueRedirectsTo", subresourceUniqueRedirectsTo);
-    appendHashCountedSet(builder, "subresourceUniqueRedirectsFrom", subresourceUniqueRedirectsFrom);
-
+    
     // Prevalent Resource
+    appendHashCountedSet(builder, "redirectedToOtherPrevalentResourceOrigins", redirectedToOtherPrevalentResourceOrigins);
     appendBoolean(builder, "isPrevalentResource", isPrevalentResource);
-    builder.append('\n');
-    appendBoolean(builder, "isVeryPrevalentResource", isVeryPrevalentResource);
-    builder.append('\n');
     builder.appendLiteral("    dataRecordsRemoved: ");
     builder.appendNumber(dataRecordsRemoved);
     builder.append('\n');
 
-#if ENABLE(WEB_API_STATISTICS)
-    appendHashSet(builder, "fontsFailedToLoad", fontsFailedToLoad);
-    appendHashSet(builder, "fontsSuccessfullyLoaded", fontsSuccessfullyLoaded);
-    appendHashCountedSet(builder, "topFrameRegistrableDomainsWhichAccessedWebAPIs", topFrameRegistrableDomainsWhichAccessedWebAPIs);
-    appendNavigatorAPIOptionSet(builder, navigatorFunctionsAccessed);
-    appendScreenAPIOptionSet(builder, screenFunctionsAccessed);
-    appendHashSet(builder, "canvasTextWritten", canvasActivityRecord.textWritten);
-    appendBoolean(builder, "canvasReadData", canvasActivityRecord.wasDataRead);
+    // In-memory only
+    appendBoolean(builder, "isMarkedForCookiePartitioning", isMarkedForCookiePartitioning);
     builder.append('\n');
+
     builder.append('\n');
-#endif
 
     return builder.toString();
 }
@@ -457,88 +310,56 @@ static void mergeHashCountedSet(HashCountedSet<T>& to, const HashCountedSet<T>& 
         to.add(entry.key, entry.value);
 }
 
-template <typename T>
-static void mergeHashSet(HashSet<T>& to, const HashSet<T>& from)
-{
-    for (auto& entry : from)
-        to.add(entry);
-}
-
 void ResourceLoadStatistics::merge(const ResourceLoadStatistics& other)
 {
     ASSERT(other.highLevelDomain == highLevelDomain);
 
-    if (lastSeen < other.lastSeen)
-        lastSeen = other.lastSeen;
-    
     if (!other.hadUserInteraction) {
         // If user interaction has been reset do so here too.
         // Else, do nothing.
-        if (!other.mostRecentUserInteractionTime) {
+        if (!other.mostRecentUserInteraction) {
             hadUserInteraction = false;
-            mostRecentUserInteractionTime = { };
+            mostRecentUserInteraction = 0;
         }
     } else {
         hadUserInteraction = true;
-        if (mostRecentUserInteractionTime < other.mostRecentUserInteractionTime)
-            mostRecentUserInteractionTime = other.mostRecentUserInteractionTime;
+        if (mostRecentUserInteraction < other.mostRecentUserInteraction)
+            mostRecentUserInteraction = other.mostRecentUserInteraction;
     }
     grandfathered |= other.grandfathered;
-
-    // Storage access
-    mergeHashSet(storageAccessUnderTopFrameOrigins, other.storageAccessUnderTopFrameOrigins);
-
+    
     // Top frame stats
-    mergeHashCountedSet(topFrameUniqueRedirectsTo, other.topFrameUniqueRedirectsTo);
-    mergeHashCountedSet(topFrameUniqueRedirectsFrom, other.topFrameUniqueRedirectsFrom);
-
+    topFrameHasBeenRedirectedTo += other.topFrameHasBeenRedirectedTo;
+    topFrameHasBeenRedirectedFrom += other.topFrameHasBeenRedirectedFrom;
+    topFrameInitialLoadCount += other.topFrameInitialLoadCount;
+    topFrameHasBeenNavigatedTo += other.topFrameHasBeenNavigatedTo;
+    topFrameHasBeenNavigatedFrom += other.topFrameHasBeenNavigatedFrom;
+    topFrameHasBeenNavigatedToBefore |= other.topFrameHasBeenNavigatedToBefore;
+    
     // Subframe stats
     mergeHashCountedSet(subframeUnderTopFrameOrigins, other.subframeUnderTopFrameOrigins);
+    subframeHasBeenRedirectedTo += other.subframeHasBeenRedirectedTo;
+    subframeHasBeenRedirectedFrom += other.subframeHasBeenRedirectedFrom;
+    mergeHashCountedSet(subframeUniqueRedirectsTo, other.subframeUniqueRedirectsTo);
+    subframeSubResourceCount += other.subframeSubResourceCount;
+    subframeHasBeenNavigatedTo += other.subframeHasBeenNavigatedTo;
+    subframeHasBeenNavigatedFrom += other.subframeHasBeenNavigatedFrom;
+    subframeHasBeenLoadedBefore |= other.subframeHasBeenLoadedBefore;
     
     // Subresource stats
     mergeHashCountedSet(subresourceUnderTopFrameOrigins, other.subresourceUnderTopFrameOrigins);
+    subresourceHasBeenSubresourceCount += other.subresourceHasBeenSubresourceCount;
+    subresourceHasBeenRedirectedFrom += other.subresourceHasBeenRedirectedFrom;
+    subresourceHasBeenRedirectedTo += other.subresourceHasBeenRedirectedTo;
     mergeHashCountedSet(subresourceUniqueRedirectsTo, other.subresourceUniqueRedirectsTo);
-    mergeHashCountedSet(subresourceUniqueRedirectsFrom, other.subresourceUniqueRedirectsFrom);
-
-    // Prevalent resource stats
-    isPrevalentResource |= other.isPrevalentResource;
-    isVeryPrevalentResource |= other.isVeryPrevalentResource;
-    dataRecordsRemoved = std::max(dataRecordsRemoved, other.dataRecordsRemoved);
     
-#if ENABLE(WEB_API_STATISTICS)
-    mergeHashSet(fontsFailedToLoad, other.fontsFailedToLoad);
-    mergeHashSet(fontsSuccessfullyLoaded, other.fontsSuccessfullyLoaded);
-    mergeHashCountedSet(topFrameRegistrableDomainsWhichAccessedWebAPIs, other.topFrameRegistrableDomainsWhichAccessedWebAPIs);
-    canvasActivityRecord.mergeWith(other.canvasActivityRecord);
-    navigatorFunctionsAccessed.add(other.navigatorFunctionsAccessed);
-    screenFunctionsAccessed.add(other.screenFunctionsAccessed);
-#endif
-}
-
-String ResourceLoadStatistics::primaryDomain(const URL& url)
-{
-    return primaryDomain(url.host());
-}
-
-String ResourceLoadStatistics::primaryDomain(StringView host)
-{
-    if (host.isNull() || host.isEmpty())
-        return "nullOrigin"_s;
-
-    String hostString = host.toString();
-#if ENABLE(PUBLIC_SUFFIX_LIST)
-    String primaryDomain = topPrivatelyControlledDomain(hostString);
-    // We will have an empty string here if there is no TLD. Use the host as a fallback.
-    if (!primaryDomain.isEmpty())
-        return primaryDomain;
-#endif
-
-    return hostString;
-}
-
-WallTime ResourceLoadStatistics::reduceTimeResolution(WallTime time)
-{
-    return WallTime::fromRawSeconds(std::floor(time.secondsSinceEpoch() / timestampResolution) * timestampResolution.seconds());
+    // Prevalent resource stats
+    mergeHashCountedSet(redirectedToOtherPrevalentResourceOrigins, other.redirectedToOtherPrevalentResourceOrigins);
+    isPrevalentResource |= other.isPrevalentResource;
+    dataRecordsRemoved += other.dataRecordsRemoved;
+    
+    // In-memory only
+    isMarkedForCookiePartitioning |= other.isMarkedForCookiePartitioning;
 }
 
 }

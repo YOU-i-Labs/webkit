@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.HeapAllocationsTimelineOverviewGraph = class HeapAllocationsTimelineOverviewGraph extends WI.TimelineOverviewGraph
+WebInspector.HeapAllocationsTimelineOverviewGraph = class HeapAllocationsTimelineOverviewGraph extends WebInspector.TimelineOverviewGraph
 {
     constructor(timeline, timelineOverview)
     {
@@ -32,7 +32,7 @@ WI.HeapAllocationsTimelineOverviewGraph = class HeapAllocationsTimelineOverviewG
         this.element.classList.add("heap-allocations");
 
         this._heapAllocationsTimeline = timeline;
-        this._heapAllocationsTimeline.addEventListener(WI.Timeline.Event.RecordAdded, this._heapAllocationTimelineRecordAdded, this);
+        this._heapAllocationsTimeline.addEventListener(WebInspector.Timeline.Event.RecordAdded, this._heapAllocationTimelineRecordAdded, this);
 
         this._selectedImageElement = null;
 
@@ -78,9 +78,9 @@ WI.HeapAllocationsTimelineOverviewGraph = class HeapAllocationsTimelineOverviewG
             if (x <= 1)
                 x = 1;
 
-            let imageElement = record[WI.HeapAllocationsTimelineOverviewGraph.RecordElementAssociationSymbol];
+            let imageElement = record[WebInspector.HeapAllocationsTimelineOverviewGraph.RecordElementAssociationSymbol];
             if (!imageElement) {
-                imageElement = record[WI.HeapAllocationsTimelineOverviewGraph.RecordElementAssociationSymbol] = document.createElement("img");
+                imageElement = record[WebInspector.HeapAllocationsTimelineOverviewGraph.RecordElementAssociationSymbol] = document.createElement("img");
                 imageElement.classList.add("snapshot");
                 imageElement.addEventListener("click", () => {
                     if (record.heapSnapshot.invalid)
@@ -89,7 +89,7 @@ WI.HeapAllocationsTimelineOverviewGraph = class HeapAllocationsTimelineOverviewG
                 });
             }
 
-            imageElement.style.setProperty(WI.resolvedLayoutDirection() === WI.LayoutDirection.RTL ? "right" : "left", `${x}px`);
+            imageElement.style.setProperty(WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.RTL ? "right" : "left", `${x}px`);
 
             if (record.heapSnapshot.invalid)
                 imageElement.classList.add("invalid");
@@ -117,7 +117,7 @@ WI.HeapAllocationsTimelineOverviewGraph = class HeapAllocationsTimelineOverviewG
             return;
         }
 
-        let imageElement = this.selectedRecord[WI.HeapAllocationsTimelineOverviewGraph.RecordElementAssociationSymbol];
+        let imageElement = this.selectedRecord[WebInspector.HeapAllocationsTimelineOverviewGraph.RecordElementAssociationSymbol];
         if (!imageElement)
             return;
 
@@ -132,4 +132,4 @@ WI.HeapAllocationsTimelineOverviewGraph = class HeapAllocationsTimelineOverviewG
     }
 };
 
-WI.HeapAllocationsTimelineOverviewGraph.RecordElementAssociationSymbol = Symbol("record-element-association");
+WebInspector.HeapAllocationsTimelineOverviewGraph.RecordElementAssociationSymbol = Symbol("record-element-association");

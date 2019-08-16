@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #pragma once
 
 #include "ConcurrentJSLock.h"
+#include "JSArray.h"
 #include "Structure.h"
 #include <wtf/SegmentedVector.h>
 
@@ -35,33 +36,22 @@ class CodeBlock;
 class LLIntOffsetsExtractor;
 
 // This is a bitfield where each bit represents an type of array access that we have seen.
-// There are 19 indexing types that use the lower bits.
+// There are 16 indexing types that use the lower bits.
 // There are 9 typed array types taking the bits 16 to 25.
 typedef unsigned ArrayModes;
-
-// The possible IndexingTypes are limited within (0 - 16, 21, 23, 25).
-// This is because CoW types only appear for JSArrays.
-static_assert(CopyOnWriteArrayWithInt32 == 21, "");
-static_assert(CopyOnWriteArrayWithDouble == 23, "");
-static_assert(CopyOnWriteArrayWithContiguous == 25, "");
-const ArrayModes CopyOnWriteArrayWithInt32ArrayMode = 1 << CopyOnWriteArrayWithInt32;
-const ArrayModes CopyOnWriteArrayWithDoubleArrayMode = 1 << CopyOnWriteArrayWithDouble;
-const ArrayModes CopyOnWriteArrayWithContiguousArrayMode = 1 << CopyOnWriteArrayWithContiguous;
 
 const ArrayModes Int8ArrayMode = 1 << 16;
 const ArrayModes Int16ArrayMode = 1 << 17;
 const ArrayModes Int32ArrayMode = 1 << 18;
 const ArrayModes Uint8ArrayMode = 1 << 19;
-const ArrayModes Uint8ClampedArrayMode = 1 << 20; // 21 - 25 are used for CoW arrays.
-const ArrayModes Uint16ArrayMode = 1 << 26;
-const ArrayModes Uint32ArrayMode = 1 << 27;
-const ArrayModes Float32ArrayMode = 1 << 28;
-const ArrayModes Float64ArrayMode = 1 << 29;
+const ArrayModes Uint8ClampedArrayMode = 1 << 20;
+const ArrayModes Uint16ArrayMode = 1 << 21;
+const ArrayModes Uint32ArrayMode = 1 << 22;
+const ArrayModes Float32ArrayMode = 1 << 23;
+const ArrayModes Float64ArrayMode = 1 << 24;
 
-constexpr ArrayModes asArrayModes(IndexingType indexingMode)
-{
-    return static_cast<unsigned>(1) << static_cast<unsigned>(indexingMode);
-}
+#define asArrayModes(type) \
+    (static_cast<unsigned>(1) << static_cast<unsigned>(type))
 
 #define ALL_TYPED_ARRAY_MODES \
     (Int8ArrayMode            \
@@ -84,12 +74,7 @@ constexpr ArrayModes asArrayModes(IndexingType indexingMode)
     | asArrayModes(NonArrayWithSlowPutArrayStorage)     \
     | ALL_TYPED_ARRAY_MODES)
 
-#define ALL_COPY_ON_WRITE_ARRAY_MODES                   \
-    (CopyOnWriteArrayWithInt32ArrayMode                 \
-    | CopyOnWriteArrayWithDoubleArrayMode               \
-    | CopyOnWriteArrayWithContiguousArrayMode)
-
-#define ALL_WRITABLE_ARRAY_ARRAY_MODES                  \
+#define ALL_ARRAY_ARRAY_MODES                           \
     (asArrayModes(ArrayClass)                           \
     | asArrayModes(ArrayWithUndecided)                  \
     | asArrayModes(ArrayWithInt32)                      \
@@ -97,10 +82,6 @@ constexpr ArrayModes asArrayModes(IndexingType indexingMode)
     | asArrayModes(ArrayWithContiguous)                 \
     | asArrayModes(ArrayWithArrayStorage)               \
     | asArrayModes(ArrayWithSlowPutArrayStorage))
-
-#define ALL_ARRAY_ARRAY_MODES                           \
-    (ALL_WRITABLE_ARRAY_ARRAY_MODES                     \
-    | ALL_COPY_ON_WRITE_ARRAY_MODES)
 
 #define ALL_ARRAY_MODES (ALL_NON_ARRAY_ARRAY_MODES | ALL_ARRAY_ARRAY_MODES)
 
@@ -129,8 +110,7 @@ inline ArrayModes arrayModeFromStructure(Structure* structure)
     case NotTypedArray:
         break;
     }
-
-    return asArrayModes(structure->indexingMode());
+    return asArrayModes(structure->indexingType());
 }
 
 void dumpArrayModes(PrintStream&, ArrayModes);
@@ -158,10 +138,7 @@ inline bool arrayModesAlreadyChecked(ArrayModes proven, ArrayModes expected)
 
 inline bool arrayModesInclude(ArrayModes arrayModes, IndexingType shape)
 {
-    ArrayModes modes = asArrayModes(NonArray | shape) | asArrayModes(ArrayClass | shape);
-    if (hasInt32(shape) || hasDouble(shape) || hasContiguous(shape))
-        modes |= asArrayModes(ArrayClass | shape | CopyOnWrite);
-    return !!(arrayModes & modes);
+    return !!(arrayModes & (asArrayModes(NonArray | shape) | asArrayModes(ArrayClass | shape)));
 }
 
 inline bool shouldUseSlowPutArrayStorage(ArrayModes arrayModes)
@@ -199,30 +176,29 @@ inline bool hasSeenNonArray(ArrayModes arrayModes)
     return arrayModes & ALL_NON_ARRAY_ARRAY_MODES;
 }
 
-inline bool hasSeenWritableArray(ArrayModes arrayModes)
-{
-    return arrayModes & ALL_WRITABLE_ARRAY_ARRAY_MODES;
-}
-
-inline bool hasSeenCopyOnWriteArray(ArrayModes arrayModes)
-{
-    return arrayModes & ALL_COPY_ON_WRITE_ARRAY_MODES;
-}
-
 class ArrayProfile {
-    friend class CodeBlock;
-
 public:
     ArrayProfile()
-        : ArrayProfile(std::numeric_limits<unsigned>::max())
-    {
-    }
-    
-    explicit ArrayProfile(unsigned bytecodeOffset)
-        : m_bytecodeOffset(bytecodeOffset)
+        : m_bytecodeOffset(std::numeric_limits<unsigned>::max())
+        , m_lastSeenStructureID(0)
+        , m_mayStoreToHole(false)
+        , m_outOfBounds(false)
         , m_mayInterceptIndexedAccesses(false)
         , m_usesOriginalArrayStructures(true)
         , m_didPerformFirstRunPruning(false)
+        , m_observedArrayModes(0)
+    {
+    }
+    
+    ArrayProfile(unsigned bytecodeOffset)
+        : m_bytecodeOffset(bytecodeOffset)
+        , m_lastSeenStructureID(0)
+        , m_mayStoreToHole(false)
+        , m_outOfBounds(false)
+        , m_mayInterceptIndexedAccesses(false)
+        , m_usesOriginalArrayStructures(true)
+        , m_didPerformFirstRunPruning(false)
+        , m_observedArrayModes(0)
     {
     }
     
@@ -239,13 +215,10 @@ public:
     {
         m_lastSeenStructureID = structure->id();
     }
-
+    
     void computeUpdatedPrediction(const ConcurrentJSLocker&, CodeBlock*);
     void computeUpdatedPrediction(const ConcurrentJSLocker&, CodeBlock*, Structure* lastSeenStructure);
     
-    void observeArrayMode(ArrayModes mode) { m_observedArrayModes |= mode; }
-    void observeIndexedRead(VM&, JSCell*, unsigned index);
-
     ArrayModes observedArrayModes(const ConcurrentJSLocker&) const { return m_observedArrayModes; }
     bool mayInterceptIndexedAccesses(const ConcurrentJSLocker&) const { return m_mayInterceptIndexedAccesses; }
     
@@ -253,32 +226,23 @@ public:
     bool outOfBounds(const ConcurrentJSLocker&) const { return m_outOfBounds; }
     
     bool usesOriginalArrayStructures(const ConcurrentJSLocker&) const { return m_usesOriginalArrayStructures; }
-
+    
     CString briefDescription(const ConcurrentJSLocker&, CodeBlock*);
     CString briefDescriptionWithoutUpdating(const ConcurrentJSLocker&);
     
-#if !ASSERT_DISABLED
-    inline bool isValid() const { return m_typeName == s_typeName; }
-#endif
-
 private:
     friend class LLIntOffsetsExtractor;
     
     static Structure* polymorphicStructure() { return static_cast<Structure*>(reinterpret_cast<void*>(1)); }
     
     unsigned m_bytecodeOffset;
-    StructureID m_lastSeenStructureID { 0 };
-    bool m_mayStoreToHole { false }; // This flag may become overloaded to indicate other special cases that were encountered during array access, as it depends on indexing type. Since we currently have basically just one indexing type (two variants of ArrayStorage), this flag for now just means exactly what its name implies.
-    bool m_outOfBounds { false };
+    StructureID m_lastSeenStructureID;
+    bool m_mayStoreToHole; // This flag may become overloaded to indicate other special cases that were encountered during array access, as it depends on indexing type. Since we currently have basically just one indexing type (two variants of ArrayStorage), this flag for now just means exactly what its name implies.
+    bool m_outOfBounds;
     bool m_mayInterceptIndexedAccesses : 1;
     bool m_usesOriginalArrayStructures : 1;
     bool m_didPerformFirstRunPruning : 1;
-    ArrayModes m_observedArrayModes { 0 };
-
-#if !ASSERT_DISABLED
-    static const char* const s_typeName;
-    const char* m_typeName { s_typeName };
-#endif
+    ArrayModes m_observedArrayModes;
 };
 
 typedef SegmentedVector<ArrayProfile, 4> ArrayProfileVector;

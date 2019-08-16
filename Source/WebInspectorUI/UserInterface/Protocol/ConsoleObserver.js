@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ConsoleObserver = class ConsoleObserver
+WebInspector.ConsoleObserver = class ConsoleObserver
 {
     // Events defined by the "Console" domain.
 
@@ -33,27 +33,27 @@ WI.ConsoleObserver = class ConsoleObserver
             return;
 
         if (message.type === "assert" && !message.text)
-            message.text = WI.UIString("Assertion");
+            message.text = WebInspector.UIString("Assertion");
 
-        WI.consoleManager.messageWasAdded(this.target, message.source, message.level, message.text, message.type, message.url, message.line, message.column || 0, message.repeatCount, message.parameters, message.stackTrace, message.networkRequestId);
+        WebInspector.logManager.messageWasAdded(this.target, message.source, message.level, message.text, message.type, message.url, message.line, message.column || 0, message.repeatCount, message.parameters, message.stackTrace, message.networkRequestId);
     }
 
     messageRepeatCountUpdated(count)
     {
-        WI.consoleManager.messageRepeatCountUpdated(count);
+        WebInspector.logManager.messageRepeatCountUpdated(count);
     }
 
     messagesCleared()
     {
-        WI.consoleManager.messagesCleared();
+        WebInspector.logManager.messagesCleared();
     }
 
     heapSnapshot(timestamp, snapshotStringData, title)
     {
-        let workerProxy = WI.HeapSnapshotWorkerProxy.singleton();
+        let workerProxy = WebInspector.HeapSnapshotWorkerProxy.singleton();
         workerProxy.createSnapshot(snapshotStringData, title || null, ({objectId, snapshot: serializedSnapshot}) => {
-            let snapshot = WI.HeapSnapshotProxy.deserialize(objectId, serializedSnapshot);
-            WI.timelineManager.heapSnapshotAdded(timestamp, snapshot);
+            let snapshot = WebInspector.HeapSnapshotProxy.deserialize(objectId, serializedSnapshot);
+            WebInspector.timelineManager.heapSnapshotAdded(timestamp, snapshot);
         });
     }
 };

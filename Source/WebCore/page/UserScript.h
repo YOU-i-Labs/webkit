@@ -25,7 +25,7 @@
  
 #pragma once
 
-#include <wtf/URL.h>
+#include "URL.h"
 #include "UserContentTypes.h"
 #include "UserScriptTypes.h"
 #include <wtf/Vector.h>
@@ -35,8 +35,8 @@ namespace WebCore {
 class UserScript {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    UserScript() = default;
-    ~UserScript() = default;
+    UserScript() { }
+    ~UserScript() { }
 
     UserScript(String&& source, URL&& url, Vector<String>&& whitelist, Vector<String>&& blacklist, UserScriptInjectionTime injectionTime, UserContentInjectedFrames injectedFrames)
         : m_source(WTFMove(source))

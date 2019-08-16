@@ -50,9 +50,9 @@
 
 .go-to-line-dialog > div::before {
     position: absolute;
-    left: 10px;
-    top: 10px;
-    width: 24px;
+    left: 6px;
+    top: 6px;
+    width: 30px;
     opacity: 0.5;
     content: url(../Images/Search.svg);
 }

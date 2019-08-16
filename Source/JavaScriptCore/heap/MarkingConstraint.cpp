@@ -27,18 +27,30 @@
 #include "MarkingConstraint.h"
 
 #include "JSCInlines.h"
-#include "VisitCounter.h"
 
 namespace JSC {
 
-static constexpr bool verboseMarkingConstraint = false;
-
-MarkingConstraint::MarkingConstraint(CString abbreviatedName, CString name, ConstraintVolatility volatility, ConstraintConcurrency concurrency, ConstraintParallelism parallelism)
+MarkingConstraint::MarkingConstraint(
+    CString abbreviatedName, CString name,
+    ::Function<void(SlotVisitor&, const VisitingTimeout&)> executeFunction,
+    ConstraintVolatility volatility)
     : m_abbreviatedName(abbreviatedName)
     , m_name(WTFMove(name))
+    , m_executeFunction(WTFMove(executeFunction))
     , m_volatility(volatility)
-    , m_concurrency(concurrency)
-    , m_parallelism(parallelism)
+{
+}
+
+MarkingConstraint::MarkingConstraint(
+    CString abbreviatedName, CString name,
+    ::Function<void(SlotVisitor&, const VisitingTimeout&)> executeFunction,
+    ::Function<double(SlotVisitor&)> quickWorkEstimateFunction,
+    ConstraintVolatility volatility)
+    : m_abbreviatedName(abbreviatedName)
+    , m_name(WTFMove(name))
+    , m_executeFunction(WTFMove(executeFunction))
+    , m_quickWorkEstimateFunction(WTFMove(quickWorkEstimateFunction))
+    , m_volatility(volatility)
 {
 }
 
@@ -51,50 +63,14 @@ void MarkingConstraint::resetStats()
     m_lastVisitCount = 0;
 }
 
-void MarkingConstraint::execute(SlotVisitor& visitor)
-{
-    VisitCounter visitCounter(visitor);
-    executeImpl(visitor);
-    m_lastVisitCount += visitCounter.visitCount();
-    if (verboseMarkingConstraint && visitCounter.visitCount())
-        dataLog("(", abbreviatedName(), " visited ", visitCounter.visitCount(), " in execute)");
-}
-
-double MarkingConstraint::quickWorkEstimate(SlotVisitor&)
-{
-    return 0;
-}
-
-double MarkingConstraint::workEstimate(SlotVisitor& visitor)
-{
-    return lastVisitCount() + quickWorkEstimate(visitor);
-}
-
-void MarkingConstraint::prepareToExecute(const AbstractLocker& constraintSolvingLocker, SlotVisitor& visitor)
+void MarkingConstraint::execute(SlotVisitor& visitor, bool& didVisitSomething, MonotonicTime timeout)
 {
     if (Options::logGC())
         dataLog(abbreviatedName());
-    VisitCounter visitCounter(visitor);
-    prepareToExecuteImpl(constraintSolvingLocker, visitor);
-    m_lastVisitCount = visitCounter.visitCount();
-    if (verboseMarkingConstraint && visitCounter.visitCount())
-        dataLog("(", abbreviatedName(), " visited ", visitCounter.visitCount(), " in prepareToExecute)");
-}
-
-void MarkingConstraint::doParallelWork(SlotVisitor& visitor, SharedTask<void(SlotVisitor&)>& task)
-{
-    VisitCounter visitCounter(visitor);
-    task.run(visitor);
-    if (verboseMarkingConstraint && visitCounter.visitCount())
-        dataLog("(", abbreviatedName(), " visited ", visitCounter.visitCount(), " in doParallelWork)");
-    {
-        auto locker = holdLock(m_lock);
-        m_lastVisitCount += visitCounter.visitCount();
-    }
-}
-
-void MarkingConstraint::prepareToExecuteImpl(const AbstractLocker&, SlotVisitor&)
-{
+    VisitingTimeout visitingTimeout(visitor, didVisitSomething, timeout);
+    m_executeFunction(visitor, visitingTimeout);
+    m_lastVisitCount = visitingTimeout.visitCount(visitor);
+    didVisitSomething = visitingTimeout.didVisitSomething(visitor);
 }
 
 } // namespace JSC

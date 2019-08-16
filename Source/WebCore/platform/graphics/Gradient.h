@@ -25,20 +25,23 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef Gradient_h
+#define Gradient_h
 
 #include "AffineTransform.h"
 #include "Color.h"
 #include "FloatPoint.h"
 #include "GraphicsTypes.h"
 #include <wtf/RefCounted.h>
-#include <wtf/Variant.h>
 #include <wtf/Vector.h>
 
 #if USE(CG)
+
 typedef struct CGContext* CGContextRef;
+
 typedef struct CGGradient* CGGradientRef;
 typedef CGGradientRef PlatformGradient;
+
 #elif USE(DIRECT2D)
 interface ID2D1Brush;
 interface ID2D1RenderTarget;
@@ -52,115 +55,157 @@ typedef void* PlatformGradient;
 
 namespace WebCore {
 
-class Color;
-class FloatRect;
-class GraphicsContext;
+    class Color;
+    class FloatRect;
+    class GraphicsContext;
 
-class Gradient : public RefCounted<Gradient> {
-public:
-    // FIXME: ExtendedColor - A color stop needs a notion of color space.
-    struct ColorStop {
-        float offset { 0 };
-        Color color;
-
-        ColorStop() = default;
-        ColorStop(float offset, const Color& color)
-            : offset(offset)
-            , color(color)
+    class Gradient : public RefCounted<Gradient> {
+    public:
+        static Ref<Gradient> create(const FloatPoint& p0, const FloatPoint& p1)
         {
+            return adoptRef(*new Gradient(p0, p1));
         }
-    };
+        static Ref<Gradient> create(const FloatPoint& p0, float r0, const FloatPoint& p1, float r1, float aspectRatio = 1)
+        {
+            return adoptRef(*new Gradient(p0, r0, p1, r1, aspectRatio));
+        }
+        WEBCORE_EXPORT ~Gradient();
 
-    using ColorStopVector = Vector<ColorStop, 2>;
+        struct ColorStop;
+        WEBCORE_EXPORT void addColorStop(const ColorStop&);
+        WEBCORE_EXPORT void addColorStop(float, const Color&);
 
-    struct LinearData {
-        FloatPoint point0;
-        FloatPoint point1;
-    };
+        bool hasAlpha() const;
 
-    struct RadialData {
-        FloatPoint point0;
-        FloatPoint point1;
-        float startRadius;
-        float endRadius;
-        float aspectRatio; // For elliptical gradient, width / height.
-    };
-    
-    struct ConicData {
-        FloatPoint point0;
-        float angleRadians;
-    };
+        bool isRadial() const { return m_radial; }
+        bool isZeroSize() const { return m_p0.x() == m_p1.x() && m_p0.y() == m_p1.y() && (!m_radial || m_r0 == m_r1); }
 
-    using Data = Variant<LinearData, RadialData, ConicData>;
+        const FloatPoint& p0() const { return m_p0; }
+        const FloatPoint& p1() const { return m_p1; }
 
-    enum class Type { Linear, Radial, Conic };
+        void setP0(const FloatPoint& p)
+        {
+            if (m_p0 == p)
+                return;
+            
+            m_p0 = p;
+            
+            invalidateHash();
+        }
+        
+        void setP1(const FloatPoint& p)
+        {
+            if (m_p1 == p)
+                return;
+            
+            m_p1 = p;
+            
+            invalidateHash();
+        }
 
-    static Ref<Gradient> create(LinearData&&);
-    static Ref<Gradient> create(RadialData&&);
-    static Ref<Gradient> create(ConicData&&);
+        float startRadius() const { return m_r0; }
+        float endRadius() const { return m_r1; }
 
-    WEBCORE_EXPORT ~Gradient();
+        void setStartRadius(float r)
+        {
+            if (m_r0 == r)
+                return;
 
-    Type type() const;
+            m_r0 = r;
 
-    bool hasAlpha() const;
-    bool isZeroSize() const;
+            invalidateHash();
+        }
 
-    const Data& data() const { return m_data; }
+        void setEndRadius(float r)
+        {
+            if (m_r1 == r)
+                return;
 
-    WEBCORE_EXPORT void addColorStop(const ColorStop&);
-    WEBCORE_EXPORT void addColorStop(float, const Color&);
-    void setSortedColorStops(ColorStopVector&&);
+            m_r1 = r;
 
-    const ColorStopVector& stops() const { return m_stops; }
+            invalidateHash();
+        }
 
-    void setSpreadMethod(GradientSpreadMethod);
-    GradientSpreadMethod spreadMethod() const { return m_spreadMethod; }
+        float aspectRatio() const { return m_aspectRatio; }
 
-    // CG needs to transform the gradient at draw time.
-    void setGradientSpaceTransform(const AffineTransform& gradientSpaceTransformation);
-    const AffineTransform& gradientSpaceTransform() const { return m_gradientSpaceTransformation; }
+#if USE(WINGDI)
+        const Vector<ColorStop, 2>& getStops() const;
+#else
+        PlatformGradient platformGradient();
+#endif
 
-    void fill(GraphicsContext&, const FloatRect&);
-    void adjustParametersForTiledDrawing(FloatSize&, FloatRect&, const FloatSize& spacing);
+        // FIXME: ExtendedColor - A color stop needs a notion of color space.
+        struct ColorStop {
+            float offset { 0 };
+            Color color;
 
-    unsigned hash() const;
-    void invalidateHash() { m_cachedHash = 0; }
+            ColorStop() { }
+            ColorStop(float offset, const Color& color)
+                : offset(offset)
+                , color(color)
+                { }
+        };
+
+        void setStopsSorted(bool s) { m_stopsSorted = s; }
+        
+        void setSpreadMethod(GradientSpreadMethod);
+        GradientSpreadMethod spreadMethod() { return m_spreadMethod; }
+        void setGradientSpaceTransform(const AffineTransform& gradientSpaceTransformation);
+        // Qt and CG transform the gradient at draw time
+        AffineTransform gradientSpaceTransform() { return m_gradientSpaceTransformation; }
+
+        void fill(GraphicsContext*, const FloatRect&);
+        void adjustParametersForTiledDrawing(FloatSize&, FloatRect&, const FloatSize& spacing);
+
+        void setPlatformGradientSpaceTransform(const AffineTransform& gradientSpaceTransformation);
+
+        unsigned hash() const;
+        void invalidateHash() { m_cachedHash = 0; }
 
 #if USE(CG)
-    void paint(GraphicsContext&);
-    void paint(CGContextRef);
+        void paint(CGContextRef);
+        void paint(GraphicsContext*);
 #elif USE(DIRECT2D)
-    PlatformGradient createPlatformGradientIfNecessary(ID2D1RenderTarget*);
+        PlatformGradient createPlatformGradientIfNecessary(ID2D1RenderTarget*);
 #elif USE(CAIRO)
-    PlatformGradient createPlatformGradient(float globalAlpha);
+        PlatformGradient platformGradient(float globalAlpha);
 #endif
 
-private:
-    Gradient(LinearData&&);
-    Gradient(RadialData&&);
-    Gradient(ConicData&&);
+    private:
+        WEBCORE_EXPORT Gradient(const FloatPoint& p0, const FloatPoint& p1);
+        Gradient(const FloatPoint& p0, float r0, const FloatPoint& p1, float r1, float aspectRatio);
 
-    PlatformGradient platformGradient();
-    void platformInit() { m_gradient = nullptr; }
-    void platformDestroy();
+        void platformInit() { m_gradient = nullptr; }
+        void platformDestroy();
 
-    void sortStopsIfNecessary();
+        void sortStopsIfNecessary();
 
 #if USE(DIRECT2D)
-    void generateGradient(ID2D1RenderTarget*);
+        void generateGradient(ID2D1RenderTarget*);
 #endif
 
-    Data m_data;
+        // Keep any parameters relevant to rendering in sync with the structure in Gradient::hash().
+        bool m_radial;
+        FloatPoint m_p0;
+        FloatPoint m_p1;
+        float m_r0;
+        float m_r1;
+        float m_aspectRatio; // For elliptical gradient, width / height.
+        mutable Vector<ColorStop, 2> m_stops;
+        mutable bool m_stopsSorted;
+        GradientSpreadMethod m_spreadMethod;
+        AffineTransform m_gradientSpaceTransformation;
 
-    mutable ColorStopVector m_stops;
-    mutable bool m_stopsSorted { false };
-    GradientSpreadMethod m_spreadMethod { SpreadMethodPad };
-    AffineTransform m_gradientSpaceTransformation;
+        mutable unsigned m_cachedHash;
 
-    mutable unsigned m_cachedHash { 0 };
+        PlatformGradient m_gradient;
 
-    PlatformGradient m_gradient;
-};
+#if USE(CAIRO)
+        float m_platformGradientAlpha;
+#endif
 
-}
+    };
+
+} //namespace
+
+#endif

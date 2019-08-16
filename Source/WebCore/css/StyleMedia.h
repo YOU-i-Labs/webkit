@@ -32,15 +32,17 @@
 
 namespace WebCore {
 
+class Frame;
+
 class StyleMedia final : public RefCounted<StyleMedia>, public DOMWindowProperty {
 public:
-    static Ref<StyleMedia> create(DOMWindow& window) { return adoptRef(*new StyleMedia(window)); }
+    static Ref<StyleMedia> create(Frame* frame) { return adoptRef(*new StyleMedia(frame)); }
 
     String type() const;
     bool matchMedium(const String&) const;
 
 private:
-    explicit StyleMedia(DOMWindow&);
+    explicit StyleMedia(Frame*);
 };
 
 } // namespace WebCore

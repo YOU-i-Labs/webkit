@@ -23,11 +23,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef TriState_h
+#define TriState_h
 
 namespace WTF {
 
-enum TriState : int8_t {
+enum TriState {
     FalseTriState,
     TrueTriState,
     MixedTriState
@@ -45,3 +46,5 @@ using WTF::FalseTriState;
 using WTF::TrueTriState;
 using WTF::MixedTriState;
 using WTF::triState;
+
+#endif // TriState_h

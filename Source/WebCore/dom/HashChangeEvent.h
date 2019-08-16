@@ -49,7 +49,7 @@ public:
 
     void initHashChangeEvent(const AtomicString& eventType, bool canBubble, bool cancelable, const String& oldURL, const String& newURL)
     {
-        if (isBeingDispatched())
+        if (dispatched())
             return;
 
         initEvent(eventType, canBubble, cancelable);
@@ -69,7 +69,7 @@ private:
     }
 
     HashChangeEvent(const String& oldURL, const String& newURL)
-        : Event(eventNames().hashchangeEvent, CanBubble::No, IsCancelable::No)
+        : Event(eventNames().hashchangeEvent, false, false)
         , m_oldURL(oldURL)
         , m_newURL(newURL)
     {

@@ -23,10 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.IdleTreeElement = class IdleTreeElement extends WI.GeneralTreeElement
+WebInspector.IdleTreeElement = class IdleTreeElement extends WebInspector.GeneralTreeElement
 {
-    constructor()
+    constructor(target)
     {
-        super("idle", WI.UIString("Idle"));
+        super("idle", WebInspector.UIString("Idle"));
     }
 };

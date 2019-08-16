@@ -23,17 +23,17 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.MemoryTimelineRecord = class MemoryTimelineRecord extends WI.TimelineRecord
+WebInspector.MemoryTimelineRecord = class MemoryTimelineRecord extends WebInspector.TimelineRecord
 {
     constructor(timestamp, categories)
     {
-        super(WI.TimelineRecord.Type.Memory, timestamp, timestamp);
+        super(WebInspector.TimelineRecord.Type.Memory, timestamp, timestamp);
 
         console.assert(typeof timestamp === "number");
         console.assert(categories instanceof Array);
 
         this._timestamp = timestamp;
-        this._categories = WI.MemoryTimelineRecord.memoryCategoriesFromProtocol(categories);
+        this._categories = WebInspector.MemoryTimelineRecord.memoryCategoriesFromProtocol(categories);
 
         this._totalSize = 0;
         for (let {size} of categories)
@@ -51,7 +51,7 @@ WI.MemoryTimelineRecord = class MemoryTimelineRecord extends WI.TimelineRecord
 
         for (let {type, size} of categories) {
             switch (type) {
-            case MemoryAgent.CategoryDataType.JavaScript:
+            case MemoryAgent.CategoryDataType.Javascript:
             case MemoryAgent.CategoryDataType.JIT:
                 javascriptSize += size;
                 break;
@@ -72,10 +72,10 @@ WI.MemoryTimelineRecord = class MemoryTimelineRecord extends WI.TimelineRecord
         }
 
         return [
-            {type: WI.MemoryCategory.Type.JavaScript, size: javascriptSize},
-            {type: WI.MemoryCategory.Type.Images, size: imagesSize},
-            {type: WI.MemoryCategory.Type.Layers, size: layersSize},
-            {type: WI.MemoryCategory.Type.Page, size: pageSize},
+            {type: WebInspector.MemoryCategory.Type.JavaScript, size: javascriptSize},
+            {type: WebInspector.MemoryCategory.Type.Images, size: imagesSize},
+            {type: WebInspector.MemoryCategory.Type.Layers, size: layersSize},
+            {type: WebInspector.MemoryCategory.Type.Page, size: pageSize},
         ];
     }
 

@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2010, 2011 Nokia Corporation and/or its subsidiary(-ies)
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -34,12 +33,9 @@
 #include "ShadowRoot.h"
 #include "SlotAssignment.h"
 #include "Text.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLDetailsElement);
 
 using namespace HTMLNames;
 
@@ -108,7 +104,7 @@ RenderPtr<RenderElement> HTMLDetailsElement::createElementRenderer(RenderStyle&&
     return createRenderer<RenderBlockFlow>(*this, WTFMove(style));
 }
 
-void HTMLDetailsElement::didAddUserAgentShadowRoot(ShadowRoot& root)
+void HTMLDetailsElement::didAddUserAgentShadowRoot(ShadowRoot* root)
 {
     auto summarySlot = HTMLSlotElement::create(slotTag, document());
     summarySlot->setAttributeWithoutSynchronization(nameAttr, summarySlotName());
@@ -119,7 +115,7 @@ void HTMLDetailsElement::didAddUserAgentShadowRoot(ShadowRoot& root)
     m_defaultSummary = defaultSummary.ptr();
 
     summarySlot->appendChild(defaultSummary);
-    root.appendChild(summarySlot);
+    root->appendChild(summarySlot);
 
     m_defaultSlot = HTMLSlotElement::create(slotTag, document());
     ASSERT(!m_isOpen);
@@ -133,7 +129,7 @@ bool HTMLDetailsElement::isActiveSummary(const HTMLSummaryElement& summary) cons
     if (summary.parentNode() != this)
         return false;
 
-    auto slot = makeRefPtr(shadowRoot()->findAssignedSlot(summary));
+    auto* slot = shadowRoot()->findAssignedSlot(summary);
     if (!slot)
         return false;
     return slot == m_summarySlot;
@@ -142,7 +138,7 @@ bool HTMLDetailsElement::isActiveSummary(const HTMLSummaryElement& summary) cons
 void HTMLDetailsElement::dispatchPendingEvent(DetailEventSender* eventSender)
 {
     ASSERT_UNUSED(eventSender, eventSender == &detailToggleEventSender());
-    dispatchEvent(Event::create(eventNames().toggleEvent, Event::CanBubble::No, Event::IsCancelable::No));
+    dispatchEvent(Event::create(eventNames().toggleEvent, false, false));
 }
 
 void HTMLDetailsElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -151,7 +147,7 @@ void HTMLDetailsElement::parseAttribute(const QualifiedName& name, const AtomicS
         bool oldValue = m_isOpen;
         m_isOpen = !value.isNull();
         if (oldValue != m_isOpen) {
-            auto root = makeRefPtr(shadowRoot());
+            auto* root = shadowRoot();
             ASSERT(root);
             if (m_isOpen)
                 root->appendChild(*m_defaultSlot);
@@ -169,7 +165,7 @@ void HTMLDetailsElement::parseAttribute(const QualifiedName& name, const AtomicS
 
 void HTMLDetailsElement::toggleOpen()
 {
-    setAttributeWithoutSynchronization(openAttr, m_isOpen ? nullAtom() : emptyAtom());
+    setAttributeWithoutSynchronization(openAttr, m_isOpen ? nullAtom : emptyAtom);
 
     // We need to post to the document because toggling this element will delete it.
     if (AXObjectCache* cache = document().existingAXObjectCache())

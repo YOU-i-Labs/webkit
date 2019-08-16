@@ -30,7 +30,6 @@
 
 #include "AudioTrackList.h"
 #include "DOMWrapperWorld.h"
-#include "LocalizedStrings.h"
 #include "MediaSelectionOption.h"
 #include "Page.h"
 #include "PageGroup.h"
@@ -40,10 +39,10 @@
 #include "UserContentTypes.h"
 #include "UserStyleSheet.h"
 #include "UserStyleSheetTypes.h"
-#include <JavaScriptCore/HeapInlines.h>
-#include <JavaScriptCore/JSCellInlines.h>
-#include <JavaScriptCore/StructureInlines.h>
-#include <wtf/Language.h>
+#include <heap/HeapInlines.h>
+#include <runtime/JSCellInlines.h>
+#include <runtime/StructureInlines.h>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -54,7 +53,9 @@ CaptionUserPreferences::CaptionUserPreferences(PageGroup& group)
 {
 }
 
-CaptionUserPreferences::~CaptionUserPreferences() = default;
+CaptionUserPreferences::~CaptionUserPreferences()
+{
+}
 
 void CaptionUserPreferences::timerFired()
 {
@@ -314,13 +315,8 @@ int CaptionUserPreferences::textTrackLanguageSelectionScore(TextTrack* track, co
 
 void CaptionUserPreferences::setCaptionsStyleSheetOverride(const String& override)
 {
-    if (override == m_captionsStyleSheetOverride)
-        return;
-
     m_captionsStyleSheetOverride = override;
     updateCaptionStyleSheetOverride();
-    if (!m_timer.isActive())
-        m_timer.startOneShot(0_s);
 }
 
 void CaptionUserPreferences::updateCaptionStyleSheetOverride()

@@ -28,7 +28,6 @@
 #if ENABLE(WEBGL)
 
 #include "ActivityStateChangeObserver.h"
-#include "ExceptionOr.h"
 #include "GPUBasedCanvasRenderingContext.h"
 #include "GraphicsContext3D.h"
 #include "ImageBuffer.h"
@@ -42,8 +41,6 @@
 #include "WebGLStateTracker.h"
 #include "WebGLTexture.h"
 #include "WebGLVertexArrayObjectOES.h"
-#include <JavaScriptCore/ConsoleTypes.h>
-#include <limits>
 #include <memory>
 
 #if ENABLE(WEBGL2)
@@ -59,6 +56,7 @@ class EXTShaderTextureLOD;
 class EXTsRGB;
 class EXTFragDepth;
 class HTMLImageElement;
+class HTMLVideoElement;
 class ImageData;
 class IntSize;
 class OESStandardDerivatives;
@@ -68,11 +66,9 @@ class OESTextureHalfFloat;
 class OESTextureHalfFloatLinear;
 class OESVertexArrayObject;
 class OESElementIndexUint;
-class OffscreenCanvas;
 class WebGLActiveInfo;
 class WebGLContextGroup;
 class WebGLContextObject;
-class WebGLCompressedTextureASTC;
 class WebGLCompressedTextureATC;
 class WebGLCompressedTexturePVRTC;
 class WebGLCompressedTextureS3TC;
@@ -88,18 +84,35 @@ class WebGLSharedObject;
 class WebGLShaderPrecisionFormat;
 class WebGLUniformLocation;
 
-#if ENABLE(VIDEO)
-class HTMLVideoElement;
-#endif
+inline void clip1D(GC3Dint start, GC3Dsizei range, GC3Dsizei sourceRange, GC3Dint* clippedStart, GC3Dsizei* clippedRange)
+{
+    ASSERT(clippedStart && clippedRange);
+    if (start < 0) {
+        range += start;
+        start = 0;
+    }
+    GC3Dint end = start + range;
+    if (end > sourceRange)
+        range -= end - sourceRange;
+    *clippedStart = start;
+    *clippedRange = range;
+}
 
-using WebGLCanvas = WTF::Variant<RefPtr<HTMLCanvasElement>, RefPtr<OffscreenCanvas>>;
+// Returns false if no clipping is necessary, i.e., x, y, width, height stay the same.
+inline bool clip2D(GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height,
+    GC3Dsizei sourceWidth, GC3Dsizei sourceHeight,
+    GC3Dint* clippedX, GC3Dint* clippedY, GC3Dsizei* clippedWidth, GC3Dsizei*clippedHeight)
+{
+    ASSERT(clippedX && clippedY && clippedWidth && clippedHeight);
+    clip1D(x, width, sourceWidth, clippedX, clippedWidth);
+    clip1D(y, height, sourceHeight, clippedY, clippedHeight);
+    return (*clippedX != x || *clippedY != y || *clippedWidth != width || *clippedHeight != height);
+}
 
 class WebGLRenderingContextBase : public GPUBasedCanvasRenderingContext, private ActivityStateChangeObserver {
 public:
-    static std::unique_ptr<WebGLRenderingContextBase> create(CanvasBase&, WebGLContextAttributes&, const String&);
+    static std::unique_ptr<WebGLRenderingContextBase> create(HTMLCanvasElement&, WebGLContextAttributes&, const String&);
     virtual ~WebGLRenderingContextBase();
-
-    WebGLCanvas canvas();
 
     int drawingBufferWidth() const;
     int drawingBufferHeight() const;
@@ -119,8 +132,8 @@ public:
 
     using BufferDataSource = WTF::Variant<RefPtr<ArrayBuffer>, RefPtr<ArrayBufferView>>;
     void bufferData(GC3Denum target, long long size, GC3Denum usage);
-    void bufferData(GC3Denum target, Optional<BufferDataSource>&&, GC3Denum usage);
-    void bufferSubData(GC3Denum target, long long offset, Optional<BufferDataSource>&&);
+    void bufferData(GC3Denum target, std::optional<BufferDataSource>&&, GC3Denum usage);
+    void bufferSubData(GC3Denum target, long long offset, std::optional<BufferDataSource>&&);
 
     GC3Denum checkFramebufferStatus(GC3Denum target);
     virtual void clear(GC3Dbitfield mask) = 0;
@@ -172,10 +185,10 @@ public:
 
     RefPtr<WebGLActiveInfo> getActiveAttrib(WebGLProgram*, GC3Duint index);
     RefPtr<WebGLActiveInfo> getActiveUniform(WebGLProgram*, GC3Duint index);
-    Optional<Vector<RefPtr<WebGLShader>>> getAttachedShaders(WebGLProgram*);
+    std::optional<Vector<RefPtr<WebGLShader>>> getAttachedShaders(WebGLProgram*);
     GC3Dint getAttribLocation(WebGLProgram*, const String& name);
     WebGLAny getBufferParameter(GC3Denum target, GC3Denum pname);
-    Optional<WebGLContextAttributes> getContextAttributes();
+    std::optional<WebGLContextAttributes> getContextAttributes();
     GC3Denum getError();
     virtual WebGLExtension* getExtension(const String& name) = 0;
     virtual WebGLAny getFramebufferAttachmentParameter(GC3Denum target, GC3Denum attachment, GC3Denum pname) = 0;
@@ -187,20 +200,15 @@ public:
     String getShaderInfoLog(WebGLShader*);
     RefPtr<WebGLShaderPrecisionFormat> getShaderPrecisionFormat(GC3Denum shaderType, GC3Denum precisionType);
     String getShaderSource(WebGLShader*);
-    virtual Optional<Vector<String>> getSupportedExtensions() = 0;
+    virtual std::optional<Vector<String>> getSupportedExtensions() = 0;
     WebGLAny getTexParameter(GC3Denum target, GC3Denum pname);
     WebGLAny getUniform(WebGLProgram*, const WebGLUniformLocation*);
     RefPtr<WebGLUniformLocation> getUniformLocation(WebGLProgram*, const String&);
     WebGLAny getVertexAttrib(GC3Duint index, GC3Denum pname);
     long long getVertexAttribOffset(GC3Duint index, GC3Denum pname);
 
-    bool extensionIsEnabled(const String&);
-
     bool isPreservingDrawingBuffer() const { return m_attributes.preserveDrawingBuffer; }
     void setPreserveDrawingBuffer(bool value) { m_attributes.preserveDrawingBuffer = value; }
-
-    bool preventBufferClearForInspector() const { return m_preventBufferClearForInspector; }
-    void setPreventBufferClearForInspector(bool value) { m_preventBufferClearForInspector = value; }
 
     virtual void hint(GC3Denum target, GC3Denum mode) = 0;
     GC3Dboolean isBuffer(WebGLBuffer*);
@@ -214,7 +222,6 @@ public:
 
     void lineWidth(GC3Dfloat);
     void linkProgram(WebGLProgram*);
-    bool linkProgramWithoutInvalidatingAttribLocations(WebGLProgram*);
     void pixelStorei(GC3Denum pname, GC3Dint param);
     void polygonOffset(GC3Dfloat factor, GC3Dfloat units);
     void readPixels(GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height, GC3Denum format, GC3Denum type, ArrayBufferView& pixels);
@@ -232,19 +239,14 @@ public:
 
     void texImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height, GC3Dint border, GC3Denum format, GC3Denum type, RefPtr<ArrayBufferView>&&);
 
-#if ENABLE(VIDEO)
-    using TexImageSource = WTF::Variant<RefPtr<ImageBitmap>, RefPtr<ImageData>, RefPtr<HTMLImageElement>, RefPtr<HTMLCanvasElement>, RefPtr<HTMLVideoElement>>;
-#else
-    using TexImageSource = WTF::Variant<RefPtr<ImageBitmap>, RefPtr<ImageData>, RefPtr<HTMLImageElement>, RefPtr<HTMLCanvasElement>>;
-#endif
-
-    ExceptionOr<void> texImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Denum format, GC3Denum type, Optional<TexImageSource>);
+    using TexImageSource = WTF::Variant<RefPtr<ImageData>, RefPtr<HTMLImageElement>, RefPtr<HTMLCanvasElement>, RefPtr<HTMLVideoElement>>;
+    ExceptionOr<void> texImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Denum format, GC3Denum type, std::optional<TexImageSource>);
 
     void texParameterf(GC3Denum target, GC3Denum pname, GC3Dfloat param);
     void texParameteri(GC3Denum target, GC3Denum pname, GC3Dint param);
 
     void texSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Dsizei width, GC3Dsizei height, GC3Denum format, GC3Denum type, RefPtr<ArrayBufferView>&&);
-    ExceptionOr<void> texSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Denum format, GC3Denum type, Optional<TexImageSource>&&);
+    ExceptionOr<void> texSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Denum format, GC3Denum type, std::optional<TexImageSource>&&);
 
     template <class TypedArray, class DataType>
     class TypedList {
@@ -256,11 +258,11 @@ public:
         {
         }
 
-        const DataType* data() const
+        DataType* data() const
         {
             return WTF::switchOn(m_variant,
-                [] (const RefPtr<TypedArray>& typedArray) -> const DataType* { return typedArray->data(); },
-                [] (const Vector<DataType>& vector) -> const DataType* { return vector.data(); }
+                [] (const RefPtr<TypedArray>& typedArray) -> DataType* { return typedArray->data(); },
+                [] (const Vector<DataType>& vector) -> DataType* { return const_cast<Vector<DataType>&>(vector).data(); }
             );
         }
 
@@ -360,15 +362,14 @@ public:
     WEBCORE_EXPORT void setFailNextGPUStatusCheck();
 
 protected:
-    WebGLRenderingContextBase(CanvasBase&, WebGLContextAttributes);
-    WebGLRenderingContextBase(CanvasBase&, Ref<GraphicsContext3D>&&, WebGLContextAttributes);
+    WebGLRenderingContextBase(HTMLCanvasElement&, WebGLContextAttributes);
+    WebGLRenderingContextBase(HTMLCanvasElement&, Ref<GraphicsContext3D>&&, WebGLContextAttributes);
 
     friend class WebGLDrawBuffers;
     friend class WebGLFramebuffer;
     friend class WebGLObject;
     friend class OESVertexArrayObject;
     friend class WebGLDebugShaders;
-    friend class WebGLCompressedTextureASTC;
     friend class WebGLCompressedTextureATC;
     friend class WebGLCompressedTexturePVRTC;
     friend class WebGLCompressedTextureS3TC;
@@ -436,7 +437,7 @@ protected:
 
     WebGLTexture::TextureExtensionFlag textureExtensionFlags() const;
 
-    bool enableSupportedExtension(ASCIILiteral extensionNameLiteral);
+    bool enableSupportedExtension(const char* extensionNameLiteral);
 
     RefPtr<GraphicsContext3D> m_context;
     RefPtr<WebGLContextGroup> m_contextGroup;
@@ -491,14 +492,13 @@ protected:
     Vector<VertexAttribValue> m_vertexAttribValue;
     unsigned m_maxVertexAttribs;
     RefPtr<WebGLBuffer> m_vertexAttrib0Buffer;
-    long m_vertexAttrib0BufferSize { 0 };
+    long m_vertexAttrib0BufferSize;
     GC3Dfloat m_vertexAttrib0BufferValue[4];
-    bool m_forceAttrib0BufferRefill { true };
-    bool m_vertexAttrib0UsedBefore { false };
+    bool m_forceAttrib0BufferRefill;
+    bool m_vertexAttrib0UsedBefore;
 
     RefPtr<WebGLProgram> m_currentProgram;
     RefPtr<WebGLFramebuffer> m_framebufferBinding;
-    RefPtr<WebGLFramebuffer> m_readFramebufferBinding;
     RefPtr<WebGLRenderbuffer> m_renderbufferBinding;
     struct TextureUnitState {
         RefPtr<WebGLTexture> texture2DBinding;
@@ -521,8 +521,9 @@ protected:
         // The pointer returned is owned by the image buffer map.
         ImageBuffer* imageBuffer(const IntSize& size);
     private:
-        void bubbleToFront(size_t idx);
-        Vector<std::unique_ptr<ImageBuffer>> m_buffers;
+        void bubbleToFront(int idx);
+        std::unique_ptr<std::unique_ptr<ImageBuffer>[]> m_buffers;
+        int m_capacity;
     };
     LRUImageBufferCache m_generatedImageCache { 0 };
 
@@ -569,8 +570,6 @@ protected:
     bool m_synthesizedErrorsToConsole { true };
     int m_numGLErrorsToConsoleAllowed;
 
-    bool m_preventBufferClearForInspector { false };
-
     // A WebGLRenderingContext can be created in a state where it appears as
     // a valid and active context, but will not execute any important operations
     // until its load policy is completely resolved.
@@ -595,7 +594,6 @@ protected:
     std::unique_ptr<WebGLLoseContext> m_webglLoseContext;
     std::unique_ptr<WebGLDebugRendererInfo> m_webglDebugRendererInfo;
     std::unique_ptr<WebGLDebugShaders> m_webglDebugShaders;
-    std::unique_ptr<WebGLCompressedTextureASTC> m_webglCompressedTextureASTC;
     std::unique_ptr<WebGLCompressedTextureATC> m_webglCompressedTextureATC;
     std::unique_ptr<WebGLCompressedTexturePVRTC> m_webglCompressedTexturePVRTC;
     std::unique_ptr<WebGLCompressedTextureS3TC> m_webglCompressedTextureS3TC;
@@ -659,7 +657,7 @@ protected:
     // Helper function to check target and texture bound to the target.
     // Generate GL errors and return 0 if target is invalid or texture bound is
     // null.  Otherwise, return the texture bound to the target.
-    RefPtr<WebGLTexture> validateTextureBinding(const char* functionName, GC3Denum target, bool useSixEnumsForCubeMap);
+    WebGLTexture* validateTextureBinding(const char* functionName, GC3Denum target, bool useSixEnumsForCubeMap);
 
     // Helper function to check input format/type for functions {copy}Tex{Sub}Image.
     // Generates GL error and returns false if parameters are invalid.
@@ -677,13 +675,10 @@ protected:
 
     enum TexFuncValidationSourceType {
         SourceArrayBufferView,
-        SourceImageBitmap,
         SourceImageData,
         SourceHTMLImageElement,
         SourceHTMLCanvasElement,
-#if ENABLE(VIDEO)
         SourceHTMLVideoElement,
-#endif
     };
 
     // Helper function for tex{Sub}Image2D to check if the input format/type/level/target/width/height/border/xoffset/yoffset are valid.
@@ -748,8 +743,13 @@ protected:
     // Helper function for texParameterf and texParameteri.
     void texParameter(GC3Denum target, GC3Denum pname, GC3Dfloat parami, GC3Dint paramf, bool isFloat);
 
-    // Helper function to print errors and warnings to console.
-    void printToConsole(MessageLevel, const String&);
+    // Helper function to print GL errors to console.
+    void printGLErrorToConsole(const String&);
+    void printGLWarningToConsole(const char* function, const char* reason);
+
+    // Helper function to print warnings to console. Currently
+    // used only to warn about use of obsolete functions.
+    void printWarningToConsole(const String&);
 
     // Helper function to validate input parameters for framebuffer functions.
     // Generate GL error if parameters are illegal.
@@ -769,17 +769,17 @@ protected:
     bool validateUniformParameters(const char* functionName, const WebGLUniformLocation*, const Int32List&, GC3Dsizei mod);
     bool validateUniformParameters(const char* functionName, const WebGLUniformLocation*, void*, GC3Dsizei, GC3Dsizei mod);
     bool validateUniformMatrixParameters(const char* functionName, const WebGLUniformLocation*, GC3Dboolean transpose, const Float32List&, GC3Dsizei mod);
-    bool validateUniformMatrixParameters(const char* functionName, const WebGLUniformLocation*, GC3Dboolean transpose, const void*, GC3Dsizei, GC3Dsizei mod);
+    bool validateUniformMatrixParameters(const char* functionName, const WebGLUniformLocation*, GC3Dboolean transpose, void*, GC3Dsizei, GC3Dsizei mod);
 
     // Helper function to validate parameters for bufferData.
     // Return the current bound buffer to target, or 0 if parameters are invalid.
     WebGLBuffer* validateBufferDataParameters(const char* functionName, GC3Denum target, GC3Denum usage);
 
     // Helper function for tex{Sub}Image2D to make sure image is ready.
-    ExceptionOr<bool> validateHTMLImageElement(const char* functionName, HTMLImageElement*);
-    ExceptionOr<bool> validateHTMLCanvasElement(const char* functionName, HTMLCanvasElement*);
+    bool validateHTMLImageElement(const char* functionName, HTMLImageElement*, ExceptionCode&);
+    bool validateHTMLCanvasElement(const char* functionName, HTMLCanvasElement*, ExceptionCode&);
 #if ENABLE(VIDEO)
-    ExceptionOr<bool> validateHTMLVideoElement(const char* functionName, HTMLVideoElement*);
+    bool validateHTMLVideoElement(const char* functionName, HTMLVideoElement*, ExceptionCode&);
 #endif
 
     // Helper functions for vertexAttribNf{v}.
@@ -797,8 +797,8 @@ protected:
 
     // Helpers for simulating vertexAttrib0.
     void initVertexAttrib0();
-    Optional<bool> simulateVertexAttrib0(GC3Duint numVertex);
-    bool validateSimulatedVertexAttrib0(GC3Duint numVertex);
+    bool simulateVertexAttrib0(GC3Dsizei numVertex);
+    bool validateSimulatedVertexAttrib0(GC3Dsizei numVertex);
     void restoreStatesAfterVertexAttrib0Simulation();
 
     void dispatchContextLostEvent();
@@ -831,58 +831,16 @@ protected:
     // Check if EXT_draw_buffers extension is supported and if it satisfies the WebGL requirements.
     bool supportsDrawBuffers();
 
-    HTMLCanvasElement* htmlCanvas();
-    OffscreenCanvas* offscreenCanvas();
-
-    template <typename T> inline Optional<T> checkedAddAndMultiply(T value, T add, T multiply);
-    template <typename T> unsigned getMaxIndex(const RefPtr<JSC::ArrayBuffer> elementArrayBuffer, GC3Dintptr uoffset, GC3Dsizei n);
-
 private:
-    bool validateArrayBufferType(const char* functionName, GC3Denum type, Optional<JSC::TypedArrayType>);
+    bool validateArrayBufferType(const char* functionName, GC3Denum type, std::optional<JSC::TypedArrayType>);
     void registerWithWebGLStateTracker();
     void checkForContextLossHandling();
 
-    void activityStateDidChange(OptionSet<ActivityState::Flag> oldActivityState, OptionSet<ActivityState::Flag> newActivityState) override;
+    void activityStateDidChange(ActivityState::Flags oldActivityState, ActivityState::Flags newActivityState) override;
 
     WebGLStateTracker::Token m_trackerToken;
     Timer m_checkForContextLossHandlingTimer;
 };
-
-template <typename T>
-inline Optional<T> WebGLRenderingContextBase::checkedAddAndMultiply(T value, T add, T multiply)
-{
-    Checked<T, RecordOverflow> checkedResult = Checked<T>(value);
-    checkedResult += Checked<T>(add);
-    checkedResult *= Checked<T>(multiply);
-    if (checkedResult.hasOverflowed())
-        return WTF::nullopt;
-
-    return checkedResult.unsafeGet();
-}
-
-template<typename T>
-inline unsigned WebGLRenderingContextBase::getMaxIndex(const RefPtr<JSC::ArrayBuffer> elementArrayBuffer, GC3Dintptr uoffset, GC3Dsizei n)
-{
-    unsigned maxIndex = 0;
-    T restartIndex = 0;
-
-#if ENABLE(WEBGL2)
-    // WebGL 2 spec enforces that GL_PRIMITIVE_RESTART_FIXED_INDEX is always enabled, so ignore the restart index.
-    if (isWebGL2())
-        restartIndex = std::numeric_limits<T>::max();
-#endif
-
-    // Make uoffset an element offset.
-    uoffset /= sizeof(T);
-    const T* p = static_cast<const T*>(elementArrayBuffer->data()) + uoffset;
-    while (n-- > 0) {
-        if (*p != restartIndex && *p > maxIndex)
-            maxIndex = *p;
-        ++p;
-    }
-
-    return maxIndex;
-}
 
 } // namespace WebCore
 

@@ -47,15 +47,13 @@ ThreadableLoaderOptions::ThreadableLoaderOptions()
     mode = FetchOptions::Mode::SameOrigin;
 }
 
-ThreadableLoaderOptions::~ThreadableLoaderOptions() = default;
-
-ThreadableLoaderOptions::ThreadableLoaderOptions(FetchOptions&& baseOptions)
-    : ResourceLoaderOptions { WTFMove(baseOptions) }
+ThreadableLoaderOptions::~ThreadableLoaderOptions()
 {
 }
 
-ThreadableLoaderOptions::ThreadableLoaderOptions(const ResourceLoaderOptions& baseOptions, ContentSecurityPolicyEnforcement contentSecurityPolicyEnforcement, String&& initiator, ResponseFilteringPolicy filteringPolicy)
+ThreadableLoaderOptions::ThreadableLoaderOptions(const ResourceLoaderOptions& baseOptions, PreflightPolicy preflightPolicy, ContentSecurityPolicyEnforcement contentSecurityPolicyEnforcement, String&& initiator, ResponseFilteringPolicy filteringPolicy)
     : ResourceLoaderOptions(baseOptions)
+    , preflightPolicy(preflightPolicy)
     , contentSecurityPolicyEnforcement(contentSecurityPolicyEnforcement)
     , initiator(WTFMove(initiator))
     , filteringPolicy(filteringPolicy)
@@ -67,6 +65,7 @@ ThreadableLoaderOptions ThreadableLoaderOptions::isolatedCopy() const
     ThreadableLoaderOptions copy;
 
     // FetchOptions
+    copy.type = this->type;
     copy.destination = this->destination;
     copy.mode = this->mode;
     copy.credentials = this->credentials;
@@ -79,7 +78,7 @@ ThreadableLoaderOptions ThreadableLoaderOptions::isolatedCopy() const
     copy.sendLoadCallbacks = this->sendLoadCallbacks;
     copy.sniffContent = this->sniffContent;
     copy.dataBufferingPolicy = this->dataBufferingPolicy;
-    copy.storedCredentialsPolicy = this->storedCredentialsPolicy;
+    copy.allowCredentials = this->allowCredentials;
     copy.securityCheck = this->securityCheck;
     copy.certificateInfoPolicy = this->certificateInfoPolicy;
     copy.contentSecurityPolicyImposition = this->contentSecurityPolicyImposition;
@@ -89,9 +88,12 @@ ThreadableLoaderOptions ThreadableLoaderOptions::isolatedCopy() const
     copy.initiatorContext = this->initiatorContext;
     copy.clientCredentialPolicy = this->clientCredentialPolicy;
     copy.maxRedirectCount = this->maxRedirectCount;
-    copy.preflightPolicy = this->preflightPolicy;
+    copy.derivedCachedDataTypesToRetrieve.reserveInitialCapacity(this->derivedCachedDataTypesToRetrieve.size());
+    for (auto& derivedCachedDataType : this->derivedCachedDataTypesToRetrieve)
+        copy.derivedCachedDataTypesToRetrieve.uncheckedAppend(derivedCachedDataType.isolatedCopy());
 
     // ThreadableLoaderOptions
+    copy.preflightPolicy = this->preflightPolicy;
     copy.contentSecurityPolicyEnforcement = this->contentSecurityPolicyEnforcement;
     copy.initiator = this->initiator.isolatedCopy();
     copy.filteringPolicy = this->filteringPolicy;
@@ -103,7 +105,7 @@ ThreadableLoaderOptions ThreadableLoaderOptions::isolatedCopy() const
 RefPtr<ThreadableLoader> ThreadableLoader::create(ScriptExecutionContext& context, ThreadableLoaderClient& client, ResourceRequest&& request, const ThreadableLoaderOptions& options, String&& referrer)
 {
     if (is<WorkerGlobalScope>(context))
-        return WorkerThreadableLoader::create(downcast<WorkerGlobalScope>(context), client, WorkerRunLoop::defaultMode(), WTFMove(request), options, WTFMove(referrer));
+        return WorkerThreadableLoader::create(downcast<WorkerGlobalScope>(context), client, WorkerRunLoop::defaultMode(), WTFMove(request), options, referrer);
 
     return DocumentThreadableLoader::create(downcast<Document>(context), client, WTFMove(request), options, WTFMove(referrer));
 }
@@ -119,6 +121,10 @@ void ThreadableLoader::loadResourceSynchronously(ScriptExecutionContext& context
 
 void ThreadableLoader::logError(ScriptExecutionContext& context, const ResourceError& error, const String& initiator)
 {
+    // FIXME: extend centralized logging to other clients than fetch, at least XHR and EventSource.
+    if (initiator != cachedResourceRequestInitiators().fetch)
+        return;
+
     if (error.isCancellation())
         return;
 
@@ -128,21 +134,26 @@ void ThreadableLoader::logError(ScriptExecutionContext& context, const ResourceE
 
     // We further reduce logging to some errors.
     // FIXME: Log more errors when making so do not make some layout tests flaky.
-    if (error.domain() != errorDomainWebKitInternal && error.domain() != errorDomainWebKitServiceWorker && !error.isAccessControl())
+    if (error.domain() != errorDomainWebKitInternal && !error.isAccessControl())
         return;
 
     const char* messageStart;
-    if (initiator == cachedResourceRequestInitiators().eventsource)
-        messageStart = "EventSource cannot load ";
-    else if (initiator == cachedResourceRequestInitiators().fetch)
+    if (initiator == cachedResourceRequestInitiators().fetch)
         messageStart = "Fetch API cannot load ";
-    else if (initiator == cachedResourceRequestInitiators().xmlhttprequest)
-        messageStart = "XMLHttpRequest cannot load ";
     else
         messageStart = "Cannot load ";
 
-    String messageEnd = error.isAccessControl() ? " due to access control checks."_s : "."_s;
-    context.addConsoleMessage(MessageSource::JS, MessageLevel::Error, makeString(messageStart, error.failingURL().string(), messageEnd));
+    const char* messageMiddle = ". ";
+    String description = error.localizedDescription();
+    if (description.isEmpty()) {
+        // FIXME: We should probably define default description error message for all error types.
+        if (error.isAccessControl())
+            messageMiddle = ASCIILiteral(" due to access control checks.");
+        else
+            messageMiddle = ".";
+    }
+
+    context.addConsoleMessage(MessageSource::JS, MessageLevel::Error, makeString(messageStart, error.failingURL().string(), messageMiddle, description));
 }
 
 } // namespace WebCore

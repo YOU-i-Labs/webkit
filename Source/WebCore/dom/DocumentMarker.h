@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2016 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,11 +23,10 @@
 #include "Node.h"
 
 #include <wtf/Forward.h>
-#include <wtf/OptionSet.h>
 #include <wtf/Variant.h>
 #include <wtf/text/WTFString.h>
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #import <wtf/RetainPtr.h>
 typedef struct objc_object *id;
 #endif
@@ -71,7 +70,7 @@ public:
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
         TelephoneNumber = 1 << 10,
 #endif
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
         // FIXME: iOS should share the same dictation mark system with the other platforms <rdar://problem/9431249>.
         DictationPhraseWithAlternatives = 1 << 11,
         DictationResult = 1 << 12,
@@ -82,7 +81,49 @@ public:
         DraggedContent = 1 << 14
     };
 
-    static constexpr OptionSet<MarkerType> allMarkers();
+    class MarkerTypes {
+    public:
+        // This constructor is left implicit to allow conversion from result of a bit-wise or of enumeration values.
+        MarkerTypes(unsigned mask) : m_mask(mask) { }
+
+        bool contains(MarkerType type) const { return m_mask & type; }
+        bool intersects(MarkerTypes types) const { return m_mask & types.m_mask; }
+        bool operator==(MarkerTypes other) const { return m_mask == other.m_mask; }
+
+        void add(MarkerTypes types) { m_mask |= types.m_mask; }
+        void remove(MarkerTypes types) { m_mask &= ~types.m_mask; }
+
+    private:
+        unsigned m_mask;
+    };
+
+    class AllMarkers : public MarkerTypes {
+    public:
+        AllMarkers()
+            : MarkerTypes(0
+                | AcceptedCandidate
+                | Autocorrected
+                | CorrectionIndicator
+                | DeletedAutocorrection
+                | DictationAlternatives
+                | Grammar
+                | RejectedCorrection
+                | Replacement
+                | SpellCheckingExemption
+                | Spelling
+                | TextMatch
+#if ENABLE(TELEPHONE_NUMBER_DETECTION)
+                | TelephoneNumber
+#endif
+#if PLATFORM(IOS)
+                | DictationPhraseWithAlternatives
+                | DictationResult
+#endif
+                | DraggedContent
+            )
+        {
+        }
+    };
 
     using IsActiveMatchData = bool;
     using DescriptionData = String;
@@ -91,7 +132,7 @@ public:
         String originalText;
     };
     struct DictationAlternativesData {
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
         Vector<String> alternatives;
         RetainPtr<id> metadata;
 #endif
@@ -104,7 +145,7 @@ public:
     DocumentMarker(unsigned startOffset, unsigned endOffset, bool isActiveMatch);
     DocumentMarker(MarkerType, unsigned startOffset, unsigned endOffset, const String& description = String());
     DocumentMarker(MarkerType, unsigned startOffset, unsigned endOffset, Data&&);
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     DocumentMarker(MarkerType, unsigned startOffset, unsigned endOffset, const String& description, const Vector<String>& alternatives, RetainPtr<id> metadata);
 #endif
 
@@ -126,8 +167,7 @@ public:
     void setEndOffset(unsigned offset) { m_endOffset = offset; }
     void shiftOffsets(int delta);
 
-#if PLATFORM(IOS_FAMILY)
-    bool isDictation() const;
+#if PLATFORM(IOS)
     const Vector<String>& alternatives() const;
     void setAlternative(const String&, size_t index);
     id metadata() const;
@@ -140,31 +180,6 @@ private:
     unsigned m_endOffset;
     Data m_data;
 };
-
-constexpr auto DocumentMarker::allMarkers() -> OptionSet<MarkerType>
-{
-    return {
-        AcceptedCandidate,
-        Autocorrected,
-        CorrectionIndicator,
-        DeletedAutocorrection,
-        DictationAlternatives,
-        DraggedContent,
-        Grammar,
-        RejectedCorrection,
-        Replacement,
-        SpellCheckingExemption,
-        Spelling,
-        TextMatch,
-#if ENABLE(TELEPHONE_NUMBER_DETECTION)
-        TelephoneNumber,
-#endif
-#if PLATFORM(IOS_FAMILY)
-        DictationPhraseWithAlternatives,
-        DictationResult,
-#endif
-    };
-}
 
 inline DocumentMarker::DocumentMarker(unsigned startOffset, unsigned endOffset, bool isActiveMatch)
     : m_type(TextMatch)
@@ -212,7 +227,7 @@ inline void DocumentMarker::setActiveMatch(bool isActiveMatch)
     m_data = isActiveMatch;
 }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 
 // FIXME: iOS should share the same dictation mark system with the other platforms <rdar://problem/9431249>.
 
@@ -222,12 +237,7 @@ inline DocumentMarker::DocumentMarker(MarkerType type, unsigned startOffset, uns
     , m_endOffset(endOffset)
     , m_data(DictationAlternativesData { alternatives, metadata })
 {
-    ASSERT(isDictation());
-}
-
-inline bool DocumentMarker::isDictation() const
-{
-    return m_type == DictationPhraseWithAlternatives || m_type == DictationResult;
+    ASSERT(type == DictationPhraseWithAlternatives || type == DictationResult);
 }
 
 inline const Vector<String>& DocumentMarker::alternatives() const

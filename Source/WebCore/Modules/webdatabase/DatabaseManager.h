@@ -28,8 +28,10 @@
 #include "DatabaseDetails.h"
 #include "ExceptionOr.h"
 #include <wtf/Assertions.h>
+#include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Lock.h>
+#include <wtf/Threading.h>
 
 namespace WebCore {
 
@@ -64,15 +66,13 @@ public:
     WEBCORE_EXPORT bool hasOpenDatabases(ScriptExecutionContext&);
     void stopDatabases(ScriptExecutionContext&, DatabaseTaskSynchronizer*);
 
-    WEBCORE_EXPORT String fullPathForDatabase(SecurityOrigin&, const String& name, bool createIfDoesNotExist = true);
+    String fullPathForDatabase(SecurityOrigin&, const String& name, bool createIfDoesNotExist = true);
 
     WEBCORE_EXPORT DatabaseDetails detailsForNameAndOrigin(const String&, SecurityOrigin&);
 
 private:
     DatabaseManager() = default;
     ~DatabaseManager() = delete;
-
-    void platformInitialize(const String& databasePath);
 
     enum OpenAttempt { FirstTryToOpenDatabase, RetryOpenDatabase };
     ExceptionOr<Ref<Database>> openDatabaseBackend(ScriptExecutionContext&, const String& name, const String& expectedVersion, const String& displayName, unsigned estimatedSize, bool setVersionInNewDatabase);

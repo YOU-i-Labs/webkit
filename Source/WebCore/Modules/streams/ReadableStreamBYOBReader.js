@@ -24,23 +24,6 @@
 
 // @conditional=ENABLE(STREAMS_API)
 
-function initializeReadableStreamBYOBReader(stream)
-{
-    "use strict";
-
-    if (!@isReadableStream(stream))
-        @throwTypeError("ReadableStreamBYOBReader needs a ReadableStream");
-    if (!@isReadableByteStreamController(@getByIdDirectPrivate(stream, "readableStreamController")))
-        @throwTypeError("ReadableStreamBYOBReader needs a ReadableByteStreamController");
-    if (@isReadableStreamLocked(stream))
-        @throwTypeError("ReadableStream is locked");
-
-    @readableStreamReaderGenericInitialize(this, stream);
-    @putByIdDirectPrivate(this, "readIntoRequests", []);
-
-    return this;
-}
-
 function cancel(reason)
 {
     "use strict";
@@ -48,7 +31,7 @@ function cancel(reason)
     if (!@isReadableStreamBYOBReader(this))
         return @Promise.@reject(@makeThisTypeError("ReadableStreamBYOBReader", "cancel"));
 
-    if (!@getByIdDirectPrivate(this, "ownerReadableStream"))
+    if (!this.@ownerReadableStream)
         return @Promise.@reject(new @TypeError("cancel() called on a reader owned by no readable stream"));
 
     return @readableStreamReaderGenericCancel(this, reason);
@@ -58,22 +41,8 @@ function read(view)
 {
     "use strict";
 
-    if (!@isReadableStreamBYOBReader(this))
-        return @Promise.@reject(@makeThisTypeError("ReadableStreamBYOBReader", "read"));
-
-    if (!@getByIdDirectPrivate(this, "ownerReadableStream"))
-        return @Promise.@reject(new @TypeError("read() called on a reader owned by no readable stream"));
-
-    if (!@isObject(view))
-        return @Promise.@reject(new @TypeError("Provided view is not an object"));
-
-    if (!@ArrayBuffer.@isView(view))
-        return @Promise.@reject(new @TypeError("Provided view is not an ArrayBufferView"));
-
-    if (view.byteLength === 0)
-        return @Promise.@reject(new @TypeError("Provided view cannot have a 0 byteLength"));
-
-    return @readableStreamBYOBReaderRead(this, view);
+    // FIXME: Implement appropriate behavior.
+    @throwTypeError("ReadableStreamBYOBReader read() is not implemented");
 }
 
 function releaseLock()
@@ -83,16 +52,15 @@ function releaseLock()
     if (!@isReadableStreamBYOBReader(this))
         throw @makeThisTypeError("ReadableStreamBYOBReader", "releaseLock");
 
-    if (!@getByIdDirectPrivate(this, "ownerReadableStream"))
+    if (!this.@ownerReadableStream)
         return;
 
-    if (@getByIdDirectPrivate(this, "readIntoRequests").length)
+    if (this.@readIntoRequests.length)
         @throwTypeError("There are still pending read requests, cannot release the lock");
 
     @readableStreamReaderGenericRelease(this);
 }
 
-@getter
 function closed()
 {
     "use strict";
@@ -100,5 +68,5 @@ function closed()
     if (!@isReadableStreamBYOBReader(this))
         return @Promise.@reject(@makeGetterTypeError("ReadableStreamBYOBReader", "closed"));
 
-    return @getByIdDirectPrivate(this, "closedPromiseCapability").@promise;
+    return this.@closedPromiseCapability.@promise;
 }

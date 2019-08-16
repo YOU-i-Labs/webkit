@@ -26,7 +26,7 @@
 #ifndef WOFFFileFormat_h
 #define WOFFFileFormat_h
 
-#include <wtf/Forward.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 

@@ -27,15 +27,16 @@
 #ifndef ResourceRequest_h
 #define ResourceRequest_h
 
+#include "GUniquePtrSoup.h"
 #include "ResourceRequestBase.h"
-#include "URLSoup.h"
+#include <libsoup/soup.h>
 
 namespace WebCore {
 
     class ResourceRequest : public ResourceRequestBase {
     public:
         ResourceRequest(const String& url)
-            : ResourceRequestBase(URL({ }, url), ResourceRequestCachePolicy::UseProtocolCachePolicy)
+            : ResourceRequestBase(URL(ParsedURLString, url), UseProtocolCachePolicy)
             , m_acceptEncoding(true)
             , m_soupFlags(static_cast<SoupMessageFlags>(0))
             , m_initiatingPageID(0)
@@ -43,14 +44,14 @@ namespace WebCore {
         }
 
         ResourceRequest(const URL& url)
-            : ResourceRequestBase(url, ResourceRequestCachePolicy::UseProtocolCachePolicy)
+            : ResourceRequestBase(url, UseProtocolCachePolicy)
             , m_acceptEncoding(true)
             , m_soupFlags(static_cast<SoupMessageFlags>(0))
             , m_initiatingPageID(0)
         {
         }
 
-        ResourceRequest(const URL& url, const String& referrer, ResourceRequestCachePolicy policy = ResourceRequestCachePolicy::UseProtocolCachePolicy)
+        ResourceRequest(const URL& url, const String& referrer, ResourceRequestCachePolicy policy = UseProtocolCachePolicy)
             : ResourceRequestBase(url, policy)
             , m_acceptEncoding(true)
             , m_soupFlags(static_cast<SoupMessageFlags>(0))
@@ -60,7 +61,7 @@ namespace WebCore {
         }
 
         ResourceRequest()
-            : ResourceRequestBase(URL(), ResourceRequestCachePolicy::UseProtocolCachePolicy)
+            : ResourceRequestBase(URL(), UseProtocolCachePolicy)
             , m_acceptEncoding(true)
             , m_soupFlags(static_cast<SoupMessageFlags>(0))
             , m_initiatingPageID(0)
@@ -68,7 +69,7 @@ namespace WebCore {
         }
 
         ResourceRequest(SoupMessage* soupMessage)
-            : ResourceRequestBase(URL(), ResourceRequestCachePolicy::UseProtocolCachePolicy)
+            : ResourceRequestBase(URL(), UseProtocolCachePolicy)
             , m_acceptEncoding(true)
             , m_soupFlags(static_cast<SoupMessageFlags>(0))
             , m_initiatingPageID(0)
@@ -77,7 +78,7 @@ namespace WebCore {
         }
 
         ResourceRequest(SoupRequest* soupRequest)
-            : ResourceRequestBase(soupURIToURL(soup_request_get_uri(soupRequest)), ResourceRequestCachePolicy::UseProtocolCachePolicy)
+            : ResourceRequestBase(URL(soup_request_get_uri(soupRequest)), UseProtocolCachePolicy)
             , m_acceptEncoding(true)
             , m_soupFlags(static_cast<SoupMessageFlags>(0))
             , m_initiatingPageID(0)

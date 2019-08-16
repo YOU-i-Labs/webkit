@@ -1,7 +1,7 @@
 /*
  *  Copyright (C) 1999-2001 Harri Porten (porten@kde.org)
  *  Copyright (C) 2001 Peter Kelly (pmk@post.com)
- *  Copyright (C) 2003-2018 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2017 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -30,7 +30,6 @@
 #include "Structure.h"
 #include "ThrowScope.h"
 #include <array>
-#include <wtf/CheckedArithmetic.h>
 #include <wtf/text/StringView.h>
 
 namespace JSC {
@@ -80,6 +79,7 @@ public:
     friend class JSRopeString;
     friend class MarkStack;
     friend class SlotVisitor;
+    friend struct ThunkHelpers;
 
     typedef JSCell Base;
     static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | StructureIsImmortal | OverridesToThis;
@@ -90,30 +90,28 @@ public:
     // We specialize the string subspace to get the fastest possible sweep. This wouldn't be
     // necessary if JSString didn't have a destructor.
     template<typename>
-    static CompleteSubspace* subspaceFor(VM& vm)
+    static Subspace* subspaceFor(VM& vm)
     {
         return &vm.stringSpace;
     }
     
-    // We employ overflow checks in many places with the assumption that MaxLength
-    // is INT_MAX. Hence, it cannot be changed into another length value without
-    // breaking all the bounds and overflow checks that assume this.
-    static constexpr unsigned MaxLength = std::numeric_limits<int32_t>::max();
-    static_assert(MaxLength == String::MaxLength, "");
-
+    static const unsigned MaxLength = std::numeric_limits<int32_t>::max();
+    
 private:
     JSString(VM& vm, Ref<StringImpl>&& value)
         : JSCell(vm, vm.stringStructure.get())
+        , m_flags(0)
         , m_value(WTFMove(value))
     {
     }
 
     JSString(VM& vm)
         : JSCell(vm, vm.stringStructure.get())
+        , m_flags(0)
     {
     }
 
-    void finishCreation(VM& vm, unsigned length)
+    void finishCreation(VM& vm, size_t length)
     {
         ASSERT(!m_value.isNull());
         Base::finishCreation(vm);
@@ -121,13 +119,13 @@ private:
         setIs8Bit(m_value.impl()->is8Bit());
     }
 
-    void finishCreation(VM& vm, unsigned length, size_t cost)
+    void finishCreation(VM& vm, size_t length, size_t cost)
     {
         ASSERT(!m_value.isNull());
         Base::finishCreation(vm);
         setLength(length);
         setIs8Bit(m_value.impl()->is8Bit());
-        vm.heap.reportExtraMemoryAllocated(cost);
+        Heap::heap(this)->reportExtraMemoryAllocated(cost);
     }
 
 protected:
@@ -149,7 +147,7 @@ public:
     }
     static JSString* createHasOtherOwner(VM& vm, Ref<StringImpl>&& value)
     {
-        unsigned length = value->length();
+        size_t length = value->length();
         JSString* newString = new (NotNull, allocateCell<JSString>(vm.heap)) JSString(vm, WTFMove(value));
         newString->finishCreation(vm, length);
         return newString;
@@ -163,9 +161,17 @@ public:
 
     inline bool equal(ExecState*, JSString* other) const;
     const String& value(ExecState*) const;
-    inline const String& tryGetValue() const;
+    const String& tryGetValue() const;
     const StringImpl* tryGetValueImpl() const;
     ALWAYS_INLINE unsigned length() const { return m_length; }
+    ALWAYS_INLINE static bool isValidLength(size_t length)
+    {
+        // While length is of type unsigned, the runtime and compilers are all
+        // expecting that m_length is a positive value <= INT_MAX.
+        // FIXME: Look into making the max length UINT_MAX to match StringImpl's max length.
+        // https://bugs.webkit.org/show_bug.cgi?id=163955
+        return length <= std::numeric_limits<int32_t>::max();
+    }
 
     JSValue toPrimitive(ExecState*, PreferredPrimitiveType) const;
     bool toBoolean() const { return !!length(); }
@@ -189,7 +195,7 @@ public:
     DECLARE_EXPORT_INFO;
 
     static void dumpToStream(const JSCell*, PrintStream&);
-    static size_t estimatedSize(JSCell*, VM&);
+    static size_t estimatedSize(JSCell*);
     static void visitChildren(JSCell*, SlotVisitor&);
 
     enum {
@@ -213,16 +219,15 @@ protected:
 
     ALWAYS_INLINE void setLength(unsigned length)
     {
-        ASSERT(length <= MaxLength);
+        RELEASE_ASSERT(isValidLength(length));
         m_length = length;
     }
 
 private:
+    mutable unsigned m_flags;
+
     // A string is represented either by a String or a rope of fibers.
-    unsigned m_length { 0 };
-    mutable uint16_t m_flags { 0 };
-    // The poison is strategically placed and holds a value such that the first
-    // 64 bits of JSString look like a double JSValue.
+    unsigned m_length;
     mutable String m_value;
 
     friend class LLIntOffsetsExtractor;
@@ -244,8 +249,7 @@ class JSRopeString final : public JSString {
     friend JSRopeString* jsStringBuilder(VM*);
 
 public:
-    template <class OverflowHandler = CrashOnOverflow>
-    class RopeBuilder : public OverflowHandler {
+    class RopeBuilder {
     public:
         RopeBuilder(VM& vm)
             : m_vm(vm)
@@ -256,35 +260,25 @@ public:
 
         bool append(JSString* jsString)
         {
-            if (UNLIKELY(this->hasOverflowed()))
-                return false;
             if (m_index == JSRopeString::s_maxInternalRopeLength)
                 expand();
-
-            static_assert(JSString::MaxLength == std::numeric_limits<int32_t>::max(), "");
-            auto sum = checkedSum<int32_t>(m_jsString->length(), jsString->length());
-            if (sum.hasOverflowed()) {
-                this->overflowed();
+            if (static_cast<int32_t>(m_jsString->length() + jsString->length()) < 0) {
+                m_jsString = nullptr;
                 return false;
             }
-            ASSERT(static_cast<unsigned>(sum.unsafeGet()) <= MaxLength);
             m_jsString->append(m_vm, m_index++, jsString);
             return true;
         }
 
         JSRopeString* release()
         {
-            RELEASE_ASSERT(!this->hasOverflowed());
+            RELEASE_ASSERT(m_jsString);
             JSRopeString* tmp = m_jsString;
-            m_jsString = nullptr;
+            m_jsString = 0;
             return tmp;
         }
 
-        unsigned length() const
-        {
-            ASSERT(!this->hasOverflowed());
-            return m_jsString->length();
-        }
+        unsigned length() const { return m_jsString->length(); }
 
     private:
         void expand();
@@ -426,14 +420,12 @@ private:
     friend JSValue jsStringFromRegisterArray(ExecState*, Register*, unsigned);
     friend JSValue jsStringFromArguments(ExecState*, JSValue);
 
-    // If nullOrExecForOOM is null, resolveRope() will be do nothing in the event of an OOM error.
-    // The rope value will remain a null string in that case.
-    JS_EXPORT_PRIVATE void resolveRope(ExecState* nullOrExecForOOM) const;
+    JS_EXPORT_PRIVATE void resolveRope(ExecState*) const;
     JS_EXPORT_PRIVATE void resolveRopeToAtomicString(ExecState*) const;
     JS_EXPORT_PRIVATE RefPtr<AtomicStringImpl> resolveRopeToExistingAtomicString(ExecState*) const;
     void resolveRopeSlowCase8(LChar*) const;
     void resolveRopeSlowCase(UChar*) const;
-    void outOfMemory(ExecState* nullOrExecForOOM) const;
+    void outOfMemory(ExecState*) const;
     void resolveRopeInternal8(LChar*) const;
     void resolveRopeInternal8NoSubstring(LChar*) const;
     void resolveRopeInternal16(UChar*) const;
@@ -558,10 +550,8 @@ inline const String& JSString::value(ExecState* exec) const
 
 inline const String& JSString::tryGetValue() const
 {
-    if (isRope()) {
-        // Pass nullptr for the ExecState so that resolveRope does not throw in the event of an OOM error.
-        static_cast<const JSRopeString*>(this)->resolveRope(nullptr);
-    }
+    if (isRope())
+        static_cast<const JSRopeString*>(this)->resolveRope(0);
     return m_value;
 }
 
@@ -590,9 +580,9 @@ inline JSString* jsString(VM* vm, const String& s)
 
 inline JSString* jsSubstring(VM& vm, ExecState* exec, JSString* s, unsigned offset, unsigned length)
 {
-    ASSERT(offset <= s->length());
-    ASSERT(length <= s->length());
-    ASSERT(offset + length <= s->length());
+    ASSERT(offset <= static_cast<unsigned>(s->length()));
+    ASSERT(length <= static_cast<unsigned>(s->length()));
+    ASSERT(offset + length <= static_cast<unsigned>(s->length()));
     if (!length)
         return vm.smallStrings.emptyString();
     if (!offset && length == s->length())
@@ -602,9 +592,9 @@ inline JSString* jsSubstring(VM& vm, ExecState* exec, JSString* s, unsigned offs
 
 inline JSString* jsSubstringOfResolved(VM& vm, GCDeferralContext* deferralContext, JSString* s, unsigned offset, unsigned length)
 {
-    ASSERT(offset <= s->length());
-    ASSERT(length <= s->length());
-    ASSERT(offset + length <= s->length());
+    ASSERT(offset <= static_cast<unsigned>(s->length()));
+    ASSERT(length <= static_cast<unsigned>(s->length()));
+    ASSERT(offset + length <= static_cast<unsigned>(s->length()));
     if (!length)
         return vm.smallStrings.emptyString();
     if (!offset && length == s->length())
@@ -624,9 +614,9 @@ inline JSString* jsSubstring(ExecState* exec, JSString* s, unsigned offset, unsi
 
 inline JSString* jsSubstring(VM* vm, const String& s, unsigned offset, unsigned length)
 {
-    ASSERT(offset <= s.length());
-    ASSERT(length <= s.length());
-    ASSERT(offset + length <= s.length());
+    ASSERT(offset <= static_cast<unsigned>(s.length()));
+    ASSERT(length <= static_cast<unsigned>(s.length()));
+    ASSERT(offset + length <= static_cast<unsigned>(s.length()));
     if (!length)
         return vm->smallStrings.emptyString();
     if (length == 1) {
@@ -686,19 +676,14 @@ ALWAYS_INLINE JSString* jsStringWithCache(ExecState* exec, const String& s)
 
 ALWAYS_INLINE bool JSString::getStringPropertySlot(ExecState* exec, PropertyName propertyName, PropertySlot& slot)
 {
-    VM& vm = exec->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    if (propertyName == vm.propertyNames->length) {
-        slot.setValue(this, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly, jsNumber(length()));
+    if (propertyName == exec->propertyNames().length) {
+        slot.setValue(this, DontEnum | DontDelete | ReadOnly, jsNumber(length()));
         return true;
     }
 
-    Optional<uint32_t> index = parseIndex(propertyName);
+    std::optional<uint32_t> index = parseIndex(propertyName);
     if (index && index.value() < length()) {
-        JSValue value = getIndex(exec, index.value());
-        RETURN_IF_EXCEPTION(scope, false);
-        slot.setValue(this, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly, value);
+        slot.setValue(this, DontDelete | ReadOnly, getIndex(exec, index.value()));
         return true;
     }
 
@@ -707,13 +692,8 @@ ALWAYS_INLINE bool JSString::getStringPropertySlot(ExecState* exec, PropertyName
 
 ALWAYS_INLINE bool JSString::getStringPropertySlot(ExecState* exec, unsigned propertyName, PropertySlot& slot)
 {
-    VM& vm = exec->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
     if (propertyName < length()) {
-        JSValue value = getIndex(exec, propertyName);
-        RETURN_IF_EXCEPTION(scope, false);
-        slot.setValue(this, PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly, value);
+        slot.setValue(this, DontDelete | ReadOnly, getIndex(exec, propertyName));
         return true;
     }
 

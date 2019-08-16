@@ -48,7 +48,9 @@ RTCIceCandidateDescriptor::RTCIceCandidateDescriptor(const String& candidate, co
 {
 }
 
-RTCIceCandidateDescriptor::~RTCIceCandidateDescriptor() = default;
+RTCIceCandidateDescriptor::~RTCIceCandidateDescriptor()
+{
+}
 
 } // namespace WebCore
 

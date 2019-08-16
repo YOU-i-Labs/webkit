@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "Timer.h"
-#include <JavaScriptCore/DeleteAllCodeEffort.h>
+#include <heap/DeleteAllCodeEffort.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
+#include "Timer.h"
 
 namespace WebCore {
 
@@ -50,8 +50,6 @@ public:
 
 private:
     GCController(); // Use singleton() instead.
-
-    void dumpHeap();
 
     void gcTimerFired();
     Timer m_GCTimer;

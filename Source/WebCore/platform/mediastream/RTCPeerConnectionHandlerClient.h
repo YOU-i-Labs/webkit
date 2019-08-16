@@ -46,7 +46,7 @@ class RTCIceCandidateDescriptor;
 
 class RTCPeerConnectionHandlerClient {
 public:
-    virtual ~RTCPeerConnectionHandlerClient() = default;
+    virtual ~RTCPeerConnectionHandlerClient() { }
 
     virtual void negotiationNeeded() = 0;
     virtual void didGenerateIceCandidate(RefPtr<RTCIceCandidateDescriptor>&&) = 0;

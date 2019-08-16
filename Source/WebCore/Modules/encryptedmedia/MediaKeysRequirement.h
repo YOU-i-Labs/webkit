@@ -30,11 +30,13 @@
 
 #if ENABLE(ENCRYPTED_MEDIA)
 
-#include "CDMRequirement.h"
-
 namespace WebCore {
 
-using MediaKeysRequirement = CDMRequirement;
+enum class MediaKeysRequirement {
+    Required,
+    Optional,
+    NotAllowed
+};
 
 } // namespace WebCore
 

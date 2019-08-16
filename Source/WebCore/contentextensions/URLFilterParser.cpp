@@ -101,7 +101,7 @@ public:
         sinkFloatingTermIfNecessary();
         ASSERT(!m_floatingTerm.isValid());
 
-        if (builtInCharacterClassID == JSC::Yarr::BuiltInCharacterClassID::DotClassID && !inverted)
+        if (builtInCharacterClassID == JSC::Yarr::NewlineClassID && inverted)
             m_floatingTerm = Term(Term::UniversalTransition);
         else
             fail(URLFilterParser::UnsupportedCharacterClass);
@@ -129,21 +129,6 @@ public:
         fail(URLFilterParser::BackReference);
     }
 
-    void atomNamedBackReference(const String&)
-    {
-        fail(URLFilterParser::BackReference);
-    }
-
-    bool isValidNamedForwardReference(const String&)
-    {
-        return false;
-    }
-
-    void atomNamedForwardReference(const String&)
-    {
-        fail(URLFilterParser::ForwardReference);
-    }
-    
     void assertionBOL()
     {
         if (hasError())
@@ -218,7 +203,7 @@ public:
         fail(URLFilterParser::AtomCharacter);
     }
 
-    void atomParenthesesSubpatternBegin(bool = true, Optional<String> = WTF::nullopt)
+    void atomParenthesesSubpatternBegin(bool = true)
     {
         if (hasError())
             return;
@@ -347,18 +332,21 @@ URLFilterParser::URLFilterParser(CombinedURLFilters& combinedURLFilters)
 {
 }
 
-URLFilterParser::~URLFilterParser() = default;
+URLFilterParser::~URLFilterParser()
+{
+}
 
 URLFilterParser::ParseStatus URLFilterParser::addPattern(const String& pattern, bool patternIsCaseSensitive, uint64_t patternId)
 {
-    if (!pattern.isAllASCII())
+    if (!pattern.containsOnlyASCII())
         return NonASCII;
     if (pattern.isEmpty())
         return EmptyPattern;
 
     ParseStatus status = Ok;
     PatternParser patternParser(patternIsCaseSensitive);
-    if (!JSC::Yarr::hasError(JSC::Yarr::parse(patternParser, pattern, false, 0)))
+    String error = String(JSC::Yarr::parse(patternParser, pattern, false, 0));
+    if (error.isNull())
         patternParser.finalize(patternId, m_combinedURLFilters);
     else
         status = YarrError;
@@ -382,8 +370,6 @@ String URLFilterParser::statusString(ParseStatus status)
         return "Character class is not supported.";
     case BackReference:
         return "Patterns cannot contain backreferences.";
-    case ForwardReference:
-        return "Patterns cannot contain forward references.";
     case MisplacedStartOfLine:
         return "Start of line assertion can only appear as the first term in a filter.";
     case WordBoundary:

@@ -30,63 +30,54 @@
 #include <wtf/Function.h>
 #include <wtf/WeakPtr.h>
 
-namespace WTF {
-class Lock;
-};
-
 namespace WebCore {
 
 template <typename T>
 class TaskDispatcher {
 public:
-    TaskDispatcher(T* context)
+    TaskDispatcher(T& context)
         : m_context(context)
     {
     }
 
     void postTask(WTF::Function<void()>&& f)
     {
-        ASSERT(m_context);
-        m_context->postTask(WTFMove(f));
+        m_context.postTask(WTFMove(f));
     }
 
 private:
-    T* m_context;
+    T& m_context;
 };
 
 template<>
-class TaskDispatcher<Timer> : public CanMakeWeakPtr<TaskDispatcher<Timer>> {
+class TaskDispatcher<Timer> {
 public:
     TaskDispatcher();
     void postTask(WTF::Function<void()>&&);
 
 private:
     static Timer& sharedTimer();
-    static WTF::Lock& sharedLock();
     static void sharedTimerFired();
     static Deque<WeakPtr<TaskDispatcher<Timer>>>& pendingDispatchers();
 
     void dispatchOneTask();
 
+    WeakPtrFactory<TaskDispatcher> m_weakPtrFactory;
     Deque<WTF::Function<void()>> m_pendingTasks;
 };
 
-template <typename T, typename C = unsigned>
-class GenericTaskQueue : public CanMakeWeakPtr<GenericTaskQueue<T, C>> {
+template <typename T>
+class GenericTaskQueue {
 public:
     GenericTaskQueue()
-        : m_dispatcher()
+        : m_weakPtrFactory(this)
+        , m_dispatcher()
     {
     }
 
     GenericTaskQueue(T& t)
-        : m_dispatcher(&t)
-    {
-    }
-
-    GenericTaskQueue(T* t)
-        : m_dispatcher(t)
-        , m_isClosed(!t)
+        : m_weakPtrFactory(this)
+        , m_dispatcher(t)
     {
     }
 
@@ -98,7 +89,8 @@ public:
             return;
 
         ++m_pendingTasks;
-        m_dispatcher.postTask([weakThis = makeWeakPtr(*this), task = WTFMove(task)] {
+        auto weakThis = m_weakPtrFactory.createWeakPtr();
+        m_dispatcher.postTask([weakThis, task = WTFMove(task)] {
             if (!weakThis)
                 return;
             ASSERT(weakThis->m_pendingTasks);
@@ -115,16 +107,15 @@ public:
 
     void cancelAllTasks()
     {
-        CanMakeWeakPtr<GenericTaskQueue<T>>::weakPtrFactory().revokeAll();
+        m_weakPtrFactory.revokeAll();
         m_pendingTasks = 0;
     }
-
     bool hasPendingTasks() const { return m_pendingTasks; }
-    bool isClosed() const { return m_isClosed; }
 
 private:
+    WeakPtrFactory<GenericTaskQueue> m_weakPtrFactory;
     TaskDispatcher<T> m_dispatcher;
-    C m_pendingTasks { 0 };
+    unsigned m_pendingTasks { 0 };
     bool m_isClosed { false };
 };
 

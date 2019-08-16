@@ -32,23 +32,19 @@ class MediaController
         this.media = media;
         this.host = host;
 
-        this.fullscreenChangeEventType = media.webkitSupportsPresentationMode ? "webkitpresentationmodechanged" : "webkitfullscreenchange";
-
         this.hasPlayed = false;
 
         this.container = shadowRoot.appendChild(document.createElement("div"));
         this.container.className = "media-controls-container";
 
-        this._updateControlsIfNeeded();
-        this._usesLTRUserInterfaceLayoutDirection = false;
-
         if (host) {
             host.controlsDependOnPageScaleFactor = this.layoutTraits & LayoutTraits.iOS;
-            this.container.insertBefore(host.textTrackContainer, this.controls.element);
+            this.container.appendChild(host.textTrackContainer);
             if (host.isInMediaDocument)
                 this.mediaDocumentController = new MediaDocumentController(this);
         }
 
+        this._updateControlsIfNeeded();
         scheduler.flushScheduledLayoutCallbacks();
 
         shadowRoot.addEventListener("resize", this);
@@ -56,12 +52,10 @@ class MediaController
         media.videoTracks.addEventListener("addtrack", this);
         media.videoTracks.addEventListener("removetrack", this);
 
-        media.addEventListener("play", this);
-        media.addEventListener(this.fullscreenChangeEventType, this);
-
-        window.addEventListener("keydown", this);
-
-        new MutationObserver(this._updateControlsAvailability.bind(this)).observe(this.media, { attributes: true, attributeFilter: ["controls"] });
+        if (media.webkitSupportsPresentationMode)
+            media.addEventListener("webkitpresentationmodechanged", this);
+        else
+            media.addEventListener("webkitfullscreenchange", this);
     }
 
     // Public
@@ -96,9 +90,6 @@ class MediaController
 
     get layoutTraits()
     {
-        if (this.host && this.host.compactMode)
-            return LayoutTraits.Compact;
-
         let traits = window.navigator.platform === "MacIntel" ? LayoutTraits.macOS : LayoutTraits.iOS;
         if (this.isFullscreen)
             return traits | LayoutTraits.Fullscreen;
@@ -108,7 +99,7 @@ class MediaController
     togglePlayback()
     {
         if (this.media.paused)
-            this.media.play().catch(e => {});
+            this.media.play();
         else
             this.media.pause();
     }
@@ -123,21 +114,11 @@ class MediaController
 
     set usesLTRUserInterfaceLayoutDirection(flag)
     {
-        if (this._usesLTRUserInterfaceLayoutDirection === flag)
-            return;
-
-        this._usesLTRUserInterfaceLayoutDirection = flag;
         this.controls.usesLTRUserInterfaceLayoutDirection = flag;
-    }
-
-    mediaControlsVisibilityDidChange()
-    {
-        this._controlsUserVisibilityDidChange();
     }
 
     mediaControlsFadedStateDidChange()
     {
-        this._controlsUserVisibilityDidChange();
         this._updateTextTracksClassList();
     }
 
@@ -169,27 +150,13 @@ class MediaController
             // We must immediately perform layouts so that we don't lag behind the media layout size.
             scheduler.flushScheduledLayoutCallbacks();
         } else if (event.currentTarget === this.media) {
-            if (event.type === "play")
-                this.hasPlayed = true;
             this._updateControlsIfNeeded();
-            this._updateControlsAvailability();
             if (event.type === "webkitpresentationmodechanged")
                 this._returnMediaLayerToInlineIfNeeded();
-        } else if (event.type === "keydown" && this.isFullscreen && event.key === " ") {
-            this.togglePlayback();
-            event.preventDefault();
         }
     }
 
     // Private
-
-    _supportingObjectClasses()
-    {
-        if (this.layoutTraits & LayoutTraits.Compact)
-            return [CompactMediaControlsSupport];
-
-        return [AirplaySupport, AudioSupport, ControlsVisibilitySupport, FullscreenSupport, MuteSupport, PiPSupport, PlacardSupport, PlaybackSupport, ScrubbingSupport, SeekBackwardSupport, SeekForwardSupport, SkipBackSupport, SkipForwardSupport, StartSupport, StatusSupport, TimeControlSupport, TracksSupport, VolumeSupport, VolumeDownSupport, VolumeUpSupport];
-    }
 
     _updateControlsIfNeeded()
     {
@@ -202,18 +169,18 @@ class MediaController
             return;
         }
 
-        // Before we reset the .controls property, we need to disable the previous
+        // Before we reset the .controls property, we need to destroy the previous
         // supporting objects so we don't leak.
         if (this._supportingObjects) {
             for (let supportingObject of this._supportingObjects)
-                supportingObject.disable();
+                supportingObject.destroy();
         }
 
         this.controls = new ControlsClass;
         this.controls.delegate = this;
 
-        if (this.controls.autoHideController && this.shadowRoot.host && this.shadowRoot.host.dataset.autoHideDelay)
-            this.controls.autoHideController.autoHideDelay = this.shadowRoot.host.dataset.autoHideDelay;
+        if (this.shadowRoot.host && this.shadowRoot.host.dataset.autoHideDelay)
+            this.controls.bottomControlsBar.autoHideDelay = this.shadowRoot.host.dataset.autoHideDelay;
 
         if (previousControls) {
             this.controls.fadeIn();
@@ -225,60 +192,23 @@ class MediaController
         this._updateTextTracksClassList();
         this._updateControlsSize();
 
-        this._supportingObjects = this._supportingObjectClasses().map(SupportClass => new SupportClass(this), this);
+        this._supportingObjects = [AirplaySupport, AudioSupport, ControlsVisibilitySupport, FullscreenSupport, MuteSupport, PiPSupport, PlacardSupport, PlaybackSupport, ScrubbingSupport, SeekBackwardSupport, SeekForwardSupport, SkipBackSupport, SkipForwardSupport, StartSupport, StatusSupport, TimeControlSupport, TracksSupport, VolumeSupport, VolumeDownSupport, VolumeUpSupport].map(SupportClass => {
+            return new SupportClass(this);
+        }, this);
 
         this.controls.shouldUseSingleBarLayout = this.controls instanceof InlineMediaControls && this.isYouTubeEmbedWithTitle;
-
-        this._updateControlsAvailability();
     }
 
     _updateControlsSize()
     {
-        // To compute the bounds of the controls, we need to account for the computed transform applied
-        // to the media element, and apply the inverted transform to the bounds computed on the container
-        // element in the shadow root, which is naturally sized to match the metrics of its host,
-        // excluding borders.
-
-        // First, we traverse the node hierarchy up from the media element to compute the effective
-        // transform matrix applied to the media element.
-        let node = this.media;
-        let transform = new DOMMatrix;
-        while (node && node instanceof HTMLElement) {
-            transform = transform.multiply(new DOMMatrix(getComputedStyle(node).transform));
-            node = node.parentNode;
-        }
-
-        // Then, we take each corner of the container element in the shadow root and transform
-        // each with the inverted matrix we just computed so that we can compute the untransformed
-        // bounds of the media element.
-        const bounds = this.container.getBoundingClientRect();
-        const invertedTransform = transform.inverse();
-        let minX = Infinity;
-        let minY = Infinity;
-        let maxX = -Infinity;
-        let maxY = -Infinity;
-        [
-            new DOMPoint(bounds.left, bounds.top),
-            new DOMPoint(bounds.right, bounds.top),
-            new DOMPoint(bounds.right, bounds.bottom),
-            new DOMPoint(bounds.left, bounds.bottom)
-        ].forEach(corner => {
-            const point = corner.matrixTransform(invertedTransform);
-            if (point.x < minX)
-                minX = point.x;
-            if (point.x > maxX)
-                maxX = point.x;
-            if (point.y < minY)
-                minY = point.y;
-            if (point.y > maxY)
-                maxY = point.y;
-        });
-
-        // Finally, we factor in the scale factor of the controls themselves, which reflects the page's scale factor.
-        this.controls.width = Math.round((maxX - minX) * this.controls.scaleFactor);
-        this.controls.height = Math.round((maxY - minY) * this.controls.scaleFactor);
-
+        this.controls.width = this._controlsWidth();
+        this.controls.height = Math.round(this.container.getBoundingClientRect().height * this.controls.scaleFactor);
         this.controls.shouldCenterControlsVertically = this.isAudio;
+    }
+
+    _controlsWidth()
+    {
+        return Math.round(this.container.getBoundingClientRect().width * (this.controls ? this.controls.scaleFactor : 1));
     }
 
     _returnMediaLayerToInlineIfNeeded()
@@ -289,8 +219,6 @@ class MediaController
 
     _controlsClassForLayoutTraits(layoutTraits)
     {
-        if (layoutTraits & LayoutTraits.Compact)
-            return CompactMediaControls;
         if (layoutTraits & LayoutTraits.iOS)
             return IOSInlineMediaControls;
         if (layoutTraits & LayoutTraits.Fullscreen)
@@ -308,40 +236,6 @@ class MediaController
             return;
 
         this.host.textTrackContainer.classList.toggle("visible-controls-bar", !this.controls.faded);
-    }
-
-    _controlsUserVisibilityDidChange()
-    {
-        if (!this.controls || !this._supportingObjects)
-            return;
-
-        this._supportingObjects.forEach(supportingObject => supportingObject.controlsUserVisibilityDidChange());
-    }
-
-    _shouldControlsBeAvailable()
-    {
-        // Controls are always available with compact layout.
-        if (this.layoutTraits & LayoutTraits.Compact)
-            return true;
-
-        // Controls are always available while in fullscreen on macOS, and they are never available when in fullscreen on iOS.
-        if (this.isFullscreen)
-            return !!(this.layoutTraits & LayoutTraits.macOS);
-
-        // Otherwise, for controls to be available, the controls attribute must be present on the media element
-        // or the MediaControlsHost must indicate that controls are forced.
-        return this.media.controls || !!(this.host && this.host.shouldForceControlsDisplay);
-    }
-
-    _updateControlsAvailability()
-    {
-        const shouldControlsBeAvailable = this._shouldControlsBeAvailable();
-        if (!shouldControlsBeAvailable)
-            this._supportingObjects.forEach(supportingObject => supportingObject.disable());
-        else
-            this._supportingObjects.forEach(supportingObject => supportingObject.enable());
-
-        this.controls.visible = shouldControlsBeAvailable;
     }
 
 }

@@ -33,6 +33,7 @@
 
 #include "Document.h"
 #include "Editing.h"
+#include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameSelection.h"
 #include "Range.h"
@@ -51,15 +52,15 @@ static Node* selectionShadowAncestor(Frame& frame)
     return frame.document()->ancestorNodeInThisScope(node);
 }
 
-DOMSelection::DOMSelection(DOMWindow& window)
-    : DOMWindowProperty(&window)
+DOMSelection::DOMSelection(Frame& frame)
+    : DOMWindowProperty(&frame)
 {
 }
 
 const VisibleSelection& DOMSelection::visibleSelection() const
 {
-    ASSERT(frame());
-    return frame()->selection().selection();
+    ASSERT(m_frame);
+    return m_frame->selection().selection();
 }
 
 static Position anchorPosition(const VisibleSelection& selection)
@@ -86,85 +87,82 @@ static Position extentPosition(const VisibleSelection& selection)
 
 Node* DOMSelection::anchorNode() const
 {
-    if (!frame())
-        return nullptr;
+    if (!m_frame)
+        return 0;
     return shadowAdjustedNode(anchorPosition(visibleSelection()));
 }
 
 unsigned DOMSelection::anchorOffset() const
 {
-    if (!frame())
+    if (!m_frame)
         return 0;
     return shadowAdjustedOffset(anchorPosition(visibleSelection()));
 }
 
 Node* DOMSelection::focusNode() const
 {
-    if (!frame())
+    if (!m_frame)
         return nullptr;
     return shadowAdjustedNode(focusPosition(visibleSelection()));
 }
 
 unsigned DOMSelection::focusOffset() const
 {
-    if (!frame())
+    if (!m_frame)
         return 0;
     return shadowAdjustedOffset(focusPosition(visibleSelection()));
 }
 
 Node* DOMSelection::baseNode() const
 {
-    if (!frame())
-        return nullptr;
+    if (!m_frame)
+        return 0;
     return shadowAdjustedNode(basePosition(visibleSelection()));
 }
 
 unsigned DOMSelection::baseOffset() const
 {
-    if (!frame())
+    if (!m_frame)
         return 0;
     return shadowAdjustedOffset(basePosition(visibleSelection()));
 }
 
 Node* DOMSelection::extentNode() const
 {
-    if (!frame())
-        return nullptr;
+    if (!m_frame)
+        return 0;
     return shadowAdjustedNode(extentPosition(visibleSelection()));
 }
 
 unsigned DOMSelection::extentOffset() const
 {
-    if (!frame())
+    if (!m_frame)
         return 0;
     return shadowAdjustedOffset(extentPosition(visibleSelection()));
 }
 
 bool DOMSelection::isCollapsed() const
 {
-    auto* frame = this->frame();
-    if (!frame || selectionShadowAncestor(*frame))
+    if (!m_frame || selectionShadowAncestor(*m_frame))
         return true;
-    return !frame->selection().isRange();
+    return !m_frame->selection().isRange();
 }
 
 String DOMSelection::type() const
 {
-    auto* frame = this->frame();
-    if (!frame)
-        return "None"_s;
-    auto& selection = frame->selection();
+    if (!m_frame)
+        return ASCIILiteral("None");
+    auto& selection = m_frame->selection();
     if (selection.isNone())
-        return "None"_s;
+        return ASCIILiteral("None");
     if (selection.isCaret())
-        return "Caret"_s;
-    return "Range"_s;
+        return ASCIILiteral("Caret");
+    return ASCIILiteral("Range");
 }
 
 unsigned DOMSelection::rangeCount() const
 {
-    auto* frame = this->frame();
-    return !frame || frame->selection().isNone() ? 0 : 1;
+    return !m_frame || m_frame->selection().isNone() ? 0 : 1;
 }
 
 void DOMSelection::collapse(Node* node, unsigned offset)
@@ -172,44 +170,41 @@ void DOMSelection::collapse(Node* node, unsigned offset)
     if (!isValidForPosition(node))
         return;
 
-    Ref<Frame> protectedFrame(*frame());
-    protectedFrame->selection().moveTo(createLegacyEditingPosition(node, offset), DOWNSTREAM);
+    Ref<Frame> protector(*m_frame);
+    m_frame->selection().moveTo(createLegacyEditingPosition(node, offset), DOWNSTREAM);
 }
 
 ExceptionOr<void> DOMSelection::collapseToEnd()
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return { };
-    auto& selection = frame->selection();
+    auto& selection = m_frame->selection();
     if (selection.isNone())
-        return Exception { InvalidStateError };
+        return Exception { INVALID_STATE_ERR };
 
-    Ref<Frame> protector(*frame);
+    Ref<Frame> protector(*m_frame);
     selection.moveTo(selection.selection().end(), DOWNSTREAM);
     return { };
 }
 
 ExceptionOr<void> DOMSelection::collapseToStart()
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return { };
-    auto& selection = frame->selection();
+    auto& selection = m_frame->selection();
     if (selection.isNone())
-        return Exception { InvalidStateError };
+        return Exception { INVALID_STATE_ERR };
 
-    Ref<Frame> protector(*frame);
+    Ref<Frame> protector(*m_frame);
     selection.moveTo(selection.selection().start(), DOWNSTREAM);
     return { };
 }
 
 void DOMSelection::empty()
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return;
-    frame->selection().clear();
+    m_frame->selection().clear();
 }
 
 void DOMSelection::setBaseAndExtent(Node* baseNode, unsigned baseOffset, Node* extentNode, unsigned extentOffset)
@@ -217,8 +212,8 @@ void DOMSelection::setBaseAndExtent(Node* baseNode, unsigned baseOffset, Node* e
     if (!isValidForPosition(baseNode) || !isValidForPosition(extentNode))
         return;
 
-    Ref<Frame> protectedFrame(*frame());
-    protectedFrame->selection().moveTo(createLegacyEditingPosition(baseNode, baseOffset), createLegacyEditingPosition(extentNode, extentOffset), DOWNSTREAM);
+    Ref<Frame> protector(*m_frame);
+    m_frame->selection().moveTo(createLegacyEditingPosition(baseNode, baseOffset), createLegacyEditingPosition(extentNode, extentOffset), DOWNSTREAM);
 }
 
 void DOMSelection::setPosition(Node* node, unsigned offset)
@@ -226,14 +221,13 @@ void DOMSelection::setPosition(Node* node, unsigned offset)
     if (!isValidForPosition(node))
         return;
 
-    Ref<Frame> protectedFrame(*frame());
-    protectedFrame->selection().moveTo(createLegacyEditingPosition(node, offset), DOWNSTREAM);
+    Ref<Frame> protector(*m_frame);
+    m_frame->selection().moveTo(createLegacyEditingPosition(node, offset), DOWNSTREAM);
 }
 
 void DOMSelection::modify(const String& alterString, const String& directionString, const String& granularityString)
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return;
 
     FrameSelection::EAlteration alter;
@@ -278,64 +272,60 @@ void DOMSelection::modify(const String& alterString, const String& directionStri
     else
         return;
 
-    Ref<Frame> protector(*frame);
-    frame->selection().modify(alter, direction, granularity);
+    Ref<Frame> protector(*m_frame);
+    m_frame->selection().modify(alter, direction, granularity);
 }
 
 ExceptionOr<void> DOMSelection::extend(Node& node, unsigned offset)
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return { };
-    if (offset > (node.isCharacterDataNode() ? caretMaxOffset(node) : node.countChildNodes()))
-        return Exception { IndexSizeError };
+    if (offset > (node.offsetInCharacters() ? caretMaxOffset(node) : node.countChildNodes()))
+        return Exception { INDEX_SIZE_ERR };
     if (!isValidForPosition(&node))
         return { };
 
-    Ref<Frame> protector(*frame);
-    frame->selection().setExtent(createLegacyEditingPosition(&node, offset), DOWNSTREAM);
+    Ref<Frame> protector(*m_frame);
+    m_frame->selection().setExtent(createLegacyEditingPosition(&node, offset), DOWNSTREAM);
     return { };
 }
 
 ExceptionOr<Ref<Range>> DOMSelection::getRangeAt(unsigned index)
 {
     if (index >= rangeCount())
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     // If you're hitting this, you've added broken multi-range selection support.
     ASSERT(rangeCount() == 1);
 
-    auto* frame = this->frame();
-    if (auto* shadowAncestor = selectionShadowAncestor(*frame)) {
+    if (auto* shadowAncestor = selectionShadowAncestor(*m_frame)) {
         auto* container = shadowAncestor->parentNodeGuaranteedHostFree();
         unsigned offset = shadowAncestor->computeNodeIndex();
         return Range::create(shadowAncestor->document(), container, offset, container, offset);
     }
 
-    auto firstRange = frame->selection().selection().firstRange();
+    auto firstRange = m_frame->selection().selection().firstRange();
     ASSERT(firstRange);
     if (!firstRange)
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
     return firstRange.releaseNonNull();
 }
 
 void DOMSelection::removeAllRanges()
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return;
-    frame->selection().clear();
+    m_frame->selection().clear();
 }
 
 void DOMSelection::addRange(Range& range)
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return;
 
-    Ref<Frame> protector(*frame);
+    Ref<Frame> protector(*m_frame);
 
-    auto& selection = frame->selection();
+    auto& selection = m_frame->selection();
     if (selection.isNone()) {
         selection.moveTo(&range);
         return;
@@ -377,11 +367,10 @@ void DOMSelection::addRange(Range& range)
 
 void DOMSelection::deleteFromDocument()
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return;
 
-    auto& selection = frame->selection();
+    auto& selection = m_frame->selection();
     if (selection.isNone())
         return;
 
@@ -389,25 +378,22 @@ void DOMSelection::deleteFromDocument()
     if (!selectedRange || selectedRange->shadowRoot())
         return;
 
-    Ref<Frame> protector(*frame);
+    Ref<Frame> protector(*m_frame);
     selectedRange->deleteContents();
     setBaseAndExtent(&selectedRange->startContainer(), selectedRange->startOffset(), &selectedRange->startContainer(), selectedRange->startOffset());
 }
 
 bool DOMSelection::containsNode(Node& node, bool allowPartial) const
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return false;
 
-    auto& selection = frame->selection();
-    if (frame->document() != &node.document() || selection.isNone())
+    auto& selection = m_frame->selection();
+    if (m_frame->document() != &node.document() || selection.isNone())
         return false;
 
     Ref<Node> protectedNode(node);
     auto selectedRange = selection.selection().toNormalizedRange();
-    if (!selectedRange)
-        return false;
 
     ContainerNode* parentNode = node.parentNode();
     if (!parentNode || !parentNode->isConnected())
@@ -443,10 +429,9 @@ void DOMSelection::selectAllChildren(Node& node)
 
 String DOMSelection::toString()
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return String();
-    return plainText(frame->selection().selection().toNormalizedRange().get());
+    return plainText(m_frame->selection().selection().toNormalizedRange().get());
 }
 
 Node* DOMSelection::shadowAdjustedNode(const Position& position) const
@@ -455,7 +440,7 @@ Node* DOMSelection::shadowAdjustedNode(const Position& position) const
         return nullptr;
 
     auto* containerNode = position.containerNode();
-    auto* adjustedNode = frame()->document()->ancestorNodeInThisScope(containerNode);
+    auto* adjustedNode = m_frame->document()->ancestorNodeInThisScope(containerNode);
     if (!adjustedNode)
         return nullptr;
 
@@ -471,7 +456,7 @@ unsigned DOMSelection::shadowAdjustedOffset(const Position& position) const
         return 0;
 
     auto* containerNode = position.containerNode();
-    auto* adjustedNode = frame()->document()->ancestorNodeInThisScope(containerNode);
+    auto* adjustedNode = m_frame->document()->ancestorNodeInThisScope(containerNode);
     if (!adjustedNode)
         return 0;
 
@@ -483,12 +468,11 @@ unsigned DOMSelection::shadowAdjustedOffset(const Position& position) const
 
 bool DOMSelection::isValidForPosition(Node* node) const
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return false;
     if (!node)
         return true;
-    return &node->document() == frame->document();
+    return &node->document() == m_frame->document();
 }
 
 } // namespace WebCore

@@ -31,7 +31,7 @@
 
 namespace JSC { namespace DFG {
 
-enum StructureClobberState : uint8_t {
+enum StructureClobberState {
     StructuresAreWatched, // Constants with watchable structures must have those structures.
     StructuresAreClobbered // Constants with watchable structures could have any structure.
 };

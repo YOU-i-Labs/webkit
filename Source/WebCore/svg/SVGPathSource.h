@@ -28,8 +28,8 @@ class FloatPoint;
 class SVGPathSource {
     WTF_MAKE_NONCOPYABLE(SVGPathSource); WTF_MAKE_FAST_ALLOCATED;
 public:
-    SVGPathSource() = default;
-    virtual ~SVGPathSource() = default;
+    SVGPathSource() { }
+    virtual ~SVGPathSource() { }
 
     virtual bool hasMoreData() const = 0;
     virtual bool moveToNextToken() = 0;

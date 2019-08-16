@@ -33,6 +33,7 @@ namespace WebCore {
 
 class WebKitPlaybackTargetAvailabilityEvent : public Event {
 public:
+    ~WebKitPlaybackTargetAvailabilityEvent() { }
 
     static Ref<WebKitPlaybackTargetAvailabilityEvent> create(const AtomicString& eventType, bool available)
     {

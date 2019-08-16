@@ -23,10 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.IndexedDatabaseObjectStore = class IndexedDatabaseObjectStore
+WebInspector.IndexedDatabaseObjectStore = class IndexedDatabaseObjectStore extends WebInspector.Object
 {
     constructor(name, keyPath, autoIncrement, indexes)
     {
+        super();
+
         this._name = name;
         this._keyPath = keyPath;
         this._autoIncrement = autoIncrement || false;
@@ -47,8 +49,8 @@ WI.IndexedDatabaseObjectStore = class IndexedDatabaseObjectStore
 
     saveIdentityToCookie(cookie)
     {
-        cookie[WI.IndexedDatabaseObjectStore.NameCookieKey] = this._name;
-        cookie[WI.IndexedDatabaseObjectStore.KeyPathCookieKey] = this._keyPath;
+        cookie[WebInspector.IndexedDatabaseObjectStore.NameCookieKey] = this._name;
+        cookie[WebInspector.IndexedDatabaseObjectStore.KeyPathCookieKey] = this._keyPath;
     }
 
     // Protected
@@ -59,6 +61,6 @@ WI.IndexedDatabaseObjectStore = class IndexedDatabaseObjectStore
     }
 };
 
-WI.IndexedDatabaseObjectStore.TypeIdentifier = "indexed-database-object-store";
-WI.IndexedDatabaseObjectStore.NameCookieKey = "indexed-database-object-store-name";
-WI.IndexedDatabaseObjectStore.KeyPathCookieKey = "indexed-database-object-store-key-path";
+WebInspector.IndexedDatabaseObjectStore.TypeIdentifier = "indexed-database-object-store";
+WebInspector.IndexedDatabaseObjectStore.NameCookieKey = "indexed-database-object-store-name";
+WebInspector.IndexedDatabaseObjectStore.KeyPathCookieKey = "indexed-database-object-store-key-path";

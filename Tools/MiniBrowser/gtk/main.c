@@ -28,10 +28,8 @@
 #include "cmakeconfig.h"
 
 #include "BrowserWindow.h"
+#include <JavaScriptCore/JavaScript.h>
 #include <errno.h>
-#if ENABLE_WEB_AUDIO || ENABLE_VIDEO
-#include <gst/gst.h>
-#endif
 #include <gtk/gtk.h>
 #include <string.h>
 #include <webkit2/webkit2.h>
@@ -39,18 +37,12 @@
 #define MINI_BROWSER_ERROR (miniBrowserErrorQuark())
 
 static const gchar **uriArguments = NULL;
-static const gchar **ignoreHosts = NULL;
 static GdkRGBA *backgroundColor;
 static gboolean editorMode;
 static const char *sessionFile;
 static char *geometry;
 static gboolean privateMode;
 static gboolean automationMode;
-static gboolean fullScreen;
-static gboolean ignoreTLSErrors;
-static const char *cookiesFile;
-static const char *cookiesPolicy;
-static const char *proxy;
 
 typedef enum {
     MINI_BROWSER_ERROR_INVALID_ABOUT_PATH
@@ -104,14 +96,8 @@ static const GOptionEntry commandLineOptions[] =
     { "editor-mode", 'e', 0, G_OPTION_ARG_NONE, &editorMode, "Run in editor mode", NULL },
     { "session-file", 's', 0, G_OPTION_ARG_FILENAME, &sessionFile, "Session file", "FILE" },
     { "geometry", 'g', 0, G_OPTION_ARG_STRING, &geometry, "Set the size and position of the window (WIDTHxHEIGHT+X+Y)", "GEOMETRY" },
-    { "full-screen", 'f', 0, G_OPTION_ARG_NONE, &fullScreen, "Set the window to full-screen mode", NULL },
     { "private", 'p', 0, G_OPTION_ARG_NONE, &privateMode, "Run in private browsing mode", NULL },
     { "automation", 0, 0, G_OPTION_ARG_NONE, &automationMode, "Run in automation mode", NULL },
-    { "cookies-file", 'c', 0, G_OPTION_ARG_FILENAME, &cookiesFile, "Persistent cookie storage database file", "FILE" },
-    { "cookies-policy", 0, 0, G_OPTION_ARG_STRING, &cookiesPolicy, "Cookies accept policy (always, never, no-third-party). Default: no-third-party", "POLICY" },
-    { "proxy", 0, 0, G_OPTION_ARG_STRING, &proxy, "Set proxy", "PROXY" },
-    { "ignore-host", 0, 0, G_OPTION_ARG_STRING_ARRAY, &ignoreHosts, "Set proxy ignore hosts", "HOSTS" },
-    { "ignore-tls-errors", 0, 0, G_OPTION_ARG_NONE, &ignoreTLSErrors, "Ignore TLS errors", NULL },
     { G_OPTION_REMAINING, 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &uriArguments, 0, "[URL…]" },
     { 0, 0, 0, 0, 0, 0, 0 }
 };
@@ -268,7 +254,7 @@ static void aboutDataRequestFree(AboutDataRequest *request)
     if (request->dataMap)
         g_hash_table_destroy(request->dataMap);
 
-    g_free(request);
+    g_slice_free(AboutDataRequest, request);
 }
 
 static AboutDataRequest* aboutDataRequestNew(WebKitURISchemeRequest *uriRequest)
@@ -276,7 +262,7 @@ static AboutDataRequest* aboutDataRequestNew(WebKitURISchemeRequest *uriRequest)
     if (!aboutDataRequestMap)
         aboutDataRequestMap = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL, (GDestroyNotify)aboutDataRequestFree);
 
-    AboutDataRequest *request = g_new0(AboutDataRequest, 1);
+    AboutDataRequest *request = g_slice_new0(AboutDataRequest);
     request->request = g_object_ref(uriRequest);
     g_hash_table_insert(aboutDataRequestMap, GUINT_TO_POINTER(webkit_web_view_get_page_id(webkit_uri_scheme_request_get_web_view(request->request))), request);
 
@@ -302,7 +288,17 @@ static void websiteDataClearedCallback(WebKitWebsiteDataManager *manager, GAsync
 
 static void aboutDataScriptMessageReceivedCallback(WebKitUserContentManager *userContentManager, WebKitJavascriptResult *message, WebKitWebContext *webContext)
 {
-    char *messageString = jsc_value_to_string(webkit_javascript_result_get_js_value(message));
+    JSValueRef jsValue = webkit_javascript_result_get_value(message);
+    JSStringRef jsString = JSValueToStringCopy(webkit_javascript_result_get_global_context(message), jsValue, NULL);
+    size_t maxSize = JSStringGetMaximumUTF8CStringSize(jsString);
+    if (!maxSize) {
+        JSStringRelease(jsString);
+        return;
+    }
+    char *messageString = g_malloc(maxSize);
+    JSStringGetUTF8CString(jsString, messageString, maxSize);
+    JSStringRelease(jsString);
+
     char **tokens = g_strsplit(messageString, ":", 3);
     g_free(messageString);
 
@@ -404,7 +400,6 @@ static void gotWebsiteDataCallback(WebKitWebsiteDataManager *manager, GAsyncResu
 
     guint64 pageID = webkit_web_view_get_page_id(webkit_uri_scheme_request_get_web_view(dataRequest->request));
     aboutDataFillTable(result, dataRequest, dataList, "Cookies", WEBKIT_WEBSITE_DATA_COOKIES, NULL, pageID);
-    aboutDataFillTable(result, dataRequest, dataList, "Device Id Hash Salt", WEBKIT_WEBSITE_DATA_DEVICE_ID_HASH_SALT, NULL, pageID);
     aboutDataFillTable(result, dataRequest, dataList, "Memory Cache", WEBKIT_WEBSITE_DATA_MEMORY_CACHE, NULL, pageID);
     aboutDataFillTable(result, dataRequest, dataList, "Disk Cache", WEBKIT_WEBSITE_DATA_DISK_CACHE, webkit_website_data_manager_get_disk_cache_directory(manager), pageID);
     aboutDataFillTable(result, dataRequest, dataList, "Session Storage", WEBKIT_WEBSITE_DATA_SESSION_STORAGE, NULL, pageID);
@@ -463,28 +458,19 @@ static GtkWidget *createWebViewForAutomationCallback(WebKitAutomationSession* se
 
 static void automationStartedCallback(WebKitWebContext *webContext, WebKitAutomationSession *session)
 {
-    WebKitApplicationInfo *info = webkit_application_info_new();
-    webkit_application_info_set_version(info, WEBKIT_MAJOR_VERSION, WEBKIT_MINOR_VERSION, WEBKIT_MICRO_VERSION);
-    webkit_automation_session_set_application_info(session, info);
-    webkit_application_info_unref(info);
-
     g_signal_connect(session, "create-web-view", G_CALLBACK(createWebViewForAutomationCallback), NULL);
 }
 
 int main(int argc, char *argv[])
 {
+    gtk_init(&argc, &argv);
 #if ENABLE_DEVELOPER_MODE
     g_setenv("WEBKIT_INJECTED_BUNDLE_PATH", WEBKIT_INJECTED_BUNDLE_PATH, FALSE);
 #endif
 
-    gtk_init(&argc, &argv);
-
     GOptionContext *context = g_option_context_new(NULL);
     g_option_context_add_main_entries(context, commandLineOptions, 0);
     g_option_context_add_group(context, gtk_get_option_group(TRUE));
-#if ENABLE_WEB_AUDIO || ENABLE_VIDEO
-    g_option_context_add_group(context, gst_init_get_option_group());
-#endif
 
     WebKitSettings *webkitSettings = webkit_settings_new();
     webkit_settings_set_enable_developer_extras(webkitSettings, TRUE);
@@ -505,27 +491,6 @@ int main(int argc, char *argv[])
 
     WebKitWebContext *webContext = (privateMode || automationMode) ? webkit_web_context_new_ephemeral() : webkit_web_context_get_default();
 
-    if (cookiesPolicy) {
-        WebKitCookieManager *cookieManager = webkit_web_context_get_cookie_manager(webContext);
-        GEnumClass *enumClass = g_type_class_ref(WEBKIT_TYPE_COOKIE_ACCEPT_POLICY);
-        GEnumValue *enumValue = g_enum_get_value_by_nick(enumClass, cookiesPolicy);
-        if (enumValue)
-            webkit_cookie_manager_set_accept_policy(cookieManager, enumValue->value);
-        g_type_class_unref(enumClass);
-    }
-
-    if (cookiesFile && !webkit_web_context_is_ephemeral(webContext)) {
-        WebKitCookieManager *cookieManager = webkit_web_context_get_cookie_manager(webContext);
-        WebKitCookiePersistentStorage storageType = g_str_has_suffix(cookiesFile, ".txt") ? WEBKIT_COOKIE_PERSISTENT_STORAGE_TEXT : WEBKIT_COOKIE_PERSISTENT_STORAGE_SQLITE;
-        webkit_cookie_manager_set_persistent_storage(cookieManager, cookiesFile, storageType);
-    }
-
-    if (proxy) {
-        WebKitNetworkProxySettings *webkitProxySettings = webkit_network_proxy_settings_new(proxy, ignoreHosts);
-        webkit_web_context_set_network_proxy_settings(webContext, WEBKIT_NETWORK_PROXY_MODE_CUSTOM, webkitProxySettings);
-        webkit_network_proxy_settings_free(webkitProxySettings);
-    }
-
     const gchar *singleprocess = g_getenv("MINIBROWSER_SINGLEPROCESS");
     webkit_web_context_set_process_model(webContext, (singleprocess && *singleprocess) ?
         WEBKIT_PROCESS_MODEL_SHARED_SECONDARY_PROCESS : WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES);
@@ -542,13 +507,8 @@ int main(int argc, char *argv[])
     webkit_web_context_set_automation_allowed(webContext, automationMode);
     g_signal_connect(webContext, "automation-started", G_CALLBACK(automationStartedCallback), NULL);
 
-    if (ignoreTLSErrors)
-        webkit_web_context_set_tls_errors_policy(webContext, WEBKIT_TLS_ERRORS_POLICY_IGNORE);
-
     BrowserWindow *mainWindow = BROWSER_WINDOW(browser_window_new(NULL, webContext));
-    if (fullScreen)
-        gtk_window_fullscreen(GTK_WINDOW(mainWindow));
-    else if (geometry)
+    if (geometry)
         gtk_window_parse_geometry(GTK_WINDOW(mainWindow), geometry);
 
     GtkWidget *firstTab = NULL;

@@ -32,7 +32,7 @@ namespace JSC {
 class WeakSetPrototype;
 class GetterSetter;
 
-class WeakSetConstructor final : public InternalFunction {
+class WeakSetConstructor : public InternalFunction {
 public:
     typedef InternalFunction Base;
 
@@ -47,12 +47,17 @@ public:
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(vm, globalObject, prototype, TypeInfo(InternalFunctionType, StructureFlags), info());
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
     }
 
 private:
-    WeakSetConstructor(VM&, Structure*);
+    WeakSetConstructor(VM& vm, Structure* structure)
+        : Base(vm, structure)
+    {
+    }
     void finishCreation(VM&, WeakSetPrototype*);
+    static ConstructType getConstructData(JSCell*, ConstructData&);
+    static CallType getCallData(JSCell*, CallData&);
 };
 
 } // namespace JSC

@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
+WebInspector.StyleDetailsPanel = class StyleDetailsPanel extends WebInspector.View
 {
     constructor(delegate, className, identifier, label)
     {
@@ -80,18 +80,18 @@ WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
 
         if (!this._nodeStyles || this._nodeStyles.node !== domNode) {
             if (this._nodeStyles) {
-                this._nodeStyles.removeEventListener(WI.DOMNodeStyles.Event.Refreshed, this.nodeStylesRefreshed, this);
-                this._nodeStyles.removeEventListener(WI.DOMNodeStyles.Event.NeedsRefresh, this._nodeStylesNeedsRefreshed, this);
+                this._nodeStyles.removeEventListener(WebInspector.DOMNodeStyles.Event.Refreshed, this.nodeStylesRefreshed, this);
+                this._nodeStyles.removeEventListener(WebInspector.DOMNodeStyles.Event.NeedsRefresh, this._nodeStylesNeedsRefreshed, this);
             }
 
-            this._nodeStyles = WI.cssManager.stylesForNode(domNode);
+            this._nodeStyles = WebInspector.cssStyleManager.stylesForNode(domNode);
 
             console.assert(this._nodeStyles);
             if (!this._nodeStyles)
                 return;
 
-            this._nodeStyles.addEventListener(WI.DOMNodeStyles.Event.Refreshed, this.nodeStylesRefreshed, this);
-            this._nodeStyles.addEventListener(WI.DOMNodeStyles.Event.NeedsRefresh, this._nodeStylesNeedsRefreshed, this);
+            this._nodeStyles.addEventListener(WebInspector.DOMNodeStyles.Event.Refreshed, this.nodeStylesRefreshed, this);
+            this._nodeStyles.addEventListener(WebInspector.DOMNodeStyles.Event.NeedsRefresh, this._nodeStylesNeedsRefreshed, this);
 
             this._forceSignificantChange = true;
         }
@@ -103,7 +103,7 @@ WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
     refresh(significantChange)
     {
         // Implemented by subclasses.
-        this.dispatchEventToListeners(WI.StyleDetailsPanel.Event.Refreshed);
+        this.dispatchEventToListeners(WebInspector.StyleDetailsPanel.Event.Refreshed);
     }
 
     // Protected
@@ -114,18 +114,13 @@ WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
             this._refreshPreservingScrollPosition(event.data.significantChange);
     }
 
-    filterDidChange(filterBar)
-    {
-        // Implemented by subclasses.
-    }
-
     // Private
 
     get _initialScrollOffset()
     {
-        if (!WI.cssManager.canForcePseudoClasses())
+        if (!WebInspector.cssStyleManager.canForcePseudoClasses())
             return 0;
-        return this.nodeStyles.node.enabledPseudoClasses.length ? 0 : WI.GeneralStyleDetailsSidebarPanel.NoForcedPseudoClassesScrollOffset;
+        return this.nodeStyles.node.enabledPseudoClasses.length ? 0 : WebInspector.CSSStyleDetailsSidebarPanel.NoForcedPseudoClassesScrollOffset;
     }
 
     _refreshNodeStyles()
@@ -162,6 +157,6 @@ WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
     }
 };
 
-WI.StyleDetailsPanel.Event = {
+WebInspector.StyleDetailsPanel.Event = {
     Refreshed: "style-details-panel-refreshed"
 };

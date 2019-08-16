@@ -31,14 +31,12 @@ typedef double DOMHighResTimeStamp;
     Conditional=INTERSECTION_OBSERVER,
     Constructor(IntersectionObserverEntryInit intersectionObserverEntryInit),
     ImplementationLacksVTable,
-    EnabledAtRuntime=IntersectionObserver,
-    JSCustomMarkFunction,
+    EnabledAtRuntime=IntersectionObserver
 ] interface IntersectionObserverEntry {
     readonly attribute DOMHighResTimeStamp time;
-    readonly attribute DOMRectReadOnly? rootBounds;
+    readonly attribute DOMRectReadOnly rootBounds;
     readonly attribute DOMRectReadOnly boundingClientRect;
     readonly attribute DOMRectReadOnly intersectionRect;
-    readonly attribute boolean isIntersecting;
     readonly attribute double intersectionRatio;
     readonly attribute Element target;
 };
@@ -47,10 +45,8 @@ typedef double DOMHighResTimeStamp;
     Conditional=INTERSECTION_OBSERVER,
 ] dictionary IntersectionObserverEntryInit {
     required DOMHighResTimeStamp time;
-    required DOMRectInit? rootBounds;
+    required DOMRectInit rootBounds;
     required DOMRectInit boundingClientRect;
     required DOMRectInit intersectionRect;
-    required boolean isIntersecting;
-    required double intersectionRatio;
     required Element target;
 };

@@ -25,9 +25,13 @@
 
 namespace WebCore {
 
-SVGPathStringBuilder::SVGPathStringBuilder() = default;
+SVGPathStringBuilder::SVGPathStringBuilder()
+{
+}
 
-SVGPathStringBuilder::~SVGPathStringBuilder() = default;
+SVGPathStringBuilder::~SVGPathStringBuilder()
+{
+}
 
 String SVGPathStringBuilder::result()
 {

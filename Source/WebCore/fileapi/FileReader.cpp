@@ -32,17 +32,21 @@
 #include "FileReader.h"
 
 #include "EventNames.h"
+#include "ExceptionCode.h"
 #include "File.h"
 #include "Logging.h"
 #include "ProgressEvent.h"
 #include "ScriptExecutionContext.h"
-#include <JavaScriptCore/ArrayBuffer.h>
+#include <runtime/ArrayBuffer.h>
+#include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
 
+using namespace std::literals::chrono_literals;
+
 // Fire the progress event at least every 50ms.
-static const auto progressNotificationInterval = 50_ms;
+static const auto progressNotificationInterval = 50ms;
 
 Ref<FileReader> FileReader::create(ScriptExecutionContext& context)
 {
@@ -125,9 +129,9 @@ ExceptionOr<void> FileReader::readAsDataURL(Blob* blob)
 
 ExceptionOr<void> FileReader::readInternal(Blob& blob, FileReaderLoader::ReadType type)
 {
-    // If multiple concurrent read methods are called on the same FileReader, InvalidStateError should be thrown when the state is LOADING.
+    // If multiple concurrent read methods are called on the same FileReader, INVALID_STATE_ERR should be thrown when the state is LOADING.
     if (m_state == LOADING)
-        return Exception { InvalidStateError };
+        return Exception { INVALID_STATE_ERR };
 
     setPendingActivity(this);
 
@@ -177,8 +181,8 @@ void FileReader::didStartLoading()
 
 void FileReader::didReceiveData()
 {
-    auto now = MonotonicTime::now();
-    if (std::isnan(m_lastProgressNotificationTime)) {
+    auto now = std::chrono::steady_clock::now();
+    if (!m_lastProgressNotificationTime.time_since_epoch().count()) {
         m_lastProgressNotificationTime = now;
         return;
     }
@@ -226,19 +230,19 @@ void FileReader::fireEvent(const AtomicString& type)
     dispatchEvent(ProgressEvent::create(type, true, m_loader ? m_loader->bytesLoaded() : 0, m_loader ? m_loader->totalBytes() : 0));
 }
 
-Optional<Variant<String, RefPtr<JSC::ArrayBuffer>>> FileReader::result() const
+std::optional<Variant<String, RefPtr<JSC::ArrayBuffer>>> FileReader::result() const
 {
     if (!m_loader || m_error)
-        return WTF::nullopt;
+        return std::nullopt;
     if (m_readType == FileReaderLoader::ReadAsArrayBuffer) {
         auto result = m_loader->arrayBufferResult();
         if (!result)
-            return WTF::nullopt;
+            return std::nullopt;
         return { result };
     }
     String result = m_loader->stringResult();
     if (result.isNull())
-        return WTF::nullopt;
+        return std::nullopt;
     return { WTFMove(result) };
 }
 

@@ -40,5 +40,6 @@
 
     iterable<USVString, USVString>;
 
-    stringifier;
+    // FIXME: This should just be stringifier once that is supported in the bindings generator
+    DOMString toString();
 };

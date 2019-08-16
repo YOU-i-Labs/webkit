@@ -32,6 +32,7 @@
 #include "AbstractWorker.h"
 
 #include "ContentSecurityPolicy.h"
+#include "ExceptionCode.h"
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
 
@@ -40,21 +41,21 @@ namespace WebCore {
 ExceptionOr<URL> AbstractWorker::resolveURL(const String& url, bool shouldBypassMainWorldContentSecurityPolicy)
 {
     if (url.isEmpty())
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
 
     auto& context = *scriptExecutionContext();
 
     // FIXME: This should use the dynamic global scope (bug #27887).
     URL scriptURL = context.completeURL(url);
     if (!scriptURL.isValid())
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
 
     if (!context.securityOrigin()->canRequest(scriptURL))
-        return Exception { SecurityError };
+        return Exception { SECURITY_ERR };
 
     ASSERT(context.contentSecurityPolicy());
     if (!shouldBypassMainWorldContentSecurityPolicy && !context.contentSecurityPolicy()->allowChildContextFromSource(scriptURL))
-        return Exception { SecurityError };
+        return Exception { SECURITY_ERR };
 
     return WTFMove(scriptURL);
 }

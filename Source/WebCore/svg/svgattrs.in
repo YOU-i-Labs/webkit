@@ -58,6 +58,7 @@ fill
 fill-opacity
 fill-rule
 filter
+filterRes
 filterUnits
 flood-color
 flood-opacity
@@ -86,7 +87,6 @@ height
 horiz-adv-x
 horiz-origin-x
 horiz-origin-y
-href
 ideographic
 image-rendering
 in

@@ -32,9 +32,9 @@ namespace WebCore {
 
 class CompositionEvent final : public UIEvent {
 public:
-    static Ref<CompositionEvent> create(const AtomicString& type, RefPtr<WindowProxy>&& view, const String& data)
+    static Ref<CompositionEvent> create(const AtomicString& type, DOMWindow* view, const String& data)
     {
-        return adoptRef(*new CompositionEvent(type, WTFMove(view), data));
+        return adoptRef(*new CompositionEvent(type, view, data));
     }
 
     static Ref<CompositionEvent> createForBindings()
@@ -46,14 +46,14 @@ public:
         String data;
     };
 
-    static Ref<CompositionEvent> create(const AtomicString& type, const Init& initializer)
+    static Ref<CompositionEvent> create(const AtomicString& type, const Init& initializer, IsTrusted isTrusted = IsTrusted::No)
     {
-        return adoptRef(*new CompositionEvent(type, initializer));
+        return adoptRef(*new CompositionEvent(type, initializer, isTrusted));
     }
 
     virtual ~CompositionEvent();
 
-    void initCompositionEvent(const AtomicString& type, bool canBubble, bool cancelable, RefPtr<WindowProxy>&&, const String& data);
+    void initCompositionEvent(const AtomicString& type, bool canBubble, bool cancelable, DOMWindow*, const String& data);
 
     String data() const { return m_data; }
 
@@ -61,8 +61,8 @@ public:
 
 private:
     CompositionEvent();
-    CompositionEvent(const AtomicString& type, RefPtr<WindowProxy>&&, const String&);
-    CompositionEvent(const AtomicString& type, const Init&);
+    CompositionEvent(const AtomicString& type, DOMWindow*, const String&);
+    CompositionEvent(const AtomicString& type, const Init&, IsTrusted);
 
     bool isCompositionEvent() const override;
 

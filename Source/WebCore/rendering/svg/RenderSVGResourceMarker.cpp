@@ -24,19 +24,18 @@
 
 #include "GraphicsContext.h"
 #include "RenderSVGRoot.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGResourceMarker);
 
 RenderSVGResourceMarker::RenderSVGResourceMarker(SVGMarkerElement& element, RenderStyle&& style)
     : RenderSVGResourceContainer(element, WTFMove(style))
 {
 }
 
-RenderSVGResourceMarker::~RenderSVGResourceMarker() = default;
+RenderSVGResourceMarker::~RenderSVGResourceMarker()
+{
+}
 
 void RenderSVGResourceMarker::layout()
 {
@@ -106,7 +105,7 @@ AffineTransform RenderSVGResourceMarker::markerTransformation(const FloatPoint& 
     bool useStrokeWidth = markerElement().markerUnits() == SVGMarkerUnitsStrokeWidth;
 
     AffineTransform transform;
-    transform.translate(origin);
+    transform.translate(origin.x(), origin.y());
     transform.rotate(markerAngle == -1 ? autoAngle : markerAngle);
     transform = markerContentTransformation(transform, referencePoint(), useStrokeWidth ? strokeWidth : -1);
     return transform;
@@ -115,7 +114,7 @@ AffineTransform RenderSVGResourceMarker::markerTransformation(const FloatPoint& 
 void RenderSVGResourceMarker::draw(PaintInfo& paintInfo, const AffineTransform& transform)
 {
     // An empty viewBox disables rendering.
-    if (markerElement().hasAttribute(SVGNames::viewBoxAttr) && markerElement().hasEmptyViewBox())
+    if (markerElement().hasAttribute(SVGNames::viewBoxAttr) && markerElement().viewBoxIsValid() && markerElement().viewBox().isEmpty())
         return;
 
     PaintInfo info(paintInfo);
@@ -133,7 +132,7 @@ AffineTransform RenderSVGResourceMarker::markerContentTransformation(const Affin
     if (strokeWidth != -1)
         transformation.scaleNonUniform(strokeWidth, strokeWidth);
 
-    transformation.translate(-mappedOrigin);
+    transformation.translate(-mappedOrigin.x(), -mappedOrigin.y());
     return transformation;
 }
 

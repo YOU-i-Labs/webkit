@@ -180,7 +180,9 @@ String DateTimeStringBuilder::toString()
 
 #endif
 
-Locale::~Locale() = default;
+Locale::~Locale()
+{
+}
 
 void Locale::setLocaleData(const Vector<String, DecimalSymbolsSize>& symbols, const String& positivePrefix, const String& positiveSuffix, const String& negativePrefix, const String& negativeSuffix)
 {
@@ -326,7 +328,7 @@ String Locale::convertFromLocalizedNumber(const String& localized)
 
 #if ENABLE(DATE_AND_TIME_INPUT_TYPES)
 
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
 String Locale::formatDateTime(const DateComponents& date, FormatType formatType)
 {
     if (date.type() == DateComponents::Invalid)
@@ -362,7 +364,7 @@ String Locale::formatDateTime(const DateComponents& date, FormatType formatType)
     }
     return builder.toString();
 }
-#endif // !PLATFORM(IOS_FAMILY)
+#endif // !PLATFORM(IOS)
 
 #endif
 

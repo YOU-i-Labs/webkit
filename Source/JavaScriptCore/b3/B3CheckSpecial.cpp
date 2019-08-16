@@ -36,13 +36,11 @@
 
 namespace JSC { namespace B3 {
 
-using Inst = Air::Inst;
-using Arg = Air::Arg;
-using GenerationContext = Air::GenerationContext;
+using namespace Air;
 
 namespace {
 
-unsigned numB3Args(Kind kind)
+unsigned numB3Args(B3::Kind kind)
 {
     switch (kind.opcode()) {
     case CheckAdd:
@@ -110,8 +108,7 @@ Inst CheckSpecial::hiddenBranch(const Inst& inst) const
 
 void CheckSpecial::forEachArg(Inst& inst, const ScopedLambda<Inst::EachArgCallback>& callback)
 {
-    using namespace Air;
-    Optional<Width> optionalDefArgWidth;
+    std::optional<Width> optionalDefArgWidth;
     Inst hidden = hiddenBranch(inst);
     hidden.forEachArg(
         [&] (Arg& arg, Arg::Role role, Bank bank, Width width) {
@@ -123,7 +120,7 @@ void CheckSpecial::forEachArg(Inst& inst, const ScopedLambda<Inst::EachArgCallba
             callback(inst.args[1 + index], role, bank, width);
         });
 
-    Optional<unsigned> firstRecoverableIndex;
+    std::optional<unsigned> firstRecoverableIndex;
     if (m_checkKind.opcode == BranchAdd32 || m_checkKind.opcode == BranchAdd64)
         firstRecoverableIndex = 1;
     forEachArgImpl(numB3Args(inst), m_numCheckArgs + 1, inst, m_stackmapRole, firstRecoverableIndex, callback, optionalDefArgWidth);
@@ -150,16 +147,15 @@ bool CheckSpecial::admitsExtendedOffsetAddr(Inst& inst, unsigned argIndex)
     return admitsStack(inst, argIndex);
 }
 
-Optional<unsigned> CheckSpecial::shouldTryAliasingDef(Inst& inst)
+std::optional<unsigned> CheckSpecial::shouldTryAliasingDef(Inst& inst)
 {
-    if (Optional<unsigned> branchDef = hiddenBranch(inst).shouldTryAliasingDef())
+    if (std::optional<unsigned> branchDef = hiddenBranch(inst).shouldTryAliasingDef())
         return *branchDef + 1;
-    return WTF::nullopt;
+    return std::nullopt;
 }
 
 CCallHelpers::Jump CheckSpecial::generate(Inst& inst, CCallHelpers& jit, GenerationContext& context)
 {
-    using namespace Air;
     CCallHelpers::Jump fail = hiddenBranch(inst).generate(jit, context);
     ASSERT(fail.isSet());
 

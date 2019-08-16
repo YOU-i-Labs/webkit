@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.TimelineView
+WebInspector.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WebInspector.TimelineView
 {
     constructor(timeline, extraArguments)
     {
         super(timeline, extraArguments);
 
-        console.assert(timeline.type === WI.TimelineRecord.Type.Script);
+        console.assert(timeline.type === WebInspector.TimelineRecord.Type.Script);
 
         this.element.classList.add("script");
 
@@ -43,33 +43,33 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
             selectedNodeHash: null,
         };
 
-        if (!WI.ScriptProfileTimelineView.profileOrientationSetting)
-            WI.ScriptProfileTimelineView.profileOrientationSetting = new WI.Setting("script-profile-timeline-view-profile-orientation-setting", WI.ScriptProfileTimelineView.ProfileOrientation.TopDown);
-        if (!WI.ScriptProfileTimelineView.profileTypeSetting)
-            WI.ScriptProfileTimelineView.profileTypeSetting = new WI.Setting("script-profile-timeline-view-profile-type-setting", WI.ScriptProfileTimelineView.ProfileViewType.Hierarchy);
+        if (!WebInspector.ScriptProfileTimelineView.profileOrientationSetting)
+            WebInspector.ScriptProfileTimelineView.profileOrientationSetting = new WebInspector.Setting("script-profile-timeline-view-profile-orientation-setting", WebInspector.ScriptProfileTimelineView.ProfileOrientation.TopDown);
+        if (!WebInspector.ScriptProfileTimelineView.profileTypeSetting)
+            WebInspector.ScriptProfileTimelineView.profileTypeSetting = new WebInspector.Setting("script-profile-timeline-view-profile-type-setting", WebInspector.ScriptProfileTimelineView.ProfileViewType.Hierarchy);
 
-        this._showProfileViewForOrientation(WI.ScriptProfileTimelineView.profileOrientationSetting.value, WI.ScriptProfileTimelineView.profileTypeSetting.value);
+        this._showProfileViewForOrientation(WebInspector.ScriptProfileTimelineView.profileOrientationSetting.value, WebInspector.ScriptProfileTimelineView.profileTypeSetting.value);
 
-        let clearTooltip = WI.UIString("Clear focus");
-        this._clearFocusNodesButtonItem = new WI.ButtonNavigationItem("clear-profile-focus", clearTooltip, "Images/Close.svg", 16, 16);
-        this._clearFocusNodesButtonItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._clearFocusNodes, this);
+        let clearTooltip = WebInspector.UIString("Clear focus");
+        this._clearFocusNodesButtonItem = new WebInspector.ButtonNavigationItem("clear-profile-focus", clearTooltip, "Images/Close.svg", 16, 16);
+        this._clearFocusNodesButtonItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._clearFocusNodes, this);
         this._updateClearFocusNodesButtonItem();
 
-        this._profileOrientationButton = new WI.TextToggleButtonNavigationItem("profile-orientation", WI.UIString("Inverted"));
-        this._profileOrientationButton.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._profileOrientationButtonClicked, this);
-        if (WI.ScriptProfileTimelineView.profileOrientationSetting.value === WI.ScriptProfileTimelineView.ProfileOrientation.TopDown)
+        this._profileOrientationButton = new WebInspector.TextToggleButtonNavigationItem("profile-orientation", WebInspector.UIString("Inverted"));
+        this._profileOrientationButton.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._profileOrientationButtonClicked, this);
+        if (WebInspector.ScriptProfileTimelineView.profileOrientationSetting.value === WebInspector.ScriptProfileTimelineView.ProfileOrientation.TopDown)
             this._profileOrientationButton.activated = false;
         else
             this._profileOrientationButton.activated = true;
 
-        this._topFunctionsButton = new WI.TextToggleButtonNavigationItem("top-functions", WI.UIString("Top Functions"));
-        this._topFunctionsButton.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._topFunctionsButtonClicked, this);
-        if (WI.ScriptProfileTimelineView.profileTypeSetting.value === WI.ScriptProfileTimelineView.ProfileViewType.Hierarchy)
+        this._topFunctionsButton = new WebInspector.TextToggleButtonNavigationItem("top-functions", WebInspector.UIString("Top Functions"));
+        this._topFunctionsButton.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._topFunctionsButtonClicked, this);
+        if (WebInspector.ScriptProfileTimelineView.profileTypeSetting.value === WebInspector.ScriptProfileTimelineView.ProfileViewType.Hierarchy)
             this._topFunctionsButton.activated = false;
         else
             this._topFunctionsButton.activated = true;
 
-        timeline.addEventListener(WI.Timeline.Event.Refreshed, this._scriptTimelineRecordRefreshed, this);
+        timeline.addEventListener(WebInspector.Timeline.Event.Refreshed, this._scriptTimelineRecordRefreshed, this);
     }
 
     // Public
@@ -82,7 +82,7 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
 
     closed()
     {
-        console.assert(this.representedObject instanceof WI.Timeline);
+        console.assert(this.representedObject instanceof WebInspector.Timeline);
         this.representedObject.removeEventListener(null, null, this);
     }
 
@@ -113,10 +113,10 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
     _callingContextTreeForOrientation(profileOrientation, profileViewType)
     {
         switch (profileOrientation) {
-        case WI.ScriptProfileTimelineView.ProfileOrientation.TopDown:
-            return profileViewType === WI.ScriptProfileTimelineView.ProfileViewType.Hierarchy ? this._recording.topDownCallingContextTree : this._recording.topFunctionsTopDownCallingContextTree;
-        case WI.ScriptProfileTimelineView.ProfileOrientation.BottomUp:
-            return profileViewType === WI.ScriptProfileTimelineView.ProfileViewType.Hierarchy ? this._recording.bottomUpCallingContextTree : this._recording.topFunctionsBottomUpCallingContextTree;
+        case WebInspector.ScriptProfileTimelineView.ProfileOrientation.TopDown:
+            return profileViewType === WebInspector.ScriptProfileTimelineView.ProfileViewType.Hierarchy ? this._recording.topDownCallingContextTree : this._recording.topFunctionsTopDownCallingContextTree;
+        case WebInspector.ScriptProfileTimelineView.ProfileOrientation.BottomUp:
+            return profileViewType === WebInspector.ScriptProfileTimelineView.ProfileViewType.Hierarchy ? this._recording.bottomUpCallingContextTree : this._recording.topFunctionsBottomUpCallingContextTree;
         }
 
         console.assert(false, "Should not be reached.");
@@ -126,7 +126,7 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
     _profileViewSelectionPathComponentsDidChange(event)
     {
         this._updateClearFocusNodesButtonItem();
-        this.dispatchEventToListeners(WI.ContentView.Event.SelectionPathComponentsDidChange);
+        this.dispatchEventToListeners(WebInspector.ContentView.Event.SelectionPathComponentsDidChange);
     }
 
     _scriptTimelineRecordRefreshed(event)
@@ -141,14 +141,14 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
         let isInverted = this._profileOrientationButton.activated;
         let newOrientation;
         if (isInverted)
-            newOrientation = WI.ScriptProfileTimelineView.ProfileOrientation.BottomUp;
+            newOrientation = WebInspector.ScriptProfileTimelineView.ProfileOrientation.BottomUp;
         else
-            newOrientation = WI.ScriptProfileTimelineView.ProfileOrientation.TopDown;
+            newOrientation = WebInspector.ScriptProfileTimelineView.ProfileOrientation.TopDown;
 
-        WI.ScriptProfileTimelineView.profileOrientationSetting.value = newOrientation;
-        this._showProfileViewForOrientation(newOrientation, WI.ScriptProfileTimelineView.profileTypeSetting.value);
+        WebInspector.ScriptProfileTimelineView.profileOrientationSetting.value = newOrientation;
+        this._showProfileViewForOrientation(newOrientation, WebInspector.ScriptProfileTimelineView.profileTypeSetting.value);
 
-        this.dispatchEventToListeners(WI.ContentView.Event.SelectionPathComponentsDidChange);
+        this.dispatchEventToListeners(WebInspector.ContentView.Event.SelectionPathComponentsDidChange);
 
         this._forceNextLayout = true;
         this.needsLayout();
@@ -160,14 +160,14 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
         let isTopFunctionsEnabled = this._topFunctionsButton.activated;
         let newOrientation;
         if (isTopFunctionsEnabled)
-            newOrientation = WI.ScriptProfileTimelineView.ProfileViewType.TopFunctions;
+            newOrientation = WebInspector.ScriptProfileTimelineView.ProfileViewType.TopFunctions;
         else
-            newOrientation = WI.ScriptProfileTimelineView.ProfileViewType.Hierarchy;
+            newOrientation = WebInspector.ScriptProfileTimelineView.ProfileViewType.Hierarchy;
 
-        WI.ScriptProfileTimelineView.profileTypeSetting.value = newOrientation;
-        this._showProfileViewForOrientation(WI.ScriptProfileTimelineView.profileOrientationSetting.value, newOrientation);
+        WebInspector.ScriptProfileTimelineView.profileTypeSetting.value = newOrientation;
+        this._showProfileViewForOrientation(WebInspector.ScriptProfileTimelineView.profileOrientationSetting.value, newOrientation);
 
-        this.dispatchEventToListeners(WI.ContentView.Event.SelectionPathComponentsDidChange);
+        this.dispatchEventToListeners(WebInspector.ContentView.Event.SelectionPathComponentsDidChange);
 
         this._forceNextLayout = true;
         this.needsLayout();
@@ -177,14 +177,14 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
     {
         let filterText;
         if (this._profileView) {
-            this._profileView.removeEventListener(WI.ContentView.Event.SelectionPathComponentsDidChange, this._profileViewSelectionPathComponentsDidChange, this);
+            this._profileView.removeEventListener(WebInspector.ContentView.Event.SelectionPathComponentsDidChange, this._profileViewSelectionPathComponentsDidChange, this);
             this.removeSubview(this._profileView);
             filterText = this._profileView.dataGrid.filterText;
         }
 
         let callingContextTree = this._callingContextTreeForOrientation(profileOrientation, profileViewType);
-        this._profileView = new WI.ProfileView(callingContextTree, this._sharedProfileViewData);
-        this._profileView.addEventListener(WI.ContentView.Event.SelectionPathComponentsDidChange, this._profileViewSelectionPathComponentsDidChange, this);
+        this._profileView = new WebInspector.ProfileView(callingContextTree, this._sharedProfileViewData);
+        this._profileView.addEventListener(WebInspector.ContentView.Event.SelectionPathComponentsDidChange, this._profileViewSelectionPathComponentsDidChange, this);
 
         this.addSubview(this._profileView);
         this.setupDataGrid(this._profileView.dataGrid);
@@ -204,12 +204,12 @@ WI.ScriptProfileTimelineView = class ScriptProfileTimelineView extends WI.Timeli
     }
 };
 
-WI.ScriptProfileTimelineView.ProfileOrientation = {
+WebInspector.ScriptProfileTimelineView.ProfileOrientation = {
     BottomUp: "bottom-up",
     TopDown: "top-down",
 };
 
-WI.ScriptProfileTimelineView.ProfileViewType = {
+WebInspector.ScriptProfileTimelineView.ProfileViewType = {
     Hierarchy: "hierarchy",
     TopFunctions: "top-functions",
 };

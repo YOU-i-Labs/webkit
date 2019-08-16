@@ -28,15 +28,9 @@
 
 namespace WebCore {
 
-NativeNodeFilter::NativeNodeFilter(ScriptExecutionContext* context, Ref<NodeFilterCondition>&& condition)
-    : NodeFilter(context)
-    , m_condition(WTFMove(condition))
+NativeNodeFilter::NativeNodeFilter(Ref<NodeFilterCondition>&& condition)
+    : m_condition(WTFMove(condition))
 {
-}
-
-bool NativeNodeFilter::hasCallback() const
-{
-    return true;
 }
 
 CallbackResult<unsigned short> NativeNodeFilter::acceptNode(Node& node)

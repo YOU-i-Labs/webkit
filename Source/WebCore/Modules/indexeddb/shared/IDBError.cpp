@@ -28,11 +28,14 @@
 
 #if ENABLE(INDEXED_DATABASE)
 
-#include "DOMException.h"
-
 namespace WebCore {
 
-IDBError::IDBError(Optional<ExceptionCode> code, const String& message)
+IDBError::IDBError(ExceptionCode code)
+    : IDBError(code, emptyString())
+{
+}
+
+IDBError::IDBError(ExceptionCode code, const String& message)
     : m_code(code)
     , m_message(message)
 {
@@ -40,7 +43,7 @@ IDBError::IDBError(Optional<ExceptionCode> code, const String& message)
 
 IDBError IDBError::isolatedCopy() const
 {
-    return IDBError { m_code, m_message.isolatedCopy() };
+    return { m_code, m_message.isolatedCopy() };
 }
 
 IDBError& IDBError::operator=(const IDBError& other)
@@ -52,24 +55,17 @@ IDBError& IDBError::operator=(const IDBError& other)
 
 String IDBError::name() const
 {
-    if (!m_code)
-        return { };
-    return DOMException::name(m_code.value());
+    return IDBDatabaseException::getErrorName(m_code);
 }
 
 String IDBError::message() const
 {
-    if (!m_code)
-        return { };
-    return DOMException::message(m_code.value());
+    return IDBDatabaseException::getErrorDescription(m_code);
 }
 
-RefPtr<DOMException> IDBError::toDOMException() const
+RefPtr<DOMError> IDBError::toDOMError() const
 {
-    if (!m_code)
-        return nullptr;
-
-    return DOMException::create(*m_code, m_message);
+    return DOMError::create(IDBDatabaseException::getErrorName(m_code), m_message);
 }
 
 } // namespace WebCore

@@ -24,7 +24,7 @@
 
 namespace JSC {
 
-class NumberPrototype final : public NumberObject {
+class NumberPrototype : public NumberObject {
 public:
     typedef NumberObject Base;
     static const unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;
@@ -54,7 +54,5 @@ EncodedJSValue JSC_HOST_CALL numberProtoFuncValueOf(ExecState*);
 JSString* int32ToString(VM&, int32_t value, int32_t radix);
 JSString* int52ToString(VM&, int64_t value, int32_t radix);
 JSString* numberToString(VM&, double value, int32_t radix);
-String toStringWithRadix(double doubleValue, int32_t radix);
-int32_t extractToStringRadixArgument(ExecState*, JSValue radixValue, ThrowScope&);
 
 } // namespace JSC

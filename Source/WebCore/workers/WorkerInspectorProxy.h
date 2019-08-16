@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include <wtf/URL.h>
+#include "URL.h"
 #include "WorkerThread.h"
 #include <wtf/HashSet.h>
 #include <wtf/text/WTFString.h>
@@ -48,7 +48,7 @@ public:
     // A Worker's inspector messages come in and go out through the Page's WorkerAgent.
     class PageChannel {
     public:
-        virtual ~PageChannel() = default;
+        virtual ~PageChannel() { }
         virtual void sendMessageFromWorkerToFrontend(WorkerInspectorProxy*, const String&) = 0;
     };
 

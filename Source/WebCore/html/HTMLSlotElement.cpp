@@ -32,11 +32,8 @@
 #include "MutationObserver.h"
 #include "ShadowRoot.h"
 #include "Text.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLSlotElement);
 
 using namespace HTMLNames;
 
@@ -51,38 +48,33 @@ HTMLSlotElement::HTMLSlotElement(const QualifiedName& tagName, Document& documen
     ASSERT(hasTagName(slotTag));
 }
 
-HTMLSlotElement::InsertedIntoAncestorResult HTMLSlotElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
+HTMLSlotElement::InsertionNotificationRequest HTMLSlotElement::insertedInto(ContainerNode& insertionPoint)
 {
-    auto insertionResult = HTMLElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
-    ASSERT_UNUSED(insertionResult, insertionResult == InsertedIntoAncestorResult::Done);
+    auto insertionResult = HTMLElement::insertedInto(insertionPoint);
+    ASSERT_UNUSED(insertionResult, insertionResult == InsertionDone);
 
-    if (insertionType.treeScopeChanged && isInShadowTree()) {
-        if (auto* shadowRoot = containingShadowRoot())
+    // This function could be called when this element's shadow root's host or its ancestor is inserted.
+    // This element is new to the shadow tree (and its tree scope) only if the parent into which this element
+    // or its ancestor is inserted belongs to the same tree scope as this element's.
+    if (insertionPoint.isInShadowTree() && isInShadowTree() && &insertionPoint.treeScope() == &treeScope()) {
+        if (auto shadowRoot = containingShadowRoot())
             shadowRoot->addSlotElementByName(attributeWithoutSynchronization(nameAttr), *this);
     }
 
-    return InsertedIntoAncestorResult::Done;
+    return InsertionDone;
 }
 
-void HTMLSlotElement::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
+void HTMLSlotElement::removedFrom(ContainerNode& insertionPoint)
 {
-    if (removalType.treeScopeChanged && oldParentOfRemovedTree.isInShadowTree()) {
-        auto* oldShadowRoot = oldParentOfRemovedTree.containingShadowRoot();
+    // ContainerNode::removeBetween always sets the removed child's tree scope to Document's but InShadowRoot flag is unset in Node::removedFrom.
+    // So if InShadowRoot flag is set but this element's tree scope is Document's, this element has just been removed from a shadow root.
+    if (insertionPoint.isInShadowTree() && isInShadowTree() && &treeScope() == &document()) {
+        auto* oldShadowRoot = insertionPoint.containingShadowRoot();
         ASSERT(oldShadowRoot);
-        oldShadowRoot->removeSlotElementByName(attributeWithoutSynchronization(nameAttr), *this, oldParentOfRemovedTree);
+        oldShadowRoot->removeSlotElementByName(attributeWithoutSynchronization(nameAttr), *this);
     }
 
-    HTMLElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
-}
-
-void HTMLSlotElement::childrenChanged(const ChildChange& childChange)
-{
-    HTMLElement::childrenChanged(childChange);
-
-    if (isInShadowTree()) {
-        if (auto* shadowRoot = containingShadowRoot())
-            shadowRoot->slotFallbackDidChange(*this);
-    }
+    HTMLElement::removedFrom(insertionPoint);
 }
 
 void HTMLSlotElement::attributeChanged(const QualifiedName& name, const AtomicString& oldValue, const AtomicString& newValue, AttributeModificationReason reason)
@@ -90,67 +82,53 @@ void HTMLSlotElement::attributeChanged(const QualifiedName& name, const AtomicSt
     HTMLElement::attributeChanged(name, oldValue, newValue, reason);
 
     if (isInShadowTree() && name == nameAttr) {
-        if (auto shadowRoot = makeRefPtr(containingShadowRoot()))
-            shadowRoot->renameSlotElement(*this, oldValue, newValue);
+        if (auto* shadowRoot = containingShadowRoot()) {
+            shadowRoot->removeSlotElementByName(oldValue, *this);
+            shadowRoot->addSlotElementByName(newValue, *this);
+        }
     }
 }
 
 const Vector<Node*>* HTMLSlotElement::assignedNodes() const
 {
-    auto shadowRoot = makeRefPtr(containingShadowRoot());
+    auto* shadowRoot = containingShadowRoot();
     if (!shadowRoot)
         return nullptr;
 
     return shadowRoot->assignedNodesForSlot(*this);
 }
 
-static void flattenAssignedNodes(Vector<Ref<Node>>& nodes, const HTMLSlotElement& slot)
+static void flattenAssignedNodes(Vector<Node*>& nodes, const HTMLSlotElement& slot)
 {
     auto* assignedNodes = slot.assignedNodes();
     if (!assignedNodes) {
-        for (RefPtr<Node> child = slot.firstChild(); child; child = child->nextSibling()) {
+        for (Node* child = slot.firstChild(); child; child = child->nextSibling()) {
             if (is<HTMLSlotElement>(*child))
                 flattenAssignedNodes(nodes, downcast<HTMLSlotElement>(*child));
             else if (is<Text>(*child) || is<Element>(*child))
-                nodes.append(*child);
+                nodes.append(child);
         }
         return;
     }
-    for (RefPtr<Node> node : *assignedNodes) {
+    for (Node* node : *assignedNodes) {
         if (is<HTMLSlotElement>(*node))
             flattenAssignedNodes(nodes, downcast<HTMLSlotElement>(*node));
         else
-            nodes.append(*node);
+            nodes.append(node);
     }
 }
 
-Vector<Ref<Node>> HTMLSlotElement::assignedNodes(const AssignedNodesOptions& options) const
+Vector<Node*> HTMLSlotElement::assignedNodes(const AssignedNodesOptions& options) const
 {
     if (options.flatten) {
-        if (!isInShadowTree())
-            return { };
-        Vector<Ref<Node>> nodes;
+        Vector<Node*> nodes;
         flattenAssignedNodes(nodes, *this);
         return nodes;
     }
     auto* assignedNodes = this->assignedNodes();
     if (!assignedNodes)
         return { };
-    return assignedNodes->map([] (Node* node) { return makeRef(*node); });
-}
-
-Vector<Ref<Element>> HTMLSlotElement::assignedElements(const AssignedNodesOptions& options) const
-{
-    auto nodes = assignedNodes(options);
-
-    Vector<Ref<Element>> elements;
-    elements.reserveCapacity(nodes.size());
-    for (auto& node : nodes) {
-        if (is<Element>(node))
-            elements.uncheckedAppend(static_reference_cast<Element>(WTFMove(node)));
-    }
-
-    return elements;
+    return *assignedNodes;
 }
 
 void HTMLSlotElement::enqueueSlotChangeEvent()
@@ -166,7 +144,9 @@ void HTMLSlotElement::dispatchSlotChangeEvent()
 {
     m_inSignalSlotList = false;
 
-    Ref<Event> event = Event::create(eventNames().slotchangeEvent, Event::CanBubble::Yes, Event::IsCancelable::No);
+    bool bubbles = true;
+    bool cancelable = false;
+    Ref<Event> event = Event::create(eventNames().slotchangeEvent, bubbles, cancelable);
     event->setTarget(this);
     dispatchEvent(event);
 }

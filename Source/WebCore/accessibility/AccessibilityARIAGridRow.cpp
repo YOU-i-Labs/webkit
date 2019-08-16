@@ -40,7 +40,9 @@ AccessibilityARIAGridRow::AccessibilityARIAGridRow(RenderObject* renderer)
 {
 }
 
-AccessibilityARIAGridRow::~AccessibilityARIAGridRow() = default;
+AccessibilityARIAGridRow::~AccessibilityARIAGridRow()
+{
+}
 
 Ref<AccessibilityARIAGridRow> AccessibilityARIAGridRow::create(RenderObject* renderer)
 {
@@ -123,10 +125,9 @@ AccessibilityTable* AccessibilityARIAGridRow::parentTable() const
     // only have "row" elements, but if not, we still should handle it gracefully by finding the right table.
     for (AccessibilityObject* parent = parentObject(); parent; parent = parent->parentObject()) {
         // The parent table for an ARIA grid row should be an ARIA table.
-        // Unless the row is a native tr element.
         if (is<AccessibilityTable>(*parent)) {
             AccessibilityTable& tableParent = downcast<AccessibilityTable>(*parent);
-            if (tableParent.isExposableThroughAccessibility() && (tableParent.isAriaTable() || node()->hasTagName(trTag)))
+            if (tableParent.isExposableThroughAccessibility() && tableParent.isAriaTable())
                 return &tableParent;
         }
     }
@@ -137,7 +138,7 @@ AccessibilityTable* AccessibilityARIAGridRow::parentTable() const
 AccessibilityObject* AccessibilityARIAGridRow::headerObject()
 {
     for (const auto& child : children()) {
-        if (child->ariaRoleAttribute() == AccessibilityRole::RowHeader)
+        if (child->ariaRoleAttribute() == RowHeaderRole)
             return child.get();
     }
     

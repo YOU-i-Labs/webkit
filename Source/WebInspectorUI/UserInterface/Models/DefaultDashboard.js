@@ -23,7 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.DefaultDashboard = class DefaultDashboard extends WI.Object
+WebInspector.DefaultDashboard = class DefaultDashboard extends WebInspector.Object
 {
     constructor()
     {
@@ -32,25 +32,19 @@ WI.DefaultDashboard = class DefaultDashboard extends WI.Object
         this._waitingForFirstMainResourceToStartTrackingSize = true;
 
         // Necessary event required to track page load time and resource sizes.
-        WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
-        WI.timelineManager.addEventListener(WI.TimelineManager.Event.CapturingStopped, this._capturingStopped, this);
+        WebInspector.Frame.addEventListener(WebInspector.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
+        WebInspector.timelineManager.addEventListener(WebInspector.TimelineManager.Event.CapturingStopped, this._capturingStopped, this);
 
         // Necessary events required to track load of resources.
-        WI.Frame.addEventListener(WI.Frame.Event.ResourceWasAdded, this._resourceWasAdded, this);
-        WI.Target.addEventListener(WI.Target.Event.ResourceAdded, this._resourceWasAdded, this);
-        WI.networkManager.addEventListener(WI.NetworkManager.Event.FrameWasAdded, this._frameWasAdded, this);
+        WebInspector.Frame.addEventListener(WebInspector.Frame.Event.ResourceWasAdded, this._resourceWasAdded, this);
+        WebInspector.Target.addEventListener(WebInspector.Target.Event.ResourceAdded, this._resourceWasAdded, this);
+        WebInspector.frameResourceManager.addEventListener(WebInspector.FrameResourceManager.Event.FrameWasAdded, this._frameWasAdded, this);
 
         // Necessary events required to track console messages.
-        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.Cleared, this._consoleWasCleared, this);
-        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.MessageAdded, this._consoleMessageAdded, this);
-        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.PreviousMessageRepeatCountUpdated, this._consoleMessageWasRepeated, this);
-
-        // FIXME: This is working around the order of events. Normal page navigation
-        // triggers a MainResource change and then a MainFrame change. Page Transition
-        // triggers a MainFrame change then a MainResource change.
-        this._transitioningPageTarget = false;
-
-        WI.notifications.addEventListener(WI.Notification.TransitionPageTarget, this._transitionPageTarget, this);
+        var logManager = WebInspector.logManager;
+        logManager.addEventListener(WebInspector.LogManager.Event.Cleared, this._consoleWasCleared, this);
+        logManager.addEventListener(WebInspector.LogManager.Event.MessageAdded, this._consoleMessageAdded, this);
+        logManager.addEventListener(WebInspector.LogManager.Event.PreviousMessageRepeatCountUpdated, this._consoleMessageWasRepeated, this);
 
         this._resourcesCount = 0;
         this._resourcesSize = 0;
@@ -132,35 +126,28 @@ WI.DefaultDashboard = class DefaultDashboard extends WI.Object
 
     _dataDidChange()
     {
-        this.dispatchEventToListeners(WI.DefaultDashboard.Event.DataDidChange);
+        this.dispatchEventToListeners(WebInspector.DefaultDashboard.Event.DataDidChange);
     }
 
     _mainResourceDidChange(event)
     {
-        console.assert(event.target instanceof WI.Frame);
+        console.assert(event.target instanceof WebInspector.Frame);
 
         if (!event.target.isMainFrame())
             return;
 
-        if (!this._transitioningPageTarget) {
-            this._time = 0;
-            this._resourcesCount = 1;
-            this._resourcesSize = WI.networkManager.mainFrame.mainResource.size || 0;
-        }
+        this._time = 0;
+        this._resourcesCount = 1;
+        this._resourcesSize = WebInspector.frameResourceManager.mainFrame.mainResource.size || 0;
 
         // We should only track resource sizes on fresh loads.
         if (this._waitingForFirstMainResourceToStartTrackingSize) {
             this._waitingForFirstMainResourceToStartTrackingSize = false;
-            WI.Resource.addEventListener(WI.Resource.Event.SizeDidChange, this._resourceSizeDidChange, this);
+            WebInspector.Resource.addEventListener(WebInspector.Resource.Event.SizeDidChange, this._resourceSizeDidChange, this);
         }
 
         this._dataDidChange();
-
-        if (!this._transitioningPageTarget)
-            this._startUpdatingTime();
-
-        if (this._transitioningPageTarget)
-            this._transitioningPageTarget = false;
+        this._startUpdatingTime();
     }
 
     _capturingStopped(event)
@@ -225,7 +212,7 @@ WI.DefaultDashboard = class DefaultDashboard extends WI.Object
             this._timeIntervalIdentifier = setInterval(this._updateTime.bind(this), this._timeIntervalDelay);
         }
 
-        var mainFrame = WI.networkManager.mainFrame;
+        var mainFrame = WebInspector.frameResourceManager.mainFrame;
         var mainFrameStartTime = mainFrame.mainResource.firstTimestamp;
         var mainFrameLoadEventTime = mainFrame.loadEventTimestamp;
 
@@ -254,15 +241,15 @@ WI.DefaultDashboard = class DefaultDashboard extends WI.Object
     _incrementConsoleMessageType(type, increment)
     {
         switch (type) {
-        case WI.ConsoleMessage.MessageLevel.Log:
-        case WI.ConsoleMessage.MessageLevel.Info:
-        case WI.ConsoleMessage.MessageLevel.Debug:
+        case WebInspector.ConsoleMessage.MessageLevel.Log:
+        case WebInspector.ConsoleMessage.MessageLevel.Info:
+        case WebInspector.ConsoleMessage.MessageLevel.Debug:
             this.logs += increment;
             break;
-        case WI.ConsoleMessage.MessageLevel.Warning:
+        case WebInspector.ConsoleMessage.MessageLevel.Warning:
             this.issues += increment;
             break;
-        case WI.ConsoleMessage.MessageLevel.Error:
+        case WebInspector.ConsoleMessage.MessageLevel.Error:
             this.errors += increment;
             break;
         }
@@ -275,19 +262,8 @@ WI.DefaultDashboard = class DefaultDashboard extends WI.Object
         this._errors = 0;
         this._dataDidChange();
     }
-
-    _transitionPageTarget()
-    {
-        this._transitioningPageTarget = true;
-
-        this._time = 0;
-        this._resourcesCount = 0;
-        this._resourcesSize = 0;
-
-        this._dataDidChange();
-    }
 };
 
-WI.DefaultDashboard.Event = {
+WebInspector.DefaultDashboard.Event = {
     DataDidChange: "default-dashboard-data-did-change"
 };

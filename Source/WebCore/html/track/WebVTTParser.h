@@ -39,6 +39,7 @@
 #include "HTMLNames.h"
 #include "TextResourceDecoder.h"
 #include "VTTRegion.h"
+#include "WebVTTTokenizer.h"
 #include <memory>
 #include <wtf/MediaTime.h>
 #include <wtf/text/StringBuilder.h>
@@ -53,11 +54,10 @@ class VTTScanner;
 
 class WebVTTParserClient {
 public:
-    virtual ~WebVTTParserClient() = default;
+    virtual ~WebVTTParserClient() { }
 
     virtual void newCuesParsed() = 0;
     virtual void newRegionsParsed() = 0;
-    virtual void newStyleSheetsParsed() = 0;
     virtual void fileFailedToParse() = 0;
 };
 
@@ -65,7 +65,7 @@ class WebVTTCueData final : public RefCounted<WebVTTCueData> {
 public:
 
     static Ref<WebVTTCueData> create() { return adoptRef(*new WebVTTCueData()); }
-    ~WebVTTCueData() = default;
+    ~WebVTTCueData() { }
 
     MediaTime startTime() const { return m_startTime; }
     void setStartTime(const MediaTime& startTime) { m_startTime = startTime; }
@@ -86,7 +86,7 @@ public:
     void setOriginalStartTime(const MediaTime& time) { m_originalStartTime = time; }
 
 private:
-    WebVTTCueData() = default;
+    WebVTTCueData() { }
 
     MediaTime m_startTime;
     MediaTime m_endTime;
@@ -104,8 +104,6 @@ public:
         Id,
         TimingsAndSettings,
         CueText,
-        Region,
-        Style,
         BadCue,
         Finished
     };
@@ -119,14 +117,6 @@ public:
             || tagName == uTag
             || tagName == rubyTag
             || tagName == rtTag;
-    }
-
-    static inline bool isASpace(UChar c)
-    {
-        // WebVTT space characters are U+0020 SPACE, U+0009 CHARACTER
-        // TABULATION (tab), U+000A LINE FEED (LF), U+000C FORM FEED (FF), and
-        // U+000D CARRIAGE RETURN (CR).
-        return c == ' ' || c == '\t' || c == '\n' || c == '\f' || c == '\r';
     }
 
     static inline bool isValidSettingDelimiter(UChar c)
@@ -152,8 +142,6 @@ public:
     void getNewCues(Vector<RefPtr<WebVTTCueData>>&);
     void getNewRegions(Vector<RefPtr<VTTRegion>>&);
 
-    Vector<String> getStyleSheets();
-    
     // Create the DocumentFragment representation of the WebVTT cue text.
     static Ref<DocumentFragment> createDocumentFragmentFromCueText(Document&, const String&);
 
@@ -170,17 +158,12 @@ private:
     ParseState collectCueText(const String&);
     ParseState recoverCue(const String&);
     ParseState ignoreBadCue(const String&);
-    ParseState collectRegionSettings(const String&);
-    ParseState collectWebVTTBlock(const String&);
-    ParseState checkAndRecoverCue(const String& line);
-    ParseState collectStyleSheet(const String&);
-    bool checkAndCreateRegion(const String& line);
-    bool checkAndStoreRegion(const String& line);
-    bool checkStyleSheet(const String& line);
-    bool checkAndStoreStyleSheet(const String& line);
 
     void createNewCue();
     void resetCueValues();
+
+    void collectMetadataHeader(const String&);
+    void createNewRegion(const String& headerValue);
 
     static bool collectTimeStamp(VTTScanner& input, MediaTime& timeStamp);
 
@@ -190,16 +173,12 @@ private:
     MediaTime m_currentStartTime;
     MediaTime m_currentEndTime;
     StringBuilder m_currentContent;
-    String m_previousLine;
     String m_currentSettings;
-    RefPtr<VTTRegion> m_currentRegion;
-    String m_currentStyleSheet;
-    
+
     WebVTTParserClient* m_client;
 
     Vector<RefPtr<WebVTTCueData>> m_cuelist;
     Vector<RefPtr<VTTRegion>> m_regionList;
-    Vector<String> m_styleSheets;
 };
 
 } // namespace WebCore

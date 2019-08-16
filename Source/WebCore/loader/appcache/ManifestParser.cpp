@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,47 +27,32 @@
 #include "ManifestParser.h"
 
 #include "TextResourceDecoder.h"
-#include <wtf/URL.h>
+#include "URL.h"
 #include <wtf/text/StringView.h>
 #include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 
 enum Mode { Explicit, Fallback, OnlineWhitelist, Unknown };
-
-static String manifestPath(const URL& manifestURL)
-{
-    String manifestPath = manifestURL.path();
-    ASSERT(manifestPath[0] == '/');
-    manifestPath = manifestPath.substring(0, manifestPath.reverseFind('/') + 1);
-    ASSERT(manifestPath[0] == manifestPath[manifestPath.length() - 1]);
-    return manifestPath;
-}
-
-bool parseManifest(const URL& manifestURL, const String& manifestMIMEType, const char* data, int length, Manifest& manifest)
+    
+bool parseManifest(const URL& manifestURL, const char* data, int length, Manifest& manifest)
 {
     ASSERT(manifest.explicitURLs.isEmpty());
     ASSERT(manifest.onlineWhitelistedURLs.isEmpty());
     ASSERT(manifest.fallbackURLs.isEmpty());
     manifest.allowAllNetworkRequests = false;
 
-    String manifestPath = WebCore::manifestPath(manifestURL);
-
-    const char cacheManifestMIMEType[] = "text/cache-manifest";
-    bool allowFallbackNamespaceOutsideManfestPath = equalLettersIgnoringASCIICase(manifestMIMEType, cacheManifestMIMEType);
-
     Mode mode = Explicit;
 
-    String manifestString = TextResourceDecoder::create(ASCIILiteral::fromLiteralUnsafe(cacheManifestMIMEType), "UTF-8")->decodeAndFlush(data, length);
+    String s = TextResourceDecoder::create("text/cache-manifest", "UTF-8")->decodeAndFlush(data, length);
     
     // Look for the magic signature: "^\xFEFF?CACHE MANIFEST[ \t]?" (the BOM is removed by TextResourceDecoder).
     // Example: "CACHE MANIFEST #comment" is a valid signature.
     // Example: "CACHE MANIFEST;V2" is not.
-    const char manifestSignature[] = "CACHE MANIFEST";
-    if (!manifestString.startsWith(manifestSignature))
+    if (!s.startsWith("CACHE MANIFEST"))
         return false;
     
-    StringView manifestAfterSignature = StringView(manifestString).substring(sizeof(manifestSignature) - 1);
+    StringView manifestAfterSignature = StringView(s).substring(14); // "CACHE MANIFEST" is 14 characters.
     auto upconvertedCharacters = manifestAfterSignature.upconvertedCharacters();
     const UChar* p = upconvertedCharacters;
     const UChar* end = p + manifestAfterSignature.length();
@@ -168,13 +153,7 @@ bool parseManifest(const URL& manifestURL, const String& manifestMIMEType, const
 
             if (!protocolHostAndPortAreEqual(manifestURL, namespaceURL))
                 continue;
-
-            // Although <https://html.spec.whatwg.org/multipage/offline.html#parsing-cache-manifests> (07/06/2017) saids
-            // that we should always prefix match the manifest path we only do so if the manifest was served with a non-
-            // standard HTTP Content-Type header for web compatibility.
-            if (!allowFallbackNamespaceOutsideManfestPath && !namespaceURL.path().startsWith(manifestPath))
-                continue;
-
+                                   
             // Skip whitespace separating fallback namespace from URL.
             while (p < lineEnd && (*p == '\t' || *p == ' '))
                 p++;

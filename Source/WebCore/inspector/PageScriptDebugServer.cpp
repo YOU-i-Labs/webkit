@@ -30,29 +30,29 @@
 #include "CommonVM.h"
 #include "Document.h"
 #include "EventLoop.h"
-#include "Frame.h"
 #include "FrameView.h"
 #include "InspectorController.h"
 #include "InspectorFrontendClient.h"
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMWindowCustom.h"
+#include "MainFrame.h"
 #include "Page.h"
 #include "PageGroup.h"
 #include "PluginViewBase.h"
 #include "ScriptController.h"
 #include "Timer.h"
-#include <JavaScriptCore/JSLock.h>
+#include <runtime/JSLock.h>
 #include <wtf/MainThread.h>
 #include <wtf/StdLibExtras.h>
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #include "WebCoreThreadInternal.h"
 #endif
 
-
-namespace WebCore {
 using namespace JSC;
 using namespace Inspector;
+
+namespace WebCore {
 
 PageScriptDebugServer::PageScriptDebugServer(Page& page)
     : ScriptDebugServer(WebCore::commonVM())
@@ -90,7 +90,7 @@ void PageScriptDebugServer::didContinue(JSGlobalObject*)
 
 void PageScriptDebugServer::runEventLoopWhilePaused()
 {
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     // On iOS, running an EventLoop causes us to run a nested WebRunLoop.
     // Since the WebThread is autoreleased at the end of run loop iterations
     // we need to gracefully handle releasing and reacquiring the lock.
@@ -123,14 +123,14 @@ void PageScriptDebugServer::runEventLoopWhilePausedInternal()
     m_page.decrementNestedRunLoopCount();
 }
 
-bool PageScriptDebugServer::isContentScript(ExecState* state) const
+bool PageScriptDebugServer::isContentScript(ExecState* exec) const
 {
-    return &currentWorld(*state) != &mainThreadNormalWorld();
+    return &currentWorld(exec) != &mainThreadNormalWorld();
 }
 
-void PageScriptDebugServer::reportException(ExecState* state, JSC::Exception* exception) const
+void PageScriptDebugServer::reportException(ExecState* exec, JSC::Exception* exception) const
 {
-    WebCore::reportException(state, exception);
+    WebCore::reportException(exec, exception);
 }
 
 void PageScriptDebugServer::setJavaScriptPaused(const PageGroup& pageGroup, bool paused)
@@ -163,15 +163,15 @@ void PageScriptDebugServer::setJavaScriptPaused(Frame& frame, bool paused)
     auto& document = *frame.document();
     if (paused) {
         document.suspendScriptedAnimationControllerCallbacks();
-        document.suspendActiveDOMObjects(ReasonForSuspension::JavaScriptDebuggerPaused);
+        document.suspendActiveDOMObjects(ActiveDOMObject::JavaScriptDebuggerPaused);
     } else {
-        document.resumeActiveDOMObjects(ReasonForSuspension::JavaScriptDebuggerPaused);
+        document.resumeActiveDOMObjects(ActiveDOMObject::JavaScriptDebuggerPaused);
         document.resumeScriptedAnimationControllerCallbacks();
     }
 
     if (auto* view = frame.view()) {
         for (auto& child : view->children()) {
-            if (!is<PluginViewBase>(child))
+            if (!is<PluginViewBase>(child.get()))
                 continue;
             downcast<PluginViewBase>(child.get()).setJavaScriptPaused(paused);
         }

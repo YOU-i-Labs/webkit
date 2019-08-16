@@ -23,18 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SpanningDataGridNode = class SpanningDataGridNode extends WI.DataGridNode
+WebInspector.SpanningDataGridNode = class SpanningDataGridNode extends WebInspector.DataGridNode
 {
     constructor(text)
     {
-        super({[WI.SpanningDataGridNode.ColumnIdentifier]: text});
+        super({[WebInspector.SpanningDataGridNode.ColumnIdentifier]: text});
     }
 
     // Public
 
     createCells()
     {
-        let cellElement = this.createCell(WI.SpanningDataGridNode.ColumnIdentifier);
+        let cellElement = this.createCell(WebInspector.SpanningDataGridNode.ColumnIdentifier);
         cellElement.classList.add("spanning");
         cellElement.setAttribute("colspan", this.dataGrid.columns.size);
 
@@ -42,4 +42,4 @@ WI.SpanningDataGridNode = class SpanningDataGridNode extends WI.DataGridNode
     }
 };
 
-WI.SpanningDataGridNode.ColumnIdentifier = "spanning-text";
+WebInspector.SpanningDataGridNode.ColumnIdentifier = "spanning-text";

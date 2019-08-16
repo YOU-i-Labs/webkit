@@ -40,7 +40,7 @@
 
 namespace WebCore {
 
-#if !ENABLE(SMOOTH_SCROLLING) && !PLATFORM(IOS_FAMILY) && !PLATFORM(MAC)
+#if !ENABLE(SMOOTH_SCROLLING) && !PLATFORM(IOS) && !PLATFORM(MAC)
 std::unique_ptr<ScrollAnimator> ScrollAnimator::create(ScrollableArea& scrollableArea)
 {
     return std::make_unique<ScrollAnimator>(scrollableArea);
@@ -55,7 +55,9 @@ ScrollAnimator::ScrollAnimator(ScrollableArea& scrollableArea)
 {
 }
 
-ScrollAnimator::~ScrollAnimator() = default;
+ScrollAnimator::~ScrollAnimator()
+{
+}
 
 bool ScrollAnimator::scroll(ScrollbarOrientation orientation, ScrollGranularity, float step, float multiplier)
 {
@@ -75,7 +77,7 @@ bool ScrollAnimator::scroll(ScrollbarOrientation orientation, ScrollGranularity,
     return true;
 }
 
-void ScrollAnimator::scrollToOffsetWithoutAnimation(const FloatPoint& offset, ScrollClamping)
+void ScrollAnimator::scrollToOffsetWithoutAnimation(const FloatPoint& offset)
 {
     FloatPoint newPositon = ScrollableArea::scrollPositionFromOffset(offset, toFloatSize(m_scrollableArea.scrollOrigin()));
     FloatSize delta = newPositon - currentPosition();

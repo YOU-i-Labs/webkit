@@ -30,6 +30,8 @@
 
 #pragma once
 
+#if ENABLE(WEB_SOCKETS)
+
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -72,3 +74,5 @@ struct WebSocketFrame {
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_SOCKETS)

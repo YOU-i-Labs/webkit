@@ -27,7 +27,7 @@
 
 #include "Identifier.h"
 #include "InferredType.h"
-#include "JSCast.h"
+#include "JSCell.h"
 
 namespace JSC {
 
@@ -47,7 +47,7 @@ public:
     static const bool needsDestruction = true;
     static void destroy(JSCell*);
 
-    static const unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;
+    static const unsigned StructureFlags = StructureIsImmortal | Base::StructureFlags;
     
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue prototype);
 
@@ -55,13 +55,20 @@ public:
 
     DECLARE_INFO;
 
+    ConcurrentJSLock& lock() { return m_lock; }
+
+    bool isEmpty() const { return m_table.isEmpty(); }
+
     // Get the current inferred type. Returns nullptr for both Top and Bottom. Null means Bottom if the
     // owning Structure doesn't know about the property.
-    InferredType* get(const AbstractLocker&, UniquedStringImpl*);
+    InferredType* get(const ConcurrentJSLocker&, UniquedStringImpl*);
     InferredType* get(UniquedStringImpl*);
     InferredType* get(PropertyName);
 
-    enum class StoredPropertyAge { NewProperty, OldProperty };
+    enum StoredPropertyAge {
+        NewProperty,
+        OldProperty
+    };
     
     // Returns true if the InferredType for this property is still relevant after the store. It's not
     // relevant if it's Top. Note that this table will internally prune Top entries.
@@ -90,9 +97,13 @@ private:
     // that's bad. We avoid such confusion by ensuring that a transition always adds an entry. Hence,
     // absence-means-bottom only comes into play for properties added before the InferredTypeTable was
     // created.
-    using TableType = HashMap<RefPtr<UniquedStringImpl>, WriteBarrier<InferredType>, IdentifierRepHash>;
-
+    typedef HashMap<RefPtr<UniquedStringImpl>, WriteBarrier<InferredType>, IdentifierRepHash> TableType;
+    
     TableType m_table;
+
+    // We only grab this lock when we're doing modifications on the main thread, or reads on the compiler
+    // thread. The compiler thread is not allowed to do modifications.
+    ConcurrentJSLock m_lock;
 };
 
 } // namespace JSC

@@ -25,6 +25,8 @@
 
 #pragma once
 
+#if ENABLE(WEB_TIMING)
+
 #include <wtf/MonotonicTime.h>
 
 namespace WebCore {
@@ -38,3 +40,5 @@ struct DocumentTiming {
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_TIMING)

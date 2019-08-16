@@ -27,7 +27,6 @@
 
 #if ENABLE(GAMEPAD)
 
-#include <wtf/MonotonicTime.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
@@ -50,7 +49,7 @@ public:
     const String& mapping() const { return m_mapping; }
 
     bool connected() const { return m_connected; }
-    double timestamp() const { return m_timestamp.secondsSinceEpoch().seconds(); }
+    double timestamp() const { return m_timestamp; }
     const Vector<double>& axes() const;
     const Vector<Ref<GamepadButton>>& buttons() const;
 
@@ -61,7 +60,7 @@ private:
     String m_id;
     unsigned m_index;
     bool m_connected;
-    MonotonicTime m_timestamp;
+    double m_timestamp;
     String m_mapping;
 
     Vector<double> m_axes;

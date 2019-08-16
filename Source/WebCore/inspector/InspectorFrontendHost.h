@@ -36,7 +36,7 @@
 
 namespace WebCore {
 
-class DOMWrapperWorld;
+class ContextMenuItem;
 class Event;
 class FrontendMenuProvider;
 class InspectorFrontendClient;
@@ -52,17 +52,11 @@ public:
     WEBCORE_EXPORT ~InspectorFrontendHost();
     WEBCORE_EXPORT void disconnectClient();
 
-    WEBCORE_EXPORT void addSelfToGlobalObjectInWorld(DOMWrapperWorld&);
-
     void loaded();
     void requestSetDockSide(const String&);
     void closeWindow();
-    void reopen();
     void bringToFront();
     void inspectedURLChanged(const String&);
-
-    bool supportsShowCertificate() const;
-    bool showCertificate(const String& serializedCertificate);
 
     void setZoomFactor(float);
     float zoomFactor();
@@ -91,25 +85,17 @@ public:
     void append(const String& url, const String& content);
     void close(const String& url);
 
-    struct ContextMenuItem {
-        String type;
-        String label;
-        Optional<int> id;
-        Optional<bool> enabled;
-        Optional<bool> checked;
-        Optional<Vector<ContextMenuItem>> subItems;
-    };
-    void showContextMenu(Event&, Vector<ContextMenuItem>&&);
-
+#if ENABLE(CONTEXT_MENUS)
+    // Called from [Custom] implementations.
+    void showContextMenu(Event*, const Vector<ContextMenuItem>& items);
+#endif
     void sendMessageToBackend(const String& message);
-    void dispatchEventAsContextMenuEvent(Event&);
+    void dispatchEventAsContextMenuEvent(Event*);
 
     bool isUnderTest();
     void unbufferedLog(const String& message);
 
     void beep();
-    void inspectInspector();
-    bool isBeingInspected();
 
 private:
 #if ENABLE(CONTEXT_MENUS)

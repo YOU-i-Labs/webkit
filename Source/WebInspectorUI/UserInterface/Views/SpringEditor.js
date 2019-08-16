@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Devin Rousso <webkit@devinrousso.com>. All rights reserved.
+ * Copyright (C) 2016 Devin Rousso <dcrousso+webkit@gmail.com>. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SpringEditor = class SpringEditor extends WI.Object
+WebInspector.SpringEditor = class SpringEditor extends WebInspector.Object
 {
     constructor()
     {
@@ -33,7 +33,7 @@ WI.SpringEditor = class SpringEditor extends WI.Object
         this._element.classList.add("spring-editor");
 
         this._previewContainer = this._element.createChild("div", "spring-preview");
-        this._previewContainer.title = WI.UIString("Restart animation");
+        this._previewContainer.title = WebInspector.UIString("Restart animation");
         this._previewContainer.addEventListener("mousedown", this._resetPreviewAnimation.bind(this));
 
         this._previewElement = this._previewContainer.createChild("div");
@@ -65,18 +65,18 @@ WI.SpringEditor = class SpringEditor extends WI.Object
             this[inputKey].addEventListener("keydown", this._handleNumberInputKeydown.bind(this));
         }
 
-        createInputsForParameter.call(this, "mass", WI.UIString("Mass"));
+        createInputsForParameter.call(this, "mass", WebInspector.UIString("Mass"));
         this._massInput.min = this._massSlider.min = 1;
 
-        createInputsForParameter.call(this, "stiffness", WI.UIString("Stiffness"));
+        createInputsForParameter.call(this, "stiffness", WebInspector.UIString("Stiffness"));
         this._stiffnessInput.min = this._stiffnessSlider.min = 1;
 
-        createInputsForParameter.call(this, "damping", WI.UIString("Damping"));
+        createInputsForParameter.call(this, "damping", WebInspector.UIString("Damping"));
         this._dampingInput.min = this._dampingSlider.min = 0;
 
-        createInputsForParameter.call(this, "initialVelocity", WI.UIString("Initial Velocity"));
+        createInputsForParameter.call(this, "initialVelocity", WebInspector.UIString("Initial Velocity"));
 
-        this._spring = new WI.Spring(1, 100, 10, 0);
+        this._spring = new WebInspector.Spring(1, 100, 10, 0);
     }
 
     // Public
@@ -96,7 +96,7 @@ WI.SpringEditor = class SpringEditor extends WI.Object
         if (!spring)
             return;
 
-        let isSpring = spring instanceof WI.Spring;
+        let isSpring = spring instanceof WebInspector.Spring;
         console.assert(isSpring);
         if (!isSpring)
             return;
@@ -191,11 +191,11 @@ WI.SpringEditor = class SpringEditor extends WI.Object
             this._initialVelocityInput.value = this._initialVelocitySlider.value = this._spring.initialVelocity.maxDecimals(3);
             break;
         default:
-            WI.reportInternalError("Input event fired for unrecognized element");
+            WebInspector.reportInternalError("Input event fired for unrecognized element");
             return;
         }
 
-        this.dispatchEventToListeners(WI.SpringEditor.Event.SpringChanged, {spring: this._spring});
+        this.dispatchEventToListeners(WebInspector.SpringEditor.Event.SpringChanged, {spring: this._spring});
 
         this._resetPreviewAnimation();
     }
@@ -223,7 +223,7 @@ WI.SpringEditor = class SpringEditor extends WI.Object
 
         this._timingContainer.classList.add("animate");
 
-        if (WI.resolvedLayoutDirection() === WI.LayoutDirection.RTL) {
+        if (WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.RTL) {
             this._previewElement.style.transform = "translateX(-85px)";
             this._timingElement.style.transform = "translateX(-170px)";
         } else {
@@ -243,6 +243,6 @@ WI.SpringEditor = class SpringEditor extends WI.Object
     }
 };
 
-WI.SpringEditor.Event = {
+WebInspector.SpringEditor.Event = {
     SpringChanged: "spring-editor-spring-changed"
 };

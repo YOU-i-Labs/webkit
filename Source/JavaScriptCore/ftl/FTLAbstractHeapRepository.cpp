@@ -47,6 +47,8 @@
 
 namespace JSC { namespace FTL {
 
+using namespace B3;
+
 AbstractHeapRepository::AbstractHeapRepository()
     : root(nullptr, "jscRoot")
 
@@ -59,10 +61,6 @@ AbstractHeapRepository::AbstractHeapRepository()
 #undef ABSTRACT_FIELD_INITIALIZATION
     
     , JSCell_freeListNext(JSCell_header)
-    , ArrayStorage_publicLength(Butterfly_publicLength)
-    , ArrayStorage_vectorLength(Butterfly_vectorLength)
-    , JSBigInt_length(JSBigIntOrString_length)
-    , JSString_length(JSBigIntOrString_length)
     
 #define INDEXED_ABSTRACT_HEAP_INITIALIZATION(name, offset, size) , name(&root, #name, offset, size)
     FOR_EACH_INDEXED_ABSTRACT_HEAP(INDEXED_ABSTRACT_HEAP_INITIALIZATION)
@@ -80,8 +78,6 @@ AbstractHeapRepository::AbstractHeapRepository()
     RELEASE_ASSERT(JSCell_indexingTypeAndMisc.offset() + 2 == JSCell_typeInfoFlags.offset());
     RELEASE_ASSERT(JSCell_indexingTypeAndMisc.offset() + 3 == JSCell_cellState.offset());
 
-    RELEASE_ASSERT(JSBigInt::offsetOfLength() == JSString::offsetOfLength());
-
     JSCell_structureID.changeParent(&JSCell_header);
     JSCell_usefulBytes.changeParent(&JSCell_header);
     JSCell_indexingTypeAndMisc.changeParent(&JSCell_usefulBytes);
@@ -96,49 +92,48 @@ AbstractHeapRepository::~AbstractHeapRepository()
 {
 }
 
-void AbstractHeapRepository::decorateMemory(const AbstractHeap* heap, B3::Value* value)
+void AbstractHeapRepository::decorateMemory(const AbstractHeap* heap, Value* value)
 {
     m_heapForMemory.append(HeapForValue(heap, value));
 }
 
-void AbstractHeapRepository::decorateCCallRead(const AbstractHeap* heap, B3::Value* value)
+void AbstractHeapRepository::decorateCCallRead(const AbstractHeap* heap, Value* value)
 {
     m_heapForCCallRead.append(HeapForValue(heap, value));
 }
 
-void AbstractHeapRepository::decorateCCallWrite(const AbstractHeap* heap, B3::Value* value)
+void AbstractHeapRepository::decorateCCallWrite(const AbstractHeap* heap, Value* value)
 {
     m_heapForCCallWrite.append(HeapForValue(heap, value));
 }
 
-void AbstractHeapRepository::decoratePatchpointRead(const AbstractHeap* heap, B3::Value* value)
+void AbstractHeapRepository::decoratePatchpointRead(const AbstractHeap* heap, Value* value)
 {
     m_heapForPatchpointRead.append(HeapForValue(heap, value));
 }
 
-void AbstractHeapRepository::decoratePatchpointWrite(const AbstractHeap* heap, B3::Value* value)
+void AbstractHeapRepository::decoratePatchpointWrite(const AbstractHeap* heap, Value* value)
 {
     m_heapForPatchpointWrite.append(HeapForValue(heap, value));
 }
 
-void AbstractHeapRepository::decorateFenceRead(const AbstractHeap* heap, B3::Value* value)
+void AbstractHeapRepository::decorateFenceRead(const AbstractHeap* heap, Value* value)
 {
     m_heapForFenceRead.append(HeapForValue(heap, value));
 }
 
-void AbstractHeapRepository::decorateFenceWrite(const AbstractHeap* heap, B3::Value* value)
+void AbstractHeapRepository::decorateFenceWrite(const AbstractHeap* heap, Value* value)
 {
     m_heapForFenceWrite.append(HeapForValue(heap, value));
 }
 
-void AbstractHeapRepository::decorateFencedAccess(const AbstractHeap* heap, B3::Value* value)
+void AbstractHeapRepository::decorateFencedAccess(const AbstractHeap* heap, Value* value)
 {
     m_heapForFencedAccess.append(HeapForValue(heap, value));
 }
 
 void AbstractHeapRepository::computeRangesAndDecorateInstructions()
 {
-    using namespace B3;
     root.compute();
 
     if (verboseCompilationEnabled()) {

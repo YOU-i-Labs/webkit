@@ -81,7 +81,7 @@ class StreamingIndexBufferInterface : public IndexBufferInterface
 {
   public:
     explicit StreamingIndexBufferInterface(BufferFactoryD3D *factory);
-    ~StreamingIndexBufferInterface() override;
+    ~StreamingIndexBufferInterface();
 
     gl::Error reserveBufferSpace(unsigned int size, GLenum indexType) override;
 };
@@ -90,7 +90,7 @@ class StaticIndexBufferInterface : public IndexBufferInterface
 {
   public:
     explicit StaticIndexBufferInterface(BufferFactoryD3D *factory);
-    ~StaticIndexBufferInterface() override;
+    ~StaticIndexBufferInterface();
 
     gl::Error reserveBufferSpace(unsigned int size, GLenum indexType) override;
 };

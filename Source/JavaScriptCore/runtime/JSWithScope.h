@@ -29,11 +29,11 @@
 
 namespace JSC {
 
-class JSWithScope final : public JSScope {
+class JSWithScope : public JSScope {
 public:
-    using Base = JSScope;
+    typedef JSScope Base;
 
-    JS_EXPORT_PRIVATE static JSWithScope* create(VM&, JSGlobalObject*, JSScope* next, JSObject*);
+    JS_EXPORT_PRIVATE static JSWithScope* create(VM&, JSGlobalObject*, JSObject*, JSScope* next);
 
     JSObject* object() { return m_object.get(); }
 

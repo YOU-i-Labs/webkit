@@ -40,15 +40,18 @@ AdaptiveInferredPropertyValueWatchpoint::AdaptiveInferredPropertyValueWatchpoint
 {
 }
 
-void AdaptiveInferredPropertyValueWatchpoint::handleFire(VM&, const FireDetail& detail)
+void AdaptiveInferredPropertyValueWatchpoint::handleFire(const FireDetail& detail)
 {
     if (DFG::shouldDumpDisassembly())
         dataLog("Firing watchpoint ", RawPointer(this), " (", key(), ") on ", *m_codeBlock, "\n");
 
 
-    auto lazyDetail = createLazyFireDetail("Adaptation of ", key(), " failed: ", detail);
+    StringPrintStream out;
+    out.print("Adaptation of ", key(), " failed: ", detail);
 
-    m_codeBlock->jettison(Profiler::JettisonDueToUnprofiledWatchpoint, CountReoptimization, &lazyDetail);
+    StringFireDetail stringDetail(out.toCString().data());
+
+    m_codeBlock->jettison(Profiler::JettisonDueToUnprofiledWatchpoint, CountReoptimization, &stringDetail);
 }
 
 } } // namespace JSC::DFG

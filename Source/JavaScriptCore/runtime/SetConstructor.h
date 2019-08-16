@@ -32,7 +32,7 @@ namespace JSC {
 class SetPrototype;
 class GetterSetter;
 
-class SetConstructor final : public InternalFunction {
+class SetConstructor : public InternalFunction {
 public:
     typedef InternalFunction Base;
 
@@ -47,16 +47,17 @@ public:
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
-        return Structure::create(vm, globalObject, prototype, TypeInfo(InternalFunctionType, StructureFlags), info());
+        return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
     }
 
 private:
-    SetConstructor(VM&, Structure*);
+    SetConstructor(VM& vm, Structure* structure)
+        : Base(vm, structure)
+    {
+    }
     void finishCreation(VM&, SetPrototype*, GetterSetter* speciesSymbol);
+    static ConstructType getConstructData(JSCell*, ConstructData&);
+    static CallType getCallData(JSCell*, CallData&);
 };
-
-EncodedJSValue JSC_HOST_CALL setPrivateFuncSetBucketHead(ExecState*);
-EncodedJSValue JSC_HOST_CALL setPrivateFuncSetBucketNext(ExecState*);
-EncodedJSValue JSC_HOST_CALL setPrivateFuncSetBucketKey(ExecState*);
 
 } // namespace JSC

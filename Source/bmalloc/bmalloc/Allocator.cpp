@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,11 +34,12 @@
 #include <algorithm>
 #include <cstdlib>
 
+using namespace std;
+
 namespace bmalloc {
 
-Allocator::Allocator(Heap& heap, Deallocator& deallocator)
-    : m_heap(heap)
-    , m_debugHeap(heap.debugHeap())
+Allocator::Allocator(Heap* heap, Deallocator& deallocator)
+    : m_debugHeap(heap->debugHeap())
     , m_deallocator(deallocator)
 {
     for (size_t sizeClass = 0; sizeClass < sizeClassCount; ++sizeClass)
@@ -58,8 +59,8 @@ void* Allocator::tryAllocate(size_t size)
     if (size <= smallMax)
         return allocate(size);
 
-    std::unique_lock<Mutex> lock(Heap::mutex());
-    return m_heap.tryAllocateLarge(lock, alignment, size);
+    std::lock_guard<StaticMutex> lock(PerProcess<Heap>::mutex());
+    return PerProcess<Heap>::getFastCase()->tryAllocateLarge(lock, alignment, size);
 }
 
 void* Allocator::allocate(size_t alignment, size_t size)
@@ -87,33 +88,22 @@ void* Allocator::allocateImpl(size_t alignment, size_t size, bool crashOnFailure
     if (size <= smallMax && alignment <= smallMax)
         return allocate(roundUpToMultipleOf(alignment, size));
 
-    std::unique_lock<Mutex> lock(Heap::mutex());
+    std::lock_guard<StaticMutex> lock(PerProcess<Heap>::mutex());
+    Heap* heap = PerProcess<Heap>::getFastCase();
     if (crashOnFailure)
-        return m_heap.allocateLarge(lock, alignment, size);
-    return m_heap.tryAllocateLarge(lock, alignment, size);
+        return heap->allocateLarge(lock, alignment, size);
+    return heap->tryAllocateLarge(lock, alignment, size);
 }
 
 void* Allocator::reallocate(void* object, size_t newSize)
 {
-    bool crashOnFailure = true;
-    return reallocateImpl(object, newSize, crashOnFailure);
-}
-
-void* Allocator::tryReallocate(void* object, size_t newSize)
-{
-    bool crashOnFailure = false;
-    return reallocateImpl(object, newSize, crashOnFailure);
-}
-
-void* Allocator::reallocateImpl(void* object, size_t newSize, bool crashOnFailure)
-{
     if (m_debugHeap)
-        return m_debugHeap->realloc(object, newSize, crashOnFailure);
+        return m_debugHeap->realloc(object, newSize);
 
     size_t oldSize = 0;
-    switch (objectType(m_heap.kind(), object)) {
+    switch (objectType(object)) {
     case ObjectType::Small: {
-        BASSERT(objectType(m_heap.kind(), nullptr) == ObjectType::Small);
+        BASSERT(objectType(nullptr) == ObjectType::Small);
         if (!object)
             break;
 
@@ -122,25 +112,18 @@ void* Allocator::reallocateImpl(void* object, size_t newSize, bool crashOnFailur
         break;
     }
     case ObjectType::Large: {
-        std::unique_lock<Mutex> lock(Heap::mutex());
-        oldSize = m_heap.largeSize(lock, object);
+        std::lock_guard<StaticMutex> lock(PerProcess<Heap>::mutex());
+        oldSize = PerProcess<Heap>::getFastCase()->largeSize(lock, object);
 
         if (newSize < oldSize && newSize > smallMax) {
-            m_heap.shrinkLarge(lock, Range(object, oldSize), newSize);
+            PerProcess<Heap>::getFastCase()->shrinkLarge(lock, Range(object, oldSize), newSize);
             return object;
         }
         break;
     }
     }
 
-    void* result = nullptr;
-    if (crashOnFailure)
-        result = allocate(newSize);
-    else {
-        result = tryAllocate(newSize);
-        if (!result)
-            return nullptr;
-    }
+    void* result = allocate(newSize);
     size_t copySize = std::min(oldSize, newSize);
     memcpy(result, object, copySize);
     m_deallocator.deallocate(object);
@@ -166,16 +149,16 @@ void Allocator::scavenge()
     }
 }
 
-BNO_INLINE void Allocator::refillAllocatorSlowCase(BumpAllocator& allocator, size_t sizeClass)
+NO_INLINE void Allocator::refillAllocatorSlowCase(BumpAllocator& allocator, size_t sizeClass)
 {
     BumpRangeCache& bumpRangeCache = m_bumpRangeCaches[sizeClass];
 
-    std::unique_lock<Mutex> lock(Heap::mutex());
+    std::lock_guard<StaticMutex> lock(PerProcess<Heap>::mutex());
     m_deallocator.processObjectLog(lock);
-    m_heap.allocateSmallBumpRanges(lock, sizeClass, allocator, bumpRangeCache, m_deallocator.lineCache(lock));
+    PerProcess<Heap>::getFastCase()->allocateSmallBumpRanges(lock, sizeClass, allocator, bumpRangeCache);
 }
 
-BINLINE void Allocator::refillAllocator(BumpAllocator& allocator, size_t sizeClass)
+INLINE void Allocator::refillAllocator(BumpAllocator& allocator, size_t sizeClass)
 {
     BumpRangeCache& bumpRangeCache = m_bumpRangeCaches[sizeClass];
     if (!bumpRangeCache.size())
@@ -183,13 +166,13 @@ BINLINE void Allocator::refillAllocator(BumpAllocator& allocator, size_t sizeCla
     return allocator.refill(bumpRangeCache.pop());
 }
 
-BNO_INLINE void* Allocator::allocateLarge(size_t size)
+NO_INLINE void* Allocator::allocateLarge(size_t size)
 {
-    std::unique_lock<Mutex> lock(Heap::mutex());
-    return m_heap.allocateLarge(lock, alignment, size);
+    std::lock_guard<StaticMutex> lock(PerProcess<Heap>::mutex());
+    return PerProcess<Heap>::getFastCase()->allocateLarge(lock, alignment, size);
 }
 
-BNO_INLINE void* Allocator::allocateLogSizeClass(size_t size)
+NO_INLINE void* Allocator::allocateLogSizeClass(size_t size)
 {
     size_t sizeClass = bmalloc::sizeClass(size);
     BumpAllocator& allocator = m_bumpAllocators[sizeClass];

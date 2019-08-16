@@ -51,8 +51,7 @@ public:
 
     virtual ~UserMessageHandlersNamespace();
 
-    Vector<AtomicString> supportedPropertyNames() const;
-    UserMessageHandler* namedItem(DOMWrapperWorld&, const AtomicString&);
+    UserMessageHandler* handler(const AtomicString&, DOMWrapperWorld&);
 
 private:
     explicit UserMessageHandlersNamespace(Frame&, UserContentProvider&);

@@ -2,10 +2,12 @@
 #include "HashTools.h"
 #include <string.h>
 
-IGNORE_WARNINGS_BEGIN("implicit-fallthrough")
-
-// Older versions of gperf like to use the `register` keyword.
-#define register
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunknown-pragmas"
+#pragma clang diagnostic ignored "-Wdeprecated-register"
+#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
+#endif
 
 namespace WebCore {
 %}
@@ -180,4 +182,6 @@ const struct NamedColor* findColor(const char* str, unsigned int len)
 
 } // namespace WebCore
 
-IGNORE_WARNINGS_END
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif

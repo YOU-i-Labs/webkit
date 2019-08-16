@@ -23,7 +23,7 @@
 * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-WI.HeapSnapshotInstanceFetchMoreDataGridNode = class HeapSnapshotInstanceFetchMoreDataGridNode extends WI.DataGridNode
+WebInspector.HeapSnapshotInstanceFetchMoreDataGridNode = class HeapSnapshotInstanceFetchMoreDataGridNode extends WebInspector.DataGridNode
 {
     constructor(tree, batchCount, remainingCount, fetchCallback)
     {
@@ -51,13 +51,13 @@ WI.HeapSnapshotInstanceFetchMoreDataGridNode = class HeapSnapshotInstanceFetchMo
         if (this._batchCount) {
             let buttonElement = fragment.appendChild(document.createElement("span"));
             buttonElement.classList.add("more");
-            buttonElement.textContent = WI.UIString("Show %d More").format(this._batchCount);
+            buttonElement.textContent = WebInspector.UIString("Show %d More").format(this._batchCount);
             buttonElement.addEventListener("click", (event) => { this._fetchCallback(this._batchCount); });
         }
 
         let buttonElement = fragment.appendChild(document.createElement("span"));
         buttonElement.classList.add("more");
-        buttonElement.textContent = WI.UIString("Show Remaining (%d)").format(this._remainingCount);
+        buttonElement.textContent = WebInspector.UIString("Show Remaining (%d)").format(this._remainingCount);
         buttonElement.addEventListener("click", (event) => { this._fetchCallback(this._remainingCount); });
 
         return fragment;

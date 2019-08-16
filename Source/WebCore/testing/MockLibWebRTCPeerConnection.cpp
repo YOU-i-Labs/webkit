@@ -29,11 +29,10 @@
 
 #include "LibWebRTCProvider.h"
 #include <sstream>
-#include <webrtc/pc/mediastream.h>
+#include <webrtc/api/mediastream.h>
 #include <wtf/Function.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/Threading.h>
 
 namespace WebCore {
 
@@ -48,31 +47,14 @@ static inline webrtc::PeerConnectionFactoryInterface* realPeerConnectionFactory(
     return getRealPeerConnectionFactory().get();
 }
 
-void useRealRTCPeerConnectionFactory(LibWebRTCProvider& provider)
-{
-    auto& factory = getRealPeerConnectionFactory();
-    if (!factory)
-        return;
-    provider.setPeerConnectionFactory(factory.get());
-    factory = nullptr;
-}
-
 void useMockRTCPeerConnectionFactory(LibWebRTCProvider* provider, const String& testCase)
 {
-    if (!provider)
-        return;
-
-    if (!realPeerConnectionFactory()) {
+    if (provider && !realPeerConnectionFactory()) {
         auto& factory = getRealPeerConnectionFactory();
         factory = provider->factory();
     }
-    provider->setPeerConnectionFactory(MockLibWebRTCPeerConnectionFactory::create(testCase));
-}
 
-MockLibWebRTCPeerConnection::~MockLibWebRTCPeerConnection()
-{
-    // Free senders in a different thread like an actual peer connection would probably do.
-    Thread::create("MockLibWebRTCPeerConnection thread", [senders = WTFMove(m_senders)] { });
+    LibWebRTCProvider::setPeerConnectionFactory(MockLibWebRTCPeerConnectionFactory::create(String(testCase)));
 }
 
 class MockLibWebRTCPeerConnectionForIceCandidates : public MockLibWebRTCPeerConnection {
@@ -167,38 +149,57 @@ private:
     void SetLocalDescription(webrtc::SetSessionDescriptionObserver* observer, webrtc::SessionDescriptionInterface*) final { releaseInNetworkThread(*this, *observer); }
 };
 
-MockLibWebRTCPeerConnectionFactory::MockLibWebRTCPeerConnectionFactory(const String& testCase)
-    : m_testCase(testCase.isolatedCopy())
+MockLibWebRTCPeerConnectionFactory::MockLibWebRTCPeerConnectionFactory(String&& testCase)
+    : m_testCase(WTFMove(testCase))
 {
+    if (m_testCase == "TwoRealPeerConnections") {
+        m_numberOfRealPeerConnections = 2;
+        return;
+    }
+    if (m_testCase == "OneRealPeerConnection")
+        m_numberOfRealPeerConnections = 1;
 }
 
-rtc::scoped_refptr<webrtc::PeerConnectionInterface> MockLibWebRTCPeerConnectionFactory::CreatePeerConnection(const webrtc::PeerConnectionInterface::RTCConfiguration&, webrtc::PeerConnectionDependencies dependencies)
+rtc::scoped_refptr<webrtc::PeerConnectionInterface> MockLibWebRTCPeerConnectionFactory::CreatePeerConnection(const webrtc::PeerConnectionInterface::RTCConfiguration& configuration, std::unique_ptr<cricket::PortAllocator> portAllocator, std::unique_ptr<rtc::RTCCertificateGeneratorInterface> generator, webrtc::PeerConnectionObserver* observer)
 {
+    if (!realPeerConnectionFactory())
+        return nullptr;
+
+    if (m_numberOfRealPeerConnections) {
+        auto connection = realPeerConnectionFactory()->CreatePeerConnection(configuration, WTFMove(portAllocator), WTFMove(generator), observer);
+        --m_numberOfRealPeerConnections;
+        return connection;
+    }
+
     if (m_testCase == "ICECandidates")
-        return new rtc::RefCountedObject<MockLibWebRTCPeerConnectionForIceCandidates>(*dependencies.observer);
+        return new rtc::RefCountedObject<MockLibWebRTCPeerConnectionForIceCandidates>(*observer);
 
     if (m_testCase == "ICEConnectionState")
-        return new rtc::RefCountedObject<MockLibWebRTCPeerConnectionForIceConnectionState>(*dependencies.observer);
+        return new rtc::RefCountedObject<MockLibWebRTCPeerConnectionForIceConnectionState>(*observer);
 
     if (m_testCase == "LibWebRTCReleasingWhileCreatingOffer")
-        return new rtc::RefCountedObject<MockLibWebRTCPeerConnectionReleasedInNetworkThreadWhileCreatingOffer>(*dependencies.observer);
+        return new rtc::RefCountedObject<MockLibWebRTCPeerConnectionReleasedInNetworkThreadWhileCreatingOffer>(*observer);
 
     if (m_testCase == "LibWebRTCReleasingWhileGettingStats")
-        return new rtc::RefCountedObject<MockLibWebRTCPeerConnectionReleasedInNetworkThreadWhileGettingStats>(*dependencies.observer);
+        return new rtc::RefCountedObject<MockLibWebRTCPeerConnectionReleasedInNetworkThreadWhileGettingStats>(*observer);
 
     if (m_testCase == "LibWebRTCReleasingWhileSettingDescription")
-        return new rtc::RefCountedObject<MockLibWebRTCPeerConnectionReleasedInNetworkThreadWhileSettingDescription>(*dependencies.observer);
+        return new rtc::RefCountedObject<MockLibWebRTCPeerConnectionReleasedInNetworkThreadWhileSettingDescription>(*observer);
 
-    return new rtc::RefCountedObject<MockLibWebRTCPeerConnection>(*dependencies.observer);
+    return new rtc::RefCountedObject<MockLibWebRTCPeerConnection>(*observer);
 }
 
 rtc::scoped_refptr<webrtc::VideoTrackInterface> MockLibWebRTCPeerConnectionFactory::CreateVideoTrack(const std::string& id, webrtc::VideoTrackSourceInterface* source)
 {
+    if (m_testCase == "TwoRealPeerConnections")
+        return realPeerConnectionFactory()->CreateVideoTrack(id, source);
     return new rtc::RefCountedObject<MockLibWebRTCVideoTrack>(id, source);
 }
 
 rtc::scoped_refptr<webrtc::AudioTrackInterface> MockLibWebRTCPeerConnectionFactory::CreateAudioTrack(const std::string& id, webrtc::AudioSourceInterface* source)
 {
+    if (m_testCase == "TwoRealPeerConnections")
+        return realPeerConnectionFactory()->CreateAudioTrack(id, source);
     return new rtc::RefCountedObject<MockLibWebRTCAudioTrack>(id, source);
 }
 
@@ -239,17 +240,17 @@ rtc::scoped_refptr<webrtc::DataChannelInterface> MockLibWebRTCPeerConnection::Cr
     return new rtc::RefCountedObject<MockLibWebRTCDataChannel>(std::string(label), parameters.ordered, parameters.reliable, parameters.id);
 }
 
-webrtc::RTCErrorOr<rtc::scoped_refptr<webrtc::RtpSenderInterface>> MockLibWebRTCPeerConnection::AddTrack(rtc::scoped_refptr<webrtc::MediaStreamTrackInterface> track, const std::vector<std::string>& streamIds)
+rtc::scoped_refptr<webrtc::RtpSenderInterface> MockLibWebRTCPeerConnection::AddTrack(webrtc::MediaStreamTrackInterface* track, std::vector<webrtc::MediaStreamInterface*> streams)
 {
     LibWebRTCProvider::callOnWebRTCSignalingThread([observer = &m_observer] {
         observer->OnRenegotiationNeeded();
     });
 
-    if (!streamIds.empty())
-        m_streamLabel = streamIds.front();
+    if (streams.size())
+        m_streamLabel = streams.front()->label();
 
-    m_senders.append(new rtc::RefCountedObject<MockRtpSender>(WTFMove(track)));
-    return rtc::scoped_refptr<webrtc::RtpSenderInterface>(m_senders.last().get());
+    m_senders.append(new rtc::RefCountedObject<MockRtpSender>(rtc::scoped_refptr<webrtc::MediaStreamTrackInterface>(track)));
+    return m_senders.last().get();
 }
 
 bool MockLibWebRTCPeerConnection::RemoveTrack(webrtc::RtpSenderInterface* sender)
@@ -326,11 +327,12 @@ void MockLibWebRTCPeerConnection::CreateOffer(webrtc::CreateSessionDescriptionOb
                     "a=setup:actpass\r\n";
             }
         }
-        observer->OnSuccess(new MockLibWebRTCSessionDescription(sdp.str()));
+        MockLibWebRTCSessionDescription description(sdp.str());
+        observer->OnSuccess(&description);
     });
 }
 
-    void MockLibWebRTCPeerConnection::CreateAnswer(webrtc::CreateSessionDescriptionObserver* observer, const webrtc::PeerConnectionInterface::RTCOfferAnswerOptions&)
+void MockLibWebRTCPeerConnection::CreateAnswer(webrtc::CreateSessionDescriptionObserver* observer, const webrtc::MediaConstraintsInterface*)
 {
     LibWebRTCProvider::callOnWebRTCSignalingThread([this, observer] {
         std::ostringstream sdp;
@@ -426,7 +428,8 @@ void MockLibWebRTCPeerConnection::CreateOffer(webrtc::CreateSessionDescriptionOb
                     "a=setup:active\r\n";
             }
         }
-        observer->OnSuccess(new MockLibWebRTCSessionDescription(sdp.str()));
+        MockLibWebRTCSessionDescription description(sdp.str());
+        observer->OnSuccess(&description);
     });
 }
 

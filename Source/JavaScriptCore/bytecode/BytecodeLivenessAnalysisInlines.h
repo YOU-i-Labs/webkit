@@ -51,17 +51,19 @@ inline bool operandIsLive(const FastBitVector& out, int operand)
     return operandIsAlwaysLive(operand) || operandThatIsNotAlwaysLiveIsLive(out, operand);
 }
 
-inline bool isValidRegisterForLiveness(VirtualRegister operand)
+inline bool isValidRegisterForLiveness(int operand)
 {
-    if (operand.isConstant())
+    VirtualRegister virtualReg(operand);
+    if (virtualReg.isConstant())
         return false;
-    return operand.isLocal();
+    return virtualReg.isLocal();
 }
 
 // Simplified interface to bytecode use/def, which determines defs first and then uses, and includes
 // exception handlers in the uses.
-template<typename CodeBlockType, typename UseFunctor, typename DefFunctor>
-inline void BytecodeLivenessPropagation::stepOverInstruction(CodeBlockType* codeBlock, const InstructionStream& instructions, BytecodeGraph& graph, InstructionStream::Offset bytecodeOffset, const UseFunctor& use, const DefFunctor& def)
+template<typename DerivedAnalysis>
+template<typename Graph, typename UseFunctor, typename DefFunctor>
+inline void BytecodeLivenessPropagation<DerivedAnalysis>::stepOverInstruction(Graph& graph, unsigned bytecodeOffset, FastBitVector& out, const UseFunctor& use, const DefFunctor& def)
 {
     // This abstractly execute the instruction in reverse. Instructions logically first use operands and
     // then define operands. This logical ordering is necessary for operations that use and def the same
@@ -78,21 +80,23 @@ inline void BytecodeLivenessPropagation::stepOverInstruction(CodeBlockType* code
     // uses before defs, then the add operation above would appear to not have loc1 live, since we'd
     // first add it to the out set (the use), and then we'd remove it (the def).
 
-    auto* instruction = instructions.at(bytecodeOffset).ptr();
-    OpcodeID opcodeID = instruction->opcodeID();
+    auto* codeBlock = graph.codeBlock();
+    auto* instructionsBegin = graph.instructions().begin();
+    auto* instruction = &instructionsBegin[bytecodeOffset];
+    OpcodeID opcodeID = Interpreter::getOpcodeID(*instruction);
 
-    computeDefsForBytecodeOffset(
-        codeBlock, opcodeID, instruction,
-        [&] (VirtualRegister operand) {
+    static_cast<DerivedAnalysis*>(this)->computeDefsForBytecodeOffset(
+        codeBlock, opcodeID, instruction, out,
+        [&] (typename Graph::CodeBlock*, typename Graph::Instruction*, OpcodeID, int operand) {
             if (isValidRegisterForLiveness(operand))
-                def(operand.toLocal());
+                def(VirtualRegister(operand).toLocal());
         });
 
-    computeUsesForBytecodeOffset(
-        codeBlock, opcodeID, instruction,
-        [&] (VirtualRegister operand) {
+    static_cast<DerivedAnalysis*>(this)->computeUsesForBytecodeOffset(
+        codeBlock, opcodeID, instruction, out,
+        [&] (typename Graph::CodeBlock*, typename Graph::Instruction*, OpcodeID, int operand) {
             if (isValidRegisterForLiveness(operand))
-                use(operand.toLocal());
+                use(VirtualRegister(operand).toLocal());
         });
 
     // If we have an exception handler, we want the live-in variables of the 
@@ -104,11 +108,12 @@ inline void BytecodeLivenessPropagation::stepOverInstruction(CodeBlockType* code
     }
 }
 
-template<typename CodeBlockType>
-inline void BytecodeLivenessPropagation::stepOverInstruction(CodeBlockType* codeBlock, const InstructionStream& instructions, BytecodeGraph& graph, InstructionStream::Offset bytecodeOffset, FastBitVector& out)
+template<typename DerivedAnalysis>
+template<typename Graph>
+inline void BytecodeLivenessPropagation<DerivedAnalysis>::stepOverInstruction(Graph& graph, unsigned bytecodeOffset, FastBitVector& out)
 {
     stepOverInstruction(
-        codeBlock, instructions, graph, bytecodeOffset,
+        graph, bytecodeOffset, out,
         [&] (unsigned bitIndex) {
             // This is the use functor, so we set the bit.
             out[bitIndex] = true;
@@ -119,8 +124,9 @@ inline void BytecodeLivenessPropagation::stepOverInstruction(CodeBlockType* code
         });
 }
 
-template<typename CodeBlockType, typename Instructions>
-inline bool BytecodeLivenessPropagation::computeLocalLivenessForBytecodeOffset(CodeBlockType* codeBlock, const Instructions& instructions, BytecodeGraph& graph, BytecodeBasicBlock* block, unsigned targetOffset, FastBitVector& result)
+template<typename DerivedAnalysis>
+template<typename Graph>
+inline bool BytecodeLivenessPropagation<DerivedAnalysis>::computeLocalLivenessForBytecodeOffset(Graph& graph, BytecodeBasicBlock* block, unsigned targetOffset, FastBitVector& result)
 {
     ASSERT(!block->isExitBlock());
     ASSERT(!block->isEntryBlock());
@@ -131,22 +137,24 @@ inline bool BytecodeLivenessPropagation::computeLocalLivenessForBytecodeOffset(C
         unsigned bytecodeOffset = block->offsets()[i];
         if (targetOffset > bytecodeOffset)
             break;
-        stepOverInstruction(codeBlock, instructions, graph, bytecodeOffset, out);
+        stepOverInstruction(graph, bytecodeOffset, out);
     }
 
     return result.setAndCheck(out);
 }
 
-template<typename CodeBlockType, typename Instructions>
-inline bool BytecodeLivenessPropagation::computeLocalLivenessForBlock(CodeBlockType* codeBlock, const Instructions& instructions, BytecodeGraph& graph, BytecodeBasicBlock* block)
+template<typename DerivedAnalysis>
+template<typename Graph>
+inline bool BytecodeLivenessPropagation<DerivedAnalysis>::computeLocalLivenessForBlock(Graph& graph, BytecodeBasicBlock* block)
 {
     if (block->isExitBlock() || block->isEntryBlock())
         return false;
-    return computeLocalLivenessForBytecodeOffset(codeBlock, instructions, graph, block, block->leaderOffset(), block->in());
+    return computeLocalLivenessForBytecodeOffset(graph, block, block->leaderOffset(), block->in());
 }
 
-template<typename CodeBlockType, typename Instructions>
-inline FastBitVector BytecodeLivenessPropagation::getLivenessInfoAtBytecodeOffset(CodeBlockType* codeBlock, const Instructions& instructions, BytecodeGraph& graph, unsigned bytecodeOffset)
+template<typename DerivedAnalysis>
+template<typename Graph>
+inline FastBitVector BytecodeLivenessPropagation<DerivedAnalysis>::getLivenessInfoAtBytecodeOffset(Graph& graph, unsigned bytecodeOffset)
 {
     BytecodeBasicBlock* block = graph.findBasicBlockForBytecodeOffset(bytecodeOffset);
     ASSERT(block);
@@ -154,13 +162,15 @@ inline FastBitVector BytecodeLivenessPropagation::getLivenessInfoAtBytecodeOffse
     ASSERT(!block->isExitBlock());
     FastBitVector out;
     out.resize(block->out().numBits());
-    computeLocalLivenessForBytecodeOffset(codeBlock, instructions, graph, block, bytecodeOffset, out);
+    computeLocalLivenessForBytecodeOffset(graph, block, bytecodeOffset, out);
     return out;
 }
 
-template<typename CodeBlockType, typename Instructions>
-inline void BytecodeLivenessPropagation::runLivenessFixpoint(CodeBlockType* codeBlock, const Instructions& instructions, BytecodeGraph& graph)
+template<typename DerivedAnalysis>
+template<typename Graph>
+inline void BytecodeLivenessPropagation<DerivedAnalysis>::runLivenessFixpoint(Graph& graph)
 {
+    auto* codeBlock = graph.codeBlock();
     unsigned numberOfVariables = codeBlock->numCalleeLocals();
     for (BytecodeBasicBlock* block : graph) {
         block->in().resize(numberOfVariables);
@@ -182,7 +192,7 @@ inline void BytecodeLivenessPropagation::runLivenessFixpoint(CodeBlockType* code
             for (BytecodeBasicBlock* successor : block->successors())
                 newOut |= successor->in();
             block->out() = newOut;
-            changed |= computeLocalLivenessForBlock(codeBlock, instructions, graph, block.get());
+            changed |= computeLocalLivenessForBlock(graph, block.get());
         }
     } while (changed);
 }

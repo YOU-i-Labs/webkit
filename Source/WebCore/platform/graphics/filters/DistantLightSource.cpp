@@ -31,25 +31,22 @@
 #include "config.h"
 #include "DistantLightSource.h"
 
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 
-void DistantLightSource::initPaintingData(const FilterEffect&, PaintingData& paintingData)
+void DistantLightSource::initPaintingData(PaintingData& paintingData)
 {
     float azimuth = deg2rad(m_azimuth);
     float elevation = deg2rad(m_elevation);
-    paintingData.initialLightingData.lightVector = {
-        std::cos(azimuth) * std::cos(elevation),
-        std::sin(azimuth) * std::cos(elevation),
-        std::sin(elevation)
-    };
-    paintingData.initialLightingData.lightVectorLength = 1;
+    paintingData.lightVector.setX(cosf(azimuth) * cosf(elevation));
+    paintingData.lightVector.setY(sinf(azimuth) * cosf(elevation));
+    paintingData.lightVector.setZ(sinf(elevation));
+    paintingData.lightVectorLength = 1;
 }
 
-LightSource::ComputedLightingData DistantLightSource::computePixelLightingData(const PaintingData& paintingData, int, int, float) const
+void DistantLightSource::updatePaintingData(PaintingData&, int, int, float)
 {
-    return paintingData.initialLightingData;
 }
 
 bool DistantLightSource::setAzimuth(float azimuth)

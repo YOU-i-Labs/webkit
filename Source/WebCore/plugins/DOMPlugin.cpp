@@ -32,7 +32,9 @@ DOMPlugin::DOMPlugin(PluginData* pluginData, Frame* frame, PluginInfo pluginInfo
 {
 }
 
-DOMPlugin::~DOMPlugin() = default;
+DOMPlugin::~DOMPlugin()
+{
+}
 
 String DOMPlugin::name() const
 {

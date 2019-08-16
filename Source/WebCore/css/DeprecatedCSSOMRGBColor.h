@@ -23,15 +23,13 @@
 #include "DeprecatedCSSOMPrimitiveValue.h"
 #include "RGBColor.h"
 #include <wtf/RefPtr.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
 class DeprecatedCSSOMRGBColor final : public RefCounted<DeprecatedCSSOMRGBColor> {
 public:
-    static Ref<DeprecatedCSSOMRGBColor> create(const RGBColor& color, CSSStyleDeclaration& owner)
-    {
-        return adoptRef(*new DeprecatedCSSOMRGBColor(color, owner));
-    }
+    static Ref<DeprecatedCSSOMRGBColor> create(const RGBColor& color) { return adoptRef(*new DeprecatedCSSOMRGBColor(color)); }
 
     DeprecatedCSSOMPrimitiveValue* red() { return m_red.get(); }
     DeprecatedCSSOMPrimitiveValue* green() { return m_green.get(); }
@@ -41,28 +39,28 @@ public:
     Color color() const { return Color(m_rgbColor); }
 
 private:
-    DeprecatedCSSOMRGBColor(const RGBColor& color, CSSStyleDeclaration& owner)
+    DeprecatedCSSOMRGBColor(const RGBColor& color)
         : m_rgbColor(color.rgbColor())
     {
         // Red
         unsigned value = (m_rgbColor >> 16) & 0xFF;
         auto result = CSSPrimitiveValue::create(value, CSSPrimitiveValue::CSS_NUMBER);
-        m_red = result->createDeprecatedCSSOMPrimitiveWrapper(owner);
+        m_red = result->createDeprecatedCSSOMPrimitiveWrapper();
         
         // Green
         value = (m_rgbColor >> 8) & 0xFF;
         result = CSSPrimitiveValue::create(value, CSSPrimitiveValue::CSS_NUMBER);
-        m_green = result->createDeprecatedCSSOMPrimitiveWrapper(owner);
+        m_green = result->createDeprecatedCSSOMPrimitiveWrapper();
 
         // Blue
         value = m_rgbColor & 0xFF;
         result = CSSPrimitiveValue::create(value, CSSPrimitiveValue::CSS_NUMBER);
-        m_blue = result->createDeprecatedCSSOMPrimitiveWrapper(owner);
+        m_blue = result->createDeprecatedCSSOMPrimitiveWrapper();
         
         // Alpha
         float alphaValue = static_cast<float>((m_rgbColor >> 24) & 0xFF) / 0xFF;
         result = CSSPrimitiveValue::create(alphaValue, CSSPrimitiveValue::CSS_NUMBER);
-        m_alpha = result->createDeprecatedCSSOMPrimitiveWrapper(owner);
+        m_alpha = result->createDeprecatedCSSOMPrimitiveWrapper();
     }
     
     RGBA32 m_rgbColor;

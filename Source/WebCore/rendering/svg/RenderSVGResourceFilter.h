@@ -39,23 +39,26 @@ struct FilterData {
 public:
     enum FilterDataState { PaintingSource, Applying, Built, CycleDetected, MarkedForRemoval };
 
-    FilterData() = default;
+    FilterData()
+        : savedContext(0)
+        , state(PaintingSource)
+    {
+    }
 
     RefPtr<SVGFilter> filter;
     std::unique_ptr<SVGFilterBuilder> builder;
     std::unique_ptr<ImageBuffer> sourceGraphicBuffer;
-    GraphicsContext* savedContext { nullptr };
+    GraphicsContext* savedContext;
     AffineTransform shearFreeAbsoluteTransform;
     FloatRect boundaries;
     FloatRect drawingRegion;
     FloatSize scale;
-    FilterDataState state { PaintingSource };
+    FilterDataState state;
 };
 
 class GraphicsContext;
 
 class RenderSVGResourceFilter final : public RenderSVGResourceContainer {
-    WTF_MAKE_ISO_ALLOCATED(RenderSVGResourceFilter);
 public:
     RenderSVGResourceFilter(SVGFilterElement&, RenderStyle&&);
     virtual ~RenderSVGResourceFilter();
@@ -86,10 +89,8 @@ private:
     const char* renderName() const override { return "RenderSVGResourceFilter"; }
     bool isSVGResourceFilter() const override { return true; }
 
-    HashMap<RenderObject*, std::unique_ptr<FilterData>> m_rendererFilterDataMap;
+    HashMap<RenderObject*, std::unique_ptr<FilterData>> m_filter;
 };
-
-WTF::TextStream& operator<<(WTF::TextStream&, FilterData::FilterDataState);
 
 } // namespace WebCore
 

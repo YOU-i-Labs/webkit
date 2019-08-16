@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TimelineOverviewGraph = class TimelineOverviewGraph extends WI.View
+WebInspector.TimelineOverviewGraph = class TimelineOverviewGraph extends WebInspector.View
 {
     constructor(timelineOverview)
     {
@@ -37,7 +37,7 @@ WI.TimelineOverviewGraph = class TimelineOverviewGraph extends WI.View
         this._currentTime = 0;
         this._timelineOverview = timelineOverview;
         this._selectedRecord = null;
-        this._selectedRecordBar = null;
+        this._selectedRecordChanged = false;
         this._scheduledSelectedRecordLayoutUpdateIdentifier = undefined;
         this._selected = false;
         this._visible = true;
@@ -47,30 +47,27 @@ WI.TimelineOverviewGraph = class TimelineOverviewGraph extends WI.View
 
     static createForTimeline(timeline, timelineOverview)
     {
-        console.assert(timeline instanceof WI.Timeline, timeline);
-        console.assert(timelineOverview instanceof WI.TimelineOverview, timelineOverview);
+        console.assert(timeline instanceof WebInspector.Timeline, timeline);
+        console.assert(timelineOverview instanceof WebInspector.TimelineOverview, timelineOverview);
 
         var timelineType = timeline.type;
-        if (timelineType === WI.TimelineRecord.Type.Network)
-            return new WI.NetworkTimelineOverviewGraph(timeline, timelineOverview);
+        if (timelineType === WebInspector.TimelineRecord.Type.Network)
+            return new WebInspector.NetworkTimelineOverviewGraph(timeline, timelineOverview);
 
-        if (timelineType === WI.TimelineRecord.Type.Layout)
-            return new WI.LayoutTimelineOverviewGraph(timeline, timelineOverview);
+        if (timelineType === WebInspector.TimelineRecord.Type.Layout)
+            return new WebInspector.LayoutTimelineOverviewGraph(timeline, timelineOverview);
 
-        if (timelineType === WI.TimelineRecord.Type.Script)
-            return new WI.ScriptTimelineOverviewGraph(timeline, timelineOverview);
+        if (timelineType === WebInspector.TimelineRecord.Type.Script)
+            return new WebInspector.ScriptTimelineOverviewGraph(timeline, timelineOverview);
 
-        if (timelineType === WI.TimelineRecord.Type.RenderingFrame)
-            return new WI.RenderingFrameTimelineOverviewGraph(timeline, timelineOverview);
+        if (timelineType === WebInspector.TimelineRecord.Type.RenderingFrame)
+            return new WebInspector.RenderingFrameTimelineOverviewGraph(timeline, timelineOverview);
 
-        if (timelineType === WI.TimelineRecord.Type.Memory)
-            return new WI.MemoryTimelineOverviewGraph(timeline, timelineOverview);
+        if (timelineType === WebInspector.TimelineRecord.Type.Memory)
+            return new WebInspector.MemoryTimelineOverviewGraph(timeline, timelineOverview);
 
-        if (timelineType === WI.TimelineRecord.Type.HeapAllocations)
-            return new WI.HeapAllocationsTimelineOverviewGraph(timeline, timelineOverview);
-
-        if (timelineType === WI.TimelineRecord.Type.Media)
-            return new WI.MediaTimelineOverviewGraph(timeline, timelineOverview);
+        if (timelineType === WebInspector.TimelineRecord.Type.HeapAllocations)
+            return new WebInspector.HeapAllocationsTimelineOverviewGraph(timeline, timelineOverview);
 
         throw new Error("Can't make a graph for an unknown timeline.");
     }
@@ -169,30 +166,9 @@ WI.TimelineOverviewGraph = class TimelineOverviewGraph extends WI.View
             return;
 
         this._selectedRecord = x;
+        this._selectedRecordChanged = true;
 
         this._needsSelectedRecordLayout();
-    }
-
-    get selectedRecordBar()
-    {
-        return this._selectedRecordBar;
-    }
-
-    set selectedRecordBar(recordBar)
-    {
-        if (this._selectedRecordBar === recordBar)
-            return;
-
-        if (this._selectedRecordBar)
-            this._selectedRecordBar.selected = false;
-
-        this._selectedRecordBar = recordBar;
-
-        if (this._selectedRecordBar) {
-            this._selectedRecordBar.selected = true;
-
-            console.assert(this._selectedRecordBar.records.includes(this._selectedRecord));
-        }
     }
 
     get height()
@@ -250,13 +226,6 @@ WI.TimelineOverviewGraph = class TimelineOverviewGraph extends WI.View
         super.needsLayout();
     }
 
-    // TimelineRecordBar delegate
-
-    timelineRecordBarClicked(timelineRecordBar)
-    {
-        this.selectedRecord = timelineRecordBar.records[0];
-    }
-
     // Protected
 
     updateSelectedRecord()
@@ -279,11 +248,11 @@ WI.TimelineOverviewGraph = class TimelineOverviewGraph extends WI.View
             this._scheduledSelectedRecordLayoutUpdateIdentifier = undefined;
 
             this.updateSelectedRecord();
-            this.dispatchEventToListeners(WI.TimelineOverviewGraph.Event.RecordSelected, {record: this.selectedRecord, recordBar: this.selectedRecordBar});
+            this.dispatchEventToListeners(WebInspector.TimelineOverviewGraph.Event.RecordSelected, {record: this.selectedRecord});
         });
     }
 };
 
-WI.TimelineOverviewGraph.Event = {
+WebInspector.TimelineOverviewGraph.Event = {
     RecordSelected: "timeline-overview-graph-record-selected"
 };

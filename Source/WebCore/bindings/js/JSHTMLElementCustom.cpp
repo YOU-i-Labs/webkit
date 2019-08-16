@@ -34,8 +34,8 @@
 #include "JSDOMConstructorBase.h"
 #include "JSNodeCustom.h"
 #include "ScriptExecutionContext.h"
-#include <JavaScriptCore/InternalFunction.h>
-#include <JavaScriptCore/JSWithScope.h>
+#include <runtime/InternalFunction.h>
+#include <runtime/JSWithScope.h>
 
 namespace WebCore {
 
@@ -55,25 +55,25 @@ EncodedJSValue JSC_HOST_CALL constructJSHTMLElement(ExecState& exec)
     ASSERT(context->isDocument());
 
     JSValue newTargetValue = exec.thisValue();
-    auto* newTarget = newTargetValue.getObject();
-    auto* globalObject = jsCast<JSDOMGlobalObject*>(newTarget->globalObject(vm));
+    auto* globalObject = jsConstructor->globalObject();
     JSValue htmlElementConstructorValue = JSHTMLElement::getConstructor(vm, globalObject);
     if (newTargetValue == htmlElementConstructorValue)
-        return throwVMTypeError(&exec, scope, "new.target is not a valid custom element constructor"_s);
+        return throwVMTypeError(&exec, scope, ASCIILiteral("new.target is not a valid custom element constructor"));
 
     auto& document = downcast<Document>(*context);
 
     auto* window = document.domWindow();
     if (!window)
-        return throwVMTypeError(&exec, scope, "new.target is not a valid custom element constructor"_s);
+        return throwVMTypeError(&exec, scope, ASCIILiteral("new.target is not a valid custom element constructor"));
 
     auto* registry = window->customElementRegistry();
     if (!registry)
-        return throwVMTypeError(&exec, scope, "new.target is not a valid custom element constructor"_s);
+        return throwVMTypeError(&exec, scope, ASCIILiteral("new.target is not a valid custom element constructor"));
 
+    JSObject* newTarget = newTargetValue.getObject();
     auto* elementInterface = registry->findInterface(newTarget);
     if (!elementInterface)
-        return throwVMTypeError(&exec, scope, "new.target does not define a custom element"_s);
+        return throwVMTypeError(&exec, scope, ASCIILiteral("new.target does not define a custom element"));
 
     if (!elementInterface->isUpgradingElement()) {
         Structure* baseStructure = getDOMStructure<JSHTMLElement>(vm, *globalObject);
@@ -89,7 +89,7 @@ EncodedJSValue JSC_HOST_CALL constructJSHTMLElement(ExecState& exec)
 
     Element* elementToUpgrade = elementInterface->lastElementInConstructionStack();
     if (!elementToUpgrade) {
-        throwInvalidStateError(exec, scope, "Cannot instantiate a custom element inside its own constructor during upgrades"_s);
+        throwInvalidStateError(exec, scope, ASCIILiteral("Cannot instantiate a custom element inside its own constrcutor during upgrades"));
         return JSValue::encode(jsUndefined());
     }
 
@@ -120,14 +120,14 @@ JSScope* JSHTMLElement::pushEventHandlerScope(ExecState* exec, JSScope* scope) c
     VM& vm = exec->vm();
     JSGlobalObject* lexicalGlobalObject = exec->lexicalGlobalObject();
     
-    scope = JSWithScope::create(vm, lexicalGlobalObject, scope, asObject(toJS(exec, globalObject(), element.document())));
+    scope = JSWithScope::create(vm, lexicalGlobalObject, asObject(toJS(exec, globalObject(), element.document())), scope);
 
     // The form is next, searched before the document, but after the element itself.
     if (HTMLFormElement* form = element.form())
-        scope = JSWithScope::create(vm, lexicalGlobalObject, scope, asObject(toJS(exec, globalObject(), *form)));
+        scope = JSWithScope::create(vm, lexicalGlobalObject, asObject(toJS(exec, globalObject(), *form)), scope);
 
     // The element is on top, searched first.
-    return JSWithScope::create(vm, lexicalGlobalObject, scope, asObject(toJS(exec, globalObject(), element)));
+    return JSWithScope::create(vm, lexicalGlobalObject, asObject(toJS(exec, globalObject(), element)), scope);
 }
 
 } // namespace WebCore

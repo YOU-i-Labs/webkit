@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.DetailsSection = class DetailsSection extends WI.Object
+WebInspector.DetailsSection = class DetailsSection extends WebInspector.Object
 {
     constructor(identifier, title, groups, optionsElement, defaultCollapsedSettingValue)
     {
@@ -56,9 +56,9 @@ WI.DetailsSection = class DetailsSection extends WI.Object
 
         this._identifier = identifier;
         this.title = title;
-        this.groups = groups || [new WI.DetailsSectionGroup];
+        this.groups = groups || [new WebInspector.DetailsSectionGroup];
 
-        this._collapsedSetting = new WI.Setting(identifier + "-details-section-collapsed", !!defaultCollapsedSettingValue);
+        this._collapsedSetting = new WebInspector.Setting(identifier + "-details-section-collapsed", !!defaultCollapsedSettingValue);
         this.collapsed = this._collapsedSetting.value;
         this._expandedByUser = false;
     }
@@ -100,19 +100,19 @@ WI.DetailsSection = class DetailsSection extends WI.Object
 
     get collapsed()
     {
-        return this._element.classList.contains(WI.DetailsSection.CollapsedStyleClassName);
+        return this._element.classList.contains(WebInspector.DetailsSection.CollapsedStyleClassName);
     }
 
     set collapsed(flag)
     {
         if (flag)
-            this._element.classList.add(WI.DetailsSection.CollapsedStyleClassName);
+            this._element.classList.add(WebInspector.DetailsSection.CollapsedStyleClassName);
         else
-            this._element.classList.remove(WI.DetailsSection.CollapsedStyleClassName);
+            this._element.classList.remove(WebInspector.DetailsSection.CollapsedStyleClassName);
 
         this._collapsedSetting.value = flag || false;
 
-        this.dispatchEventToListeners(WI.DetailsSection.Event.CollapsedStateChanged, {collapsed: this._collapsedSetting.value});
+        this.dispatchEventToListeners(WebInspector.DetailsSection.Event.CollapsedStateChanged, {collapsed: this._collapsedSetting.value});
     }
 
     get groups()
@@ -139,7 +139,7 @@ WI.DetailsSection = class DetailsSection extends WI.Object
 
     _headerElementClicked(event)
     {
-        if (this._optionsElement && this._optionsElement.contains(event.target))
+        if (event.target.isSelfOrDescendant(this._optionsElement))
             return;
 
         var collapsed = this.collapsed;
@@ -151,18 +151,18 @@ WI.DetailsSection = class DetailsSection extends WI.Object
 
     _optionsElementMouseDown(event)
     {
-        this._headerElement.classList.add(WI.DetailsSection.MouseOverOptionsElementStyleClassName);
+        this._headerElement.classList.add(WebInspector.DetailsSection.MouseOverOptionsElementStyleClassName);
     }
 
     _optionsElementMouseUp(event)
     {
-        this._headerElement.classList.remove(WI.DetailsSection.MouseOverOptionsElementStyleClassName);
+        this._headerElement.classList.remove(WebInspector.DetailsSection.MouseOverOptionsElementStyleClassName);
     }
 };
 
-WI.DetailsSection.CollapsedStyleClassName = "collapsed";
-WI.DetailsSection.MouseOverOptionsElementStyleClassName = "mouse-over-options-element";
+WebInspector.DetailsSection.CollapsedStyleClassName = "collapsed";
+WebInspector.DetailsSection.MouseOverOptionsElementStyleClassName = "mouse-over-options-element";
 
-WI.DetailsSection.Event = {
+WebInspector.DetailsSection.Event = {
     CollapsedStateChanged: "details-section-collapsed-state-changed"
 };

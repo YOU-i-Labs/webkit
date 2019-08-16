@@ -52,11 +52,11 @@ JSDataView* JSDataView::create(
 
     ASSERT(buffer);
     if (!ArrayBufferView::verifySubRangeLength(*buffer, byteOffset, byteLength, sizeof(uint8_t))) {
-        throwVMError(exec, scope, createRangeError(exec, "Length out of range of buffer"_s));
+        throwVMError(exec, scope, createRangeError(exec, ASCIILiteral("Length out of range of buffer")));
         return nullptr;
     }
     if (!ArrayBufferView::verifyByteOffsetAlignment(byteOffset, sizeof(uint8_t))) {
-        throwException(exec, scope, createRangeError(exec, "Byte offset is not aligned"_s));
+        throwException(exec, scope, createRangeError(exec, ASCIILiteral("Byte offset is not aligned")));
         return nullptr;
     }
     ConstructionContext context(
@@ -105,14 +105,13 @@ RefPtr<DataView> JSDataView::unsharedTypedImpl()
 bool JSDataView::getOwnPropertySlot(
     JSObject* object, ExecState* exec, PropertyName propertyName, PropertySlot& slot)
 {
-    VM& vm = exec->vm();
     JSDataView* thisObject = jsCast<JSDataView*>(object);
-    if (propertyName == vm.propertyNames->byteLength) {
-        slot.setValue(thisObject, PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly, jsNumber(thisObject->m_length));
+    if (propertyName == exec->propertyNames().byteLength) {
+        slot.setValue(thisObject, DontEnum | ReadOnly, jsNumber(thisObject->m_length));
         return true;
     }
-    if (propertyName == vm.propertyNames->byteOffset) {
-        slot.setValue(thisObject, PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly, jsNumber(thisObject->byteOffset()));
+    if (propertyName == exec->propertyNames().byteOffset) {
+        slot.setValue(thisObject, DontEnum | ReadOnly, jsNumber(thisObject->byteOffset()));
         return true;
     }
 
@@ -127,14 +126,17 @@ bool JSDataView::put(
     auto scope = DECLARE_THROW_SCOPE(vm);
     JSDataView* thisObject = jsCast<JSDataView*>(cell);
 
-    if (UNLIKELY(isThisValueAltered(slot, thisObject)))
-        RELEASE_AND_RETURN(scope, ordinarySetSlow(exec, thisObject, propertyName, value, slot.thisValue(), slot.isStrictMode()));
+    if (UNLIKELY(isThisValueAltered(slot, thisObject))) {
+        scope.release();
+        return ordinarySetSlow(exec, thisObject, propertyName, value, slot.thisValue(), slot.isStrictMode());
+    }
 
     if (propertyName == vm.propertyNames->byteLength
         || propertyName == vm.propertyNames->byteOffset)
-        return typeError(exec, scope, slot.isStrictMode(), "Attempting to write to read-only typed array property."_s);
+        return typeError(exec, scope, slot.isStrictMode(), ASCIILiteral("Attempting to write to read-only typed array property."));
 
-    RELEASE_AND_RETURN(scope, Base::put(thisObject, exec, propertyName, value, slot));
+    scope.release();
+    return Base::put(thisObject, exec, propertyName, value, slot);
 }
 
 bool JSDataView::defineOwnProperty(
@@ -146,18 +148,17 @@ bool JSDataView::defineOwnProperty(
     JSDataView* thisObject = jsCast<JSDataView*>(object);
     if (propertyName == vm.propertyNames->byteLength
         || propertyName == vm.propertyNames->byteOffset)
-        return typeError(exec, scope, shouldThrow, "Attempting to define read-only typed array property."_s);
+        return typeError(exec, scope, shouldThrow, ASCIILiteral("Attempting to define read-only typed array property."));
 
-    RELEASE_AND_RETURN(scope, Base::defineOwnProperty(thisObject, exec, propertyName, descriptor, shouldThrow));
+    return Base::defineOwnProperty(thisObject, exec, propertyName, descriptor, shouldThrow);
 }
 
 bool JSDataView::deleteProperty(
     JSCell* cell, ExecState* exec, PropertyName propertyName)
 {
-    VM& vm = exec->vm();
     JSDataView* thisObject = jsCast<JSDataView*>(cell);
-    if (propertyName == vm.propertyNames->byteLength
-        || propertyName == vm.propertyNames->byteOffset)
+    if (propertyName == exec->propertyNames().byteLength
+        || propertyName == exec->propertyNames().byteOffset)
         return false;
 
     return Base::deleteProperty(thisObject, exec, propertyName);
@@ -166,15 +167,26 @@ bool JSDataView::deleteProperty(
 void JSDataView::getOwnNonIndexPropertyNames(
     JSObject* object, ExecState* exec, PropertyNameArray& array, EnumerationMode mode)
 {
-    VM& vm = exec->vm();
     JSDataView* thisObject = jsCast<JSDataView*>(object);
     
     if (mode.includeDontEnumProperties()) {
-        array.add(vm.propertyNames->byteOffset);
-        array.add(vm.propertyNames->byteLength);
+        array.add(exec->propertyNames().byteOffset);
+        array.add(exec->propertyNames().byteLength);
     }
     
     Base::getOwnNonIndexPropertyNames(thisObject, exec, array, mode);
+}
+
+ArrayBuffer* JSDataView::slowDownAndWasteMemory(JSArrayBufferView*)
+{
+    UNREACHABLE_FOR_PLATFORM();
+    return 0;
+}
+
+RefPtr<ArrayBufferView> JSDataView::getTypedArrayImpl(JSArrayBufferView* object)
+{
+    JSDataView* thisObject = jsCast<JSDataView*>(object);
+    return thisObject->possiblySharedTypedImpl();
 }
 
 Structure* JSDataView::createStructure(

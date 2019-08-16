@@ -40,8 +40,8 @@ class GLContext;
 class PlatformDisplay {
     WTF_MAKE_NONCOPYABLE(PlatformDisplay); WTF_MAKE_FAST_ALLOCATED;
 public:
-    WEBCORE_EXPORT static PlatformDisplay& sharedDisplay();
-    WEBCORE_EXPORT static PlatformDisplay& sharedDisplayForCompositing();
+    static PlatformDisplay& sharedDisplay();
+    static PlatformDisplay& sharedDisplayForCompositing();
     virtual ~PlatformDisplay();
 
     enum class Type {
@@ -54,7 +54,7 @@ public:
 #if PLATFORM(WIN)
         Windows,
 #endif
-#if USE(LIBWPE)
+#if PLATFORM(WPE)
         WPE,
 #endif
     };
@@ -62,7 +62,7 @@ public:
     virtual Type type() const = 0;
 
 #if USE(EGL) || USE(GLX)
-    WEBCORE_EXPORT GLContext* sharingGLContext();
+    GLContext* sharingGLContext();
 #endif
 
 #if USE(EGL)
@@ -73,7 +73,7 @@ public:
 
 protected:
     enum class NativeDisplayOwned { No, Yes };
-    explicit PlatformDisplay(NativeDisplayOwned);
+    explicit PlatformDisplay(NativeDisplayOwned = NativeDisplayOwned::No);
 
     static void setSharedDisplayForCompositing(PlatformDisplay&);
 

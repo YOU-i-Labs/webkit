@@ -35,11 +35,8 @@
 #include "HTMLDocument.h"
 #include "TemplateContentDocumentFragment.h"
 #include "markup.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLTemplateElement);
 
 using namespace HTMLNames;
 
@@ -57,11 +54,6 @@ HTMLTemplateElement::~HTMLTemplateElement()
 Ref<HTMLTemplateElement> HTMLTemplateElement::create(const QualifiedName& tagName, Document& document)
 {
     return adoptRef(*new HTMLTemplateElement(tagName, document));
-}
-
-DocumentFragment* HTMLTemplateElement::contentIfAvailable() const
-{
-    return m_content.get();
 }
 
 DocumentFragment& HTMLTemplateElement::content() const

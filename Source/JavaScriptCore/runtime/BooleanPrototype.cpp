@@ -76,14 +76,13 @@ EncodedJSValue JSC_HOST_CALL booleanProtoFuncToString(ExecState* exec)
     if (thisValue == jsBoolean(true))
         return JSValue::encode(vm.smallStrings.trueString());
 
-    auto* thisObject = jsDynamicCast<BooleanObject*>(vm, thisValue);
-    if (UNLIKELY(!thisObject))
+    if (!thisValue.inherits(vm, BooleanObject::info()))
         return throwVMTypeError(exec, scope);
 
-    if (thisObject->internalValue() == jsBoolean(false))
+    if (asBooleanObject(thisValue)->internalValue() == jsBoolean(false))
         return JSValue::encode(vm.smallStrings.falseString());
 
-    ASSERT(thisObject->internalValue() == jsBoolean(true));
+    ASSERT(asBooleanObject(thisValue)->internalValue() == jsBoolean(true));
     return JSValue::encode(vm.smallStrings.trueString());
 }
 
@@ -95,11 +94,10 @@ EncodedJSValue JSC_HOST_CALL booleanProtoFuncValueOf(ExecState* exec)
     if (thisValue.isBoolean())
         return JSValue::encode(thisValue);
 
-    auto* thisObject = jsDynamicCast<BooleanObject*>(vm, thisValue);
-    if (UNLIKELY(!thisObject))
+    if (!thisValue.inherits(vm, BooleanObject::info()))
         return throwVMTypeError(exec, scope);
 
-    return JSValue::encode(thisObject->internalValue());
+    return JSValue::encode(asBooleanObject(thisValue)->internalValue());
 }
 
 } // namespace JSC

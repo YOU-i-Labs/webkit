@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,7 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef TextCodecReplacement_h
+#define TextCodecReplacement_h
 
 #include "TextCodecUTF8.h"
 
@@ -31,14 +32,20 @@ namespace WebCore {
 
 class TextCodecReplacement : public TextCodecUTF8 {
 public:
+    static std::unique_ptr<TextCodec> create(const TextEncoding&, const void*);
+
+    TextCodecReplacement();
+
     static void registerEncodingNames(EncodingNameRegistrar);
     static void registerCodecs(TextCodecRegistrar);
 
 private:
-    String decode(const char*, size_t length, bool flush, bool stopOnError, bool& sawError) final;
+    String decode(const char*, size_t length, bool flush, bool stopOnError, bool& sawError) override;
 
     bool m_sentEOF { false };
 
 };
 
 } // namespace WebCore
+
+#endif /* TextCodecReplacement_h */

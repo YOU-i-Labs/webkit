@@ -115,7 +115,7 @@ ExceptionOr<Node*> DOMPatchSupport::patchNode(Node& node, const String& markup)
 
     Node* previousSibling = node.previousSibling();
     // FIXME: This code should use one of createFragment* in markup.h
-    auto fragment = DocumentFragment::create(m_document);
+    RefPtr<DocumentFragment> fragment = DocumentFragment::create(m_document);
     if (m_document.isHTMLDocument())
         fragment->parseHTML(markup, node.parentElement() ? node.parentElement() : m_document.documentElement());
     else
@@ -143,7 +143,7 @@ ExceptionOr<Node*> DOMPatchSupport::patchNode(Node& node, const String& markup)
 
     if (innerPatchChildren(*parentNode, oldList, newList).hasException()) {
         // Fall back to total replace.
-        auto result = m_domEditor.replaceChild(*parentNode, fragment.get(), node);
+        auto result = m_domEditor.replaceChild(*parentNode, *fragment, node);
         if (result.hasException())
             return result.releaseException();
     }
@@ -505,9 +505,9 @@ static String nodeName(Node* node)
 
 void DOMPatchSupport::dumpMap(const ResultMap& map, const String& name)
 {
-    fprintf(stderr, "\n\n");
+    WTFLogAlways("\n\n");
     for (size_t i = 0; i < map.size(); ++i)
-        fprintf(stderr, "%s[%lu]: %s (%p) - [%lu]\n", name.utf8().data(), i, map[i].first ? nodeName(map[i].first->m_node).utf8().data() : "", map[i].first, map[i].second);
+        WTFLogAlways("%s[%lu]: %s (%p) - [%lu]\n", name.utf8().data(), i, map[i].first ? nodeName(map[i].first->m_node).utf8().data() : "", map[i].first, map[i].second);
 }
 
 #endif

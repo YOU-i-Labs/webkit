@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.Slider = class Slider extends WI.Object
+WebInspector.Slider = class Slider extends WebInspector.Object
 {
     constructor()
     {
@@ -76,7 +76,7 @@ WI.Slider = class Slider extends WI.Object
     get maxX()
     {
         if (this._maxX <= 0 && document.body.contains(this._element))
-            this._maxX = Math.max(this._element.offsetWidth - Math.ceil(WI.Slider.KnobWidth / 2), 0);
+            this._maxX = Math.max(this._element.offsetWidth - Math.ceil(WebInspector.Slider.KnobWidth / 2), 0);
 
         return this._maxX;
     }
@@ -144,4 +144,4 @@ WI.Slider = class Slider extends WI.Object
     }
 };
 
-WI.Slider.KnobWidth = 13;
+WebInspector.Slider.KnobWidth = 13;

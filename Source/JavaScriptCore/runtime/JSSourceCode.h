@@ -31,7 +31,7 @@
 
 namespace JSC {
 
-class JSSourceCode final : public JSCell {
+class JSSourceCode : public JSCell {
 public:
     using Base = JSCell;
 

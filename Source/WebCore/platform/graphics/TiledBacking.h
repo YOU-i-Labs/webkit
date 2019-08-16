@@ -37,9 +37,7 @@ enum TileSizeMode {
 
 class FloatPoint;
 class FloatRect;
-class FloatSize;
 class IntRect;
-class IntSize;
 class PlatformCALayer;
 
 enum ScrollingModeIndication {
@@ -71,13 +69,13 @@ struct VelocityData  {
 
 class TiledBacking {
 public:
-    virtual ~TiledBacking() = default;
+    virtual ~TiledBacking() { }
 
     virtual void setVisibleRect(const FloatRect&) = 0;
     virtual FloatRect visibleRect() const = 0;
 
     // Only used to update the tile coverage map. 
-    virtual void setLayoutViewportRect(Optional<FloatRect>) = 0;
+    virtual void setLayoutViewportRect(std::optional<FloatRect>) = 0;
 
     virtual void setCoverageRect(const FloatRect&) = 0;
     virtual FloatRect coverageRect() const = 0;

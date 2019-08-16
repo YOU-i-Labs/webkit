@@ -43,7 +43,7 @@
 #include "TextResourceDecoder.h"
 #include "ThreadableBlobRegistry.h"
 #include "ThreadableLoader.h"
-#include <JavaScriptCore/ArrayBuffer.h>
+#include <runtime/ArrayBuffer.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/Base64.h>
@@ -61,6 +61,7 @@ FileReaderLoader::FileReaderLoader(ReadType readType, FileReaderLoaderClient* cl
     , m_variableLength(false)
     , m_bytesLoaded(0)
     , m_totalBytes(0)
+    , m_errorCode(0)
 {
 }
 
@@ -88,8 +89,8 @@ void FileReaderLoader::start(ScriptExecutionContext* scriptExecutionContext, Blo
     request.setHTTPMethod("GET");
 
     ThreadableLoaderOptions options;
-    options.sendLoadCallbacks = SendCallbackPolicy::SendCallbacks;
-    options.dataBufferingPolicy = DataBufferingPolicy::DoNotBufferData;
+    options.sendLoadCallbacks = SendCallbacks;
+    options.dataBufferingPolicy = DoNotBufferData;
     options.credentials = FetchOptions::Credentials::Include;
     options.mode = FetchOptions::Mode::SameOrigin;
     options.contentSecurityPolicyEnforcement = ContentSecurityPolicyEnforcement::DoNotEnforce;
@@ -217,7 +218,9 @@ void FileReaderLoader::didReceiveData(const char* data, int dataLength)
 void FileReaderLoader::didFinishLoading(unsigned long)
 {
     if (m_variableLength && m_totalBytes > m_bytesLoaded) {
-        m_rawData = m_rawData->slice(0, m_bytesLoaded);
+        RefPtr<ArrayBuffer> newData = m_rawData->slice(0, m_bytesLoaded);
+
+        m_rawData = newData;
         m_totalBytes = m_bytesLoaded;
     }
     cleanup();
@@ -234,7 +237,7 @@ void FileReaderLoader::didFail(const ResourceError& error)
     failed(toErrorCode(static_cast<BlobResourceHandle::Error>(error.errorCode())));
 }
 
-void FileReaderLoader::failed(FileError::ErrorCode errorCode)
+void FileReaderLoader::failed(int errorCode)
 {
     m_errorCode = errorCode;
     cleanup();

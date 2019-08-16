@@ -5,7 +5,7 @@
  *                     2000-2001 Simon Hausmann <hausmann@kde.org>
  *                     2000-2001 Dirk Mueller <mueller@kde.org>
  *                     2000 Stefan Schimanski <1Stein@gmx.de>
- * Copyright (C) 2004-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
  *
@@ -27,16 +27,17 @@
 
 #pragma once
 
-#include "AbstractFrame.h"
 #include "AdjustViewSizeOrNot.h"
+#include "FrameLoader.h"
 #include "FrameTree.h"
+#include "IntRect.h"
+#include "NavigationScheduler.h"
 #include "ScrollTypes.h"
 #include "UserScriptTypes.h"
-#include <wtf/HashSet.h>
+#include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/UniqueRef.h>
 
-#if PLATFORM(IOS_FAMILY)
-#include "Timer.h"
+#if PLATFORM(IOS)
 #include "ViewportArguments.h"
 #include "VisibleSelection.h"
 #endif
@@ -61,38 +62,31 @@ namespace WebCore {
 
 class CSSAnimationController;
 class Color;
-class DOMWindow;
 class Document;
 class Editor;
 class Element;
 class EventHandler;
 class FloatSize;
 class FrameDestructionObserver;
-class FrameLoader;
-class FrameLoaderClient;
 class FrameSelection;
 class FrameView;
 class HTMLFrameOwnerElement;
 class HTMLTableCellElement;
 class HitTestResult;
 class ImageBuffer;
-class IntPoint;
 class IntRect;
-class IntSize;
-class NavigationScheduler;
+class MainFrame;
 class Node;
-class Page;
 class Range;
 class RenderLayer;
 class RenderView;
 class RenderWidget;
 class ScriptController;
-class SecurityOrigin;
 class Settings;
 class VisiblePosition;
 class Widget;
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 enum {
     OverflowScrollNone = 0,
     OverflowScrollLeft = 1 << 0,
@@ -102,7 +96,7 @@ enum {
 };
 
 enum OverflowScrollAction { DoNotPerformOverflowScroll, PerformOverflowScroll };
-using NodeQualifier = Function<Node* (const HitTestResult&, Node* terminationNode, IntRect* nodeBounds)>;
+typedef Node* (*NodeQualifier)(const HitTestResult&, Node* terminationNode, IntRect* nodeBounds);
 #endif
 
 enum {
@@ -117,34 +111,31 @@ enum {
 };
 typedef unsigned LayerTreeFlags;
 
-// FIXME: Rename Frame to LocalFrame and AbstractFrame to Frame.
-class Frame final : public AbstractFrame {
+class Frame : public ThreadSafeRefCounted<Frame> {
 public:
     WEBCORE_EXPORT static Ref<Frame> create(Page*, HTMLFrameOwnerElement*, FrameLoaderClient*);
 
-    WEBCORE_EXPORT void init();
-#if PLATFORM(IOS_FAMILY)
+    void init();
+#if PLATFORM(IOS)
     // Creates <html><body style="..."></body></html> doing minimal amount of work.
     WEBCORE_EXPORT void initWithSimpleHTMLDocument(const String& style, const URL&);
 #endif
     WEBCORE_EXPORT void setView(RefPtr<FrameView>&&);
-    WEBCORE_EXPORT void createView(const IntSize&, bool transparent,
-        const IntSize& fixedLayoutSize, const IntRect& fixedVisibleContentRect,
+    WEBCORE_EXPORT void createView(const IntSize&, const Color&, bool,
+        const IntSize& fixedLayoutSize = IntSize(), const IntRect& fixedVisibleContentRect = IntRect(),
         bool useFixedLayout = false, ScrollbarMode = ScrollbarAuto, bool horizontalLock = false,
         ScrollbarMode = ScrollbarAuto, bool verticalLock = false);
 
-    WEBCORE_EXPORT ~Frame();
-
-    WEBCORE_EXPORT DOMWindow* window() const;
+    WEBCORE_EXPORT virtual ~Frame();
 
     void addDestructionObserver(FrameDestructionObserver*);
     void removeDestructionObserver(FrameDestructionObserver*);
 
-    WEBCORE_EXPORT void willDetachPage();
+    void willDetachPage();
     void detachFromPage();
     void disconnectOwnerElement();
 
-    Frame& mainFrame() const;
+    MainFrame& mainFrame() const;
     bool isMainFrame() const { return this == static_cast<void*>(&m_mainFrame); }
 
     Page* page() const;
@@ -172,13 +163,9 @@ public:
 
     bool documentIsBeingReplaced() const { return m_documentIsBeingReplaced; }
 
-    bool hasHadUserInteraction() const { return m_hasHadUserInteraction; }
-    void setHasHadUserInteraction() { m_hasHadUserInteraction = true; }
-
 // ======== All public functions below this point are candidates to move out of Frame into another class. ========
 
-    WEBCORE_EXPORT void injectUserScripts(UserScriptInjectionTime);
-    WEBCORE_EXPORT void injectUserScriptImmediately(DOMWrapperWorld&, const UserScript&);
+    void injectUserScripts(UserScriptInjectionTime);
     
     WEBCORE_EXPORT String layerTreeAsText(LayerTreeFlags = 0) const;
     WEBCORE_EXPORT String trackedRepaintRectsAsText() const;
@@ -209,12 +196,12 @@ public:
     NSArray *dataDetectionResults() const { return m_dataDetectionResults.get(); }
 #endif
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     const ViewportArguments& viewportArguments() const;
     WEBCORE_EXPORT void setViewportArguments(const ViewportArguments&);
 
     WEBCORE_EXPORT Node* deepestNodeAtLocation(const FloatPoint& viewportLocation);
-    WEBCORE_EXPORT Node* nodeRespondingToClickEvents(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation, SecurityOrigin* = nullptr);
+    WEBCORE_EXPORT Node* nodeRespondingToClickEvents(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation);
     WEBCORE_EXPORT Node* nodeRespondingToScrollWheelEvents(const FloatPoint& viewportLocation);
 
     WEBCORE_EXPORT NSArray *wordsInCurrentParagraph() const;
@@ -253,7 +240,7 @@ public:
     String searchForLabelsBeforeElement(const Vector<String>& labels, Element*, size_t* resultDistance, bool* resultIsInCellAbove);
     String matchLabelsAgainstElement(const Vector<String>& labels, Element*);
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     // Scroll the selection in an overflow layer.
     void scrollOverflowLayer(RenderLayer*, const IntRect& visibleRect, const IntRect& exposeRect);
 
@@ -288,29 +275,19 @@ public:
 
 // ========
 
-    void selfOnlyRef();
-    void selfOnlyDeref();
+protected:
+    Frame(Page&, HTMLFrameOwnerElement*, FrameLoaderClient&);
+    void setMainFrameWasDestroyed();
 
 private:
-    friend class NavigationDisabler;
-
-    Frame(Page&, HTMLFrameOwnerElement*, FrameLoaderClient&);
-
-    void dropChildren();
-
-    bool isLocalFrame() const final { return true; }
-    bool isRemoteFrame() const final { return false; }
-
-    AbstractDOMWindow* virtualWindow() const final;
-
     HashSet<FrameDestructionObserver*> m_destructionObservers;
 
-    Frame& m_mainFrame;
+    MainFrame& m_mainFrame;
     Page* m_page;
     const RefPtr<Settings> m_settings;
     mutable FrameTree m_treeNode;
-    mutable UniqueRef<FrameLoader> m_loader;
-    mutable UniqueRef<NavigationScheduler> m_navigationScheduler;
+    mutable FrameLoader m_loader;
+    mutable NavigationScheduler m_navigationScheduler;
 
     HTMLFrameOwnerElement* m_ownerElement;
     RefPtr<FrameView> m_view;
@@ -324,10 +301,10 @@ private:
 #if ENABLE(DATA_DETECTION)
     RetainPtr<NSArray> m_dataDetectionResults;
 #endif
-#if PLATFORM(IOS_FAMILY)
-    void betterApproximateNode(const IntPoint& testPoint, const NodeQualifier&, Node*& best, Node* failedNode, IntPoint& bestPoint, IntRect& bestRect, const IntRect& testRect);
+#if PLATFORM(IOS)
+    void betterApproximateNode(const IntPoint& testPoint, NodeQualifier, Node*& best, Node* failedNode, IntPoint& bestPoint, IntRect& bestRect, const IntRect& testRect);
     bool hitTestResultAtViewportLocation(const FloatPoint& viewportLocation, HitTestResult&, IntPoint& center);
-    Node* qualifyingNodeAtViewportLocation(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation, const NodeQualifier&, bool shouldApproximate);
+    Node* qualifyingNodeAtViewportLocation(const FloatPoint& viewportLocation, FloatPoint& adjustedViewportLocation, NodeQualifier, bool shouldApproximate);
 
     void overflowAutoScrollTimerFired();
     void startOverflowAutoScroll(const IntPoint&);
@@ -348,23 +325,26 @@ private:
     float m_textZoomFactor;
 
     int m_activeDOMObjectsAndAnimationsSuspendedCount;
+    bool m_mainFrameWasDestroyed { false };
     bool m_documentIsBeingReplaced { false };
-    unsigned m_navigationDisableCount { 0 };
-    unsigned m_selfOnlyRefCount { 0 };
-    bool m_hasHadUserInteraction { false };
 
 protected:
     UniqueRef<EventHandler> m_eventHandler;
 };
 
+inline void Frame::init()
+{
+    m_loader.init();
+}
+
 inline FrameLoader& Frame::loader() const
 {
-    return m_loader.get();
+    return m_loader;
 }
 
 inline NavigationScheduler& Frame::navigationScheduler() const
 {
-    return m_navigationScheduler.get();
+    return m_navigationScheduler;
 }
 
 inline FrameView* Frame::view() const
@@ -397,13 +377,15 @@ inline void Frame::detachFromPage()
     m_page = nullptr;
 }
 
-inline Frame& Frame::mainFrame() const
+inline MainFrame& Frame::mainFrame() const
 {
+    ASSERT_WITH_SECURITY_IMPLICATION(!m_mainFrameWasDestroyed);
     return m_mainFrame;
 }
 
-} // namespace WebCore
+inline void Frame::setMainFrameWasDestroyed()
+{
+    m_mainFrameWasDestroyed = false;
+}
 
-SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::Frame)
-    static bool isType(const WebCore::AbstractFrame& frame) { return frame.isLocalFrame(); }
-SPECIALIZE_TYPE_TRAITS_END()
+} // namespace WebCore

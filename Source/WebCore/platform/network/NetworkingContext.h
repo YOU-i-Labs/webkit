@@ -43,7 +43,7 @@ class ResourceRequest;
 
 class NetworkingContext : public RefCounted<NetworkingContext> {
 public:
-    virtual ~NetworkingContext() = default;
+    virtual ~NetworkingContext() { }
 
     virtual bool isValid() const { return true; }
 
@@ -58,14 +58,14 @@ public:
 
     virtual String sourceApplicationIdentifier() const { return emptyString(); }
 
-    virtual NetworkStorageSession* storageSession() const = 0;
+    virtual NetworkStorageSession& storageSession() const = 0;
 
 #if PLATFORM(WIN)
     virtual ResourceError blockedError(const ResourceRequest&) const = 0;
 #endif
 
 protected:
-    NetworkingContext() = default;
+    NetworkingContext() { }
 };
 
 }

@@ -29,7 +29,7 @@
 #include <wtf/TypeCasts.h>
 #include <wtf/text/WTFString.h>
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 namespace WebCore {
 
@@ -58,7 +58,7 @@ public:
     String name;
     CryptoAlgorithmIdentifier identifier;
 
-    virtual ~CryptoAlgorithmParameters() = default;
+    virtual ~CryptoAlgorithmParameters() { }
 
     virtual Class parametersClass() const { return Class::None; }
 };
@@ -70,4 +70,4 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::CryptoAlgorithm##ToClassName) \
 static bool isType(const WebCore::CryptoAlgorithmParameters& parameters) { return parameters.parametersClass() == WebCore::CryptoAlgorithmParameters::Class::ToClassName; } \
 SPECIALIZE_TYPE_TRAITS_END()
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

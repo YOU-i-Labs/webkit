@@ -50,8 +50,7 @@ public:
         Radio,
         Arrow,
         Icon,
-        Scrollbar,
-        Button
+        Scrollbar
     };
 
     struct Info {
@@ -168,13 +167,6 @@ public:
 
 private:
     OptionSet<Steppers> m_steppers;
-};
-
-class RenderThemeButtonGadget final : public RenderThemeGadget {
-public:
-    RenderThemeButtonGadget(const Info&, RenderThemeGadget* parent, const Vector<RenderThemeGadget::Info> siblings, unsigned position);
-
-    IntSize minimumSize() const override;
 };
 
 } // namespace WebCore

@@ -76,26 +76,26 @@ inline bool isVerticalPiece(ImagePiece piece)
     return piece == LeftPiece || piece == RightPiece || piece == MiddlePiece;
 }
 
-inline Optional<PhysicalBoxSide> imagePieceHorizontalSide(ImagePiece piece)
+inline PhysicalBoxSide imagePieceHorizontalSide(ImagePiece piece)
 {
     if (piece == TopLeftPiece || piece == TopPiece || piece == TopRightPiece)
-        return PhysicalBoxSide::Top;
+        return TopSide;
 
     if (piece == BottomLeftPiece || piece == BottomPiece || piece == BottomRightPiece)
-        return PhysicalBoxSide::Bottom;
+        return BottomSide;
 
-    return WTF::nullopt;
+    return NilSide;
 }
 
-inline Optional<PhysicalBoxSide> imagePieceVerticalSide(ImagePiece piece)
+inline PhysicalBoxSide imagePieceVerticalSide(ImagePiece piece)
 {
     if (piece == TopLeftPiece || piece == LeftPiece || piece == BottomLeftPiece)
-        return PhysicalBoxSide::Left;
+        return LeftSide;
 
     if (piece == TopRightPiece || piece == RightPiece || piece == BottomRightPiece)
-        return PhysicalBoxSide::Right;
+        return RightSide;
 
-    return WTF::nullopt;
+    return NilSide;
 }
 
 class NinePieceImage {
@@ -209,6 +209,6 @@ private:
     DataRef<Data> m_data;
 };
 
-WTF::TextStream& operator<<(WTF::TextStream&, const NinePieceImage&);
+TextStream& operator<<(TextStream&, const NinePieceImage&);
 
 } // namespace WebCore

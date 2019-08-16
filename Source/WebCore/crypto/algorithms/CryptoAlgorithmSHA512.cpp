@@ -26,8 +26,9 @@
 #include "config.h"
 #include "CryptoAlgorithmSHA512.h"
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
+#include "ExceptionCode.h"
 #include "ScriptExecutionContext.h"
 #include <pal/crypto/CryptoDigest.h>
 
@@ -51,15 +52,29 @@ void CryptoAlgorithmSHA512::digest(Vector<uint8_t>&& message, VectorCallback&& c
         return;
     }
 
-    workQueue.dispatch([digest = WTFMove(digest), message = WTFMove(message), callback = WTFMove(callback), contextIdentifier = context.contextIdentifier()]() mutable {
+    context.ref();
+    workQueue.dispatch([digest = WTFMove(digest), message = WTFMove(message), callback = WTFMove(callback), &context]() mutable {
         digest->addBytes(message.data(), message.size());
         auto result = digest->computeHash();
-        ScriptExecutionContext::postTaskTo(contextIdentifier, [callback = WTFMove(callback), result = WTFMove(result)](auto&) {
+        context.postTask([callback = WTFMove(callback), result = WTFMove(result)](ScriptExecutionContext& context) {
             callback(result);
+            context.deref();
         });
     });
 }
 
+ExceptionOr<void> CryptoAlgorithmSHA512::digest(const CryptoAlgorithmParametersDeprecated&, const CryptoOperationData& data, VectorCallback&& callback, VoidCallback&& failureCallback)
+{
+    auto digest = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_512);
+    if (!digest) {
+        failureCallback();
+        return { };
+    }
+    digest->addBytes(data.first, data.second);
+    callback(digest->computeHash());
+    return { };
 }
 
-#endif // ENABLE(WEB_CRYPTO)
+}
+
+#endif // ENABLE(SUBTLE_CRYPTO)

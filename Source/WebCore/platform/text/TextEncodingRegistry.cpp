@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,22 +30,33 @@
 #include "TextCodecICU.h"
 #include "TextCodecLatin1.h"
 #include "TextCodecReplacement.h"
+#include "TextCodecUserDefined.h"
 #include "TextCodecUTF16.h"
 #include "TextCodecUTF8.h"
-#include "TextCodecUserDefined.h"
 #include "TextEncoding.h"
 #include <mutex>
 #include <wtf/ASCIICType.h>
-#include <wtf/CheckedArithmetic.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Lock.h>
 #include <wtf/MainThread.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/StringExtras.h>
+
+#if PLATFORM(COCOA)
+#include "WebCoreSystemInterface.h"
+#endif
+
+#if PLATFORM(MAC)
+#include "TextCodecMac.h"
+#endif
+
+#include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
 
-namespace WebCore {
 using namespace WTF;
+
+namespace WebCore {
 
 const size_t maxEncodingNameLength = 63;
 
@@ -87,10 +98,16 @@ struct TextEncodingNameHash {
     static const bool safeToCompareToEmptyOrDeleted = false;
 };
 
-using TextEncodingNameMap = HashMap<const char*, const char*, TextEncodingNameHash>;
-using TextCodecMap = HashMap<const char*, NewTextCodecFunction>;
+struct TextCodecFactory {
+    NewTextCodecFunction function;
+    const void* additionalData;
+    TextCodecFactory(NewTextCodecFunction f = 0, const void* d = 0) : function(f), additionalData(d) { }
+};
 
-static Lock encodingRegistryMutex;
+typedef HashMap<const char*, const char*, TextEncodingNameHash> TextEncodingNameMap;
+typedef HashMap<const char*, TextCodecFactory> TextCodecMap;
+
+static StaticLock encodingRegistryMutex;
 
 static TextEncodingNameMap* textEncodingNameMap;
 static TextCodecMap* textCodecMap;
@@ -99,6 +116,29 @@ static HashSet<const char*>* japaneseEncodings;
 static HashSet<const char*>* nonBackslashEncodings;
 
 static const char* const textEncodingNameBlacklist[] = { "UTF-7", "BOCU-1", "SCSU" };
+
+#if ERROR_DISABLED
+
+static inline void checkExistingName(const char*, const char*) { }
+
+#else
+
+static void checkExistingName(const char* alias, const char* atomicName)
+{
+    const char* oldAtomicName = textEncodingNameMap->get(alias);
+    if (!oldAtomicName)
+        return;
+    if (oldAtomicName == atomicName)
+        return;
+    // Keep the warning silent about one case where we know this will happen.
+    if (strcmp(alias, "ISO-8859-8-I") == 0
+            && strcmp(oldAtomicName, "ISO-8859-8-I") == 0
+            && strcasecmp(atomicName, "iso-8859-8") == 0)
+        return;
+    LOG_ERROR("alias %s maps to %s already, but someone is trying to make it map to %s", alias, oldAtomicName, atomicName);
+}
+
+#endif
 
 static bool isUndesiredAlias(const char* alias)
 {
@@ -123,17 +163,15 @@ static void addToTextEncodingNameMap(const char* alias, const char* name)
     ASSERT(strcmp(alias, name) == 0 || atomicName);
     if (!atomicName)
         atomicName = name;
-
-    ASSERT_WITH_MESSAGE(!textEncodingNameMap->get(alias), "Duplicate text encoding name %s for %s (previously registered as %s)", alias, atomicName, textEncodingNameMap->get(alias));
-
+    checkExistingName(alias, atomicName);
     textEncodingNameMap->add(alias, atomicName);
 }
 
-static void addToTextCodecMap(const char* name, NewTextCodecFunction&& function)
+static void addToTextCodecMap(const char* name, NewTextCodecFunction function, const void* additionalData)
 {
     const char* atomicName = textEncodingNameMap->get(name);
     ASSERT(atomicName);
-    textCodecMap->add(atomicName, WTFMove(function));
+    textCodecMap->add(atomicName, TextCodecFactory(function, additionalData));
 }
 
 static void pruneBlacklistedCodecs()
@@ -156,7 +194,7 @@ static void pruneBlacklistedCodecs()
     }
 }
 
-static void buildBaseTextCodecMaps(const std::lock_guard<Lock>&)
+static void buildBaseTextCodecMaps(const std::lock_guard<StaticLock>&)
 {
     ASSERT(!textCodecMap);
     ASSERT(!textEncodingNameMap);
@@ -225,6 +263,22 @@ bool isJapaneseEncoding(const char* canonicalEncodingName)
     return canonicalEncodingName && japaneseEncodings && japaneseEncodings->contains(canonicalEncodingName);
 }
 
+bool isReplacementEncoding(const char* alias)
+{
+    if (!alias)
+        return false;
+
+    if (strlen(alias) != 11)
+        return false;
+
+    return !strcasecmp(alias, "replacement");
+}
+
+bool isReplacementEncoding(const String& alias)
+{
+    return equalLettersIgnoringASCIICase(alias, "replacement");
+}
+
 bool shouldShowBackslashAsCurrencySymbolIn(const char* canonicalEncodingName)
 {
     return canonicalEncodingName && nonBackslashEncodings && nonBackslashEncodings->contains(canonicalEncodingName);
@@ -238,18 +292,23 @@ static void extendTextCodecMaps()
     TextCodecICU::registerEncodingNames(addToTextEncodingNameMap);
     TextCodecICU::registerCodecs(addToTextCodecMap);
 
+#if PLATFORM(MAC)
+    TextCodecMac::registerEncodingNames(addToTextEncodingNameMap);
+    TextCodecMac::registerCodecs(addToTextCodecMap);
+#endif
+
     pruneBlacklistedCodecs();
     buildQuirksSets();
 }
 
 std::unique_ptr<TextCodec> newTextCodec(const TextEncoding& encoding)
 {
-    std::lock_guard<Lock> lock(encodingRegistryMutex);
+    std::lock_guard<StaticLock> lock(encodingRegistryMutex);
 
     ASSERT(textCodecMap);
-    auto result = textCodecMap->find(encoding.name());
-    ASSERT(result != textCodecMap->end());
-    return result->value();
+    TextCodecFactory factory = textCodecMap->get(encoding.name());
+    ASSERT(factory.function);
+    return factory.function(encoding, factory.additionalData);
 }
 
 const char* atomicCanonicalTextEncodingName(const char* name)
@@ -257,7 +316,7 @@ const char* atomicCanonicalTextEncodingName(const char* name)
     if (!name || !name[0])
         return nullptr;
 
-    std::lock_guard<Lock> lock(encodingRegistryMutex);
+    std::lock_guard<StaticLock> lock(encodingRegistryMutex);
 
     if (!textEncodingNameMap)
         buildBaseTextCodecMaps(lock);
@@ -272,14 +331,16 @@ const char* atomicCanonicalTextEncodingName(const char* name)
     return textEncodingNameMap->get(name);
 }
 
-template<typename CharacterType> static const char* atomicCanonicalTextEncodingName(const CharacterType* characters, size_t length)
+template <typename CharacterType>
+const char* atomicCanonicalTextEncodingName(const CharacterType* characters, size_t length)
 {
     char buffer[maxEncodingNameLength + 1];
     size_t j = 0;
     for (size_t i = 0; i < length; ++i) {
+        CharacterType c = characters[i];
         if (j == maxEncodingNameLength)
-            return nullptr;
-        buffer[j++] = characters[i];
+            return 0;
+        buffer[j++] = c;
     }
     buffer[j] = 0;
     return atomicCanonicalTextEncodingName(buffer);
@@ -287,7 +348,7 @@ template<typename CharacterType> static const char* atomicCanonicalTextEncodingN
 
 const char* atomicCanonicalTextEncodingName(const String& alias)
 {
-    if (alias.isEmpty() || !alias.isAllASCII())
+    if (!alias.length())
         return nullptr;
 
     if (alias.is8Bit())
@@ -305,25 +366,40 @@ bool noExtendedTextEncodingNameUsed()
 String defaultTextEncodingNameForSystemLanguage()
 {
 #if PLATFORM(COCOA)
-    String systemEncodingName = CFStringConvertEncodingToIANACharSetName(webDefaultCFStringEncoding());
+    String systemEncodingName = CFStringConvertEncodingToIANACharSetName(wkGetWebDefaultCFStringEncoding());
 
     // CFStringConvertEncodingToIANACharSetName() returns cp949 for kTextEncodingDOSKorean AKA "extended EUC-KR" AKA windows-949.
     // ICU uses this name for a different encoding, so we need to change the name to a value that actually gives us windows-949.
     // In addition, this value must match what is used in Safari, see <rdar://problem/5579292>.
     // On some OS versions, the result is CP949 (uppercase).
     if (equalLettersIgnoringASCIICase(systemEncodingName, "cp949"))
-        systemEncodingName = "ks_c_5601-1987"_s;
+        systemEncodingName = ASCIILiteral("ks_c_5601-1987");
 
     // CFStringConvertEncodingToIANACharSetName() returns cp874 for kTextEncodingDOSThai, AKA windows-874.
     // Since "cp874" alias is not standard (https://encoding.spec.whatwg.org/#names-and-labels), map to
     // "dos-874" instead.
     if (equalLettersIgnoringASCIICase(systemEncodingName, "cp874"))
-        systemEncodingName = "dos-874"_s;
+        systemEncodingName = ASCIILiteral("dos-874");
 
     return systemEncodingName;
 #else
-    return "ISO-8859-1"_s;
+    return ASCIILiteral("ISO-8859-1");
 #endif
 }
+
+#ifndef NDEBUG
+void dumpTextEncodingNameMap()
+{
+    unsigned size = textEncodingNameMap->size();
+    WTFLogAlways("Dumping %u entries in WebCore::textEncodingNameMap...\n", size);
+
+    std::lock_guard<StaticLock> lock(encodingRegistryMutex);
+
+    TextEncodingNameMap::const_iterator it = textEncodingNameMap->begin();
+    TextEncodingNameMap::const_iterator end = textEncodingNameMap->end();
+    for (; it != end; ++it)
+        WTFLogAlways("'%s' => '%s'\n", it->key, it->value);
+}
+#endif
 
 } // namespace WebCore

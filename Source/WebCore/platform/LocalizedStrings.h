@@ -153,7 +153,7 @@ namespace WebCore {
     WEBCORE_EXPORT String contextMenuItemTagInspectElement();
 #endif // ENABLE(CONTEXT_MENUS)
 
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
     String searchMenuNoRecentSearchesText();
     String searchMenuRecentSearchesText();
     String searchMenuClearRecentSearchesText();
@@ -215,15 +215,11 @@ namespace WebCore {
     
     String AXAutoFillCredentialsLabel();
     String AXAutoFillContactsLabel();
-    String AXAutoFillStrongPasswordLabel();
-    String AXAutoFillCreditCardLabel();
-    String autoFillStrongPasswordLabel();
 
     String missingPluginText();
     String crashedPluginText();
     String blockedPluginByContentSecurityPolicyText();
     String insecurePluginVersionText();
-    String unsupportedPluginText();
 
     String multipleFileUploadText(unsigned numberOfFiles);
     String unknownFileSizeText();
@@ -238,10 +234,10 @@ namespace WebCore {
     WEBCORE_EXPORT String pdfDocumentTypeDescription();
     WEBCORE_EXPORT String postScriptDocumentTypeDescription();
     String keygenMenuItem2048();
-    WEBCORE_EXPORT String keygenKeychainItemName(const String& host);
+    String keygenKeychainItemName(const String& host);
 #endif
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     String htmlSelectMultipleItems(size_t num);
     String fileButtonChooseMediaFileLabel();
     String fileButtonChooseMultipleMediaFilesLabel();
@@ -302,7 +298,7 @@ namespace WebCore {
 
     WEBCORE_EXPORT String useBlockedPlugInContextMenuTitle();
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
     String webCryptoMasterKeyKeychainLabel(const String& localizedApplicationName);
     String webCryptoMasterKeyKeychainComment();
 #endif
@@ -314,19 +310,6 @@ namespace WebCore {
     WEBCORE_EXPORT String insertListTypeNumbered();
     WEBCORE_EXPORT String insertListTypeNumberedAccessibilityTitle();
     WEBCORE_EXPORT String exitFullScreenButtonAccessibilityTitle();
-#endif
-
-#if PLATFORM(WATCHOS)
-    WEBCORE_EXPORT String numberPadOKButtonTitle();
-    WEBCORE_EXPORT String formControlCancelButtonTitle();
-    WEBCORE_EXPORT String formControlDoneButtonTitle();
-    WEBCORE_EXPORT String formControlHideButtonTitle();
-    WEBCORE_EXPORT String formControlGoButtonTitle();
-    WEBCORE_EXPORT String formControlSearchButtonTitle();
-    WEBCORE_EXPORT String datePickerSetButtonTitle();
-    WEBCORE_EXPORT String datePickerDayLabelTitle();
-    WEBCORE_EXPORT String datePickerMonthLabelTitle();
-    WEBCORE_EXPORT String datePickerYearLabelTitle();
 #endif
 
 #if USE(GLIB) && defined(GETTEXT_PACKAGE)

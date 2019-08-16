@@ -164,12 +164,12 @@ void SVGTextQuery::modifyStartEndPositionsRespectingLigatures(Data* queryData, u
     unsigned textMetricsSize = textMetricsValues.size();
 
     unsigned positionOffset = 0;
-    unsigned positionSize = layoutAttributes->context().text().length();
+    unsigned positionSize = layoutAttributes->context().textLength();
 
     bool alterStartPosition = true;
     bool alterEndPosition = true;
 
-    Optional<unsigned> lastPositionOffset;
+    std::optional<unsigned> lastPositionOffset;
     for (; textMetricsOffset < textMetricsSize && positionOffset < positionSize; ++textMetricsOffset) {
         SVGTextMetrics& metrics = textMetricsValues[textMetricsOffset];
 

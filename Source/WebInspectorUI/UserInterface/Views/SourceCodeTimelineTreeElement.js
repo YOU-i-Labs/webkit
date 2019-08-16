@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SourceCodeTimelineTreeElement = class SourceCodeTimelineTreeElement extends WI.TimelineRecordTreeElement
+WebInspector.SourceCodeTimelineTreeElement = class SourceCodeTimelineTreeElement extends WebInspector.TimelineRecordTreeElement
 {
     constructor(sourceCodeTimeline, subtitleNameStyle, includeDetailsInMainTitle)
     {
         console.assert(sourceCodeTimeline);
 
-        subtitleNameStyle = subtitleNameStyle || WI.SourceCodeLocation.NameStyle.None;
+        subtitleNameStyle = subtitleNameStyle || WebInspector.SourceCodeLocation.NameStyle.None;
 
         super(sourceCodeTimeline.records[0], subtitleNameStyle, includeDetailsInMainTitle, sourceCodeTimeline.sourceCodeLocation, sourceCodeTimeline);
 

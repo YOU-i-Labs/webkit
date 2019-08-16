@@ -30,6 +30,7 @@
 
 #include "ExceptionOr.h"
 #include "SQLValue.h"
+#include <wtf/HashTraits.h>
 
 namespace WebCore {
 

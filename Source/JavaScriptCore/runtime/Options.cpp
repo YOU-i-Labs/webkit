@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,7 @@
 
 #include "AssemblerCommon.h"
 #include "LLIntCommon.h"
-#include "MinimumReservedZoneSize.h"
+#include "LLIntData.h"
 #include "SigillCrashAnalyzer.h"
 #include <algorithm>
 #include <limits>
@@ -40,8 +40,8 @@
 #include <wtf/Compiler.h>
 #include <wtf/DataLog.h>
 #include <wtf/NumberOfCores.h>
-#include <wtf/PointerPreparations.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/StringExtras.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/threads/Signals.h>
 
@@ -49,8 +49,8 @@
 #include <crt_externs.h>
 #endif
 
-#if ENABLE(JIT)
-#include "MacroAssembler.h"
+#if OS(WINDOWS)
+#include "MacroAssemblerX86.h"
 #endif
 
 namespace JSC {
@@ -70,11 +70,11 @@ void Options::enableRestrictedOptions(bool enableOrNot)
     
 static bool parse(const char* string, bool& value)
 {
-    if (equalLettersIgnoringASCIICase(string, "true") || equalLettersIgnoringASCIICase(string, "yes") || !strcmp(string, "1")) {
+    if (!strcasecmp(string, "true") || !strcasecmp(string, "yes") || !strcmp(string, "1")) {
         value = true;
         return true;
     }
-    if (equalLettersIgnoringASCIICase(string, "false") || equalLettersIgnoringASCIICase(string, "no") || !strcmp(string, "0")) {
+    if (!strcasecmp(string, "false") || !strcasecmp(string, "no") || !strcmp(string, "0")) {
         value = false;
         return true;
     }
@@ -91,7 +91,7 @@ static bool parse(const char* string, unsigned& value)
     return sscanf(string, "%u", &value) == 1;
 }
 
-static bool UNUSED_FUNCTION parse(const char* string, unsigned long& value)
+static bool parse(const char* string, unsigned long& value)
 {
     return sscanf(string, "%lu", &value);
 }
@@ -126,17 +126,17 @@ static bool parse(const char* string, const char*& value)
 
 static bool parse(const char* string, GCLogging::Level& value)
 {
-    if (equalLettersIgnoringASCIICase(string, "none") || equalLettersIgnoringASCIICase(string, "no") || equalLettersIgnoringASCIICase(string, "false") || !strcmp(string, "0")) {
+    if (!strcasecmp(string, "none") || !strcasecmp(string, "no") || !strcasecmp(string, "false") || !strcmp(string, "0")) {
         value = GCLogging::None;
         return true;
     }
 
-    if (equalLettersIgnoringASCIICase(string, "basic") || equalLettersIgnoringASCIICase(string, "yes") || equalLettersIgnoringASCIICase(string, "true") || !strcmp(string, "1")) {
+    if (!strcasecmp(string, "basic") || !strcasecmp(string, "yes") || !strcasecmp(string, "true") || !strcmp(string, "1")) {
         value = GCLogging::Basic;
         return true;
     }
 
-    if (equalLettersIgnoringASCIICase(string, "verbose") || !strcmp(string, "2")) {
+    if (!strcasecmp(string, "verbose") || !strcmp(string, "2")) {
         value = GCLogging::Verbose;
         return true;
     }
@@ -151,6 +151,10 @@ bool Options::isAvailable(Options::ID id, Options::Availability availability)
     ASSERT(availability == Availability::Configurable);
     
     UNUSED_PARAM(id);
+#if ENABLE(LLINT_STATS)
+    if (id == reportLLIntStatsID || id == llintStatsFileID)
+        return true;
+#endif
 #if !defined(NDEBUG)
     if (id == maxSingleAllocationSizeID)
         return true;
@@ -159,14 +163,6 @@ bool Options::isAvailable(Options::ID id, Options::Availability availability)
     if (id == useSigillCrashAnalyzerID)
         return true;
 #endif
-#if ENABLE(ASSEMBLER) && OS(LINUX)
-    if (id == logJITCodeForPerfID)
-        return true;
-#endif
-    if (id == traceLLIntExecutionID)
-        return !!LLINT_TRACING;
-    if (id == traceLLIntSlowPathID)
-        return !!LLINT_TRACING;
     return false;
 }
 
@@ -217,11 +213,6 @@ static int32_t computePriorityDeltaOfWorkerThreads(int32_t twoCorePriorityDelta,
         return twoCorePriorityDelta;
 
     return multiCorePriorityDelta;
-}
-
-static bool jitEnabledByDefault()
-{
-    return is32Bit() || isAddress64Bit();
 }
 
 static unsigned computeNumberOfGCMarkers(unsigned maxNumberOfGCMarkers)
@@ -339,7 +330,7 @@ static void scaleJITPolicy()
 
 static void overrideDefaults()
 {
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
     if (WTF::numberOfProcessorCores() < 4)
 #endif
     {
@@ -353,14 +344,12 @@ static void overrideDefaults()
             Options::gcIncrementScale() = 0;
     }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     // On iOS, we control heap growth using process memory footprint. Therefore these values can be agressive.
     Options::smallHeapRAMFraction() = 0.8;
     Options::mediumHeapRAMFraction() = 0.9;
 
-#if !PLATFORM(WATCHOS) && defined(__LP64__)
     Options::useSigillCrashAnalyzer() = true;
-#endif
 #endif
 
 #if !ENABLE(SIGNAL_BASED_VM_TRAPS)
@@ -406,19 +395,19 @@ static void recomputeDependentOptions()
     Options::useConcurrentGC() = false;
 #endif
     
-#if ENABLE(JIT) && CPU(X86)
-    // Disable JIT on IA-32 if SSE2 is not present
+#if OS(WINDOWS) && CPU(X86) 
+    // Disable JIT on Windows if SSE2 is not present 
     if (!MacroAssemblerX86::supportsFloatingPoint())
         Options::useJIT() = false;
 #endif
 
-    WTF_SET_POINTER_PREPARATION_OPTIONS();
-
     if (!Options::useJIT())
         Options::useWebAssembly() = false;
 
-    if (!Options::useWebAssembly())
-        Options::useFastTLSForWasmContext() = false;
+    if (!Options::useWebAssembly()) {
+        Options::webAssemblyFastMemoryPreallocateCount() = 0;
+        Options::useWebAssemblyFastTLS() = false;
+    }
     
     if (Options::dumpDisassembly()
         || Options::dumpDFGDisassembly()
@@ -440,7 +429,7 @@ static void recomputeDependentOptions()
         || Options::reportBaselineCompileTimes()
         || Options::reportDFGCompileTimes()
         || Options::reportFTLCompileTimes()
-        || Options::logPhaseTimes()
+        || Options::reportDFGPhaseTimes()
         || Options::verboseCFA()
         || Options::verboseDFGFailure()
         || Options::verboseFTLFailure())
@@ -468,13 +457,11 @@ static void recomputeDependentOptions()
         Options::useOSREntryToFTL() = false;
     }
     
-#if ENABLE(SEPARATED_WX_HEAP)
+#if PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 100000
     // Override globally for now. Longer term we'll just make the default
     // be to have this option enabled, and have platforms that don't support
     // it just silently use a single mapping.
     Options::useSeparatedWXHeap() = true;
-#else
-    Options::useSeparatedWXHeap() = false;
 #endif
 
     if (Options::alwaysUseShadowChicken())
@@ -492,6 +479,9 @@ static void recomputeDependentOptions()
     ASSERT((static_cast<int64_t>(Options::thresholdForOptimizeAfterLongWarmUp()) << Options::reoptimizationRetryCounterMax()) > 0);
     ASSERT((static_cast<int64_t>(Options::thresholdForOptimizeAfterLongWarmUp()) << Options::reoptimizationRetryCounterMax()) <= static_cast<int64_t>(std::numeric_limits<int32_t>::max()));
 
+#if ENABLE(LLINT_STATS)
+    LLInt::Data::loadStats();
+#endif
 #if !defined(NDEBUG)
     if (Options::maxSingleAllocationSize())
         fastSetMaxSingleAllocationSize(Options::maxSingleAllocationSize());
@@ -506,17 +496,6 @@ static void recomputeDependentOptions()
 
     if (Options::useSigillCrashAnalyzer())
         enableSigillCrashAnalyzer();
-
-    if (Options::reservedZoneSize() < minimumReservedZoneSize)
-        Options::reservedZoneSize() = minimumReservedZoneSize;
-    if (Options::softReservedZoneSize() < Options::reservedZoneSize() + minimumReservedZoneSize)
-        Options::softReservedZoneSize() = Options::reservedZoneSize() + minimumReservedZoneSize;
-
-#if USE(JSVALUE32_64)
-    // FIXME: Make probe OSR exit work on 32-bit:
-    // https://bugs.webkit.org/show_bug.cgi?id=177956
-    Options::useProbeOSRExit() = false;
-#endif
 }
 
 void Options::initialize()
@@ -582,18 +561,6 @@ void Options::initialize()
             if (Options::useMachForExceptions())
                 handleSignalsWithMach();
 #endif
-
-#if ASAN_ENABLED && OS(LINUX) && ENABLE(WEBASSEMBLY_FAST_MEMORY)
-            if (Options::useWebAssemblyFastMemory()) {
-                const char* asanOptions = getenv("ASAN_OPTIONS");
-                bool okToUseWebAssemblyFastMemory = asanOptions
-                    && (strstr(asanOptions, "allow_user_segv_handler=1") || strstr(asanOptions, "handle_segv=0"));
-                if (!okToUseWebAssemblyFastMemory) {
-                    dataLogLn("WARNING: ASAN interferes with JSC signal handlers; useWebAssemblyFastMemory will be disabled.");
-                    Options::useWebAssemblyFastMemory() = false;
-                }
-            }
-#endif
         });
 }
 
@@ -625,11 +592,6 @@ void Options::dumpOptionsIfNeeded()
     }
 }
 
-static bool isSeparator(char c)
-{
-    return isASCIISpace(c) || (c == ',');
-}
-
 bool Options::setOptions(const char* optionsStr)
 {
     Vector<char*> options;
@@ -640,8 +602,8 @@ bool Options::setOptions(const char* optionsStr)
     char* p = optionsStrCopy;
 
     while (p < end) {
-        // Skip separators (white space or commas).
-        while (p < end && isSeparator(*p))
+        // Skip white space.
+        while (p < end && isASCIISpace(*p))
             p++;
         if (p == end)
             break;
@@ -668,8 +630,8 @@ bool Options::setOptions(const char* optionsStr)
             hasStringValue = true;
         }
 
-        // Find next separator (white space or commas).
-        while (p < end && !isSeparator(*p))
+        // Find next white space.
+        while (p < end && !isASCIISpace(*p))
             p++;
         if (!p)
             p = end; // No more " " separator. Hence, this is the last arg.
@@ -765,7 +727,12 @@ bool Options::setAliasedOption(const char* arg)
     if (!equalStr)
         return false;
 
-    IGNORE_WARNINGS_BEGIN("tautological-compare")
+#if COMPILER(CLANG)
+#if __has_warning("-Wtautological-compare")
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wtautological-compare"
+#endif
+#endif
 
     // For each option, check if the specify arg is a match. If so, set the arg
     // if the value makes sense. Otherwise, move on to checking the next option.
@@ -788,7 +755,11 @@ bool Options::setAliasedOption(const char* arg)
     JSC_ALIASED_OPTIONS(FOR_EACH_OPTION)
 #undef FOR_EACH_OPTION
 
-    IGNORE_WARNINGS_END
+#if COMPILER(CLANG)
+#if __has_warning("-Wtautological-compare")
+#pragma clang diagnostic pop
+#endif
+#endif
 
     return false; // No option matched.
 }

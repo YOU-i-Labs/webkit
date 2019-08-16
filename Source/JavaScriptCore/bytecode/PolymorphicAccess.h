@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,10 +28,13 @@
 #if ENABLE(JIT)
 
 #include "AccessCase.h"
+#include "CodeOrigin.h"
 #include "JITStubRoutine.h"
 #include "JSFunctionInlines.h"
 #include "MacroAssembler.h"
+#include "ObjectPropertyConditionSet.h"
 #include "ScratchRegisterAllocator.h"
+#include "Structure.h"
 #include <wtf/Vector.h>
 
 namespace JSC {
@@ -52,14 +55,12 @@ public:
         GaveUp,
         Buffered,
         GeneratedNewCode,
-        GeneratedFinalCode, // Generated so much code that we never want to generate code again.
-        ResetStubAndFireWatchpoints // We found out some data that makes us want to start over fresh with this stub. Currently, this happens when we detect poly proto.
+        GeneratedFinalCode // Generated so much code that we never want to generate code again.
     };
     
-
-    AccessGenerationResult() = default;
-    AccessGenerationResult(AccessGenerationResult&&) = default;
-    AccessGenerationResult& operator=(AccessGenerationResult&&) = default;
+    AccessGenerationResult()
+    {
+    }
     
     AccessGenerationResult(Kind kind)
         : m_kind(kind)
@@ -68,7 +69,7 @@ public:
         RELEASE_ASSERT(kind != GeneratedFinalCode);
     }
     
-    AccessGenerationResult(Kind kind, MacroAssemblerCodePtr<JITStubRoutinePtrTag> code)
+    AccessGenerationResult(Kind kind, MacroAssemblerCodePtr code)
         : m_kind(kind)
         , m_code(code)
     {
@@ -93,14 +94,13 @@ public:
     
     Kind kind() const { return m_kind; }
     
-    const MacroAssemblerCodePtr<JITStubRoutinePtrTag>& code() const { return m_code; }
+    const MacroAssemblerCodePtr& code() const { return m_code; }
     
     bool madeNoChanges() const { return m_kind == MadeNoChanges; }
     bool gaveUp() const { return m_kind == GaveUp; }
     bool buffered() const { return m_kind == Buffered; }
     bool generatedNewCode() const { return m_kind == GeneratedNewCode; }
     bool generatedFinalCode() const { return m_kind == GeneratedFinalCode; }
-    bool shouldResetStubAndFireWatchpoints() const { return m_kind == ResetStubAndFireWatchpoints; }
     
     // If we gave up on this attempt to generate code, or if we generated the "final" code, then we
     // should give up after this.
@@ -109,22 +109,10 @@ public:
     bool generatedSomeCode() const { return generatedNewCode() || generatedFinalCode(); }
     
     void dump(PrintStream&) const;
-
-    void addWatchpointToFire(InlineWatchpointSet& set, StringFireDetail detail)
-    {
-        m_watchpointsToFire.append(std::pair<InlineWatchpointSet&, StringFireDetail>(set, detail));
-    }
-    void fireWatchpoints(VM& vm)
-    {
-        ASSERT(m_kind == ResetStubAndFireWatchpoints);
-        for (auto& pair : m_watchpointsToFire)
-            pair.first.invalidate(vm, pair.second);
-    }
     
 private:
     Kind m_kind;
-    MacroAssemblerCodePtr<JITStubRoutinePtrTag> m_code;
-    Vector<std::pair<InlineWatchpointSet&, StringFireDetail>> m_watchpointsToFire;
+    MacroAssemblerCodePtr m_code;
 };
 
 class PolymorphicAccess {
@@ -137,12 +125,12 @@ public:
     // When this fails (returns GaveUp), this will leave the old stub intact but you should not try
     // to call this method again for that PolymorphicAccess instance.
     AccessGenerationResult addCases(
-        const GCSafeConcurrentJSLocker&, VM&, CodeBlock*, StructureStubInfo&, const Identifier&, Vector<std::unique_ptr<AccessCase>, 2>);
+        VM&, CodeBlock*, StructureStubInfo&, const Identifier&, Vector<std::unique_ptr<AccessCase>, 2>);
 
     AccessGenerationResult addCase(
-        const GCSafeConcurrentJSLocker&, VM&, CodeBlock*, StructureStubInfo&, const Identifier&, std::unique_ptr<AccessCase>);
+        VM&, CodeBlock*, StructureStubInfo&, const Identifier&, std::unique_ptr<AccessCase>);
     
-    AccessGenerationResult regenerate(const GCSafeConcurrentJSLocker&, VM&, CodeBlock*, StructureStubInfo&, const Identifier&);
+    AccessGenerationResult regenerate(VM&, CodeBlock*, StructureStubInfo&, const Identifier&);
     
     bool isEmpty() const { return m_list.isEmpty(); }
     unsigned size() const { return m_list.size(); }
@@ -176,8 +164,11 @@ private:
     typedef Vector<std::unique_ptr<AccessCase>, 2> ListType;
     
     void commit(
-        const GCSafeConcurrentJSLocker&, VM&, std::unique_ptr<WatchpointsOnStructureStubInfo>&, CodeBlock*, StructureStubInfo&,
+        VM&, std::unique_ptr<WatchpointsOnStructureStubInfo>&, CodeBlock*, StructureStubInfo&,
         const Identifier&, AccessCase&);
+
+    MacroAssemblerCodePtr regenerate(
+        VM&, CodeBlock*, StructureStubInfo&, const Identifier&, ListType& cases);
 
     ListType m_list;
     RefPtr<JITStubRoutine> m_stubRoutine;
@@ -186,16 +177,14 @@ private:
 };
 
 struct AccessGenerationState {
-    AccessGenerationState(VM& vm, JSGlobalObject* globalObject)
+    AccessGenerationState(VM& vm)
         : m_vm(vm) 
-        , m_globalObject(globalObject)
         , m_calculatedRegistersForCallAndExceptionHandling(false)
         , m_needsToRestoreRegistersIfException(false)
         , m_calculatedCallSiteIndex(false)
     {
     }
     VM& m_vm;
-    JSGlobalObject* m_globalObject;
     CCallHelpers* jit { nullptr };
     ScratchRegisterAllocator* allocator;
     ScratchRegisterAllocator::PreservedState preservedReusedRegisterState;
@@ -233,10 +222,10 @@ struct AccessGenerationState {
 
     const RegisterSet& calculateLiveRegistersForCallAndExceptionHandling();
 
-    SpillState preserveLiveRegistersToStackForCall(const RegisterSet& extra = { });
+    SpillState preserveLiveRegistersToStackForCall(const RegisterSet& extra = RegisterSet());
 
     void restoreLiveRegistersFromStackForCallWithThrownException(const SpillState&);
-    void restoreLiveRegistersFromStackForCall(const SpillState&, const RegisterSet& dontRestore = { });
+    void restoreLiveRegistersFromStackForCall(const SpillState&, const RegisterSet& dontRestore = RegisterSet());
 
     const RegisterSet& liveRegistersForCall();
 

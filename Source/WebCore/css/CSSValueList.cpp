@@ -21,6 +21,9 @@
 #include "config.h"
 #include "CSSValueList.h"
 
+#include "CSSCustomPropertyValue.h"
+#include "CSSFunctionValue.h"
+#include "CSSPrimitiveValue.h"
 #include "DeprecatedCSSOMValue.h"
 #include <wtf/text/StringBuilder.h>
 
@@ -89,13 +92,13 @@ String CSSValueList::customCSSText() const
     String separator;
     switch (m_valueListSeparator) {
     case SpaceSeparator:
-        separator = " "_s;
+        separator = ASCIILiteral(" ");
         break;
     case CommaSeparator:
-        separator = ", "_s;
+        separator = ASCIILiteral(", ");
         break;
     case SlashSeparator:
-        separator = " / "_s;
+        separator = ASCIILiteral(" / ");
         break;
     default:
         ASSERT_NOT_REACHED();
@@ -133,7 +136,7 @@ bool CSSValueList::equals(const CSSValue& other) const
     return m_values[0].get().equals(other);
 }
 
-bool CSSValueList::traverseSubresources(const WTF::Function<bool (const CachedResource&)>& handler) const
+bool CSSValueList::traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const
 {
     for (unsigned i = 0; i < m_values.size(); ++i) {
         if (m_values[i].get().traverseSubresources(handler))

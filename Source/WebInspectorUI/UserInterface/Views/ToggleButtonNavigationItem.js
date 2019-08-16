@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ToggleButtonNavigationItem = class ToggleButtonNavigationItem extends WI.ButtonNavigationItem
+WebInspector.ToggleButtonNavigationItem = class ToggleButtonNavigationItem extends WebInspector.ButtonNavigationItem
 {
     constructor(identifier, defaultToolTip, alternateToolTip, defaultImage, alternateImage, imageWidth, imageHeight)
     {
@@ -43,14 +43,6 @@ WI.ToggleButtonNavigationItem = class ToggleButtonNavigationItem extends WI.Butt
         return this._defaultToolTip;
     }
 
-    set defaultToolTip(toolTip)
-    {
-        this._defaultToolTip = toolTip;
-
-        if (!this._toggled)
-            this.tooltip = this._defaultToolTip;
-    }
-
     get alternateToolTip()
     {
         return this._alternateToolTip;
@@ -61,7 +53,7 @@ WI.ToggleButtonNavigationItem = class ToggleButtonNavigationItem extends WI.Butt
         this._alternateToolTip = toolTip;
 
         if (this._toggled)
-            this.tooltip = this._alternateToolTip;
+            this.toolTip = this._alternateToolTip;
     }
 
     get defaultImage()
@@ -97,15 +89,12 @@ WI.ToggleButtonNavigationItem = class ToggleButtonNavigationItem extends WI.Butt
         this._toggled = flag;
 
         if (this._toggled) {
-            this.tooltip = this._alternateToolTip;
+            this.toolTip = this._alternateToolTip;
             this.image = this._alternateImage;
         } else {
-            this.tooltip = this._defaultToolTip;
+            this.toolTip = this._defaultToolTip;
             this.image = this._defaultImage;
         }
-
-        if (this.buttonStyle === WI.ButtonNavigationItem.Style.Text || this.buttonStyle === WI.ButtonNavigationItem.Style.ImageAndText)
-            this.label = this.tooltip;
     }
 
     // Protected

@@ -121,9 +121,9 @@ _xdg_mime_cache_new_from_file (const char *file_name)
   int minor;
 
   /* Open the file and map it into memory */
-  do {
+  do
     fd = open (file_name, O_RDONLY|_O_BINARY, 0);
-  } while (fd == -1 && errno == EINTR);
+  while (fd == -1 && errno == EINTR);
 
   if (fd < 0)
     return NULL;
@@ -788,7 +788,7 @@ _xdg_mime_cache_get_mime_type_for_file (const char  *file_name,
 					    mime_types, n);
 
   if (!mime_type)
-    mime_type = _xdg_binary_or_text_fallback (data, bytes_read);
+    mime_type = _xdg_binary_or_text_fallback(data, bytes_read);
 
   free (data);
   fclose (file);
@@ -817,27 +817,18 @@ _xdg_mime_cache_get_mime_types_from_file_name (const char *file_name,
 
 #if 1
 static int
-ends_with (const char *str,
-           const char *suffix)
+is_super_type (const char *mime)
 {
   int length;
-  int suffix_length;
+  const char *type;
 
-  length = strlen (str);
-  suffix_length = strlen (suffix);
-  if (length < suffix_length)
-    return 0;
+  length = strlen (mime);
+  type = &(mime[length - 2]);
 
-  if (strcmp (str + length - suffix_length, suffix) == 0)
+  if (strcmp (type, "/*") == 0)
     return 1;
 
   return 0;
-}
-
-static int
-is_super_type (const char *mime)
-{
-  return ends_with (mime, "/*");
 }
 #endif
 
@@ -870,8 +861,7 @@ _xdg_mime_cache_mime_type_subclass (const char *mime,
       strncmp (umime, "text/", 5) == 0)
     return 1;
 
-  if (strcmp (ubase, "application/octet-stream") == 0 &&
-      strncmp (umime, "inode/", 6) != 0)
+  if (strcmp (ubase, "application/octet-stream") == 0)
     return 1;
  
   for (i = 0; _caches[i]; i++)
@@ -1048,9 +1038,6 @@ get_simple_globs (XdgMimeCache  *cache,
   xdg_uint32_t child_offset;
   int i;
 
-  assert (*n >= 0);
-  assert (depth >= 0);
-
   if (*n >= n_globs)
     return FALSE;
 
@@ -1059,7 +1046,7 @@ get_simple_globs (XdgMimeCache  *cache,
       xdg_uint32_t mime_offset = GET_UINT32 (cache->buffer, offset + 4);
 
       if (strcasecmp (cache->buffer + mime_offset, mime) == 0) {
-        globs[*n] = malloc ((depth + 1) * sizeof (char));
+        globs[*n] = malloc (depth * sizeof (char));
         for (i = 0; i < depth; i++)
           globs[*n][depth - i - 1] = prefix[i];
         globs[*n][depth] = '\0';

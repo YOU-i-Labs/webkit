@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include <wtf/ThreadMessage.h>
+#include "ThreadMessage.h"
 
 #include <wtf/Lock.h>
 #include <wtf/Locker.h>
@@ -33,7 +33,7 @@ namespace WTF {
 
 MessageStatus sendMessageScoped(Thread& thread, const ThreadMessage& message)
 {
-    static Lock messageLock;
+    static StaticLock messageLock;
     auto lockholder = holdLock(messageLock);
 
     auto result = thread.suspend();

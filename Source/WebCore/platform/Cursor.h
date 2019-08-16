@@ -74,7 +74,7 @@ using PlatformCursor = RefPtr<SharedCursor>;
 using PlatformCursor = NSCursor *;
 #elif PLATFORM(GTK)
 using PlatformCursor = GRefPtr<GdkCursor>;
-#else
+#elif PLATFORM(WPE)
 using PlatformCursor = void*;
 #endif
 
@@ -130,7 +130,7 @@ public:
 
     Cursor() = default;
 
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
 
     WEBCORE_EXPORT static const Cursor& fromType(Cursor::Type);
 
@@ -172,7 +172,7 @@ private:
     mutable RetainPtr<NSCursor> m_platformCursor;
 #endif
 
-#endif // !PLATFORM(IOS_FAMILY)
+#endif // !PLATFORM(IOS)
 };
 
 IntPoint determineHotSpot(Image*, const IntPoint& specifiedHotSpot);
@@ -221,7 +221,7 @@ const Cursor& noneCursor();
 const Cursor& grabCursor();
 const Cursor& grabbingCursor();
 
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
 
 inline Cursor::Type Cursor::type() const
 {

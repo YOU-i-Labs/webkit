@@ -23,26 +23,26 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.DebuggerDashboardView = class DebuggerDashboardView extends WI.DashboardView
+WebInspector.DebuggerDashboardView = class DebuggerDashboardView extends WebInspector.DashboardView
 {
     constructor(representedObject)
     {
         super(representedObject, "debugger");
 
-        WI.debuggerManager.addEventListener(WI.DebuggerManager.Event.ActiveCallFrameDidChange, this._rebuildLocation, this);
+        WebInspector.debuggerManager.addEventListener(WebInspector.DebuggerManager.Event.ActiveCallFrameDidChange, this._rebuildLocation, this);
 
-        this._navigationBar = new WI.NavigationBar;
+        this._navigationBar = new WebInspector.NavigationBar;
         this.element.appendChild(this._navigationBar.element);
 
-        var tooltip = WI.UIString("Continue script execution (%s or %s)").format(WI.pauseOrResumeKeyboardShortcut.displayName, WI.pauseOrResumeAlternateKeyboardShortcut.displayName);
-        this._debuggerResumeButtonItem = new WI.ActivateButtonNavigationItem("debugger-dashboard-pause", tooltip, tooltip, "Images/Resume.svg", 15, 15);
+        var tooltip = WebInspector.UIString("Continue script execution (%s or %s)").format(WebInspector.pauseOrResumeKeyboardShortcut.displayName, WebInspector.pauseOrResumeAlternateKeyboardShortcut.displayName);
+        this._debuggerResumeButtonItem = new WebInspector.ActivateButtonNavigationItem("debugger-dashboard-pause", tooltip, tooltip, "Images/Resume.svg", 15, 15);
         this._debuggerResumeButtonItem.activated = true;
-        this._debuggerResumeButtonItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._resumeButtonClicked, this);
+        this._debuggerResumeButtonItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._resumeButtonClicked, this);
         this._navigationBar.addNavigationItem(this._debuggerResumeButtonItem);
 
         var message = this._messageElement = document.createElement("div");
         message.classList.add("message");
-        message.title = message.textContent = WI.UIString("Debugger Paused");
+        message.title = message.textContent = WebInspector.UIString("Debugger Paused");
         this.element.appendChild(message);
 
         var dividerElement = document.createElement("div");
@@ -56,33 +56,24 @@ WI.DebuggerDashboardView = class DebuggerDashboardView extends WI.DashboardView
         this._rebuildLocation();
     }
 
-    // Public
-
-    closed()
-    {
-        WI.debuggerManager.removeEventListener(null, null, this);
-
-        super.closed();
-    }
-
     // Private
 
     _rebuildLocation()
     {
-        if (!WI.debuggerManager.activeCallFrame)
+        if (!WebInspector.debuggerManager.activeCallFrame)
             return;
 
         this._locationElement.removeChildren();
 
-        var callFrame = WI.debuggerManager.activeCallFrame;
-        var functionName = callFrame.functionName || WI.UIString("(anonymous function)");
+        var callFrame = WebInspector.debuggerManager.activeCallFrame;
+        var functionName = callFrame.functionName || WebInspector.UIString("(anonymous function)");
 
-        var iconClassName = WI.DebuggerDashboardView.FunctionIconStyleClassName;
+        var iconClassName = WebInspector.DebuggerDashboardView.FunctionIconStyleClassName;
 
         // This is more than likely an event listener function with an "on" prefix and it is
         // as long or longer than the shortest event listener name -- "oncut".
         if (callFrame.functionName && callFrame.functionName.startsWith("on") && callFrame.functionName.length >= 5)
-            iconClassName = WI.DebuggerDashboardView.EventListenerIconStyleClassName;
+            iconClassName = WebInspector.DebuggerDashboardView.EventListenerIconStyleClassName;
 
         var iconElement = document.createElement("div");
         iconElement.classList.add(iconClassName);
@@ -102,15 +93,15 @@ WI.DebuggerDashboardView = class DebuggerDashboardView extends WI.DashboardView
             ignoreNetworkTab: true,
             ignoreSearchTab: true,
         };
-        let linkElement = WI.createSourceCodeLocationLink(WI.debuggerManager.activeCallFrame.sourceCodeLocation, options);
+        let linkElement = WebInspector.createSourceCodeLocationLink(WebInspector.debuggerManager.activeCallFrame.sourceCodeLocation, options);
         this._locationElement.appendChild(linkElement);
     }
 
     _resumeButtonClicked()
     {
-        WI.debuggerManager.resume();
+        WebInspector.debuggerManager.resume();
     }
 };
 
-WI.DebuggerDashboardView.FunctionIconStyleClassName = WI.CallFrameView.FunctionIconStyleClassName;
-WI.DebuggerDashboardView.EventListenerIconStyleClassName = WI.CallFrameView.EventListenerIconStyleClassName;
+WebInspector.DebuggerDashboardView.FunctionIconStyleClassName = WebInspector.CallFrameView.FunctionIconStyleClassName;
+WebInspector.DebuggerDashboardView.EventListenerIconStyleClassName = WebInspector.CallFrameView.EventListenerIconStyleClassName;

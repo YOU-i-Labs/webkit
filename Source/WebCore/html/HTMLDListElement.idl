@@ -18,6 +18,6 @@
  */
 
 interface HTMLDListElement : HTMLElement {
-    [CEReactions=NotNeeded, Reflect] attribute boolean compact;
+    [Reflect] attribute boolean compact;
 };
 

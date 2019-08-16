@@ -27,6 +27,7 @@
 #define FloatSizeHash_h
 
 #include "FloatSize.h"
+#include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 
 namespace WTF {
@@ -43,6 +44,7 @@ template<> struct DefaultHash<WebCore::FloatSize> {
 
 template<> struct HashTraits<WebCore::FloatSize> : GenericHashTraits<WebCore::FloatSize> {
     static const bool emptyValueIsZero = true;
+    static const bool needsDestruction = false;
     static void constructDeletedValue(WebCore::FloatSize& slot) { new (NotNull, &slot) WebCore::FloatSize(-1, -1); }
     static bool isDeletedValue(const WebCore::FloatSize& value) { return value.width() == -1 && value.height() == -1; }
 };

@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,12 +20,10 @@
 
 #pragma once
 
-#include "Path.h"
 #include "SVGAnimatedBoolean.h"
 #include "SVGAnimatedNumber.h"
-#include "SVGAnimatedPath.h"
 #include "SVGExternalResourcesRequired.h"
-#include "SVGGeometryElement.h"
+#include "SVGGraphicsElement.h"
 #include "SVGNames.h"
 #include "SVGPathByteStream.h"
 #include "SVGPathSegListValues.h"
@@ -55,13 +52,13 @@ class SVGPathSegCurvetoQuadraticSmoothRel;
 class SVGPathSegList;
 class SVGPoint;
 
-class SVGPathElement final : public SVGGeometryElement, public SVGExternalResourcesRequired {
-    WTF_MAKE_ISO_ALLOCATED(SVGPathElement);
+class SVGPathElement final : public SVGGraphicsElement,
+                             public SVGExternalResourcesRequired {
 public:
     static Ref<SVGPathElement> create(const QualifiedName&, Document&);
     
-    float getTotalLength() const final;
-    Ref<SVGPoint> getPointAtLength(float distance) const final;
+    float getTotalLength() const;
+    Ref<SVGPoint> getPointAtLength(float distance) const;
     unsigned getPathSegAtLength(float distance) const;
 
     Ref<SVGPathSegClosePath> createSVGPathSegClosePath(SVGPathSegRole = PathSegUndefinedRole);
@@ -91,72 +88,52 @@ public:
     RefPtr<SVGPathSegList> animatedNormalizedPathSegList();
 
     const SVGPathByteStream& pathByteStream() const;
-    Path pathForByteStream() const;
 
     void pathSegListChanged(SVGPathSegRole, ListModification = ListModificationUnknown);
 
     FloatRect getBBox(StyleUpdateStrategy = AllowStyleUpdate) final;
 
+    static const SVGPropertyInfo* dPropertyInfo();
+
     bool isAnimValObserved() const { return m_isAnimValObserved; }
+
+    WeakPtr<SVGPathElement> createWeakPtr() const { return m_weakPtrFactory.createWeakPtr(); }
 
     void animatedPropertyWillBeDeleted();
 
     size_t approximateMemoryCost() const final;
 
-    const SVGPathSegListValues& pathSegList() const { return m_pathSegList.currentValue(attributeOwnerProxy()); }
-    RefPtr<SVGAnimatedPathSegList> pathSegListAnimated() { return m_pathSegList.animatedProperty(attributeOwnerProxy()); }
-
 private:
     SVGPathElement(const QualifiedName&, Document&);
 
-    using AttributeOwnerProxy = SVGAttributeOwnerProxyImpl<SVGPathElement, SVGGeometryElement, SVGExternalResourcesRequired>;
-    static auto& attributeRegistry() { return AttributeOwnerProxy::attributeRegistry(); }
-    static bool isKnownAttribute(const QualifiedName& attributeName) { return AttributeOwnerProxy::isKnownAttribute(attributeName); }
-    static void registerAttributes();
+    bool isValid() const final { return SVGTests::isValid(); }
 
-    const SVGAttributeOwnerProxy& attributeOwnerProxy() const final { return m_attributeOwnerProxy; }
+    static bool isSupportedAttribute(const QualifiedName&);
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
     void svgAttributeChanged(const QualifiedName&) final;
-
-    bool isValid() const final { return SVGTests::isValid(); }
     bool supportsMarkers() const final { return true; }
-    RefPtr<SVGAnimatedProperty> lookupOrCreateDWrapper();
+
+    // Custom 'd' property
+    static void synchronizeD(SVGElement* contextElement);
+    static Ref<SVGAnimatedProperty> lookupOrCreateDWrapper(SVGElement* contextElement);
+
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGPathElement)
+        DECLARE_ANIMATED_NUMBER(PathLength, pathLength)
+        DECLARE_ANIMATED_BOOLEAN_OVERRIDE(ExternalResourcesRequired, externalResourcesRequired)
+    END_DECLARE_ANIMATED_PROPERTIES
 
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
 
-    Node::InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) final;
-    void removedFromAncestor(RemovalType, ContainerNode&) final;
+    Node::InsertionNotificationRequest insertedInto(ContainerNode&) final;
+    void removedFrom(ContainerNode&) final;
 
     void invalidateMPathDependencies();
 
 private:
     SVGPathByteStream m_pathByteStream;
-    mutable Optional<Path> m_cachedPath;
-    bool m_isAnimValObserved { false };
-
-    class SVGAnimatedCustomPathSegListAttribute : public SVGAnimatedPathSegListAttribute {
-    public:
-        SVGAnimatedCustomPathSegListAttribute(SVGPathElement& element)
-            : SVGAnimatedPathSegListAttribute(PathSegUnalteredRole)
-            , m_element(element)
-        {
-        }
-
-        SVGPathSegListValues& value(bool shouldBuildSegListValues = true)
-        {
-            if (shouldBuildSegListValues && m_property.isEmpty())
-                buildSVGPathSegListValuesFromByteStream(m_element.m_pathByteStream, m_element, m_property, UnalteredParsing);
-            return m_property;
-        }
-
-    private:
-        SVGPathElement& m_element;
-    };
-
-    using SVGAnimatedCustomPathSegListAttributeAccessor = SVGAnimatedAttributeAccessor<SVGPathElement, SVGAnimatedCustomPathSegListAttribute, AnimatedPath>;
-
-    AttributeOwnerProxy m_attributeOwnerProxy { *this };
-    SVGAnimatedCustomPathSegListAttribute m_pathSegList { *this };
+    mutable SVGSynchronizableAnimatedProperty<SVGPathSegListValues> m_pathSegList;
+    WeakPtrFactory<SVGPathElement> m_weakPtrFactory;
+    bool m_isAnimValObserved;
 };
 
 } // namespace WebCore

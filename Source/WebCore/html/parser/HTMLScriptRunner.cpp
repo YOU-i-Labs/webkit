@@ -85,7 +85,7 @@ static URL documentURLForScriptExecution(Document* document)
 
 inline Ref<Event> createScriptLoadEvent()
 {
-    return Event::create(eventNames().loadEvent, Event::CanBubble::No, Event::IsCancelable::No);
+    return Event::create(eventNames().loadEvent, false, false);
 }
 
 bool HTMLScriptRunner::isPendingScriptReady(const PendingScript& script)

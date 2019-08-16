@@ -30,8 +30,8 @@
 
 namespace JSC {
 
-#if !PLATFORM(IOS_FAMILY)
-const constexpr Seconds pagingTimeOut { 100_ms }; // Time in seconds to allow opportunistic timer to iterate over all blocks to see if the Heap is paged out.
+#if !PLATFORM(IOS)
+const double pagingTimeOut = 0.1; // Time in seconds to allow opportunistic timer to iterate over all blocks to see if the Heap is paged out.
 #endif
 
 FullGCActivityCallback::FullGCActivityCallback(Heap* heap)
@@ -39,16 +39,16 @@ FullGCActivityCallback::FullGCActivityCallback(Heap* heap)
 {
 }
 
-void FullGCActivityCallback::doCollection(VM& vm)
+void FullGCActivityCallback::doCollection()
 {
-    Heap& heap = vm.heap;
+    Heap& heap = m_vm->heap;
     m_didGCRecently = false;
 
-#if !PLATFORM(IOS_FAMILY)
-    MonotonicTime startTime = MonotonicTime::now();
+#if !PLATFORM(IOS)
+    double startTime = WTF::monotonicallyIncreasingTime();
     if (heap.isPagedOut(startTime + pagingTimeOut)) {
         cancel();
-        heap.increaseLastFullGCLength(pagingTimeOut);
+        heap.increaseLastFullGCLength(Seconds(pagingTimeOut));
         return;
     }
 #endif
@@ -56,15 +56,16 @@ void FullGCActivityCallback::doCollection(VM& vm)
     heap.collectAsync(CollectionScope::Full);
 }
 
-Seconds FullGCActivityCallback::lastGCLength(Heap& heap)
+Seconds FullGCActivityCallback::lastGCLength()
 {
-    return heap.lastFullGCLength();
+    return m_vm->heap.lastFullGCLength();
 }
 
-double FullGCActivityCallback::deathRate(Heap& heap)
+double FullGCActivityCallback::deathRate()
 {
-    size_t sizeBefore = heap.sizeBeforeLastFullCollection();
-    size_t sizeAfter = heap.sizeAfterLastFullCollection();
+    Heap* heap = &m_vm->heap;
+    size_t sizeBefore = heap->sizeBeforeLastFullCollection();
+    size_t sizeAfter = heap->sizeAfterLastFullCollection();
     if (!sizeBefore)
         return 1.0;
     if (sizeAfter > sizeBefore) {

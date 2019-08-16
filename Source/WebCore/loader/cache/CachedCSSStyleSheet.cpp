@@ -34,11 +34,12 @@
 #include "SharedBuffer.h"
 #include "StyleSheetContents.h"
 #include "TextResourceDecoder.h"
+#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
-CachedCSSStyleSheet::CachedCSSStyleSheet(CachedResourceRequest&& request, PAL::SessionID sessionID)
-    : CachedResource(WTFMove(request), Type::CSSStyleSheet, sessionID)
+CachedCSSStyleSheet::CachedCSSStyleSheet(CachedResourceRequest&& request, SessionID sessionID)
+    : CachedResource(WTFMove(request), CSSStyleSheet, sessionID)
     , m_decoder(TextResourceDecoder::create("text/css", request.charset()))
 {
 }
@@ -124,21 +125,25 @@ String CachedCSSStyleSheet::responseMIMEType() const
     return extractMIMETypeFromMediaType(m_response.httpHeaderField(HTTPHeaderName::ContentType));
 }
 
+#if ENABLE(NOSNIFF)
 bool CachedCSSStyleSheet::mimeTypeAllowedByNosniff() const
 {
     return parseContentTypeOptionsHeader(m_response.httpHeaderField(HTTPHeaderName::XContentTypeOptions)) != ContentTypeOptionsNosniff || equalLettersIgnoringASCIICase(responseMIMEType(), "text/css");
 }
+#endif
 
 bool CachedCSSStyleSheet::canUseSheet(MIMETypeCheckHint mimeTypeCheckHint, bool* hasValidMIMEType) const
 {
     if (errorOccurred())
         return false;
 
+#if ENABLE(NOSNIFF)
     if (!mimeTypeAllowedByNosniff()) {
         if (hasValidMIMEType)
             *hasValidMIMEType = false;
         return false;
     }
+#endif
 
     if (mimeTypeCheckHint == MIMETypeCheckHint::Lax)
         return true;
@@ -185,7 +190,7 @@ RefPtr<StyleSheetContents> CachedCSSStyleSheet::restoreParsedStyleSheet(const CS
     if (m_parsedStyleSheetCache->parserContext() != context)
         return nullptr;
 
-    didAccessDecodedData(MonotonicTime::now());
+    didAccessDecodedData(monotonicallyIncreasingTime());
 
     return m_parsedStyleSheetCache;
 }

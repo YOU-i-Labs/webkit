@@ -27,6 +27,7 @@
 #include "Storage.h"
 
 #include "Document.h"
+#include "ExceptionCode.h"
 #include "Frame.h"
 #include "Page.h"
 #include "SchemeRegistry.h"
@@ -37,16 +38,17 @@
 
 namespace WebCore {
 
-Ref<Storage> Storage::create(DOMWindow& window, Ref<StorageArea>&& storageArea)
+Ref<Storage> Storage::create(Frame* frame, RefPtr<StorageArea>&& storageArea)
 {
-    return adoptRef(*new Storage(window, WTFMove(storageArea)));
+    return adoptRef(*new Storage(frame, WTFMove(storageArea)));
 }
 
-Storage::Storage(DOMWindow& window, Ref<StorageArea>&& storageArea)
-    : DOMWindowProperty(&window)
+Storage::Storage(Frame* frame, RefPtr<StorageArea>&& storageArea)
+    : DOMWindowProperty(frame)
     , m_storageArea(WTFMove(storageArea))
 {
-    ASSERT(frame());
+    ASSERT(m_frame);
+    ASSERT(m_storageArea);
 
     m_storageArea->incrementAccessCount();
 }
@@ -56,75 +58,74 @@ Storage::~Storage()
     m_storageArea->decrementAccessCount();
 }
 
-unsigned Storage::length() const
+ExceptionOr<unsigned> Storage::length() const
 {
+    if (!m_storageArea->canAccessStorage(m_frame))
+        return Exception { SECURITY_ERR };
+
     return m_storageArea->length();
 }
 
-String Storage::key(unsigned index) const
+ExceptionOr<String> Storage::key(unsigned index) const
 {
+    if (!m_storageArea->canAccessStorage(m_frame))
+        return Exception { SECURITY_ERR };
+
     return m_storageArea->key(index);
 }
 
-String Storage::getItem(const String& key) const
+ExceptionOr<String> Storage::getItem(const String& key) const
 {
+    if (!m_storageArea->canAccessStorage(m_frame))
+        return Exception { SECURITY_ERR };
+
     return m_storageArea->item(key);
 }
 
 ExceptionOr<void> Storage::setItem(const String& key, const String& value)
 {
-    auto* frame = this->frame();
-    if (!frame)
-        return Exception { InvalidAccessError };
+    if (!m_storageArea->canAccessStorage(m_frame))
+        return Exception { SECURITY_ERR };
 
     bool quotaException = false;
-    m_storageArea->setItem(frame, key, value, quotaException);
+    m_storageArea->setItem(m_frame, key, value, quotaException);
     if (quotaException)
-        return Exception { QuotaExceededError };
+        return Exception { QUOTA_EXCEEDED_ERR };
     return { };
 }
 
 ExceptionOr<void> Storage::removeItem(const String& key)
 {
-    auto* frame = this->frame();
-    if (!frame)
-        return Exception { InvalidAccessError };
+    if (!m_storageArea->canAccessStorage(m_frame))
+        return Exception { SECURITY_ERR };
 
-    m_storageArea->removeItem(frame, key);
+    m_storageArea->removeItem(m_frame, key);
     return { };
 }
 
 ExceptionOr<void> Storage::clear()
 {
-    auto* frame = this->frame();
-    if (!frame)
-        return Exception { InvalidAccessError };
+    if (!m_storageArea->canAccessStorage(m_frame))
+        return Exception { SECURITY_ERR };
 
-    m_storageArea->clear(frame);
+    m_storageArea->clear(m_frame);
     return { };
 }
 
-bool Storage::contains(const String& key) const
+ExceptionOr<bool> Storage::contains(const String& key) const
 {
+    if (!m_storageArea->canAccessStorage(m_frame))
+        return Exception { SECURITY_ERR };
+
     return m_storageArea->contains(key);
 }
 
 bool Storage::isSupportedPropertyName(const String& propertyName) const
 {
+    if (!m_storageArea->canAccessStorage(m_frame))
+        return false;
+
     return m_storageArea->contains(propertyName);
-}
-
-Vector<AtomicString> Storage::supportedPropertyNames() const
-{
-    unsigned length = m_storageArea->length();
-
-    Vector<AtomicString> result;
-    result.reserveInitialCapacity(length);
-
-    for (unsigned i = 0; i < length; ++i)
-        result.uncheckedAppend(m_storageArea->key(i));
-
-    return result;
 }
 
 } // namespace WebCore

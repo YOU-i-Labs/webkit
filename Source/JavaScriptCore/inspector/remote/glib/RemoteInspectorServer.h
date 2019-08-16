@@ -27,7 +27,6 @@
 
 #if ENABLE(REMOTE_INSPECTOR)
 
-#include "RemoteInspector.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/glib/GRefPtr.h>
@@ -66,7 +65,7 @@ private:
     void clientConnectionClosed(GDBusConnection*);
     void sendMessageToFrontend(GDBusConnection*, uint64_t target, const char*);
     void sendMessageToBackend(GDBusConnection*, uint64_t connectionID, uint64_t targetID, const char*);
-    void startAutomationSession(GDBusConnection*, const char* sessionID, const RemoteInspector::Client::SessionCapabilities&);
+    void startAutomationSession(GDBusConnection*, const char* sessionID);
 
     static void clientConnectionClosedCallback(GDBusConnection*, gboolean remotePeerVanished, GError*, RemoteInspectorServer*);
 

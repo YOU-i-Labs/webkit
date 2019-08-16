@@ -41,28 +41,26 @@ using namespace JSC;
 
 const ClassInfo JSDOMWindowProperties::s_info = { "WindowProperties", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSDOMWindowProperties) };
 
-static bool jsDOMWindowPropertiesGetOwnPropertySlotNamedItemGetter(JSDOMWindowProperties* thisObject, DOMWindow& window, ExecState* exec, PropertyName propertyName, PropertySlot& slot)
+static bool jsDOMWindowPropertiesGetOwnPropertySlotNamedItemGetter(JSDOMWindowProperties* thisObject, Frame& frame, ExecState* exec, PropertyName propertyName, PropertySlot& slot)
 {
     // Check for child frames by name before built-in properties to match Mozilla. This does
     // not match IE, but some sites end up naming frames things that conflict with window
     // properties that are in Moz but not IE. Since we have some of these, we have to do it
     // the Moz way.
-    if (auto* frame = window.frame()) {
-        if (auto* scopedChild = frame->tree().scopedChild(propertyNameToAtomicString(propertyName))) {
-            slot.setValue(thisObject, JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::DontEnum, toJS(exec, scopedChild->document()->domWindow()));
-            return true;
-        }
+    if (auto* scopedChild = frame.tree().scopedChild(propertyNameToAtomicString(propertyName))) {
+        slot.setValue(thisObject, ReadOnly | DontDelete | DontEnum, toJS(exec, scopedChild->document()->domWindow()));
+        return true;
     }
 
-    if (!BindingSecurity::shouldAllowAccessToDOMWindow(exec, window, ThrowSecurityError))
+    if (!BindingSecurity::shouldAllowAccessToFrame(exec, &frame, ThrowSecurityError))
         return false;
 
     // FIXME: Search the whole frame hierarchy somewhere around here.
     // We need to test the correct priority order.
 
     // Allow shortcuts like 'Image1' instead of document.images.Image1
-    auto* document = window.document();
-    if (is<HTMLDocument>(document)) {
+    Document* document = frame.document();
+    if (is<HTMLDocument>(*document)) {
         auto& htmlDocument = downcast<HTMLDocument>(*document);
         auto* atomicPropertyName = propertyName.publicName();
         if (atomicPropertyName && htmlDocument.hasWindowNamedItem(*atomicPropertyName)) {
@@ -73,7 +71,7 @@ static bool jsDOMWindowPropertiesGetOwnPropertySlotNamedItemGetter(JSDOMWindowPr
                 namedItem = toJS(exec, thisObject->globalObject(), collection);
             } else
                 namedItem = toJS(exec, thisObject->globalObject(), htmlDocument.windowNamedItem(*atomicPropertyName));
-            slot.setValue(thisObject, JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::DontEnum, namedItem);
+            slot.setValue(thisObject, ReadOnly | DontDelete | DontEnum, namedItem);
             return true;
         }
     }
@@ -87,19 +85,15 @@ bool JSDOMWindowProperties::getOwnPropertySlot(JSObject* object, ExecState* stat
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
     if (Base::getOwnPropertySlot(thisObject, state, propertyName, slot))
         return true;
-    JSValue proto = thisObject->getPrototypeDirect(state->vm());
+    JSValue proto = thisObject->getPrototypeDirect();
     if (proto.isObject() && jsCast<JSObject*>(proto)->hasProperty(state, propertyName))
         return false;
 
-    auto& vm = state->vm();
+    auto& window = jsCast<JSDOMWindowBase*>(thisObject->globalObject())->wrapped();
+    if (auto* frame = window.frame())
+        return jsDOMWindowPropertiesGetOwnPropertySlotNamedItemGetter(thisObject, *frame, state, propertyName, slot);
 
-    // FIXME: We should probably add support for JSRemoteDOMWindowBase too.
-    auto* jsWindow = jsDynamicCast<JSDOMWindowBase*>(vm, thisObject->globalObject());
-    if (!jsWindow)
-        return false;
-
-    auto& window = jsWindow->wrapped();
-    return jsDOMWindowPropertiesGetOwnPropertySlotNamedItemGetter(thisObject, window, state, propertyName, slot);
+    return false;
 }
 
 bool JSDOMWindowProperties::getOwnPropertySlotByIndex(JSObject* object, ExecState* state, unsigned index, PropertySlot& slot)

@@ -42,7 +42,6 @@ class HTMLFormControlsCollection;
 class HTMLImageElement;
 
 class HTMLFormElement final : public HTMLElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLFormElement);
 public:
     static Ref<HTMLFormElement> create(Document&);
     static Ref<HTMLFormElement> create(const QualifiedName&, Document&);
@@ -54,7 +53,7 @@ public:
 
     WEBCORE_EXPORT unsigned length() const;
     HTMLElement* item(unsigned index);
-    Optional<Variant<RefPtr<RadioNodeList>, RefPtr<Element>>> namedItem(const AtomicString&);
+    std::optional<Variant<RefPtr<RadioNodeList>, RefPtr<Element>>> namedItem(const AtomicString&);
     Vector<AtomicString> supportedPropertyNames() const;
 
     String enctype() const { return m_attributes.encodingType(); }
@@ -96,18 +95,15 @@ public:
     String acceptCharset() const { return m_attributes.acceptCharset(); }
     void setAcceptCharset(const String&);
 
-    WEBCORE_EXPORT String action() const;
-    WEBCORE_EXPORT void setAction(const String&);
+    String action() const;
+    void setAction(const String&);
 
     WEBCORE_EXPORT String method() const;
     WEBCORE_EXPORT void setMethod(const String&);
 
     String target() const final;
-    String effectiveTarget(const Event*) const;
 
     bool wasUserSubmitted() const;
-
-    HTMLFormControlElement* findSubmitButton(const Event*) const;
 
     HTMLFormControlElement* defaultButton() const;
     void resetDefaultButton();
@@ -115,10 +111,21 @@ public:
     WEBCORE_EXPORT bool checkValidity();
     bool reportValidity();
 
+#if ENABLE(REQUEST_AUTOCOMPLETE)
+    enum class AutocompleteResult {
+        Success,
+        ErrorDisabled,
+        ErrorCancel,
+        ErrorInvalid,
+    };
+
+    void requestAutocomplete();
+    void finishRequestAutocomplete(AutocompleteResult);
+#endif
+
     RadioButtonGroups& radioButtonGroups() { return m_radioButtonGroups; }
 
-    WEBCORE_EXPORT const Vector<FormAssociatedElement*>& unsafeAssociatedElements() const;
-    Vector<Ref<FormAssociatedElement>> copyAssociatedElementsVector() const;
+    const Vector<FormAssociatedElement*>& associatedElements() const { return m_associatedElements; }
     const Vector<HTMLImageElement*>& imageElements() const { return m_imageElements; }
 
     StringPairVector textFieldValues() const;
@@ -129,11 +136,11 @@ private:
     HTMLFormElement(const QualifiedName&, Document&);
 
     bool rendererIsNeeded(const RenderStyle&) final;
-    InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) final;
-    void removedFromAncestor(RemovalType, ContainerNode&) final;
+    InsertionNotificationRequest insertedInto(ContainerNode&) final;
+    void removedFrom(ContainerNode&) final;
     void finishParsingChildren() final;
 
-    void handleLocalEvents(Event&, EventInvokePhase) final;
+    void handleLocalEvents(Event&) final;
 
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
     bool isURLAttribute(const Attribute&) const final;
@@ -156,7 +163,7 @@ private:
     // are any invalid controls in this form.
     bool checkInvalidControlsAndCollectUnhandled(Vector<RefPtr<HTMLFormControlElement>>&);
 
-    RefPtr<HTMLElement> elementFromPastNamesMap(const AtomicString&) const;
+    HTMLElement* elementFromPastNamesMap(const AtomicString&) const;
     void addToPastNamesMap(FormNamedItem*, const AtomicString& pastName);
     void assertItemCanBeInPastNamesMap(FormNamedItem*) const;
     void removeFromPastNamesMap(FormNamedItem*);
@@ -187,6 +194,13 @@ private:
     bool m_isInResetFunction { false };
 
     bool m_wasDemoted { false };
+
+#if ENABLE(REQUEST_AUTOCOMPLETE)
+    void requestAutocompleteTimerFired();
+
+    Vector<RefPtr<Event>> m_pendingAutocompleteEvents;
+    Timer m_requestAutocompleteTimer;
+#endif
 };
 
 } // namespace WebCore

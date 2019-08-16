@@ -27,11 +27,10 @@
 
 #include "BufferSource.h"
 #include "CryptoAlgorithmParameters.h"
-#include <JavaScriptCore/JSObject.h>
-#include <JavaScriptCore/Strong.h>
+#include <runtime/JSCJSValue.h>
 #include <wtf/Vector.h>
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 namespace WebCore {
 
@@ -40,10 +39,10 @@ public:
     BufferSource salt;
     unsigned long iterations;
     // FIXME: Consider merging hash and hashIdentifier.
-    Variant<JSC::Strong<JSC::JSObject>, String> hash;
+    JSC::JSValue hash;
     CryptoAlgorithmIdentifier hashIdentifier;
 
-    const Vector<uint8_t>& saltVector() const
+    const Vector<uint8_t>& saltVector()
     {
         if (!m_saltVector.isEmpty() || !salt.length())
             return m_saltVector;
@@ -54,23 +53,12 @@ public:
 
     Class parametersClass() const final { return Class::Pbkdf2Params; }
 
-    CryptoAlgorithmPbkdf2Params isolatedCopy() const
-    {
-        CryptoAlgorithmPbkdf2Params result;
-        result.identifier = identifier;
-        result.m_saltVector = saltVector();
-        result.iterations = iterations;
-        result.hashIdentifier = hashIdentifier;
-
-        return result;
-    }
-
 private:
-    mutable Vector<uint8_t> m_saltVector;
+    Vector<uint8_t> m_saltVector;
 };
 
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_CRYPTO_ALGORITHM_PARAMETERS(Pbkdf2Params)
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

@@ -26,6 +26,7 @@
 #include "IntPoint.h"
 #include "IntRect.h"
 #include "Tile.h"
+#include "Timer.h"
 #include <wtf/Assertions.h>
 #include <wtf/HashMap.h>
 
@@ -37,21 +38,21 @@ class TiledBackingStoreClient;
 class TiledBackingStore {
     WTF_MAKE_NONCOPYABLE(TiledBackingStore); WTF_MAKE_FAST_ALLOCATED;
 public:
-    TiledBackingStore(TiledBackingStoreClient&, float contentsScale = 1.f);
+    TiledBackingStore(TiledBackingStoreClient*, float contentsScale = 1.f);
     ~TiledBackingStore();
 
-    TiledBackingStoreClient& client() { return m_client; }
+    TiledBackingStoreClient* client() { return m_client; }
 
     void setTrajectoryVector(const FloatPoint&);
     void createTilesIfNeeded(const IntRect& unscaledVisibleRect, const IntRect& contentsRect);
 
     float contentsScale() { return m_contentsScale; }
 
-    Vector<std::reference_wrapper<Tile>> dirtyTiles();
+    void updateTileBuffers();
 
     void invalidate(const IntRect& dirtyRect);
 
-    WEBCORE_EXPORT IntRect mapToContents(const IntRect&) const;
+    IntRect mapToContents(const IntRect&) const;
     IntRect mapFromContents(const IntRect&) const;
 
     IntRect tileRectForCoordinate(const Tile::Coordinate&) const;
@@ -62,11 +63,13 @@ public:
     bool visibleAreaIsCovered() const;
     void removeAllNonVisibleTiles(const IntRect& unscaledVisibleRect, const IntRect& contentsRect);
 
+    void setSupportsAlpha(bool);
+
 private:
     void createTiles(const IntRect& visibleRect, const IntRect& scaledContentsRect, float coverAreaMultiplier);
     void computeCoverAndKeepRect(const IntRect& visibleRect, IntRect& coverRect, IntRect& keepRect) const;
 
-    void resizeEdgeTiles();
+    bool resizeEdgeTiles();
     void setCoverRect(const IntRect& rect) { m_coverRect = rect; }
     void setKeepRect(const IntRect&);
 
@@ -76,7 +79,7 @@ private:
     void paintCheckerPattern(GraphicsContext*, const IntRect&, const Tile::Coordinate&);
 
 private:
-    TiledBackingStoreClient& m_client;
+    TiledBackingStoreClient* m_client;
 
     typedef HashMap<Tile::Coordinate, std::unique_ptr<Tile>> TileMap;
     TileMap m_tiles;
@@ -91,10 +94,10 @@ private:
     IntRect m_coverRect;
     IntRect m_keepRect;
     IntRect m_rect;
-    IntRect m_previousRect;
 
     float m_contentsScale;
 
+    bool m_supportsAlpha;
     bool m_pendingTileCreation;
 
     friend class Tile;

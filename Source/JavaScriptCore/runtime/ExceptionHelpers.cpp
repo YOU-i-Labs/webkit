@@ -29,14 +29,14 @@
 #include "config.h"
 #include "ExceptionHelpers.h"
 
-#include "CallFrame.h"
-#include "CatchScope.h"
 #include "CodeBlock.h"
+#include "CallFrame.h"
 #include "ErrorHandlingScope.h"
 #include "Exception.h"
-#include "Interpreter.h"
-#include "JSCInlines.h"
 #include "JSGlobalObjectFunctions.h"
+#include "Interpreter.h"
+#include "Nodes.h"
+#include "JSCInlines.h"
 #include "RuntimeType.h"
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringView.h>
@@ -50,7 +50,7 @@ const ClassInfo TerminatedExecutionError::s_info = { "TerminatedExecutionError",
 JSValue TerminatedExecutionError::defaultValue(const JSObject*, ExecState* exec, PreferredPrimitiveType hint)
 {
     if (hint == PreferString)
-        return jsNontrivialString(exec, String("JavaScript execution terminated."_s));
+        return jsNontrivialString(exec, String(ASCIILiteral("JavaScript execution terminated.")));
     return JSValue(PNaN);
 }
 
@@ -64,7 +64,7 @@ bool isTerminatedExecutionException(VM& vm, Exception* exception)
     if (!exception->value().isObject())
         return false;
 
-    return exception->value().inherits<TerminatedExecutionError>(vm);
+    return exception->value().inherits(vm, TerminatedExecutionError::info());
 }
 
 JSObject* createStackOverflowError(ExecState* exec)
@@ -74,16 +74,13 @@ JSObject* createStackOverflowError(ExecState* exec)
 
 JSObject* createStackOverflowError(ExecState* exec, JSGlobalObject* globalObject)
 {
-    auto* error = createRangeError(exec, globalObject, "Maximum call stack size exceeded."_s);
-    jsCast<ErrorInstance*>(error)->setStackOverflowError();
-    return error;
+    return createRangeError(exec, globalObject, ASCIILiteral("Maximum call stack size exceeded."));
 }
 
 JSObject* createUndefinedVariableError(ExecState* exec, const Identifier& ident)
 {
-    if (ident.isPrivateName()) {
-        VM& vm = exec->vm();
-        String message(makeString("Can't find private variable: @", vm.propertyNames->lookUpPublicName(ident).string()));
+    if (exec->propertyNames().isPrivateName(ident)) {
+        String message(makeString("Can't find private variable: @", exec->propertyNames().lookUpPublicName(ident).string()));
         return createReferenceError(exec, message);
     }
     String message(makeString("Can't find variable: ", ident.string()));
@@ -97,11 +94,10 @@ JSString* errorDescriptionForValue(ExecState* exec, JSValue v)
     if (v.isSymbol())
         return jsNontrivialString(exec, asSymbol(v)->descriptiveString());
     if (v.isObject()) {
-        VM& vm = exec->vm();
         CallData callData;
         JSObject* object = asObject(v);
-        if (object->methodTable(vm)->getCallData(object, callData) != CallType::None)
-            return vm.smallStrings.functionString();
+        if (object->methodTable()->getCallData(object, callData) != CallType::None)
+            return exec->vm().smallStrings.functionString();
         return jsString(exec, JSObject::calculatedClassName(object));
     }
     return v.toString(exec);
@@ -267,20 +263,16 @@ JSObject* createError(ExecState* exec, JSValue value, const String& message, Err
     VM& vm = exec->vm();
     auto scope = DECLARE_CATCH_SCOPE(vm);
 
-    String errorMessage = tryMakeString(errorDescriptionForValue(exec, value)->value(exec), ' ', message);
-    if (errorMessage.isNull())
-        return createOutOfMemoryError(exec);
+    String errorMessage = makeString(errorDescriptionForValue(exec, value)->value(exec), ' ', message);
     scope.assertNoException();
-    JSObject* exception = createTypeError(exec, errorMessage, appender, runtimeTypeForValue(vm, value));
+    JSObject* exception = createTypeError(exec, errorMessage, appender, runtimeTypeForValue(value));
     ASSERT(exception->isErrorInstance());
-
     return exception;
 }
 
 JSObject* createInvalidFunctionApplyParameterError(ExecState* exec, JSValue value)
 {
-    VM& vm = exec->vm();
-    JSObject* exception = createTypeError(exec, makeString("second argument to Function.prototype.apply must be an Array-like object"), defaultSourceAppender, runtimeTypeForValue(vm, value));
+    JSObject* exception = createTypeError(exec, makeString("second argument to Function.prototype.apply must be an Array-like object"), defaultSourceAppender, runtimeTypeForValue(value));
     ASSERT(exception->isErrorInstance());
     return exception;
 }
@@ -302,17 +294,17 @@ JSObject* createInvalidInstanceofParameterErrorHasInstanceValueNotFunction(ExecS
 
 JSObject* createNotAConstructorError(ExecState* exec, JSValue value)
 {
-    return createError(exec, value, "is not a constructor"_s, defaultSourceAppender);
+    return createError(exec, value, ASCIILiteral("is not a constructor"), defaultSourceAppender);
 }
 
 JSObject* createNotAFunctionError(ExecState* exec, JSValue value)
 {
-    return createError(exec, value, "is not a function"_s, notAFunctionSourceAppender);
+    return createError(exec, value, ASCIILiteral("is not a function"), notAFunctionSourceAppender);
 }
 
 JSObject* createNotAnObjectError(ExecState* exec, JSValue value)
 {
-    return createError(exec, value, "is not an object"_s, defaultSourceAppender);
+    return createError(exec, value, ASCIILiteral("is not an object"), defaultSourceAppender);
 }
 
 JSObject* createErrorForInvalidGlobalAssignment(ExecState* exec, const String& propertyName)

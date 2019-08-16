@@ -27,14 +27,12 @@
 #pragma once
 
 #include "ExceptionOr.h"
-#include "ImageBuffer.h"
-#include <JavaScriptCore/ArrayBuffer.h>
-#include <JavaScriptCore/JSCJSValue.h>
-#include <JavaScriptCore/Strong.h>
-#include <pal/SessionID.h>
+#include <heap/Strong.h>
+#include <runtime/ArrayBuffer.h>
+#include <runtime/JSCJSValue.h>
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
-#include <wtf/Gigacage.h>
+#include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 
 typedef const struct OpaqueJSContext* JSContextRef;
@@ -49,13 +47,12 @@ class Module;
 namespace WebCore {
 
 class IDBValue;
-class ImageBitmap;
 class MessagePort;
 class SharedBuffer;
 enum class SerializationReturnCode;
 
 enum class SerializationErrorMode { NonThrowing, Throwing };
-enum class SerializationContext { Default, WorkerPostMessage, WindowPostMessage };
+enum class SerializationContext { Default, WorkerPostMessage };
 
 using ArrayBufferContentsArray = Vector<JSC::ArrayBufferContents>;
 #if ENABLE(WEBASSEMBLY)
@@ -77,8 +74,8 @@ public:
     static Ref<SerializedScriptValue> nullValue();
 
     WEBCORE_EXPORT JSC::JSValue deserialize(JSC::ExecState&, JSC::JSGlobalObject*, SerializationErrorMode = SerializationErrorMode::Throwing);
-    WEBCORE_EXPORT JSC::JSValue deserialize(JSC::ExecState&, JSC::JSGlobalObject*, const Vector<RefPtr<MessagePort>>&, SerializationErrorMode = SerializationErrorMode::Throwing);
-    JSC::JSValue deserialize(JSC::ExecState&, JSC::JSGlobalObject*, const Vector<RefPtr<MessagePort>>&, const Vector<String>& blobURLs, const PAL::SessionID&, const Vector<String>& blobFilePaths, SerializationErrorMode = SerializationErrorMode::Throwing);
+    WEBCORE_EXPORT JSC::JSValue deserialize(JSC::ExecState&, JSC::JSGlobalObject*, Vector<RefPtr<MessagePort>>&, SerializationErrorMode = SerializationErrorMode::Throwing);
+    JSC::JSValue deserialize(JSC::ExecState&, JSC::JSGlobalObject*, Vector<RefPtr<MessagePort>>&, const Vector<String>& blobURLs, const Vector<String>& blobFilePaths, SerializationErrorMode = SerializationErrorMode::Throwing);
 
     static uint32_t wireFormatVersion();
 
@@ -93,8 +90,7 @@ public:
 
 #if ENABLE(INDEXED_DATABASE)
     Vector<String> blobURLsIsolatedCopy() const;
-    const PAL::SessionID& sessionID() const { return m_sessionID; }
-    void writeBlobsToDiskForIndexedDB(CompletionHandler<void(IDBValue&&)>&&);
+    void writeBlobsToDiskForIndexedDB(WTF::Function<void (const IDBValue&)>&& completionHandler);
     IDBValue writeBlobsToDiskForIndexedDBSynchronously();
 #endif // ENABLE(INDEXED_DATABASE)
 
@@ -104,15 +100,11 @@ public:
     }
     const Vector<uint8_t>& toWireBytes() const { return m_data; }
 
-    template<class Encoder> void encode(Encoder&) const;
-    template<class Decoder> static RefPtr<SerializedScriptValue> decode(Decoder&);
-
     WEBCORE_EXPORT ~SerializedScriptValue();
 
 private:
     WEBCORE_EXPORT SerializedScriptValue(Vector<unsigned char>&&);
-    WEBCORE_EXPORT SerializedScriptValue(Vector<unsigned char>&&, std::unique_ptr<ArrayBufferContentsArray>);
-    SerializedScriptValue(Vector<unsigned char>&&, const Vector<String>& blobURLs, const PAL::SessionID&, std::unique_ptr<ArrayBufferContentsArray>, std::unique_ptr<ArrayBufferContentsArray> sharedBuffers, Vector<std::pair<std::unique_ptr<ImageBuffer>, bool>>&& imageBuffers
+    SerializedScriptValue(Vector<unsigned char>&&, const Vector<String>& blobURLs, std::unique_ptr<ArrayBufferContentsArray>, std::unique_ptr<ArrayBufferContentsArray> sharedBuffers
 #if ENABLE(WEBASSEMBLY)
         , std::unique_ptr<WasmModuleArray>
 #endif
@@ -121,70 +113,10 @@ private:
     Vector<unsigned char> m_data;
     std::unique_ptr<ArrayBufferContentsArray> m_arrayBufferContentsArray;
     std::unique_ptr<ArrayBufferContentsArray> m_sharedBufferContentsArray;
-    Vector<std::pair<std::unique_ptr<ImageBuffer>, bool>> m_imageBuffers;
 #if ENABLE(WEBASSEMBLY)
     std::unique_ptr<WasmModuleArray> m_wasmModulesArray;
 #endif
     Vector<String> m_blobURLs;
-    PAL::SessionID m_sessionID;
 };
-
-template<class Encoder>
-void SerializedScriptValue::encode(Encoder& encoder) const
-{
-    encoder << m_data;
-
-    auto hasArray = m_arrayBufferContentsArray && m_arrayBufferContentsArray->size();
-    encoder << hasArray;
-
-    if (!hasArray)
-        return;
-
-    encoder << static_cast<uint64_t>(m_arrayBufferContentsArray->size());
-    for (const auto &arrayBufferContents : *m_arrayBufferContentsArray) {
-        encoder << arrayBufferContents.sizeInBytes();
-        encoder.encodeFixedLengthData(static_cast<const uint8_t*>(arrayBufferContents.data()), arrayBufferContents.sizeInBytes(), 1);
-    }
-}
-
-template<class Decoder>
-RefPtr<SerializedScriptValue> SerializedScriptValue::decode(Decoder& decoder)
-{
-    Vector<uint8_t> data;
-    if (!decoder.decode(data))
-        return nullptr;
-
-    bool hasArray;
-    if (!decoder.decode(hasArray))
-        return nullptr;
-
-    if (!hasArray)
-        return adoptRef(*new SerializedScriptValue(WTFMove(data)));
-
-    uint64_t arrayLength;
-    if (!decoder.decode(arrayLength))
-        return nullptr;
-    ASSERT(arrayLength);
-
-    auto arrayBufferContentsArray = std::make_unique<ArrayBufferContentsArray>();
-    while (arrayLength--) {
-        unsigned bufferSize;
-        if (!decoder.decode(bufferSize))
-            return nullptr;
-
-        auto buffer = Gigacage::tryMalloc(Gigacage::Primitive, bufferSize);
-        auto destructor = [] (void* ptr) {
-            Gigacage::free(Gigacage::Primitive, ptr);
-        };
-        if (!decoder.decodeFixedLengthData(static_cast<uint8_t*>(buffer), bufferSize, 1)) {
-            destructor(buffer);
-            return nullptr;
-        }
-        arrayBufferContentsArray->append({ buffer, bufferSize, WTFMove(destructor) });
-    }
-
-    return adoptRef(*new SerializedScriptValue(WTFMove(data), WTFMove(arrayBufferContentsArray)));
-}
-
 
 }

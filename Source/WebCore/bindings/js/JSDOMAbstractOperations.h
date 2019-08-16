@@ -72,7 +72,7 @@ static bool isVisibleNamedProperty(JSC::ExecState& state, JSClass& thisObject, J
     //    1. If prototype is not a named properties object, and prototype has an own property named P, then return false.
     // FIXME: Implement checking for 'named properties object'.
     //    2. Set prototype to be the value of the internal [[Prototype]] property of prototype.
-    auto prototype = thisObject.getPrototypeDirect(state.vm());
+    auto prototype = thisObject.getPrototypeDirect();
     if (prototype.isObject() && JSC::asObject(prototype)->getPropertySlot(&state, propertyName, slot))
         return false;
 
@@ -91,20 +91,20 @@ static auto accessVisibleNamedProperty(JSC::ExecState& state, JSClass& thisObjec
     // NOTE: While it is not specified, a Symbol can never be a 'supported property
     // name' so we check that first.
     if (propertyName.isSymbol())
-        return WTF::nullopt;
+        return std::nullopt;
 
     // 1. If P is not a supported property name of O, then return false.
     auto result = itemAccessor(thisObject, propertyName);
     if (!result)
-        return WTF::nullopt;
+        return std::nullopt;
 
     // 2. If O has an own property named P, then return false.
     JSC::PropertySlot slot { &thisObject, JSC::PropertySlot::InternalMethodType::VMInquiry };
     if (JSC::JSObject::getOwnPropertySlot(&thisObject, &state, propertyName, slot))
-        return WTF::nullopt;
+        return std::nullopt;
 
     // 3. If O implements an interface that has the [OverrideBuiltins] extended attribute, then return true.
-    if (overrideBuiltins == OverrideBuiltins::Yes && !worldForDOMObject(thisObject).shouldDisableOverrideBuiltinsBehavior())
+    if (overrideBuiltins == OverrideBuiltins::Yes)
         return result;
 
     // 4. Initialize prototype to be the value of the internal [[Prototype]] property of O.
@@ -112,9 +112,9 @@ static auto accessVisibleNamedProperty(JSC::ExecState& state, JSClass& thisObjec
     //    1. If prototype is not a named properties object, and prototype has an own property named P, then return false.
     // FIXME: Implement checking for 'named properties object'.
     //    2. Set prototype to be the value of the internal [[Prototype]] property of prototype.
-    auto prototype = thisObject.getPrototypeDirect(state.vm());
+    auto prototype = thisObject.getPrototypeDirect();
     if (prototype.isObject() && JSC::asObject(prototype)->getPropertySlot(&state, propertyName, slot))
-        return WTF::nullopt;
+        return std::nullopt;
 
     // 6. Return true.
     return result;

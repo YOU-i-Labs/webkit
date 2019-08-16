@@ -30,6 +30,7 @@
 #include "FloatRect.h"
 #include "GraphicsLayer.h"
 #include "IntRect.h"
+#include "MainFrame.h"
 #include "PageOverlay.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/RetainPtr.h>
@@ -78,12 +79,13 @@ private:
     IntPoint m_dragPoint;
 
 #if PLATFORM(COCOA)
+    ThreadIdentifier m_threadID { 0 };
     RetainPtr<CALayer> m_layer;
     RetainPtr<CALayer> m_containerLayer;
 #endif
 
 #if OS(LINUX)
-    RefPtr<GraphicsLayer> m_paintLayer;
+    std::unique_ptr<GraphicsLayer> m_paintLayer;
     std::unique_ptr<GraphicsLayerClient> m_overlayPainter;
 #endif
 };

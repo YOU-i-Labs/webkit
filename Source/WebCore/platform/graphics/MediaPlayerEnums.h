@@ -23,9 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
-
-#include <wtf/text/WTFString.h>
+#ifndef MediaPlayerEnums_h
+#define MediaPlayerEnums_h
 
 namespace WebCore {
 
@@ -44,32 +43,6 @@ public:
     typedef uint32_t VideoFullscreenMode;
 };
 
-WTF::String convertEnumerationToString(MediaPlayerEnums::ReadyState);
-WTF::String convertEnumerationToString(MediaPlayerEnums::NetworkState);
-WTF::String convertEnumerationToString(MediaPlayerEnums::Preload);
+}
 
-} // namespace WebCore
-
-
-namespace WTF {
-
-template<typename Type>
-struct LogArgument;
-
-template <>
-struct LogArgument<WebCore::MediaPlayerEnums::ReadyState> {
-    static WTF::String toString(const WebCore::MediaPlayerEnums::ReadyState state)
-    {
-        return convertEnumerationToString(state);
-    }
-};
-
-template <>
-struct LogArgument<WebCore::MediaPlayerEnums::NetworkState> {
-    static WTF::String toString(const WebCore::MediaPlayerEnums::NetworkState state)
-    {
-        return convertEnumerationToString(state);
-    }
-};
-
-}; // namespace WTF
+#endif

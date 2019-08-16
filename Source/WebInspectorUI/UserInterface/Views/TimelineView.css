@@ -42,5 +42,6 @@
 }
 
 .panel.navigation.timeline.timeline-recording-content-view-showing > .content > .tree-outline {
-    background: var(--transparent-stripe-background-gradient);
+    background-image: linear-gradient(to bottom, transparent, transparent 50%, hsla(0, 0%, 0%, 0.03) 50%, hsla(0, 0%, 0%, 0.03));
+    background-size: 100% 40px;
 }

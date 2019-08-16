@@ -42,14 +42,14 @@ public:
     static bool canEmitIntrinsicGetter(JSFunction*, Structure*);
     void emitIntrinsicGetter(AccessGenerationState&);
 
-    static std::unique_ptr<AccessCase> create(VM&, JSCell*, PropertyOffset, Structure*, const ObjectPropertyConditionSet&, JSFunction* intrinsicFunction, std::unique_ptr<PolyProtoAccessChain>);
+    static std::unique_ptr<AccessCase> create(VM&, JSCell*, PropertyOffset, Structure*, const ObjectPropertyConditionSet&, JSFunction* intrinsicFunction);
 
     std::unique_ptr<AccessCase> clone() const override;
 
     ~IntrinsicGetterAccessCase();
 
 private:
-    IntrinsicGetterAccessCase(VM&, JSCell*, PropertyOffset, Structure*, const ObjectPropertyConditionSet&, JSFunction* intrinsicFunction, std::unique_ptr<PolyProtoAccessChain>);
+    IntrinsicGetterAccessCase(VM&, JSCell*, PropertyOffset, Structure*, const ObjectPropertyConditionSet&, JSFunction* intrinsicFunction);
 
     WriteBarrier<JSFunction> m_intrinsicFunction;
 };

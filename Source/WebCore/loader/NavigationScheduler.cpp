@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2009 Adam Barth. All rights reserved.
@@ -33,7 +33,6 @@
 #include "NavigationScheduler.h"
 
 #include "BackForwardController.h"
-#include "CommonVM.h"
 #include "DOMWindow.h"
 #include "DocumentLoader.h"
 #include "Event.h"
@@ -48,16 +47,15 @@
 #include "HistoryItem.h"
 #include "InspectorInstrumentation.h"
 #include "Logging.h"
-#include "NavigationDisabler.h"
 #include "Page.h"
-#include "PolicyChecker.h"
 #include "ScriptController.h"
 #include "UserGestureIndicator.h"
+#include <wtf/CurrentTime.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {
 
-unsigned NavigationDisabler::s_globalNavigationDisableCount = 0;
+unsigned NavigationDisabler::s_navigationDisableCount = 0;
 
 class ScheduledNavigation {
     WTF_MAKE_NONCOPYABLE(ScheduledNavigation); WTF_MAKE_FAST_ALLOCATED;
@@ -80,18 +78,14 @@ public:
         , m_userGestureToForward(UserGestureIndicator::currentUserGesture())
         , m_shouldOpenExternalURLsPolicy(externalURLPolicy)
     {
-        if (auto* frame = lexicalFrameFromCommonVM()) {
-            if (frame->isMainFrame())
-                m_initiatedByMainFrame = InitiatedByMainFrame::Yes;
-        }
     }
-    virtual ~ScheduledNavigation() = default;
+    virtual ~ScheduledNavigation() { }
 
     virtual void fire(Frame&) = 0;
 
     virtual bool shouldStartTimer(Frame&) { return true; }
     virtual void didStartTimer(Frame&, Timer&) { }
-    virtual void didStopTimer(Frame&, NewLoadInProgress) { }
+    virtual void didStopTimer(Frame&, bool /* newLoadInProgress */) { }
 
     double delay() const { return m_delay; }
     LockHistory lockHistory() const { return m_lockHistory; }
@@ -103,7 +97,6 @@ public:
 protected:
     void clearUserGesture() { m_userGestureToForward = nullptr; }
     ShouldOpenExternalURLsPolicy shouldOpenExternalURLs() const { return m_shouldOpenExternalURLsPolicy; }
-    InitiatedByMainFrame initiatedByMainFrame() const { return m_initiatedByMainFrame; };
 
 private:
     double m_delay;
@@ -113,18 +106,26 @@ private:
     bool m_isLocationChange;
     RefPtr<UserGestureToken> m_userGestureToForward;
     ShouldOpenExternalURLsPolicy m_shouldOpenExternalURLsPolicy { ShouldOpenExternalURLsPolicy::ShouldNotAllow };
-    InitiatedByMainFrame m_initiatedByMainFrame { InitiatedByMainFrame::Unknown };
 };
 
 class ScheduledURLNavigation : public ScheduledNavigation {
 protected:
     ScheduledURLNavigation(Document& initiatingDocument, double delay, SecurityOrigin* securityOrigin, const URL& url, const String& referrer, LockHistory lockHistory, LockBackForwardList lockBackForwardList, bool duringLoad, bool isLocationChange)
         : ScheduledNavigation(delay, lockHistory, lockBackForwardList, duringLoad, isLocationChange, initiatingDocument.shouldOpenExternalURLsPolicyToPropagate())
-        , m_initiatingDocument { makeRef(initiatingDocument) }
-        , m_securityOrigin{ makeRefPtr(securityOrigin) }
-        , m_url { url }
-        , m_referrer { referrer }
+        , m_securityOrigin(securityOrigin)
+        , m_url(url)
+        , m_referrer(referrer)
     {
+    }
+
+    void fire(Frame& frame) override
+    {
+        UserGestureIndicator gestureIndicator(userGestureToForward());
+
+        ResourceRequest resourceRequest(m_url, m_referrer, UseProtocolCachePolicy);
+        FrameLoadRequest frameRequest(*m_securityOrigin, resourceRequest, "_self", lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, shouldOpenExternalURLs());
+
+        frame.loader().changeLocation(frameRequest);
     }
 
     void didStartTimer(Frame& frame, Timer& timer) override
@@ -134,10 +135,10 @@ protected:
         m_haveToldClient = true;
 
         UserGestureIndicator gestureIndicator(userGestureToForward());
-        frame.loader().clientRedirected(m_url, delay(), WallTime::now() + timer.nextFireInterval(), lockBackForwardList());
+        frame.loader().clientRedirected(m_url, delay(), currentTime() + timer.nextFireInterval().value(), lockBackForwardList());
     }
 
-    void didStopTimer(Frame& frame, NewLoadInProgress newLoadInProgress) override
+    void didStopTimer(Frame& frame, bool newLoadInProgress) override
     {
         if (!m_haveToldClient)
             return;
@@ -151,13 +152,11 @@ protected:
         frame.loader().clientRedirectCancelledOrFinished(newLoadInProgress);
     }
 
-    Document& initiatingDocument() { return m_initiatingDocument.get(); }
     SecurityOrigin* securityOrigin() const { return m_securityOrigin.get(); }
     const URL& url() const { return m_url; }
     String referrer() const { return m_referrer; }
 
 private:
-    Ref<Document> m_initiatingDocument;
     RefPtr<SecurityOrigin> m_securityOrigin;
     URL m_url;
     String m_referrer;
@@ -179,15 +178,12 @@ public:
 
     void fire(Frame& frame) override
     {
-        UserGestureIndicator gestureIndicator { userGestureToForward() };
-
+        UserGestureIndicator gestureIndicator(userGestureToForward());
         bool refresh = equalIgnoringFragmentIdentifier(frame.document()->url(), url());
-        ResourceRequest resourceRequest { url(), referrer(), refresh ? ResourceRequestCachePolicy::ReloadIgnoringCacheData : ResourceRequestCachePolicy::UseProtocolCachePolicy };
-        if (initiatedByMainFrame() == InitiatedByMainFrame::Yes)
-            resourceRequest.setRequester(ResourceRequest::Requester::Main);
-        FrameLoadRequest frameLoadRequest { initiatingDocument(), *securityOrigin(), resourceRequest, "_self", lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::No, NewFrameOpenerPolicy::Allow, shouldOpenExternalURLs(), initiatedByMainFrame() };
+        ResourceRequest resourceRequest(url(), referrer(), refresh ? ReloadIgnoringCacheData : UseProtocolCachePolicy);
+        FrameLoadRequest frameRequest(*securityOrigin(), resourceRequest, "_self", lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::No, NewFrameOpenerPolicy::Allow, shouldOpenExternalURLs());
 
-        frame.loader().changeLocation(WTFMove(frameLoadRequest));
+        frame.loader().changeLocation(frameRequest);
     }
 };
 
@@ -198,12 +194,11 @@ public:
 
     void fire(Frame& frame) override
     {
-        UserGestureIndicator gestureIndicator { userGestureToForward() };
+        UserGestureIndicator gestureIndicator(userGestureToForward());
 
-        ResourceRequest resourceRequest { url(), referrer(), ResourceRequestCachePolicy::UseProtocolCachePolicy };
-        FrameLoadRequest frameLoadRequest { initiatingDocument(), *securityOrigin(), resourceRequest, "_self", lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::No, NewFrameOpenerPolicy::Allow, shouldOpenExternalURLs(), initiatedByMainFrame() };
-
-        frame.loader().changeLocation(WTFMove(frameLoadRequest));
+        ResourceRequest resourceRequest(url(), referrer(), UseProtocolCachePolicy);
+        FrameLoadRequest frameRequest(*securityOrigin(), resourceRequest, "_self", lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::No, NewFrameOpenerPolicy::Allow, shouldOpenExternalURLs());
+        frame.loader().changeLocation(frameRequest);
     }
 };
 
@@ -216,12 +211,11 @@ public:
 
     void fire(Frame& frame) override
     {
-        UserGestureIndicator gestureIndicator { userGestureToForward() };
+        UserGestureIndicator gestureIndicator(userGestureToForward());
 
-        ResourceRequest resourceRequest { url(), referrer(), ResourceRequestCachePolicy::ReloadIgnoringCacheData };
-        FrameLoadRequest frameLoadRequest { initiatingDocument(), *securityOrigin(), resourceRequest, "_self", lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, shouldOpenExternalURLs(), initiatedByMainFrame() };
-
-        frame.loader().changeLocation(WTFMove(frameLoadRequest));
+        ResourceRequest resourceRequest(url(), referrer(), ReloadIgnoringCacheData);
+        FrameLoadRequest frameRequest(*securityOrigin(), resourceRequest, "_self", lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, shouldOpenExternalURLs());
+        frame.loader().changeLocation(frameRequest);
     }
 };
 
@@ -272,9 +266,9 @@ public:
         auto& requestingDocument = m_submission->state().sourceDocument();
         if (!requestingDocument.canNavigate(&frame))
             return;
-        FrameLoadRequest frameLoadRequest { requestingDocument, requestingDocument.securityOrigin(), { }, { }, lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, shouldOpenExternalURLs(), initiatedByMainFrame() };
-        m_submission->populateFrameLoadRequest(frameLoadRequest);
-        frame.loader().loadFrameRequest(WTFMove(frameLoadRequest), m_submission->event(), m_submission->takeState());
+        FrameLoadRequest frameRequest(requestingDocument.securityOrigin(), lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, shouldOpenExternalURLs());
+        m_submission->populateFrameLoadRequest(frameRequest);
+        frame.loader().loadFrameRequest(frameRequest, m_submission->event(), &m_submission->state());
     }
 
     void didStartTimer(Frame& frame, Timer& timer) override
@@ -284,10 +278,10 @@ public:
         m_haveToldClient = true;
 
         UserGestureIndicator gestureIndicator(userGestureToForward());
-        frame.loader().clientRedirected(m_submission->requestURL(), delay(), WallTime::now() + timer.nextFireInterval(), lockBackForwardList());
+        frame.loader().clientRedirected(m_submission->requestURL(), delay(), currentTime() + timer.nextFireInterval().value(), lockBackForwardList());
     }
 
-    void didStopTimer(Frame& frame, NewLoadInProgress newLoadInProgress) override
+    void didStopTimer(Frame& frame, bool newLoadInProgress) override
     {
         if (!m_haveToldClient)
             return;
@@ -316,15 +310,15 @@ public:
 
     void fire(Frame& frame) override
     {
-        UserGestureIndicator gestureIndicator { userGestureToForward() };
+        UserGestureIndicator gestureIndicator(userGestureToForward());
 
-        ResourceResponse replacementResponse { m_originDocument.url(), "text/plain"_s, 0, "UTF-8"_s };
-        SubstituteData replacementData { SharedBuffer::create(), m_originDocument.url(), replacementResponse, SubstituteData::SessionHistoryVisibility::Hidden };
+        ResourceResponse replacementResponse(m_originDocument.url(), ASCIILiteral("text/plain"), 0, ASCIILiteral("UTF-8"));
+        SubstituteData replacementData(SharedBuffer::create(), m_originDocument.url(), replacementResponse, SubstituteData::SessionHistoryVisibility::Hidden);
 
-        ResourceRequest resourceRequest { m_originDocument.url(), emptyString(), ResourceRequestCachePolicy::ReloadIgnoringCacheData };
-        FrameLoadRequest frameLoadRequest { m_originDocument, m_originDocument.securityOrigin(), resourceRequest, { }, lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, shouldOpenExternalURLs(), initiatedByMainFrame() };
-        frameLoadRequest.setSubstituteData(replacementData);
-        frame.loader().load(WTFMove(frameLoadRequest));
+        ResourceRequest resourceRequest(m_originDocument.url(), emptyString(), ReloadIgnoringCacheData);
+        FrameLoadRequest frameRequest(m_originDocument.securityOrigin(), resourceRequest, lockHistory(), lockBackForwardList(), MaybeSendReferrer, AllowNavigationToInvalidURL::Yes, NewFrameOpenerPolicy::Allow, shouldOpenExternalURLs());
+        frameRequest.setSubstituteData(replacementData);
+        frame.loader().load(frameRequest);
     }
 
 private:
@@ -337,7 +331,9 @@ NavigationScheduler::NavigationScheduler(Frame& frame)
 {
 }
 
-NavigationScheduler::~NavigationScheduler() = default;
+NavigationScheduler::~NavigationScheduler()
+{
+}
 
 bool NavigationScheduler::redirectScheduledDuringLoad()
 {
@@ -366,9 +362,9 @@ inline bool NavigationScheduler::shouldScheduleNavigation(const URL& url) const
 {
     if (!shouldScheduleNavigation())
         return false;
-    if (WTF::protocolIsJavaScript(url))
+    if (protocolIsJavaScript(url))
         return true;
-    return NavigationDisabler::isNavigationAllowed(m_frame);
+    return NavigationDisabler::isNavigationAllowed();
 }
 
 void NavigationScheduler::scheduleRedirect(Document& initiatingDocument, double delay, const URL& url)
@@ -418,12 +414,9 @@ void NavigationScheduler::scheduleLocationChange(Document& initiatingDocument, S
     // If the URL we're going to navigate to is the same as the current one, except for the
     // fragment part, we don't need to schedule the location change.
     if (url.hasFragmentIdentifier() && equalIgnoringFragmentIdentifier(m_frame.document()->url(), url)) {
-        ResourceRequest resourceRequest { m_frame.document()->completeURL(url), referrer, ResourceRequestCachePolicy::UseProtocolCachePolicy };
-        auto* frame = lexicalFrameFromCommonVM();
-        auto initiatedByMainFrame = frame && frame->isMainFrame() ? InitiatedByMainFrame::Yes : InitiatedByMainFrame::Unknown;
-        
-        FrameLoadRequest frameLoadRequest { initiatingDocument, securityOrigin, resourceRequest, "_self"_s, lockHistory, lockBackForwardList, MaybeSendReferrer, AllowNavigationToInvalidURL::No, NewFrameOpenerPolicy::Allow, initiatingDocument.shouldOpenExternalURLsPolicyToPropagate(), initiatedByMainFrame };
-        loader.changeLocation(WTFMove(frameLoadRequest));
+        ResourceRequest resourceRequest(m_frame.document()->completeURL(url), referrer, UseProtocolCachePolicy);
+        FrameLoadRequest frameRequest(securityOrigin, resourceRequest, "_self", lockHistory, lockBackForwardList, MaybeSendReferrer, AllowNavigationToInvalidURL::No, NewFrameOpenerPolicy::Allow, ReplaceDocumentIfJavaScriptURL, initiatingDocument.shouldOpenExternalURLsPolicyToPropagate());
+        loader.changeLocation(frameRequest);
         return;
     }
 
@@ -477,8 +470,7 @@ void NavigationScheduler::scheduleHistoryNavigation(int steps)
     // Invalid history navigations (such as history.forward() during a new load) have the side effect of cancelling any scheduled
     // redirects. We also avoid the possibility of cancelling the current load by avoiding the scheduled redirection altogether.
     BackForwardController& backForward = m_frame.page()->backForward();
-    if ((steps > 0 && static_cast<unsigned>(steps) > backForward.forwardCount())
-        || (steps < 0 && static_cast<unsigned>(-steps) > backForward.backCount())) {
+    if (steps > backForward.forwardCount() || -steps > backForward.backCount()) {
         cancel();
         return;
     }
@@ -555,15 +547,15 @@ void NavigationScheduler::startTimer()
     m_redirect->didStartTimer(m_frame, m_timer); // m_redirect may be null on return (e.g. the client canceled the load)
 }
 
-void NavigationScheduler::cancel(NewLoadInProgress newLoadInProgress)
+void NavigationScheduler::cancel(bool newLoadInProgress)
 {
-    LOG(History, "NavigationScheduler %p cancel(newLoadInProgress=%d)", this, newLoadInProgress == NewLoadInProgress::Yes);
+    LOG(History, "NavigationScheduler %p cancel(newLoadInProgress=%d)", this, newLoadInProgress);
 
     if (m_timer.isActive())
         InspectorInstrumentation::frameClearedScheduledNavigation(m_frame);
     m_timer.stop();
 
-    if (auto redirect = WTFMove(m_redirect))
+    if (std::unique_ptr<ScheduledNavigation> redirect = WTFMove(m_redirect))
         redirect->didStopTimer(m_frame, newLoadInProgress);
 }
 

@@ -38,17 +38,14 @@ namespace WebCore {
 class PlatformDisplayX11 final : public PlatformDisplay {
 public:
     static std::unique_ptr<PlatformDisplay> create();
-    static std::unique_ptr<PlatformDisplay> create(Display*);
-
+    PlatformDisplayX11(Display*, NativeDisplayOwned = NativeDisplayOwned::No);
     virtual ~PlatformDisplayX11();
 
     Display* native() const { return m_display; }
     bool supportsXComposite() const;
-    bool supportsXDamage(Optional<int>& damageEventBase, Optional<int>& damageErrorBase) const;
+    bool supportsXDamage(std::optional<int>& damageEventBase, std::optional<int>& damageErrorBase) const;
 
 private:
-    PlatformDisplayX11(Display*, NativeDisplayOwned);
-
     Type type() const override { return PlatformDisplay::Type::X11; }
 
 #if USE(EGL)
@@ -56,10 +53,10 @@ private:
 #endif
 
     Display* m_display { nullptr };
-    mutable Optional<bool> m_supportsXComposite;
-    mutable Optional<bool> m_supportsXDamage;
-    mutable Optional<int> m_damageEventBase;
-    mutable Optional<int> m_damageErrorBase;
+    mutable std::optional<bool> m_supportsXComposite;
+    mutable std::optional<bool> m_supportsXDamage;
+    mutable std::optional<int> m_damageEventBase;
+    mutable std::optional<int> m_damageErrorBase;
 };
 
 } // namespace WebCore

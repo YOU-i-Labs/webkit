@@ -19,7 +19,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#pragma once
+#ifndef FEDisplacementMap_h
+#define FEDisplacementMap_h
 
 #include "FilterEffect.h"
 #include "Filter.h"
@@ -37,33 +38,29 @@ enum ChannelSelectorType {
 
 class FEDisplacementMap : public FilterEffect {
 public:
-    static Ref<FEDisplacementMap> create(Filter&, ChannelSelectorType xChannelSelector, ChannelSelectorType yChannelSelector, float scale);
+    static Ref<FEDisplacementMap> create(Filter&, ChannelSelectorType xChannelSelector, ChannelSelectorType yChannelSelector, float);
 
-    ChannelSelectorType xChannelSelector() const { return m_xChannelSelector; }
+    ChannelSelectorType xChannelSelector() const;
     bool setXChannelSelector(const ChannelSelectorType);
 
-    ChannelSelectorType yChannelSelector() const { return m_yChannelSelector; }
+    ChannelSelectorType yChannelSelector() const;
     bool setYChannelSelector(const ChannelSelectorType);
 
-    float scale() const { return m_scale; }
+    float scale() const;
     bool setScale(float);
 
     void setResultColorSpace(ColorSpace) override;
     void transformResultColorSpace(FilterEffect*, const int) override;
 
-private:
-    FEDisplacementMap(Filter&, ChannelSelectorType xChannelSelector, ChannelSelectorType yChannelSelector, float);
-
-    const char* filterName() const final { return "FEDisplacementMap"; }
-
     void platformApplySoftware() override;
+    void dump() override;
 
     void determineAbsolutePaintRect() override { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
 
-    int xChannelIndex() const { return m_xChannelSelector - 1; }
-    int yChannelIndex() const { return m_yChannelSelector - 1; }
+    TextStream& externalRepresentation(TextStream&, int indention) const override;
 
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
+private:
+    FEDisplacementMap(Filter&, ChannelSelectorType xChannelSelector, ChannelSelectorType yChannelSelector, float);
 
     ChannelSelectorType m_xChannelSelector;
     ChannelSelectorType m_yChannelSelector;
@@ -72,3 +69,4 @@ private:
 
 } // namespace WebCore
 
+#endif // FEDisplacementMap_h

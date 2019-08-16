@@ -23,14 +23,16 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ObjectPreview = class ObjectPreview
+WebInspector.ObjectPreview = class ObjectPreview extends WebInspector.Object
 {
     constructor(type, subtype, description, lossless, overflow, properties, entries, size)
     {
+        super();
+
         console.assert(type);
         console.assert(typeof lossless === "boolean");
-        console.assert(!properties || !properties.length || properties[0] instanceof WI.PropertyPreview);
-        console.assert(!entries || !entries.length || entries[0] instanceof WI.CollectionEntryPreview);
+        console.assert(!properties || !properties.length || properties[0] instanceof WebInspector.PropertyPreview);
+        console.assert(!entries || !entries.length || entries[0] instanceof WebInspector.CollectionEntryPreview);
 
         this._type = type;
         this._subtype = subtype;
@@ -49,9 +51,9 @@ WI.ObjectPreview = class ObjectPreview
     static fromPayload(payload)
     {
         if (payload.properties)
-            payload.properties = payload.properties.map(WI.PropertyPreview.fromPayload);
+            payload.properties = payload.properties.map(WebInspector.PropertyPreview.fromPayload);
         if (payload.entries)
-            payload.entries = payload.entries.map(WI.CollectionEntryPreview.fromPayload);
+            payload.entries = payload.entries.map(WebInspector.CollectionEntryPreview.fromPayload);
 
         if (payload.subtype === "array") {
             // COMPATIBILITY (iOS 8): Runtime.ObjectPreview did not have size property,
@@ -63,7 +65,7 @@ WI.ObjectPreview = class ObjectPreview
             }
         }
 
-        return new WI.ObjectPreview(payload.type, payload.subtype, payload.description, payload.lossless, payload.overflow, payload.properties, payload.entries, payload.size);
+        return new WebInspector.ObjectPreview(payload.type, payload.subtype, payload.description, payload.lossless, payload.overflow, payload.properties, payload.entries, payload.size);
     }
 
     // Public

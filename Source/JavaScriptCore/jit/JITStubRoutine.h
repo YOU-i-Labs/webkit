@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,7 +49,7 @@ class JITStubRoutine {
     WTF_MAKE_NONCOPYABLE(JITStubRoutine);
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    JITStubRoutine(const MacroAssemblerCodeRef<JITStubRoutinePtrTag>& code)
+    JITStubRoutine(const MacroAssemblerCodeRef& code)
         : m_code(code)
         , m_refCount(1)
     {
@@ -58,9 +58,9 @@ public:
     // Use this if you want to pass a CodePtr to someone who insists on taking
     // a RefPtr<JITStubRoutine>.
     static Ref<JITStubRoutine> createSelfManagedRoutine(
-        MacroAssemblerCodePtr<JITStubRoutinePtrTag> rawCodePointer)
+        MacroAssemblerCodePtr rawCodePointer)
     {
-        return adoptRef(*new JITStubRoutine(MacroAssemblerCodeRef<JITStubRoutinePtrTag>::createSelfManagedCodeRef(rawCodePointer)));
+        return adoptRef(*new JITStubRoutine(MacroAssemblerCodeRef::createSelfManagedCodeRef(rawCodePointer)));
     }
     
     virtual ~JITStubRoutine();
@@ -69,11 +69,11 @@ public:
     // MacroAssemblerCodeRef is copyable, but at the cost of reference
     // counting churn. Returning a reference is a good way of reducing
     // the churn.
-    const MacroAssemblerCodeRef<JITStubRoutinePtrTag>& code() const { return m_code; }
+    const MacroAssemblerCodeRef& code() const { return m_code; }
     
-    static MacroAssemblerCodePtr<JITStubRoutinePtrTag> asCodePtr(Ref<JITStubRoutine>&& stubRoutine)
+    static MacroAssemblerCodePtr asCodePtr(Ref<JITStubRoutine>&& stubRoutine)
     {
-        MacroAssemblerCodePtr<JITStubRoutinePtrTag> result = stubRoutine->code().code();
+        MacroAssemblerCodePtr result = stubRoutine->code().code();
         ASSERT(!!result);
         return result;
     }
@@ -96,9 +96,30 @@ public:
     uintptr_t endAddress() const { return m_code.executableMemory()->endAsInteger(); }
     static uintptr_t addressStep() { return jitAllocationGranule; }
     
+    static bool canPerformRangeFilter()
+    {
+        return true;
+    }
+    static uintptr_t filteringStartAddress()
+    {
+        return startOfFixedExecutableMemoryPool;
+    }
+    static size_t filteringExtentSize()
+    {
+        return fixedExecutableMemoryPoolSize;
+    }
     static bool passesFilter(uintptr_t address)
     {
-        return isJITPC(bitwise_cast<void*>(address));
+        if (!canPerformRangeFilter()) {
+            // Just check that the address doesn't use any special values that would make
+            // our hashtables upset.
+            return address >= jitAllocationGranule && address != std::numeric_limits<uintptr_t>::max();
+        }
+        
+        if (address - filteringStartAddress() >= filteringExtentSize())
+            return false;
+        
+        return true;
     }
     
     // Return true if you are still valid after. Return false if you are now invalid. If you return
@@ -109,13 +130,13 @@ public:
 protected:
     virtual void observeZeroRefCount();
 
-    MacroAssemblerCodeRef<JITStubRoutinePtrTag> m_code;
+    MacroAssemblerCodeRef m_code;
     unsigned m_refCount;
 };
 
 // Helper for the creation of simple stub routines that need no help from the GC.
-#define FINALIZE_CODE_FOR_STUB(codeBlock, patchBuffer, resultPtrTag, ...) \
-    (adoptRef(new JITStubRoutine(FINALIZE_CODE_FOR((codeBlock), (patchBuffer), (resultPtrTag), __VA_ARGS__))))
+#define FINALIZE_CODE_FOR_STUB(codeBlock, patchBuffer, dataLogFArguments) \
+    (adoptRef(new JITStubRoutine(FINALIZE_CODE_FOR((codeBlock), (patchBuffer), dataLogFArguments))))
 
 } // namespace JSC
 

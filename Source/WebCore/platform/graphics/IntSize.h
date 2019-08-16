@@ -25,8 +25,8 @@
 
 #pragma once
 
+#include "PlatformExportMacros.h"
 #include <algorithm>
-#include <wtf/Forward.h>
 
 #if PLATFORM(MAC) && defined __OBJC__
 #import <Foundation/NSGeometry.h>
@@ -44,7 +44,7 @@ typedef struct _NSSize NSSize;
 #endif
 #endif
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #ifndef NSSize
 #define NSSize CGSize
 #endif
@@ -60,13 +60,10 @@ struct D2D_SIZE_F;
 typedef D2D_SIZE_F D2D1_SIZE_F;
 #endif
 
-namespace WTF {
-class TextStream;
-}
-
 namespace WebCore {
 
 class FloatSize;
+class TextStream;
 
 class IntSize {
 public:
@@ -216,11 +213,7 @@ inline bool operator!=(const IntSize& a, const IntSize& b)
     return a.width() != b.width() || a.height() != b.height();
 }
 
-WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const IntSize&);
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, const IntSize&);
 
 } // namespace WebCore
 
-namespace WTF {
-template<> struct DefaultHash<WebCore::IntSize>;
-template<> struct HashTraits<WebCore::IntSize>;
-}

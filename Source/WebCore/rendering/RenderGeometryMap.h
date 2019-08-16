@@ -27,6 +27,7 @@
 
 #include "FloatPoint.h"
 #include "FloatQuad.h"
+#include "IntSize.h"
 #include "LayoutSize.h"
 #include "RenderObject.h"
 #include "TransformationMatrix.h"
@@ -34,7 +35,7 @@
 
 namespace WebCore {
 
-class RenderFragmentedFlow;
+class RenderFlowThread;
 class RenderLayer;
 class RenderLayerModelObject;
 class RenderView;
@@ -109,7 +110,7 @@ public:
 
     // RenderView gets special treatment, because it applies the scroll offset only for elements inside in fixed position.
     void pushView(const RenderView*, const LayoutSize& scrollOffset, const TransformationMatrix* = nullptr);
-    void pushRenderFragmentedFlow(const RenderFragmentedFlow*);
+    void pushRenderFlowThread(const RenderFlowThread*);
 
 private:
     void mapToContainer(TransformState&, const RenderLayerModelObject* container = nullptr) const;

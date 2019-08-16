@@ -33,7 +33,6 @@ namespace egl
 {
 class Display;
 class Error;
-class Thread;
 
 class Stream final : angle::NonCopyable
 {
@@ -88,8 +87,8 @@ class Stream final : angle::NonCopyable
     Error createProducerD3D11TextureNV12(const AttributeMap &attributes);
 
     // Consumer methods
-    Error consumerAcquire(const gl::Context *context);
-    Error consumerRelease(const gl::Context *context);
+    Error consumerAcquire();
+    Error consumerRelease();
 
     // Some consumers are bound to GL contexts. This validates that a given context is bound to the
     // stream's consumer

@@ -33,11 +33,8 @@
 #include "HTMLParserIdioms.h"
 #include "HTMLTableElement.h"
 #include "StyleProperties.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLTablePartElement);
 
 using namespace HTMLNames;
 
@@ -55,7 +52,7 @@ void HTMLTablePartElement::collectStyleForPresentationAttribute(const QualifiedN
     else if (name == backgroundAttr) {
         String url = stripLeadingAndTrailingHTMLSpaces(value);
         if (!url.isEmpty())
-            style.setProperty(CSSProperty(CSSPropertyBackgroundImage, CSSImageValue::create(document().completeURL(url), LoadedFromOpaqueSource::No)));
+            style.setProperty(CSSProperty(CSSPropertyBackgroundImage, CSSImageValue::create(document().completeURL(url))));
     } else if (name == valignAttr) {
         if (equalLettersIgnoringASCIICase(value, "top"))
             addPropertyToPresentationAttributeStyle(style, CSSPropertyVerticalAlign, CSSValueTop);
@@ -85,12 +82,12 @@ void HTMLTablePartElement::collectStyleForPresentationAttribute(const QualifiedN
         HTMLElement::collectStyleForPresentationAttribute(name, value, style);
 }
 
-RefPtr<HTMLTableElement> HTMLTablePartElement::findParentTable() const
+HTMLTableElement* HTMLTablePartElement::findParentTable() const
 {
-    RefPtr<ContainerNode> parent = parentNode();
+    ContainerNode* parent = parentNode();
     while (parent && !is<HTMLTableElement>(*parent))
         parent = parent->parentNode();
-    return downcast<HTMLTableElement>(parent.get());
+    return downcast<HTMLTableElement>(parent);
 }
 
 }

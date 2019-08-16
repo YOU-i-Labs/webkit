@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2011, 2014-2015 Apple Inc. All rights reserved.
  *               2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,6 @@
 
 #include "AXObjectCache.h"
 #include "CSSFontSelector.h"
-#include "DeprecatedGlobalSettings.h"
 #include "Document.h"
 #include "DocumentEventQueue.h"
 #include "EventHandler.h"
@@ -50,7 +49,6 @@
 #include "Page.h"
 #include "PaintInfo.h"
 #include "RenderLayer.h"
-#include "RenderLayoutState.h"
 #include "RenderScrollbar.h"
 #include "RenderText.h"
 #include "RenderTheme.h"
@@ -64,14 +62,11 @@
 #include "StyleTreeResolver.h"
 #include "WheelEventTestTrigger.h"
 #include <math.h>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderListBox);
  
 const int rowSpacing = 1;
 
@@ -116,46 +111,38 @@ HTMLSelectElement& RenderListBox::selectElement() const
     return downcast<HTMLSelectElement>(nodeForNonAnonymous());
 }
 
-static FontCascade bolder(Document& document, const FontCascade& font)
-{
-    auto description = font.fontDescription();
-    description.setWeight(description.bolderWeight());
-    auto result = FontCascade { WTFMove(description), font.letterSpacing(), font.wordSpacing() };
-    result.update(&document.fontSelector());
-    return result;
-}
-
 void RenderListBox::updateFromElement()
 {
     if (m_optionsChanged) {
+        const Vector<HTMLElement*>& listItems = selectElement().listItems();
+        int size = numItems();
+        
         float width = 0;
-        auto& normalFont = style().fontCascade();
-        Optional<FontCascade> boldFont;
-        for (auto* element : selectElement().listItems()) {
+        for (int i = 0; i < size; ++i) {
+            HTMLElement* element = listItems[i];
             String text;
-            WTF::Function<const FontCascade&()> selectFont = [&normalFont] () -> const FontCascade& {
-                return normalFont;
-            };
+            FontCascade itemFont = style().fontCascade();
             if (is<HTMLOptionElement>(*element))
                 text = downcast<HTMLOptionElement>(*element).textIndentedToRespectGroupLabel();
             else if (is<HTMLOptGroupElement>(*element)) {
                 text = downcast<HTMLOptGroupElement>(*element).groupLabelText();
-                selectFont = [this, &normalFont, &boldFont] () -> const FontCascade& {
-                    if (!boldFont)
-                        boldFont = bolder(document(), normalFont);
-                    return boldFont.value();
-                };
+                auto description = itemFont.fontDescription();
+                description.setWeight(description.bolderWeight());
+                itemFont = FontCascade(description, itemFont.letterSpacing(), itemFont.wordSpacing());
+                itemFont.update(&document().fontSelector());
             }
-            if (text.isEmpty())
-                continue;
-            text = applyTextTransform(style(), text, ' ');
-            auto textRun = constructTextRun(text, style(), AllowTrailingExpansion);
-            width = std::max(width, selectFont().width(textRun));
-        }
-        // FIXME: Is ceiling right here, or should we be doing some kind of rounding instead?
-        m_optionsWidth = static_cast<int>(std::ceil(width));
-        m_optionsChanged = false;
 
+            if (!text.isEmpty()) {
+                applyTextTransform(style(), text, ' ');
+                // FIXME: Why is this always LTR? Can't text direction affect the width?
+                TextRun textRun = constructTextRun(text, style(), AllowTrailingExpansion);
+                float textWidth = itemFont.width(textRun);
+                width = std::max(width, textWidth);
+            }
+        }
+        m_optionsWidth = static_cast<int>(ceilf(width));
+        m_optionsChanged = false;
+        
         setHasVerticalScrollbar(true);
 
         computeFirstIndexesVisibleInPaddingTopBottomAreas();
@@ -175,7 +162,7 @@ void RenderListBox::selectionChanged()
     }
     
     if (AXObjectCache* cache = document().existingAXObjectCache())
-        cache->deferSelectedChildrenChangedIfNeeded(selectElement());
+        cache->selectedChildrenChanged(this);
 }
 
 void RenderListBox::layout()
@@ -195,7 +182,7 @@ void RenderListBox::layout()
     }
 
     if (m_scrollToRevealSelectionAfterLayout) {
-        LayoutStateDisabler layoutStateDisabler(view().frameView().layoutContext());
+        LayoutStateDisabler layoutStateDisabler(view());
         scrollToRevealSelection();
     }
 }
@@ -299,10 +286,10 @@ LayoutRect RenderListBox::itemBoundingBoxRect(const LayoutPoint& additionalOffse
     return LayoutRect(x, y, contentWidth(), itemHeight());
 }
 
-void RenderListBox::paintItem(PaintInfo& paintInfo, const LayoutPoint& paintOffset, const PaintFunction& paintFunction)
+void RenderListBox::paintItem(PaintInfo& paintInfo, const LayoutPoint& paintOffset, PaintFunction paintFunction)
 {
     int listItemsSize = numItems();
-    int firstVisibleItem = m_indexOfFirstVisibleItemInsidePaddingTopArea.valueOr(m_indexOffset);
+    int firstVisibleItem = m_indexOfFirstVisibleItemInsidePaddingTopArea.value_or(m_indexOffset);
     int endIndex = firstVisibleItem + numVisibleItems(ConsiderPadding::Yes);
     for (int i = firstVisibleItem; i < listItemsSize && i < endIndex; ++i)
         paintFunction(paintInfo, paintOffset, i);
@@ -310,10 +297,10 @@ void RenderListBox::paintItem(PaintInfo& paintInfo, const LayoutPoint& paintOffs
 
 void RenderListBox::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (style().visibility() != Visibility::Visible)
+    if (style().visibility() != VISIBLE)
         return;
     
-    if (paintInfo.phase == PaintPhase::Foreground) {
+    if (paintInfo.phase == PaintPhaseForeground) {
         paintItem(paintInfo, paintOffset, [this](PaintInfo& paintInfo, const LayoutPoint& paintOffset, int listItemIndex) {
             paintItemForeground(paintInfo, paintOffset, listItemIndex);
         });
@@ -325,16 +312,16 @@ void RenderListBox::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOf
     switch (paintInfo.phase) {
     // Depending on whether we have overlay scrollbars they
     // get rendered in the foreground or background phases
-    case PaintPhase::Foreground:
+    case PaintPhaseForeground:
         if (m_vBar->isOverlayScrollbar())
             paintScrollbar(paintInfo, paintOffset);
         break;
-    case PaintPhase::BlockBackground:
+    case PaintPhaseBlockBackground:
         if (!m_vBar->isOverlayScrollbar())
             paintScrollbar(paintInfo, paintOffset);
         break;
-    case PaintPhase::ChildBlockBackground:
-    case PaintPhase::ChildBlockBackgrounds: {
+    case PaintPhaseChildBlockBackground:
+    case PaintPhaseChildBlockBackgrounds: {
         paintItem(paintInfo, paintOffset, [this](PaintInfo& paintInfo, const LayoutPoint& paintOffset, int listItemIndex) {
             paintItemBackground(paintInfo, paintOffset, listItemIndex);
         });
@@ -386,17 +373,17 @@ void RenderListBox::paintScrollbar(PaintInfo& paintInfo, const LayoutPoint& pain
 
 static LayoutSize itemOffsetForAlignment(TextRun textRun, const RenderStyle* itemStyle, FontCascade itemFont, LayoutRect itemBoudingBox)
 {
-    TextAlignMode actualAlignment = itemStyle->textAlign();
-    // FIXME: Firefox doesn't respect TextAlignMode::Justify. Should we?
-    // FIXME: Handle TextAlignMode::End here
-    if (actualAlignment == TextAlignMode::Start || actualAlignment == TextAlignMode::Justify)
-        actualAlignment = itemStyle->isLeftToRightDirection() ? TextAlignMode::Left : TextAlignMode::Right;
+    ETextAlign actualAlignment = itemStyle->textAlign();
+    // FIXME: Firefox doesn't respect JUSTIFY. Should we?
+    // FIXME: Handle TAEND here
+    if (actualAlignment == TASTART || actualAlignment == JUSTIFY)
+      actualAlignment = itemStyle->isLeftToRightDirection() ? LEFT : RIGHT;
 
     LayoutSize offset = LayoutSize(0, itemFont.fontMetrics().ascent());
-    if (actualAlignment == TextAlignMode::Right || actualAlignment == TextAlignMode::WebKitRight) {
+    if (actualAlignment == RIGHT || actualAlignment == WEBKIT_RIGHT) {
         float textWidth = itemFont.width(textRun);
         offset.setWidth(itemBoudingBox.width() - textWidth - optionsSpacingHorizontal);
-    } else if (actualAlignment == TextAlignMode::Center || actualAlignment == TextAlignMode::WebKitCenter) {
+    } else if (actualAlignment == CENTER || actualAlignment == WEBKIT_CENTER) {
         float textWidth = itemFont.width(textRun);
         offset.setWidth((itemBoudingBox.width() - textWidth) / 2);
     } else
@@ -411,7 +398,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, const LayoutPoint&
 
     auto& itemStyle = *listItemElement->computedStyle();
 
-    if (itemStyle.visibility() == Visibility::Hidden)
+    if (itemStyle.visibility() == HIDDEN)
         return;
 
     String itemText;
@@ -420,18 +407,15 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, const LayoutPoint&
         itemText = downcast<HTMLOptionElement>(*listItemElement).textIndentedToRespectGroupLabel();
     else if (is<HTMLOptGroupElement>(*listItemElement))
         itemText = downcast<HTMLOptGroupElement>(*listItemElement).groupLabelText();
-    itemText = applyTextTransform(style(), itemText, ' ');
+    applyTextTransform(style(), itemText, ' ');
 
-    if (itemText.isNull())
-        return;
-
-    Color textColor = itemStyle.visitedDependentColorWithColorFilter(CSSPropertyColor);
+    Color textColor = itemStyle.visitedDependentColor(CSSPropertyColor);
     if (isOptionElement && downcast<HTMLOptionElement>(*listItemElement).selected()) {
         if (frame().selection().isFocusedAndActive() && document().focusedElement() == &selectElement())
-            textColor = theme().activeListBoxSelectionForegroundColor(styleColorOptions());
+            textColor = theme().activeListBoxSelectionForegroundColor();
         // Honor the foreground color for disabled items
         else if (!listItemElement->isDisabledFormControl() && !selectElement().isDisabledFormControl())
-            textColor = theme().inactiveListBoxSelectionForegroundColor(styleColorOptions());
+            textColor = theme().inactiveListBoxSelectionForegroundColor();
     }
 
     paintInfo.context().setFillColor(textColor);
@@ -444,7 +428,7 @@ void RenderListBox::paintItemForeground(PaintInfo& paintInfo, const LayoutPoint&
     if (is<HTMLOptGroupElement>(*listItemElement)) {
         auto description = itemFont.fontDescription();
         description.setWeight(description.bolderWeight());
-        itemFont = FontCascade(WTFMove(description), itemFont.letterSpacing(), itemFont.wordSpacing());
+        itemFont = FontCascade(description, itemFont.letterSpacing(), itemFont.wordSpacing());
         itemFont.update(&document().fontSelector());
     }
 
@@ -461,14 +445,14 @@ void RenderListBox::paintItemBackground(PaintInfo& paintInfo, const LayoutPoint&
     Color backColor;
     if (is<HTMLOptionElement>(*listItemElement) && downcast<HTMLOptionElement>(*listItemElement).selected()) {
         if (frame().selection().isFocusedAndActive() && document().focusedElement() == &selectElement())
-            backColor = theme().activeListBoxSelectionBackgroundColor(styleColorOptions());
+            backColor = theme().activeListBoxSelectionBackgroundColor();
         else
-            backColor = theme().inactiveListBoxSelectionBackgroundColor(styleColorOptions());
+            backColor = theme().inactiveListBoxSelectionBackgroundColor();
     } else
-        backColor = itemStyle.visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+        backColor = itemStyle.visitedDependentColor(CSSPropertyBackgroundColor);
 
     // Draw the background for this list box item
-    if (itemStyle.visibility() == Visibility::Hidden)
+    if (itemStyle.visibility() == HIDDEN)
         return;
 
     LayoutRect itemRect = itemBoundingBoxRect(paintOffset, listIndex);
@@ -621,7 +605,7 @@ bool RenderListBox::scrollToRevealElementAtListIndex(int index)
 
 bool RenderListBox::listIndexIsVisible(int index)
 {
-    int firstIndex = m_indexOfFirstVisibleItemInsidePaddingTopArea.valueOr(m_indexOffset);
+    int firstIndex = m_indexOfFirstVisibleItemInsidePaddingTopArea.value_or(m_indexOffset);
     int endIndex = m_indexOfFirstVisibleItemInsidePaddingBottomArea
         ? m_indexOfFirstVisibleItemInsidePaddingBottomArea.value() + numberOfVisibleItemsInPaddingBottom()
         : m_indexOffset + numVisibleItems();
@@ -693,8 +677,8 @@ int RenderListBox::numberOfVisibleItemsInPaddingBottom() const
 
 void RenderListBox::computeFirstIndexesVisibleInPaddingTopBottomAreas()
 {
-    m_indexOfFirstVisibleItemInsidePaddingTopArea = WTF::nullopt;
-    m_indexOfFirstVisibleItemInsidePaddingBottomArea = WTF::nullopt;
+    m_indexOfFirstVisibleItemInsidePaddingTopArea = std::nullopt;
+    m_indexOfFirstVisibleItemInsidePaddingBottomArea = std::nullopt;
 
     int maximumNumberOfItemsThatFitInPaddingTopArea = paddingTop() / itemHeight();
     if (maximumNumberOfItemsThatFitInPaddingTopArea) {
@@ -749,7 +733,7 @@ int RenderListBox::scrollLeft() const
     return 0;
 }
 
-void RenderListBox::setScrollLeft(int, ScrollClamping)
+void RenderListBox::setScrollLeft(int)
 {
 }
 
@@ -766,7 +750,7 @@ static void setupWheelEventTestTrigger(RenderListBox& renderer)
     renderer.scrollAnimator().setWheelEventTestTrigger(renderer.page().testTrigger());
 }
 
-void RenderListBox::setScrollTop(int newTop, ScrollClamping)
+void RenderListBox::setScrollTop(int newTop)
 {
     // Determine an index and scroll to it.    
     int index = newTop / itemHeight();
@@ -906,7 +890,7 @@ IntRect RenderListBox::scrollableAreaBoundingBox(bool*) const
 
 bool RenderListBox::usesMockScrollAnimator() const
 {
-    return DeprecatedGlobalSettings::usesMockScrollAnimator();
+    return Settings::usesMockScrollAnimator();
 }
 
 void RenderListBox::logMockScrollAnimatorMessage(const String& message) const
@@ -917,7 +901,7 @@ void RenderListBox::logMockScrollAnimatorMessage(const String& message) const
 Ref<Scrollbar> RenderListBox::createScrollbar()
 {
     RefPtr<Scrollbar> widget;
-    bool hasCustomScrollbarStyle = style().hasPseudoStyle(PseudoId::Scrollbar);
+    bool hasCustomScrollbarStyle = style().hasPseudoStyle(SCROLLBAR);
     if (hasCustomScrollbarStyle)
         widget = RenderScrollbar::createCustomScrollbar(*this, VerticalScrollbar, &selectElement());
     else {

@@ -29,7 +29,7 @@
 #include "ClassInfo.h"
 #include "Heap.h"
 #include "HeapIterationScope.h"
-#include "JSCast.h"
+#include "JSCell.h"
 #include "JSCellInlines.h"
 #include <wtf/PrintStream.h>
 

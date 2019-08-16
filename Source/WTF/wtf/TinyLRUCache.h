@@ -23,7 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef TinyLRUCache_h
+#define TinyLRUCache_h
 
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Vector.h>
@@ -79,3 +80,5 @@ private:
 
 using WTF::TinyLRUCache;
 using WTF::TinyLRUCachePolicy;
+
+#endif // TinyLRUCache_h

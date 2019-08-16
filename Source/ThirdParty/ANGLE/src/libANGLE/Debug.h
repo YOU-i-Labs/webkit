@@ -31,7 +31,6 @@ class Debug : angle::NonCopyable
 {
   public:
     Debug();
-    ~Debug();
 
     void setMaxLoggedMessages(GLuint maxLoggedMessages);
 
@@ -92,10 +91,6 @@ class Debug : angle::NonCopyable
 
     struct Control
     {
-        Control();
-        ~Control();
-        Control(const Control &other);
-
         GLenum source;
         GLenum type;
         GLenum severity;
@@ -105,10 +100,6 @@ class Debug : angle::NonCopyable
 
     struct Group
     {
-        Group();
-        ~Group();
-        Group(const Group &other);
-
         GLenum source;
         GLuint id;
         std::string message;

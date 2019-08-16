@@ -61,7 +61,7 @@ public:
     virtual void doApply() = 0;
 
 protected:
-    explicit EditCommand(Document&, EditAction = EditAction::Unspecified);
+    explicit EditCommand(Document&, EditAction = EditActionUnspecified);
     EditCommand(Document&, const VisibleSelection&, const VisibleSelection&);
 
     const Frame& frame() const;
@@ -82,7 +82,7 @@ private:
     VisibleSelection m_startingSelection;
     VisibleSelection m_endingSelection;
     CompositeEditCommand* m_parent { nullptr };
-    EditAction m_editingAction { EditAction::Unspecified };
+    EditAction m_editingAction { EditActionUnspecified };
 };
 
 enum ShouldAssumeContentIsAlwaysEditable {
@@ -100,7 +100,7 @@ public:
 #endif
 
 protected:
-    explicit SimpleEditCommand(Document&, EditAction = EditAction::Unspecified);
+    explicit SimpleEditCommand(Document&, EditAction = EditActionUnspecified);
 
 #ifndef NDEBUG
     void addNodeAndDescendants(Node*, HashSet<Node*>&);

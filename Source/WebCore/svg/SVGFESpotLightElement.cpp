@@ -20,11 +20,8 @@
 #include "config.h"
 #include "SVGFESpotLightElement.h"
 
-#include "GeometryUtilities.h"
-#include "SVGFilterBuilder.h"
 #include "SVGNames.h"
 #include "SpotLightSource.h"
-#include <wtf/MathExtras.h>
 
 namespace WebCore {
 
@@ -39,29 +36,12 @@ Ref<SVGFESpotLightElement> SVGFESpotLightElement::create(const QualifiedName& ta
     return adoptRef(*new SVGFESpotLightElement(tagName, document));
 }
 
-Ref<LightSource> SVGFESpotLightElement::lightSource(SVGFilterBuilder& builder) const
+Ref<LightSource> SVGFESpotLightElement::lightSource() const
 {
-    FloatPoint3D position;
-    FloatPoint3D pointsAt;
+    FloatPoint3D pos(x(), y(), z());
+    FloatPoint3D direction(pointsAtX(), pointsAtY(), pointsAtZ());
 
-    if (builder.primitiveUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
-        FloatRect referenceBox = builder.targetBoundingBox();
-        
-        position.setX(referenceBox.x() + x() * referenceBox.width());
-        position.setY(referenceBox.y() + y() * referenceBox.height());
-        // https://www.w3.org/TR/SVG/filters.html#fePointLightZAttribute and https://www.w3.org/TR/SVG/coords.html#Units_viewport_percentage
-        position.setZ(z() * euclidianDistance(referenceBox.minXMinYCorner(), referenceBox.maxXMaxYCorner()) / sqrtOfTwoFloat);
-
-        pointsAt.setX(referenceBox.x() + pointsAtX() * referenceBox.width());
-        pointsAt.setY(referenceBox.y() + pointsAtY() * referenceBox.height());
-        // https://www.w3.org/TR/SVG/filters.html#fePointLightZAttribute and https://www.w3.org/TR/SVG/coords.html#Units_viewport_percentage
-        pointsAt.setZ(pointsAtZ() * euclidianDistance(referenceBox.minXMinYCorner(), referenceBox.maxXMaxYCorner()) / sqrtOfTwoFloat);
-    } else {
-        position = FloatPoint3D(x(), y(), z());
-        pointsAt = FloatPoint3D(pointsAtX(), pointsAtY(), pointsAtZ());
-    }
-
-    return SpotLightSource::create(position, pointsAt, specularExponent(), limitingConeAngle());
+    return SpotLightSource::create(pos, direction, specularExponent(), limitingConeAngle());
 }
 
 }

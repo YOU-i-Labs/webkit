@@ -27,6 +27,7 @@
 
 #include "CSSValue.h"
 #include "FloatSizeHash.h"
+#include "Timer.h"
 #include <wtf/HashCountedSet.h>
 
 namespace WebCore {
@@ -45,7 +46,6 @@ public:
 
     void addClient(RenderElement&);
     void removeClient(RenderElement&);
-    const HashCountedSet<RenderElement*>& clients() const { return m_clients; }
 
     RefPtr<Image> image(RenderElement&, const FloatSize&);
 
@@ -62,6 +62,7 @@ protected:
 
     GeneratedImage* cachedImageForSize(FloatSize);
     void saveCachedImageForSize(FloatSize, GeneratedImage&);
+    const HashCountedSet<RenderElement*>& clients() const { return m_clients; }
 
     // Helper functions for Crossfade and Filter.
     static CachedImage* cachedImageForCSSValue(CSSValue&, CachedResourceLoader&, const ResourceLoaderOptions&);

@@ -23,7 +23,7 @@
 
 #if USE(TEXTURE_MAPPER_GL)
 
-#include "TextureMapperGLHeaders.h"
+#include "GraphicsContext3D.h"
 #include "TransformationMatrix.h"
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
@@ -33,7 +33,7 @@
 namespace WebCore {
 
 #define TEXMAP_DECLARE_VARIABLE(Accessor, Name, Type) \
-    GLuint Accessor##Location() { \
+    GC3Duint Accessor##Location() { \
         static NeverDestroyed<const AtomicString> name(Name, AtomicString::ConstructFromLiteral); \
         return getLocation(name.get(), Type); \
     }
@@ -66,10 +66,11 @@ public:
 
     typedef unsigned Options;
 
-    static Ref<TextureMapperShaderProgram> create(Options);
+    static Ref<TextureMapperShaderProgram> create(Ref<GraphicsContext3D>&&, Options);
     virtual ~TextureMapperShaderProgram();
 
-    GLuint programID() const { return m_id; }
+    Platform3DObject programID() const { return m_id; }
+    GraphicsContext3D& context() { return m_context; }
 
     TEXMAP_DECLARE_ATTRIBUTE(vertex)
 
@@ -89,19 +90,20 @@ public:
     TEXMAP_DECLARE_UNIFORM(shadowOffset)
     TEXMAP_DECLARE_SAMPLER(contentTexture)
 
-    void setMatrix(GLuint, const TransformationMatrix&);
+    void setMatrix(GC3Duint, const TransformationMatrix&);
 
 private:
-    TextureMapperShaderProgram(const String& vertexShaderSource, const String& fragmentShaderSource);
+    TextureMapperShaderProgram(Ref<GraphicsContext3D>&&, const String& vertexShaderSource, const String& fragmentShaderSource);
 
-    GLuint m_vertexShader;
-    GLuint m_fragmentShader;
+    Platform3DObject m_vertexShader;
+    Platform3DObject m_fragmentShader;
 
     enum VariableType { UniformVariable, AttribVariable };
-    GLuint getLocation(const AtomicString&, VariableType);
+    GC3Duint getLocation(const AtomicString&, VariableType);
 
-    GLuint m_id;
-    HashMap<AtomicString, GLuint> m_variables;
+    Ref<GraphicsContext3D> m_context;
+    Platform3DObject m_id;
+    HashMap<AtomicString, GC3Duint> m_variables;
 };
 
 }

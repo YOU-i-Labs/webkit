@@ -25,22 +25,12 @@
 
 #include "BPlatform.h"
 #include "Environment.h"
-#include "ProcessCheck.h"
 #include <cstdlib>
 #include <cstring>
 #if BOS(DARWIN)
 #include <mach-o/dyld.h>
 #elif BOS(UNIX)
 #include <dlfcn.h>
-#endif
-
-#if BUSE(CHECK_NANO_MALLOC)
-extern "C" {
-#if __has_include(<malloc_private.h>)
-#include <malloc_private.h>
-#endif
-int malloc_engaged_nano(void);
-}
 #endif
 
 namespace bmalloc {
@@ -117,15 +107,7 @@ static bool isSanitizerEnabled()
 #endif
 }
 
-#if BUSE(CHECK_NANO_MALLOC)
-static bool isNanoMallocEnabled()
-{
-    int result = !!malloc_engaged_nano();
-    return result;
-}
-#endif
-
-Environment::Environment(std::lock_guard<Mutex>&)
+Environment::Environment()
     : m_isDebugHeapEnabled(computeIsDebugHeapEnabled())
 {
 }
@@ -138,10 +120,6 @@ bool Environment::computeIsDebugHeapEnabled()
         return true;
     if (isSanitizerEnabled())
         return true;
-#if BUSE(CHECK_NANO_MALLOC)
-    if (!isNanoMallocEnabled() && !shouldProcessUnconditionallyUseBmalloc())
-        return true;
-#endif
     return false;
 }
 

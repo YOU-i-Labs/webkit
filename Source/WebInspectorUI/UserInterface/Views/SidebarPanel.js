@@ -23,11 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SidebarPanel = class SidebarPanel extends WI.View
+WebInspector.SidebarPanel = class SidebarPanel extends WebInspector.View
 {
-    constructor(identifier, displayName)
+    constructor(identifier, displayName, element, role, label)
     {
-        super();
+        super(element);
 
         this._identifier = identifier;
         this._displayName = displayName;
@@ -37,10 +37,10 @@ WI.SidebarPanel = class SidebarPanel extends WI.View
 
         this.element.classList.add("panel", identifier);
 
-        this.element.setAttribute("role", "group");
-        this.element.setAttribute("aria-label", displayName);
+        this.element.setAttribute("role", role || "group");
+        this.element.setAttribute("aria-label", label || displayName);
 
-        this._contentView = new WI.View;
+        this._contentView = new WebInspector.View;
         this._contentView.element.classList.add("content");
         this.addSubview(this._contentView);
     }
@@ -92,9 +92,41 @@ WI.SidebarPanel = class SidebarPanel extends WI.View
         return 0;
     }
 
+    show()
+    {
+        if (!this.parentSidebar)
+            return;
+
+        this.parentSidebar.collapsed = false;
+        this.parentSidebar.selectedSidebarPanel = this;
+    }
+
+    hide()
+    {
+        if (!this.parentSidebar)
+            return;
+
+        this.parentSidebar.collapsed = true;
+        this.parentSidebar.selectedSidebarPanel = null;
+    }
+
+    added()
+    {
+        console.assert(this.parentSidebar);
+
+        // Implemented by subclasses.
+    }
+
+    removed()
+    {
+        console.assert(!this.parentSidebar);
+
+        // Implemented by subclasses.
+    }
+
     shown()
     {
-        this.scrollElement.scrollTop = this._savedScrollPosition;
+        this._contentView.element.scrollTop = this._savedScrollPosition;
 
         // FIXME: remove once <https://webkit.org/b/150741> is fixed.
         this.updateLayoutIfNeeded();
@@ -104,7 +136,7 @@ WI.SidebarPanel = class SidebarPanel extends WI.View
 
     hidden()
     {
-        this._savedScrollPosition = this.scrollElement.scrollTop;
+        this._savedScrollPosition = this._contentView.element.scrollTop;
 
         // Implemented by subclasses.
     }
@@ -112,13 +144,5 @@ WI.SidebarPanel = class SidebarPanel extends WI.View
     visibilityDidChange()
     {
         // Implemented by subclasses.
-    }
-
-    // Protected
-
-    get scrollElement()
-    {
-        // Overridden by sub-classes if needed.
-        return this.contentView.element;
     }
 };

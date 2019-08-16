@@ -33,12 +33,22 @@
 #include "LayoutRect.h"
 #include "NodeList.h"
 #include "Timer.h"
-#include <JavaScriptCore/InspectorProtocolObjects.h>
+#include <inspector/InspectorProtocolObjects.h>
 #include <wtf/Deque.h>
-#include <wtf/JSONValues.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
+
+namespace Inspector {
+class InspectorObject;
+class InspectorValue;
+
+namespace Protocol {
+namespace OverlayTypes {
+class NodeHighlightData;
+}
+}
+}
 
 namespace WebCore {
 
@@ -115,8 +125,6 @@ public:
     
     void setShowingPaintRects(bool);
     void showPaintRect(const FloatRect&);
-
-    void setShowRulers(bool);
     
     Node* highlightedNode() const;
 
@@ -125,25 +133,25 @@ public:
     void setIndicating(bool indicating);
 
     RefPtr<Inspector::Protocol::OverlayTypes::NodeHighlightData> buildHighlightObjectForNode(Node*, HighlightType) const;
-    Ref<JSON::ArrayOf<Inspector::Protocol::OverlayTypes::NodeHighlightData>> buildObjectForHighlightedNodes() const;
+    Ref<Inspector::Protocol::Array<Inspector::Protocol::OverlayTypes::NodeHighlightData>> buildObjectForHighlightedNodes() const;
 
     void freePage();
 private:
     bool shouldShowOverlay() const;
+    void drawGutter();
     void drawNodeHighlight();
     void drawQuadHighlight();
     void drawPausedInDebuggerMessage();
     void drawPaintRects();
-    void drawRulers();
     void updatePaintRectsTimerFired();
 
     Page* overlayPage();
 
     void forcePaint();
-    void reset(const IntSize& viewportSize, const IntPoint& scrollOffset);
+    void reset(const IntSize& viewportSize, const IntSize& frameViewFullSize);
     void evaluateInOverlay(const String& method);
     void evaluateInOverlay(const String& method, const String& argument);
-    void evaluateInOverlay(const String& method, RefPtr<JSON::Value>&& argument);
+    void evaluateInOverlay(const String& method, RefPtr<Inspector::InspectorValue>&& argument);
 
     Page& m_page;
     InspectorClient* m_client;
@@ -155,12 +163,11 @@ private:
     std::unique_ptr<Page> m_overlayPage;
     HighlightConfig m_quadHighlightConfig;
     
-    using TimeRectPair = std::pair<MonotonicTime, FloatRect>;
+    typedef std::pair<std::chrono::steady_clock::time_point, FloatRect> TimeRectPair;
     Deque<TimeRectPair> m_paintRects;
     Timer m_paintRectUpdateTimer;
     bool m_indicating {false};
     bool m_showingPaintRects {false};
-    bool m_showRulers {false};
 };
 
 } // namespace WebCore

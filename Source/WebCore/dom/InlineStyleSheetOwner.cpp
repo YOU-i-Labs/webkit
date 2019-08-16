@@ -23,10 +23,8 @@
 
 #include "ContentSecurityPolicy.h"
 #include "Element.h"
-#include "Logging.h"
 #include "MediaList.h"
 #include "MediaQueryEvaluator.h"
-#include "MediaQueryParser.h"
 #include "ScriptableDocumentParser.h"
 #include "ShadowRoot.h"
 #include "StyleScope.h"
@@ -50,7 +48,7 @@ static CSSParserContext parserContextForElement(const Element& element)
 {
     auto* shadowRoot = element.containingShadowRoot();
     // User agent shadow trees can't contain document-relative URLs. Use blank URL as base allowing cross-document sharing.
-    auto& baseURL = shadowRoot && shadowRoot->mode() == ShadowRootMode::UserAgent ? WTF::blankURL() : element.document().baseURL();
+    auto& baseURL = shadowRoot && shadowRoot->mode() == ShadowRootMode::UserAgent ? blankURL() : element.document().baseURL();
 
     CSSParserContext result = CSSParserContext { element.document(), baseURL, element.document().characterSetWithUTF8Fallback() };
     if (shadowRoot && shadowRoot->mode() == ShadowRootMode::UserAgent)
@@ -58,7 +56,7 @@ static CSSParserContext parserContextForElement(const Element& element)
     return result;
 }
 
-static Optional<InlineStyleSheetCacheKey> makeInlineStyleSheetCacheKey(const String& text, const Element& element)
+static std::optional<InlineStyleSheetCacheKey> makeInlineStyleSheetCacheKey(const String& text, const Element& element)
 {
     // Only cache for shadow trees. Main document inline stylesheets are generally unique and can't be shared between documents.
     // FIXME: This could be relaxed when a stylesheet does not contain document-relative URLs (or #urls).
@@ -172,12 +170,11 @@ void InlineStyleSheetOwner::createSheet(Element& element, const String& text)
     if (!contentSecurityPolicy.allowInlineStyle(document.url(), m_startTextPosition.m_line, text, hasKnownNonce))
         return;
 
-    auto mediaQueries = MediaQuerySet::create(m_media, MediaQueryParserContext(document));
+    RefPtr<MediaQuerySet> mediaQueries = MediaQuerySet::create(m_media);
 
-    MediaQueryEvaluator screenEval("screen"_s, true);
-    MediaQueryEvaluator printEval("print"_s, true);
-    LOG(MediaQueries, "InlineStyleSheetOwner::createSheet evaluating queries");
-    if (!screenEval.evaluate(mediaQueries.get()) && !printEval.evaluate(mediaQueries.get()))
+    MediaQueryEvaluator screenEval(ASCIILiteral("screen"), true);
+    MediaQueryEvaluator printEval(ASCIILiteral("print"), true);
+    if (!screenEval.evaluate(*mediaQueries) && !printEval.evaluate(*mediaQueries))
         return;
 
     if (m_styleScope)
@@ -188,9 +185,8 @@ void InlineStyleSheetOwner::createSheet(Element& element, const String& text)
         if (auto* cachedSheet = inlineStyleSheetCache().get(*cacheKey)) {
             ASSERT(cachedSheet->isCacheable());
             m_sheet = CSSStyleSheet::createInline(*cachedSheet, element, m_startTextPosition);
-            m_sheet->setMediaQueries(WTFMove(mediaQueries));
-            if (!element.isInShadowTree())
-                m_sheet->setTitle(element.title());
+            m_sheet->setMediaQueries(mediaQueries.releaseNonNull());
+            m_sheet->setTitle(element.title());
 
             sheetLoaded(element);
             element.notifyLoadedSheetAndAllCriticalSubresources(false);
@@ -203,9 +199,8 @@ void InlineStyleSheetOwner::createSheet(Element& element, const String& text)
     auto contents = StyleSheetContents::create(String(), parserContextForElement(element));
 
     m_sheet = CSSStyleSheet::createInline(contents.get(), element, m_startTextPosition);
-    m_sheet->setMediaQueries(WTFMove(mediaQueries));
-    if (!element.isInShadowTree())
-        m_sheet->setTitle(element.title());
+    m_sheet->setMediaQueries(mediaQueries.releaseNonNull());
+    m_sheet->setTitle(element.title());
 
     contents->parseString(text);
 
@@ -220,9 +215,8 @@ void InlineStyleSheetOwner::createSheet(Element& element, const String& text)
         // Prevent pathological growth.
         const size_t maximumInlineStyleSheetCacheSize = 50;
         if (inlineStyleSheetCache().size() > maximumInlineStyleSheetCacheSize) {
-            auto toRemove = inlineStyleSheetCache().random();
-            toRemove->value->removedFromMemoryCache();
-            inlineStyleSheetCache().remove(toRemove);
+            inlineStyleSheetCache().begin()->value->removedFromMemoryCache();
+            inlineStyleSheetCache().remove(inlineStyleSheetCache().begin());
         }
     }
 }

@@ -38,7 +38,7 @@ namespace WebCore {
 
 class ReadableStreamSource : public RefCounted<ReadableStreamSource> {
 public:
-    virtual ~ReadableStreamSource() = default;
+    virtual ~ReadableStreamSource() { }
 
     void start(ReadableStreamDefaultController&&, DOMPromiseDeferred<void>&&);
     void pull(DOMPromiseDeferred<void>&&);
@@ -63,8 +63,8 @@ protected:
     virtual void doCancel() = 0;
 
 private:
-    Optional<DOMPromiseDeferred<void>> m_promise;
-    Optional<ReadableStreamDefaultController> m_controller;
+    std::optional<DOMPromiseDeferred<void>> m_promise;
+    std::optional<ReadableStreamDefaultController> m_controller;
 };
 
 inline void ReadableStreamSource::start(ReadableStreamDefaultController&& controller, DOMPromiseDeferred<void>&& promise)
@@ -91,14 +91,14 @@ inline void ReadableStreamSource::pull(DOMPromiseDeferred<void>&& promise)
 inline void ReadableStreamSource::startFinished()
 {
     ASSERT(m_promise);
-    std::exchange(m_promise, WTF::nullopt).value().resolve();
+    std::exchange(m_promise, std::nullopt).value().resolve();
     setInactive();
 }
 
 inline void ReadableStreamSource::pullFinished()
 {
     ASSERT(m_promise);
-    std::exchange(m_promise, WTF::nullopt).value().resolve();
+    std::exchange(m_promise, std::nullopt).value().resolve();
     setInactive();
 }
 
@@ -111,7 +111,7 @@ inline void ReadableStreamSource::cancel(JSC::JSValue)
 inline void ReadableStreamSource::clean()
 {
     if (m_promise) {
-        m_promise = WTF::nullopt;
+        m_promise = std::nullopt;
         setInactive();
     }
 }

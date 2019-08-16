@@ -19,7 +19,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#pragma once
+#ifndef FEMerge_h
+#define FEMerge_h
 
 #include "FilterEffect.h"
 #include "Filter.h"
@@ -30,15 +31,15 @@ class FEMerge : public FilterEffect {
 public:
     static Ref<FEMerge> create(Filter&);
 
+    void platformApplySoftware() override;
+    void dump() override;
+
+    TextStream& externalRepresentation(TextStream&, int indention) const override;
+
 private:
     FEMerge(Filter&);
-
-    const char* filterName() const final { return "FEMerge"; }
-
-    void platformApplySoftware() override;
-
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
 };
 
 } // namespace WebCore
 
+#endif // FEMerge_h

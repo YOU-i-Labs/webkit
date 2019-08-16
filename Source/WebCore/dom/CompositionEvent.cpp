@@ -29,28 +29,32 @@
 
 namespace WebCore {
 
-CompositionEvent::CompositionEvent() = default;
+CompositionEvent::CompositionEvent()
+{
+}
 
-CompositionEvent::CompositionEvent(const AtomicString& type, RefPtr<WindowProxy>&& view, const String& data)
-    : UIEvent(type, CanBubble::Yes, IsCancelable::Yes, IsComposed::Yes, WTFMove(view), 0)
+CompositionEvent::CompositionEvent(const AtomicString& type, DOMWindow* view, const String& data)
+    : UIEvent(type, true, true, view, 0)
     , m_data(data)
 {
 }
 
-CompositionEvent::CompositionEvent(const AtomicString& type, const Init& initializer)
-    : UIEvent(type, initializer)
+CompositionEvent::CompositionEvent(const AtomicString& type, const Init& initializer, IsTrusted isTrusted)
+    : UIEvent(type, initializer, isTrusted)
     , m_data(initializer.data)
 {
 }
 
-CompositionEvent::~CompositionEvent() = default;
-
-void CompositionEvent::initCompositionEvent(const AtomicString& type, bool canBubble, bool cancelable, RefPtr<WindowProxy>&& view, const String& data)
+CompositionEvent::~CompositionEvent()
 {
-    if (isBeingDispatched())
+}
+
+void CompositionEvent::initCompositionEvent(const AtomicString& type, bool canBubble, bool cancelable, DOMWindow* view, const String& data)
+{
+    if (dispatched())
         return;
 
-    initUIEvent(type, canBubble, cancelable, WTFMove(view), 0);
+    initUIEvent(type, canBubble, cancelable, view, 0);
 
     m_data = data;
 }

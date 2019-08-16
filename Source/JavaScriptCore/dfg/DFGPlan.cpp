@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -79,6 +79,7 @@
 #include "ProfilerDatabase.h"
 #include "TrackedReferences.h"
 #include "VMInlines.h"
+#include <wtf/CurrentTime.h>
 
 #if ENABLE(FTL_JIT)
 #include "FTLCapabilities.h"
@@ -91,10 +92,10 @@
 
 namespace JSC {
 
-extern Seconds totalDFGCompileTime;
-extern Seconds totalFTLCompileTime;
-extern Seconds totalFTLDFGCompileTime;
-extern Seconds totalFTLB3CompileTime;
+extern double totalDFGCompileTime;
+extern double totalFTLCompileTime;
+extern double totalFTLDFGCompileTime;
+extern double totalFTLB3CompileTime;
 
 }
 
@@ -105,7 +106,7 @@ namespace {
 void dumpAndVerifyGraph(Graph& graph, const char* text, bool forceDump = false)
 {
     GraphDumpMode modeForFinalValidate = DumpGraph;
-    if (verboseCompilationEnabled(graph.m_plan.mode()) || forceDump) {
+    if (verboseCompilationEnabled(graph.m_plan.mode) || forceDump) {
         dataLog(text, "\n");
         graph.dump();
         modeForFinalValidate = DontDumpGraph;
@@ -136,19 +137,18 @@ Profiler::CompilationKind profilerCompilationKindForMode(CompilationMode mode)
 Plan::Plan(CodeBlock* passedCodeBlock, CodeBlock* profiledDFGCodeBlock,
     CompilationMode mode, unsigned osrEntryBytecodeIndex,
     const Operands<JSValue>& mustHandleValues)
-    : m_vm(passedCodeBlock->vm())
-    , m_codeBlock(passedCodeBlock)
-    , m_profiledDFGCodeBlock(profiledDFGCodeBlock)
-    , m_mode(mode)
-    , m_osrEntryBytecodeIndex(osrEntryBytecodeIndex)
-    , m_mustHandleValues(mustHandleValues)
-    , m_compilation(UNLIKELY(m_vm->m_perBytecodeProfiler) ? adoptRef(new Profiler::Compilation(m_vm->m_perBytecodeProfiler->ensureBytecodesFor(m_codeBlock), profilerCompilationKindForMode(mode))) : nullptr)
-    , m_inlineCallFrames(adoptRef(new InlineCallFrameSet()))
-    , m_identifiers(m_codeBlock)
-    , m_weakReferences(m_codeBlock)
-    , m_stage(Preparing)
+    : vm(passedCodeBlock->vm())
+    , codeBlock(passedCodeBlock)
+    , profiledDFGCodeBlock(profiledDFGCodeBlock)
+    , mode(mode)
+    , osrEntryBytecodeIndex(osrEntryBytecodeIndex)
+    , mustHandleValues(mustHandleValues)
+    , compilation(vm->m_perBytecodeProfiler ? adoptRef(new Profiler::Compilation(vm->m_perBytecodeProfiler->ensureBytecodesFor(codeBlock), profilerCompilationKindForMode(mode))) : 0)
+    , inlineCallFrames(adoptRef(new InlineCallFrameSet()))
+    , identifiers(codeBlock)
+    , weakReferences(codeBlock)
+    , stage(Preparing)
 {
-    RELEASE_ASSERT(m_codeBlock->alternative()->jitCode());
 }
 
 Plan::~Plan()
@@ -159,43 +159,43 @@ bool Plan::computeCompileTimes() const
 {
     return reportCompileTimes()
         || Options::reportTotalCompileTimes()
-        || (m_vm && m_vm->m_perBytecodeProfiler);
+        || (vm && vm->m_perBytecodeProfiler);
 }
 
 bool Plan::reportCompileTimes() const
 {
     return Options::reportCompileTimes()
         || Options::reportDFGCompileTimes()
-        || (Options::reportFTLCompileTimes() && isFTL());
+        || (Options::reportFTLCompileTimes() && isFTL(mode));
 }
 
 void Plan::compileInThread(ThreadData* threadData)
 {
-    m_threadData = threadData;
-
-    MonotonicTime before { };
+    this->threadData = threadData;
+    
+    double before = 0;
     CString codeBlockName;
     if (UNLIKELY(computeCompileTimes()))
-        before = MonotonicTime::now();
+        before = monotonicallyIncreasingTimeMS();
     if (UNLIKELY(reportCompileTimes()))
-        codeBlockName = toCString(*m_codeBlock);
-
+        codeBlockName = toCString(*codeBlock);
+    
     CompilationScope compilationScope;
 
-    if (logCompilationChanges(m_mode) || Options::logPhaseTimes())
-        dataLog("DFG(Plan) compiling ", *m_codeBlock, " with ", m_mode, ", number of instructions = ", m_codeBlock->instructionCount(), "\n");
+    if (logCompilationChanges(mode) || Options::reportDFGPhaseTimes())
+        dataLog("DFG(Plan) compiling ", *codeBlock, " with ", mode, ", number of instructions = ", codeBlock->instructionCount(), "\n");
 
     CompilationPath path = compileInThreadImpl();
 
-    RELEASE_ASSERT(path == CancelPath || m_finalizer);
-    RELEASE_ASSERT((path == CancelPath) == (m_stage == Cancelled));
-
-    MonotonicTime after { };
+    RELEASE_ASSERT(path == CancelPath || finalizer);
+    RELEASE_ASSERT((path == CancelPath) == (stage == Cancelled));
+    
+    double after = 0;
     if (UNLIKELY(computeCompileTimes())) {
-        after = MonotonicTime::now();
+        after = monotonicallyIncreasingTimeMS();
     
         if (Options::reportTotalCompileTimes()) {
-            if (isFTL()) {
+            if (isFTL(mode)) {
                 totalFTLCompileTime += after - before;
                 totalFTLDFGCompileTime += m_timeBeforeFTL - before;
                 totalFTLB3CompileTime += after - m_timeBeforeFTL;
@@ -221,16 +221,16 @@ void Plan::compileInThread(ThreadData* threadData)
         RELEASE_ASSERT_NOT_REACHED();
         break;
     }
-    if (m_codeBlock) { // m_codeBlock will be null if the compilation was cancelled.
+    if (codeBlock) { // codeBlock will be null if the compilation was cancelled.
         if (path == FTLPath)
-            CODEBLOCK_LOG_EVENT(m_codeBlock, "ftlCompile", ("took ", (after - before).milliseconds(), " ms (DFG: ", (m_timeBeforeFTL - before).milliseconds(), ", B3: ", (after - m_timeBeforeFTL).milliseconds(), ") with ", pathName));
+            CODEBLOCK_LOG_EVENT(codeBlock, "ftlCompile", ("took ", after - before, " ms (DFG: ", m_timeBeforeFTL - before, ", B3: ", after - m_timeBeforeFTL, ") with ", pathName));
         else
-            CODEBLOCK_LOG_EVENT(m_codeBlock, "dfgCompile", ("took ", (after - before).milliseconds(), " ms with ", pathName));
+            CODEBLOCK_LOG_EVENT(codeBlock, "dfgCompile", ("took ", after - before, " ms with ", pathName));
     }
     if (UNLIKELY(reportCompileTimes())) {
-        dataLog("Optimized ", codeBlockName, " using ", m_mode, " with ", pathName, " into ", m_finalizer ? m_finalizer->codeSize() : 0, " bytes in ", (after - before).milliseconds(), " ms");
+        dataLog("Optimized ", codeBlockName, " using ", mode, " with ", pathName, " into ", finalizer ? finalizer->codeSize() : 0, " bytes in ", after - before, " ms");
         if (path == FTLPath)
-            dataLog(" (DFG: ", (m_timeBeforeFTL - before).milliseconds(), ", B3: ", (after - m_timeBeforeFTL).milliseconds(), ")");
+            dataLog(" (DFG: ", m_timeBeforeFTL - before, ", B3: ", after - m_timeBeforeFTL, ")");
         dataLog(".\n");
     }
 }
@@ -238,17 +238,21 @@ void Plan::compileInThread(ThreadData* threadData)
 Plan::CompilationPath Plan::compileInThreadImpl()
 {
     cleanMustHandleValuesIfNecessary();
-
-    if (verboseCompilationEnabled(m_mode) && m_osrEntryBytecodeIndex != UINT_MAX) {
+    
+    if (verboseCompilationEnabled(mode) && osrEntryBytecodeIndex != UINT_MAX) {
         dataLog("\n");
-        dataLog("Compiler must handle OSR entry from bc#", m_osrEntryBytecodeIndex, " with values: ", m_mustHandleValues, "\n");
+        dataLog("Compiler must handle OSR entry from bc#", osrEntryBytecodeIndex, " with values: ", mustHandleValues, "\n");
         dataLog("\n");
     }
+    
+    Graph dfg(*vm, *this);
+    
+    if (!parse(dfg)) {
+        finalizer = std::make_unique<FailedFinalizer>(*this);
+        return FailPath;
+    }
 
-    Graph dfg(*m_vm, *this);
-    parse(dfg);
-
-    m_codeBlock->setCalleeSaveRegisters(RegisterSet::dfgCalleeSaveRegisters());
+    codeBlock->setCalleeSaveRegisters(RegisterSet::dfgCalleeSaveRegisters());
 
     bool changed = false;
 
@@ -270,7 +274,7 @@ Plan::CompilationPath Plan::compileInThreadImpl()
     // in the CodeBlock. This is a good time to perform an early shrink, which is more
     // powerful than a late one. It's safe to do so because we haven't generated any code
     // that references any of the tables directly, yet.
-    m_codeBlock->shrinkToFit(CodeBlock::EarlyShrink);
+    codeBlock->shrinkToFit(CodeBlock::EarlyShrink);
 
     if (validationEnabled())
         validate(dfg);
@@ -290,11 +294,11 @@ Plan::CompilationPath Plan::compileInThreadImpl()
     RUN_PHASE(performPredictionInjection);
     
     RUN_PHASE(performStaticExecutionCountEstimation);
-
-    if (m_mode == FTLForOSREntryMode) {
+    
+    if (mode == FTLForOSREntryMode) {
         bool result = performOSREntrypointCreation(dfg);
         if (!result) {
-            m_finalizer = std::make_unique<FailedFinalizer>(*this);
+            finalizer = std::make_unique<FailedFinalizer>(*this);
             return FailPath;
         }
         RUN_PHASE(performCPSRethreading);
@@ -308,9 +312,9 @@ Plan::CompilationPath Plan::compileInThreadImpl()
     RUN_PHASE(performFixup);
     RUN_PHASE(performInvalidationPointInjection);
     RUN_PHASE(performTypeCheckHoisting);
-
+    
     dfg.m_fixpointState = FixpointNotConverged;
-
+    
     // For now we're back to avoiding a fixpoint. Note that we've ping-ponged on this decision
     // many times. For maximum throughput, it's best to fixpoint. But the throughput benefit is
     // small and not likely to show up in FTL anyway. On the other hand, not fixpointing means
@@ -331,7 +335,7 @@ Plan::CompilationPath Plan::compileInThreadImpl()
         validate(dfg);
     
     RUN_PHASE(performCPSRethreading);
-    if (!isFTL()) {
+    if (!isFTL(mode)) {
         // Only run this if we're not FTLing, because currently for a LoadVarargs that is forwardable and
         // in a non-varargs inlined call frame, this will generate ForwardVarargs while the FTL
         // ArgumentsEliminationPhase will create a sequence of GetStack+PutStacks. The GetStack+PutStack
@@ -361,14 +365,15 @@ Plan::CompilationPath Plan::compileInThreadImpl()
     // If we're doing validation, then run some analyses, to give them an opportunity
     // to self-validate. Now is as good a time as any to do this.
     if (validationEnabled()) {
-        dfg.ensureCPSDominators();
-        dfg.ensureCPSNaturalLoops();
+        dfg.ensureDominators();
+        dfg.ensureNaturalLoops();
+        dfg.ensurePrePostNumbering();
     }
 
-    switch (m_mode) {
+    switch (mode) {
     case DFGMode: {
         dfg.m_fixpointState = FixpointConverged;
-
+    
         RUN_PHASE(performTierUpCheckInjection);
 
         RUN_PHASE(performFastStoreBarrierInsertion);
@@ -383,7 +388,7 @@ Plan::CompilationPath Plan::compileInThreadImpl()
         dumpAndVerifyGraph(dfg, "Graph after optimization:");
         
         JITCompiler dataFlowJIT(dfg);
-        if (m_codeBlock->codeType() == FunctionCode)
+        if (codeBlock->codeType() == FunctionCode)
             dataFlowJIT.compileFunction();
         else
             dataFlowJIT.compile();
@@ -395,7 +400,7 @@ Plan::CompilationPath Plan::compileInThreadImpl()
     case FTLForOSREntryMode: {
 #if ENABLE(FTL_JIT)
         if (FTL::canCompile(dfg) == FTL::CannotCompile) {
-            m_finalizer = std::make_unique<FailedFinalizer>(*this);
+            finalizer = std::make_unique<FailedFinalizer>(*this);
             return FailPath;
         }
         
@@ -454,11 +459,11 @@ Plan::CompilationPath Plan::compileInThreadImpl()
         RUN_PHASE(performCleanUp);
         RUN_PHASE(performIntegerCheckCombining);
         RUN_PHASE(performGlobalCSE);
-
+        
         // At this point we're not allowed to do any further code motion because our reasoning
         // about code motion assumes that it's OK to insert GC points in random places.
         dfg.m_fixpointState = FixpointConverged;
-
+        
         RUN_PHASE(performLivenessAnalysis);
         RUN_PHASE(performCFA);
         RUN_PHASE(performGlobalStoreBarrierInsertion);
@@ -473,11 +478,11 @@ Plan::CompilationPath Plan::compileInThreadImpl()
         RUN_PHASE(performWatchpointCollection);
         
         if (FTL::canCompile(dfg) == FTL::CannotCompile) {
-            m_finalizer = std::make_unique<FailedFinalizer>(*this);
+            finalizer = std::make_unique<FailedFinalizer>(*this);
             return FailPath;
         }
 
-        dumpAndVerifyGraph(dfg, "Graph just before FTL lowering:", shouldDumpDisassembly(m_mode));
+        dumpAndVerifyGraph(dfg, "Graph just before FTL lowering:", shouldDumpDisassembly(mode));
 
         // Flash a safepoint in case the GC wants some action.
         Safepoint::Result safepointResult;
@@ -491,7 +496,7 @@ Plan::CompilationPath Plan::compileInThreadImpl()
         FTL::lowerDFGToB3(state);
         
         if (UNLIKELY(computeCompileTimes()))
-            m_timeBeforeFTL = MonotonicTime::now();
+            m_timeBeforeFTL = monotonicallyIncreasingTimeMS();
         
         if (Options::b3AlwaysFailsBeforeCompile()) {
             FTL::fail(state);
@@ -536,101 +541,94 @@ Plan::CompilationPath Plan::compileInThreadImpl()
 
 bool Plan::isStillValid()
 {
-    CodeBlock* replacement = m_codeBlock->replacement();
+    CodeBlock* replacement = codeBlock->replacement();
     if (!replacement)
         return false;
     // FIXME: This is almost certainly not necessary. There's no way for the baseline
     // code to be replaced during a compilation, except if we delete the plan, in which
     // case we wouldn't be here.
     // https://bugs.webkit.org/show_bug.cgi?id=132707
-    if (m_codeBlock->alternative() != replacement->baselineVersion())
+    if (codeBlock->alternative() != replacement->baselineVersion())
         return false;
-    if (!m_watchpoints.areStillValid())
+    if (!watchpoints.areStillValid())
         return false;
     return true;
 }
 
 void Plan::reallyAdd(CommonData* commonData)
 {
-    m_watchpoints.reallyAdd(m_codeBlock, *commonData);
-    m_identifiers.reallyAdd(*m_vm, commonData);
-    m_weakReferences.reallyAdd(*m_vm, commonData);
-    m_transitions.reallyAdd(*m_vm, commonData);
-    m_globalProperties.reallyAdd(m_codeBlock, m_identifiers, *commonData);
-    commonData->recordedStatuses = WTFMove(m_recordedStatuses);
+    watchpoints.reallyAdd(codeBlock, *commonData);
+    identifiers.reallyAdd(*vm, commonData);
+    weakReferences.reallyAdd(*vm, commonData);
+    transitions.reallyAdd(*vm, commonData);
 }
 
 void Plan::notifyCompiling()
 {
-    m_stage = Compiling;
+    stage = Compiling;
 }
 
 void Plan::notifyReady()
 {
-    m_callback->compilationDidBecomeReadyAsynchronously(m_codeBlock, m_profiledDFGCodeBlock);
-    m_stage = Ready;
-}
-
-bool Plan::isStillValidOnMainThread()
-{
-    return m_globalProperties.isStillValidOnMainThread(m_identifiers);
+    callback->compilationDidBecomeReadyAsynchronously(codeBlock, profiledDFGCodeBlock);
+    stage = Ready;
 }
 
 CompilationResult Plan::finalizeWithoutNotifyingCallback()
 {
     // We will establish new references from the code block to things. So, we need a barrier.
-    m_vm->heap.writeBarrier(m_codeBlock);
-
-    if (!isStillValidOnMainThread() || !isStillValid()) {
-        CODEBLOCK_LOG_EVENT(m_codeBlock, "dfgFinalize", ("invalidated"));
+    vm->heap.writeBarrier(codeBlock);
+    
+    if (!isStillValid()) {
+        CODEBLOCK_LOG_EVENT(codeBlock, "dfgFinalize", ("invalidated"));
         return CompilationInvalidated;
     }
 
     bool result;
-    if (m_codeBlock->codeType() == FunctionCode)
-        result = m_finalizer->finalizeFunction();
+    if (codeBlock->codeType() == FunctionCode)
+        result = finalizer->finalizeFunction();
     else
-        result = m_finalizer->finalize();
-
+        result = finalizer->finalize();
+    
     if (!result) {
-        CODEBLOCK_LOG_EVENT(m_codeBlock, "dfgFinalize", ("failed"));
+        CODEBLOCK_LOG_EVENT(codeBlock, "dfgFinalize", ("failed"));
         return CompilationFailed;
     }
-
-    reallyAdd(m_codeBlock->jitCode()->dfgCommon());
-
+    
+    reallyAdd(codeBlock->jitCode()->dfgCommon());
+    
     if (validationEnabled()) {
         TrackedReferences trackedReferences;
-
-        for (WriteBarrier<JSCell>& reference : m_codeBlock->jitCode()->dfgCommon()->weakReferences)
+        
+        for (WriteBarrier<JSCell>& reference : codeBlock->jitCode()->dfgCommon()->weakReferences)
             trackedReferences.add(reference.get());
-        for (WriteBarrier<Structure>& reference : m_codeBlock->jitCode()->dfgCommon()->weakStructureReferences)
+        for (WriteBarrier<Structure>& reference : codeBlock->jitCode()->dfgCommon()->weakStructureReferences)
             trackedReferences.add(reference.get());
-        for (WriteBarrier<Unknown>& constant : m_codeBlock->constants())
+        for (WriteBarrier<Unknown>& constant : codeBlock->constants())
             trackedReferences.add(constant.get());
 
-        for (auto* inlineCallFrame : *m_inlineCallFrames) {
+        for (auto* inlineCallFrame : *inlineCallFrames) {
             ASSERT(inlineCallFrame->baselineCodeBlock.get());
             trackedReferences.add(inlineCallFrame->baselineCodeBlock.get());
         }
-
+        
         // Check that any other references that we have anywhere in the JITCode are also
         // tracked either strongly or weakly.
-        m_codeBlock->jitCode()->validateReferences(trackedReferences);
+        codeBlock->jitCode()->validateReferences(trackedReferences);
     }
-
-    CODEBLOCK_LOG_EVENT(m_codeBlock, "dfgFinalize", ("succeeded"));
+    
+    CODEBLOCK_LOG_EVENT(codeBlock, "dfgFinalize", ("succeeded"));
     return CompilationSuccessful;
 }
 
 void Plan::finalizeAndNotifyCallback()
 {
-    m_callback->compilationDidComplete(m_codeBlock, m_profiledDFGCodeBlock, finalizeWithoutNotifyingCallback());
+    callback->compilationDidComplete(codeBlock, profiledDFGCodeBlock, finalizeWithoutNotifyingCallback());
 }
 
 CompilationKey Plan::key()
 {
-    return CompilationKey(m_codeBlock->alternative(), m_mode);
+    return CompilationKey(codeBlock->alternative(), mode);
 }
 
 void Plan::checkLivenessAndVisitChildren(SlotVisitor& visitor)
@@ -639,83 +637,74 @@ void Plan::checkLivenessAndVisitChildren(SlotVisitor& visitor)
         return;
 
     cleanMustHandleValuesIfNecessary();
-    for (unsigned i = m_mustHandleValues.size(); i--;)
-        visitor.appendUnbarriered(m_mustHandleValues[i]);
+    for (unsigned i = mustHandleValues.size(); i--;)
+        visitor.appendUnbarriered(mustHandleValues[i]);
 
-    m_recordedStatuses.markIfCheap(visitor);
+    visitor.appendUnbarriered(codeBlock);
+    visitor.appendUnbarriered(codeBlock->alternative());
+    visitor.appendUnbarriered(profiledDFGCodeBlock);
 
-    visitor.appendUnbarriered(m_codeBlock);
-    visitor.appendUnbarriered(m_codeBlock->alternative());
-    visitor.appendUnbarriered(m_profiledDFGCodeBlock);
-
-    if (m_inlineCallFrames) {
-        for (auto* inlineCallFrame : *m_inlineCallFrames) {
+    if (inlineCallFrames) {
+        for (auto* inlineCallFrame : *inlineCallFrames) {
             ASSERT(inlineCallFrame->baselineCodeBlock.get());
             visitor.appendUnbarriered(inlineCallFrame->baselineCodeBlock.get());
         }
     }
 
-    m_weakReferences.visitChildren(visitor);
-    m_transitions.visitChildren(visitor);
-}
-
-void Plan::finalizeInGC()
-{
-    m_recordedStatuses.finalizeWithoutDeleting();
+    weakReferences.visitChildren(visitor);
+    transitions.visitChildren(visitor);
 }
 
 bool Plan::isKnownToBeLiveDuringGC()
 {
-    if (m_stage == Cancelled)
+    if (stage == Cancelled)
         return false;
-    if (!Heap::isMarked(m_codeBlock->ownerExecutable()))
+    if (!Heap::isMarked(codeBlock->ownerExecutable()))
         return false;
-    if (!Heap::isMarked(m_codeBlock->alternative()))
+    if (!Heap::isMarked(codeBlock->alternative()))
         return false;
-    if (!!m_profiledDFGCodeBlock && !Heap::isMarked(m_profiledDFGCodeBlock))
+    if (!!profiledDFGCodeBlock && !Heap::isMarked(profiledDFGCodeBlock))
         return false;
     return true;
 }
 
 void Plan::cancel()
 {
-    m_vm = nullptr;
-    m_codeBlock = nullptr;
-    m_profiledDFGCodeBlock = nullptr;
-    m_mustHandleValues.clear();
-    m_compilation = nullptr;
-    m_finalizer = nullptr;
-    m_inlineCallFrames = nullptr;
-    m_watchpoints = DesiredWatchpoints();
-    m_identifiers = DesiredIdentifiers();
-    m_globalProperties = DesiredGlobalProperties();
-    m_weakReferences = DesiredWeakReferences();
-    m_transitions = DesiredTransitions();
-    m_callback = nullptr;
-    m_stage = Cancelled;
+    vm = nullptr;
+    codeBlock = nullptr;
+    profiledDFGCodeBlock = nullptr;
+    mustHandleValues.clear();
+    compilation = nullptr;
+    finalizer = nullptr;
+    inlineCallFrames = nullptr;
+    watchpoints = DesiredWatchpoints();
+    identifiers = DesiredIdentifiers();
+    weakReferences = DesiredWeakReferences();
+    transitions = DesiredTransitions();
+    callback = nullptr;
+    stage = Cancelled;
 }
 
 void Plan::cleanMustHandleValuesIfNecessary()
 {
-    LockHolder locker(m_mustHandleValueCleaningLock);
-
-    if (!m_mustHandleValuesMayIncludeGarbage)
+    LockHolder locker(mustHandleValueCleaningLock);
+    
+    if (!mustHandleValuesMayIncludeGarbage)
         return;
-
-    m_mustHandleValuesMayIncludeGarbage = false;
-
-    if (!m_codeBlock)
+    
+    mustHandleValuesMayIncludeGarbage = false;
+    
+    if (!codeBlock)
         return;
-
-    if (!m_mustHandleValues.numberOfLocals())
+    
+    if (!mustHandleValues.numberOfLocals())
         return;
-
-    CodeBlock* alternative = m_codeBlock->alternative();
-    FastBitVector liveness = alternative->livenessAnalysis().getLivenessInfoAtBytecodeOffset(alternative, m_osrEntryBytecodeIndex);
-
-    for (unsigned local = m_mustHandleValues.numberOfLocals(); local--;) {
+    
+    FastBitVector liveness = codeBlock->alternative()->livenessAnalysis().getLivenessInfoAtBytecodeOffset(osrEntryBytecodeIndex);
+    
+    for (unsigned local = mustHandleValues.numberOfLocals(); local--;) {
         if (!liveness[local])
-            m_mustHandleValues.local(local) = jsUndefined();
+            mustHandleValues.local(local) = jsUndefined();
     }
 }
 

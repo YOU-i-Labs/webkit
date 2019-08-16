@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
- * Copyright (C) 2017 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,22 +30,24 @@
 #include "NetworkResourcesData.h"
 
 #include "CachedResource.h"
-#include "InspectorNetworkAgent.h"
 #include "ResourceResponse.h"
 #include "SharedBuffer.h"
 #include "TextResourceDecoder.h"
-#include <wtf/text/Base64.h>
-
-namespace WebCore {
 
 using namespace Inspector;
 
-static const size_t maximumResourcesContentSize = 200 * 1000 * 1000; // 200MB
-static const size_t maximumSingleResourceContentSize = 50 * 1000 * 1000; // 50MB
+namespace WebCore {
+
+static const size_t maximumResourcesContentSize = 100 * 1000 * 1000; // 100MB
+static const size_t maximumSingleResourceContentSize = 10 * 1000 * 1000; // 10MB
 
 NetworkResourcesData::ResourceData::ResourceData(const String& requestId, const String& loaderId)
     : m_requestId(requestId)
     , m_loaderId(loaderId)
+    , m_base64Encoded(false)
+    , m_isContentEvicted(false)
+    , m_type(InspectorPageAgent::OtherResource)
+    , m_cachedResource(nullptr)
 {
 }
 
@@ -103,26 +104,15 @@ void NetworkResourcesData::ResourceData::appendData(const char* data, size_t dat
 size_t NetworkResourcesData::ResourceData::decodeDataToContent()
 {
     ASSERT(!hasContent());
-
     size_t dataLength = m_dataBuffer->size();
-
-    if (m_decoder) {
-        m_base64Encoded = false;
-        m_content = m_decoder->decodeAndFlush(m_dataBuffer->data(), dataLength);
-    } else {
-        m_base64Encoded = true;
-        m_content = base64Encode(m_dataBuffer->data(), dataLength);
-    }
-
+    m_content = m_decoder->decodeAndFlush(m_dataBuffer->data(), m_dataBuffer->size());
     m_dataBuffer = nullptr;
-
-    size_t decodedLength = contentSizeInBytes(m_content);
-    ASSERT(decodedLength >= dataLength);
-    return decodedLength - dataLength;
+    return contentSizeInBytes(m_content) - dataLength;
 }
 
 NetworkResourcesData::NetworkResourcesData()
-    : m_maximumResourcesContentSize(maximumResourcesContentSize)
+    : m_contentSize(0)
+    , m_maximumResourcesContentSize(maximumResourcesContentSize)
     , m_maximumSingleResourceContentSize(maximumSingleResourceContentSize)
 {
 }
@@ -132,41 +122,21 @@ NetworkResourcesData::~NetworkResourcesData()
     clear();
 }
 
-void NetworkResourcesData::resourceCreated(const String& requestId, const String& loaderId, InspectorPageAgent::ResourceType type)
+void NetworkResourcesData::resourceCreated(const String& requestId, const String& loaderId)
 {
     ensureNoDataForRequestId(requestId);
-
-    auto resourceData = std::make_unique<ResourceData>(requestId, loaderId);
-    resourceData->setType(type);
-    m_requestIdToResourceDataMap.set(requestId, WTFMove(resourceData));
+    m_requestIdToResourceDataMap.set(requestId, new ResourceData(requestId, loaderId));
 }
 
-void NetworkResourcesData::resourceCreated(const String& requestId, const String& loaderId, CachedResource& cachedResource)
-{
-    ensureNoDataForRequestId(requestId);
-
-    auto resourceData = std::make_unique<ResourceData>(requestId, loaderId);
-    resourceData->setCachedResource(&cachedResource);
-    m_requestIdToResourceDataMap.set(requestId, WTFMove(resourceData));
-}
-
-void NetworkResourcesData::responseReceived(const String& requestId, const String& frameId, const ResourceResponse& response, InspectorPageAgent::ResourceType type, bool forceBufferData)
+void NetworkResourcesData::responseReceived(const String& requestId, const String& frameId, const ResourceResponse& response)
 {
     ResourceData* resourceData = resourceDataForRequestId(requestId);
     if (!resourceData)
         return;
-
     resourceData->setFrameId(frameId);
-    resourceData->setURL(response.url());
+    resourceData->setUrl(response.url());
+    resourceData->setDecoder(InspectorPageAgent::createTextDecoder(response.mimeType(), response.textEncodingName()));
     resourceData->setHTTPStatusCode(response.httpStatusCode());
-    resourceData->setType(type);
-    resourceData->setForceBufferData(forceBufferData);
-
-    if (InspectorNetworkAgent::shouldTreatAsText(response.mimeType()))
-        resourceData->setDecoder(InspectorNetworkAgent::createTextDecoder(response.mimeType(), response.textEncodingName()));
-
-    if (auto& certificateInfo = response.certificateInfo())
-        resourceData->setCertificateInfo(certificateInfo);
 }
 
 void NetworkResourcesData::setResourceType(const String& requestId, InspectorPageAgent::ResourceType type)
@@ -187,19 +157,14 @@ InspectorPageAgent::ResourceType NetworkResourcesData::resourceType(const String
 
 void NetworkResourcesData::setResourceContent(const String& requestId, const String& content, bool base64Encoded)
 {
-    if (content.isNull())
-        return;
-
     ResourceData* resourceData = resourceDataForRequestId(requestId);
     if (!resourceData)
         return;
-
     size_t dataLength = contentSizeInBytes(content);
     if (dataLength > m_maximumSingleResourceContentSize)
         return;
     if (resourceData->isContentEvicted())
         return;
-
     if (ensureFreeSpace(dataLength) && !resourceData->isContentEvicted()) {
         // We can not be sure that we didn't try to save this request data while it was loading, so remove it, if any.
         if (resourceData->hasContent() || resourceData->hasData())
@@ -210,42 +175,22 @@ void NetworkResourcesData::setResourceContent(const String& requestId, const Str
     }
 }
 
-static bool shouldBufferResourceData(const NetworkResourcesData::ResourceData& resourceData)
-{
-    if (resourceData.forceBufferData())
-        return true;
-
-    if (resourceData.decoder())
-        return true;
-
-    // Buffer data for Web Inspector when the rest of the system would not normally buffer.
-    if (resourceData.cachedResource() && resourceData.cachedResource()->dataBufferingPolicy() == DataBufferingPolicy::DoNotBufferData)
-        return true;
-
-    return false;
-}
-
-NetworkResourcesData::ResourceData const* NetworkResourcesData::maybeAddResourceData(const String& requestId, const char* data, size_t dataLength)
+void NetworkResourcesData::maybeAddResourceData(const String& requestId, const char* data, size_t dataLength)
 {
     ResourceData* resourceData = resourceDataForRequestId(requestId);
     if (!resourceData)
-        return nullptr;
-
-    if (!shouldBufferResourceData(*resourceData))
-        return resourceData;
-
+        return;
+    if (!resourceData->decoder())
+        return;
     if (resourceData->dataLength() + dataLength > m_maximumSingleResourceContentSize)
         m_contentSize -= resourceData->evictContent();
     if (resourceData->isContentEvicted())
-        return resourceData;
-
+        return;
     if (ensureFreeSpace(dataLength) && !resourceData->isContentEvicted()) {
         m_requestIdsDeque.append(requestId);
         resourceData->appendData(data, dataLength);
         m_contentSize += dataLength;
     }
-
-    return resourceData;
 }
 
 void NetworkResourcesData::maybeDecodeDataToContent(const String& requestId)
@@ -253,10 +198,8 @@ void NetworkResourcesData::maybeDecodeDataToContent(const String& requestId)
     ResourceData* resourceData = resourceDataForRequestId(requestId);
     if (!resourceData)
         return;
-
     if (!resourceData->hasData())
         return;
-
     m_contentSize += resourceData->decodeDataToContent();
     size_t dataLength = contentSizeInBytes(resourceData->content());
     if (dataLength > m_maximumSingleResourceContentSize)
@@ -289,7 +232,7 @@ Vector<String> NetworkResourcesData::removeCachedResource(CachedResource* cached
 {
     Vector<String> result;
     for (auto& entry : m_requestIdToResourceDataMap) {
-        ResourceData* resourceData = entry.value.get();
+        ResourceData* resourceData = entry.value;
         if (resourceData->cachedResource() == cachedResource) {
             resourceData->setCachedResource(nullptr);
             result.append(entry.key);
@@ -299,23 +242,29 @@ Vector<String> NetworkResourcesData::removeCachedResource(CachedResource* cached
     return result;
 }
 
-void NetworkResourcesData::clear(Optional<String> preservedLoaderId)
+void NetworkResourcesData::clear(const String& preservedLoaderId)
 {
     m_requestIdsDeque.clear();
     m_contentSize = 0;
 
-    if (!preservedLoaderId)
-        m_requestIdToResourceDataMap.clear();
-    else {
-        m_requestIdToResourceDataMap.removeIf([loaderId = *preservedLoaderId] (auto& entry) {
-            return entry.value->loaderId() != loaderId;
-        });
+    ResourceDataMap preservedMap;
+
+    for (auto& entry : m_requestIdToResourceDataMap) {
+        ResourceData* resourceData = entry.value;
+        ASSERT(resourceData);
+        if (!preservedLoaderId.isNull() && resourceData->loaderId() == preservedLoaderId)
+            preservedMap.set(entry.key, entry.value);
+        else
+            delete resourceData;
     }
+    m_requestIdToResourceDataMap.swap(preservedMap);
 }
 
 Vector<NetworkResourcesData::ResourceData*> NetworkResourcesData::resources()
 {
-    return WTF::map(m_requestIdToResourceDataMap.values(), [] (const auto& v) { return v.get(); });
+    Vector<NetworkResourcesData::ResourceData*> resources;
+    copyValuesToVector(m_requestIdToResourceDataMap, resources);
+    return resources;
 }
 
 NetworkResourcesData::ResourceData* NetworkResourcesData::resourceDataForRequestId(const String& requestId)
@@ -327,13 +276,13 @@ NetworkResourcesData::ResourceData* NetworkResourcesData::resourceDataForRequest
 
 void NetworkResourcesData::ensureNoDataForRequestId(const String& requestId)
 {
-    auto result = m_requestIdToResourceDataMap.take(requestId);
-    if (!result)
+    ResourceData* resourceData = resourceDataForRequestId(requestId);
+    if (!resourceData)
         return;
-
-    ResourceData* resourceData = result.get();
     if (resourceData->hasContent() || resourceData->hasData())
         m_contentSize -= resourceData->evictContent();
+    delete resourceData;
+    m_requestIdToResourceDataMap.remove(requestId);
 }
 
 bool NetworkResourcesData::ensureFreeSpace(size_t size)

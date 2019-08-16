@@ -33,48 +33,58 @@
 #include "JSDOMConvertBufferSource.h"
 #include "JSDOMConvertInterface.h"
 #include "JSDOMConvertJSON.h"
-#include "JSDOMConvertNullable.h"
-#include "JSDOMConvertStrings.h"
 #include "JSDocument.h"
+#include <runtime/ArrayBuffer.h>
+#include <runtime/JSArrayBuffer.h>
+#include <runtime/JSArrayBufferView.h>
 
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 
 void JSXMLHttpRequest::visitAdditionalChildren(SlotVisitor& visitor)
 {
-    if (auto* upload = wrapped().optionalUpload())
+    if (XMLHttpRequestUpload* upload = wrapped().optionalUpload())
         visitor.addOpaqueRoot(upload);
 
-    if (auto* responseDocument = wrapped().optionalResponseXML())
+    if (Document* responseDocument = wrapped().optionalResponseXML())
         visitor.addOpaqueRoot(responseDocument);
 }
 
-JSValue JSXMLHttpRequest::response(ExecState& state) const
+JSValue JSXMLHttpRequest::responseText(ExecState& state) const
 {
-    auto cacheResult = [&] (JSValue value) -> JSValue {
-        m_response.set(state.vm(), this, value);
-        return value;
-    };
+    auto result = wrapped().responseText();
 
+    if (UNLIKELY(result.hasException())) {
+        auto& vm = state.vm();
+        auto scope = DECLARE_THROW_SCOPE(vm);
+        propagateException(state, scope, result.releaseException());
+        return { };
+    }
 
-    if (wrapped().responseCacheIsValid())
-        return m_response.get();
+    auto resultValue = result.releaseReturnValue();
+    if (resultValue.isNull())
+        return jsNull();
 
+    // See JavaScriptCore for explanation: Should be used for any string that is already owned by another
+    // object, to let the engine know that collecting the JSString wrapper is unlikely to save memory.
+    return jsOwnedString(&state, resultValue);
+}
+
+JSValue JSXMLHttpRequest::retrieveResponse(ExecState& state)
+{
     auto type = wrapped().responseType();
 
     switch (type) {
     case XMLHttpRequest::ResponseType::EmptyString:
-    case XMLHttpRequest::ResponseType::Text: {
-        auto scope = DECLARE_THROW_SCOPE(state.vm());
-        return cacheResult(toJS<IDLNullable<IDLUSVString>>(state, scope, wrapped().responseText()));
-    }
+    case XMLHttpRequest::ResponseType::Text:
+        return responseText(state);
     default:
         break;
     }
 
     if (!wrapped().doneWithoutErrors())
-        return cacheResult(jsNull());
+        return jsNull();
 
     JSValue value;
     switch (type) {
@@ -84,7 +94,7 @@ JSValue JSXMLHttpRequest::response(ExecState& state) const
         return jsUndefined();
 
     case XMLHttpRequest::ResponseType::Json:
-        value = toJS<IDLJSON>(*globalObject()->globalExec(), wrapped().responseTextIgnoringResponseType());
+        value = toJS<IDLJSON>(state, wrapped().responseTextIgnoringResponseType());
         if (!value)
             value = jsNull();
         break;
@@ -106,7 +116,7 @@ JSValue JSXMLHttpRequest::response(ExecState& state) const
     }
 
     wrapped().didCacheResponse();
-    return cacheResult(value);
+    return value;
 }
 
 } // namespace WebCore

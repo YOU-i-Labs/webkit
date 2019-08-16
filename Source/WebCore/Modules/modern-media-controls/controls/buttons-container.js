@@ -26,54 +26,53 @@
 class ButtonsContainer extends LayoutNode
 {
 
-    constructor({ children = [], leftMargin = 16, rightMargin = 16, buttonMargin = 16, cssClassName = "" } = {})
+    constructor({ buttons = [], leftMargin = 16, rightMargin = 16, buttonMargin = 16, cssClassName = "" } = {})
     {
         super(`<div class="buttons-container ${cssClassName}"></div>`);
 
+        this.buttons = buttons;
         this.leftMargin = leftMargin;
         this.rightMargin = rightMargin;
         this.buttonMargin = buttonMargin;
-        this.children = children;
     }
 
     // Public
 
-    willRemoveChild(child)
+    get buttons()
     {
-        super.willRemoveChild(child);
-
-        // We reset properties that we may have overridden during layout to their default values.
-        child.visible = true;
-        child.x = 0;
+        return this._buttons;
     }
 
-    didChangeChildren()
+    set buttons(buttons)
     {
-        super.didChangeChildren();
-        this.layout();
+        if (!Array.isArray(buttons))
+            return;
+
+        this._buttons = buttons;
+        this.needsLayout = true;
     }
 
     layout()
     {
         super.layout();
 
+        const children = [];
         let x = this.leftMargin;
-        let numberOfVisibleButtons = 0;
 
-        this._children.forEach(button => {
-            button.visible = button.enabled && !button.dropped;
-            if (!button.visible)
+        this._buttons.forEach(button => {
+            if (!button.enabled || button.dropped)
                 return;
-
             button.x = x;
             x += button.width + this.buttonMargin;
-            numberOfVisibleButtons++;
+            children.push(button);
         });
 
-        if (numberOfVisibleButtons)
+        if (children.length)
             this.width = x - this.buttonMargin + this.rightMargin;
         else
             this.width = this.buttonMargin + this.rightMargin;
+
+        this.children = children;
     }
 
 }

@@ -13,11 +13,6 @@
 namespace angle
 {
 
-bool LoggingAnnotator::getStatus()
-{
-    return false;
-}
-
 void LoggingAnnotator::logMessage(const gl::LogMessage &msg) const
 {
     auto *plat = ANGLEPlatformCurrent();

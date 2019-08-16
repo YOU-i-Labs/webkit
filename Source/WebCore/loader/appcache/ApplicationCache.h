@@ -33,6 +33,7 @@ namespace WebCore {
 class ApplicationCacheGroup;
 class ApplicationCacheResource;
 class ResourceRequest;
+class URL;
 
 using FallbackURLVector = Vector<std::pair<URL, URL>>;
 

@@ -30,6 +30,8 @@
 
 #pragma once
 
+#if ENABLE(WEB_SOCKETS)
+
 #include <wtf/HashMap.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
@@ -65,3 +67,5 @@ private:
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_SOCKETS)

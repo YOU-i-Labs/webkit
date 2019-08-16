@@ -33,8 +33,7 @@ struct TextCheckingResult;
 
 class TextCheckingParagraph {
 public:
-    explicit TextCheckingParagraph(Ref<Range>&& checkingAndAutomaticReplacementRange);
-    explicit TextCheckingParagraph(Ref<Range>&& checkingRange, Ref<Range>&& automaticReplacementRange, RefPtr<Range>&& paragraphRange);
+    explicit TextCheckingParagraph(Ref<Range>&& checkingRange, Range* paragraphRange = nullptr);
 
     int rangeLength() const;
     Ref<Range> subrange(int characterOffset, int characterCount) const;
@@ -56,11 +55,6 @@ public:
     int checkingLength() const;
     String checkingSubstring() const { return textSubstring(checkingStart(), checkingLength()); }
 
-    // Determines the range in which we allow automatic text replacement. If an automatic replacement range is not passed to the
-    // text checking paragraph, this defaults to the spell checking range.
-    int automaticReplacementStart() const;
-    int automaticReplacementLength() const;
-
     bool checkingRangeMatches(int location, int length) const { return location == checkingStart() && length == checkingLength(); }
     bool isCheckingRangeCoveredBy(int location, int length) const { return location <= checkingStart() && location + length >= checkingStart() + checkingLength(); }
     bool checkingRangeCovers(int location, int length) const { return location < checkingEnd() && location + length > checkingStart(); }
@@ -71,15 +65,12 @@ private:
     Range& offsetAsRange() const;
 
     Ref<Range> m_checkingRange;
-    Ref<Range> m_automaticReplacementRange;
     mutable RefPtr<Range> m_paragraphRange;
     mutable RefPtr<Range> m_offsetAsRange;
     mutable String m_text;
-    mutable Optional<int> m_checkingStart;
-    mutable Optional<int> m_checkingEnd;
-    mutable Optional<int> m_checkingLength;
-    mutable Optional<int> m_automaticReplacementStart;
-    mutable Optional<int> m_automaticReplacementLength;
+    mutable int m_checkingStart;
+    mutable int m_checkingEnd;
+    mutable int m_checkingLength;
 };
 
 class TextCheckingHelper {
@@ -108,7 +99,7 @@ private:
 #endif
 };
 
-void checkTextOfParagraph(TextCheckerClient&, StringView, OptionSet<TextCheckingType>, Vector<TextCheckingResult>&, const VisibleSelection& currentSelection);
+void checkTextOfParagraph(TextCheckerClient&, StringView, TextCheckingTypeMask, Vector<TextCheckingResult>&, const VisibleSelection& currentSelection);
 
 bool unifiedTextCheckerEnabled(const Frame*);
 

@@ -41,29 +41,29 @@ public:
 
     const ObjectPropertyCondition& key() const { return m_key; }
 
-    void install(VM&);
+    void install();
 
     virtual ~AdaptiveInferredPropertyValueWatchpointBase() = default;
 
 protected:
     virtual bool isValid() const;
-    virtual void handleFire(VM&, const FireDetail&) = 0;
+    virtual void handleFire(const FireDetail&) = 0;
 
 private:
     class StructureWatchpoint : public Watchpoint {
     public:
         StructureWatchpoint() { }
     protected:
-        void fireInternal(VM&, const FireDetail&) override;
+        void fireInternal(const FireDetail&) override;
     };
     class PropertyWatchpoint : public Watchpoint {
     public:
         PropertyWatchpoint() { }
     protected:
-        void fireInternal(VM&, const FireDetail&) override;
+        void fireInternal(const FireDetail&) override;
     };
 
-    void fire(VM&, const FireDetail&);
+    void fire(const FireDetail&);
 
     ObjectPropertyCondition m_key;
     StructureWatchpoint m_structureWatchpoint;

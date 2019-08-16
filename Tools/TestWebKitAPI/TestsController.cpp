@@ -26,10 +26,7 @@
 #include "config.h"
 #include "TestsController.h"
 
-#include <wtf/MainThread.h>
-#include <wtf/ProcessPrivilege.h>
 #include <wtf/Threading.h>
-#include <wtf/text/AtomicString.h>
 
 namespace TestWebKitAPI {
 
@@ -70,9 +67,6 @@ TestsController::TestsController()
     // We should make sure that all objects tested either initialize threading or inherit from
     // ThreadSafeRefCounted so that we don't have to initialize threading at all here.
     WTF::initializeThreading();
-    WTF::initializeMainThread();
-    WTF::setProcessPrivileges(allPrivileges());
-    AtomicString::init();
 }
 
 bool TestsController::run(int argc, char** argv)

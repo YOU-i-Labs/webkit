@@ -34,7 +34,7 @@ struct CSSParserContext;
 
 class CSSRule : public RefCounted<CSSRule> {
 public:
-    virtual ~CSSRule() = default;
+    virtual ~CSSRule() { }
 
     enum Type {
         UNKNOWN_RULE,
@@ -53,6 +53,9 @@ public:
         SUPPORTS_RULE = 12,
 #if ENABLE(CSS_DEVICE_ADAPTATION)
         WEBKIT_VIEWPORT_RULE = 15,
+#endif
+#if ENABLE(CSS_REGIONS)
+        WEBKIT_REGION_RULE = 16,
 #endif
     };
 

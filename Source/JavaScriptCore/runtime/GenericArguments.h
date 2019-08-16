@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "CagedBarrierPtr.h"
 #include "JSObject.h"
 
 namespace JSC {
@@ -61,7 +60,7 @@ protected:
 
     void copyToArguments(ExecState*, VirtualRegister firstElementDest, unsigned offset, unsigned length);
     
-    CagedBarrierPtr<Gigacage::Primitive, bool> m_modifiedArgumentsDescriptor;
+    AuxiliaryBarrier<bool*> m_modifiedArgumentsDescriptor;
 };
 
 } // namespace JSC

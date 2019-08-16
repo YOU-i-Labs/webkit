@@ -27,22 +27,22 @@ function next()
 {
     "use strict";
 
-    if (@isUndefinedOrNull(this))
+    if (this == null)
         @throwTypeError("%StringIteratorPrototype%.next requires that |this| not be null or undefined");
 
-    var position = @getByIdDirectPrivate(this, "stringIteratorNextIndex");
+    var position = this.@stringIteratorNextIndex;
     if (position === @undefined)
         @throwTypeError("%StringIteratorPrototype%.next requires that |this| be a String Iterator instance");
 
     var done = true;
     var value = @undefined;
 
-    var string = @getByIdDirectPrivate(this, "iteratedString");
+    var string = this.@iteratedString;
     if (string !== @undefined) {
         var length = string.length >>> 0;
-        if (position >= length)
-            @putByIdDirectPrivate(this, "iteratedString", @undefined);
-        else {
+        if (position >= length) {
+            this.@iteratedString = @undefined;
+        } else {
             done = false;
 
             var first = string.@charCodeAt(position);
@@ -56,9 +56,9 @@ function next()
                     value = string[position] + string[position + 1];
             }
 
-            @putByIdDirectPrivate(this, "stringIteratorNextIndex", position + value.length);
+            this.@stringIteratorNextIndex = position + value.length;
         }
     }
 
-    return { value, done };
+    return {done, value};
 }

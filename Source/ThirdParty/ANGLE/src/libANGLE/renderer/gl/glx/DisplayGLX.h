@@ -44,10 +44,6 @@ class DisplayGLX : public DisplayGL
     egl::Error initialize(egl::Display *display) override;
     void terminate() override;
 
-    egl::Error makeCurrent(egl::Surface *drawSurface,
-                           egl::Surface *readSurface,
-                           gl::Context *context) override;
-
     SurfaceImpl *createWindowSurface(const egl::SurfaceState &state,
                                      EGLNativeWindowType window,
                                      const egl::AttributeMap &attribs) override;
@@ -64,7 +60,7 @@ class DisplayGLX : public DisplayGL
     egl::ConfigSet generateConfigs() override;
 
     bool testDeviceLost() override;
-    egl::Error restoreLostDevice(const egl::Display *display) override;
+    egl::Error restoreLostDevice() override;
 
     bool isValidNativeWindow(EGLNativeWindowType window) const override;
 
@@ -72,8 +68,10 @@ class DisplayGLX : public DisplayGL
 
     std::string getVendorString() const override;
 
-    egl::Error waitClient(const gl::Context *context) const override;
-    egl::Error waitNative(const gl::Context *context, EGLint engine) const override;
+    egl::Error waitClient() const override;
+    egl::Error waitNative(EGLint engine,
+                          egl::Surface *drawSurface,
+                          egl::Surface *readSurface) const override;
 
     // Synchronizes with the X server, if the display has been opened by ANGLE.
     // Calling this is required at the end of every functions that does buffered
@@ -98,8 +96,6 @@ class DisplayGLX : public DisplayGL
 
     void generateExtensions(egl::DisplayExtensions *outExtensions) const override;
     void generateCaps(egl::Caps *outCaps) const override;
-
-    egl::Error makeCurrentSurfaceless(gl::Context *context) override;
 
     int getGLXFBConfigAttrib(glx::FBConfig config, int attrib) const;
     egl::Error createContextAttribs(glx::FBConfig,
@@ -136,8 +132,6 @@ class DisplayGLX : public DisplayGL
     int mMinSwapInterval;
     int mMaxSwapInterval;
     int mCurrentSwapInterval;
-
-    glx::Drawable mCurrentDrawable;
 
     FunctionsGLX mGLX;
     Display *mXDisplay;

@@ -30,8 +30,7 @@
 
 namespace WebCore {
 
-class HTMLPictureElement final : public HTMLElement, public CanMakeWeakPtr<HTMLPictureElement> {
-    WTF_MAKE_ISO_ALLOCATED(HTMLPictureElement);
+class HTMLPictureElement final : public HTMLElement {
 public:
     static Ref<HTMLPictureElement> create(const QualifiedName&, Document&);
     virtual ~HTMLPictureElement();
@@ -42,24 +41,17 @@ public:
     bool hasViewportDependentResults() const { return m_viewportDependentMediaQueryResults.size(); }
     Vector<MediaQueryResult>& viewportDependentResults() { return m_viewportDependentMediaQueryResults; }
 
-    void clearAppearanceDependentResults() { m_appearanceDependentMediaQueryResults.clear(); }
-    bool hasAppearanceDependentResults() const { return m_appearanceDependentMediaQueryResults.size(); }
-    Vector<MediaQueryResult>& appearanceDependentResults() { return m_appearanceDependentMediaQueryResults; }
-
     bool viewportChangeAffectedPicture() const;
-    bool appearanceChangeAffectedPicture() const;
 
-#if USE(SYSTEM_PREVIEW)
-    WEBCORE_EXPORT bool isSystemPreviewImage() const;
-#endif
+    WeakPtr<HTMLPictureElement> createWeakPtr() { return m_weakFactory.createWeakPtr(); }
 
 private:
     HTMLPictureElement(const QualifiedName&, Document&);
 
     void didMoveToNewDocument(Document& oldDocument, Document& newDocument) final;
 
+    WeakPtrFactory<HTMLPictureElement> m_weakFactory { this };
     Vector<MediaQueryResult> m_viewportDependentMediaQueryResults;
-    Vector<MediaQueryResult> m_appearanceDependentMediaQueryResults;
 };
 
 } // namespace WebCore

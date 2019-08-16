@@ -52,10 +52,9 @@ bool ResetInputType::supportsValidation() const
 
 void ResetInputType::handleDOMActivateEvent(Event& event)
 {
-    ASSERT(element());
-    if (element()->isDisabledFormControl() || !element()->form())
+    if (element().isDisabledFormControl() || !element().form())
         return;
-    element()->form()->reset();
+    element().form()->reset();
     event.setDefaultHandled();
 }
 

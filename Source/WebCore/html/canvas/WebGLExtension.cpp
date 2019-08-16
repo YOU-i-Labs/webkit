@@ -36,7 +36,9 @@ WebGLExtension::WebGLExtension(WebGLRenderingContextBase& context)
 {
 }
 
-WebGLExtension::~WebGLExtension() = default;
+WebGLExtension::~WebGLExtension()
+{
+}
 
 } // namespace WebCore
 

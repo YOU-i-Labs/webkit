@@ -56,9 +56,6 @@ ControllerGtk.prototype = {
 
     shouldHaveControls: function()
     {
-        if (!this.isAudio() && !this.host.allowsInlineMediaPlayback)
-            return true;
-
         return this.video.controls || this.isFullScreen();
     },
 

@@ -32,31 +32,23 @@
 #include "ANGLEWebKitBridge.h"
 #include "GraphicsContext3D.h"
 
-#if PLATFORM(COCOA)
-
-#if USE(OPENGL_ES)
+#if PLATFORM(IOS)
 #include <OpenGLES/ES2/glext.h>
 #include <OpenGLES/ES3/gl.h>
 #else
-#define GL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED
-#include <OpenGL/gl.h>
-#include <OpenGL/gl3.h>
-#undef GL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED
-#endif
-
-#else
-
-#if USE(LIBEPOXY)
-#include "EpoxyShims.h"
-#elif USE(OPENGL_ES)
+#if USE(OPENGL_ES_2)
 #include "OpenGLESShims.h"
 #define GL_GLEXT_PROTOTYPES 1
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#elif PLATFORM(MAC)
+#define GL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED
+#include <OpenGL/gl.h>
+#include <OpenGL/gl3.h>
+#undef GL_DO_NOT_WARN_IF_MULTI_GL_VERSION_HEADERS_INCLUDED
 #elif PLATFORM(GTK) || PLATFORM(WIN)
 #include "OpenGLShims.h"
 #endif
-
 #endif
 
 #include <wtf/MainThread.h>
@@ -78,7 +70,8 @@ Extensions3DOpenGLCommon::Extensions3DOpenGLCommon(GraphicsContext3D* context, b
     m_vendor = String(reinterpret_cast<const char*>(::glGetString(GL_VENDOR)));
     m_renderer = String(reinterpret_cast<const char*>(::glGetString(GL_RENDERER)));
 
-    Vector<String> vendorComponents = m_vendor.convertToASCIILowercase().split(' ');
+    Vector<String> vendorComponents;
+    m_vendor.convertToASCIILowercase().split(' ', vendorComponents);
     if (vendorComponents.contains("nvidia"))
         m_isNVIDIA = true;
     if (vendorComponents.contains("ati") || vendorComponents.contains("amd"))
@@ -97,7 +90,9 @@ Extensions3DOpenGLCommon::Extensions3DOpenGLCommon(GraphicsContext3D* context, b
 #endif
 }
 
-Extensions3DOpenGLCommon::~Extensions3DOpenGLCommon() = default;
+Extensions3DOpenGLCommon::~Extensions3DOpenGLCommon()
+{
+}
 
 bool Extensions3DOpenGLCommon::supports(const String& name)
 {
@@ -191,7 +186,7 @@ String Extensions3DOpenGLCommon::getTranslatedShaderSourceANGLE(Platform3DObject
 
     String translatedShaderSource;
     String shaderInfoLog;
-    uint64_t extraCompileOptions = SH_CLAMP_INDIRECT_ARRAY_BOUNDS | SH_UNFOLD_SHORT_CIRCUIT | SH_INIT_OUTPUT_VARIABLES | SH_ENFORCE_PACKING_RESTRICTIONS | SH_LIMIT_EXPRESSION_COMPLEXITY | SH_LIMIT_CALL_STACK_DEPTH | SH_INITIALIZE_UNINITIALIZED_LOCALS;
+    int extraCompileOptions = SH_CLAMP_INDIRECT_ARRAY_BOUNDS | SH_UNFOLD_SHORT_CIRCUIT | SH_INIT_OUTPUT_VARIABLES | SH_ENFORCE_PACKING_RESTRICTIONS | SH_LIMIT_EXPRESSION_COMPLEXITY | SH_LIMIT_CALL_STACK_DEPTH;
 
     if (m_requiresBuiltInFunctionEmulation)
         extraCompileOptions |= SH_EMULATE_ABS_INT_FUNCTION;
@@ -215,27 +210,29 @@ String Extensions3DOpenGLCommon::getTranslatedShaderSourceANGLE(Platform3DObject
 
 void Extensions3DOpenGLCommon::initializeAvailableExtensions()
 {
-#if (PLATFORM(COCOA) && USE(OPENGL)) || (PLATFORM(GTK) && !USE(OPENGL_ES))
+#if PLATFORM(MAC) || (PLATFORM(GTK) && !USE(OPENGL_ES_2))
     if (m_useIndexedGetString) {
         GLint numExtensions = 0;
         ::glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
         for (GLint i = 0; i < numExtensions; ++i)
             m_availableExtensions.add(glGetStringi(GL_EXTENSIONS, i));
 
-        if (!m_availableExtensions.contains("GL_ARB_texture_storage"_s)) {
+        if (!m_availableExtensions.contains(ASCIILiteral("GL_ARB_texture_storage"))) {
             GLint majorVersion;
             glGetIntegerv(GL_MAJOR_VERSION, &majorVersion);
             GLint minorVersion;
             glGetIntegerv(GL_MINOR_VERSION, &minorVersion);
             if (majorVersion > 4 || (majorVersion == 4 && minorVersion >= 2))
-                m_availableExtensions.add("GL_ARB_texture_storage"_s);
+                m_availableExtensions.add(ASCIILiteral("GL_ARB_texture_storage"));
         }
     } else
 #endif
     {
         String extensionsString = getExtensions();
-        for (auto& extension : extensionsString.split(' '))
-            m_availableExtensions.add(extension);
+        Vector<String> availableExtensions;
+        extensionsString.split(' ', availableExtensions);
+        for (size_t i = 0; i < availableExtensions.size(); ++i)
+            m_availableExtensions.add(availableExtensions[i]);
     }
     m_initializedAvailableExtensions = true;
 }

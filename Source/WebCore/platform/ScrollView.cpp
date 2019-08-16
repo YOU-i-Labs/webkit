@@ -35,14 +35,18 @@
 #include "ScrollAnimator.h"
 #include "Scrollbar.h"
 #include "ScrollbarTheme.h"
+#include "TextStream.h"
 #include <wtf/StdLibExtras.h>
-#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
-ScrollView::ScrollView() = default;
+ScrollView::ScrollView()
+{
+}
 
-ScrollView::~ScrollView() = default;
+ScrollView::~ScrollView()
+{
+}
 
 void ScrollView::addChild(Widget& child)
 {
@@ -188,6 +192,11 @@ void ScrollView::setPaintsEntireContents(bool paintsEntireContents)
     m_paintsEntireContents = paintsEntireContents;
 }
 
+void ScrollView::setClipsRepaints(bool clipsRepaints)
+{
+    m_clipsRepaints = clipsRepaints;
+}
+
 void ScrollView::setDelegatesScrolling(bool delegatesScrolling)
 {
     if (m_delegatesScrolling == delegatesScrolling)
@@ -199,7 +208,7 @@ void ScrollView::setDelegatesScrolling(bool delegatesScrolling)
 
 IntPoint ScrollView::contentsScrollPosition() const
 {
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     if (platformWidget())
         return actualScrollPosition();
 #endif
@@ -208,14 +217,14 @@ IntPoint ScrollView::contentsScrollPosition() const
 
 void ScrollView::setContentsScrollPosition(const IntPoint& position)
 {
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     if (platformWidget())
         setActualScrollPosition(position);
 #endif
     setScrollPosition(position);
 }
 
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
 IntRect ScrollView::unobscuredContentRect(VisibleContentRectIncludesScrollbars scrollbarInclusion) const
 {
     return unobscuredContentRectInternal(scrollbarInclusion);
@@ -264,7 +273,7 @@ IntSize ScrollView::sizeForUnobscuredContent(VisibleContentRectIncludesScrollbar
 
 IntRect ScrollView::visibleContentRectInternal(VisibleContentRectIncludesScrollbars scrollbarInclusion, VisibleContentRectBehavior visibleContentRectBehavior) const
 {
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     if (visibleContentRectBehavior == LegacyIOSDocumentViewRect) {
         if (platformWidget())
             return platformVisibleContentRect(scrollbarInclusion == IncludeScrollbars);
@@ -301,8 +310,6 @@ void ScrollView::setFixedLayoutSize(const IntSize& newSize)
 {
     if (fixedLayoutSize() == newSize)
         return;
-
-    LOG_WITH_STREAM(Layout, stream << "ScrollView " << this << " setFixedLayoutSize " << newSize);
     m_fixedLayoutSize = newSize;
     if (m_useFixedLayout)
         availableContentSizeChanged(AvailableSizeChangeReason::AreaSizeChanged);
@@ -433,8 +440,8 @@ void ScrollView::handleDeferredScrollUpdateAfterContentSizeChange()
     else if (m_deferredScrollOffsets)
         scrollOffsetChangedViaPlatformWidgetImpl(m_deferredScrollOffsets.value().first, m_deferredScrollOffsets.value().second);
     
-    m_deferredScrollDelta = WTF::nullopt;
-    m_deferredScrollOffsets = WTF::nullopt;
+    m_deferredScrollDelta = std::nullopt;
+    m_deferredScrollOffsets = std::nullopt;
 }
 
 void ScrollView::scrollTo(const ScrollPosition& newPosition)
@@ -609,7 +616,7 @@ void ScrollView::updateScrollbars(const ScrollPosition& desiredPosition)
 
         bool needAnotherPass = false;
         if (!hasOverlayScrollbars) {
-            // If we ever turn one scrollbar off, do not turn the other one on. Never ever
+            // If we ever turn one scrollbar off, always turn the other one off too.  Never ever
             // try to both gain/lose a scrollbar in the same pass.
             if (!m_updateScrollbarsPass && docSize.width() <= fullVisibleSize.width() && docSize.height() <= fullVisibleSize.height()) {
                 if (hScroll == ScrollbarAuto)
@@ -617,11 +624,11 @@ void ScrollView::updateScrollbars(const ScrollPosition& desiredPosition)
                 if (vScroll == ScrollbarAuto)
                     newHasVerticalScrollbar = false;
             }
-            if (!newHasHorizontalScrollbar && hasHorizontalScrollbar && vScroll != ScrollbarAlwaysOn && !hasVerticalScrollbar) {
+            if (!newHasHorizontalScrollbar && hasHorizontalScrollbar && vScroll != ScrollbarAlwaysOn) {
                 newHasVerticalScrollbar = false;
                 needAnotherPass = true;
             }
-            if (!newHasVerticalScrollbar && hasVerticalScrollbar && hScroll != ScrollbarAlwaysOn && !hasHorizontalScrollbar) {
+            if (!newHasVerticalScrollbar && hasVerticalScrollbar && hScroll != ScrollbarAlwaysOn) {
                 newHasHorizontalScrollbar = false;
                 needAnotherPass = true;
             }
@@ -829,19 +836,7 @@ IntRect ScrollView::viewToContents(IntRect rect) const
     return rect;
 }
 
-FloatRect ScrollView::viewToContents(FloatRect rect) const
-{
-    rect.moveBy(documentScrollPositionRelativeToViewOrigin());
-    return rect;
-}
-
 IntRect ScrollView::contentsToView(IntRect rect) const
-{
-    rect.moveBy(-documentScrollPositionRelativeToViewOrigin());
-    return rect;
-}
-
-FloatRect ScrollView::contentsToView(FloatRect rect) const
 {
     rect.moveBy(-documentScrollPositionRelativeToViewOrigin());
     return rect;
@@ -859,9 +854,6 @@ IntPoint ScrollView::contentsToContainingViewContents(const IntPoint& point) con
 
 IntRect ScrollView::contentsToContainingViewContents(IntRect rect) const
 {
-    if (delegatesScrolling())
-        return convertToContainingView(contentsToView(rect));
-    
     if (const ScrollView* parentScrollView = parent()) {
         IntRect rectInContainingView = convertToContainingView(contentsToView(rect));
         return parentScrollView->viewToContents(rectInContainingView);
@@ -887,14 +879,6 @@ IntPoint ScrollView::contentsToRootView(const IntPoint& contentsPoint) const
 }
 
 IntRect ScrollView::rootViewToContents(const IntRect& rootViewRect) const
-{
-    if (delegatesScrolling())
-        return convertFromRootView(rootViewRect);
-
-    return viewToContents(convertFromRootView(rootViewRect));
-}
-
-FloatRect ScrollView::rootViewToContents(const FloatRect& rootViewRect) const
 {
     if (delegatesScrolling())
         return convertFromRootView(rootViewRect);
@@ -1087,7 +1071,7 @@ void ScrollView::positionScrollbarLayers()
 void ScrollView::repaintContentRectangle(const IntRect& rect)
 {
     IntRect paintRect = rect;
-    if (!paintsEntireContents())
+    if (clipsRepaints() && !paintsEntireContents())
         paintRect.intersect(visibleContentRect(LegacyIOSDocumentVisibleRect));
     if (paintRect.isEmpty())
         return;
@@ -1145,7 +1129,7 @@ void ScrollView::scrollbarStyleChanged(ScrollbarStyle newStyle, bool forceUpdate
 
 void ScrollView::paintScrollCorner(GraphicsContext& context, const IntRect& cornerRect)
 {
-    ScrollbarTheme::theme().paintScrollCorner(context, cornerRect);
+    ScrollbarTheme::theme().paintScrollCorner(this, context, cornerRect);
 }
 
 void ScrollView::paintScrollbar(GraphicsContext& context, Scrollbar& bar, const IntRect& rect)
@@ -1187,7 +1171,7 @@ void ScrollView::paint(GraphicsContext& context, const IntRect& rect, SecurityOr
         return;
     }
 
-    if (context.paintingDisabled() && !context.performingPaintInvalidation())
+    if (context.paintingDisabled() && !context.updatingControlTints())
         return;
 
     notifyPageThatContentAreaWillPaint();

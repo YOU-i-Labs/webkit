@@ -49,8 +49,7 @@ HRESULT RunOnUIThread(CODE &&code, const ComPtr<ICoreDispatcher> &dispatcher)
     }
     else
     {
-        Event waitEvent(
-            CreateEventEx(nullptr, nullptr, CREATE_EVENT_MANUAL_RESET, EVENT_ALL_ACCESS));
+        Event waitEvent(CreateEventEx(NULL, NULL, CREATE_EVENT_MANUAL_RESET, EVENT_ALL_ACCESS));
         if (!waitEvent.IsValid())
         {
             return E_FAIL;
@@ -248,8 +247,7 @@ HRESULT SwapChainPanelNativeWindow::createSwapChain(ID3D11Device *device,
                                                     bool containsAlpha,
                                                     IDXGISwapChain1 **swapChain)
 {
-    if (device == nullptr || factory == nullptr || swapChain == nullptr || width == 0 ||
-        height == 0)
+    if (device == NULL || factory == NULL || swapChain == NULL || width == 0 || height == 0)
     {
         return E_INVALIDARG;
     }

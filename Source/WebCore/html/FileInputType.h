@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -40,7 +40,6 @@ namespace WebCore {
 
 class DragData;
 class FileList;
-class FileListCreator;
 class Icon;
 
 class FileInputType final : public BaseClickableWithKeyInputType, private FileChooserClient, private FileIconLoaderClient {
@@ -54,7 +53,7 @@ private:
     const AtomicString& formControlType() const final;
     FormControlState saveFormControlState() const final;
     void restoreFormControlState(const FormControlState&) final;
-    bool appendFormData(DOMFormData&, bool) const final;
+    bool appendFormData(FormDataList&, bool) const final;
     bool valueMissing(const String&) const final;
     String valueMissingText() const final;
     void handleDOMActivateEvent(Event&) final;
@@ -76,8 +75,8 @@ private:
     Icon* icon() const final;
     bool isFileUpload() const final;
     void createShadowSubtree() final;
-    void disabledStateChanged() final;
-    void attributeChanged(const QualifiedName&) final;
+    void disabledAttributeChanged() final;
+    void multipleAttributeChanged() final;
     String defaultToolTip() const final;
 
     void filesChosen(const Vector<FileChooserFileInfo>&, const String& displayString = { }, Icon* = nullptr) final;
@@ -85,17 +84,15 @@ private:
     // FileIconLoaderClient implementation.
     void iconLoaded(RefPtr<Icon>&&) final;
 
+    static Ref<FileList> createFileList(const Vector<FileChooserFileInfo>&);
     void requestIcon(const Vector<String>&);
 
     void applyFileChooserSettings(const FileChooserSettings&);
-
-    bool allowsDirectories() const;
 
     RefPtr<FileChooser> m_fileChooser;
     std::unique_ptr<FileIconLoader> m_fileIconLoader;
 
     Ref<FileList> m_fileList;
-    RefPtr<FileListCreator> m_fileListCreator;
     RefPtr<Icon> m_icon;
     String m_displayString;
 };

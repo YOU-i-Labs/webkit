@@ -30,11 +30,8 @@
 #if ENABLE(MATHML)
 
 #include "RenderMathMLPadded.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(MathMLPaddedElement);
 
 using namespace MathMLNames;
 
@@ -76,15 +73,15 @@ const MathMLElement::Length& MathMLPaddedElement::voffset()
 void MathMLPaddedElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == widthAttr)
-        m_width = WTF::nullopt;
+        m_width = std::nullopt;
     else if (name == heightAttr)
-        m_height = WTF::nullopt;
+        m_height = std::nullopt;
     else if (name == depthAttr)
-        m_depth = WTF::nullopt;
+        m_depth = std::nullopt;
     else if (name == lspaceAttr)
-        m_lspace = WTF::nullopt;
+        m_lspace = std::nullopt;
     else if (name == voffsetAttr)
-        m_voffset = WTF::nullopt;
+        m_voffset = std::nullopt;
 
     MathMLElement::parseAttribute(name, value);
 }

@@ -26,43 +26,33 @@
 
 #if ENABLE(FULLSCREEN_API)
 
-#include "RenderBlockFlow.h"
 #include "RenderFlexibleBox.h"
+#include "StyleInheritedData.h"
 
 namespace WebCore {
 
 class RenderFullScreen final : public RenderFlexibleBox {
-    WTF_MAKE_ISO_ALLOCATED(RenderFullScreen);
 public:
     RenderFullScreen(Document&, RenderStyle&&);
-    virtual ~RenderFullScreen();
 
     const char* renderName() const override { return "RenderFullScreen"; }
 
-    RenderBlock* placeholder() { return m_placeholder.get(); }
-    void setPlaceholder(RenderBlock& placeholder) { m_placeholder = makeWeakPtr(placeholder); }
+    void setPlaceholder(RenderBlock*);
+    RenderBlock* placeholder() { return m_placeholder; }
+    void createPlaceholder(std::unique_ptr<RenderStyle>, const LayoutRect& frameRect);
 
-    static RenderPtr<RenderFullScreen> wrapNewRenderer(RenderTreeBuilder&, RenderPtr<RenderElement>, RenderElement& parent, Document&);
-    static void wrapExistingRenderer(RenderElement&, Document&);
+    static RenderFullScreen* wrapRenderer(RenderObject*, RenderElement*, Document&);
     void unwrapRenderer(bool& requiresRenderTreeRebuild);
 
-    ItemPosition selfAlignmentNormalBehavior(const RenderBox* = nullptr) const override { return ItemPosition::Center; }
+    ItemPosition selfAlignmentNormalBehavior(const RenderBox* = nullptr) const override { return ItemPositionCenter; }
     
 private:
     bool isRenderFullScreen() const override { return true; }
+    void willBeDestroyed() override;
     bool isFlexibleBoxImpl() const override { return true; }
 
 protected:
-    WeakPtr<RenderBlock> m_placeholder;
-};
-
-class RenderFullScreenPlaceholder final : public RenderBlockFlow {
-    WTF_MAKE_ISO_ALLOCATED(RenderFullScreenPlaceholder);
-public:
-    RenderFullScreenPlaceholder(Document&, RenderStyle&&);
-
-private:
-    bool isRenderFullScreenPlaceholder() const override;
+    RenderBlock* m_placeholder;
 };
 
 } // namespace WebCore

@@ -25,11 +25,12 @@
 
 #pragma once
 
+#include "ArrayBuffer.h"
 #include "JSObject.h"
 
 namespace JSC {
 
-class JSArrayBufferPrototype final : public JSNonFinalObject {
+class JSArrayBufferPrototype : public JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
 

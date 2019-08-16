@@ -25,21 +25,39 @@
 
 #pragma once
 
+#include "Strong.h"
 #include "WasmIndexOrName.h"
-#include "WriteBarrier.h"
 #include <limits.h>
 
 namespace JSC {
 
 class CodeBlock;
 class JSObject;
-class SlotVisitor;
 
 class StackFrame {
 public:
-    StackFrame(VM&, JSCell* owner, JSCell* callee);
-    StackFrame(VM&, JSCell* owner, JSCell* callee, CodeBlock*, unsigned bytecodeOffset);
-    StackFrame(Wasm::IndexOrName);
+    StackFrame()
+        : m_bytecodeOffset(UINT_MAX)
+    { }
+
+    StackFrame(VM& vm, JSCell* callee)
+        : m_callee(vm, callee)
+        , m_bytecodeOffset(UINT_MAX)
+    { }
+
+    StackFrame(VM& vm, JSCell* callee, CodeBlock* codeBlock, unsigned bytecodeOffset)
+        : m_callee(vm, callee)
+        , m_codeBlock(vm, codeBlock)
+        , m_bytecodeOffset(bytecodeOffset)
+    { }
+
+    static StackFrame wasm(Wasm::IndexOrName indexOrName)
+    {
+        StackFrame result;
+        result.m_isWasmFrame = true;
+        result.m_wasmFunctionIndexOrName = indexOrName;
+        return result;
+    }
 
     bool hasLineAndColumnInfo() const { return !!m_codeBlock; }
     
@@ -55,15 +73,15 @@ public:
         ASSERT(hasBytecodeOffset());
         return m_bytecodeOffset;
     }
-    
-    void visitChildren(SlotVisitor&);
-    bool isMarked() const { return (!m_callee || Heap::isMarked(m_callee.get())) && (!m_codeBlock || Heap::isMarked(m_codeBlock.get())); }
+
 
 private:
-    WriteBarrier<JSCell> m_callee { };
-    WriteBarrier<CodeBlock> m_codeBlock { };
-    Wasm::IndexOrName m_wasmFunctionIndexOrName;
-    unsigned m_bytecodeOffset { UINT_MAX };
+    Strong<JSCell> m_callee { };
+    Strong<CodeBlock> m_codeBlock { };
+    union {
+        unsigned m_bytecodeOffset;
+        Wasm::IndexOrName m_wasmFunctionIndexOrName;
+    };
     bool m_isWasmFrame { false };
 };
 

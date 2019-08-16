@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,13 +42,15 @@ Ref<FileChooser> FileChooser::create(FileChooserClient* client, const FileChoose
     return adoptRef(*new FileChooser(client, settings));
 }
 
-FileChooser::~FileChooser() = default;
+FileChooser::~FileChooser()
+{
+}
 
 void FileChooser::invalidate()
 {
     ASSERT(m_client);
 
-    m_client = nullptr;
+    m_client = 0;
 }
 
 void FileChooser::chooseFile(const String& filename)
@@ -73,10 +75,10 @@ void FileChooser::chooseFiles(const Vector<String>& filenames)
     m_client->filesChosen(files);
 }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 
 // FIXME: This function is almost identical to FileChooser::chooseFiles(). We should merge this function
-// with FileChooser::chooseFiles() and hence remove the PLATFORM(IOS_FAMILY)-guard.
+// with FileChooser::chooseFiles() and hence remove the PLATFORM(IOS)-guard.
 void FileChooser::chooseMediaFiles(const Vector<String>& filenames, const String& displayString, Icon* icon)
 {
     // FIXME: This is inelegant. We should not be looking at settings here.
@@ -108,4 +110,13 @@ void FileChooser::chooseFiles(const Vector<FileChooserFileInfo>& files)
         m_client->filesChosen(files);
 }
 
-} // namespace WebCore
+Vector<String> FileChooserSettings::acceptTypes() const
+{
+    Vector<String> acceptTypes;
+    acceptTypes.reserveCapacity(acceptMIMETypes.size() + acceptFileExtensions.size());
+    acceptTypes.appendVector(acceptMIMETypes);
+    acceptTypes.appendVector(acceptFileExtensions);
+    return acceptTypes;
+}
+
+}

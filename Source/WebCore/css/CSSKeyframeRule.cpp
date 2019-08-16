@@ -27,7 +27,6 @@
 #include "CSSKeyframeRule.h"
 
 #include "CSSKeyframesRule.h"
-#include "CSSParser.h"
 #include "PropertySetCSSStyleDeclaration.h"
 #include "StyleProperties.h"
 #include <wtf/text/StringBuilder.h>
@@ -47,7 +46,9 @@ StyleRuleKeyframe::StyleRuleKeyframe(std::unique_ptr<Vector<double>> keys, Ref<S
 {
 }
     
-StyleRuleKeyframe::~StyleRuleKeyframe() = default;
+StyleRuleKeyframe::~StyleRuleKeyframe()
+{
+}
 
 MutableStyleProperties& StyleRuleKeyframe::mutableProperties()
 {

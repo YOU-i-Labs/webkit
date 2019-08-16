@@ -26,7 +26,7 @@
 
 #pragma once
 
-#include <wtf/URL.h>
+#include "URL.h"
 #include <wtf/text/TextPosition.h>
 
 namespace WebCore {

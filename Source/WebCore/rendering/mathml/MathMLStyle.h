@@ -27,6 +27,7 @@
 
 #if ENABLE(MATHML)
 
+#include "Element.h"
 #include "MathMLElement.h"
 #include <wtf/RefCounted.h>
 

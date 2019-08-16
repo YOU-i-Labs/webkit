@@ -47,18 +47,7 @@ typedef NSWindow *PlatformWindow;
 #elif PLATFORM(GTK)
 typedef WKViewRef PlatformWKView;
 typedef GtkWidget *PlatformWindow;
-#elif PLATFORM(WPE)
-namespace WPEToolingBackends {
-class HeadlessViewBackend;
-}
-struct wpe_view_backend;
-typedef WKViewRef PlatformWKView;
-typedef WPEToolingBackends::HeadlessViewBackend *PlatformWindow;
-#elif PLATFORM(WIN)
-typedef WKViewRef PlatformWKView;
-typedef HWND PlatformWindow;
 #endif
-typedef uint32_t WKEventModifiers;
 
 namespace TestWebKitAPI {
 
@@ -88,12 +77,8 @@ public:
 private:
 #if PLATFORM(MAC)
     void initialize(WKPageConfigurationRef, Class wkViewSubclass);
-#elif PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(WIN)
+#elif PLATFORM(GTK)
     void initialize(WKPageConfigurationRef);
-#endif
-#if PLATFORM(WIN)
-    static void registerWindowClass();
-    static LRESULT CALLBACK wndProc(HWND, UINT message, WPARAM, LPARAM);
 #endif
 
     PlatformWKView m_view;

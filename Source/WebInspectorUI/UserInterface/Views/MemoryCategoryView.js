@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.MemoryCategoryView = class MemoryCategoryView extends WI.Object
+WebInspector.MemoryCategoryView = class MemoryCategoryView extends WebInspector.Object
 {
     constructor(category, displayName)
     {
@@ -52,8 +52,8 @@ WI.MemoryCategoryView = class MemoryCategoryView extends WI.Object
         this._graphElement.classList.add("graph");
 
         // FIXME: <https://webkit.org/b/153758> Web Inspector: Memory Timeline View should be responsive / resizable
-        let size = new WI.Size(800, 75);
-        this._chart = new WI.LineChart(size);
+        let size = new WebInspector.Size(800, 75);
+        this._chart = new WebInspector.LineChart(size);
         this._graphElement.appendChild(this._chart.element);
     }
 
@@ -118,7 +118,7 @@ WI.MemoryCategoryView = class MemoryCategoryView extends WI.Object
         this._cachedMinSize = minSize;
         this._cachedMaxSize = maxSize;
 
-        this._detailsMaxElement.textContent = WI.UIString("Highest: %s").format(Number.isFinite(maxSize) ? Number.bytesToString(maxSize) : emDash);
-        this._detailsMinElement.textContent = WI.UIString("Lowest: %s").format(Number.isFinite(minSize) ? Number.bytesToString(minSize) : emDash);
+        this._detailsMaxElement.textContent = WebInspector.UIString("Highest: %s").format(Number.isFinite(maxSize) ? Number.bytesToString(maxSize) : emDash);
+        this._detailsMinElement.textContent = WebInspector.UIString("Lowest: %s").format(Number.isFinite(minSize) ? Number.bytesToString(minSize) : emDash);
     }
 };

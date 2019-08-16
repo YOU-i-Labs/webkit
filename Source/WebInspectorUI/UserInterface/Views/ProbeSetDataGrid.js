@@ -24,16 +24,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ProbeSetDataGrid = class ProbeSetDataGrid extends WI.DataGrid
+WebInspector.ProbeSetDataGrid = class ProbeSetDataGrid extends WebInspector.DataGrid
 {
     constructor(probeSet)
     {
-        console.assert(probeSet instanceof WI.ProbeSet, "Invalid ProbeSet argument: ", probeSet);
+        console.assert(probeSet instanceof WebInspector.ProbeSet, "Invalid ProbeSet argument: ", probeSet);
 
         var columns = {};
         for (var probe of probeSet.probes) {
-            var title = probe.expression || WI.UIString("(uninitialized)");
-            columns[WI.ProbeSetDataGrid.columnIdentifierForProbe(probe)] = {title};
+            var title = probe.expression || WebInspector.UIString("(uninitialized)");
+            columns[probe.id] = {title};
         }
 
         super(columns);
@@ -46,21 +46,14 @@ WI.ProbeSetDataGrid = class ProbeSetDataGrid extends WI.DataGrid
         this._lastUpdatedFrame = null;
         this._nodesSinceLastNavigation = [];
 
-        this._listenerSet = new WI.EventListenerSet(this, "ProbeSetDataGrid instance listeners");
-        this._listenerSet.register(probeSet, WI.ProbeSet.Event.ProbeAdded, this._setupProbe);
-        this._listenerSet.register(probeSet, WI.ProbeSet.Event.ProbeRemoved, this._teardownProbe);
-        this._listenerSet.register(probeSet, WI.ProbeSet.Event.SamplesCleared, this._setupData);
-        this._listenerSet.register(WI.Probe, WI.Probe.Event.ExpressionChanged, this._probeExpressionChanged);
+        this._listenerSet = new WebInspector.EventListenerSet(this, "ProbeSetDataGrid instance listeners");
+        this._listenerSet.register(probeSet, WebInspector.ProbeSet.Event.ProbeAdded, this._setupProbe);
+        this._listenerSet.register(probeSet, WebInspector.ProbeSet.Event.ProbeRemoved, this._teardownProbe);
+        this._listenerSet.register(probeSet, WebInspector.ProbeSet.Event.SamplesCleared, this._setupData);
+        this._listenerSet.register(WebInspector.Probe, WebInspector.Probe.Event.ExpressionChanged, this._probeExpressionChanged);
         this._listenerSet.install();
 
         this._setupData();
-    }
-
-    // Static
-
-    static columnIdentifierForProbe(probe)
-    {
-        return "probe" + probe.id;
     }
 
     // Public
@@ -78,7 +71,7 @@ WI.ProbeSetDataGrid = class ProbeSetDataGrid extends WI.DataGrid
     _setupProbe(event)
     {
         var probe = event.data;
-        this.insertColumn(WI.ProbeSetDataGrid.columnIdentifierForProbe(probe), {title: probe.expression});
+        this.insertColumn(probe.id, {title: probe.expression});
 
         for (var frame of this._data.frames)
             this._updateNodeForFrame(frame);
@@ -87,7 +80,7 @@ WI.ProbeSetDataGrid = class ProbeSetDataGrid extends WI.DataGrid
     _teardownProbe(event)
     {
         var probe = event.data;
-        this.removeColumn(WI.ProbeSetDataGrid.columnIdentifierForProbe(probe));
+        this.removeColumn(probe.id);
 
         for (var frame of this._data.frames)
             this._updateNodeForFrame(frame);
@@ -99,10 +92,10 @@ WI.ProbeSetDataGrid = class ProbeSetDataGrid extends WI.DataGrid
         for (var frame of this._data.frames)
             this._updateNodeForFrame(frame);
 
-        this._dataListeners = new WI.EventListenerSet(this, "ProbeSetDataGrid data table listeners");
-        this._dataListeners.register(this._data, WI.ProbeSetDataTable.Event.FrameInserted, this._dataFrameInserted);
-        this._dataListeners.register(this._data, WI.ProbeSetDataTable.Event.SeparatorInserted, this._dataSeparatorInserted);
-        this._dataListeners.register(this._data, WI.ProbeSetDataTable.Event.WillRemove, this._teardownData);
+        this._dataListeners = new WebInspector.EventListenerSet(this, "ProbeSetDataGrid data table listeners");
+        this._dataListeners.register(this._data, WebInspector.ProbeSetDataTable.Event.FrameInserted, this._dataFrameInserted);
+        this._dataListeners.register(this._data, WebInspector.ProbeSetDataTable.Event.SeparatorInserted, this._dataSeparatorInserted);
+        this._dataListeners.register(this._data, WebInspector.ProbeSetDataTable.Event.WillRemove, this._teardownData);
         this._dataListeners.install();
     }
 
@@ -116,20 +109,20 @@ WI.ProbeSetDataGrid = class ProbeSetDataGrid extends WI.DataGrid
 
     _updateNodeForFrame(frame)
     {
-        console.assert(frame instanceof WI.ProbeSetDataFrame, "Invalid ProbeSetDataFrame argument: ", frame);
+        console.assert(frame instanceof WebInspector.ProbeSetDataFrame, "Invalid ProbeSetDataFrame argument: ", frame);
         var node = null;
         if (this._frameNodes.has(frame)) {
             node = this._frameNodes.get(frame);
             node.frame = frame;
             node.refresh();
         } else {
-            node = new WI.ProbeSetDataGridNode(this);
+            node = new WebInspector.ProbeSetDataGridNode(this);
             node.frame = frame;
             this._frameNodes.set(frame, node);
             node.createCells();
 
             var sortFunction = function(a, b) {
-                return WI.ProbeSetDataFrame.compare(a.frame, b.frame);
+                return WebInspector.ProbeSetDataFrame.compare(a.frame, b.frame);
             };
             var insertionIndex = insertionIndexForObjectInListSortedByFunction(node, this.children, sortFunction);
             if (insertionIndex === this.children.length)
@@ -148,7 +141,7 @@ WI.ProbeSetDataGrid = class ProbeSetDataGrid extends WI.DataGrid
         node.element.classList.add("data-updated");
         window.setTimeout(function() {
             node.element.classList.remove("data-updated");
-        }, WI.ProbeSetDataGrid.DataUpdatedAnimationDuration);
+        }, WebInspector.ProbeSetDataGrid.DataUpdatedAnimationDuration);
 
         this._nodesSinceLastNavigation.push(node);
     }
@@ -183,19 +176,18 @@ WI.ProbeSetDataGrid = class ProbeSetDataGrid extends WI.DataGrid
         if (probe.breakpoint !== this.probeSet.breakpoint)
             return;
 
-        let columnIdentifier = WI.ProbeSetDataGrid.columnIdentifierForProbe(probe);
-        if (!this.columns.has(columnIdentifier))
+        if (!this.columns.has(probe.id))
             return;
 
-        var oldColumn = this.columns.get(columnIdentifier);
-        this.removeColumn(columnIdentifier);
+        var oldColumn = this.columns.get(probe.id);
+        this.removeColumn(probe.id);
         var ordinal = oldColumn["ordinal"];
         var newColumn = {title: event.data.newValue};
-        this.insertColumn(columnIdentifier, newColumn, ordinal);
+        this.insertColumn(probe.id, newColumn, ordinal);
 
         for (var frame of this._data.frames)
             this._updateNodeForFrame(frame);
     }
 };
 
-WI.ProbeSetDataGrid.DataUpdatedAnimationDuration = 300; // milliseconds
+WebInspector.ProbeSetDataGrid.DataUpdatedAnimationDuration = 300; // milliseconds

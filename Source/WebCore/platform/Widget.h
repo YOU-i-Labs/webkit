@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2018 Apple Inc.  All rights reserved.
+ * Copyright (C) 2004-2016 Apple Inc.  All rights reserved.
  * Copyright (C) 2008 Collabora Ltd.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,7 +26,7 @@
 
 #pragma once
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #ifndef NSView
 #define NSView WAKView
 #endif
@@ -47,14 +47,20 @@
 OBJC_CLASS NSView;
 OBJC_CLASS NSWindow;
 typedef NSView *PlatformWidget;
-#elif PLATFORM(WIN)
+#endif
+
+#if PLATFORM(WIN)
 typedef struct HWND__* HWND;
 typedef HWND PlatformWidget;
-#elif PLATFORM(GTK)
+#endif
+
+#if PLATFORM(GTK)
 typedef struct _GtkWidget GtkWidget;
 typedef struct _GtkContainer GtkContainer;
 typedef GtkWidget* PlatformWidget;
-#else
+#endif
+
+#if PLATFORM(WPE)
 typedef void* PlatformWidget;
 #endif
 
@@ -87,7 +93,7 @@ enum WidgetNotification { WillPaintFlattened, DidPaintFlattened };
 // Scrollbar - Mac, Gtk
 // Plugin - Mac, Windows (windowed only), Qt (windowed only, widget is an HWND on windows), Gtk (windowed only)
 //
-class Widget : public RefCounted<Widget>, public CanMakeWeakPtr<Widget> {
+class Widget : public RefCounted<Widget> {
 public:
     WEBCORE_EXPORT explicit Widget(PlatformWidget = nullptr);
     WEBCORE_EXPORT virtual ~Widget();
@@ -140,17 +146,15 @@ public:
 
     WEBCORE_EXPORT void removeFromParent();
     WEBCORE_EXPORT virtual void setParent(ScrollView* view);
-    ScrollView* parent() const { return m_parent.get(); }
+    ScrollView* parent() const { return m_parent; }
     FrameView* root() const;
 
-    virtual void handleEvent(Event&) { }
+    virtual void handleEvent(Event*) { }
 
     virtual void notifyWidget(WidgetNotification) { }
 
     WEBCORE_EXPORT IntRect convertToRootView(const IntRect&) const;
     IntRect convertFromRootView(const IntRect&) const;
-
-    FloatRect convertFromRootView(const FloatRect&) const;
 
     IntPoint convertToRootView(const IntPoint&) const;
     IntPoint convertFromRootView(const IntPoint&) const;
@@ -179,16 +183,17 @@ public:
 
     void removeFromSuperview();
 #endif
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     void addToSuperview(NSView*);
 #endif
 
     // Virtual methods to convert points to/from the containing ScrollView
     WEBCORE_EXPORT virtual IntRect convertToContainingView(const IntRect&) const;
     WEBCORE_EXPORT virtual IntRect convertFromContainingView(const IntRect&) const;
-    WEBCORE_EXPORT virtual FloatRect convertFromContainingView(const FloatRect&) const;
     WEBCORE_EXPORT virtual IntPoint convertToContainingView(const IntPoint&) const;
     WEBCORE_EXPORT virtual IntPoint convertFromContainingView(const IntPoint&) const;
+
+    WeakPtr<Widget> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(); }
 
 private:
     void init(PlatformWidget); // Must be called by all Widget constructors to initialize cross-platform data.
@@ -205,12 +210,13 @@ private:
     static IntPoint convertFromContainingWindowToRoot(const Widget* rootWidget, const IntPoint&);
 
 private:
-    WeakPtr<ScrollView> m_parent;
+    ScrollView* m_parent;
 #if !PLATFORM(COCOA)
     PlatformWidget m_widget;
 #else
     RetainPtr<NSView> m_widget;
 #endif
+    WeakPtrFactory<Widget> m_weakPtrFactory { this };
     bool m_selfVisible;
     bool m_parentVisible;
 

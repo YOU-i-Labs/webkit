@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2004-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2011 Motorola Mobility. All rights reserved.
  *
@@ -35,6 +35,7 @@
 #include "Event.h"
 #include "EventListener.h"
 #include "EventNames.h"
+#include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
@@ -64,14 +65,11 @@
 #include "Text.h"
 #include "XMLNames.h"
 #include "markup.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLElement);
 
 using namespace HTMLNames;
 using namespace WTF;
@@ -187,7 +185,7 @@ void HTMLElement::collectStyleForPresentationAttribute(const QualifiedName& name
             addPropertyToPresentationAttributeStyle(style, CSSPropertyWordWrap, CSSValueBreakWord);
             addPropertyToPresentationAttributeStyle(style, CSSPropertyWebkitNbspMode, CSSValueSpace);
             addPropertyToPresentationAttributeStyle(style, CSSPropertyLineBreak, CSSValueAfterWhiteSpace);
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
             addPropertyToPresentationAttributeStyle(style, CSSPropertyWebkitTextSizeAdjust, CSSValueNone);
 #endif
             break;
@@ -225,120 +223,107 @@ HTMLElement::EventHandlerNameMap HTMLElement::createEventHandlerNameMap()
     EventHandlerNameMap map;
 
     static const QualifiedName* const table[] = {
-        &onabortAttr.get(),
-        &onaccessiblecontextmenuAttr.get(),
-        &onaccessibleclickAttr.get(),
-        &onaccessibledecrementAttr.get(),
-        &onaccessibledismissAttr.get(),
-        &onaccessiblefocusAttr.get(),
-        &onaccessibleincrementAttr.get(),
-        &onaccessiblescrollintoviewAttr.get(),
-        &onaccessiblesetvalueAttr.get(),
-        &onaccessibleselectAttr.get(),
-        &onanimationendAttr.get(),
-        &onanimationiterationAttr.get(),
-        &onanimationstartAttr.get(),
-        &onanimationcancelAttr.get(),
-        &onautocompleteAttr.get(),
-        &onautocompleteerrorAttr.get(),
-        &onbeforecopyAttr.get(),
-        &onbeforecutAttr.get(),
-        &onbeforeinputAttr.get(),
-        &onbeforeloadAttr.get(),
-        &onbeforepasteAttr.get(),
-        &onblurAttr.get(),
-        &oncanplayAttr.get(),
-        &oncanplaythroughAttr.get(),
-        &onchangeAttr.get(),
-        &onclickAttr.get(),
-        &oncontextmenuAttr.get(),
-        &oncopyAttr.get(),
-        &oncutAttr.get(),
-        &ondblclickAttr.get(),
-        &ondragAttr.get(),
-        &ondragendAttr.get(),
-        &ondragenterAttr.get(),
-        &ondragleaveAttr.get(),
-        &ondragoverAttr.get(),
-        &ondragstartAttr.get(),
-        &ondropAttr.get(),
-        &ondurationchangeAttr.get(),
-        &onemptiedAttr.get(),
-        &onendedAttr.get(),
-        &onerrorAttr.get(),
-        &onfocusAttr.get(),
-        &onfocusinAttr.get(),
-        &onfocusoutAttr.get(),
-        &ongesturechangeAttr.get(),
-        &ongestureendAttr.get(),
-        &ongesturestartAttr.get(),
-        &oninputAttr.get(),
-        &oninvalidAttr.get(),
-        &onkeydownAttr.get(),
-        &onkeypressAttr.get(),
-        &onkeyupAttr.get(),
-        &onloadAttr.get(),
-        &onloadeddataAttr.get(),
-        &onloadedmetadataAttr.get(),
-        &onloadstartAttr.get(),
-        &onmousedownAttr.get(),
-        &onmouseenterAttr.get(),
-        &onmouseleaveAttr.get(),
-        &onmousemoveAttr.get(),
-        &onmouseoutAttr.get(),
-        &onmouseoverAttr.get(),
-        &onmouseupAttr.get(),
-        &onmousewheelAttr.get(),
-        &onpasteAttr.get(),
-        &onpauseAttr.get(),
-        &onplayAttr.get(),
-        &onplayingAttr.get(),
-        &onprogressAttr.get(),
-        &onratechangeAttr.get(),
-        &onresetAttr.get(),
-        &onresizeAttr.get(),
-        &onscrollAttr.get(),
-        &onsearchAttr.get(),
-        &onseekedAttr.get(),
-        &onseekingAttr.get(),
-        &onselectAttr.get(),
-        &onselectstartAttr.get(),
-        &onstalledAttr.get(),
-        &onsubmitAttr.get(),
-        &onsuspendAttr.get(),
-        &ontimeupdateAttr.get(),
-        &ontoggleAttr.get(),
-        &ontouchcancelAttr.get(),
-        &ontouchendAttr.get(),
-        &ontouchforcechangeAttr.get(),
-        &ontouchmoveAttr.get(),
-        &ontouchstartAttr.get(),
-        &ontransitioncancelAttr.get(),
-        &ontransitionendAttr.get(),
-        &ontransitionrunAttr.get(),
-        &ontransitionstartAttr.get(),
-        &onvolumechangeAttr.get(),
-        &onwaitingAttr.get(),
-        &onwebkitbeginfullscreenAttr.get(),
-        &onwebkitcurrentplaybacktargetiswirelesschangedAttr.get(),
-        &onwebkitendfullscreenAttr.get(),
-        &onwebkitfullscreenchangeAttr.get(),
-        &onwebkitfullscreenerrorAttr.get(),
-        &onwebkitkeyaddedAttr.get(),
-        &onwebkitkeyerrorAttr.get(),
-        &onwebkitkeymessageAttr.get(),
-        &onwebkitmouseforcechangedAttr.get(),
-        &onwebkitmouseforcedownAttr.get(),
-        &onwebkitmouseforcewillbeginAttr.get(),
-        &onwebkitmouseforceupAttr.get(),
-        &onwebkitneedkeyAttr.get(),
-        &onwebkitplaybacktargetavailabilitychangedAttr.get(),
-        &onwebkitpresentationmodechangedAttr.get(),
-        &onwebkitwillrevealbottomAttr.get(),
-        &onwebkitwillrevealleftAttr.get(),
-        &onwebkitwillrevealrightAttr.get(),
-        &onwebkitwillrevealtopAttr.get(),
-        &onwheelAttr.get(),
+        &onabortAttr,
+        &onanimationendAttr,
+        &onanimationiterationAttr,
+        &onanimationstartAttr,
+        &onautocompleteAttr,
+        &onautocompleteerrorAttr,
+        &onbeforecopyAttr,
+        &onbeforecutAttr,
+        &onbeforeinputAttr,
+        &onbeforeloadAttr,
+        &onbeforepasteAttr,
+        &onblurAttr,
+        &oncanplayAttr,
+        &oncanplaythroughAttr,
+        &onchangeAttr,
+        &onclickAttr,
+        &oncontextmenuAttr,
+        &oncopyAttr,
+        &oncutAttr,
+        &ondblclickAttr,
+        &ondragAttr,
+        &ondragendAttr,
+        &ondragenterAttr,
+        &ondragleaveAttr,
+        &ondragoverAttr,
+        &ondragstartAttr,
+        &ondropAttr,
+        &ondurationchangeAttr,
+        &onemptiedAttr,
+        &onendedAttr,
+        &onerrorAttr,
+        &onfocusAttr,
+        &onfocusinAttr,
+        &onfocusoutAttr,
+        &ongesturechangeAttr,
+        &ongestureendAttr,
+        &ongesturestartAttr,
+        &oninputAttr,
+        &oninvalidAttr,
+        &onkeydownAttr,
+        &onkeypressAttr,
+        &onkeyupAttr,
+        &onloadAttr,
+        &onloadeddataAttr,
+        &onloadedmetadataAttr,
+        &onloadstartAttr,
+        &onmousedownAttr,
+        &onmouseenterAttr,
+        &onmouseleaveAttr,
+        &onmousemoveAttr,
+        &onmouseoutAttr,
+        &onmouseoverAttr,
+        &onmouseupAttr,
+        &onmousewheelAttr,
+        &onpasteAttr,
+        &onpauseAttr,
+        &onplayAttr,
+        &onplayingAttr,
+        &onprogressAttr,
+        &onratechangeAttr,
+        &onresetAttr,
+        &onresizeAttr,
+        &onscrollAttr,
+        &onsearchAttr,
+        &onseekedAttr,
+        &onseekingAttr,
+        &onselectAttr,
+        &onselectstartAttr,
+        &onstalledAttr,
+        &onsubmitAttr,
+        &onsuspendAttr,
+        &ontimeupdateAttr,
+        &ontoggleAttr,
+        &ontouchcancelAttr,
+        &ontouchendAttr,
+        &ontouchforcechangeAttr,
+        &ontouchmoveAttr,
+        &ontouchstartAttr,
+        &ontransitionendAttr,
+        &onvolumechangeAttr,
+        &onwaitingAttr,
+        &onwebkitbeginfullscreenAttr,
+        &onwebkitcurrentplaybacktargetiswirelesschangedAttr,
+        &onwebkitendfullscreenAttr,
+        &onwebkitfullscreenchangeAttr,
+        &onwebkitfullscreenerrorAttr,
+        &onwebkitkeyaddedAttr,
+        &onwebkitkeyerrorAttr,
+        &onwebkitkeymessageAttr,
+        &onwebkitmouseforcechangedAttr,
+        &onwebkitmouseforcedownAttr,
+        &onwebkitmouseforcewillbeginAttr,
+        &onwebkitmouseforceupAttr,
+        &onwebkitneedkeyAttr,
+        &onwebkitplaybacktargetavailabilitychangedAttr,
+        &onwebkitpresentationmodechangedAttr,
+        &onwebkitwillrevealbottomAttr,
+        &onwebkitwillrevealleftAttr,
+        &onwebkitwillrevealrightAttr,
+        &onwebkitwillrevealtopAttr,
+        &onwheelAttr,
     };
 
     populateEventHandlerNameMap(map, table);
@@ -384,15 +369,15 @@ const AtomicString& HTMLElement::eventNameForEventHandlerAttribute(const Qualifi
 
     // Event handler attributes have no namespace.
     if (!attributeName.namespaceURI().isNull())
-        return nullAtom();
+        return nullAtom;
 
     // Fast early return for names that don't start with "on".
     AtomicStringImpl& localName = *attributeName.localName().impl();
     if (localName.length() < 3 || localName[0] != 'o' || localName[1] != 'n')
-        return nullAtom();
+        return nullAtom;
 
     auto it = map.find(&localName);
-    return it == map.end() ? nullAtom() : it->value;
+    return it == map.end() ? nullAtom : it->value;
 }
 
 const AtomicString& HTMLElement::eventNameForEventHandlerAttribute(const QualifiedName& attributeName)
@@ -418,7 +403,7 @@ Node::Editability HTMLElement::editabilityFromContentEditableAttr(const Node& no
         }
     }
 
-    auto containingShadowRoot = makeRefPtr(node.containingShadowRoot());
+    auto* containingShadowRoot = node.containingShadowRoot();
     if (containingShadowRoot && containingShadowRoot->mode() == ShadowRootMode::UserAgent)
         return Editability::ReadOnly;
 
@@ -459,7 +444,7 @@ static Ref<DocumentFragment> textToFragment(Document& document, const String& te
     auto fragment = DocumentFragment::create(document);
 
     // It's safe to dispatch events on the new fragment since author scripts have no access to it yet.
-    ScriptDisallowedScope::EventAllowedScope allowedScope(fragment);
+    NoEventDispatchAssertion::EventAllowedScope allowedScope(fragment);
 
     for (unsigned start = 0, length = text.length(); start < length; ) {
         // Find next line break.
@@ -504,7 +489,7 @@ static inline const AtomicString& toValidDirValue(const AtomicString& value)
         return rtlValue;
     if (equalLettersIgnoringASCIICase(value, "auto"))
         return autoValue;
-    return nullAtom();
+    return nullAtom;
 }
 
 const AtomicString& HTMLElement::dir() const
@@ -549,7 +534,7 @@ ExceptionOr<void> HTMLElement::setInnerText(const String& text)
     auto fragment = textToFragment(document(), text);
     // FIXME: This should use replaceAllChildren() once it accepts DocumentFragments as input.
     // It's safe to dispatch events on the new fragment since author scripts have no access to it yet.
-    ScriptDisallowedScope::EventAllowedScope allowedScope(fragment.get());
+    NoEventDispatchAssertion::EventAllowedScope allowedScope(fragment.get());
     return replaceChildrenWithFragment(*this, WTFMove(fragment));
 }
 
@@ -557,7 +542,7 @@ ExceptionOr<void> HTMLElement::setOuterText(const String& text)
 {
     RefPtr<ContainerNode> parent = parentNode();
     if (!parent)
-        return Exception { NoModificationAllowedError };
+        return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
     RefPtr<Node> prev = previousSibling();
     RefPtr<Node> next = nextSibling();
@@ -570,19 +555,19 @@ ExceptionOr<void> HTMLElement::setOuterText(const String& text)
         newChild = Text::create(document(), text);
 
     if (!parentNode())
-        return Exception { HierarchyRequestError };
+        return Exception { HIERARCHY_REQUEST_ERR };
 
     auto replaceResult = parent->replaceChild(*newChild, *this);
     if (replaceResult.hasException())
         return replaceResult.releaseException();
 
     RefPtr<Node> node = next ? next->previousSibling() : nullptr;
-    if (is<Text>(node)) {
+    if (is<Text>(node.get())) {
         auto result = mergeWithNextTextNode(downcast<Text>(*node));
         if (result.hasException())
             return result.releaseException();
     }
-    if (is<Text>(prev)) {
+    if (is<Text>(prev.get())) {
         auto result = mergeWithNextTextNode(downcast<Text>(*prev));
         if (result.hasException())
             return result.releaseException();
@@ -639,15 +624,15 @@ String HTMLElement::contentEditable() const
 {
     switch (contentEditableType(*this)) {
     case ContentEditableType::Inherit:
-        return "inherit"_s;
+        return ASCIILiteral("inherit");
     case ContentEditableType::True:
-        return "true"_s;
+        return ASCIILiteral("true");
     case ContentEditableType::False:
-        return "false"_s;
+        return ASCIILiteral("false");
     case ContentEditableType::PlaintextOnly:
-        return "plaintext-only"_s;
+        return ASCIILiteral("plaintext-only");
     }
-    return "inherit"_s;
+    return ASCIILiteral("inherit");
 }
 
 ExceptionOr<void> HTMLElement::setContentEditable(const String& enabled)
@@ -661,7 +646,7 @@ ExceptionOr<void> HTMLElement::setContentEditable(const String& enabled)
     else if (equalLettersIgnoringASCIICase(enabled, "inherit"))
         removeAttribute(contenteditableAttr);
     else
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
     return { };
 }
 
@@ -732,11 +717,11 @@ void HTMLElement::setTranslate(bool enable)
 bool HTMLElement::rendererIsNeeded(const RenderStyle& style)
 {
     if (hasTagName(noscriptTag)) {
-        RefPtr<Frame> frame = document().frame();
+        Frame* frame = document().frame();
         if (frame && frame->script().canExecuteScripts(NotAboutToExecuteScript))
             return false;
     } else if (hasTagName(noembedTag)) {
-        RefPtr<Frame> frame = document().frame();
+        Frame* frame = document().frame();
         if (frame && frame->loader().subframeLoader().allowPlugins())
             return false;
     }
@@ -765,7 +750,7 @@ static void setHasDirAutoFlagRecursively(Node* firstNode, bool flag, Node* lastN
 {
     firstNode->setSelfOrAncestorHasDirAutoAttribute(flag);
 
-    RefPtr<Node> node = firstNode->firstChild();
+    Node* node = firstNode->firstChild();
 
     while (node) {
         if (node->selfOrAncestorHasDirAutoAttribute() == flag)
@@ -800,7 +785,7 @@ TextDirection HTMLElement::directionalityIfhasDirAutoAttribute(bool& isAuto) con
 {
     if (!(selfOrAncestorHasDirAutoAttribute() && hasDirectionAuto())) {
         isAuto = false;
-        return TextDirection::LTR;
+        return LTR;
     }
 
     isAuto = true;
@@ -809,20 +794,20 @@ TextDirection HTMLElement::directionalityIfhasDirAutoAttribute(bool& isAuto) con
 
 TextDirection HTMLElement::directionality(Node** strongDirectionalityTextNode) const
 {
-    if (isTextField()) {
+    if (is<HTMLTextFormControlElement>(*this)) {
         HTMLTextFormControlElement& textElement = downcast<HTMLTextFormControlElement>(const_cast<HTMLElement&>(*this));
         bool hasStrongDirectionality;
         UCharDirection textDirection = textElement.value().defaultWritingDirection(&hasStrongDirectionality);
         if (strongDirectionalityTextNode)
             *strongDirectionalityTextNode = hasStrongDirectionality ? &textElement : nullptr;
-        return (textDirection == U_LEFT_TO_RIGHT) ? TextDirection::LTR : TextDirection::RTL;
+        return (textDirection == U_LEFT_TO_RIGHT) ? LTR : RTL;
     }
 
-    RefPtr<Node> node = firstChild();
+    Node* node = firstChild();
     while (node) {
         // Skip bdi, script, style and text form controls.
         if (equalLettersIgnoringASCIICase(node->nodeName(), "bdi") || node->hasTagName(scriptTag) || node->hasTagName(styleTag)
-            || (is<Element>(*node) && downcast<Element>(*node).isTextField())) {
+            || (is<Element>(*node) && downcast<Element>(*node).isTextFormControl())) {
             node = NodeTraversal::nextSkippingChildren(*node, this);
             continue;
         }
@@ -841,20 +826,20 @@ TextDirection HTMLElement::directionality(Node** strongDirectionalityTextNode) c
             UCharDirection textDirection = node->textContent(true).defaultWritingDirection(&hasStrongDirectionality);
             if (hasStrongDirectionality) {
                 if (strongDirectionalityTextNode)
-                    *strongDirectionalityTextNode = node.get();
-                return (textDirection == U_LEFT_TO_RIGHT) ? TextDirection::LTR : TextDirection::RTL;
+                    *strongDirectionalityTextNode = node;
+                return (textDirection == U_LEFT_TO_RIGHT) ? LTR : RTL;
             }
         }
         node = NodeTraversal::next(*node, this);
     }
     if (strongDirectionalityTextNode)
         *strongDirectionalityTextNode = nullptr;
-    return TextDirection::LTR;
+    return LTR;
 }
 
 void HTMLElement::dirAttributeChanged(const AtomicString& value)
 {
-    RefPtr<Element> parent = parentElement();
+    Element* parent = parentElement();
 
     if (is<HTMLElement>(parent) && parent->selfOrAncestorHasDirAutoAttribute())
         downcast<HTMLElement>(*parent).adjustDirectionalityIfNeededAfterChildAttributeChanged(this);
@@ -895,14 +880,14 @@ void HTMLElement::adjustDirectionalityIfNeededAfterChildrenChanged(Element* befo
     if (!selfOrAncestorHasDirAutoAttribute())
         return;
 
-    RefPtr<Node> oldMarkedNode;
+    Node* oldMarkedNode = nullptr;
     if (beforeChange)
         oldMarkedNode = changeType == ElementInserted ? ElementTraversal::nextSibling(*beforeChange) : beforeChange->nextSibling();
 
     while (oldMarkedNode && elementAffectsDirectionality(*oldMarkedNode))
         oldMarkedNode = oldMarkedNode->nextSibling();
     if (oldMarkedNode)
-        setHasDirAutoFlagRecursively(oldMarkedNode.get(), false);
+        setHasDirAutoFlagRecursively(oldMarkedNode, false);
 
     for (auto& elementToAdjust : lineageOfType<HTMLElement>(*this)) {
         if (elementAffectsDirectionality(elementToAdjust)) {
@@ -1085,21 +1070,6 @@ void HTMLElement::setAutocorrect(bool autocorrect)
 }
 
 #endif
-
-InputMode HTMLElement::canonicalInputMode() const
-{
-    return inputModeForAttributeValue(attributeWithoutSynchronization(inputmodeAttr));
-}
-
-const AtomicString& HTMLElement::inputMode() const
-{
-    return stringForInputMode(canonicalInputMode());
-}
-
-void HTMLElement::setInputMode(const AtomicString& value)
-{
-    setAttributeWithoutSynchronization(inputmodeAttr, value);
-}
 
 } // namespace WebCore
 

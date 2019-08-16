@@ -21,7 +21,7 @@ class RenderTarget9 : public RenderTargetD3D
 {
   public:
     RenderTarget9() { }
-    ~RenderTarget9() override {}
+    virtual ~RenderTarget9() { }
     // Retrieve the texture that backs this render target, may be null for swap chain render
     // targets.
     virtual IDirect3DBaseTexture9 *getTexture() const = 0;
@@ -43,7 +43,7 @@ class TextureRenderTarget9 : public RenderTarget9
                          GLsizei height,
                          GLsizei depth,
                          GLsizei samples);
-    ~TextureRenderTarget9() override;
+    virtual ~TextureRenderTarget9();
 
     GLsizei getWidth() const override;
     GLsizei getHeight() const override;
@@ -74,7 +74,7 @@ class SurfaceRenderTarget9 : public RenderTarget9
 {
   public:
     SurfaceRenderTarget9(SwapChain9 *swapChain, bool depth);
-    ~SurfaceRenderTarget9() override;
+    virtual ~SurfaceRenderTarget9();
 
     GLsizei getWidth() const override;
     GLsizei getHeight() const override;

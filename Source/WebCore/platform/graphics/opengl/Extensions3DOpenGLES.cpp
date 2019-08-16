@@ -27,18 +27,13 @@
 
 #include "config.h"
 
-#if USE(OPENGL_ES)
+#if USE(OPENGL_ES_2)
 #include "Extensions3DOpenGLES.h"
 
 #if ENABLE(GRAPHICS_CONTEXT_3D)
 #include "GraphicsContext3D.h"
 #include "NotImplemented.h"
-
-#if USE(LIBEPOXY)
-#include "EpoxyEGL.h"
-#else
 #include <EGL/egl.h>
-#endif
 
 namespace WebCore {
 
@@ -64,23 +59,8 @@ Extensions3DOpenGLES::Extensions3DOpenGLES(GraphicsContext3D* context, bool useI
 {
 }
 
-Extensions3DOpenGLES::~Extensions3DOpenGLES() = default;
-
-bool Extensions3DOpenGLES::isEnabled(const String& name)
+Extensions3DOpenGLES::~Extensions3DOpenGLES()
 {
-    // Return false immediately if the extension is not supported by the drivers.
-    bool enabled = Extensions3DOpenGLCommon::isEnabled(name);
-    if (!enabled)
-        return false;
-
-    // For GL_EXT_robustness, check that the context supports robust access.
-    if (name == "GL_EXT_robustness") {
-        GLint robustAccess = GL_FALSE;
-        m_context->getIntegerv(Extensions3D::CONTEXT_ROBUST_ACCESS, &robustAccess);
-        return robustAccess == GL_TRUE;
-    }
-
-    return true;
 }
 
 void Extensions3DOpenGLES::framebufferTexture2DMultisampleIMG(unsigned long target, unsigned long attachment, unsigned long textarget, unsigned int texture, int level, unsigned long samples)
@@ -206,6 +186,11 @@ int Extensions3DOpenGLES::getGraphicsResetStatusARB()
     return false;
 }
 
+void Extensions3DOpenGLES::setEXTContextLostCallback(std::unique_ptr<GraphicsContext3D::ContextLostCallback> callback)
+{
+    m_contextLostCallback = WTFMove(callback);
+}
+
 void Extensions3DOpenGLES::readnPixelsEXT(int x, int y, GC3Dsizei width, GC3Dsizei height, GC3Denum format, GC3Denum type, GC3Dsizei bufSize, void *data)
 {
     if (m_glReadnPixelsEXT) {
@@ -320,4 +305,4 @@ String Extensions3DOpenGLES::getExtensions()
 
 #endif // ENABLE(GRAPHICS_CONTEXT_3D)
 
-#endif // USE(OPENGL_ES)
+#endif // USE(OPENGL_ES_2)

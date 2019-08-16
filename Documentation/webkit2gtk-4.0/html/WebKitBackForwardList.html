@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitAuthenticationRequest.html" title="WebKitAuthenticationRequest">
 <link rel="next" href="WebKitBackForwardListItem.html" title="WebKitBackForwardListItem">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.25.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -217,10 +217,10 @@ webkit_back_forward_list_get_current_item
 </div>
 <div class="refsect3">
 <a name="webkit-back-forward-list-get-current-item.returns"></a><h4>Returns</h4>
-<p>a <a class="link" href="WebKitBackForwardListItem.html" title="WebKitBackForwardListItem"><span class="type">WebKitBackForwardListItem</span></a>
+<p> a <a class="link" href="WebKitBackForwardListItem.html" title="WebKitBackForwardListItem"><span class="type">WebKitBackForwardListItem</span></a>
 or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a> if <em class="parameter"><code>back_forward_list</code></em>
 is empty. </p>
-<p><span class="annotation">[<acronym title="NULL may be passed as the value in, out, in-out; or as a return value."><span class="acronym">nullable</span></acronym>][<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
+<p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
 <hr>
@@ -247,9 +247,9 @@ webkit_back_forward_list_get_back_item
 </div>
 <div class="refsect3">
 <a name="webkit-back-forward-list-get-back-item.returns"></a><h4>Returns</h4>
-<p>the <a class="link" href="WebKitBackForwardListItem.html" title="WebKitBackForwardListItem"><span class="type">WebKitBackForwardListItem</span></a>
+<p> the <a class="link" href="WebKitBackForwardListItem.html" title="WebKitBackForwardListItem"><span class="type">WebKitBackForwardListItem</span></a>
 preceding the current item or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a>. </p>
-<p><span class="annotation">[<acronym title="NULL may be passed as the value in, out, in-out; or as a return value."><span class="acronym">nullable</span></acronym>][<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
+<p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
 <hr>
@@ -276,9 +276,9 @@ webkit_back_forward_list_get_forward_item
 </div>
 <div class="refsect3">
 <a name="webkit-back-forward-list-get-forward-item.returns"></a><h4>Returns</h4>
-<p>the <a class="link" href="WebKitBackForwardListItem.html" title="WebKitBackForwardListItem"><span class="type">WebKitBackForwardListItem</span></a>
+<p> the <a class="link" href="WebKitBackForwardListItem.html" title="WebKitBackForwardListItem"><span class="type">WebKitBackForwardListItem</span></a>
 following the current item or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a>. </p>
-<p><span class="annotation">[<acronym title="NULL may be passed as the value in, out, in-out; or as a return value."><span class="acronym">nullable</span></acronym>][<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
+<p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
 <hr>
@@ -312,9 +312,9 @@ webkit_back_forward_list_get_nth_item (<em class="parameter"><code><a class="lin
 </div>
 <div class="refsect3">
 <a name="webkit-back-forward-list-get-nth-item.returns"></a><h4>Returns</h4>
-<p>the <a class="link" href="WebKitBackForwardListItem.html" title="WebKitBackForwardListItem"><span class="type">WebKitBackForwardListItem</span></a>
-located at the specified index relative to the current item or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a>. </p>
-<p><span class="annotation">[<acronym title="NULL may be passed as the value in, out, in-out; or as a return value."><span class="acronym">nullable</span></acronym>][<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
+<p> the <a class="link" href="WebKitBackForwardListItem.html" title="WebKitBackForwardListItem"><span class="type">WebKitBackForwardListItem</span></a>
+located at the specified index relative to the current item. </p>
+<p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
 <hr>
@@ -340,7 +340,7 @@ webkit_back_forward_list_get_back_list
 </div>
 <div class="refsect3">
 <a name="webkit-back-forward-list-get-back-list.returns"></a><h4>Returns</h4>
-<p>a <a href="../glib/glib-Doubly-Linked-Lists.html#GList"><span class="type">GList</span></a> of
+<p> a <a href="../glib/glib-Doubly-Linked-Lists.html#GList"><span class="type">GList</span></a> of
 items preceding the current item. </p>
 <p><span class="annotation">[<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> WebKit2.BackForwardListItem][<acronym title="Free data container after the code is done."><span class="acronym">transfer container</span></acronym>]</span></p>
 </div>
@@ -376,7 +376,7 @@ webkit_back_forward_list_get_back_list_with_limit
 </div>
 <div class="refsect3">
 <a name="webkit-back-forward-list-get-back-list-with-limit.returns"></a><h4>Returns</h4>
-<p>a <a href="../glib/glib-Doubly-Linked-Lists.html#GList"><span class="type">GList</span></a> of
+<p> a <a href="../glib/glib-Doubly-Linked-Lists.html#GList"><span class="type">GList</span></a> of
 items preceding the current item limited by <em class="parameter"><code>limit</code></em>
 . </p>
 <p><span class="annotation">[<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> WebKit2.BackForwardListItem][<acronym title="Free data container after the code is done."><span class="acronym">transfer container</span></acronym>]</span></p>
@@ -405,7 +405,7 @@ webkit_back_forward_list_get_forward_list
 </div>
 <div class="refsect3">
 <a name="webkit-back-forward-list-get-forward-list.returns"></a><h4>Returns</h4>
-<p>a <a href="../glib/glib-Doubly-Linked-Lists.html#GList"><span class="type">GList</span></a> of
+<p> a <a href="../glib/glib-Doubly-Linked-Lists.html#GList"><span class="type">GList</span></a> of
 items following the current item. </p>
 <p><span class="annotation">[<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> WebKit2.BackForwardListItem][<acronym title="Free data container after the code is done."><span class="acronym">transfer container</span></acronym>]</span></p>
 </div>
@@ -441,7 +441,7 @@ webkit_back_forward_list_get_forward_list_with_limit
 </div>
 <div class="refsect3">
 <a name="webkit-back-forward-list-get-forward-list-with-limit.returns"></a><h4>Returns</h4>
-<p>a <a href="../glib/glib-Doubly-Linked-Lists.html#GList"><span class="type">GList</span></a> of
+<p> a <a href="../glib/glib-Doubly-Linked-Lists.html#GList"><span class="type">GList</span></a> of
 items following the current item limited by <em class="parameter"><code>limit</code></em>
 . </p>
 <p><span class="annotation">[<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> WebKit2.BackForwardListItem][<acronym title="Free data container after the code is done."><span class="acronym">transfer container</span></acronym>]</span></p>
@@ -488,7 +488,7 @@ when the list is cleared or the maximum items limit is reached.</p>
 </tr>
 <tr>
 <td class="parameter_name"><p>item_added</p></td>
-<td class="parameter_description"><p>the <a class="link" href="WebKitBackForwardListItem.html" title="WebKitBackForwardListItem"><span class="type">WebKitBackForwardListItem</span></a> added or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a>. </p></td>
+<td class="parameter_description"><p> the <a class="link" href="WebKitBackForwardListItem.html" title="WebKitBackForwardListItem"><span class="type">WebKitBackForwardListItem</span></a> added or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a>. </p></td>
 <td class="parameter_annotations"><span class="annotation">[<acronym title="NULL is OK, both for passing and for returning."><span class="acronym">allow-none</span></acronym>]</span></td>
 </tr>
 <tr>
@@ -513,6 +513,6 @@ when the list is cleared or the maximum items limit is reached.</p>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.25.1</div>
 </body>
 </html>

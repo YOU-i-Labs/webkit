@@ -28,14 +28,13 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef FileSystem_h
+#define FileSystem_h
 
 #include <time.h>
 #include <utility>
 #include <wtf/Forward.h>
-#include <wtf/OptionSet.h>
 #include <wtf/Vector.h>
-#include <wtf/WallTime.h>
 #include <wtf/text/WTFString.h>
 
 #if USE(CF)
@@ -46,8 +45,6 @@
 typedef const struct __CFData* CFDataRef;
 #endif
 
-OBJC_CLASS NSString;
-
 #if PLATFORM(WIN)
 typedef void *HANDLE;
 #endif
@@ -57,10 +54,6 @@ typedef struct _GFileIOStream GFileIOStream;
 #endif
 
 namespace WebCore {
-
-struct FileMetadata;
-
-namespace FileSystem {
 
 // PlatformFileHandle
 #if USE(GLIB) && !PLATFORM(WIN)
@@ -76,27 +69,24 @@ typedef int PlatformFileHandle;
 const PlatformFileHandle invalidPlatformFileHandle = -1;
 #endif
 
-enum class FileOpenMode {
-    Read,
-    Write,
-#if OS(DARWIN)
-    EventsOnly,
-#endif
+enum FileOpenMode {
+    OpenForRead = 0,
+    OpenForWrite
 };
 
-enum class FileSeekOrigin {
-    Beginning,
-    Current,
-    End,
+enum FileSeekOrigin {
+    SeekFromBeginning = 0,
+    SeekFromCurrent,
+    SeekFromEnd
 };
 
-enum class FileLockMode {
-    Shared = 1 << 0,
-    Exclusive = 1 << 1,
-    Nonblocking = 1 << 2,
+enum FileLockMode {
+    LockShared = 1,
+    LockExclusive = 2,
+    LockNonBlocking = 4
 };
 
-enum class ShouldFollowSymbolicLinks { No, Yes };
+struct FileMetadata;
 
 WEBCORE_EXPORT bool fileExists(const String&);
 WEBCORE_EXPORT bool deleteFile(const String&);
@@ -104,23 +94,19 @@ WEBCORE_EXPORT bool deleteEmptyDirectory(const String&);
 WEBCORE_EXPORT bool moveFile(const String& oldPath, const String& newPath);
 WEBCORE_EXPORT bool getFileSize(const String&, long long& result);
 WEBCORE_EXPORT bool getFileSize(PlatformFileHandle, long long& result);
-WEBCORE_EXPORT Optional<WallTime> getFileModificationTime(const String&);
-WEBCORE_EXPORT Optional<WallTime> getFileCreationTime(const String&); // Not all platforms store file creation time.
-WEBCORE_EXPORT Optional<FileMetadata> fileMetadata(const String& path);
-WEBCORE_EXPORT Optional<FileMetadata> fileMetadataFollowingSymlinks(const String& path);
-WEBCORE_EXPORT bool fileIsDirectory(const String&, ShouldFollowSymbolicLinks);
+WEBCORE_EXPORT bool getFileModificationTime(const String&, time_t& result);
+WEBCORE_EXPORT bool getFileCreationTime(const String&, time_t& result); // Not all platforms store file creation time.
+bool getFileMetadata(const String&, FileMetadata&);
 WEBCORE_EXPORT String pathByAppendingComponent(const String& path, const String& component);
-String pathByAppendingComponents(StringView path, const Vector<StringView>& components);
 String lastComponentOfPathIgnoringTrailingSlash(const String& path);
 WEBCORE_EXPORT bool makeAllDirectories(const String& path);
 String homeDirectoryPath();
 WEBCORE_EXPORT String pathGetFileName(const String&);
 WEBCORE_EXPORT String directoryName(const String&);
 WEBCORE_EXPORT bool getVolumeFreeSpace(const String&, uint64_t&);
-WEBCORE_EXPORT Optional<int32_t> getFileDeviceId(const CString&);
-WEBCORE_EXPORT bool createSymbolicLink(const String& targetPath, const String& symbolicLinkPath);
+WEBCORE_EXPORT std::optional<int32_t> getFileDeviceId(const CString&);
 
-WEBCORE_EXPORT void setMetadataURL(const String& path, const String& urlString, const String& referrer = { });
+WEBCORE_EXPORT void setMetadataURL(const String& path, const String& urlString);
 
 bool canExcludeFromBackup(); // Returns true if any file can ever be excluded from backup.
 bool excludeFromBackup(const String&); // Returns true if successful.
@@ -132,6 +118,9 @@ String stringFromFileSystemRepresentation(const char*);
 
 inline bool isHandleValid(const PlatformFileHandle& handle) { return handle != invalidPlatformFileHandle; }
 
+inline double invalidFileTime() { return std::numeric_limits<double>::quiet_NaN(); }
+inline bool isValidFileTime(double time) { return std::isfinite(time); }
+
 // Prefix is what the filename should be prefixed with, not the full path.
 WEBCORE_EXPORT String openTemporaryFile(const String& prefix, PlatformFileHandle&);
 WEBCORE_EXPORT PlatformFileHandle openFile(const String& path, FileOpenMode);
@@ -142,10 +131,7 @@ bool truncateFile(PlatformFileHandle, long long offset);
 // Returns number of bytes actually read if successful, -1 otherwise.
 WEBCORE_EXPORT int writeToFile(PlatformFileHandle, const char* data, int length);
 // Returns number of bytes actually written if successful, -1 otherwise.
-WEBCORE_EXPORT int readFromFile(PlatformFileHandle, char* data, int length);
-
-WEBCORE_EXPORT PlatformFileHandle openAndLockFile(const String&, FileOpenMode, OptionSet<FileLockMode> = FileLockMode::Exclusive);
-WEBCORE_EXPORT void unlockAndCloseFile(PlatformFileHandle);
+int readFromFile(PlatformFileHandle, char* data, int length);
 
 // Appends the contents of the file found at 'path' to the open PlatformFileHandle.
 // Returns true if the write was successful, false if it was not.
@@ -155,8 +141,8 @@ bool appendFileContentsToFileHandle(const String& path, PlatformFileHandle&);
 bool hardLinkOrCopyFile(const String& source, const String& destination);
 
 #if USE(FILE_LOCK)
-WEBCORE_EXPORT bool lockFile(PlatformFileHandle, OptionSet<FileLockMode>);
-WEBCORE_EXPORT bool unlockFile(PlatformFileHandle);
+bool lockFile(PlatformFileHandle, FileLockMode);
+bool unlockFile(PlatformFileHandle);
 #endif
 
 // Encode a string for use within a file name.
@@ -171,24 +157,14 @@ RetainPtr<CFURLRef> pathAsURL(const String&);
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
 String filenameForDisplay(const String&);
+CString applicationDirectoryPath();
+CString sharedResourcesPath();
 #endif
 
 #if PLATFORM(WIN)
 WEBCORE_EXPORT String localUserSpecificStorageDirectory();
 String roamingUserSpecificStorageDirectory();
 #endif
-
-#if PLATFORM(COCOA)
-WEBCORE_EXPORT NSString *createTemporaryDirectory(NSString *directoryPrefix);
-WEBCORE_EXPORT bool deleteNonEmptyDirectory(const String&);
-#endif
-
-#if PLATFORM(WIN_CAIRO)
-WEBCORE_EXPORT String createTemporaryDirectory();
-WEBCORE_EXPORT bool deleteNonEmptyDirectory(const String&);
-#endif
-
-WEBCORE_EXPORT String realPath(const String&);
 
 class MappedFileData {
 public:
@@ -220,6 +196,6 @@ inline MappedFileData& MappedFileData::operator=(MappedFileData&& other)
     return *this;
 }
 
-} // namespace FileSystem
 } // namespace WebCore
 
+#endif // FileSystem_h

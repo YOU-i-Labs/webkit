@@ -1,6 +1,5 @@
 /*
  * Copyright (C) Research In Motion Limited 2012. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -77,7 +76,7 @@ static inline unsigned enumerationValueForTargetAttribute(SVGElement* targetElem
         if (targetElement->hasTagName(SVGNames::feColorMatrixTag))
             return SVGPropertyTraits<ColorMatrixType>::fromString(value);
         if (targetElement->hasTagName(SVGNames::feTurbulenceTag))
-            return static_cast<unsigned>(SVGPropertyTraits<TurbulenceType>::fromString(value));
+            return SVGPropertyTraits<TurbulenceType>::fromString(value);
 
         ASSERT(targetElement->hasTagName(SVGNames::feFuncATag)
                || targetElement->hasTagName(SVGNames::feFuncBTag)
@@ -87,9 +86,9 @@ static inline unsigned enumerationValueForTargetAttribute(SVGElement* targetElem
     }
 
     if (attrName == SVGNames::modeAttr) {
-        BlendMode mode = BlendMode::Normal;
+        BlendMode mode = BlendModeNormal;
         parseBlendMode(value, mode);
-        return static_cast<unsigned>(mode);
+        return mode;
     }
     if (attrName == SVGNames::stitchTilesAttr)
         return SVGPropertyTraits<SVGStitchOptions>::fromString(value);
@@ -110,12 +109,14 @@ SVGAnimatedEnumerationAnimator::SVGAnimatedEnumerationAnimator(SVGAnimationEleme
 std::unique_ptr<SVGAnimatedType> SVGAnimatedEnumerationAnimator::constructFromString(const String& string)
 {
     ASSERT(m_animationElement);
-    return SVGAnimatedType::create(enumerationValueForTargetAttribute(m_animationElement->targetElement(), m_animationElement->attributeName(), string));
+    auto animatedType = SVGAnimatedType::createEnumeration(std::make_unique<unsigned>());
+    animatedType->enumeration() = enumerationValueForTargetAttribute(m_animationElement->targetElement(), m_animationElement->attributeName(), string);
+    return animatedType;
 }
 
 std::unique_ptr<SVGAnimatedType> SVGAnimatedEnumerationAnimator::startAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
 {
-    return constructFromBaseValue<SVGAnimatedEnumeration>(animatedTypes);
+    return SVGAnimatedType::createEnumeration(constructFromBaseValue<SVGAnimatedEnumeration>(animatedTypes));
 }
 
 void SVGAnimatedEnumerationAnimator::stopAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
@@ -125,7 +126,7 @@ void SVGAnimatedEnumerationAnimator::stopAnimValAnimation(const SVGElementAnimat
 
 void SVGAnimatedEnumerationAnimator::resetAnimValToBaseVal(const SVGElementAnimatedPropertyList& animatedTypes, SVGAnimatedType& type)
 {
-    resetFromBaseValue<SVGAnimatedEnumeration>(animatedTypes, type);
+    resetFromBaseValue<SVGAnimatedEnumeration>(animatedTypes, type, &SVGAnimatedType::enumeration);
 }
 
 void SVGAnimatedEnumerationAnimator::animValWillChange(const SVGElementAnimatedPropertyList& animatedTypes)
@@ -148,9 +149,9 @@ void SVGAnimatedEnumerationAnimator::calculateAnimatedValue(float percentage, un
     ASSERT(m_animationElement);
     ASSERT(m_contextElement);
 
-    const auto fromEnumeration = (m_animationElement->animationMode() == ToAnimation ? animated : from)->as<unsigned>();
-    const auto toEnumeration = to->as<unsigned>();
-    auto& animatedEnumeration = animated->as<unsigned>();
+    unsigned fromEnumeration = m_animationElement->animationMode() == ToAnimation ? animated->enumeration() : from->enumeration();
+    unsigned toEnumeration = to->enumeration();
+    unsigned& animatedEnumeration = animated->enumeration();
 
     m_animationElement->animateDiscreteType<unsigned>(percentage, fromEnumeration, toEnumeration, animatedEnumeration);
 }

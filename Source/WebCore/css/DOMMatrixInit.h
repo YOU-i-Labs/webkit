@@ -25,22 +25,34 @@
 
 #pragma once
 
-#include "DOMMatrix2DInit.h"
+#include <wtf/Optional.h>
 
 namespace WebCore {
 
-struct DOMMatrixInit : DOMMatrix2DInit {
+struct DOMMatrixInit {
+    std::optional<double> a;
+    std::optional<double> b;
+    std::optional<double> c;
+    std::optional<double> d;
+    std::optional<double> e;
+    std::optional<double> f;
+    std::optional<double> m11;
+    std::optional<double> m12;
     double m13 { 0 };
     double m14 { 0 };
+    std::optional<double> m21;
+    std::optional<double> m22;
     double m23 { 0 };
     double m24 { 0 };
     double m31 { 0 };
     double m32 { 0 };
     double m33 { 1 };
     double m34 { 0 };
+    std::optional<double> m41;
+    std::optional<double> m42;
     double m43 { 0 };
     double m44 { 1 };
-    Optional<bool> is2D;
+    std::optional<bool> is2D;
 };
 
 } // namespace WebCore

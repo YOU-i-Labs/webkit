@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include <wtf/LockedPrintStream.h>
+#include "LockedPrintStream.h"
 
 namespace WTF {
 

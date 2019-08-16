@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include <wtf/Forward.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -44,13 +44,9 @@ struct Relation {
         AffectedByFocusWithin,
         AffectedByHover,
         AffectedByPreviousSibling,
-        DescendantsAffectedByPreviousSibling,
         // For AffectsNextSibling 'value' tells how many element siblings to mark starting with 'element'.
         AffectsNextSibling,
-        ChildrenAffectedByForwardPositionalRules,
-        DescendantsAffectedByForwardPositionalRules,
         ChildrenAffectedByBackwardPositionalRules,
-        DescendantsAffectedByBackwardPositionalRules,
         ChildrenAffectedByFirstChildRules,
         ChildrenAffectedByPropertyBasedBackwardPositionalRules,
         ChildrenAffectedByLastChildRules,

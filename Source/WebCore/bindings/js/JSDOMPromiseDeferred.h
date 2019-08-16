@@ -25,34 +25,17 @@
 
 #pragma once
 
-#include "ExceptionOr.h"
 #include "JSDOMConvert.h"
 #include "JSDOMGuardedObject.h"
-#include <JavaScriptCore/CatchScope.h>
-#include <JavaScriptCore/JSPromiseDeferred.h>
+#include <runtime/JSPromiseDeferred.h>
 
 namespace WebCore {
 
-class JSDOMWindow;
-
 class DeferredPromise : public DOMGuarded<JSC::JSPromiseDeferred> {
 public:
-    enum class Mode {
-        ClearPromiseOnResolve,
-        RetainPromiseOnResolve
-    };
-
-    static RefPtr<DeferredPromise> create(JSC::ExecState& state, JSDOMGlobalObject& globalObject, Mode mode = Mode::ClearPromiseOnResolve)
+    static Ref<DeferredPromise> create(JSDOMGlobalObject& globalObject, JSC::JSPromiseDeferred& deferred)
     {
-        auto* promiseDeferred = JSC::JSPromiseDeferred::tryCreate(&state, &globalObject);
-        if (!promiseDeferred)
-            return nullptr;
-        return adoptRef(new DeferredPromise(globalObject, *promiseDeferred, mode));
-    }
-
-    static Ref<DeferredPromise> create(JSDOMGlobalObject& globalObject, JSC::JSPromiseDeferred& deferred, Mode mode = Mode::ClearPromiseOnResolve)
-    {
-        return adoptRef(*new DeferredPromise(globalObject, deferred, mode));
+        return adoptRef(*new DeferredPromise(globalObject, deferred));
     }
 
     template<class IDLType>
@@ -104,7 +87,7 @@ public:
 
     void reject();
     void reject(std::nullptr_t);
-    void reject(Exception);
+    void reject(Exception&&);
     WEBCORE_EXPORT void reject(ExceptionCode, const String& = { });
     void reject(const JSC::PrivateName&);
 
@@ -134,23 +117,17 @@ public:
 
     JSC::JSValue promise() const;
 
-    void whenSettled(std::function<void()>&&);
-
 private:
-    DeferredPromise(JSDOMGlobalObject& globalObject, JSC::JSPromiseDeferred& deferred, Mode mode)
+    DeferredPromise(JSDOMGlobalObject& globalObject, JSC::JSPromiseDeferred& deferred)
         : DOMGuarded<JSC::JSPromiseDeferred>(globalObject, deferred)
-        , m_mode(mode)
     {
     }
 
     JSC::JSPromiseDeferred* deferred() const { return guarded(); }
 
     WEBCORE_EXPORT void callFunction(JSC::ExecState&, JSC::JSValue function, JSC::JSValue resolution);
-
     void resolve(JSC::ExecState& state, JSC::JSValue resolution) { callFunction(state, deferred()->resolve(), resolution); }
     void reject(JSC::ExecState& state, JSC::JSValue resolution) { callFunction(state, deferred()->reject(), resolution); }
-
-    Mode m_mode;
 };
 
 class DOMPromiseDeferredBase {
@@ -217,15 +194,6 @@ public:
     { 
         m_promiseDeferred->resolve<IDLType>(std::forward<typename IDLType::ParameterType>(value));
     }
-
-    void settle(ExceptionOr<typename IDLType::ParameterType>&& result)
-    {
-        if (result.hasException()) {
-            reject(result.releaseException());
-            return;
-        }
-        resolve(result.releaseReturnValue());
-    }
 };
 
 template<> class DOMPromiseDeferred<void> : public DOMPromiseDeferredBase {
@@ -238,15 +206,6 @@ public:
     void resolve()
     { 
         m_promiseDeferred->resolve();
-    }
-
-    void settle(ExceptionOr<void>&& result)
-    {
-        if (result.hasException()) {
-            reject(result.releaseException());
-            return;
-        }
-        resolve();
     }
 };
 
@@ -269,8 +228,8 @@ inline JSC::JSValue callPromiseFunction(JSC::ExecState& state)
     JSC::VM& vm = state.vm();
     auto scope = DECLARE_CATCH_SCOPE(vm);
 
-    auto& globalObject = callerGlobalObject(state);
-    JSC::JSPromiseDeferred* promiseDeferred = JSC::JSPromiseDeferred::tryCreate(&state, &globalObject);
+    JSDOMGlobalObject& globalObject = *JSC::jsCast<JSDOMGlobalObject*>(state.lexicalGlobalObject());
+    JSC::JSPromiseDeferred* promiseDeferred = JSC::JSPromiseDeferred::create(&state, &globalObject);
 
     // promiseDeferred can be null when terminating a Worker abruptly.
     if (executionScope == PromiseExecutionScope::WindowOrWorker && !promiseDeferred)
@@ -279,7 +238,7 @@ inline JSC::JSValue callPromiseFunction(JSC::ExecState& state)
     promiseFunction(state, DeferredPromise::create(globalObject, *promiseDeferred));
 
     rejectPromiseWithExceptionIfAny(state, globalObject, *promiseDeferred);
-    EXCEPTION_ASSERT_UNUSED(scope, !scope.exception());
+    ASSERT_UNUSED(scope, !scope.exception());
     return promiseDeferred->promise();
 }
 
@@ -289,8 +248,8 @@ inline JSC::JSValue callPromiseFunction(JSC::ExecState& state, PromiseFunctor fu
     JSC::VM& vm = state.vm();
     auto scope = DECLARE_CATCH_SCOPE(vm);
 
-    auto& globalObject = callerGlobalObject(state);
-    JSC::JSPromiseDeferred* promiseDeferred = JSC::JSPromiseDeferred::tryCreate(&state, &globalObject);
+    JSDOMGlobalObject& globalObject = *JSC::jsCast<JSDOMGlobalObject*>(state.lexicalGlobalObject());
+    JSC::JSPromiseDeferred* promiseDeferred = JSC::JSPromiseDeferred::create(&state, &globalObject);
 
     // promiseDeferred can be null when terminating a Worker abruptly.
     if (executionScope == PromiseExecutionScope::WindowOrWorker && !promiseDeferred)
@@ -299,7 +258,7 @@ inline JSC::JSValue callPromiseFunction(JSC::ExecState& state, PromiseFunctor fu
     functor(state, DeferredPromise::create(globalObject, *promiseDeferred));
 
     rejectPromiseWithExceptionIfAny(state, globalObject, *promiseDeferred);
-    EXCEPTION_ASSERT_UNUSED(scope, !scope.exception());
+    ASSERT_UNUSED(scope, !scope.exception());
     return promiseDeferred->promise();
 }
 

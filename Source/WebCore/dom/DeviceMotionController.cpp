@@ -42,9 +42,9 @@ DeviceMotionController::DeviceMotionController(DeviceMotionClient* client)
     deviceMotionClient()->setController(this);
 }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 // FIXME: We should look to reconcile the iOS and OpenSource differences with this class
-// so that we can either remove these methods or remove the PLATFORM(IOS_FAMILY)-guard.
+// so that we can either remove these methods or remove the PLATFORM(IOS)-guard.
 void DeviceMotionController::suspendUpdates()
 {
     if (m_client)

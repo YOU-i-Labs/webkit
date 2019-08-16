@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.IndeterminateProgressSpinner = class IndeterminateProgressSpinner extends WI.Object
+WebInspector.IndeterminateProgressSpinner = class IndeterminateProgressSpinner extends WebInspector.Object
 {
     constructor()
     {

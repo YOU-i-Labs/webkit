@@ -29,11 +29,10 @@
 [
     Exposed=Worker,
     GenerateIsReachable=Impl,
-    JSCustomMarkFunction,
 ] interface WorkerNavigator {
 };
 
+WorkerNavigator implements NavigatorConcurrentHardware;
 WorkerNavigator implements NavigatorID;
 WorkerNavigator implements NavigatorLanguage;
 WorkerNavigator implements NavigatorOnLine;
-WorkerNavigator implements NavigatorServiceWorker;

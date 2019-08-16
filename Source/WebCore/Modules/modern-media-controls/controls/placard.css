@@ -73,7 +73,3 @@
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
 }
-
-.media-controls:not(.uses-ltr-user-interface-layout-direction) .placard {
-    direction: rtl;
-}

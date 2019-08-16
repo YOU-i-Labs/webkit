@@ -50,8 +50,7 @@ Compiler::Compiler(rx::GLImplFactory *implFactory, const ContextState &state)
       mResources(),
       mFragmentCompiler(nullptr),
       mVertexCompiler(nullptr),
-      mComputeCompiler(nullptr),
-      mGeometryCompiler(nullptr)
+      mComputeCompiler(nullptr)
 {
     ASSERT(state.getClientMajorVersion() == 2 || state.getClientMajorVersion() == 3);
 
@@ -73,14 +72,9 @@ Compiler::Compiler(rx::GLImplFactory *implFactory, const ContextState &state)
     mResources.OES_EGL_image_external          = extensions.eglImageExternal;
     mResources.OES_EGL_image_external_essl3    = extensions.eglImageExternalEssl3;
     mResources.NV_EGL_stream_consumer_external = extensions.eglStreamConsumerExternal;
-    mResources.ARB_texture_rectangle           = extensions.textureRectangle;
     // TODO: use shader precision caps to determine if high precision is supported?
     mResources.FragmentPrecisionHigh = 1;
     mResources.EXT_frag_depth        = extensions.fragDepth;
-
-    // OVR_multiview state
-    mResources.OVR_multiview = extensions.multiview;
-    mResources.MaxViewsOVR   = extensions.maxViews;
 
     // GLSL ES 3.0 constants
     mResources.MaxVertexOutputVectors  = caps.maxVertexOutputComponents / 4;
@@ -89,8 +83,6 @@ Compiler::Compiler(rx::GLImplFactory *implFactory, const ContextState &state)
     mResources.MaxProgramTexelOffset   = caps.maxProgramTexelOffset;
 
     // GLSL ES 3.1 constants
-    mResources.MaxProgramTextureGatherOffset    = caps.maxProgramTextureGatherOffset;
-    mResources.MinProgramTextureGatherOffset    = caps.minProgramTextureGatherOffset;
     mResources.MaxImageUnits                    = caps.maxImageUnits;
     mResources.MaxVertexImageUniforms           = caps.maxVertexImageUniforms;
     mResources.MaxFragmentImageUniforms         = caps.maxFragmentImageUniforms;
@@ -120,25 +112,19 @@ Compiler::Compiler(rx::GLImplFactory *implFactory, const ContextState &state)
     mResources.MaxCombinedAtomicCounterBuffers = caps.maxCombinedAtomicCounterBuffers;
     mResources.MaxAtomicCounterBufferSize      = caps.maxAtomicCounterBufferSize;
 
-    mResources.MaxUniformBufferBindings = caps.maxUniformBufferBindings;
-    mResources.MaxShaderStorageBufferBindings = caps.maxShaderStorageBufferBindings;
-
-    // Needed by point size clamping workaround
-    mResources.MaxPointSize = caps.maxAliasedPointSize;
-
     if (state.getClientMajorVersion() == 2 && !extensions.drawBuffers)
     {
         mResources.MaxDrawBuffers = 1;
     }
-
-    // Geometry Shader constants
-    mResources.OES_geometry_shader = extensions.geometryShader;
-    // TODO(jiawei.shao@intel.com): initialize all implementation dependent geometry shader limits.
-    mResources.MaxGeometryOutputVertices    = extensions.maxGeometryOutputVertices;
-    mResources.MaxGeometryShaderInvocations = extensions.maxGeometryShaderInvocations;
 }
 
 Compiler::~Compiler()
+{
+    release();
+    SafeDelete(mImplementation);
+}
+
+Error Compiler::release()
 {
     if (mFragmentCompiler)
     {
@@ -172,7 +158,9 @@ Compiler::~Compiler()
         sh::Finalize();
     }
 
-    ANGLE_SWALLOW_ERR(mImplementation->release());
+    mImplementation->release();
+
+    return gl::NoError();
 }
 
 ShHandle Compiler::getCompilerHandle(GLenum type)
@@ -189,9 +177,6 @@ ShHandle Compiler::getCompilerHandle(GLenum type)
             break;
         case GL_COMPUTE_SHADER:
             compiler = &mComputeCompiler;
-            break;
-        case GL_GEOMETRY_SHADER_EXT:
-            compiler = &mGeometryCompiler;
             break;
         default:
             UNREACHABLE();
@@ -211,11 +196,6 @@ ShHandle Compiler::getCompilerHandle(GLenum type)
     }
 
     return *compiler;
-}
-
-const std::string &Compiler::getBuiltinResourcesString(GLenum type)
-{
-    return sh::GetBuiltInResourcesString(getCompilerHandle(type));
 }
 
 }  // namespace gl

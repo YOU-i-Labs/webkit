@@ -44,4 +44,10 @@ ScriptObject::ScriptObject(ExecState* scriptState, JSObject* object)
 {
 }
 
+ScriptObject::ScriptObject(ExecState* scriptState, const ScriptValue& scriptValue)
+    : ScriptValue(scriptState->vm(), scriptValue.jsValue())
+    , m_scriptState(scriptState)
+{
+}
+
 } // namespace Deprecated

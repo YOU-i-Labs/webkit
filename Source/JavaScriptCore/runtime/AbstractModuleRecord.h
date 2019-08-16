@@ -27,6 +27,8 @@
 
 #include "Identifier.h"
 #include "JSDestructibleObject.h"
+#include "SourceCode.h"
+#include "VariableEnvironment.h"
 #include <wtf/HashMap.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/Optional.h>
@@ -61,12 +63,15 @@ public:
         Identifier localName;
     };
 
-    enum class ImportEntryType { Single, Namespace };
     struct ImportEntry {
-        ImportEntryType type;
         Identifier moduleRequest;
         Identifier importName;
         Identifier localName;
+
+        bool isNamespace(VM& vm) const
+        {
+            return importName == vm.propertyNames->timesIdentifier;
+        }
     };
 
     typedef WTF::ListHashSet<RefPtr<UniquedStringImpl>, IdentifierRepHash> OrderedIdentifierSet;
@@ -80,8 +85,8 @@ public:
     void addImportEntry(const ImportEntry&);
     void addExportEntry(const ExportEntry&);
 
-    Optional<ImportEntry> tryGetImportEntry(UniquedStringImpl* localName);
-    Optional<ExportEntry> tryGetExportEntry(UniquedStringImpl* exportName);
+    std::optional<ImportEntry> tryGetImportEntry(UniquedStringImpl* localName);
+    std::optional<ExportEntry> tryGetExportEntry(UniquedStringImpl* exportName);
 
     const Identifier& moduleKey() const { return m_moduleKey; }
     const OrderedIdentifierSet& requestedModules() const { return m_requestedModules; }
@@ -116,14 +121,6 @@ public:
         return m_moduleEnvironment.get();
     }
 
-    JSModuleEnvironment* moduleEnvironmentMayBeNull()
-    {
-        return m_moduleEnvironment.get();
-    }
-
-    void link(ExecState*, JSValue scriptFetcher);
-    JS_EXPORT_PRIVATE JSValue evaluate(ExecState*);
-
 protected:
     AbstractModuleRecord(VM&, Structure*, const Identifier&);
     void finishCreation(ExecState*, VM&);
@@ -136,7 +133,7 @@ protected:
 private:
     struct ResolveQuery;
     static Resolution resolveExportImpl(ExecState*, const ResolveQuery&);
-    Optional<Resolution> tryGetCachedResolution(UniquedStringImpl* exportName);
+    std::optional<Resolution> tryGetCachedResolution(UniquedStringImpl* exportName);
     void cacheResolution(UniquedStringImpl* exportName, const Resolution&);
 
     // The loader resolves the given module name to the module key. The module key is the unique value to represent this module.

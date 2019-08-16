@@ -12,18 +12,17 @@
 #include "libANGLE/renderer/gl/BufferGL.h"
 #include "libANGLE/renderer/gl/CompilerGL.h"
 #include "libANGLE/renderer/gl/FenceNVGL.h"
-#include "libANGLE/renderer/gl/FramebufferGL.h"
+#include "libANGLE/renderer/gl/FenceSyncGL.h"
 #include "libANGLE/renderer/gl/FunctionsGL.h"
+#include "libANGLE/renderer/gl/FramebufferGL.h"
 #include "libANGLE/renderer/gl/PathGL.h"
 #include "libANGLE/renderer/gl/ProgramGL.h"
-#include "libANGLE/renderer/gl/ProgramPipelineGL.h"
 #include "libANGLE/renderer/gl/QueryGL.h"
 #include "libANGLE/renderer/gl/RenderbufferGL.h"
 #include "libANGLE/renderer/gl/RendererGL.h"
 #include "libANGLE/renderer/gl/SamplerGL.h"
 #include "libANGLE/renderer/gl/ShaderGL.h"
 #include "libANGLE/renderer/gl/StateManagerGL.h"
-#include "libANGLE/renderer/gl/SyncGL.h"
 #include "libANGLE/renderer/gl/TextureGL.h"
 #include "libANGLE/renderer/gl/TransformFeedbackGL.h"
 #include "libANGLE/renderer/gl/VertexArrayGL.h"
@@ -52,9 +51,7 @@ CompilerImpl *ContextGL::createCompiler()
 
 ShaderImpl *ContextGL::createShader(const gl::ShaderState &data)
 {
-    return new ShaderGL(data, getFunctions(), getWorkaroundsGL(),
-                        getExtensions().webglCompatibility,
-                        mRenderer->getMultiviewImplementationType());
+    return new ShaderGL(data, getFunctions(), getWorkaroundsGL());
 }
 
 ProgramImpl *ContextGL::createProgram(const gl::ProgramState &data)
@@ -66,7 +63,7 @@ ProgramImpl *ContextGL::createProgram(const gl::ProgramState &data)
 FramebufferImpl *ContextGL::createFramebuffer(const gl::FramebufferState &data)
 {
     return new FramebufferGL(data, getFunctions(), getStateManager(), getWorkaroundsGL(),
-                             mRenderer->getBlitter(), mRenderer->getMultiviewClearer(), false);
+                             mRenderer->getBlitter(), false);
 }
 
 TextureImpl *ContextGL::createTexture(const gl::TextureState &state)
@@ -108,9 +105,9 @@ FenceNVImpl *ContextGL::createFenceNV()
     return new FenceNVGL(getFunctions());
 }
 
-SyncImpl *ContextGL::createSync()
+FenceSyncImpl *ContextGL::createFenceSync()
 {
-    return new SyncGL(getFunctions());
+    return new FenceSyncGL(getFunctions());
 }
 
 TransformFeedbackImpl *ContextGL::createTransformFeedback(const gl::TransformFeedbackState &state)
@@ -118,14 +115,9 @@ TransformFeedbackImpl *ContextGL::createTransformFeedback(const gl::TransformFee
     return new TransformFeedbackGL(state, getFunctions(), getStateManager());
 }
 
-SamplerImpl *ContextGL::createSampler(const gl::SamplerState &state)
+SamplerImpl *ContextGL::createSampler()
 {
-    return new SamplerGL(state, getFunctions(), getStateManager());
-}
-
-ProgramPipelineImpl *ContextGL::createProgramPipeline(const gl::ProgramPipelineState &data)
-{
-    return new ProgramPipelineGL(data, getFunctions());
+    return new SamplerGL(getFunctions(), getStateManager());
 }
 
 std::vector<PathImpl *> ContextGL::createPaths(GLsizei range)
@@ -148,73 +140,68 @@ std::vector<PathImpl *> ContextGL::createPaths(GLsizei range)
     return ret;
 }
 
-gl::Error ContextGL::flush(const gl::Context *context)
+gl::Error ContextGL::flush()
 {
     return mRenderer->flush();
 }
 
-gl::Error ContextGL::finish(const gl::Context *context)
+gl::Error ContextGL::finish()
 {
     return mRenderer->finish();
 }
 
-gl::Error ContextGL::drawArrays(const gl::Context *context, GLenum mode, GLint first, GLsizei count)
+gl::Error ContextGL::drawArrays(GLenum mode, GLint first, GLsizei count)
 {
-    return mRenderer->drawArrays(context, mode, first, count);
+    return mRenderer->drawArrays(mState, mode, first, count);
 }
 
-gl::Error ContextGL::drawArraysInstanced(const gl::Context *context,
-                                         GLenum mode,
+gl::Error ContextGL::drawArraysInstanced(GLenum mode,
                                          GLint first,
                                          GLsizei count,
                                          GLsizei instanceCount)
 {
-    return mRenderer->drawArraysInstanced(context, mode, first, count, instanceCount);
+    return mRenderer->drawArraysInstanced(mState, mode, first, count, instanceCount);
 }
 
-gl::Error ContextGL::drawElements(const gl::Context *context,
-                                  GLenum mode,
+gl::Error ContextGL::drawElements(GLenum mode,
                                   GLsizei count,
                                   GLenum type,
-                                  const void *indices)
+                                  const GLvoid *indices,
+                                  const gl::IndexRange &indexRange)
 {
-    return mRenderer->drawElements(context, mode, count, type, indices);
+    return mRenderer->drawElements(mState, mode, count, type, indices, indexRange);
 }
 
-gl::Error ContextGL::drawElementsInstanced(const gl::Context *context,
-                                           GLenum mode,
+gl::Error ContextGL::drawElementsInstanced(GLenum mode,
                                            GLsizei count,
                                            GLenum type,
-                                           const void *indices,
-                                           GLsizei instances)
+                                           const GLvoid *indices,
+                                           GLsizei instances,
+                                           const gl::IndexRange &indexRange)
 {
-    return mRenderer->drawElementsInstanced(context, mode, count, type, indices, instances);
+    return mRenderer->drawElementsInstanced(mState, mode, count, type, indices, instances,
+                                            indexRange);
 }
 
-gl::Error ContextGL::drawRangeElements(const gl::Context *context,
-                                       GLenum mode,
+gl::Error ContextGL::drawRangeElements(GLenum mode,
                                        GLuint start,
                                        GLuint end,
                                        GLsizei count,
                                        GLenum type,
-                                       const void *indices)
+                                       const GLvoid *indices,
+                                       const gl::IndexRange &indexRange)
 {
-    return mRenderer->drawRangeElements(context, mode, start, end, count, type, indices);
+    return mRenderer->drawRangeElements(mState, mode, start, end, count, type, indices, indexRange);
 }
 
-gl::Error ContextGL::drawArraysIndirect(const gl::Context *context,
-                                        GLenum mode,
-                                        const void *indirect)
+gl::Error ContextGL::drawArraysIndirect(GLenum mode, const GLvoid *indirect)
 {
-    return mRenderer->drawArraysIndirect(context, mode, indirect);
+    return mRenderer->drawArraysIndirect(mState, mode, indirect);
 }
 
-gl::Error ContextGL::drawElementsIndirect(const gl::Context *context,
-                                          GLenum mode,
-                                          GLenum type,
-                                          const void *indirect)
+gl::Error ContextGL::drawElementsIndirect(GLenum mode, GLenum type, const GLvoid *indirect)
 {
-    return mRenderer->drawElementsIndirect(context, mode, type, indirect);
+    return mRenderer->drawElementsIndirect(mState, mode, type, indirect);
 }
 
 void ContextGL::stencilFillPath(const gl::Path *path, GLenum fillMode, GLuint mask)
@@ -341,19 +328,9 @@ void ContextGL::popGroupMarker()
     mRenderer->popGroupMarker();
 }
 
-void ContextGL::pushDebugGroup(GLenum source, GLuint id, GLsizei length, const char *message)
+void ContextGL::syncState(const gl::State::DirtyBits &dirtyBits)
 {
-    mRenderer->pushDebugGroup(source, id, length, message);
-}
-
-void ContextGL::popDebugGroup()
-{
-    mRenderer->popDebugGroup();
-}
-
-void ContextGL::syncState(const gl::Context *context, const gl::State::DirtyBits &dirtyBits)
-{
-    mRenderer->getStateManager()->syncState(context, dirtyBits);
+    mRenderer->getStateManager()->syncState(mState, dirtyBits);
 }
 
 GLint ContextGL::getGPUDisjoint()
@@ -366,10 +343,10 @@ GLint64 ContextGL::getTimestamp()
     return mRenderer->getTimestamp();
 }
 
-void ContextGL::onMakeCurrent(const gl::Context *context)
+void ContextGL::onMakeCurrent(const gl::ContextState &data)
 {
     // Queries need to be paused/resumed on context switches
-    ANGLE_SWALLOW_ERR(mRenderer->getStateManager()->onMakeCurrent(context));
+    mRenderer->getStateManager()->onMakeCurrent(data);
 }
 
 const gl::Caps &ContextGL::getNativeCaps() const
@@ -392,11 +369,6 @@ const gl::Limitations &ContextGL::getNativeLimitations() const
     return mRenderer->getNativeLimitations();
 }
 
-void ContextGL::applyNativeWorkarounds(gl::Workarounds *workarounds) const
-{
-    return mRenderer->applyNativeWorkarounds(workarounds);
-}
-
 const FunctionsGL *ContextGL::getFunctions() const
 {
     return mRenderer->getFunctions();
@@ -412,12 +384,9 @@ const WorkaroundsGL &ContextGL::getWorkaroundsGL() const
     return mRenderer->getWorkarounds();
 }
 
-gl::Error ContextGL::dispatchCompute(const gl::Context *context,
-                                     GLuint numGroupsX,
-                                     GLuint numGroupsY,
-                                     GLuint numGroupsZ)
+gl::Error ContextGL::dispatchCompute(GLuint numGroupsX, GLuint numGroupsY, GLuint numGroupsZ)
 {
-    return mRenderer->dispatchCompute(context, numGroupsX, numGroupsY, numGroupsZ);
+    return mRenderer->dispatchCompute(mState, numGroupsX, numGroupsY, numGroupsZ);
 }
 
 }  // namespace rx

@@ -42,12 +42,12 @@
 #include "PlatformDisplayWin.h"
 #endif
 
-#if USE(LIBWPE)
-#include "PlatformDisplayLibWPE.h"
+#if PLATFORM(WPE)
+#include "PlatformDisplayWPE.h"
 #endif
 
 #if PLATFORM(GTK)
-#include <gtk/gtk.h>
+#include <gdk/gdk.h>
 #endif
 
 #if PLATFORM(GTK) && PLATFORM(X11)
@@ -59,12 +59,7 @@
 #endif
 
 #if USE(EGL)
-#if USE(LIBEPOXY)
-#include "EpoxyEGL.h"
-#else
 #include <EGL/egl.h>
-#endif
-#include "GLContextEGL.h"
 #include <wtf/HashSet.h>
 #include <wtf/NeverDestroyed.h>
 #endif
@@ -75,26 +70,20 @@ std::unique_ptr<PlatformDisplay> PlatformDisplay::createPlatformDisplay()
 {
 #if PLATFORM(GTK)
 #if defined(GTK_API_VERSION_2)
-    return PlatformDisplayX11::create(GDK_DISPLAY_XDISPLAY(gdk_display_get_default()));
+    return std::make_unique<PlatformDisplayX11>(GDK_DISPLAY_XDISPLAY(gdk_display_get_default()));
 #else
-    if (gtk_init_check(nullptr, nullptr)) {
-        GdkDisplay* display = gdk_display_manager_get_default_display(gdk_display_manager_get());
+    GdkDisplay* display = gdk_display_manager_get_default_display(gdk_display_manager_get());
 #if PLATFORM(X11)
-        if (GDK_IS_X11_DISPLAY(display))
-            return PlatformDisplayX11::create(GDK_DISPLAY_XDISPLAY(display));
+    if (GDK_IS_X11_DISPLAY(display))
+        return std::make_unique<PlatformDisplayX11>(GDK_DISPLAY_XDISPLAY(display));
 #endif
 #if PLATFORM(WAYLAND)
-        if (GDK_IS_WAYLAND_DISPLAY(display))
-            return PlatformDisplayWayland::create(gdk_wayland_display_get_wl_display(display));
+    if (GDK_IS_WAYLAND_DISPLAY(display))
+        return std::make_unique<PlatformDisplayWayland>(gdk_wayland_display_get_wl_display(display));
 #endif
-    }
 #endif
-#endif // PLATFORM(GTK)
-
-#if USE(LIBWPE)
-    return PlatformDisplayLibWPE::create();
 #elif PLATFORM(WIN)
-    return PlatformDisplayWin::create();
+    return std::make_unique<PlatformDisplayWin>();
 #endif
 
 #if PLATFORM(WAYLAND)
@@ -109,20 +98,31 @@ std::unique_ptr<PlatformDisplay> PlatformDisplay::createPlatformDisplay()
 
     // If at this point we still don't have a display, just create a fake display with no native.
 #if PLATFORM(WAYLAND)
-    return PlatformDisplayWayland::create(nullptr);
-#elif PLATFORM(X11)
-    return PlatformDisplayX11::create(nullptr);
+    return std::make_unique<PlatformDisplayWayland>(nullptr);
+#endif
+#if PLATFORM(X11)
+    return std::make_unique<PlatformDisplayX11>(nullptr);
 #endif
 
-    RELEASE_ASSERT_NOT_REACHED();
+#if PLATFORM(WPE)
+    return std::make_unique<PlatformDisplayWPE>();
+#endif
+
+    ASSERT_NOT_REACHED();
+    return nullptr;
 }
 
 PlatformDisplay& PlatformDisplay::sharedDisplay()
 {
     static std::once_flag onceFlag;
-    IGNORE_CLANG_WARNINGS_BEGIN("exit-time-destructors")
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wexit-time-destructors"
+#endif
     static std::unique_ptr<PlatformDisplay> display;
-    IGNORE_CLANG_WARNINGS_END
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
     std::call_once(onceFlag, []{
         display = createPlatformDisplay();
     });
@@ -193,15 +193,13 @@ void PlatformDisplay::initializeEGLDisplay()
 
     if (m_eglDisplay == EGL_NO_DISPLAY) {
         m_eglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-        if (m_eglDisplay == EGL_NO_DISPLAY) {
-            WTFLogAlways("Cannot get default EGL display: %s\n", GLContextEGL::lastErrorString());
+        if (m_eglDisplay == EGL_NO_DISPLAY)
             return;
-        }
     }
 
     EGLint majorVersion, minorVersion;
     if (eglInitialize(m_eglDisplay, &majorVersion, &minorVersion) == EGL_FALSE) {
-        WTFLogAlways("EGLDisplay Initialization failed: %s\n", GLContextEGL::lastErrorString());
+        LOG_ERROR("EGLDisplay Initialization failed.");
         terminateEGLDisplay();
         return;
     }

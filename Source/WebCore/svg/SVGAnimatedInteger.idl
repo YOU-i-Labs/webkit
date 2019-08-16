@@ -26,7 +26,7 @@
 [
     SkipVTableValidation
 ] interface SVGAnimatedInteger {
-    attribute long baseVal;
+    [SetterMayThrowException] attribute long baseVal;
     readonly attribute long animVal;
 };
 

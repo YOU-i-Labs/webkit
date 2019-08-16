@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexey Proskuryakov <ap@nypop.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,45 +24,54 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef TextCodecICU_h
+#define TextCodecICU_h
 
 #include "TextCodec.h"
-#include <unicode/ucnv.h>
+#include <unicode/utypes.h>
+
+typedef struct UConverter UConverter;
 
 namespace WebCore {
 
-using ICUConverterPtr = std::unique_ptr<UConverter, void (*)(UConverter*)>;
+    class TextCodecICU : public TextCodec {
+    public:
+        static std::unique_ptr<TextCodec> create(const TextEncoding&, const void* additionalData);
 
-class TextCodecICU : public TextCodec {
-public:
-    TextCodecICU(const char* encoding, const char* canonicalConverterName);
-    virtual ~TextCodecICU();
+        TextCodecICU(const char* encoding, const char* canonicalConverterName);
 
-    static void registerEncodingNames(EncodingNameRegistrar);
-    static void registerCodecs(TextCodecRegistrar);
+        static void registerEncodingNames(EncodingNameRegistrar);
+        static void registerCodecs(TextCodecRegistrar);
 
-private:
-    String decode(const char*, size_t length, bool flush, bool stopOnError, bool& sawError) final;
-    Vector<uint8_t> encode(StringView, UnencodableHandling) final;
+        virtual ~TextCodecICU();
 
-    void createICUConverter() const;
-    void releaseICUConverter() const;
-    bool needsGBKFallbacks() const { return m_needsGBKFallbacks; }
-    void setNeedsGBKFallbacks(bool needsFallbacks) { m_needsGBKFallbacks = needsFallbacks; }
+    private:
+        String decode(const char*, size_t length, bool flush, bool stopOnError, bool& sawError) override;
+        CString encode(const UChar*, size_t length, UnencodableHandling) override;
 
-    int decodeToBuffer(UChar* buffer, UChar* bufferLimit, const char*& source, const char* sourceLimit, int32_t* offsets, bool flush, UErrorCode&);
+        void createICUConverter() const;
+        void releaseICUConverter() const;
+        bool needsGBKFallbacks() const { return m_needsGBKFallbacks; }
+        void setNeedsGBKFallbacks(bool needsFallbacks) { m_needsGBKFallbacks = needsFallbacks; }
+        
+        int decodeToBuffer(UChar* buffer, UChar* bufferLimit, const char*& source,
+            const char* sourceLimit, int32_t* offsets, bool flush, UErrorCode& err);
 
-    const char* const m_encodingName;
-    const char* const m_canonicalConverterName;
-    mutable ICUConverterPtr m_converter { nullptr, ucnv_close };
-    mutable bool m_needsGBKFallbacks { false };
-};
+        const char* const m_encodingName;
+        const char* const m_canonicalConverterName;
+        mutable UConverter* m_converterICU;
+        mutable bool m_needsGBKFallbacks;
+    };
 
-struct ICUConverterWrapper {
-    ICUConverterPtr converter { nullptr, ucnv_close };
+    struct ICUConverterWrapper {
+        WTF_MAKE_NONCOPYABLE(ICUConverterWrapper); WTF_MAKE_FAST_ALLOCATED;
+    public:
+        ICUConverterWrapper() : converter(0) { }
+        ~ICUConverterWrapper();
 
-    WTF_MAKE_FAST_ALLOCATED;
-};
+        UConverter* converter;
+    };
 
 } // namespace WebCore
 
+#endif // TextCodecICU_h

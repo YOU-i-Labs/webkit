@@ -28,7 +28,6 @@
 #if ENABLE(SPEECH_SYNTHESIS)
 
 #include "PlatformSpeechSynthesisVoice.h"
-#include <wtf/MonotonicTime.h>
 
 namespace WebCore {
     
@@ -60,8 +59,8 @@ public:
     float pitch() const { return m_pitch; }
     void setPitch(float pitch) { m_pitch = std::max(std::min(2.0f, pitch), 0.0f); }
 
-    MonotonicTime startTime() const { return m_startTime; }
-    void setStartTime(MonotonicTime startTime) { m_startTime = startTime; }
+    double startTime() const { return m_startTime; }
+    void setStartTime(double startTime) { m_startTime = startTime; }
     
     PlatformSpeechSynthesisUtteranceClient* client() const { return m_client; }
     void setClient(PlatformSpeechSynthesisUtteranceClient* client) { m_client = client; }
@@ -76,7 +75,7 @@ private:
     float m_volume { 1 };
     float m_rate { 1 };
     float m_pitch { 1 };
-    MonotonicTime m_startTime;
+    double m_startTime { 0 };
 };
     
 } // namespace WebCore

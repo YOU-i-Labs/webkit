@@ -16,16 +16,12 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#pragma once
-
+#ifndef WebKitWebSourceGStreamer_h
+#define WebKitWebSourceGStreamer_h
 #if ENABLE(VIDEO) && USE(GSTREAMER)
 
+#include "MediaPlayer.h"
 #include <gst/gst.h>
-
-namespace WebCore {
-class MediaPlayer;
-class SecurityOrigin;
-}
 
 G_BEGIN_DECLS
 
@@ -52,8 +48,8 @@ struct _WebKitWebSrcClass {
 GType webkit_web_src_get_type(void);
 void webKitWebSrcSetMediaPlayer(WebKitWebSrc*, WebCore::MediaPlayer*);
 bool webKitSrcPassedCORSAccessCheck(WebKitWebSrc*);
-bool webKitSrcWouldTaintOrigin(WebKitWebSrc*, const WebCore::SecurityOrigin&);
 
 G_END_DECLS
 
-#endif // ENABLE(VIDEO) && USE(GSTREAMER)
+#endif // USE(GSTREAMER)
+#endif

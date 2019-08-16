@@ -28,8 +28,9 @@
 
 #if USE(CAIRO)
 
-#include "CairoUtilities.h"
+#include "AffineTransform.h"
 #include "GraphicsContext.h"
+#include <cairo.h>
 
 namespace WebCore {
 
@@ -42,7 +43,7 @@ cairo_pattern_t* Pattern::createPlatformPattern(const AffineTransform&) const
     cairo_pattern_t* pattern = cairo_pattern_create_for_surface(surface.get());
 
     // cairo merges patter space and user space itself
-    cairo_matrix_t matrix = toCairoMatrix(m_patternSpaceTransformation);
+    cairo_matrix_t matrix = m_patternSpaceTransformation;
     cairo_matrix_invert(&matrix);
     cairo_pattern_set_matrix(pattern, &matrix);
 

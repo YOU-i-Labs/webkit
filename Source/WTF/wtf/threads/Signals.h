@@ -25,12 +25,10 @@
 
 #pragma once
 
-#if USE(PTHREADS) && HAVE(MACHINE_CONTEXT)
+#if USE(PTHREADS)
 
 #include <signal.h>
-#include <tuple>
 #include <wtf/Function.h>
-#include <wtf/Optional.h>
 #include <wtf/PlatformRegisters.h>
 
 namespace WTF {
@@ -43,18 +41,22 @@ enum class Signal {
 
     // These signals will only chain if we don't have a handler that can process them. If there is nothing
     // to chain to we restore the default handler and crash.
+    Trap,
     Ill,
-    BadAccess, // For posix this is both SIGSEGV and SIGBUS
-    NumberOfSignals = BadAccess + 2, // BadAccess is really two signals.
+    SegV,
+    Bus,
+    NumberOfSignals,
     Unknown = NumberOfSignals
 };
 
-inline std::tuple<int, Optional<int>> toSystemSignal(Signal signal)
+inline int toSystemSignal(Signal signal)
 {
     switch (signal) {
-    case Signal::BadAccess: return std::make_tuple(SIGSEGV, SIGBUS);
-    case Signal::Ill: return std::make_tuple(SIGILL, WTF::nullopt);
-    case Signal::Usr: return std::make_tuple(SIGILL, WTF::nullopt);
+    case Signal::SegV: return SIGSEGV;
+    case Signal::Bus: return SIGBUS;
+    case Signal::Ill: return SIGILL;
+    case Signal::Usr: return SIGUSR2;
+    case Signal::Trap: return SIGTRAP;
     default: break;
     }
     RELEASE_ASSERT_NOT_REACHED();
@@ -63,10 +65,11 @@ inline std::tuple<int, Optional<int>> toSystemSignal(Signal signal)
 inline Signal fromSystemSignal(int signal)
 {
     switch (signal) {
-    case SIGSEGV: return Signal::BadAccess;
-    case SIGBUS: return Signal::BadAccess;
+    case SIGSEGV: return Signal::SegV;
+    case SIGBUS: return Signal::Bus;
     case SIGILL: return Signal::Ill;
     case SIGUSR2: return Signal::Usr;
+    case SIGTRAP: return Signal::Trap;
     default: return Signal::Unknown;
     }
 }
@@ -92,7 +95,8 @@ WTF_EXPORT_PRIVATE void installSignalHandler(Signal, SignalHandler&&);
 
 #if HAVE(MACH_EXCEPTIONS)
 class Thread;
-void registerThreadForMachExceptionHandling(Thread&);
+void registerThreadForMachExceptionHandling(Thread*);
+void unregisterThreadForMachExceptionHandling(Thread*);
 
 void handleSignalsWithMach();
 #endif // HAVE(MACH_EXCEPTIONS)
@@ -101,6 +105,7 @@ void handleSignalsWithMach();
 
 #if HAVE(MACH_EXCEPTIONS)
 using WTF::registerThreadForMachExceptionHandling;
+using WTF::unregisterThreadForMachExceptionHandling;
 using WTF::handleSignalsWithMach;
 #endif // HAVE(MACH_EXCEPTIONS)
 
@@ -111,4 +116,4 @@ using WTF::fromSystemSignal;
 using WTF::SignalAction;
 using WTF::installSignalHandler;
 
-#endif // USE(PTHREADS) && HAVE(MACHINE_CONTEXT)
+#endif // USE(PTHREADS)

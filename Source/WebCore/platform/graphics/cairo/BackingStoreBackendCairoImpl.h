@@ -16,26 +16,28 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#pragma once
+#ifndef BackingStoreBackendCairoImpl_h
+#define BackingStoreBackendCairoImpl_h
+
+#include "BackingStoreBackendCairo.h"
 
 #if USE(CAIRO)
-#include "BackingStoreBackendCairo.h"
-#include <pal/HysteresisActivity.h>
 
 namespace WebCore {
 
 class BackingStoreBackendCairoImpl final : public BackingStoreBackendCairo {
 public:
-    WEBCORE_EXPORT BackingStoreBackendCairoImpl(const IntSize&, float deviceScaleFactor);
+    BackingStoreBackendCairoImpl(cairo_surface_t*, const IntSize&);
     virtual ~BackingStoreBackendCairoImpl();
 
-private:
     void scroll(const IntRect&, const IntSize&) override;
 
+private:
     RefPtr<cairo_surface_t> m_scrollSurface;
-    PAL::HysteresisActivity m_scrolledHysteresis;
 };
 
 } // namespace WebCore
 
 #endif // USE(CAIRO)
+
+#endif // BackingStoreBackendCairoImpl_h

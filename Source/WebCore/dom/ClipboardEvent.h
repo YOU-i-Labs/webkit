@@ -37,21 +37,16 @@ public:
         RefPtr<DataTransfer> clipboardData;
     };
 
-    static Ref<ClipboardEvent> create(const AtomicString& type, Ref<DataTransfer>&& dataTransfer)
+    static Ref<ClipboardEvent> create(const AtomicString& type, const Init& init, IsTrusted isTrusted = IsTrusted::No)
     {
-        return adoptRef(*new ClipboardEvent(type, WTFMove(dataTransfer)));
-    }
-
-    static Ref<ClipboardEvent> create(const AtomicString& type, const Init& init)
-    {
-        return adoptRef(*new ClipboardEvent(type, init));
+        auto event = adoptRef(*new ClipboardEvent(type, init, isTrusted));
+        return event;
     }
 
     DataTransfer* clipboardData() const { return m_clipboardData.get(); }
 
 private:
-    ClipboardEvent(const AtomicString& type, Ref<DataTransfer>&&);
-    ClipboardEvent(const AtomicString& type, const Init&);
+    ClipboardEvent(const AtomicString& type, const Init&, IsTrusted);
 
     EventInterface eventInterface() const final;
     bool isClipboardEvent() const final;

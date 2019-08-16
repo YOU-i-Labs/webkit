@@ -15,20 +15,20 @@
 
 using namespace gl;
 
-// Tests that function GetIndexFromDirtyBit computes the index properly.
-TEST(VertexArrayTest, VerifyGetIndexFromDirtyBit)
+// Tests that function GetAttribIndex computes the index properly.
+TEST(VertexArrayTest, VerifyGetAttribIndex)
 {
     VertexArray::DirtyBits dirtyBits;
-    constexpr size_t bits[] = {1, 4, 9, 16, 25, 36, 49, 64, 81, 92};
-    constexpr GLint count   = sizeof(bits) / sizeof(size_t);
-    for (GLint i = 0; i < count; i++)
+    size_t bits[] = {1, 4, 9, 16, 25, 36, 49, 64, 81, 90};
+    int count     = sizeof(bits) / sizeof(size_t);
+    for (int i = 0; i < count; i++)
     {
         dirtyBits.set(bits[i]);
     }
 
-    for (size_t dirtyBit : dirtyBits)
+    for (unsigned long dirtyBit : angle::IterateBitSet(dirtyBits))
     {
-        const size_t index = VertexArray::GetVertexIndexFromDirtyBit(dirtyBit);
+        size_t index = VertexArray::GetAttribIndex(dirtyBit);
         if (dirtyBit < VertexArray::DIRTY_BIT_ATTRIB_MAX_ENABLED)
         {
             EXPECT_EQ(dirtyBit - VertexArray::DIRTY_BIT_ATTRIB_0_ENABLED, index);

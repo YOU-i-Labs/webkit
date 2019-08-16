@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ContentViewContainer = class ContentViewContainer extends WI.View
+WebInspector.ContentViewContainer = class ContentViewContainer extends WebInspector.View
 {
     constructor()
     {
@@ -63,7 +63,7 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
 
     contentViewForRepresentedObject(representedObject, onlyExisting, extraArguments)
     {
-        return WI.ContentView.contentViewForRepresentedObject(representedObject, onlyExisting, extraArguments);
+        return WebInspector.ContentView.contentViewForRepresentedObject(representedObject, onlyExisting, extraArguments);
     }
 
     showContentViewForRepresentedObject(representedObject, extraArguments)
@@ -79,13 +79,9 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
 
     showContentView(contentView, cookie)
     {
-        console.assert(contentView instanceof WI.ContentView);
-        if (!(contentView instanceof WI.ContentView))
+        console.assert(contentView instanceof WebInspector.ContentView);
+        if (!(contentView instanceof WebInspector.ContentView))
             return null;
-
-        // No change.
-        if (contentView === this.currentContentView && !cookie)
-            return contentView;
 
         // ContentViews can be shared between containers. If this content view is
         // not owned by us, it may need to be transferred to this container.
@@ -107,7 +103,7 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
         }
 
         if (!provisionalEntry)
-            provisionalEntry = new WI.BackForwardEntry(contentView, cookie);
+            provisionalEntry = new WebInspector.BackForwardEntry(contentView, cookie);
 
         // Don't do anything if we would have added an identical back/forward list entry.
         if (provisionalEntry.isEqual(currentEntry)) {
@@ -167,17 +163,17 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
         } else
             this._showEntry(currentEntry, false);
 
-        this.dispatchEventToListeners(WI.ContentViewContainer.Event.CurrentContentViewDidChange);
+        this.dispatchEventToListeners(WebInspector.ContentViewContainer.Event.CurrentContentViewDidChange);
     }
 
     replaceContentView(oldContentView, newContentView)
     {
-        console.assert(oldContentView instanceof WI.ContentView);
-        if (!(oldContentView instanceof WI.ContentView))
+        console.assert(oldContentView instanceof WebInspector.ContentView);
+        if (!(oldContentView instanceof WebInspector.ContentView))
             return;
 
-        console.assert(newContentView instanceof WI.ContentView);
-        if (!(newContentView instanceof WI.ContentView))
+        console.assert(newContentView instanceof WebInspector.ContentView);
+        if (!(newContentView instanceof WebInspector.ContentView))
             return;
 
         console.assert(oldContentView.parentContainer === this);
@@ -203,7 +199,7 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
             if (this._backForwardList[i].contentView === oldContentView) {
                 console.assert(!this._backForwardList[i].tombstone);
                 let currentCookie = this._backForwardList[i].cookie;
-                this._backForwardList[i] = new WI.BackForwardEntry(newContentView, currentCookie);
+                this._backForwardList[i] = new WebInspector.BackForwardEntry(newContentView, currentCookie);
             }
         }
 
@@ -212,7 +208,7 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
         // Re-show the current entry, because its content view instance was replaced.
         if (currentlyShowing) {
             this._showEntry(this.currentBackForwardEntry, true);
-            this.dispatchEventToListeners(WI.ContentViewContainer.Event.CurrentContentViewDidChange);
+            this.dispatchEventToListeners(WebInspector.ContentViewContainer.Event.CurrentContentViewDidChange);
         }
     }
 
@@ -270,7 +266,7 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
 
         if (currentEntry && currentEntry.contentView !== visibleContentView || backForwardListDidChange) {
             this._showEntry(currentEntry, true);
-            this.dispatchEventToListeners(WI.ContentViewContainer.Event.CurrentContentViewDidChange);
+            this.dispatchEventToListeners(WebInspector.ContentViewContainer.Event.CurrentContentViewDidChange);
         }
     }
 
@@ -294,7 +290,7 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
         this._backForwardList = [];
         this._currentIndex = -1;
 
-        this.dispatchEventToListeners(WI.ContentViewContainer.Event.CurrentContentViewDidChange);
+        this.dispatchEventToListeners(WebInspector.ContentViewContainer.Event.CurrentContentViewDidChange);
     }
 
     canGoBack()
@@ -355,7 +351,7 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
         this._clearTombstonesForContentView(contentView);
 
         // These contentView navigation items need to move to the new content browser.
-        contentView.dispatchEventToListeners(WI.ContentView.Event.NavigationItemsDidChange);
+        contentView.dispatchEventToListeners(WebInspector.ContentView.Event.NavigationItemsDidChange);
     }
 
     _placeTombstonesForContentView(contentView)
@@ -389,7 +385,8 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
         console.assert(contentView.parentContainer === this);
 
         let tombstoneContentViewContainers = this._tombstoneContentViewContainersForContentView(contentView);
-        tombstoneContentViewContainers.removeAll(this);
+        const onlyFirst = false;
+        tombstoneContentViewContainers.remove(this, onlyFirst);
 
         for (let entry of this._backForwardList) {
             if (entry.contentView !== contentView)
@@ -406,7 +403,8 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
         // There may be other back/forward entries that need a reference.
         if (isTombstone) {
             let tombstoneContentViewContainers = this._tombstoneContentViewContainersForContentView(contentView);
-            tombstoneContentViewContainers.remove(this);
+            const onlyFirst = true;
+            tombstoneContentViewContainers.remove(this, onlyFirst);
             return;
         }
 
@@ -429,12 +427,12 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
         contentView.closed();
 
         if (contentView.representedObject)
-            WI.ContentView.closedContentViewForRepresentedObject(contentView.representedObject);
+            WebInspector.ContentView.closedContentViewForRepresentedObject(contentView.representedObject);
     }
 
     _showEntry(entry, shouldCallShown)
     {
-        console.assert(entry instanceof WI.BackForwardEntry);
+        console.assert(entry instanceof WebInspector.BackForwardEntry);
 
         // We may be showing a tombstone from a BackForward list or when re-showing a container
         // that had previously had the content view transferred away from it.
@@ -452,7 +450,7 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
 
     _hideEntry(entry)
     {
-        console.assert(entry instanceof WI.BackForwardEntry);
+        console.assert(entry instanceof WebInspector.BackForwardEntry);
 
         // If this was a tombstone, the content view should already have been
         // hidden when we placed the tombstone.
@@ -466,9 +464,9 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
 
     _tombstoneContentViewContainersForContentView(contentView)
     {
-        let tombstoneContentViewContainers = contentView[WI.ContentViewContainer.TombstoneContentViewContainersSymbol];
+        let tombstoneContentViewContainers = contentView[WebInspector.ContentViewContainer.TombstoneContentViewContainersSymbol];
         if (!tombstoneContentViewContainers)
-            tombstoneContentViewContainers = contentView[WI.ContentViewContainer.TombstoneContentViewContainersSymbol] = [];
+            tombstoneContentViewContainers = contentView[WebInspector.ContentViewContainer.TombstoneContentViewContainersSymbol] = [];
         return tombstoneContentViewContainers;
     }
 
@@ -496,8 +494,8 @@ WI.ContentViewContainer = class ContentViewContainer extends WI.View
     }
 };
 
-WI.ContentViewContainer.Event = {
+WebInspector.ContentViewContainer.Event = {
     CurrentContentViewDidChange: "content-view-container-current-content-view-did-change"
 };
 
-WI.ContentViewContainer.TombstoneContentViewContainersSymbol = Symbol("content-view-container-tombstone-content-view-containers");
+WebInspector.ContentViewContainer.TombstoneContentViewContainersSymbol = Symbol("content-view-container-tombstone-content-view-containers");

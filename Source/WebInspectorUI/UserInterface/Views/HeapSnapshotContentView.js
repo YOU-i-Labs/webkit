@@ -23,25 +23,25 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.HeapSnapshotContentView = class HeapSnapshotContentView extends WI.ContentView
+WebInspector.HeapSnapshotContentView = class HeapSnapshotContentView extends WebInspector.ContentView
 {
     constructor(representedObject, identifier, columns, heapSnapshotDataGridTreeConstructor)
     {
-        console.assert(representedObject instanceof WI.HeapSnapshotProxy || representedObject instanceof WI.HeapSnapshotDiffProxy);
+        console.assert(representedObject instanceof WebInspector.HeapSnapshotProxy || representedObject instanceof WebInspector.HeapSnapshotDiffProxy);
 
         super(representedObject);
 
         this.element.classList.add("heap-snapshot");
 
-        this._dataGrid = new WI.DataGrid(columns);
+        this._dataGrid = new WebInspector.DataGrid(columns);
         this._dataGrid.sortColumnIdentifier = "retainedSize";
-        this._dataGrid.sortOrder = WI.DataGrid.SortOrder.Descending;
+        this._dataGrid.sortOrder = WebInspector.DataGrid.SortOrder.Descending;
         this._dataGrid.createSettings(identifier);
-        this._dataGrid.addEventListener(WI.DataGrid.Event.SortChanged, this._sortDataGrid, this);
+        this._dataGrid.addEventListener(WebInspector.DataGrid.Event.SortChanged, this._sortDataGrid, this);
 
-        let sortComparator = WI.HeapSnapshotDataGridTree.buildSortComparator(this._dataGrid.sortColumnIdentifier, this._dataGrid.sortOrder);
+        let sortComparator = WebInspector.HeapSnapshotDataGridTree.buildSortComparator(this._dataGrid.sortColumnIdentifier, this._dataGrid.sortOrder);
         this._heapSnapshotDataGridTree = new heapSnapshotDataGridTreeConstructor(this.representedObject, sortComparator);
-        this._heapSnapshotDataGridTree.addEventListener(WI.HeapSnapshotDataGridTree.Event.DidPopulate, this._heapSnapshotDataGridTreeDidPopulate, this);
+        this._heapSnapshotDataGridTree.addEventListener(WebInspector.HeapSnapshotDataGridTree.Event.DidPopulate, this._heapSnapshotDataGridTreeDidPopulate, this);
 
         for (let child of this._heapSnapshotDataGridTree.children)
             this._dataGrid.appendChild(child);
@@ -78,7 +78,7 @@ WI.HeapSnapshotContentView = class HeapSnapshotContentView extends WI.ContentVie
         if (!this._heapSnapshotDataGridTree)
             return;
 
-        this._heapSnapshotDataGridTree.sortComparator = WI.HeapSnapshotDataGridTree.buildSortComparator(this._dataGrid.sortColumnIdentifier, this._dataGrid.sortOrder);
+        this._heapSnapshotDataGridTree.sortComparator = WebInspector.HeapSnapshotDataGridTree.buildSortComparator(this._dataGrid.sortColumnIdentifier, this._dataGrid.sortOrder);
 
         this._dataGrid.removeChildren();
         for (let child of this._heapSnapshotDataGridTree.children)
@@ -93,66 +93,66 @@ WI.HeapSnapshotContentView = class HeapSnapshotContentView extends WI.ContentVie
     }
 };
 
-WI.HeapSnapshotInstancesContentView = class HeapSnapshotInstancesContentView extends WI.HeapSnapshotContentView
+WebInspector.HeapSnapshotInstancesContentView = class HeapSnapshotInstancesContentView extends WebInspector.HeapSnapshotContentView
 {
     constructor(representedObject)
     {
         let columns = {
             retainedSize: {
-                title: WI.UIString("Retained Size"),
-                tooltip: WI.UIString("Size of current object plus all objects it keeps alive"),
+                title: WebInspector.UIString("Retained Size"),
+                tooltip: WebInspector.UIString("Size of current object plus all objects it keeps alive"),
                 width: "140px",
                 aligned: "right",
                 sortable: true,
             },
             size: {
-                title: WI.UIString("Self Size"),
+                title: WebInspector.UIString("Self Size"),
                 width: "90px",
                 aligned: "right",
                 sortable: true,
             },
             count: {
-                title: WI.UIString("Count"),
+                title: WebInspector.UIString("Count"),
                 width: "75px",
                 aligned: "right",
                 sortable: true,
             },
             className: {
-                title: WI.UIString("Name"),
+                title: WebInspector.UIString("Name"),
                 sortable: true,
                 disclosure: true,
             }
         };
 
-        super(representedObject, "heap-snapshot-instances-content-view", columns, WI.HeapSnapshotInstancesDataGridTree);
+        super(representedObject, "heap-snapshot-instances-content-view", columns, WebInspector.HeapSnapshotInstancesDataGridTree);
     }
 };
 
-WI.HeapSnapshotObjectGraphContentView = class HeapSnapshotObjectGraphContentView extends WI.HeapSnapshotContentView
+WebInspector.HeapSnapshotObjectGraphContentView = class HeapSnapshotObjectGraphContentView extends WebInspector.HeapSnapshotContentView
 {
     constructor(representedObject)
     {
         let columns = {
             retainedSize: {
-                title: WI.UIString("Retained Size"),
-                tooltip: WI.UIString("Size of current object plus all objects it keeps alive"),
+                title: WebInspector.UIString("Retained Size"),
+                tooltip: WebInspector.UIString("Size of current object plus all objects it keeps alive"),
                 width: "140px",
                 aligned: "right",
                 sortable: true,
             },
             size: {
-                title: WI.UIString("Self Size"),
+                title: WebInspector.UIString("Self Size"),
                 width: "90px",
                 aligned: "right",
                 sortable: true,
             },
             className: {
-                title: WI.UIString("Name"),
+                title: WebInspector.UIString("Name"),
                 sortable: true,
                 disclosure: true,
             }
         };
 
-        super(representedObject, "heap-snapshot-object-graph-content-view", columns, WI.HeapSnapshotObjectGraphDataGridTree);
+        super(representedObject, "heap-snapshot-object-graph-content-view", columns, WebInspector.HeapSnapshotObjectGraphDataGridTree);
     }
 };

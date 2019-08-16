@@ -38,7 +38,9 @@ const Font* FontRanges::Range::font(ExternalResourceDownloadPolicy policy) const
     return m_fontAccessor->font(policy);
 }
 
-FontRanges::FontRanges() = default;
+FontRanges::FontRanges()
+{
+}
 
 class TrivialFontAccessor final : public FontAccessor {
 public:
@@ -72,7 +74,9 @@ FontRanges::FontRanges(RefPtr<Font>&& font)
         m_ranges.append(Range { 0, 0x7FFFFFFF, TrivialFontAccessor::create(font.releaseNonNull()) });
 }
 
-FontRanges::~FontRanges() = default;
+FontRanges::~FontRanges()
+{
+}
 
 GlyphData FontRanges::glyphDataForCharacter(UChar32 character, ExternalResourceDownloadPolicy policy) const
 {
@@ -86,12 +90,8 @@ GlyphData FontRanges::glyphDataForCharacter(UChar32 character, ExternalResourceD
                         resultFont = font;
                 } else {
                     auto glyphData = font->glyphDataForCharacter(character);
-                    if (glyphData.glyph) {
-                        auto* glyphDataFont = glyphData.font;
-                        if (glyphDataFont && glyphDataFont->visibility() == Font::Visibility::Visible && resultFont && resultFont->visibility() == Font::Visibility::Invisible)
-                            return GlyphData(glyphData.glyph, &glyphDataFont->invisibleFont());
+                    if (glyphData.glyph)
                         return glyphData;
-                    }
                 }
             }
         }

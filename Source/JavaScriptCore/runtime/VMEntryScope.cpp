@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,6 @@
 #include "VMEntryScope.h"
 
 #include "DisallowVMReentry.h"
-#include "JSGlobalObject.h"
 #include "Options.h"
 #include "SamplingProfiler.h"
 #include "VM.h"
@@ -42,7 +41,7 @@ VMEntryScope::VMEntryScope(VM& vm, JSGlobalObject* globalObject)
     , m_globalObject(globalObject)
 {
     ASSERT(!DisallowVMReentry::isInEffectOnCurrentThread());
-    ASSERT(Thread::current().stack().isGrowingDownward());
+    ASSERT(wtfThreadData().stack().isGrowingDownward());
     if (!vm.entryScope) {
         vm.entryScope = this;
 
@@ -57,16 +56,15 @@ VMEntryScope::VMEntryScope(VM& vm, JSGlobalObject* globalObject)
         if (SamplingProfiler* samplingProfiler = vm.samplingProfiler())
             samplingProfiler->noticeVMEntry();
 #endif
-        if (Options::useTracePoints())
-            tracePoint(VMEntryScopeStart);
+        TracePoint(VMEntryScopeStart);
     }
 
     vm.clearLastException();
 }
 
-void VMEntryScope::addDidPopListener(Function<void ()>&& listener)
+void VMEntryScope::addDidPopListener(std::function<void ()> listener)
 {
-    m_didPopListeners.append(WTFMove(listener));
+    m_didPopListeners.append(listener);
 }
 
 VMEntryScope::~VMEntryScope()
@@ -74,9 +72,8 @@ VMEntryScope::~VMEntryScope()
     if (m_vm.entryScope != this)
         return;
 
-    if (Options::useTracePoints())
-        tracePoint(VMEntryScopeEnd);
-    
+    TracePoint(VMEntryScopeEnd);
+
     if (m_vm.watchdog())
         m_vm.watchdog()->exitedVM();
 
@@ -84,8 +81,6 @@ VMEntryScope::~VMEntryScope()
 
     for (auto& listener : m_didPopListeners)
         listener();
-
-    m_vm.clearScratchBuffers();
 }
 
 } // namespace JSC

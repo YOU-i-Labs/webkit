@@ -23,10 +23,8 @@
 
 #include "HTMLFormElement.h"
 #include "HTMLInputElement.h"
-#include "ScriptDisallowedScope.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringBuilder.h>
-#include <wtf/text/StringConcatenateNumbers.h>
 
 namespace WebCore {
 
@@ -54,25 +52,28 @@ static inline HTMLFormElement* ownerFormForState(const HTMLFormControlElementWit
 // RestoreState has a sequence of ControlValues. The length of the
 // sequence is represented by UnsignedNumber.
 
-static inline void serializeFormControlStateTo(const FormControlState& formControlState, Vector<String>& stateVector)
+void FormControlState::serializeTo(Vector<String>& stateVector) const
 {
-    stateVector.append(String::number(formControlState.size()));
-    for (auto& value : formControlState)
+    ASSERT(!isFailure());
+    stateVector.append(String::number(m_values.size()));
+    for (auto& value : m_values)
         stateVector.append(value.isNull() ? emptyString() : value);
 }
 
-static inline Optional<FormControlState> deserializeFormControlState(const Vector<String>& stateVector, size_t& index)
+FormControlState FormControlState::deserialize(const Vector<String>& stateVector, size_t& index)
 {
     if (index >= stateVector.size())
-        return WTF::nullopt;
-    size_t size = stateVector[index++].toUInt();
-    if (index + size > stateVector.size())
-        return WTF::nullopt;
-    Vector<String> subvector;
-    subvector.reserveInitialCapacity(size);
-    for (size_t i = 0; i < size; ++i)
-        subvector.uncheckedAppend(stateVector[index++]);
-    return WTFMove(subvector);
+        return FormControlState(TypeFailure);
+    size_t valueSize = stateVector[index++].toUInt();
+    if (!valueSize)
+        return FormControlState();
+    if (index + valueSize > stateVector.size())
+        return FormControlState(TypeFailure);
+    FormControlState state;
+    state.m_values.reserveCapacity(valueSize);
+    for (size_t i = 0; i < valueSize; ++i)
+        state.append(stateVector[index++]);
+    return state;
 }
 
 // ----------------------------------------------------------------------------
@@ -173,18 +174,23 @@ class SavedFormState {
     WTF_MAKE_FAST_ALLOCATED;
 
 public:
-    SavedFormState() = default;
+    SavedFormState()
+        : m_controlStateCount(0)
+    {
+    }
+
     static std::unique_ptr<SavedFormState> deserialize(const Vector<String>&, size_t& index);
     void serializeTo(Vector<String>&) const;
     bool isEmpty() const { return m_stateForNewFormElements.isEmpty(); }
     void appendControlState(const AtomicString& name, const AtomicString& type, const FormControlState&);
     FormControlState takeControlState(const AtomicString& name, const AtomicString& type);
 
-    Vector<String> referencedFilePaths() const;
+    Vector<String> getReferencedFilePaths() const;
 
 private:
-    HashMap<FormElementKey, Deque<FormControlState>, FormElementKeyHash, FormElementKeyHashTraits> m_stateForNewFormElements;
-    size_t m_controlStateCount { 0 };
+    typedef HashMap<FormElementKey, Deque<FormControlState>, FormElementKeyHash, FormElementKeyHashTraits> FormElementStateMap;
+    FormElementStateMap m_stateForNewFormElements;
+    size_t m_controlStateCount;
 };
 
 static bool isNotFormControlTypeCharacter(UChar ch)
@@ -206,10 +212,10 @@ std::unique_ptr<SavedFormState> SavedFormState::deserialize(const Vector<String>
             return nullptr;
         String name = stateVector[index++];
         String type = stateVector[index++];
-        auto state = deserializeFormControlState(stateVector, index);
-        if (type.isEmpty() || type.find(isNotFormControlTypeCharacter) != notFound || !state)
+        FormControlState state = FormControlState::deserialize(stateVector, index);
+        if (type.isEmpty() || type.find(isNotFormControlTypeCharacter) != notFound || state.isFailure())
             return nullptr;
-        savedFormState->appendControlState(name, type, state.value());
+        savedFormState->appendControlState(name, type, state);
     }
     return savedFormState;
 }
@@ -219,34 +225,44 @@ void SavedFormState::serializeTo(Vector<String>& stateVector) const
     stateVector.append(String::number(m_controlStateCount));
     for (auto& element : m_stateForNewFormElements) {
         const FormElementKey& key = element.key;
-        for (auto& controlState : element.value) {
+        for (auto& state : element.value) {
             stateVector.append(key.name());
             stateVector.append(key.type());
-            serializeFormControlStateTo(controlState, stateVector);
+            state.serializeTo(stateVector);
         }
     }
 }
 
 void SavedFormState::appendControlState(const AtomicString& name, const AtomicString& type, const FormControlState& state)
 {
-    m_stateForNewFormElements.add({ name.impl(), type.impl() }, Deque<FormControlState> { }).iterator->value.append(state);
-    ++m_controlStateCount;
+    FormElementKey key(name.impl(), type.impl());
+    FormElementStateMap::iterator it = m_stateForNewFormElements.find(key);
+    if (it != m_stateForNewFormElements.end())
+        it->value.append(state);
+    else {
+        Deque<FormControlState> stateList;
+        stateList.append(state);
+        m_stateForNewFormElements.set(key, stateList);
+    }
+    m_controlStateCount++;
 }
 
 FormControlState SavedFormState::takeControlState(const AtomicString& name, const AtomicString& type)
 {
-    auto iterator = m_stateForNewFormElements.find({ name.impl(), type.impl() });
-    if (iterator == m_stateForNewFormElements.end())
-        return { };
-
-    auto state = iterator->value.takeFirst();
-    --m_controlStateCount;
-    if (iterator->value.isEmpty())
-        m_stateForNewFormElements.remove(iterator);
+    if (m_stateForNewFormElements.isEmpty())
+        return FormControlState();
+    FormElementStateMap::iterator it = m_stateForNewFormElements.find(FormElementKey(name.impl(), type.impl()));
+    if (it == m_stateForNewFormElements.end())
+        return FormControlState();
+    ASSERT(it->value.size());
+    FormControlState state = it->value.takeFirst();
+    m_controlStateCount--;
+    if (!it->value.size())
+        m_stateForNewFormElements.remove(it);
     return state;
 }
 
-Vector<String> SavedFormState::referencedFilePaths() const
+Vector<String> SavedFormState::getReferencedFilePaths() const
 {
     Vector<String> toReturn;
     for (auto& element : m_stateForNewFormElements) {
@@ -280,15 +296,14 @@ private:
 
 static inline void recordFormStructure(const HTMLFormElement& form, StringBuilder& builder)
 {
-    ScriptDisallowedScope::InMainThread scriptDisallowedScope;
     // 2 is enough to distinguish forms in webkit.org/b/91209#c0
     const size_t namedControlsToBeRecorded = 2;
-    auto& controls = form.unsafeAssociatedElements();
+    const Vector<FormAssociatedElement*>& controls = form.associatedElements();
     builder.appendLiteral(" [");
     for (size_t i = 0, namedControls = 0; i < controls.size() && namedControls < namedControlsToBeRecorded; ++i) {
         if (!controls[i]->isFormControlElementWithState())
             continue;
-        RefPtr<HTMLFormControlElementWithState> control = static_cast<HTMLFormControlElementWithState*>(controls[i]);
+        HTMLFormControlElementWithState* control = static_cast<HTMLFormControlElementWithState*>(controls[i]);
         if (!ownerFormForState(*control))
             continue;
         AtomicString name = control->name();
@@ -317,18 +332,27 @@ static inline String formSignature(const HTMLFormElement& form)
 
 AtomicString FormKeyGenerator::formKey(const HTMLFormControlElementWithState& control)
 {
-    auto form = makeRefPtr(ownerFormForState(control));
+    HTMLFormElement* form = ownerFormForState(control);
     if (!form) {
         static NeverDestroyed<AtomicString> formKeyForNoOwner("No owner", AtomicString::ConstructFromLiteral);
         return formKeyForNoOwner;
     }
+    FormToKeyMap::const_iterator it = m_formToKeyMap.find(form);
+    if (it != m_formToKeyMap.end())
+        return it->value;
 
-    return m_formToKeyMap.ensure(form.get(), [this, &form] {
-        auto signature = formSignature(*form);
-        auto nextIndex = m_formSignatureToNextIndexMap.add(signature, 0).iterator->value++;
-        // FIXME: Would be nice to have makeAtomicString to use here.
-        return makeString(signature, " #", nextIndex);
-    }).iterator->value;
+    String signature = formSignature(*form);
+    ASSERT(!signature.isNull());
+    FormSignatureToNextIndexMap::AddResult result = m_formSignatureToNextIndexMap.add(signature, 0);
+    unsigned nextIndex = result.iterator->value++;
+
+    StringBuilder builder;
+    builder.append(signature);
+    builder.appendLiteral(" #");
+    builder.appendNumber(nextIndex);
+    AtomicString formKey = builder.toAtomicString();
+    m_formToKeyMap.add(form, formKey);
+    return formKey;
 }
 
 void FormKeyGenerator::willDeleteForm(HTMLFormElement* form)
@@ -339,16 +363,21 @@ void FormKeyGenerator::willDeleteForm(HTMLFormElement* form)
 
 // ----------------------------------------------------------------------------
 
-FormController::FormController() = default;
+FormController::FormController()
+{
+}
 
-FormController::~FormController() = default;
+FormController::~FormController()
+{
+}
 
 unsigned FormController::formElementsCharacterCount() const
 {
     unsigned count = 0;
     for (auto& element : m_formElementsWithState) {
-        if (element->isTextField())
-            count += element->saveFormControlState()[0].length();
+        FormControlState state = element->saveFormControlState();
+        if (state.valueSize() && element->isTextFormControl())
+            count += state[0].length();
     }
     return count;
 }
@@ -434,10 +463,10 @@ void FormController::formStatesFromStateVector(const Vector<String>& stateVector
         map.clear();
 }
 
-void FormController::willDeleteForm(HTMLFormElement& form)
+void FormController::willDeleteForm(HTMLFormElement* form)
 {
     if (m_formKeyGenerator)
-        m_formKeyGenerator->willDeleteForm(&form);
+        m_formKeyGenerator->willDeleteForm(form);
 }
 
 void FormController::restoreControlStateFor(HTMLFormControlElementWithState& control)
@@ -449,52 +478,47 @@ void FormController::restoreControlStateFor(HTMLFormControlElementWithState& con
         return;
     if (ownerFormForState(control))
         return;
-    auto state = takeStateForFormElement(control);
-    if (!state.isEmpty())
+    FormControlState state = takeStateForFormElement(control);
+    if (state.valueSize() > 0)
         control.restoreFormControlState(state);
 }
 
 void FormController::restoreControlStateIn(HTMLFormElement& form)
 {
-    for (auto& element : form.copyAssociatedElementsVector()) {
-        if (!is<HTMLFormControlElementWithState>(element.get()))
+    for (auto& element : form.associatedElements()) {
+        if (!element->isFormControlElementWithState())
             continue;
-        auto& control = downcast<HTMLFormControlElementWithState>(element.get());
-        if (!control.shouldSaveAndRestoreFormControlState())
+        HTMLFormControlElementWithState* control = static_cast<HTMLFormControlElementWithState*>(element);
+        if (!control->shouldSaveAndRestoreFormControlState())
             continue;
-        if (ownerFormForState(control) != &form)
+        if (ownerFormForState(*control) != &form)
             continue;
-        auto state = takeStateForFormElement(control);
-        if (!state.isEmpty())
-            control.restoreFormControlState(state);
+        FormControlState state = takeStateForFormElement(*control);
+        if (state.valueSize() > 0)
+            control->restoreFormControlState(state);
     }
 }
 
-bool FormController::hasFormStateToRestore() const
+Vector<String> FormController::getReferencedFilePaths(const Vector<String>& stateVector)
 {
-    return !m_savedFormStateMap.isEmpty();
-}
-
-Vector<String> FormController::referencedFilePaths(const Vector<String>& stateVector)
-{
-    Vector<String> paths;
+    Vector<String> toReturn;
     SavedFormStateMap map;
     formStatesFromStateVector(stateVector, map);
     for (auto& state : map.values())
-        paths.appendVector(state->referencedFilePaths());
-    return paths;
+        toReturn.appendVector(state->getReferencedFilePaths());
+    return toReturn;
 }
 
-void FormController::registerFormElementWithState(HTMLFormControlElementWithState& control)
+void FormController::registerFormElementWithState(HTMLFormControlElementWithState* control)
 {
-    ASSERT(!m_formElementsWithState.contains(&control));
-    m_formElementsWithState.add(&control);
+    ASSERT(!m_formElementsWithState.contains(control));
+    m_formElementsWithState.add(control);
 }
 
-void FormController::unregisterFormElementWithState(HTMLFormControlElementWithState& control)
+void FormController::unregisterFormElementWithState(HTMLFormControlElementWithState* control)
 {
-    ASSERT(m_formElementsWithState.contains(&control));
-    m_formElementsWithState.remove(&control);
+    ASSERT(m_formElementsWithState.contains(control));
+    m_formElementsWithState.remove(control);
 }
 
 } // namespace WebCore

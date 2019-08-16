@@ -25,11 +25,11 @@
 #include "CSSValue.h"
 #include "CSSValueKeywords.h"
 #include "Color.h"
-#include "ExceptionOr.h"
 #include "LayoutUnit.h"
 #include <utility>
 #include <wtf/Forward.h>
 #include <wtf/MathExtras.h>
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -286,14 +286,16 @@ public:
 
     static double computeNonCalcLengthDouble(const CSSToLengthConversionData&, UnitType, double value);
 
-    Ref<DeprecatedCSSOMPrimitiveValue> createDeprecatedCSSOMPrimitiveWrapper(CSSStyleDeclaration&) const;
+    Ref<DeprecatedCSSOMPrimitiveValue> createDeprecatedCSSOMPrimitiveWrapper() const;
 
-    void collectDirectComputationalDependencies(HashSet<CSSPropertyID>&) const;
-    void collectDirectRootComputationalDependencies(HashSet<CSSPropertyID>&) const;
-
+#if COMPILER(MSVC)
+    // FIXME: This should be private, but for some reason MSVC then fails to invoke it from LazyNeverDestroyed::construct.
+public:
+#else
 private:
     friend class CSSValuePool;
-    friend LazyNeverDestroyed<CSSPrimitiveValue>;
+    friend class LazyNeverDestroyed<CSSPrimitiveValue>;
+#endif
 
     CSSPrimitiveValue(CSSValueID);
     CSSPrimitiveValue(CSSPropertyID);
@@ -325,7 +327,7 @@ private:
     void init(RefPtr<DashboardRegion>&&); // FIXME: Dashboard region should not be a primitive value.
 #endif
 
-    Optional<double> doubleValueInternal(UnitType targetUnitType) const;
+    std::optional<double> doubleValueInternal(UnitType targetUnitType) const;
 
     double computeLengthDouble(const CSSToLengthConversionData&) const;
 
@@ -352,11 +354,10 @@ private:
 
 inline bool CSSPrimitiveValue::isAngle() const
 {
-    auto primitiveType = this->primitiveType();
-    return primitiveType == CSS_DEG
-        || primitiveType == CSS_RAD
-        || primitiveType == CSS_GRAD
-        || primitiveType == CSS_TURN;
+    return m_primitiveUnitType == CSS_DEG
+        || m_primitiveUnitType == CSS_RAD
+        || m_primitiveUnitType == CSS_GRAD
+        || m_primitiveUnitType == CSS_TURN;
 }
 
 inline bool CSSPrimitiveValue::isFontRelativeLength(UnitType type)

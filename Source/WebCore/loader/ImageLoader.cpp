@@ -22,7 +22,6 @@
 #include "config.h"
 #include "ImageLoader.h"
 
-#include "BitmapImage.h"
 #include "CachedImage.h"
 #include "CachedResourceLoader.h"
 #include "CachedResourceRequest.h"
@@ -33,11 +32,9 @@
 #include "EventNames.h"
 #include "EventSender.h"
 #include "Frame.h"
-#include "FrameLoader.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "HTMLParserIdioms.h"
-#include "InspectorInstrumentation.h"
 #include "Page.h"
 #include "RenderImage.h"
 #include "RenderSVGImage.h"
@@ -179,13 +176,10 @@ void ImageLoader::updateFromElement()
         options.contentSecurityPolicyImposition = element().isInUserAgentShadowTree() ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck;
         options.sameOriginDataURLFlag = SameOriginDataURLFlag::Set;
 
-        auto crossOriginAttribute = element().attributeWithoutSynchronization(HTMLNames::crossoriginAttr);
-
-        ResourceRequest resourceRequest(document.completeURL(sourceURI(attr)));
-        resourceRequest.setInspectorInitiatorNodeIdentifier(InspectorInstrumentation::identifierForNode(m_element));
-
-        auto request = createPotentialAccessControlRequest(WTFMove(resourceRequest), document, crossOriginAttribute, WTFMove(options));
+        CachedResourceRequest request(ResourceRequest(document.completeURL(sourceURI(attr))), options);
         request.setInitiator(element());
+
+        request.setAsPotentiallyCrossOrigin(element().attributeWithoutSynchronization(HTMLNames::crossoriginAttr), document);
 
         if (m_loadManually) {
             bool autoLoadOtherImages = document.cachedResourceLoader().autoLoadImages();
@@ -197,7 +191,7 @@ void ImageLoader::updateFromElement()
             document.cachedResourceLoader().m_documentResources.set(newImage->url(), newImage.get());
             document.cachedResourceLoader().setAutoLoadImages(autoLoadOtherImages);
         } else
-            newImage = document.cachedResourceLoader().requestImage(WTFMove(request)).value_or(nullptr);
+            newImage = document.cachedResourceLoader().requestImage(WTFMove(request));
 
         // If we do not have an image here, it means that a cross-site
         // violation occurred, or that the image was blocked via Content
@@ -288,19 +282,14 @@ void ImageLoader::notifyFinished(CachedResource& resource)
         return;
 
     if (m_image->resourceError().isAccessControl()) {
-        URL imageURL = m_image->url();
-
         clearImageWithoutConsideringPendingLoadEvent();
 
         m_hasPendingErrorEvent = true;
         errorEventSender().dispatchEventSoon(*this);
 
-        auto message = makeString("Cannot load image ", imageURL.string(), " due to access control checks.");
-        element().document().addConsoleMessage(MessageSource::Security, MessageLevel::Error, message);
+        static NeverDestroyed<String> consoleMessage(MAKE_STATIC_STRING_IMPL("Cross-origin image load denied by Cross-Origin Resource Sharing policy."));
+        element().document().addConsoleMessage(MessageSource::Security, MessageLevel::Error, consoleMessage);
 
-        if (hasPendingDecodePromises())
-            decodeError("Access control error.");
-        
         ASSERT(!m_hasPendingLoadEvent);
 
         // Only consider updating the protection ref-count of the Element immediately before returning
@@ -310,8 +299,6 @@ void ImageLoader::notifyFinished(CachedResource& resource)
     }
 
     if (m_image->wasCanceled()) {
-        if (hasPendingDecodePromises())
-            decodeError("Loading was canceled.");
         m_hasPendingLoadEvent = false;
         // Only consider updating the protection ref-count of the Element immediately before returning
         // from this function as doing so might result in the destruction of this ImageLoader.
@@ -319,8 +306,6 @@ void ImageLoader::notifyFinished(CachedResource& resource)
         return;
     }
 
-    if (hasPendingDecodePromises())
-        decode();
     loadEventSender().dispatchEventSoon(*this);
 }
 
@@ -381,60 +366,6 @@ void ImageLoader::updatedHasPendingEvent()
         ASSERT(!m_derefElementTimer.isActive());
         m_derefElementTimer.startOneShot(0_s);
     }   
-}
-
-void ImageLoader::decode(Ref<DeferredPromise>&& promise)
-{
-    m_decodingPromises.append(WTFMove(promise));
-    
-    if (!element().document().domWindow()) {
-        decodeError("Inactive document.");
-        return;
-    }
-    
-    AtomicString attr = element().imageSourceURL();
-    if (stripLeadingAndTrailingHTMLSpaces(attr).isEmpty()) {
-        decodeError("Missing source URL.");
-        return;
-    }
-    
-    if (m_imageComplete)
-        decode();
-}
-
-void ImageLoader::decodeError(const char* message)
-{
-    ASSERT(hasPendingDecodePromises());
-    for (auto& promise : m_decodingPromises)
-        promise->reject(Exception { EncodingError, message });
-    m_decodingPromises.clear();
-}
-
-void ImageLoader::decode()
-{
-    ASSERT(hasPendingDecodePromises());
-    
-    if (!element().document().domWindow()) {
-        decodeError("Inactive document.");
-        return;
-    }
-
-    if (!m_image || !m_image->image() || m_image->errorOccurred()) {
-        decodeError("Loading error.");
-        return;
-    }
-
-    Image* image = m_image->image();
-    if (!is<BitmapImage>(image)) {
-        decodeError("Invalid image type.");
-        return;
-    }
-
-    auto& bitmapImage = downcast<BitmapImage>(*image);
-    bitmapImage.decode([promises = WTFMove(m_decodingPromises)]() mutable {
-        for (auto& promise : promises)
-            promise->resolve();
-    });
 }
 
 void ImageLoader::timerFired()
@@ -509,7 +440,7 @@ void ImageLoader::dispatchPendingErrorEvent()
         return;
     m_hasPendingErrorEvent = false;
     if (element().document().hasLivingRenderTree())
-        element().dispatchEvent(Event::create(eventNames().errorEvent, Event::CanBubble::No, Event::IsCancelable::No));
+        element().dispatchEvent(Event::create(eventNames().errorEvent, false, false));
 
     // Only consider updating the protection ref-count of the Element immediately before returning
     // from this function as doing so might result in the destruction of this ImageLoader.
@@ -539,7 +470,7 @@ void ImageLoader::elementDidMoveToNewDocument()
 
 inline void ImageLoader::clearFailedLoadURL()
 {
-    m_failedLoadURL = nullAtom();
+    m_failedLoadURL = nullAtom;
 }
 
 }

@@ -25,12 +25,14 @@
 
 #pragma once
 
+#include "ActiveDOMCallback.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConvert.h"
 #include "JSDOMGuardedObject.h"
-#include <JavaScriptCore/BuiltinNames.h>
-#include <JavaScriptCore/CommonIdentifiers.h>
-#include <JavaScriptCore/JSMap.h>
+#include "ScriptExecutionContext.h"
+#include <builtins/BuiltinNames.h>
+#include <runtime/CommonIdentifiers.h>
+#include <runtime/JSMap.h>
 
 namespace WebCore {
 
@@ -89,26 +91,22 @@ template<typename WrapperClass> inline void synchronizeBackingMap(JSC::ExecState
 
 template<typename WrapperClass> inline JSC::JSValue forwardSizeToMapLike(JSC::ExecState& state, WrapperClass& mapLike)
 {
-    JSC::VM& vm = state.vm();
-    return forwardAttributeGetterToBackingMap(state, mapLike, vm.propertyNames->size);
+    return forwardAttributeGetterToBackingMap(state, mapLike, state.propertyNames().size);
 }
 
 template<typename WrapperClass> inline JSC::JSValue forwardEntriesToMapLike(JSC::ExecState& state, WrapperClass& mapLike)
 {
-    JSC::VM& vm = state.vm();
-    return forwardFunctionCallToBackingMap(state, mapLike, vm.propertyNames->builtinNames().entriesPublicName());
+    return forwardFunctionCallToBackingMap(state, mapLike, state.propertyNames().builtinNames().entriesPublicName());
 }
 
 template<typename WrapperClass> inline JSC::JSValue forwardKeysToMapLike(JSC::ExecState& state, WrapperClass& mapLike)
 {
-    JSC::VM& vm = state.vm();
-    return forwardFunctionCallToBackingMap(state, mapLike, vm.propertyNames->builtinNames().keysPublicName());
+    return forwardFunctionCallToBackingMap(state, mapLike, state.propertyNames().builtinNames().keysPublicName());
 }
 
 template<typename WrapperClass> inline JSC::JSValue forwardValuesToMapLike(JSC::ExecState& state, WrapperClass& mapLike)
 {
-    JSC::VM& vm = state.vm();
-    return forwardFunctionCallToBackingMap(state, mapLike, vm.propertyNames->builtinNames().valuesPublicName());
+    return forwardFunctionCallToBackingMap(state, mapLike, state.propertyNames().builtinNames().valuesPublicName());
 }
 
 template<typename WrapperClass> inline JSC::JSValue forwardClearToMapLike(JSC::ExecState& state, WrapperClass& mapLike)
@@ -124,14 +122,12 @@ template<typename WrapperClass, typename Callback> inline JSC::JSValue forwardFo
 
 template<typename WrapperClass, typename ItemType> inline JSC::JSValue forwardGetToMapLike(JSC::ExecState& state, WrapperClass& mapLike, ItemType&&)
 {
-    JSC::VM& vm = state.vm();
-    return forwardFunctionCallToBackingMap(state, mapLike, vm.propertyNames->builtinNames().getPublicName());
+    return forwardFunctionCallToBackingMap(state, mapLike, state.propertyNames().builtinNames().getPublicName());
 }
 
 template<typename WrapperClass, typename ItemType> inline JSC::JSValue forwardHasToMapLike(JSC::ExecState& state, WrapperClass& mapLike, ItemType&&)
 {
-    JSC::VM& vm = state.vm();
-    return forwardFunctionCallToBackingMap(state, mapLike, vm.propertyNames->builtinNames().hasPublicName());
+    return forwardFunctionCallToBackingMap(state, mapLike, state.propertyNames().builtinNames().hasPublicName());
 }
 
 template<typename WrapperClass, typename ItemType> inline JSC::JSValue forwardAddToMapLike(JSC::ExecState& state, WrapperClass& mapLike, ItemType&& item)

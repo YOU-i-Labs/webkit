@@ -26,8 +26,9 @@
 #pragma once
 
 #include "JSCJSValue.h"
+#include "MacroAssemblerCodeRef.h"
 
-#if !ENABLE(C_LOOP)
+#if ENABLE(JIT)
 
 #if CALLING_CONVENTION_IS_STDCALL
 #define HOST_CALL_RETURN_VALUE_OPTION CDECL
@@ -39,7 +40,7 @@ namespace JSC {
 
 extern "C" EncodedJSValue HOST_CALL_RETURN_VALUE_OPTION getHostCallReturnValue() REFERENCED_FROM_ASM WTF_INTERNAL;
 
-#if COMPILER(GCC_COMPATIBLE)
+#if COMPILER(GCC_OR_CLANG)
 
 // This is a public declaration only to convince CLANG not to elide it.
 extern "C" EncodedJSValue HOST_CALL_RETURN_VALUE_OPTION getHostCallReturnValueWithExecState(ExecState*) REFERENCED_FROM_ASM WTF_INTERNAL;
@@ -49,12 +50,12 @@ inline void initializeHostCallReturnValue()
     getHostCallReturnValueWithExecState(0);
 }
 
-#else // COMPILER(GCC_COMPATIBLE)
+#else // COMPILER(GCC_OR_CLANG)
 
 inline void initializeHostCallReturnValue() { }
 
-#endif // COMPILER(GCC_COMPATIBLE)
+#endif // COMPILER(GCC_OR_CLANG)
 
 } // namespace JSC
 
-#endif // !ENABLE(C_LOOP)
+#endif // ENABLE(JIT)

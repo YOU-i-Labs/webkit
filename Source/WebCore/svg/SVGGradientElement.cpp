@@ -2,7 +2,6 @@
  * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,6 +24,7 @@
 
 #include "ElementIterator.h"
 #include "RenderSVGHiddenContainer.h"
+#include "RenderSVGPath.h"
 #include "RenderSVGResourceLinearGradient.h"
 #include "RenderSVGResourceRadialGradient.h"
 #include "SVGNames.h"
@@ -32,29 +32,46 @@
 #include "SVGTransformListValues.h"
 #include "SVGTransformable.h"
 #include "StyleResolver.h"
-#include <wtf/IsoMallocInlines.h>
+#include "XLinkNames.h"
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(SVGGradientElement);
+// Animated property definitions
+DEFINE_ANIMATED_ENUMERATION(SVGGradientElement, SVGNames::spreadMethodAttr, SpreadMethod, spreadMethod, SVGSpreadMethodType)
+DEFINE_ANIMATED_ENUMERATION(SVGGradientElement, SVGNames::gradientUnitsAttr, GradientUnits, gradientUnits, SVGUnitTypes::SVGUnitType)
+DEFINE_ANIMATED_TRANSFORM_LIST(SVGGradientElement, SVGNames::gradientTransformAttr, GradientTransform, gradientTransform)
+DEFINE_ANIMATED_STRING(SVGGradientElement, XLinkNames::hrefAttr, Href, href)
+DEFINE_ANIMATED_BOOLEAN(SVGGradientElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
 
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGGradientElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(spreadMethod)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(gradientUnits)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(gradientTransform)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(href)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGElement)
+END_REGISTER_ANIMATED_PROPERTIES
+ 
 SVGGradientElement::SVGGradientElement(const QualifiedName& tagName, Document& document)
     : SVGElement(tagName, document)
-    , SVGExternalResourcesRequired(this)
-    , SVGURIReference(this)
+    , m_spreadMethod(SVGSpreadMethodPad)
+    , m_gradientUnits(SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX)
 {
-    registerAttributes();
+    registerAnimatedPropertiesForSVGGradientElement();
 }
 
-void SVGGradientElement::registerAttributes()
+bool SVGGradientElement::isSupportedAttribute(const QualifiedName& attrName)
 {
-    auto& registry = attributeRegistry();
-    if (!registry.isEmpty())
-        return;
-    registry.registerAttribute<SVGNames::spreadMethodAttr, SVGSpreadMethodType, &SVGGradientElement::m_spreadMethod>();
-    registry.registerAttribute<SVGNames::gradientUnitsAttr, SVGUnitTypes::SVGUnitType, &SVGGradientElement::m_gradientUnits>();
-    registry.registerAttribute<SVGNames::gradientTransformAttr, &SVGGradientElement::m_gradientTransform>();
+    static NeverDestroyed<HashSet<QualifiedName>> supportedAttributes;
+    if (supportedAttributes.get().isEmpty()) {
+        SVGURIReference::addSupportedAttributes(supportedAttributes);
+        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
+        supportedAttributes.get().add(SVGNames::gradientUnitsAttr);
+        supportedAttributes.get().add(SVGNames::gradientTransformAttr);
+        supportedAttributes.get().add(SVGNames::spreadMethodAttr);
+    }
+    return supportedAttributes.get().contains<SVGAttributeHashTranslator>(attrName);
 }
 
 void SVGGradientElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -62,22 +79,22 @@ void SVGGradientElement::parseAttribute(const QualifiedName& name, const AtomicS
     if (name == SVGNames::gradientUnitsAttr) {
         auto propertyValue = SVGPropertyTraits<SVGUnitTypes::SVGUnitType>::fromString(value);
         if (propertyValue > 0)
-            m_gradientUnits.setValue(propertyValue);
+            setGradientUnitsBaseValue(propertyValue);
         return;
     }
 
     if (name == SVGNames::gradientTransformAttr) {
         SVGTransformListValues newList;
         newList.parse(value);
-        m_gradientTransform.detachAnimatedListWrappers(attributeOwnerProxy(), newList.size());
-        m_gradientTransform.setValue(WTFMove(newList));
+        detachAnimatedGradientTransformListWrappers(newList.size());
+        setGradientTransformBaseValue(newList);
         return;
     }
 
     if (name == SVGNames::spreadMethodAttr) {
         auto propertyValue = SVGPropertyTraits<SVGSpreadMethodType>::fromString(value);
         if (propertyValue > 0)
-            m_spreadMethod.setValue(propertyValue);
+            setSpreadMethodBaseValue(propertyValue);
         return;
     }
 
@@ -88,21 +105,22 @@ void SVGGradientElement::parseAttribute(const QualifiedName& name, const AtomicS
 
 void SVGGradientElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    if (isKnownAttribute(attrName) || SVGURIReference::isKnownAttribute(attrName)) {
-        InstanceInvalidationGuard guard(*this);
-        if (RenderObject* object = renderer())
-            object->setNeedsLayout();
+    if (!isSupportedAttribute(attrName)) {
+        SVGElement::svgAttributeChanged(attrName);
         return;
     }
 
-    SVGElement::svgAttributeChanged(attrName);
+    InstanceInvalidationGuard guard(*this);
+    
+    if (RenderObject* object = renderer())
+        object->setNeedsLayout();
 }
     
 void SVGGradientElement::childrenChanged(const ChildChange& change)
 {
     SVGElement::childrenChanged(change);
 
-    if (change.source == ChildChangeSource::Parser)
+    if (change.source == ChildChangeSourceParser)
         return;
 
     if (RenderObject* object = renderer())

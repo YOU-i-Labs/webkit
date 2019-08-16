@@ -30,7 +30,7 @@
 
 namespace JSC {
 
-class StringIteratorPrototype final : public JSNonFinalObject {
+class StringIteratorPrototype : public JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
     static const unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;

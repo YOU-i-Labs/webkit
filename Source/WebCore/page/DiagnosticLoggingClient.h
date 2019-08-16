@@ -32,7 +32,7 @@
 
 namespace WebCore {
 
-enum class ShouldSample : bool { No, Yes };
+enum class ShouldSample { No, Yes };
 
 class DiagnosticLoggingClient {
     WTF_MAKE_FAST_ALLOCATED;
@@ -44,7 +44,7 @@ public:
 
     static bool shouldLogAfterSampling(ShouldSample);
 
-    virtual ~DiagnosticLoggingClient() = default;
+    virtual ~DiagnosticLoggingClient() { }
 };
 
 inline bool DiagnosticLoggingClient::shouldLogAfterSampling(ShouldSample shouldSample)

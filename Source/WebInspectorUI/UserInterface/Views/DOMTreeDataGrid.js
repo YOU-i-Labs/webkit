@@ -24,12 +24,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.DOMTreeDataGrid = class DOMTreeDataGrid extends WI.DataGrid
+WebInspector.DOMTreeDataGrid = class DOMTreeDataGrid extends WebInspector.DataGrid
 {
     constructor()
     {
         super({
-            name: {title: WI.UIString("Node"), sortable: false, icon: true}
+            name: {title: WebInspector.UIString("Node"), sortable: false, icon: true}
         });
 
         this._previousHoveredElement = null;
@@ -50,13 +50,13 @@ WI.DOMTreeDataGrid = class DOMTreeDataGrid extends WI.DataGrid
         if (!gridNode || this._previousHoveredElement === gridNode.domNode)
             return;
         this._previousHoveredElement = gridNode.domNode;
-        WI.domManager.highlightDOMNode(gridNode.domNode.id);
+        WebInspector.domTreeManager.highlightDOMNode(gridNode.domNode.id);
     }
 
     _onmouseout(event) {
         if (!this._previousHoveredElement)
             return;
-        WI.domManager.hideDOMNodeHighlight();
+        WebInspector.domTreeManager.hideDOMNodeHighlight();
         this._previousHoveredElement = null;
     }
 };

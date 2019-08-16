@@ -28,8 +28,6 @@
 
 #pragma once
 
-#include "IntRect.h"
-
 namespace WebCore {
 
 enum FrameState {
@@ -40,19 +38,19 @@ enum FrameState {
     FrameStateComplete
 };
 
-enum class PolicyAction : uint8_t {
-    Use,
-    Download,
-    Ignore,
+enum PolicyAction {
+    PolicyUse,
+    PolicyDownload,
+    PolicyIgnore
 };
 
-enum class ReloadOption : uint8_t {
+enum class ReloadOption {
     ExpiredOnly = 1 << 0,
     FromOrigin  = 1 << 1,
     DisableContentBlockers = 1 << 2,
 };
 
-enum class FrameLoadType : uint8_t {
+enum class FrameLoadType {
     Standard,
     Back,
     Forward,
@@ -65,12 +63,12 @@ enum class FrameLoadType : uint8_t {
     ReloadExpiredOnly
 };
 
-enum class NewFrameOpenerPolicy : uint8_t {
+enum class NewFrameOpenerPolicy {
     Suppress,
     Allow
 };
 
-enum class NavigationType : uint8_t {
+enum class NavigationType {
     LinkClicked,
     FormSubmitted,
     BackForward,
@@ -79,15 +77,10 @@ enum class NavigationType : uint8_t {
     Other
 };
 
-enum class ShouldOpenExternalURLsPolicy : uint8_t {
+enum class ShouldOpenExternalURLsPolicy {
     ShouldNotAllow,
     ShouldAllowExternalSchemes,
     ShouldAllow,
-};
-
-enum class InitiatedByMainFrame : uint8_t {
-    Yes,
-    Unknown,
 };
 
 enum ClearProvisionalItemPolicy {
@@ -95,7 +88,7 @@ enum ClearProvisionalItemPolicy {
     ShouldNotClearProvisionalItem
 };
 
-enum class ObjectContentType : uint8_t {
+enum class ObjectContentType {
     None,
     Image,
     Frame,
@@ -128,48 +121,24 @@ enum WebGLLoadPolicy {
     WebGLPendingCreation
 };
 
-enum class LockHistory : bool { No, Yes };
-enum class LockBackForwardList : bool { No, Yes };
-enum class AllowNavigationToInvalidURL : bool { No, Yes };
-enum class HasInsecureContent : bool { No, Yes };
-
-struct SystemPreviewInfo {
-    IntRect systemPreviewRect;
-    bool isSystemPreview { false };
+enum class LockHistory {
+    Yes,
+    No
 };
 
-enum class LoadCompletionType : uint8_t {
-    Finish,
-    Cancel
+enum class LockBackForwardList {
+    Yes,
+    No
+};
+
+enum class AllowNavigationToInvalidURL {
+    Yes,
+    No
+};
+
+enum class HasInsecureContent {
+    Yes,
+    No,
 };
 
 } // namespace WebCore
-
-namespace WTF {
-
-template<> struct EnumTraits<WebCore::PolicyAction> {
-    using values = EnumValues<
-        WebCore::PolicyAction,
-        WebCore::PolicyAction::Use,
-        WebCore::PolicyAction::Download,
-        WebCore::PolicyAction::Ignore
-    >;
-};
-
-template<> struct EnumTraits<WebCore::FrameLoadType> {
-    using values = EnumValues<
-        WebCore::FrameLoadType,
-        WebCore::FrameLoadType::Standard,
-        WebCore::FrameLoadType::Back,
-        WebCore::FrameLoadType::Forward,
-        WebCore::FrameLoadType::IndexedBackForward,
-        WebCore::FrameLoadType::Reload,
-        WebCore::FrameLoadType::Same,
-        WebCore::FrameLoadType::RedirectWithLockedBackForwardList,
-        WebCore::FrameLoadType::Replace,
-        WebCore::FrameLoadType::ReloadFromOrigin,
-        WebCore::FrameLoadType::ReloadExpiredOnly
-    >;
-};
-
-} // namespace WTF

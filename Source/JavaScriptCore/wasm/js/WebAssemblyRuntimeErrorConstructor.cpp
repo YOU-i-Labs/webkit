@@ -49,7 +49,7 @@ static EncodedJSValue JSC_HOST_CALL constructJSWebAssemblyRuntimeError(ExecState
     auto& vm = exec->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
     JSValue message = exec->argument(0);
-    auto* structure = InternalFunction::createSubclassStructure(exec, exec->newTarget(), jsCast<InternalFunction*>(exec->jsCallee())->globalObject(vm)->WebAssemblyRuntimeErrorStructure());
+    auto* structure = InternalFunction::createSubclassStructure(exec, exec->newTarget(), asInternalFunction(exec->jsCallee())->globalObject()->WebAssemblyRuntimeErrorStructure());
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
     return JSValue::encode(JSWebAssemblyRuntimeError::create(exec, vm, structure, message));
 }
@@ -57,7 +57,7 @@ static EncodedJSValue JSC_HOST_CALL constructJSWebAssemblyRuntimeError(ExecState
 static EncodedJSValue JSC_HOST_CALL callJSWebAssemblyRuntimeError(ExecState* exec)
 {
     JSValue message = exec->argument(0);
-    Structure* errorStructure = jsCast<InternalFunction*>(exec->jsCallee())->globalObject(exec->vm())->WebAssemblyRuntimeErrorStructure();
+    Structure* errorStructure = asInternalFunction(exec->jsCallee())->globalObject()->WebAssemblyRuntimeErrorStructure();
     return JSValue::encode(ErrorInstance::create(exec, errorStructure, message, nullptr, TypeNothing, false));
 }
 
@@ -70,19 +70,31 @@ WebAssemblyRuntimeErrorConstructor* WebAssemblyRuntimeErrorConstructor::create(V
 
 Structure* WebAssemblyRuntimeErrorConstructor::createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
 {
-    return Structure::create(vm, globalObject, prototype, TypeInfo(InternalFunctionType, StructureFlags), info());
+    return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
 }
 
 void WebAssemblyRuntimeErrorConstructor::finishCreation(VM& vm, WebAssemblyRuntimeErrorPrototype* prototype)
 {
-    Base::finishCreation(vm, "RuntimeError"_s);
-    putDirectWithoutTransition(vm, vm.propertyNames->prototype, prototype, PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum | PropertyAttribute::DontDelete);
-    putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(1), PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum | PropertyAttribute::DontDelete);
+    Base::finishCreation(vm, ASCIILiteral("RuntimeError"));
+    putDirectWithoutTransition(vm, vm.propertyNames->prototype, prototype, ReadOnly | DontEnum | DontDelete);
+    putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(1), ReadOnly | DontEnum | DontDelete);
 }
 
 WebAssemblyRuntimeErrorConstructor::WebAssemblyRuntimeErrorConstructor(VM& vm, Structure* structure)
-    : Base(vm, structure, callJSWebAssemblyRuntimeError, constructJSWebAssemblyRuntimeError)
+    : Base(vm, structure)
 {
+}
+
+ConstructType WebAssemblyRuntimeErrorConstructor::getConstructData(JSCell*, ConstructData& constructData)
+{
+    constructData.native.function = constructJSWebAssemblyRuntimeError;
+    return ConstructType::Host;
+}
+
+CallType WebAssemblyRuntimeErrorConstructor::getCallData(JSCell*, CallData& callData)
+{
+    callData.native.function = callJSWebAssemblyRuntimeError;
+    return CallType::Host;
 }
 
 } // namespace JSC

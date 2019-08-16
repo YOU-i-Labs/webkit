@@ -29,6 +29,7 @@
 
 #include "DFGRegisteredStructureSet.h"
 #include "DumpContext.h"
+#include "JSObject.h"
 #include "StructureSet.h"
 
 namespace JSC { namespace DFG {

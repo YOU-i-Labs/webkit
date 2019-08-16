@@ -25,11 +25,10 @@
 
 #pragma once
 
-#include "YarrErrorCode.h"
 #include <wtf/text/WTFString.h>
 
 namespace JSC { namespace Yarr {
 
-ErrorCode checkSyntax(const String& pattern, const String& flags);
+const char* checkSyntax(const String& pattern, const String& flags);
 
 }} // JSC::Yarr

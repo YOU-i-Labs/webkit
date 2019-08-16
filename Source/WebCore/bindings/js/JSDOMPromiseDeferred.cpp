@@ -26,16 +26,17 @@
 #include "config.h"
 #include "JSDOMPromiseDeferred.h"
 
-#include "DOMWindow.h"
-#include "JSDOMPromise.h"
+#include "ExceptionCode.h"
+#include "JSDOMError.h"
 #include "JSDOMWindow.h"
-#include <JavaScriptCore/BuiltinNames.h>
-#include <JavaScriptCore/Exception.h>
-#include <JavaScriptCore/JSONObject.h>
-#include <JavaScriptCore/JSPromiseConstructor.h>
+#include <builtins/BuiltinNames.h>
+#include <runtime/Exception.h>
+#include <runtime/JSONObject.h>
+#include <runtime/JSPromiseConstructor.h>
+
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 
 JSC::JSValue DeferredPromise::promise() const
 {
@@ -52,26 +53,19 @@ void DeferredPromise::callFunction(ExecState& exec, JSValue function, JSValue re
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     CallData callData;
-    CallType callType = getCallData(vm, function, callData);
+    CallType callType = getCallData(function, callData);
     ASSERT(callType != CallType::None);
 
     MarkedArgumentBuffer arguments;
     arguments.append(resolution);
-    ASSERT(!arguments.hasOverflowed());
 
     call(&exec, function, callType, callData, jsUndefined(), arguments);
 
     // DeferredPromise should only be used by internal implementations that are well behaved.
     // In practice, the only exception we should ever see here is the TerminatedExecutionException.
-    EXCEPTION_ASSERT_UNUSED(scope, !scope.exception() || isTerminatedExecutionException(vm, scope.exception()));
+    ASSERT_UNUSED(scope, !scope.exception() || isTerminatedExecutionException(vm, scope.exception()));
 
-    if (m_mode == Mode::ClearPromiseOnResolve)
-        clear();
-}
-
-void DeferredPromise::whenSettled(std::function<void()>&& callback)
-{
-    DOMPromise::whenPromiseIsSettled(globalObject(), deferred()->promise(), WTFMove(callback));
+    clear();
 }
 
 void DeferredPromise::reject()
@@ -98,7 +92,7 @@ void DeferredPromise::reject(std::nullptr_t)
     reject(state, JSC::jsNull());
 }
 
-void DeferredPromise::reject(Exception exception)
+void DeferredPromise::reject(Exception&& exception)
 {
     if (isSuspended())
         return;
@@ -107,18 +101,6 @@ void DeferredPromise::reject(Exception exception)
     ASSERT(m_globalObject);
     auto& state = *m_globalObject->globalExec();
     JSC::JSLockHolder locker(&state);
-
-    if (exception.code() == ExistingExceptionError) {
-        auto scope = DECLARE_CATCH_SCOPE(state.vm());
-
-        EXCEPTION_ASSERT(scope.exception());
-
-        auto error = scope.exception()->value();
-        scope.clearException();
-
-        reject<IDLAny>(error);
-        return;
-    }
 
     auto scope = DECLARE_THROW_SCOPE(state.vm());
     auto error = createDOMException(state, WTFMove(exception));
@@ -139,18 +121,6 @@ void DeferredPromise::reject(ExceptionCode ec, const String& message)
     ASSERT(m_globalObject);
     auto& state = *m_globalObject->globalExec();
     JSC::JSLockHolder locker(&state);
-
-    if (ec == ExistingExceptionError) {
-        auto scope = DECLARE_CATCH_SCOPE(state.vm());
-
-        EXCEPTION_ASSERT(scope.exception());
-
-        auto error = scope.exception()->value();
-        scope.clearException();
-
-        reject<IDLAny>(error);
-        return;
-    }
 
     auto scope = DECLARE_THROW_SCOPE(state.vm());
     auto error = createDOMException(&state, ec, message);
@@ -191,9 +161,9 @@ void rejectPromiseWithExceptionIfAny(JSC::ExecState& state, JSDOMGlobalObject& g
 
 Ref<DeferredPromise> createDeferredPromise(JSC::ExecState& state, JSDOMWindow& domWindow)
 {
-    JSC::JSPromiseDeferred* deferred = JSC::JSPromiseDeferred::tryCreate(&state, &domWindow);
+    JSC::JSPromiseDeferred* deferred = JSC::JSPromiseDeferred::create(&state, &domWindow);
     // deferred can only be null in workers.
-    RELEASE_ASSERT(deferred);
+    ASSERT(deferred);
     return DeferredPromise::create(domWindow, *deferred);
 }
 
@@ -207,12 +177,11 @@ JSC::EncodedJSValue createRejectedPromiseWithTypeError(JSC::ExecState& state, co
     auto rejectionValue = createTypeError(&state, errorMessage);
 
     CallData callData;
-    auto callType = getCallData(state.vm(), rejectFunction, callData);
+    auto callType = getCallData(rejectFunction, callData);
     ASSERT(callType != CallType::None);
 
     MarkedArgumentBuffer arguments;
     arguments.append(rejectionValue);
-    ASSERT(!arguments.hasOverflowed());
 
     return JSValue::encode(call(&state, rejectFunction, callType, callData, promiseConstructor, arguments));
 }
@@ -227,7 +196,7 @@ void fulfillPromiseWithJSON(Ref<DeferredPromise>&& promise, const String& data)
 {
     JSC::JSValue value = parseAsJSON(promise->globalObject()->globalExec(), data);
     if (!value)
-        promise->reject(SyntaxError);
+        promise->reject(SYNTAX_ERR);
     else
         promise->resolve<IDLAny>(value);
 }

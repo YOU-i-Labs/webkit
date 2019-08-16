@@ -3,7 +3,7 @@
  * The author of this software is David M. Gay.
  *
  * Copyright (c) 1991, 2000, 2001 by Lucent Technologies.
- * Copyright (C) 2002-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2002, 2005, 2006, 2007, 2008, 2010, 2012, 2015 Apple Inc. All rights reserved.
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose without fee is hereby granted, provided that this entire notice
@@ -33,7 +33,7 @@
  */
 
 #include "config.h"
-#include <wtf/dtoa.h>
+#include "dtoa.h"
 
 #include <stdio.h>
 #include <wtf/Lock.h>
@@ -55,7 +55,7 @@
 
 namespace WTF {
 
-static Lock s_dtoaP5Mutex;
+static StaticLock s_dtoaP5Mutex;
 
 typedef union {
     double d;
@@ -360,7 +360,7 @@ struct P5Node {
 public:
     P5Node() { }
     BigInt val;
-    P5Node* next { nullptr };
+    P5Node* next;
 };
 
 static P5Node* p5s;
@@ -1227,7 +1227,7 @@ void dtoaRoundDP(DtoaBuffer result, double dd, int ndigits, bool& sign, int& exp
 const char* numberToString(double d, NumberToStringBuffer buffer)
 {
     double_conversion::StringBuilder builder(buffer, NumberToStringBufferLength);
-    auto& converter = double_conversion::DoubleToStringConverter::EcmaScriptConverter();
+    const double_conversion::DoubleToStringConverter& converter = double_conversion::DoubleToStringConverter::EcmaScriptConverter();
     converter.ToShortest(d, &builder);
     return builder.Finalize();
 }
@@ -1241,32 +1241,28 @@ static inline const char* formatStringTruncatingTrailingZerosIfNeeded(NumberToSt
             break;
     }
 
-    // No decimal separator found, early exit.
+    // No decimal seperator found, early exit.
     if (decimalPointPosition == length)
         return builder.Finalize();
 
-    size_t pastMantissa = decimalPointPosition + 1;
-    for (; pastMantissa < length; ++pastMantissa) {
-        if (buffer[pastMantissa] == 'e')
-            break;
-    }
-
-    size_t truncatedLength = pastMantissa;
-    for (; truncatedLength > decimalPointPosition + 1; --truncatedLength) {
-        if (buffer[truncatedLength - 1] != '0')
+    size_t truncatedLength = length - 1;
+    for (; truncatedLength > decimalPointPosition; --truncatedLength) {
+        if (buffer[truncatedLength] != '0')
             break;
     }
 
     // No trailing zeros found to strip.
-    if (truncatedLength == pastMantissa)
+    if (truncatedLength == length - 1)
         return builder.Finalize();
 
     // If we removed all trailing zeros, remove the decimal point as well.
-    if (truncatedLength == decimalPointPosition + 1)
-        truncatedLength = decimalPointPosition;
+    if (truncatedLength == decimalPointPosition) {
+        ASSERT(truncatedLength > 0);
+        --truncatedLength;
+    }
 
-    // Truncate the mantissa, and return the final result.
-    builder.RemoveCharacters(truncatedLength, pastMantissa);
+    // Truncate the StringBuilder, and return the final result.
+    builder.SetPosition(truncatedLength + 1);
     return builder.Finalize();
 }
 
@@ -1278,7 +1274,7 @@ const char* numberToFixedPrecisionString(double d, unsigned significantFigures, 
     // precision argument. Trailing zeros are truncated, and the decimal point appears only if one or more digits follow it.
     // "precision": The precision specifies the maximum number of significant digits printed.
     double_conversion::StringBuilder builder(buffer, NumberToStringBufferLength);
-    auto& converter = double_conversion::DoubleToStringConverter::EcmaScriptConverter();
+    const double_conversion::DoubleToStringConverter& converter = double_conversion::DoubleToStringConverter::EcmaScriptConverter();
     converter.ToPrecision(d, significantFigures, &builder);
     if (!truncateTrailingZeros)
         return builder.Finalize();
@@ -1295,7 +1291,7 @@ const char* numberToFixedWidthString(double d, unsigned decimalPlaces, NumberToS
     // If a decimal point appears, at least one digit appears before it.
     // The value is rounded to the appropriate number of digits.    
     double_conversion::StringBuilder builder(buffer, NumberToStringBufferLength);
-    auto& converter = double_conversion::DoubleToStringConverter::EcmaScriptConverter();
+    const double_conversion::DoubleToStringConverter& converter = double_conversion::DoubleToStringConverter::EcmaScriptConverter();
     converter.ToFixed(d, decimalPlaces, &builder);
     return builder.Finalize();
 }

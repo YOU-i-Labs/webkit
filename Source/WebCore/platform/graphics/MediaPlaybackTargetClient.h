@@ -29,6 +29,7 @@
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 
 #include "MediaPlaybackTarget.h"
+#include "MediaProducer.h"
 
 namespace WebCore {
 
@@ -36,7 +37,7 @@ class MediaPlaybackTarget;
 
 class MediaPlaybackTargetClient {
 public:
-    virtual ~MediaPlaybackTargetClient() = default;
+    virtual ~MediaPlaybackTargetClient() { }
 
     virtual void setPlaybackTarget(Ref<MediaPlaybackTarget>&&) = 0;
     virtual void externalOutputDeviceAvailableDidChange(bool) = 0;

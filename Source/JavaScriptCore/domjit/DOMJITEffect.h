@@ -26,49 +26,64 @@
 #pragma once
 
 #include "DOMJITHeapRange.h"
+#include <wtf/Optional.h>
 
 namespace JSC { namespace DOMJIT {
 
-struct Effect {
+class Effect {
+public:
+    HeapRange reads { HeapRange::top() };
+    HeapRange writes { HeapRange::top() };
+    HeapRange def { HeapRange::top() };
+
+    constexpr Effect() = default;
+    constexpr Effect(HeapRange reads, HeapRange writes)
+        : reads(reads)
+        , writes(writes)
+    {
+    }
+
+    constexpr Effect(HeapRange reads, HeapRange writes, HeapRange def)
+        : reads(reads)
+        , writes(writes)
+        , def(def)
+    {
+    }
 
     constexpr static Effect forWrite(HeapRange writeRange)
     {
-        return { HeapRange::none(), writeRange };
+        return Effect(HeapRange::none(), writeRange);
     }
 
     constexpr static Effect forRead(HeapRange readRange)
     {
-        return { readRange, HeapRange::none() };
+        return Effect(readRange, HeapRange::none());
     }
 
     constexpr static Effect forReadWrite(HeapRange readRange, HeapRange writeRange)
     {
-        return { readRange, writeRange };
+        return Effect(readRange, writeRange);
     }
 
     constexpr static Effect forPure()
     {
-        return { HeapRange::none(), HeapRange::none(), HeapRange::none() };
+        return Effect(HeapRange::none(), HeapRange::none(), HeapRange::none());
     }
 
     constexpr static Effect forDef(HeapRange def)
     {
-        return { def, HeapRange::none(), def };
+        return Effect(def, HeapRange::none(), def);
     }
 
     constexpr static Effect forDef(HeapRange def, HeapRange readRange, HeapRange writeRange)
     {
-        return { readRange, writeRange, def };
+        return Effect(readRange, writeRange, def);
     }
 
     constexpr bool mustGenerate() const
     {
         return !!writes;
     }
-
-    HeapRange reads { HeapRange::top() };
-    HeapRange writes { HeapRange::top() };
-    HeapRange def { HeapRange::top() };
 };
 
 } }

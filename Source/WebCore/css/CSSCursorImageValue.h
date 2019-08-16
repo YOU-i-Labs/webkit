@@ -20,15 +20,12 @@
 
 #pragma once
 
-#include "CSSValue.h"
+#include "CSSImageValue.h"
 #include "IntPoint.h"
-#include "ResourceLoaderOptions.h"
 #include <wtf/HashSet.h>
 
 namespace WebCore {
 
-class CachedImage;
-class CachedResourceLoader;
 class Document;
 class Element;
 class SVGCursorElement;
@@ -36,9 +33,9 @@ class SVGElement;
 
 class CSSCursorImageValue final : public CSSValue {
 public:
-    static Ref<CSSCursorImageValue> create(Ref<CSSValue>&& imageValue, bool hasHotSpot, const IntPoint& hotSpot, LoadedFromOpaqueSource loadedFromOpaqueSource)
+    static Ref<CSSCursorImageValue> create(Ref<CSSValue>&& imageValue, bool hasHotSpot, const IntPoint& hotSpot)
     {
-        return adoptRef(*new CSSCursorImageValue(WTFMove(imageValue), hasHotSpot, hotSpot, loadedFromOpaqueSource));
+        return adoptRef(*new CSSCursorImageValue(WTFMove(imageValue), hasHotSpot, hotSpot));
     }
 
     ~CSSCursorImageValue();
@@ -52,8 +49,6 @@ public:
         return IntPoint(-1, -1);
     }
 
-    const URL& imageURL() const { return m_originalURL; }
-
     String customCSSText() const;
 
     std::pair<CachedImage*, float> loadImage(CachedResourceLoader&, const ResourceLoaderOptions&);
@@ -66,7 +61,7 @@ public:
     void cursorElementChanged(SVGCursorElement&);
 
 private:
-    CSSCursorImageValue(Ref<CSSValue>&& imageValue, bool hasHotSpot, const IntPoint& hotSpot, LoadedFromOpaqueSource);
+    CSSCursorImageValue(Ref<CSSValue>&& imageValue, bool hasHotSpot, const IntPoint& hotSpot);
 
     SVGCursorElement* updateCursorElement(const Document&);
 
@@ -76,7 +71,6 @@ private:
     bool m_hasHotSpot;
     IntPoint m_hotSpot;
     HashSet<SVGCursorElement*> m_cursorElements;
-    LoadedFromOpaqueSource m_loadedFromOpaqueSource { LoadedFromOpaqueSource::No };
 };
 
 } // namespace WebCore

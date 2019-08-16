@@ -27,7 +27,7 @@
 #include "DisplayListItems.h"
 
 #include "FontCascade.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 namespace DisplayList {
@@ -99,8 +99,8 @@ size_t Item::sizeInBytes(const Item& item)
         return sizeof(downcast<DrawLine>(item));
     case ItemType::DrawLinesForText:
         return sizeof(downcast<DrawLinesForText>(item));
-    case ItemType::DrawDotsForDocumentMarker:
-        return sizeof(downcast<DrawDotsForDocumentMarker>(item));
+    case ItemType::DrawLineForDocumentMarker:
+        return sizeof(downcast<DrawLineForDocumentMarker>(item));
     case ItemType::DrawEllipse:
         return sizeof(downcast<DrawEllipse>(item));
     case ItemType::DrawPath:
@@ -364,14 +364,18 @@ inline GlyphBuffer DrawGlyphs::generateGlyphBuffer() const
 {
     GlyphBuffer result;
     for (size_t i = 0; i < m_glyphs.size(); ++i) {
+#if USE(CAIRO)
+        result.add(m_glyphs[i].index, &m_font.get(), m_advances[i]);
+#else
         result.add(m_glyphs[i], &m_font.get(), m_advances[i]);
+#endif
     }
     return result;
 }
 
 void DrawGlyphs::apply(GraphicsContext& context) const
 {
-    context.drawGlyphs(m_font, generateGlyphBuffer(), 0, m_glyphs.size(), anchorPoint(), m_smoothingMode);
+    FontCascade::drawGlyphs(context, m_font, generateGlyphBuffer(), 0, m_glyphs.size(), anchorPoint(), m_smoothingMode);
 }
 
 void DrawGlyphs::computeBounds()
@@ -391,7 +395,7 @@ void DrawGlyphs::computeBounds()
     }
 }
 
-Optional<FloatRect> DrawGlyphs::localBounds(const GraphicsContext&) const
+std::optional<FloatRect> DrawGlyphs::localBounds(const GraphicsContext&) const
 {
     FloatRect localBounds = m_bounds;
     localBounds.move(m_blockLocation.x(), m_blockLocation.y());
@@ -571,7 +575,7 @@ static TextStream& operator<<(TextStream& ts, const DrawRect& item)
     return ts;
 }
 
-Optional<FloatRect> DrawLine::localBounds(const GraphicsContext&) const
+std::optional<FloatRect> DrawLine::localBounds(const GraphicsContext&) const
 {
     FloatRect bounds;
     bounds.fitToPoints(m_point1, m_point2);
@@ -593,17 +597,17 @@ static TextStream& operator<<(TextStream& ts, const DrawLine& item)
 
 void DrawLinesForText::apply(GraphicsContext& context) const
 {
-    context.drawLinesForText(point(), m_thickness, m_widths, m_printing, m_doubleLines);
+    context.drawLinesForText(point(), m_widths, m_printing, m_doubleLines);
 }
 
-Optional<FloatRect> DrawLinesForText::localBounds(const GraphicsContext&) const
+std::optional<FloatRect> DrawLinesForText::localBounds(const GraphicsContext&) const
 {
     // This function needs to return a value equal to or enclosing what GraphicsContext::computeLineBoundsAndAntialiasingModeForText() returns.
 
     if (!m_widths.size())
         return FloatRect();
 
-    FloatRect result(point(), FloatSize(m_widths.last(), m_thickness));
+    FloatRect result(point(), FloatSize(m_widths.last(), m_strokeWidth));
     result.inflate(1); // Account for pixel snapping. FIXME: This isn't perfect, as it doesn't take the CTM into account.
     return result;
 }
@@ -614,7 +618,6 @@ static TextStream& operator<<(TextStream& ts, const DrawLinesForText& item)
     ts.dumpProperty("block-location", item.blockLocation());
     ts.dumpProperty("local-anchor", item.localAnchor());
     ts.dumpProperty("point", item.point());
-    ts.dumpProperty("thickness", item.thickness());
     ts.dumpProperty("double", item.doubleLines());
     ts.dumpProperty("widths", item.widths());
     ts.dumpProperty("is-printing", item.isPrinting());
@@ -622,20 +625,25 @@ static TextStream& operator<<(TextStream& ts, const DrawLinesForText& item)
     return ts;
 }
 
-void DrawDotsForDocumentMarker::apply(GraphicsContext& context) const
+void DrawLineForDocumentMarker::apply(GraphicsContext& context) const
 {
-    context.drawDotsForDocumentMarker(m_rect, m_style);
+    context.drawLineForDocumentMarker(m_point, m_width, m_style);
 }
 
-Optional<FloatRect> DrawDotsForDocumentMarker::localBounds(const GraphicsContext&) const
+std::optional<FloatRect> DrawLineForDocumentMarker::localBounds(const GraphicsContext&) const
 {
-    return m_rect;
+    // This function needs to return a value equal to or enclosing what GraphicsContext::drawLineForDocumentMarker() returns.
+
+    FloatRect result(m_point, FloatSize(m_width, cMisspellingLineThickness));
+    result.inflate(cMisspellingLineThickness); // Account for "misspelling dot" snapping.
+    return result;
 }
 
-static TextStream& operator<<(TextStream& ts, const DrawDotsForDocumentMarker& item)
+static TextStream& operator<<(TextStream& ts, const DrawLineForDocumentMarker& item)
 {
     ts << static_cast<const DrawingItem&>(item);
-    ts.dumpProperty("rect", item.rect());
+    ts.dumpProperty("point", item.point());
+    ts.dumpProperty("width", item.width());
     return ts;
 }
 
@@ -671,7 +679,7 @@ void DrawFocusRingPath::apply(GraphicsContext& context) const
     context.drawFocusRing(m_path, m_width, m_offset, m_color);
 }
 
-Optional<FloatRect> DrawFocusRingPath::localBounds(const GraphicsContext&) const
+std::optional<FloatRect> DrawFocusRingPath::localBounds(const GraphicsContext&) const
 {
     FloatRect result = m_path.fastBoundingRect();
     result.inflate(platformFocusRingWidth);
@@ -693,7 +701,7 @@ void DrawFocusRingRects::apply(GraphicsContext& context) const
     context.drawFocusRing(m_rects, m_width, m_offset, m_color);
 }
 
-Optional<FloatRect> DrawFocusRingRects::localBounds(const GraphicsContext&) const
+std::optional<FloatRect> DrawFocusRingRects::localBounds(const GraphicsContext&) const
 {
     FloatRect result;
     for (auto& rect : m_rects)
@@ -817,7 +825,7 @@ static TextStream& operator<<(TextStream& ts, const FillEllipse& item)
     return ts;
 }
 
-Optional<FloatRect> StrokeRect::localBounds(const GraphicsContext&) const
+std::optional<FloatRect> StrokeRect::localBounds(const GraphicsContext&) const
 {
     FloatRect bounds = m_rect;
     bounds.expand(m_lineWidth, m_lineWidth);
@@ -837,7 +845,7 @@ static TextStream& operator<<(TextStream& ts, const StrokeRect& item)
     return ts;
 }
 
-Optional<FloatRect> StrokePath::localBounds(const GraphicsContext& context) const
+std::optional<FloatRect> StrokePath::localBounds(const GraphicsContext& context) const
 {
     // FIXME: Need to take stroke thickness into account correctly, via CGPathByStrokingPath().
     float strokeThickness = context.strokeThickness();
@@ -859,7 +867,7 @@ static TextStream& operator<<(TextStream& ts, const StrokePath& item)
     return ts;
 }
 
-Optional<FloatRect> StrokeEllipse::localBounds(const GraphicsContext& context) const
+std::optional<FloatRect> StrokeEllipse::localBounds(const GraphicsContext& context) const
 {
     float strokeThickness = context.strokeThickness();
 
@@ -961,7 +969,7 @@ static TextStream& operator<<(TextStream& ts, const ItemType& type)
     case ItemType::DrawRect: ts << "draw-rect"; break;
     case ItemType::DrawLine: ts << "draw-line"; break;
     case ItemType::DrawLinesForText: ts << "draw-lines-for-text"; break;
-    case ItemType::DrawDotsForDocumentMarker: ts << "draw-dots-for-document-marker"; break;
+    case ItemType::DrawLineForDocumentMarker: ts << "draw-lines-for-document-marker"; break;
     case ItemType::DrawEllipse: ts << "draw-ellipse"; break;
     case ItemType::DrawPath: ts << "draw-path"; break;
     case ItemType::DrawFocusRingPath: ts << "draw-focus-ring-path"; break;
@@ -1068,8 +1076,8 @@ TextStream& operator<<(TextStream& ts, const Item& item)
     case ItemType::DrawLinesForText:
         ts << downcast<DrawLinesForText>(item);
         break;
-    case ItemType::DrawDotsForDocumentMarker:
-        ts << downcast<DrawDotsForDocumentMarker>(item);
+    case ItemType::DrawLineForDocumentMarker:
+        ts << downcast<DrawLineForDocumentMarker>(item);
         break;
     case ItemType::DrawEllipse:
         ts << downcast<DrawEllipse>(item);

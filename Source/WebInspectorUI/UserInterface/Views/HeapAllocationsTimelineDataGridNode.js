@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.HeapAllocationsTimelineDataGridNode = class HeapAllocationsTimelineDataGridNode extends WI.TimelineDataGridNode
+WebInspector.HeapAllocationsTimelineDataGridNode = class HeapAllocationsTimelineDataGridNode extends WebInspector.TimelineDataGridNode
 {
     constructor(heapAllocationsTimelineRecord, zeroTime, heapAllocationsView)
     {
@@ -39,8 +39,8 @@ WI.HeapAllocationsTimelineDataGridNode = class HeapAllocationsTimelineDataGridNo
             liveSize: this._record.heapSnapshot.liveSize,
         };
 
-        this._record.heapSnapshot.addEventListener(WI.HeapSnapshotProxy.Event.CollectedNodes, this._heapSnapshotCollectedNodes, this);
-        this._record.heapSnapshot.addEventListener(WI.HeapSnapshotProxy.Event.Invalidated, this._heapSnapshotInvalidated, this);
+        this._record.heapSnapshot.addEventListener(WebInspector.HeapSnapshotProxy.Event.CollectedNodes, this._heapSnapshotCollectedNodes, this);
+        this._record.heapSnapshot.addEventListener(WebInspector.HeapSnapshotProxy.Event.Invalidated, this._heapSnapshotInvalidated, this);
     }
 
     // Public
@@ -58,7 +58,7 @@ WI.HeapAllocationsTimelineDataGridNode = class HeapAllocationsTimelineDataGridNo
             var titleElement = fragment.appendChild(document.createElement("span"));
             titleElement.textContent = this._data.name;
             if (!this._record.heapSnapshot.invalid) {
-                var goToButton = fragment.appendChild(WI.createGoToArrowButton());
+                var goToButton = fragment.appendChild(WebInspector.createGoToArrowButton());
                 goToButton.addEventListener("click", (event) => {
                     this._heapAllocationsView.showHeapSnapshotTimelineRecord(this._record);
                 });

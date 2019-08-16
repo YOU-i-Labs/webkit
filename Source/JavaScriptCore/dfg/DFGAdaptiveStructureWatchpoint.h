@@ -38,10 +38,10 @@ public:
     
     const ObjectPropertyCondition& key() const { return m_key; }
     
-    void install(VM&);
+    void install();
 
 protected:
-    void fireInternal(VM&, const FireDetail&) override;
+    void fireInternal(const FireDetail&) override;
 
 private:
     ObjectPropertyCondition m_key;

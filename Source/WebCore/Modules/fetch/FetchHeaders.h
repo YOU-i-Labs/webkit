@@ -28,11 +28,11 @@
 
 #pragma once
 
+#if ENABLE(FETCH_API)
+
 #include "ExceptionOr.h"
 #include "HTTPHeaderMap.h"
 #include <wtf/HashTraits.h>
-#include <wtf/Variant.h>
-#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -46,10 +46,7 @@ public:
         Response
     };
 
-    using Init = Variant<Vector<Vector<String>>, Vector<WTF::KeyValuePair<String, String>>>;
-    static ExceptionOr<Ref<FetchHeaders>> create(Optional<Init>&&);
-
-    static Ref<FetchHeaders> create(Guard guard = Guard::None, HTTPHeaderMap&& headers = { }) { return adoptRef(*new FetchHeaders { guard, WTFMove(headers) }); }
+    static Ref<FetchHeaders> create(Guard guard = Guard::None) { return adoptRef(*new FetchHeaders { guard }); }
     static Ref<FetchHeaders> create(const FetchHeaders& headers) { return adoptRef(*new FetchHeaders { headers }); }
 
     ExceptionOr<void> append(const String& name, const String& value);
@@ -58,18 +55,16 @@ public:
     ExceptionOr<bool> has(const String&) const;
     ExceptionOr<void> set(const String& name, const String& value);
 
-    ExceptionOr<void> fill(const Init&);
-    ExceptionOr<void> fill(const FetchHeaders&);
+    void fill(const FetchHeaders*);
     void filterAndFill(const HTTPHeaderMap&, Guard);
 
     String fastGet(HTTPHeaderName name) const { return m_headers.get(name); }
-    bool fastHas(HTTPHeaderName name) const { return m_headers.contains(name); }
     void fastSet(HTTPHeaderName name, const String& value) { m_headers.set(name, value); }
 
     class Iterator {
     public:
         explicit Iterator(FetchHeaders&);
-        Optional<WTF::KeyValuePair<String, String>> next();
+        std::optional<WTF::KeyValuePair<String, String>> next();
 
     private:
         Ref<FetchHeaders> m_headers;
@@ -81,24 +76,17 @@ public:
     const HTTPHeaderMap& internalHeaders() const { return m_headers; }
 
     void setGuard(Guard);
-    Guard guard() const { return m_guard; }
 
 private:
-    FetchHeaders(Guard, HTTPHeaderMap&&);
+    FetchHeaders(Guard guard) : m_guard(guard) { }
     FetchHeaders(const FetchHeaders&);
 
     Guard m_guard;
     HTTPHeaderMap m_headers;
 };
 
-inline FetchHeaders::FetchHeaders(Guard guard, HTTPHeaderMap&& headers)
-    : m_guard(guard)
-    , m_headers(WTFMove(headers))
-{
-}
-
 inline FetchHeaders::FetchHeaders(const FetchHeaders& other)
-    : RefCounted<FetchHeaders>()
+    : RefCounted()
     , m_guard(other.m_guard)
     , m_headers(other.m_headers)
 {
@@ -112,17 +100,4 @@ inline void FetchHeaders::setGuard(Guard guard)
 
 } // namespace WebCore
 
-namespace WTF {
-
-template<> struct EnumTraits<WebCore::FetchHeaders::Guard> {
-    using values = EnumValues<
-    WebCore::FetchHeaders::Guard,
-    WebCore::FetchHeaders::Guard::None,
-    WebCore::FetchHeaders::Guard::Immutable,
-    WebCore::FetchHeaders::Guard::Request,
-    WebCore::FetchHeaders::Guard::RequestNoCors,
-    WebCore::FetchHeaders::Guard::Response
-    >;
-};
-
-}
+#endif // ENABLE(FETCH_API)

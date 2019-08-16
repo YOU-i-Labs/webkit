@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(ASSEMBLER)
+#if ENABLE(JIT)
 
 #include "Reg.h"
 #include <wtf/PrintStream.h>
@@ -49,7 +49,7 @@ public:
     
     Reg reg() const { return m_reg; }
     ptrdiff_t offset() const { return m_offset; }
-    int offsetAsIndex() const { ASSERT(!(offset() % sizeof(CPURegister))); return offset() / static_cast<int>(sizeof(CPURegister)); }
+    int offsetAsIndex() const { return offset() / sizeof(void*); }
     
     bool operator==(const RegisterAtOffset& other) const
     {
@@ -69,9 +69,9 @@ public:
 
 private:
     Reg m_reg;
-    ptrdiff_t m_offset : (sizeof(ptrdiff_t) - sizeof(Reg)) * CHAR_BIT;
+    ptrdiff_t m_offset : sizeof(ptrdiff_t) * 8 - sizeof(Reg) * 8;
 };
 
 } // namespace JSC
 
-#endif // ENABLE(ASSEMBLER)
+#endif // ENABLE(JIT)

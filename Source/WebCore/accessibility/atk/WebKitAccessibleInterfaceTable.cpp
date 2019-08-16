@@ -149,13 +149,9 @@ static gint webkitAccessibleTableGetNColumns(AtkTable* table)
     returnValIfWebKitAccessibleIsInvalid(WEBKIT_ACCESSIBLE(table), 0);
 
     AccessibilityObject* accTable = core(table);
-    if (!is<AccessibilityTable>(*accTable))
-        return 0;
-
-    if (int columnCount = downcast<AccessibilityTable>(*accTable).axColumnCount())
-        return columnCount;
-
-    return downcast<AccessibilityTable>(*accTable).columnCount();
+    if (is<AccessibilityTable>(*accTable))
+        return downcast<AccessibilityTable>(*accTable).columnCount();
+    return 0;
 }
 
 static gint webkitAccessibleTableGetNRows(AtkTable* table)
@@ -164,13 +160,9 @@ static gint webkitAccessibleTableGetNRows(AtkTable* table)
     returnValIfWebKitAccessibleIsInvalid(WEBKIT_ACCESSIBLE(table), 0);
 
     AccessibilityObject* accTable = core(table);
-    if (!is<AccessibilityTable>(*accTable))
-        return 0;
-
-    if (int rowCount = downcast<AccessibilityTable>(*accTable).axRowCount())
-        return rowCount;
-
-    return downcast<AccessibilityTable>(*accTable).rowCount();
+    if (is<AccessibilityTable>(*accTable))
+        return downcast<AccessibilityTable>(*accTable).rowCount();
+    return 0;
 }
 
 static gint webkitAccessibleTableGetColumnExtentAt(AtkTable* table, gint row, gint column)
@@ -250,7 +242,7 @@ static AtkObject* webkitAccessibleTableGetCaption(AtkTable* table)
     if (accTable->isAccessibilityRenderObject()) {
         Node* node = accTable->node();
         if (is<HTMLTableElement>(node)) {
-            auto caption = downcast<HTMLTableElement>(*node).caption();
+            HTMLTableCaptionElement* caption = downcast<HTMLTableElement>(*node).caption();
             if (caption)
                 return AccessibilityObject::firstAccessibleObjectFromNode(caption->renderer()->element())->wrapper();
         }

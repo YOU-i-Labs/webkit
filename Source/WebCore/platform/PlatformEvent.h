@@ -26,7 +26,6 @@
 #pragma once
 
 #include <wtf/OptionSet.h>
-#include <wtf/WallTime.h>
 
 namespace WebCore {
 
@@ -70,15 +69,12 @@ public:
 #endif
     };
 
-    enum class Modifier : uint8_t {
+    enum class Modifier {
         AltKey      = 1 << 0,
         CtrlKey     = 1 << 1,
         MetaKey     = 1 << 2,
         ShiftKey    = 1 << 3,
         CapsLockKey = 1 << 4,
-
-        // Never used in native platforms but added for initEvent
-        AltGraphKey = 1 << 5,
     };
 
     Type type() const { return static_cast<Type>(m_type); }
@@ -90,47 +86,51 @@ public:
 
     OptionSet<Modifier> modifiers() const { return m_modifiers; }
 
-    WallTime timestamp() const { return m_timestamp; }
+    double timestamp() const { return m_timestamp; }
 
 protected:
     PlatformEvent()
         : m_type(NoType)
+        , m_timestamp(0)
     {
     }
 
     explicit PlatformEvent(Type type)
         : m_type(type)
+        , m_timestamp(0)
     {
     }
 
-    PlatformEvent(Type type, OptionSet<Modifier> modifiers, WallTime timestamp)
+    PlatformEvent(Type type, OptionSet<Modifier> modifiers, double timestamp)
         : m_type(type)
         , m_modifiers(modifiers)
         , m_timestamp(timestamp)
     {
     }
 
-    PlatformEvent(Type type, bool shiftKey, bool ctrlKey, bool altKey, bool metaKey, WallTime timestamp)
+    PlatformEvent(Type type, bool shiftKey, bool ctrlKey, bool altKey, bool metaKey, double timestamp)
         : m_type(type)
         , m_timestamp(timestamp)
     {
         if (shiftKey)
-            m_modifiers.add(Modifier::ShiftKey);
+            m_modifiers |= Modifier::ShiftKey;
         if (ctrlKey)
-            m_modifiers.add(Modifier::CtrlKey);
+            m_modifiers |= Modifier::CtrlKey;
         if (altKey)
-            m_modifiers.add(Modifier::AltKey);
+            m_modifiers |= Modifier::AltKey;
         if (metaKey)
-            m_modifiers.add(Modifier::MetaKey);
+            m_modifiers |= Modifier::MetaKey;
     }
 
     // Explicit protected destructor so that people don't accidentally
     // delete a PlatformEvent.
-    ~PlatformEvent() = default;
+    ~PlatformEvent()
+    {
+    }
 
     unsigned m_type;
     OptionSet<Modifier> m_modifiers;
-    WallTime m_timestamp;
+    double m_timestamp;
 };
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,13 +24,14 @@
  */
 
 // On Mac, you can build this like so:
-// xcrun clang++ -o LockSpeedTest Source/WTF/benchmarks/LockSpeedTest.cpp -O3 -W -ISource/WTF -ISource/WTF/icu -ISource/WTF/benchmarks -LWebKitBuild/Release -lWTF -framework Foundation -licucore -std=c++14 -fvisibility=hidden
+// xcrun clang++ -o LockSpeedTest Source/WTF/benchmarks/LockSpeedTest.cpp -O3 -W -ISource/WTF -ISource/WTF/benchmarks -LWebKitBuild/Release -lWTF -framework Foundation -licucore -std=c++11 -fvisibility=hidden
 
 #include "config.h"
 
 #include "ToyLocks.h"
 #include <thread>
 #include <unistd.h>
+#include <wtf/CurrentTime.h>
 #include <wtf/DataLog.h>
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
@@ -52,7 +53,7 @@ double secondsPerTest;
     
 NO_RETURN void usage()
 {
-    printf("Usage: LockSpeedTest yieldspinlock|pausespinlock|wordlock|lock|barginglock|bargingwordlock|thunderlock|thunderwordlock|cascadelock|cascadewordlock|handofflock|unfairlock|mutex|all <num thread groups> <num threads per group> <work per critical section> <work between critical sections> <spin limit> <seconds per test>\n");
+    printf("Usage: LockSpeedTest yieldspinlock|pausespinlock|wordlock|lock|barginglock|bargingwordlock|thunderlock|thunderwordlock|cascadelock|cascadewordlock|handofflock|mutex|all <num thread groups> <num threads per group> <work per critical section> <work between critical sections> <spin limit> <seconds per test>\n");
     exit(1);
 }
 
@@ -80,7 +81,7 @@ struct Benchmark {
 
         volatile bool keepGoing = true;
 
-        MonotonicTime before = MonotonicTime::now();
+        double before = monotonicallyIncreasingTime();
     
         Lock numIterationsLock;
         uint64_t numIterations = 0;
@@ -114,15 +115,15 @@ struct Benchmark {
             }
         }
 
-        sleep(Seconds { secondsPerTest });
+        sleep(secondsPerTest);
         keepGoing = false;
     
         for (unsigned threadIndex = numThreadGroups * numThreadsPerGroup; threadIndex--;)
             threads[threadIndex]->waitForCompletion();
 
-        MonotonicTime after = MonotonicTime::now();
+        double after = monotonicallyIncreasingTime();
     
-        reportResult(name, numIterations / (after - before).seconds() / 1000);
+        reportResult(name, numIterations / (after - before) / 1000);
     }
 };
 

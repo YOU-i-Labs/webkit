@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TabBar = class TabBar extends WI.View
+WebInspector.TabBar = class TabBar extends WebInspector.View
 {
     constructor(element, tabBarItems)
     {
@@ -34,46 +34,54 @@ WI.TabBar = class TabBar extends WI.View
         this.element.addEventListener("mousedown", this._handleMouseDown.bind(this));
         this.element.addEventListener("click", this._handleClick.bind(this));
         this.element.addEventListener("mouseleave", this._handleMouseLeave.bind(this));
-        this.element.addEventListener("contextmenu", this._handleContextMenu.bind(this));
 
         this.element.createChild("div", "top-border");
 
         this._tabBarItems = [];
-        this._hiddenTabBarItems = [];
 
         if (tabBarItems) {
             for (let tabBarItem in tabBarItems)
                 this.addTabBarItem(tabBarItem);
         }
 
-        this._tabPickerTabBarItem = new WI.PinnedTabBarItem("Images/TabPicker.svg", WI.UIString("Show hidden tabs"));
-        this._tabPickerTabBarItem.element.classList.add("tab-picker", "hidden");
-        this._tabPickerTabBarItem.element.addEventListener("contextmenu", this._handleTabPickerTabContextMenu.bind(this));
-        this.addTabBarItem(this._tabPickerTabBarItem, {suppressAnimations: true});
+        this.addTabBarItem(WebInspector.settingsTabContentView.tabBarItem, true);
+
+        this._newTabTabBarItem = new WebInspector.PinnedTabBarItem("Images/NewTabPlus.svg", WebInspector.UIString("Create a new tab"));
+        this._newTabTabBarItem.element.addEventListener("mouseenter", this._handleNewTabMouseEnter.bind(this));
+        this._newTabTabBarItem.element.addEventListener("click", this._handleNewTabClick.bind(this));
+        this.addTabBarItem(this._newTabTabBarItem, true);
     }
 
     // Public
 
-    addTabBarItem(tabBarItem, options = {})
+    get newTabTabBarItem() { return this._newTabTabBarItem; }
+
+    updateNewTabTabBarItemState()
     {
-        return this.insertTabBarItem(tabBarItem, this._tabBarItems.length, options);
+        let newTabExists = !WebInspector.isNewTabWithTypeAllowed(WebInspector.NewTabContentView.Type);
+        this._newTabTabBarItem.disabled = newTabExists;
     }
 
-    insertTabBarItem(tabBarItem, index, options = {})
+    addTabBarItem(tabBarItem, doNotAnimate)
     {
-        console.assert(tabBarItem instanceof WI.TabBarItem);
-        if (!(tabBarItem instanceof WI.TabBarItem))
+        return this.insertTabBarItem(tabBarItem, this._tabBarItems.length, doNotAnimate);
+    }
+
+    insertTabBarItem(tabBarItem, index, doNotAnimate)
+    {
+        console.assert(tabBarItem instanceof WebInspector.TabBarItem);
+        if (!(tabBarItem instanceof WebInspector.TabBarItem))
             return null;
 
         if (tabBarItem.parentTabBar === this)
-            return null;
+            return;
 
         if (this._tabAnimatedClosedSinceMouseEnter) {
             // Delay adding the new tab until we can expand the tabs after a closed tab.
             this._finishExpandingTabsAfterClose().then(() => {
-                this.insertTabBarItem(tabBarItem, index, options);
+                this.insertTabBarItem(tabBarItem, index, doNotAnimate);
             });
-            return null;
+            return;
         }
 
         if (tabBarItem.parentTabBar)
@@ -81,18 +89,15 @@ WI.TabBar = class TabBar extends WI.View
 
         tabBarItem.parentTabBar = this;
 
-        if (tabBarItem instanceof WI.GeneralTabBarItem)
-            index = Number.constrain(index, 0, this.normalTabCount);
-        else
-            index = Number.constrain(index, this.normalTabCount, this._tabBarItems.length);
+        index = Number.constrain(index, 0, this.normalTabCount);
 
         if (this.element.classList.contains("animating")) {
             requestAnimationFrame(removeStyles.bind(this));
-            options.suppressAnimations = true;
+            doNotAnimate = true;
         }
 
         var beforeTabSizesAndPositions;
-        if (!options.suppressAnimations)
+        if (!doNotAnimate)
             beforeTabSizesAndPositions = this._recordTabBarItemSizesAndPositions();
 
         this._tabBarItems.splice(index, 0, tabBarItem);
@@ -100,7 +105,7 @@ WI.TabBar = class TabBar extends WI.View
         var nextSibling = this._tabBarItems[index + 1];
         let nextSiblingElement = nextSibling ? nextSibling.element : this._tabBarItems.lastValue.element;
 
-        if (this.element.contains(nextSiblingElement))
+        if (this.element.isAncestor(nextSiblingElement))
             this.element.insertBefore(tabBarItem.element, nextSiblingElement);
         else
             this.element.appendChild(tabBarItem.element);
@@ -133,7 +138,7 @@ WI.TabBar = class TabBar extends WI.View
             this.element.removeEventListener("webkitTransitionEnd", removeStylesListener);
         }
 
-        if (!options.suppressAnimations) {
+        if (!doNotAnimate) {
             var afterTabSizesAndPositions = this._recordTabBarItemSizesAndPositions();
 
             this.updateLayout();
@@ -158,18 +163,18 @@ WI.TabBar = class TabBar extends WI.View
         } else
             this.needsLayout();
 
-        this.dispatchEventToListeners(WI.TabBar.Event.TabBarItemAdded, {tabBarItem});
+        if (!(tabBarItem instanceof WebInspector.PinnedTabBarItem))
+            this.updateNewTabTabBarItemState();
+
+        this.dispatchEventToListeners(WebInspector.TabBar.Event.TabBarItemAdded, {tabBarItem});
 
         return tabBarItem;
     }
 
-    removeTabBarItem(tabBarItemOrIndex, options = {})
+    removeTabBarItem(tabBarItemOrIndex, doNotAnimate, doNotExpand)
     {
         let tabBarItem = this._findTabBarItem(tabBarItemOrIndex);
-        if (!tabBarItem || tabBarItem instanceof WI.PinnedTabBarItem)
-            return null;
-
-        if (!tabBarItem.isEphemeral && this.normalTabCount === 1)
+        if (!tabBarItem || tabBarItem instanceof WebInspector.PinnedTabBarItem)
             return null;
 
         tabBarItem.parentTabBar = null;
@@ -177,7 +182,7 @@ WI.TabBar = class TabBar extends WI.View
         if (this._selectedTabBarItem === tabBarItem) {
             var index = this._tabBarItems.indexOf(tabBarItem);
             var nextTabBarItem = this._tabBarItems[index + 1];
-            if (!nextTabBarItem || nextTabBarItem instanceof WI.PinnedTabBarItem)
+            if (!nextTabBarItem || nextTabBarItem instanceof WebInspector.PinnedTabBarItem)
                 nextTabBarItem = this._tabBarItems[index - 1];
 
             this.selectedTabBarItem = nextTabBarItem;
@@ -185,11 +190,11 @@ WI.TabBar = class TabBar extends WI.View
 
         if (this.element.classList.contains("animating")) {
             requestAnimationFrame(removeStyles.bind(this));
-            options.suppressAnimations = true;
+            doNotAnimate = true;
         }
 
         var beforeTabSizesAndPositions;
-        if (!options.suppressAnimations)
+        if (!doNotAnimate)
             beforeTabSizesAndPositions = this._recordTabBarItemSizesAndPositions();
 
         // Subtract 1 from normalTabCount since arrays begin indexing at 0.
@@ -201,14 +206,24 @@ WI.TabBar = class TabBar extends WI.View
         var hasMoreThanOneNormalTab = this._hasMoreThanOneNormalTab();
         this.element.classList.toggle("single-tab", !hasMoreThanOneNormalTab);
 
-        if (!hasMoreThanOneNormalTab || wasLastNormalTab || !options.suppressExpansion) {
-            if (!options.suppressAnimations) {
+        const shouldOpenDefaultTab = !tabBarItem.isDefaultTab && !this.normalTabCount;
+        if (shouldOpenDefaultTab)
+            doNotAnimate = true;
+
+        if (!hasMoreThanOneNormalTab || wasLastNormalTab || !doNotExpand) {
+            if (!doNotAnimate) {
                 this._tabAnimatedClosedSinceMouseEnter = true;
                 this._finishExpandingTabsAfterClose(beforeTabSizesAndPositions);
             } else
                 this.needsLayout();
 
-            this.dispatchEventToListeners(WI.TabBar.Event.TabBarItemRemoved, {tabBarItem});
+            this.updateNewTabTabBarItemState();
+
+            this.dispatchEventToListeners(WebInspector.TabBar.Event.TabBarItemRemoved, {tabBarItem});
+
+            if (shouldOpenDefaultTab)
+                this._openDefaultTab();
+
             return tabBarItem;
         }
 
@@ -223,7 +238,7 @@ WI.TabBar = class TabBar extends WI.View
             // From left to right there is pinned tabs, extra space, then normal tabs. Compute
             // how much extra space we need to additionally add for normal tab items.
             let extraSpaceBetweenNormalAndPinnedTabs = 0;
-            if (WI.resolvedLayoutDirection() === WI.LayoutDirection.RTL) {
+            if (WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.RTL) {
                 extraSpaceBetweenNormalAndPinnedTabs = this.element.getBoundingClientRect().width;
                 for (let currentTabBarItem of this._tabBarItemsFromLeftToRight())
                     extraSpaceBetweenNormalAndPinnedTabs -= currentTabBarItem.element.getBoundingClientRect().width;
@@ -233,7 +248,7 @@ WI.TabBar = class TabBar extends WI.View
             for (let currentTabBarItem of this._tabBarItemsFromLeftToRight()) {
                 let sizeAndPosition = beforeTabSizesAndPositions.get(currentTabBarItem);
 
-                if (!(currentTabBarItem instanceof WI.PinnedTabBarItem)) {
+                if (!(currentTabBarItem instanceof WebInspector.PinnedTabBarItem)) {
                     currentTabBarItem.element.style.left = extraSpaceBetweenNormalAndPinnedTabs + left + "px";
                     left += sizeAndPosition.width;
                     lastNormalTabBarItem = currentTabBarItem;
@@ -265,7 +280,7 @@ WI.TabBar = class TabBar extends WI.View
             this.element.removeEventListener("webkitTransitionEnd", removeStylesListener);
         }
 
-        if (!options.suppressAnimations) {
+        if (!doNotAnimate) {
             this.element.classList.add("static-layout");
 
             this._tabAnimatedClosedSinceMouseEnter = true;
@@ -278,7 +293,12 @@ WI.TabBar = class TabBar extends WI.View
         } else
             this.needsLayout();
 
-        this.dispatchEventToListeners(WI.TabBar.Event.TabBarItemRemoved, {tabBarItem});
+        this.updateNewTabTabBarItemState();
+
+        this.dispatchEventToListeners(WebInspector.TabBar.Event.TabBarItemRemoved, {tabBarItem});
+
+        if (shouldOpenDefaultTab)
+            this._openDefaultTab();
 
         return tabBarItem;
     }
@@ -296,7 +316,7 @@ WI.TabBar = class TabBar extends WI.View
             else
                 newIndex--;
 
-            if (!(this._tabBarItems[newIndex] instanceof WI.PinnedTabBarItem))
+            if (!(this._tabBarItems[newIndex] instanceof WebInspector.PinnedTabBarItem))
                 break;
         } while (newIndex !== startIndex);
 
@@ -319,7 +339,7 @@ WI.TabBar = class TabBar extends WI.View
             else
                 newIndex++;
 
-            if (!(this._tabBarItems[newIndex] instanceof WI.PinnedTabBarItem))
+            if (!(this._tabBarItems[newIndex] instanceof WebInspector.PinnedTabBarItem))
                 break;
         } while (newIndex !== startIndex);
 
@@ -337,8 +357,8 @@ WI.TabBar = class TabBar extends WI.View
     set selectedTabBarItem(tabBarItemOrIndex)
     {
         let tabBarItem = this._findTabBarItem(tabBarItemOrIndex);
-        if (tabBarItem === this._tabPickerTabBarItem) {
-            // Get the last normal tab item if the item is not selectable.
+        if (tabBarItem === this._newTabTabBarItem) {
+            // Get the item before the New-Tab item since it is not selectable.
             tabBarItem = this._tabBarItems[this.normalTabCount - 1];
         }
 
@@ -350,13 +370,10 @@ WI.TabBar = class TabBar extends WI.View
 
         this._selectedTabBarItem = tabBarItem || null;
 
-        if (this._selectedTabBarItem) {
+        if (this._selectedTabBarItem)
             this._selectedTabBarItem.selected = true;
-            if (this._selectedTabBarItem.element.classList.contains("hidden"))
-                this.needsLayout();
-        }
 
-        this.dispatchEventToListeners(WI.TabBar.Event.TabBarItemSelected);
+        this.dispatchEventToListeners(WebInspector.TabBar.Event.TabBarItemSelected);
     }
 
     get tabBarItems()
@@ -366,12 +383,7 @@ WI.TabBar = class TabBar extends WI.View
 
     get normalTabCount()
     {
-        return this._tabBarItems.filter((item) => !(item instanceof WI.PinnedTabBarItem)).length;
-    }
-
-    get saveableTabCount()
-    {
-        return this._tabBarItems.filter((item) => item.representedObject && item.representedObject.constructor.shouldSaveTab()).length;
+        return this._tabBarItems.filter((item) => !(item instanceof WebInspector.PinnedTabBarItem)).length;
     }
 
     // Protected
@@ -381,64 +393,37 @@ WI.TabBar = class TabBar extends WI.View
         if (this.element.classList.contains("static-layout"))
             return;
 
-        this.element.classList.add("calculate-width");
+        this.element.classList.remove("hide-titles");
         this.element.classList.remove("collapsed");
 
-        function forceItemHidden(item, hidden) {
-            item.element.classList.toggle("hidden", !!hidden);
+        let firstNormalTabItem = null;
+        for (let tabItem of this._tabBarItems) {
+            if (tabItem instanceof WebInspector.PinnedTabBarItem)
+                continue;
+
+            firstNormalTabItem = tabItem;
+            break;
         }
 
-        for (let item of this._tabBarItems)
-            forceItemHidden(item, item === this._tabPickerTabBarItem);
+        if (!firstNormalTabItem)
+            return;
 
-        function measureItemWidth(item) {
-            if (!item[WI.TabBar.CachedWidthSymbol])
-                item[WI.TabBar.CachedWidthSymbol] = item.element.realOffsetWidth;
-            return item[WI.TabBar.CachedWidthSymbol];
-        }
+        if (firstNormalTabItem.element.offsetWidth >= 120)
+            return;
 
-        let recalculateItemWidths = () => {
-            return this._tabBarItems.reduce((total, item) => {
-                item[WI.TabBar.CachedWidthSymbol] = undefined;
-                return total + measureItemWidth(item);
-            }, 0);
-        };
+        this.element.classList.add("collapsed");
 
-        this._hiddenTabBarItems = [];
+        if (firstNormalTabItem.element.offsetWidth >= 75)
+            return;
 
-        let totalItemWidth = recalculateItemWidths();
-        let barWidth = this.element.realOffsetWidth;
-
-        if (totalItemWidth > barWidth) {
-            this.element.classList.add("collapsed");
-            totalItemWidth = recalculateItemWidths();
-            if (totalItemWidth > barWidth) {
-                forceItemHidden(this._tabPickerTabBarItem, false);
-                totalItemWidth += measureItemWidth(this._tabPickerTabBarItem);
-            }
-
-            let tabBarItems = this._tabBarItemsFromLeftToRight();
-            let index = tabBarItems.length;
-            while (totalItemWidth > barWidth && --index >= 0) {
-                let item = tabBarItems[index];
-                if (item === this.selectedTabBarItem || item instanceof WI.PinnedTabBarItem)
-                    continue;
-
-                totalItemWidth -= measureItemWidth(item);
-                forceItemHidden(item, true);
-
-                this._hiddenTabBarItems.push(item);
-            }
-        }
-
-        this.element.classList.remove("calculate-width");
+        this.element.classList.add("hide-titles");
     }
 
     // Private
 
     _tabBarItemsFromLeftToRight()
     {
-        return WI.resolvedLayoutDirection() === WI.LayoutDirection.LTR ? this._tabBarItems : this._tabBarItems.slice().reverse();
+        return WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.LTR ? this._tabBarItems : this._tabBarItems.slice().reverse();
     }
 
     _findTabBarItem(tabBarItemOrIndex)
@@ -446,7 +431,7 @@ WI.TabBar = class TabBar extends WI.View
         if (typeof tabBarItemOrIndex === "number")
             return this._tabBarItems[tabBarItemOrIndex] || null;
 
-        if (tabBarItemOrIndex instanceof WI.TabBarItem) {
+        if (tabBarItemOrIndex instanceof WebInspector.TabBarItem) {
             if (this._tabBarItems.includes(tabBarItemOrIndex))
                 return tabBarItemOrIndex;
         }
@@ -458,7 +443,7 @@ WI.TabBar = class TabBar extends WI.View
     {
         let normalTabCount = 0;
         for (let tabBarItem of this._tabBarItems) {
-            if (tabBarItem instanceof WI.PinnedTabBarItem)
+            if (tabBarItem instanceof WebInspector.PinnedTabBarItem)
                 continue;
 
             ++normalTabCount;
@@ -467,6 +452,11 @@ WI.TabBar = class TabBar extends WI.View
         }
 
         return false;
+    }
+
+    _openDefaultTab()
+    {
+        this.dispatchEventToListeners(WebInspector.TabBar.Event.OpenDefaultTab);
     }
 
     _recordTabBarItemSizesAndPositions()
@@ -558,41 +548,32 @@ WI.TabBar = class TabBar extends WI.View
         if (event.button !== 0 || event.ctrlKey)
             return;
 
-        let itemElement = event.target.enclosingNodeOrSelfWithClass(WI.TabBarItem.StyleClassName);
+        let itemElement = event.target.enclosingNodeOrSelfWithClass(WebInspector.TabBarItem.StyleClassName);
         if (!itemElement)
             return;
 
-        let tabBarItem = itemElement[WI.TabBarItem.ElementReferenceSymbol];
+        let tabBarItem = itemElement[WebInspector.TabBarItem.ElementReferenceSymbol];
         if (!tabBarItem)
             return;
 
         if (tabBarItem.disabled)
             return;
 
-        if (tabBarItem === this._tabPickerTabBarItem) {
-            if (!this._hiddenTabBarItems.length)
-                return;
-
-            let contextMenu = WI.ContextMenu.createFromEvent(event);
-            for (let item of this._hiddenTabBarItems)
-                contextMenu.appendItem(item.title, () => this.selectedTabBarItem = item);
-
-            contextMenu.show();
+        if (tabBarItem === this._newTabTabBarItem)
             return;
-        }
 
-        let closeButtonElement = event.target.enclosingNodeOrSelfWithClass(WI.TabBarItem.CloseButtonStyleClassName);
+        let closeButtonElement = event.target.enclosingNodeOrSelfWithClass(WebInspector.TabBarItem.CloseButtonStyleClassName);
         if (closeButtonElement)
             return;
 
         this.selectedTabBarItem = tabBarItem;
 
-        if (tabBarItem instanceof WI.PinnedTabBarItem || !this._hasMoreThanOneNormalTab())
+        if (tabBarItem instanceof WebInspector.PinnedTabBarItem || !this._hasMoreThanOneNormalTab())
             return;
 
         this._firstNormalTabItemIndex = 0;
         for (let i = 0; i < this._tabBarItems.length; ++i) {
-            if (this._tabBarItems[i] instanceof WI.PinnedTabBarItem)
+            if (this._tabBarItems[i] instanceof WebInspector.PinnedTabBarItem)
                 continue;
 
             this._firstNormalTabItemIndex = i;
@@ -614,11 +595,11 @@ WI.TabBar = class TabBar extends WI.View
 
     _handleClick(event)
     {
-        var itemElement = event.target.enclosingNodeOrSelfWithClass(WI.TabBarItem.StyleClassName);
+        var itemElement = event.target.enclosingNodeOrSelfWithClass(WebInspector.TabBarItem.StyleClassName);
         if (!itemElement)
             return;
 
-        var tabBarItem = itemElement[WI.TabBarItem.ElementReferenceSymbol];
+        var tabBarItem = itemElement[WebInspector.TabBarItem.ElementReferenceSymbol];
         if (!tabBarItem)
             return;
 
@@ -627,20 +608,20 @@ WI.TabBar = class TabBar extends WI.View
 
         const clickedMiddleButton = event.button === 1;
 
-        var closeButtonElement = event.target.enclosingNodeOrSelfWithClass(WI.TabBarItem.CloseButtonStyleClassName);
+        var closeButtonElement = event.target.enclosingNodeOrSelfWithClass(WebInspector.TabBarItem.CloseButtonStyleClassName);
         if (closeButtonElement || clickedMiddleButton) {
-            // Disallow closing the only tab.
-            if (this.element.classList.contains("single-tab"))
+            // Disallow closing the default tab if it is the only tab.
+            if (tabBarItem.isDefaultTab && this.element.classList.contains("single-tab"))
                 return;
 
             if (!event.altKey) {
-                this.removeTabBarItem(tabBarItem, {suppressExpansion: true});
+                this.removeTabBarItem(tabBarItem, false, true);
                 return;
             }
 
             for (let i = this._tabBarItems.length - 1; i >= 0; --i) {
                 let item = this._tabBarItems[i];
-                if (item === tabBarItem || item instanceof WI.PinnedTabBarItem)
+                if (item === tabBarItem || item instanceof WebInspector.PinnedTabBarItem)
                     continue;
                 this.removeTabBarItem(item);
             }
@@ -703,7 +684,7 @@ WI.TabBar = class TabBar extends WI.View
         this._tabBarItems.splice(newIndex, 0, this._selectedTabBarItem);
 
         let nextSibling = this._tabBarItems[newIndex + 1];
-        let nextSiblingElement = nextSibling ? nextSibling.element : null;
+        let nextSiblingElement = nextSibling ? nextSibling.element : this._newTabTabBarItem.element;
 
         this.element.insertBefore(this._selectedTabBarItem.element, nextSiblingElement);
 
@@ -711,7 +692,7 @@ WI.TabBar = class TabBar extends WI.View
 
         let left = 0;
         for (let tabBarItem of this._tabBarItemsFromLeftToRight()) {
-            if (tabBarItem !== this._selectedTabBarItem && parseFloat(tabBarItem.element.style.left) !== left)
+            if (tabBarItem !== this._selectedTabBarItem && tabBarItem !== this._newTabTabBarItem && parseFloat(tabBarItem.element.style.left) !== left)
                 tabBarItem.element.style.left = left + "px";
             left += parseFloat(tabBarItem.element.style.width);
         }
@@ -750,7 +731,7 @@ WI.TabBar = class TabBar extends WI.View
         event.preventDefault();
         event.stopPropagation();
 
-        this.dispatchEventToListeners(WI.TabBar.Event.TabBarItemsReordered);
+        this.dispatchEventToListeners(WebInspector.TabBar.Event.TabBarItemsReordered);
     }
 
     _handleMouseLeave(event)
@@ -762,60 +743,29 @@ WI.TabBar = class TabBar extends WI.View
         // Check if the mouse really did leave the element by checking the bounds.
         // FIXME: Is this a WebKit bug or correct behavior?
         const barRect = this.element.getBoundingClientRect();
-        if (event.pageY > barRect.top && event.pageY < barRect.bottom && event.pageX > barRect.left && event.pageX < barRect.right)
+        const newTabItemRect = this._newTabTabBarItem.element.getBoundingClientRect();
+        if (event.pageY > barRect.top && event.pageY < barRect.bottom && event.pageX > barRect.left && event.pageX < (newTabItemRect ? newTabItemRect.right : barRect.right))
             return;
 
         this._finishExpandingTabsAfterClose();
     }
 
-    _handleContextMenu(event)
+    _handleNewTabClick(event)
     {
-        let contextMenu = WI.ContextMenu.createFromEvent(event);
-
-        for (let tabClass of WI.knownTabClasses()) {
-            if (!tabClass.isTabAllowed() || tabClass.tabInfo().isEphemeral)
-                continue;
-
-            let openTabBarItem = null;
-            for (let tabBarItem of this._tabBarItems) {
-                let tabContentView = tabBarItem.representedObject;
-                if (!(tabContentView instanceof WI.TabContentView))
-                    continue;
-
-                if (tabContentView.type === tabClass.Type) {
-                    openTabBarItem = tabBarItem;
-                    break;
-                }
-            }
-
-            let checked = !!openTabBarItem;
-            let disabled = checked && this.normalTabCount === 1;
-            contextMenu.appendCheckboxItem(tabClass.tabInfo().title, () => {
-                if (openTabBarItem)
-                    this.removeTabBarItem(openTabBarItem);
-                else
-                    WI.createNewTabWithType(tabClass.Type, {shouldShowNewTab: true});
-            }, checked, disabled);
-        }
+        const shouldAnimate = true;
+        WebInspector.showNewTabTab(shouldAnimate);
     }
 
-    _handleTabPickerTabContextMenu(event)
+    _handleNewTabMouseEnter(event)
     {
-        if (!this._hiddenTabBarItems.length)
+        if (!this._tabAnimatedClosedSinceMouseEnter || !this.element.classList.contains("static-layout") || this.element.classList.contains("animating"))
             return;
 
-        let contextMenu = WI.ContextMenu.createFromEvent(event);
-        for (let item of this._hiddenTabBarItems) {
-            contextMenu.appendItem(item.title, () => {
-                this.selectedTabBarItem = item;
-            });
-        }
+        this._finishExpandingTabsAfterClose();
     }
 };
 
-WI.TabBar.CachedWidthSymbol = Symbol("cached-width");
-
-WI.TabBar.Event = {
+WebInspector.TabBar.Event = {
     TabBarItemSelected: "tab-bar-tab-bar-item-selected",
     TabBarItemAdded: "tab-bar-tab-bar-item-added",
     TabBarItemRemoved: "tab-bar-tab-bar-item-removed",

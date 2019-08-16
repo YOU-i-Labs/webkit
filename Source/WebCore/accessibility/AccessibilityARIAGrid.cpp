@@ -34,6 +34,7 @@
 #include "AccessibilityTableCell.h"
 #include "AccessibilityTableColumn.h"
 #include "AccessibilityTableHeaderContainer.h"
+#include "AccessibilityTableRow.h"
 #include "RenderObject.h"
 #include "RenderTableSection.h"
 
@@ -44,7 +45,9 @@ AccessibilityARIAGrid::AccessibilityARIAGrid(RenderObject* renderer)
 {
 }
 
-AccessibilityARIAGrid::~AccessibilityARIAGrid() = default;
+AccessibilityARIAGrid::~AccessibilityARIAGrid()
+{
+}
 
 Ref<AccessibilityARIAGrid> AccessibilityARIAGrid::create(RenderObject* renderer)
 {
@@ -77,12 +80,6 @@ bool AccessibilityARIAGrid::addTableCellChild(AccessibilityObject* child, HashSe
 
     appendedRows.add(&row);
     return true;
-}
-
-bool AccessibilityARIAGrid::isMultiSelectable() const
-{
-    const AtomicString& ariaMultiSelectable = getAttribute(HTMLNames::aria_multiselectableAttr);
-    return !equalLettersIgnoringASCIICase(ariaMultiSelectable, "false");
 }
 
 void AccessibilityARIAGrid::addRowDescendant(AccessibilityObject* rowChild, HashSet<AccessibilityObject*>& appendedRows, unsigned& columnCount)
@@ -138,7 +135,7 @@ void AccessibilityARIAGrid::addChildren()
     
     // make the columns based on the number of columns in the first body
     for (unsigned i = 0; i < columnCount; ++i) {
-        auto& column = downcast<AccessibilityTableColumn>(*axCache->getOrCreate(AccessibilityRole::Column));
+        auto& column = downcast<AccessibilityTableColumn>(*axCache->getOrCreate(ColumnRole));
         column.setColumnIndex(static_cast<int>(i));
         column.setParent(this);
         m_columns.append(&column);

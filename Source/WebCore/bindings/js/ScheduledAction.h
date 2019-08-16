@@ -19,49 +19,53 @@
 
 #pragma once
 
-#include <JavaScriptCore/Strong.h>
-#include <JavaScriptCore/StrongInlines.h>
+#include "JSDOMBinding.h"
+#include <heap/Strong.h>
+#include <heap/StrongInlines.h>
 #include <memory>
+#include <runtime/JSCell.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
 namespace JSC {
-class JSGlobalObject;
+    class JSGlobalObject;
 }
 
 namespace WebCore {
 
-class DOMWrapperWorld;
-class Document;
-class ScriptExecutionContext;
-class WorkerGlobalScope;
+    class Document;
+    class ContentSecurityPolicy;
+    class ScriptExecutionContext;
+    class WorkerGlobalScope;
 
-class ScheduledAction {
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    static std::unique_ptr<ScheduledAction> create(DOMWrapperWorld&, JSC::Strong<JSC::Unknown>&&);
-    static std::unique_ptr<ScheduledAction> create(DOMWrapperWorld&, String&&);
-    ~ScheduledAction();
+   /* An action (either function or string) to be executed after a specified
+    * time interval, either once or repeatedly. Used for window.setTimeout()
+    * and window.setInterval()
+    */
+    class ScheduledAction {
+        WTF_MAKE_NONCOPYABLE(ScheduledAction); WTF_MAKE_FAST_ALLOCATED;
+    public:
+        static std::unique_ptr<ScheduledAction> create(JSC::ExecState*, DOMWrapperWorld& isolatedWorld, ContentSecurityPolicy*);
 
-    void addArguments(Vector<JSC::Strong<JSC::Unknown>>&&);
+        void execute(ScriptExecutionContext&);
 
-    enum class Type { Code, Function };
-    Type type() const;
+    private:
+        ScheduledAction(JSC::ExecState*, JSC::JSValue function, DOMWrapperWorld& isolatedWorld);
+        ScheduledAction(const String& code, DOMWrapperWorld& isolatedWorld)
+            : m_function(isolatedWorld.vm())
+            , m_code(code)
+            , m_isolatedWorld(isolatedWorld)
+        {
+        }
 
-    void execute(ScriptExecutionContext&);
+        void executeFunctionInContext(JSC::JSGlobalObject*, JSC::JSValue thisValue, ScriptExecutionContext&);
+        void execute(Document&);
+        void execute(WorkerGlobalScope&);
 
-private:
-    ScheduledAction(DOMWrapperWorld&, JSC::Strong<JSC::Unknown>&&);
-    ScheduledAction(DOMWrapperWorld&, String&&);
-
-    void executeFunctionInContext(JSC::JSGlobalObject*, JSC::JSValue thisValue, ScriptExecutionContext&);
-    void execute(Document&);
-    void execute(WorkerGlobalScope&);
-
-    Ref<DOMWrapperWorld> m_isolatedWorld;
-    JSC::Strong<JSC::Unknown> m_function;
-    Vector<JSC::Strong<JSC::Unknown>> m_arguments;
-    String m_code;
-};
+        JSC::Strong<JSC::Unknown> m_function;
+        Vector<JSC::Strong<JSC::Unknown>> m_args;
+        String m_code;
+        Ref<DOMWrapperWorld> m_isolatedWorld;
+    };
 
 } // namespace WebCore

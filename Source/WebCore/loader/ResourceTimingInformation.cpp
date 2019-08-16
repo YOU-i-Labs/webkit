@@ -26,11 +26,12 @@
 #include "config.h"
 #include "ResourceTimingInformation.h"
 
+#if ENABLE(WEB_TIMING)
+
 #include "CachedResource.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "Frame.h"
-#include "FrameLoader.h"
 #include "HTMLFrameOwnerElement.h"
 #include "LoadTiming.h"
 #include "Performance.h"
@@ -52,9 +53,6 @@ bool ResourceTimingInformation::shouldAddResourceTiming(CachedResource& resource
     if (resource.wasCanceled())
         return false;
 
-    if (resource.options().loadedFromOpaqueSource == LoadedFromOpaqueSource::Yes)
-        return false;
-
     return true;
 }
 
@@ -73,18 +71,18 @@ void ResourceTimingInformation::addResourceTiming(CachedResource& resource, Docu
         return;
 
     Document* initiatorDocument = &document;
-    if (resource.type() == CachedResource::Type::MainResource && document.frame() && document.frame()->loader().shouldReportResourceTimingToParentFrame())
+    if (resource.type() == CachedResource::MainResource)
         initiatorDocument = document.parentDocument();
     if (!initiatorDocument)
         return;
-
-    auto* initiatorWindow = initiatorDocument->domWindow();
-    if (!initiatorWindow)
+    if (!initiatorDocument->domWindow())
+        return;
+    if (!initiatorDocument->domWindow()->performance())
         return;
 
     resourceTiming.overrideInitiatorName(info.name);
 
-    initiatorWindow->performance().addResourceTiming(WTFMove(resourceTiming));
+    initiatorDocument->domWindow()->performance()->addResourceTiming(WTFMove(resourceTiming));
 
     info.added = Added;
 }
@@ -94,7 +92,7 @@ void ResourceTimingInformation::storeResourceTimingInitiatorInformation(const Ca
     ASSERT(RuntimeEnabledFeatures::sharedFeatures().resourceTimingEnabled());
     ASSERT(resource.get());
 
-    if (resource->type() == CachedResource::Type::MainResource) {
+    if (resource->type() == CachedResource::MainResource) {
         // <iframe>s should report the initial navigation requested by the parent document, but not subsequent navigations.
         ASSERT(frame);
         if (frame->ownerElement()) {
@@ -108,3 +106,5 @@ void ResourceTimingInformation::storeResourceTimingInitiatorInformation(const Ca
 }
 
 }
+
+#endif // ENABLE(WEB_TIMING)

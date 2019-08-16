@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ConsolePrompt = class ConsolePrompt extends WI.View
+WebInspector.ConsolePrompt = class ConsolePrompt extends WebInspector.View
 {
     constructor(delegate, mimeType)
     {
@@ -31,11 +31,11 @@ WI.ConsolePrompt = class ConsolePrompt extends WI.View
 
         mimeType = parseMIMEType(mimeType).type;
 
-        this.element.classList.add("console-prompt", WI.SyntaxHighlightedStyleClassName);
+        this.element.classList.add("console-prompt", WebInspector.SyntaxHighlightedStyleClassName);
 
         this._delegate = delegate || null;
 
-        this._codeMirror = WI.CodeMirrorEditor.create(this.element, {
+        this._codeMirror = WebInspector.CodeMirrorEditor.create(this.element, {
             lineWrapping: true,
             mode: {name: mimeType, globalVars: true},
             indentWithTabs: true,
@@ -56,8 +56,8 @@ WI.ConsolePrompt = class ConsolePrompt extends WI.View
 
         this._codeMirror.addKeyMap(keyMap);
 
-        this._completionController = new WI.CodeMirrorCompletionController(this._codeMirror, this);
-        this._completionController.addExtendedCompletionProvider("javascript", WI.javaScriptRuntimeCompletionProvider);
+        this._completionController = new WebInspector.CodeMirrorCompletionController(this._codeMirror, this);
+        this._completionController.addExtendedCompletionProvider("javascript", WebInspector.javaScriptRuntimeCompletionProvider);
 
         this._history = [{}];
         this._historyIndex = 0;
@@ -100,7 +100,7 @@ WI.ConsolePrompt = class ConsolePrompt extends WI.View
 
     set history(history)
     {
-        this._history = history instanceof Array ? history.slice(0, WI.ConsolePrompt.MaximumHistorySize) : [{}];
+        this._history = history instanceof Array ? history.slice(0, WebInspector.ConsolePrompt.MaximumHistorySize) : [{}];
         this._historyIndex = 0;
         this._restoreHistoryEntry(0);
     }
@@ -144,8 +144,7 @@ WI.ConsolePrompt = class ConsolePrompt extends WI.View
 
     layout()
     {
-        if (this.layoutReason === WI.View.LayoutReason.Resize && this.text)
-            this._codeMirror.refresh();
+        this._codeMirror.refresh();
     }
 
     // Private
@@ -164,7 +163,7 @@ WI.ConsolePrompt = class ConsolePrompt extends WI.View
             return CodeMirror.Pass;
 
         this._completionController.completeAtCurrentPositionIfNeeded().then(function(result) {
-            if (result === WI.CodeMirrorCompletionController.UpdatePromise.NoCompletionsFound)
+            if (result === WebInspector.CodeMirrorCompletionController.UpdatePromise.NoCompletionsFound)
                 InspectorFrontendHost.beep();
         });
     }
@@ -283,8 +282,8 @@ WI.ConsolePrompt = class ConsolePrompt extends WI.View
             this._history.unshift({});
 
             // Trim the history length if needed.
-            if (this._history.length > WI.ConsolePrompt.MaximumHistorySize)
-                this._history = this._history.slice(0, WI.ConsolePrompt.MaximumHistorySize);
+            if (this._history.length > WebInspector.ConsolePrompt.MaximumHistorySize)
+                this._history = this._history.slice(0, WebInspector.ConsolePrompt.MaximumHistorySize);
         }
 
         this._historyIndex = 0;
@@ -323,4 +322,4 @@ WI.ConsolePrompt = class ConsolePrompt extends WI.View
     }
 };
 
-WI.ConsolePrompt.MaximumHistorySize = 30;
+WebInspector.ConsolePrompt.MaximumHistorySize = 30;

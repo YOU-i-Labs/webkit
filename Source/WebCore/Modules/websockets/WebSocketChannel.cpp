@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2011, 2012 Google Inc.  All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,6 +29,9 @@
  */
 
 #include "config.h"
+
+#if ENABLE(WEB_SOCKETS)
+
 #include "WebSocketChannel.h"
 
 #include "Blob.h"
@@ -50,7 +52,7 @@
 #include "UserContentProvider.h"
 #include "WebSocketChannelClient.h"
 #include "WebSocketHandshake.h"
-#include <JavaScriptCore/ArrayBuffer.h>
+#include <runtime/ArrayBuffer.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/HashMap.h>
 #include <wtf/text/CString.h>
@@ -121,8 +123,8 @@ void WebSocketChannel::connect(const URL& requestedURL, const String& protocol)
     if (Frame* frame = m_document->frame()) {
         ref();
         Page* page = frame->page();
-        PAL::SessionID sessionID = page ? page->sessionID() : PAL::SessionID::defaultSessionID();
-        String partition = m_document->domainForCachePartition();
+        SessionID sessionID = page ? page->sessionID() : SessionID::defaultSessionID();
+        String partition = m_document->topDocument().securityOrigin().domainForCachePartition();
         m_handle = m_socketProvider->createSocketStreamHandle(m_handshake->url(), *this, sessionID, partition);
     }
 }
@@ -233,8 +235,7 @@ void WebSocketChannel::fail(const String& reason)
     m_deflateFramer.didFail();
     m_hasContinuousFrame = false;
     m_continuousFrameData.clear();
-    if (m_client)
-        m_client->didReceiveMessageError();
+    m_client->didReceiveMessageError();
 
     if (m_handle && !m_closed)
         m_handle->disconnect(); // Will call didCloseSocketStream() but maybe not synchronously.
@@ -271,16 +272,12 @@ void WebSocketChannel::didOpenSocketStream(SocketStreamHandle& handle)
     ASSERT(&handle == m_handle);
     if (!m_document)
         return;
-    if (m_identifier && UNLIKELY(InspectorInstrumentation::hasFrontends()))
+    if (m_identifier)
         InspectorInstrumentation::willSendWebSocketHandshakeRequest(m_document, m_identifier, m_handshake->clientHandshakeRequest());
-    auto handshakeMessage = m_handshake->clientHandshakeMessage();
-    auto cookieRequestHeaderFieldProxy = m_handshake->clientHandshakeCookieRequestHeaderFieldProxy();
-    handle.sendHandshake(WTFMove(handshakeMessage), WTFMove(cookieRequestHeaderFieldProxy), [this, protectedThis = makeRef(*this)] (bool success, bool didAccessSecureCookies) {
+    CString handshakeMessage = m_handshake->clientHandshakeMessage();
+    handle.sendData(handshakeMessage.data(), handshakeMessage.length(), [this, protectedThis = makeRef(*this)] (bool success) {
         if (!success)
             fail("Failed to send WebSocket handshake.");
-
-        if (didAccessSecureCookies && m_document)
-            m_document->setSecureCookiesAccessed();
     });
 }
 
@@ -421,7 +418,7 @@ void WebSocketChannel::skipBuffer(size_t len)
 {
     ASSERT_WITH_SECURITY_IMPLICATION(len <= m_buffer.size());
     memmove(m_buffer.data(), m_buffer.data() + len, m_buffer.size() - len);
-    m_buffer.shrink(m_buffer.size() - len);
+    m_buffer.resize(m_buffer.size() - len);
 }
 
 bool WebSocketChannel::processBuffer()
@@ -448,11 +445,13 @@ bool WebSocketChannel::processBuffer()
         if (m_handshake->mode() == WebSocketHandshake::Connected) {
             if (m_identifier)
                 InspectorInstrumentation::didReceiveWebSocketHandshakeResponse(m_document, m_identifier, m_handshake->serverHandshakeResponse());
-            String serverSetCookie = m_handshake->serverSetCookie();
-            if (!serverSetCookie.isEmpty()) {
-                if (m_document && cookiesEnabled(*m_document))
-                    setCookies(*m_document, m_handshake->httpURLForAuthenticationAndCookies(), serverSetCookie);
+            if (!m_handshake->serverSetCookie().isEmpty()) {
+                if (m_document && cookiesEnabled(*m_document)) {
+                    // Exception (for sandboxed documents) ignored.
+                    m_document->setCookie(m_handshake->serverSetCookie());
+                }
             }
+            // FIXME: handle set-cookie2.
             LOG(Network, "WebSocketChannel %p Connected", this);
             skipBuffer(headerLength);
             m_client->didConnect();
@@ -496,8 +495,7 @@ void WebSocketChannel::startClosingHandshake(int code, const String& reason)
         unsigned char lowByte = code;
         buf.append(static_cast<char>(highByte));
         buf.append(static_cast<char>(lowByte));
-        auto reasonUTF8 = reason.utf8();
-        buf.append(reasonUTF8.data(), reasonUTF8.length());
+        buf.append(reason.utf8().data(), reason.utf8().length());
     }
     enqueueRawFrame(WebSocketFrame::OpCodeClose, buf.data(), buf.size());
     Ref<WebSocketChannel> protectedThis(*this); // An attempt to send closing handshake may fail, which will get the channel closed and dereferenced.
@@ -833,7 +831,7 @@ void WebSocketChannel::sendFrame(WebSocketFrame::OpCode opCode, const char* data
     m_handle->sendData(frameData.data(), frameData.size(), WTFMove(completionHandler));
 }
 
-ResourceRequest WebSocketChannel::clientHandshakeRequest()
+ResourceRequest WebSocketChannel::clientHandshakeRequest() const
 {
     return m_handshake->clientHandshakeRequest();
 }
@@ -848,4 +846,6 @@ WebSocketHandshake::Mode WebSocketChannel::handshakeMode() const
     return m_handshake->mode();
 }
 
-} // namespace WebCore
+}  // namespace WebCore
+
+#endif  // ENABLE(WEB_SOCKETS)

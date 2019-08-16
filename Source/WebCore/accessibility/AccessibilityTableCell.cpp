@@ -44,11 +44,13 @@ using namespace HTMLNames;
 
 AccessibilityTableCell::AccessibilityTableCell(RenderObject* renderer)
     : AccessibilityRenderObject(renderer)
-    , m_axColIndexFromRow(-1)
+    , m_ariaColIndexFromRow(-1)
 {
 }
 
-AccessibilityTableCell::~AccessibilityTableCell() = default;
+AccessibilityTableCell::~AccessibilityTableCell()
+{
+}
 
 Ref<AccessibilityTableCell> AccessibilityTableCell::create(RenderObject* renderer)
 {
@@ -58,13 +60,13 @@ Ref<AccessibilityTableCell> AccessibilityTableCell::create(RenderObject* rendere
 bool AccessibilityTableCell::computeAccessibilityIsIgnored() const
 {
     AccessibilityObjectInclusion decision = defaultObjectInclusion();
-    if (decision == AccessibilityObjectInclusion::IncludeObject)
+    if (decision == IncludeObject)
         return false;
-    if (decision == AccessibilityObjectInclusion::IgnoreObject)
+    if (decision == IgnoreObject)
         return true;
     
     // Ignore anonymous table cells as long as they're not in a table (ie. when display:table is used).
-    RenderObject* renderTable = is<RenderTableCell>(renderer()) ? downcast<RenderTableCell>(*m_renderer).table() : nullptr;
+    RenderObject* renderTable = is<RenderTableCell>(m_renderer) ? downcast<RenderTableCell>(*m_renderer).table() : nullptr;
     bool inTable = renderTable && renderTable->node() && (renderTable->node()->hasTagName(tableTag) || nodeHasRole(renderTable->node(), "grid"));
     if (!node() && !inTable)
         return true;
@@ -77,7 +79,7 @@ bool AccessibilityTableCell::computeAccessibilityIsIgnored() const
 
 AccessibilityTable* AccessibilityTableCell::parentTable() const
 {
-    if (!is<RenderTableCell>(renderer()))
+    if (!is<RenderTableCell>(m_renderer))
         return nullptr;
 
     // If the document no longer exists, we might not have an axObjectCache.
@@ -128,17 +130,17 @@ AccessibilityRole AccessibilityTableCell::determineAccessibilityRole()
     // role, falling back on the role to be used if we determine here that the element
     // should not be exposed as a cell. Thus if we already know it's a cell, return that.
     AccessibilityRole defaultRole = AccessibilityRenderObject::determineAccessibilityRole();
-    if (defaultRole == AccessibilityRole::ColumnHeader || defaultRole == AccessibilityRole::RowHeader || defaultRole == AccessibilityRole::Cell || defaultRole == AccessibilityRole::GridCell)
+    if (defaultRole == ColumnHeaderRole || defaultRole == RowHeaderRole || defaultRole == CellRole || defaultRole == GridCellRole)
         return defaultRole;
 
     if (!isTableCell())
         return defaultRole;
     if (isColumnHeaderCell())
-        return AccessibilityRole::ColumnHeader;
+        return ColumnHeaderRole;
     if (isRowHeaderCell())
-        return AccessibilityRole::RowHeader;
+        return RowHeaderRole;
 
-    return AccessibilityRole::Cell;
+    return CellRole;
 }
     
 bool AccessibilityTableCell::isTableHeaderCell() const
@@ -312,7 +314,7 @@ AccessibilityTableRow* AccessibilityTableCell::parentRow() const
 
 void AccessibilityTableCell::rowIndexRange(std::pair<unsigned, unsigned>& rowRange) const
 {
-    if (!is<RenderTableCell>(renderer()))
+    if (!is<RenderTableCell>(m_renderer))
         return;
     
     RenderTableCell& renderCell = downcast<RenderTableCell>(*m_renderer);
@@ -320,7 +322,7 @@ void AccessibilityTableCell::rowIndexRange(std::pair<unsigned, unsigned>& rowRan
     // ARIA 1.1's aria-rowspan attribute is intended for cells and gridcells which are not contained
     // in a native table. But if we have a valid author-provided value and do not have an explicit
     // native host language value for the rowspan, expose the ARIA value.
-    rowRange.second = axRowSpan();
+    rowRange.second = ariaRowSpan();
     if (static_cast<int>(rowRange.second) == -1)
         rowRange.second = renderCell.rowSpan();
     
@@ -330,7 +332,7 @@ void AccessibilityTableCell::rowIndexRange(std::pair<unsigned, unsigned>& rowRan
     
 void AccessibilityTableCell::columnIndexRange(std::pair<unsigned, unsigned>& columnRange) const
 {
-    if (!is<RenderTableCell>(renderer()))
+    if (!is<RenderTableCell>(m_renderer))
         return;
     
     const RenderTableCell& cell = downcast<RenderTableCell>(*m_renderer);
@@ -339,7 +341,7 @@ void AccessibilityTableCell::columnIndexRange(std::pair<unsigned, unsigned>& col
     // ARIA 1.1's aria-colspan attribute is intended for cells and gridcells which are not contained
     // in a native table. But if we have a valid author-provided value and do not have an explicit
     // native host language value for the colspan, expose the ARIA value.
-    columnRange.second = axColumnSpan();
+    columnRange.second = ariaColumnSpan();
     if (static_cast<int>(columnRange.second) != -1)
         return;
 
@@ -351,7 +353,7 @@ AccessibilityObject* AccessibilityTableCell::titleUIElement() const
     // Try to find if the first cell in this row is a <th>. If it is,
     // then it can act as the title ui element. (This is only in the
     // case when the table is not appearing as an AXTable.)
-    if (isTableCell() || !is<RenderTableCell>(renderer()))
+    if (isTableCell() || !is<RenderTableCell>(m_renderer))
         return nullptr;
 
     // Table cells that are th cannot have title ui elements, since by definition
@@ -383,23 +385,23 @@ AccessibilityObject* AccessibilityTableCell::titleUIElement() const
     return axObjectCache()->getOrCreate(headerCell);
 }
     
-int AccessibilityTableCell::axColumnIndex() const
+int AccessibilityTableCell::ariaColumnIndex() const
 {
     const AtomicString& colIndexValue = getAttribute(aria_colindexAttr);
     if (colIndexValue.toInt() >= 1)
         return colIndexValue.toInt();
-
+    
     // "ARIA 1.1: If the set of columns which is present in the DOM is contiguous, and if there are no cells which span more than one row
     // or column in that set, then authors may place aria-colindex on each row, setting the value to the index of the first column of the set."
     // Here, we let its parent row to set its index beforehand, so we don't have to go through the siblings to calculate the index.
     AccessibilityTableRow* parentRow = this->parentRow();
-    if (parentRow && m_axColIndexFromRow != -1)
-        return m_axColIndexFromRow;
+    if (parentRow && m_ariaColIndexFromRow != -1)
+        return m_ariaColIndexFromRow;
     
     return -1;
 }
     
-int AccessibilityTableCell::axRowIndex() const
+int AccessibilityTableCell::ariaRowIndex() const
 {
     // ARIA 1.1: Authors should place aria-rowindex on each row. Authors may also place
     // aria-rowindex on all of the children or owned elements of each row.
@@ -408,12 +410,12 @@ int AccessibilityTableCell::axRowIndex() const
         return rowIndexValue.toInt();
     
     if (AccessibilityTableRow* parentRow = this->parentRow())
-        return parentRow->axRowIndex();
+        return parentRow->ariaRowIndex();
     
     return -1;
 }
 
-int AccessibilityTableCell::axColumnSpan() const
+int AccessibilityTableCell::ariaColumnSpan() const
 {
     // According to the ARIA spec, "If aria-colpan is used on an element for which the host language
     // provides an equivalent attribute, user agents must ignore the value of aria-colspan."
@@ -428,7 +430,7 @@ int AccessibilityTableCell::axColumnSpan() const
     return -1;
 }
 
-int AccessibilityTableCell::axRowSpan() const
+int AccessibilityTableCell::ariaRowSpan() const
 {
     // According to the ARIA spec, "If aria-rowspan is used on an element for which the host language
     // provides an equivalent attribute, user agents must ignore the value of aria-rowspan."

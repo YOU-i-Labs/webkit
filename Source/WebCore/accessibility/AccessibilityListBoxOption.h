@@ -45,7 +45,7 @@ public:
     
     void setHTMLElement(HTMLElement* element) { m_optionElement = element; }
     
-    AccessibilityRole roleValue() const override { return AccessibilityRole::ListBoxOption; }
+    AccessibilityRole roleValue() const override { return ListBoxOptionRole; }
     bool isSelected() const override;
     bool isEnabled() const override;
     bool isSelectedOptionActive() const override;

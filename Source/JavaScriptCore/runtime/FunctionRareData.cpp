@@ -27,7 +27,6 @@
 #include "FunctionRareData.h"
 
 #include "JSCInlines.h"
-#include "ObjectAllocationProfileInlines.h"
 
 namespace JSC {
 
@@ -54,7 +53,6 @@ Structure* FunctionRareData::createStructure(VM& vm, JSGlobalObject* globalObjec
 void FunctionRareData::visitChildren(JSCell* cell, SlotVisitor& visitor)
 {
     FunctionRareData* rareData = jsCast<FunctionRareData*>(cell);
-    Base::visitChildren(cell, visitor);
 
     rareData->m_objectAllocationProfile.visitAggregate(visitor);
     rareData->m_internalFunctionAllocationProfile.visitAggregate(visitor);
@@ -65,8 +63,14 @@ FunctionRareData::FunctionRareData(VM& vm)
     : Base(vm, vm.functionRareDataStructure.get())
     , m_objectAllocationProfile()
     // We initialize blind so that changes to the prototype after function creation but before
-    // the first allocation don't disable optimizations. This isn't super important, since the
-    // function is unlikely to allocate a rare data until the first allocation anyway.
+    // the optimizer kicks in don't disable optimizations. Once the optimizer kicks in, the
+    // watchpoint will start watching and any changes will both force deoptimization and disable
+    // future attempts to optimize. This is necessary because we are guaranteed that the
+    // allocation profile is changed exactly once prior to optimizations kicking in. We could be
+    // smarter and count the number of times the prototype is clobbered and only optimize if it
+    // was clobbered exactly once, but that seems like overkill. In almost all cases it will be
+    // clobbered once, and if it's clobbered more than once, that will probably only occur
+    // before we started optimizing, anyway.
     , m_objectAllocationProfileWatchpoint(ClearWatchpoint)
 {
 }
@@ -75,12 +79,9 @@ FunctionRareData::~FunctionRareData()
 {
 }
 
-void FunctionRareData::initializeObjectAllocationProfile(VM& vm, JSGlobalObject* globalObject, JSObject* prototype, size_t inlineCapacity, JSFunction* constructor)
+void FunctionRareData::initializeObjectAllocationProfile(VM& vm, JSGlobalObject* globalObject, JSObject* prototype, size_t inlineCapacity)
 {
-    if (m_objectAllocationProfileWatchpoint.isStillValid())
-        m_objectAllocationProfileWatchpoint.startWatching();
-    
-    m_objectAllocationProfile.initializeProfile(vm, globalObject, this, prototype, inlineCapacity, constructor, this);
+    m_objectAllocationProfile.initialize(vm, globalObject, this, prototype, inlineCapacity);
 }
 
 void FunctionRareData::clear(const char* reason)
@@ -88,11 +89,6 @@ void FunctionRareData::clear(const char* reason)
     m_objectAllocationProfile.clear();
     m_internalFunctionAllocationProfile.clear();
     m_objectAllocationProfileWatchpoint.fireAll(*vm(), reason);
-}
-
-void FunctionRareData::AllocationProfileClearingWatchpoint::fireInternal(VM&, const FireDetail&)
-{
-    m_rareData->clear("AllocationProfileClearingWatchpoint fired.");
 }
 
 }

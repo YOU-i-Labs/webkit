@@ -23,9 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
-#include <wtf/FastMalloc.h>
+#ifndef MallocPtr_h
+#define MallocPtr_h
 
 // MallocPtr is a smart pointer class that calls fastFree in its destructor.
 // It is intended to be used for pointers where the C++ lifetime semantics
@@ -33,7 +32,7 @@
 
 namespace WTF {
 
-template<typename T, typename Malloc = FastMalloc> class MallocPtr {
+template<typename T> class MallocPtr {
 public:
     MallocPtr()
         : m_ptr(nullptr)
@@ -52,7 +51,7 @@ public:
 
     ~MallocPtr()
     {
-        Malloc::free(m_ptr);
+        fastFree(m_ptr);
     }
 
     T* get() const
@@ -63,11 +62,6 @@ public:
     T *leakPtr() WARN_UNUSED_RETURN
     {
         return std::exchange(m_ptr, nullptr);
-    }
-
-    explicit operator bool() const
-    {
-        return m_ptr;
     }
 
     bool operator!() const
@@ -103,17 +97,15 @@ public:
 
     static MallocPtr malloc(size_t size)
     {
-        return MallocPtr { static_cast<T*>(Malloc::malloc(size)) };
-    }
+        MallocPtr mallocPtr;
+        mallocPtr.m_ptr = static_cast<T*>(fastMalloc(size));
 
-    static MallocPtr tryMalloc(size_t size)
-    {
-        return MallocPtr { static_cast<T*>(Malloc::tryMalloc(size)) };
+        return mallocPtr;
     }
 
     void realloc(size_t newSize)
     {
-        m_ptr = static_cast<T*>(Malloc::realloc(m_ptr, newSize));
+        m_ptr = static_cast<T*>(fastRealloc(m_ptr, newSize));
     }
 
 private:
@@ -125,8 +117,6 @@ private:
     T* m_ptr;
 };
 
-static_assert(sizeof(MallocPtr<int>) == sizeof(int*), "");
-
 template<typename U> MallocPtr<U> adoptMallocPtr(U* ptr)
 {
     return MallocPtr<U>(ptr);
@@ -136,3 +126,5 @@ template<typename U> MallocPtr<U> adoptMallocPtr(U* ptr)
 
 using WTF::MallocPtr;
 using WTF::adoptMallocPtr;
+
+#endif // MallocPtr_h

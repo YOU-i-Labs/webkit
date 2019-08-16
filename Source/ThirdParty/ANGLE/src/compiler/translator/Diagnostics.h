@@ -50,18 +50,6 @@ class TDiagnostics : public pp::Diagnostics, angle::NonCopyable
     int mNumWarnings;
 };
 
-// Diagnostics wrapper to use when the code is only allowed to generate warnings.
-class PerformanceDiagnostics : public angle::NonCopyable
-{
-  public:
-    PerformanceDiagnostics(TDiagnostics *diagnostics);
-
-    void warning(const TSourceLoc &loc, const char *reason, const char *token);
-
-  private:
-    TDiagnostics *mDiagnostics;
-};
-
 }  // namespace sh
 
 #endif  // COMPILER_TRANSLATOR_DIAGNOSTICS_H_

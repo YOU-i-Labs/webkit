@@ -51,6 +51,8 @@ public:
     // Helper function determining wheter overflow is hidden
     static bool isOverflowHidden(const RenderElement&);
 
+    static void intersectRepaintRectWithShadows(const RenderElement&, FloatRect&);
+
     // Calculates the repaintRect in combination with filter, clipper and masker in local coordinates.
     static void intersectRepaintRectWithResources(const RenderElement&, FloatRect&);
 
@@ -64,8 +66,9 @@ public:
     static bool paintInfoIntersectsRepaintRect(const FloatRect& localRepaintRect, const AffineTransform& localTransform, const PaintInfo&);
 
     // Important functions used by nearly all SVG renderers centralizing coordinate transformations / repaint rect calculations
+    static FloatRect repaintRectForRendererInLocalCoordinatesExcludingSVGShadow(const RenderElement&);
     static LayoutRect clippedOverflowRectForRepaint(const RenderElement&, const RenderLayerModelObject* repaintContainer);
-    static Optional<FloatRect> computeFloatVisibleRectInContainer(const RenderElement&, const FloatRect&, const RenderLayerModelObject* container, RenderObject::VisibleRectContext);
+    static FloatRect computeFloatRectForRepaint(const RenderElement&, const FloatRect&, const RenderLayerModelObject* repaintContainer, bool fixed);
     static const RenderElement& localToParentTransform(const RenderElement&, AffineTransform &);
     static void mapLocalToContainer(const RenderElement&, const RenderLayerModelObject* repaintContainer, TransformState&, bool* wasFixed);
     static const RenderElement* pushMappingToContainer(const RenderElement&, const RenderLayerModelObject* ancestorToStopAt, RenderGeometryMap&);
@@ -77,8 +80,11 @@ public:
     // Determines if any ancestor's transform has changed.
     static bool transformToRootChanged(RenderElement*);
 
-    static void clipContextToCSSClippingArea(GraphicsContext&, const RenderElement& renderer);
+    // Helper functions to keep track of whether a renderer has an SVG shadow applied.
+    static bool rendererHasSVGShadow(const RenderObject&);
+    static void setRendererHasSVGShadow(RenderObject&, bool hasShadow);
 
+    static void childAdded(RenderElement& parent, RenderObject& child);
     static void styleChanged(RenderElement&, const RenderStyle*);
 
 #if ENABLE(CSS_COMPOSITING)

@@ -21,10 +21,12 @@
 
 #pragma once
 
+#include "CachedResourceClient.h"
+#include "CachedResourceHandle.h"
 #include "ContainerNode.h"
 #include "LoadableScript.h"
-#include "UserGestureIndicator.h"
-#include <wtf/MonotonicTime.h>
+#include "LoadableScriptClient.h"
+#include "Timer.h"
 #include <wtf/text/TextPosition.h>
 
 namespace WebCore {
@@ -35,10 +37,11 @@ class Element;
 class LoadableModuleScript;
 class PendingScript;
 class ScriptSourceCode;
+class URL;
 
 class ScriptElement {
 public:
-    virtual ~ScriptElement() = default;
+    virtual ~ScriptElement() { }
 
     Element& element() { return m_element; }
     const Element& element() const { return m_element; }
@@ -80,14 +83,8 @@ protected:
     bool forceAsync() const { return m_forceAsync; }
 
     // Helper functions used by our parent classes.
-    Node::InsertedIntoAncestorResult insertedIntoAncestor(Node::InsertionType insertionType, ContainerNode&) const
-    {
-        if (insertionType.connectedToDocument && !m_parserInserted)
-            return Node::InsertedIntoAncestorResult::NeedsPostInsertionCallback;
-        return Node::InsertedIntoAncestorResult::Done;
-    }
-
-    void didFinishInsertingNode();
+    bool shouldCallFinishedInsertingSubtree(ContainerNode&);
+    void finishedInsertingSubtree();
     void childrenChanged(const ContainerNode::ChildChange&);
     void handleSourceAttribute(const String& sourceURL);
     void handleAsyncAttribute();
@@ -95,10 +92,9 @@ protected:
 private:
     void executeScriptAndDispatchEvent(LoadableScript&);
 
-    Optional<ScriptType> determineScriptType(LegacyTypeSupport) const;
+    std::optional<ScriptType> determineScriptType(LegacyTypeSupport) const;
     bool ignoresLoadRequest() const;
     bool isScriptForEventSupported() const;
-    void dispatchLoadEventRespectingUserGestureIndicator();
 
     bool requestClassicScript(const String& sourceURL);
     bool requestModuleScript(const TextPosition& scriptStartPosition);
@@ -129,9 +125,6 @@ private:
     String m_characterEncoding;
     String m_fallbackCharacterEncoding;
     RefPtr<LoadableScript> m_loadableScript;
-
-    MonotonicTime m_creationTime;
-    RefPtr<UserGestureToken> m_userGestureToken;
 };
 
 // FIXME: replace with is/downcast<ScriptElement>.

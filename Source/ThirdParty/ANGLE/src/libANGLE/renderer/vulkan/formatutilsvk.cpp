@@ -8,7 +8,6 @@
 
 #include "libANGLE/renderer/vulkan/formatutilsvk.h"
 
-#include "libANGLE/formatutils.h"
 #include "libANGLE/renderer/load_functions_table.h"
 
 namespace rx
@@ -17,52 +16,14 @@ namespace rx
 namespace vk
 {
 
-Format::Format()
-    : internalFormat(GL_NONE),
-      textureFormatID(angle::Format::ID::NONE),
-      vkTextureFormat(VK_FORMAT_UNDEFINED),
-      bufferFormatID(angle::Format::ID::NONE),
-      vkBufferFormat(VK_FORMAT_UNDEFINED),
-      dataInitializerFunction(nullptr),
-      loadFunctions()
+const angle::Format &Format::format() const
 {
+    return angle::Format::Get(formatID);
 }
 
-const angle::Format &Format::textureFormat() const
+LoadFunctionMap Format::getLoadFunctions() const
 {
-    return angle::Format::Get(textureFormatID);
-}
-
-const angle::Format &Format::bufferFormat() const
-{
-    return angle::Format::Get(bufferFormatID);
-}
-
-FormatTable::FormatTable()
-{
-}
-
-FormatTable::~FormatTable()
-{
-}
-
-void FormatTable::initialize(VkPhysicalDevice physicalDevice, gl::TextureCapsMap *textureCapsMap)
-{
-    for (size_t formatIndex = 0; formatIndex < angle::kNumANGLEFormats; ++formatIndex)
-    {
-        angle::Format::ID formatID       = static_cast<angle::Format::ID>(formatIndex);
-        const angle::Format &angleFormat = angle::Format::Get(formatID);
-        mFormatData[formatIndex].initialize(physicalDevice, angleFormat);
-
-        mFormatData[formatIndex].loadFunctions = GetLoadFunctionsMap(
-            mFormatData[formatIndex].internalFormat, mFormatData[formatIndex].textureFormatID);
-    }
-}
-
-const Format &FormatTable::operator[](GLenum internalFormat) const
-{
-    angle::Format::ID formatID = angle::Format::InternalFormatToID(internalFormat);
-    return mFormatData[static_cast<size_t>(formatID)];
+    return GetLoadFunctionsMap(internalFormat, formatID);
 }
 
 // TODO(jmadill): This is temporary. Figure out how to handle format conversions.
@@ -74,37 +35,53 @@ VkFormat GetNativeVertexFormat(gl::VertexFormatType vertexFormat)
             UNREACHABLE();
             return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_SBYTE1:
-            return VK_FORMAT_R8_SINT;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_SBYTE1_NORM:
-            return VK_FORMAT_R8_SNORM;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_SBYTE2:
-            return VK_FORMAT_R8G8_SINT;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_SBYTE2_NORM:
-            return VK_FORMAT_R8G8_SNORM;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_SBYTE3:
-            return VK_FORMAT_R8G8B8_SINT;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_SBYTE3_NORM:
-            return VK_FORMAT_R8G8B8_SNORM;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_SBYTE4:
-            return VK_FORMAT_R8G8B8A8_SINT;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_SBYTE4_NORM:
-            return VK_FORMAT_R8G8B8A8_SNORM;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_UBYTE1:
-            return VK_FORMAT_R8_UINT;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_UBYTE1_NORM:
-            return VK_FORMAT_R8_UNORM;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_UBYTE2:
-            return VK_FORMAT_R8G8_UINT;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_UBYTE2_NORM:
-            return VK_FORMAT_R8G8_UNORM;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_UBYTE3:
-            return VK_FORMAT_R8G8B8_UINT;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_UBYTE3_NORM:
-            return VK_FORMAT_R8G8B8_UNORM;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_UBYTE4:
-            return VK_FORMAT_R8G8B8A8_UINT;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_UBYTE4_NORM:
-            return VK_FORMAT_R8G8B8A8_UNORM;
+            UNIMPLEMENTED();
+            return VK_FORMAT_UNDEFINED;
         case gl::VERTEX_FORMAT_SSHORT1:
             UNIMPLEMENTED();
             return VK_FORMAT_UNDEFINED;

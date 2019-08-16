@@ -35,11 +35,11 @@ namespace JSC {
 class AbstractModuleRecord;
 class Register;
 
-class JSModuleEnvironment final : public JSLexicalEnvironment {
+class JSModuleEnvironment : public JSLexicalEnvironment {
     friend class JIT;
     friend class LLIntOffsetsExtractor;
 public:
-    using Base = JSLexicalEnvironment;
+    typedef JSLexicalEnvironment Base;
     static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesGetPropertyNames;
 
     static JSModuleEnvironment* create(VM&, Structure*, JSScope*, SymbolTable*, JSValue initialValue, AbstractModuleRecord*);

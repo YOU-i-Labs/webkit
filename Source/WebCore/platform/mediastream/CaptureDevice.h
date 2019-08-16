@@ -25,13 +25,15 @@
 
 #pragma once
 
+#if ENABLE(MEDIA_STREAM)
+
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class CaptureDevice {
 public:
-    enum class DeviceType { Unknown, Microphone, Camera, Screen, Window };
+    enum class DeviceType { Unknown, Audio, Video };
 
     CaptureDevice(const String& persistentId, DeviceType type, const String& label, const String& groupId = emptyString())
         : m_persistentId(persistentId)
@@ -44,62 +46,19 @@ public:
     CaptureDevice() = default;
 
     const String& persistentId() const { return m_persistentId; }
+    void setPersistentId(const String& id) { m_persistentId = id; }
 
     const String& label() const { return m_label; }
+    void setLabel(const String& label) { m_label = label; }
 
     const String& groupId() const { return m_groupId; }
+    void setGroupId(const String& id) { m_groupId = id; }
 
     DeviceType type() const { return m_type; }
+    void setType(DeviceType type) { m_type = type; }
 
     bool enabled() const { return m_enabled; }
     void setEnabled(bool enabled) { m_enabled = enabled; }
-
-    explicit operator bool() const { return m_type != DeviceType::Unknown; }
-
-#if ENABLE(MEDIA_STREAM)
-    template<class Encoder>
-    void encode(Encoder& encoder) const
-    {
-        encoder << m_persistentId;
-        encoder << m_label;
-        encoder << m_groupId;
-        encoder << m_enabled;
-        encoder.encodeEnum(m_type);
-    }
-
-    template <class Decoder>
-    static Optional<CaptureDevice> decode(Decoder& decoder)
-    {
-        Optional<String> persistentId;
-        decoder >> persistentId;
-        if (!persistentId)
-            return WTF::nullopt;
-
-        Optional<String> label;
-        decoder >> label;
-        if (!label)
-            return WTF::nullopt;
-
-        Optional<String> groupId;
-        decoder >> groupId;
-        if (!groupId)
-            return WTF::nullopt;
-
-        Optional<bool> enabled;
-        decoder >> enabled;
-        if (!enabled)
-            return WTF::nullopt;
-
-        Optional<CaptureDevice::DeviceType> type;
-        decoder >> type;
-        if (!type)
-            return WTF::nullopt;
-
-        Optional<CaptureDevice> device = {{ WTFMove(*persistentId), WTFMove(*type), WTFMove(*label), WTFMove(*groupId) }};
-        device->setEnabled(*enabled);
-        return device;
-    }
-#endif
 
 private:
     String m_persistentId;
@@ -111,20 +70,4 @@ private:
 
 } // namespace WebCore
 
-#if ENABLE(MEDIA_STREAM)
-namespace WTF {
-
-template<> struct EnumTraits<WebCore::CaptureDevice::DeviceType> {
-    using values = EnumValues<
-        WebCore::CaptureDevice::DeviceType,
-        WebCore::CaptureDevice::DeviceType::Unknown,
-        WebCore::CaptureDevice::DeviceType::Microphone,
-        WebCore::CaptureDevice::DeviceType::Camera,
-        WebCore::CaptureDevice::DeviceType::Screen,
-        WebCore::CaptureDevice::DeviceType::Window
-    >;
-};
-
-} // namespace WTF
-#endif
-
+#endif // ENABLE(MEDIA_STREAM)

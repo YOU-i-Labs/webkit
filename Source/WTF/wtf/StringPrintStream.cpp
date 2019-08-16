@@ -24,11 +24,12 @@
  */
 
 #include "config.h"
-#include <wtf/StringPrintStream.h>
+#include "StringPrintStream.h"
 
 #include <stdarg.h>
 #include <stdio.h>
 #include <wtf/FastMalloc.h>
+#include <wtf/StringExtras.h>
 
 namespace WTF {
 

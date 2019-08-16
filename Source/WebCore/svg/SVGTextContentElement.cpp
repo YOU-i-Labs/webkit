@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006, 2007, 2008 Rob Buis <buis@kde.org>
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,7 +23,6 @@
 
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
-#include "DOMPoint.h"
 #include "Frame.h"
 #include "FrameSelection.h"
 #include "RenderObject.h"
@@ -36,18 +34,71 @@
 #include "SVGRect.h"
 #include "SVGTextQuery.h"
 #include "XMLNames.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(SVGTextContentElement);
  
+// Define custom animated property 'textLength'.
+const SVGPropertyInfo* SVGTextContentElement::textLengthPropertyInfo()
+{
+    static const SVGPropertyInfo* s_propertyInfo = nullptr;
+    if (!s_propertyInfo) {
+        s_propertyInfo = new SVGPropertyInfo(AnimatedLength,
+                                             PropertyIsReadWrite,
+                                             SVGNames::textLengthAttr,
+                                             SVGNames::textLengthAttr.localName(),
+                                             &SVGTextContentElement::synchronizeTextLength,
+                                             &SVGTextContentElement::lookupOrCreateTextLengthWrapper);
+    }
+    return s_propertyInfo;
+}
+
+// Animated property definitions
+DEFINE_ANIMATED_ENUMERATION(SVGTextContentElement, SVGNames::lengthAdjustAttr, LengthAdjust, lengthAdjust, SVGLengthAdjustType)
+DEFINE_ANIMATED_BOOLEAN(SVGTextContentElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
+
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGTextContentElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(textLength)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(lengthAdjust)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGGraphicsElement)
+END_REGISTER_ANIMATED_PROPERTIES
+
 SVGTextContentElement::SVGTextContentElement(const QualifiedName& tagName, Document& document)
     : SVGGraphicsElement(tagName, document)
-    , SVGExternalResourcesRequired(this)
+    , m_textLength(LengthModeOther)
+    , m_specifiedTextLength(LengthModeOther)
+    , m_lengthAdjust(SVGLengthAdjustSpacing)
 {
-    registerAttributes();
+    registerAnimatedPropertiesForSVGTextContentElement();
+}
+
+void SVGTextContentElement::synchronizeTextLength(SVGElement* contextElement)
+{
+    ASSERT(contextElement);
+    SVGTextContentElement& ownerType = downcast<SVGTextContentElement>(*contextElement);
+    if (!ownerType.m_textLength.shouldSynchronize)
+        return;
+    AtomicString value(SVGPropertyTraits<SVGLengthValue>::toString(ownerType.m_specifiedTextLength));
+    ownerType.m_textLength.synchronize(&ownerType, textLengthPropertyInfo()->attributeName, value);
+}
+
+Ref<SVGAnimatedProperty> SVGTextContentElement::lookupOrCreateTextLengthWrapper(SVGElement* contextElement)
+{
+    ASSERT(contextElement);
+    SVGTextContentElement& ownerType = downcast<SVGTextContentElement>(*contextElement);
+    return SVGAnimatedProperty::lookupOrCreateWrapper<SVGTextContentElement, SVGAnimatedLength, SVGLengthValue>
+        (&ownerType, textLengthPropertyInfo(), ownerType.m_textLength.value);
+}
+
+Ref<SVGAnimatedLength> SVGTextContentElement::textLengthAnimated()
+{
+    static NeverDestroyed<SVGLengthValue> defaultTextLength(LengthModeOther);
+    if (m_specifiedTextLength == defaultTextLength)
+        m_textLength.value.newValueSpecifiedUnits(LengthTypeNumber, getComputedTextLength());
+
+    m_textLength.shouldSynchronize = true;
+    return static_reference_cast<SVGAnimatedLength>(lookupOrCreateTextLengthWrapper(this));
 }
 
 unsigned SVGTextContentElement::getNumberOfChars()
@@ -66,7 +117,7 @@ ExceptionOr<float> SVGTextContentElement::getSubStringLength(unsigned charnum, u
 {
     unsigned numberOfChars = getNumberOfChars();
     if (charnum >= numberOfChars)
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     nchars = std::min(nchars, numberOfChars - charnum);
     return SVGTextQuery(renderer()).subStringLength(charnum, nchars);
@@ -75,7 +126,7 @@ ExceptionOr<float> SVGTextContentElement::getSubStringLength(unsigned charnum, u
 ExceptionOr<Ref<SVGPoint>> SVGTextContentElement::getStartPositionOfChar(unsigned charnum)
 {
     if (charnum > getNumberOfChars())
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     return SVGPoint::create(SVGTextQuery(renderer()).startPositionOfCharacter(charnum));
 }
@@ -83,7 +134,7 @@ ExceptionOr<Ref<SVGPoint>> SVGTextContentElement::getStartPositionOfChar(unsigne
 ExceptionOr<Ref<SVGPoint>> SVGTextContentElement::getEndPositionOfChar(unsigned charnum)
 {
     if (charnum > getNumberOfChars())
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     return SVGPoint::create(SVGTextQuery(renderer()).endPositionOfCharacter(charnum));
 }
@@ -91,7 +142,7 @@ ExceptionOr<Ref<SVGPoint>> SVGTextContentElement::getEndPositionOfChar(unsigned 
 ExceptionOr<Ref<SVGRect>> SVGTextContentElement::getExtentOfChar(unsigned charnum)
 {
     if (charnum > getNumberOfChars())
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     return SVGRect::create(SVGTextQuery(renderer()).extentOfCharacter(charnum));
 }
@@ -99,23 +150,22 @@ ExceptionOr<Ref<SVGRect>> SVGTextContentElement::getExtentOfChar(unsigned charnu
 ExceptionOr<float> SVGTextContentElement::getRotationOfChar(unsigned charnum)
 {
     if (charnum > getNumberOfChars())
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     return SVGTextQuery(renderer()).rotationOfCharacter(charnum);
 }
 
-int SVGTextContentElement::getCharNumAtPosition(DOMPointInit&& pointInit)
+int SVGTextContentElement::getCharNumAtPosition(SVGPoint& point)
 {
     document().updateLayoutIgnorePendingStylesheets();
-    FloatPoint transformPoint {static_cast<float>(pointInit.x), static_cast<float>(pointInit.y)};
-    return SVGTextQuery(renderer()).characterNumberAtPosition(transformPoint);
+    return SVGTextQuery(renderer()).characterNumberAtPosition(point.propertyReference());
 }
 
 ExceptionOr<void> SVGTextContentElement::selectSubString(unsigned charnum, unsigned nchars)
 {
     unsigned numberOfChars = getNumberOfChars();
     if (charnum >= numberOfChars)
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     nchars = std::min(nchars, numberOfChars - charnum);
 
@@ -138,6 +188,18 @@ ExceptionOr<void> SVGTextContentElement::selectSubString(unsigned charnum, unsig
     return { };
 }
 
+bool SVGTextContentElement::isSupportedAttribute(const QualifiedName& attrName)
+{
+    static NeverDestroyed<HashSet<QualifiedName>> supportedAttributes;
+    if (supportedAttributes.get().isEmpty()) {
+        SVGLangSpace::addSupportedAttributes(supportedAttributes);
+        SVGExternalResourcesRequired::addSupportedAttributes(supportedAttributes);
+        supportedAttributes.get().add(SVGNames::lengthAdjustAttr);
+        supportedAttributes.get().add(SVGNames::textLengthAttr);
+    }
+    return supportedAttributes.get().contains<SVGAttributeHashTranslator>(attrName);
+}
+
 bool SVGTextContentElement::isPresentationAttribute(const QualifiedName& name) const
 {
     if (name.matches(XMLNames::spaceAttr))
@@ -158,15 +220,6 @@ void SVGTextContentElement::collectStyleForPresentationAttribute(const Qualified
     SVGGraphicsElement::collectStyleForPresentationAttribute(name, value, style);
 }
 
-void SVGTextContentElement::registerAttributes()
-{
-    auto& registry = attributeRegistry();
-    if (!registry.isEmpty())
-        return;
-    registry.registerAttribute(SVGAnimatedCustomLengthAttributeAccessor::singleton<SVGNames::textLengthAttr, &SVGTextContentElement::m_textLength>());
-    registry.registerAttribute<SVGNames::lengthAdjustAttr, SVGLengthAdjustType, &SVGTextContentElement::m_lengthAdjust>();
-}
-
 void SVGTextContentElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     SVGParsingError parseError = NoError;
@@ -174,9 +227,9 @@ void SVGTextContentElement::parseAttribute(const QualifiedName& name, const Atom
     if (name == SVGNames::lengthAdjustAttr) {
         auto propertyValue = SVGPropertyTraits<SVGLengthAdjustType>::fromString(value);
         if (propertyValue > 0)
-            m_lengthAdjust.setValue(propertyValue);
+            setLengthAdjustBaseValue(propertyValue);
     } else if (name == SVGNames::textLengthAttr)
-        m_textLength.setValue(SVGLengthValue::construct(LengthModeOther, value, parseError, ForbidNegativeLengths));
+        m_textLength.value = SVGLengthValue::construct(LengthModeOther, value, parseError, ForbidNegativeLengths);
 
     reportAttributeParsingError(parseError, name, value);
 
@@ -186,19 +239,18 @@ void SVGTextContentElement::parseAttribute(const QualifiedName& name, const Atom
 
 void SVGTextContentElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    if (isKnownAttribute(attrName)) {
-        if (attrName == SVGNames::textLengthAttr)
-            m_specifiedTextLength = m_textLength.value();
-
-        if (auto renderer = this->renderer()) {
-            InstanceInvalidationGuard guard(*this);
-            RenderSVGResource::markForLayoutAndParentResourceInvalidation(*renderer);
-        }
+    if (!isSupportedAttribute(attrName)) {
+        SVGGraphicsElement::svgAttributeChanged(attrName);
         return;
     }
 
-    SVGGraphicsElement::svgAttributeChanged(attrName);
-    SVGExternalResourcesRequired::svgAttributeChanged(attrName);
+    if (attrName == SVGNames::textLengthAttr)
+        m_specifiedTextLength = m_textLength.value;
+
+    if (auto renderer = this->renderer()) {
+        InstanceInvalidationGuard guard(*this);
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(*renderer);
+    }
 }
 
 bool SVGTextContentElement::selfHasRelativeLengths() const
@@ -220,7 +272,7 @@ SVGTextContentElement* SVGTextContentElement::elementFromRenderer(RenderObject* 
     SVGElement* element = downcast<SVGElement>(renderer->node());
     ASSERT(element);
 
-    if (!is<SVGTextContentElement>(element))
+    if (!is<SVGTextContentElement>(*element))
         return nullptr;
 
     return downcast<SVGTextContentElement>(element);

@@ -32,5 +32,4 @@ find_package(PkgConfig)
 pkg_check_modules(WAYLAND wayland-client wayland-server wayland-egl)
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(Wayland REQUIRED_VARS WAYLAND_LIBRARIES
-                                  FOUND_VAR WAYLAND_FOUND)
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(WAYLAND DEFAULT_MSG WAYLAND_LIBRARIES)

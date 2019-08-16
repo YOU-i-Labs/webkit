@@ -22,7 +22,7 @@
 
 namespace WebCore {
 
-PointerEventsHitRules::PointerEventsHitRules(EHitTesting hitTesting, const HitTestRequest& request, PointerEvents pointerEvents)
+PointerEventsHitRules::PointerEventsHitRules(EHitTesting hitTesting, const HitTestRequest& request, EPointerEvents pointerEvents)
     : requireVisible(false)
     , requireFill(false)
     , requireStroke(false)
@@ -30,78 +30,78 @@ PointerEventsHitRules::PointerEventsHitRules(EHitTesting hitTesting, const HitTe
     , canHitFill(false)
 {
     if (request.svgClipContent())
-        pointerEvents = PointerEvents::Fill;
+        pointerEvents = PE_FILL;
 
     if (hitTesting == SVG_PATH_HITTESTING) {
         switch (pointerEvents)
         {
-            case PointerEvents::VisiblePainted:
-            case PointerEvents::Auto: // "auto" is like "visiblePainted" when in SVG content
+            case PE_VISIBLE_PAINTED:
+            case PE_AUTO: // "auto" is like "visiblePainted" when in SVG content
                 requireFill = true;
                 requireStroke = true;
                 FALLTHROUGH;
-            case PointerEvents::Visible:
+            case PE_VISIBLE:
                 requireVisible = true;
                 canHitFill = true;
                 canHitStroke = true;
                 break;
-            case PointerEvents::VisibleFill:
+            case PE_VISIBLE_FILL:
                 requireVisible = true;
                 canHitFill = true;
                 break;
-            case PointerEvents::VisibleStroke:
+            case PE_VISIBLE_STROKE:
                 requireVisible = true;
                 canHitStroke = true;
                 break;
-            case PointerEvents::Painted:
+            case PE_PAINTED:
                 requireFill = true;
                 requireStroke = true;
                 FALLTHROUGH;
-            case PointerEvents::All:
+            case PE_ALL:
                 canHitFill = true;
                 canHitStroke = true;
                 break;
-            case PointerEvents::Fill:
+            case PE_FILL:
                 canHitFill = true;
                 break;
-            case PointerEvents::Stroke:
+            case PE_STROKE:
                 canHitStroke = true;
                 break;
-            case PointerEvents::None:
+            case PE_NONE:
                 // nothing to do here, defaults are all false.
                 break;
         }
     } else {
         switch (pointerEvents)
         {
-            case PointerEvents::VisiblePainted:
-            case PointerEvents::Auto: // "auto" is like "visiblePainted" when in SVG content
+            case PE_VISIBLE_PAINTED:
+            case PE_AUTO: // "auto" is like "visiblePainted" when in SVG content
                 requireVisible = true;
                 requireFill = true;
                 requireStroke = true;
                 canHitFill = true;
                 canHitStroke = true;
                 break;
-            case PointerEvents::VisibleFill:
-            case PointerEvents::VisibleStroke:
-            case PointerEvents::Visible:
+            case PE_VISIBLE_FILL:
+            case PE_VISIBLE_STROKE:
+            case PE_VISIBLE:
                 requireVisible = true;
                 canHitFill = true;
                 canHitStroke = true;
                 break;
-            case PointerEvents::Painted:
+            case PE_PAINTED:
                 requireFill = true;
                 requireStroke = true;
                 canHitFill = true;
                 canHitStroke = true;
                 break;
-            case PointerEvents::Fill:
-            case PointerEvents::Stroke:
-            case PointerEvents::All:
+            case PE_FILL:
+            case PE_STROKE:
+            case PE_ALL:
                 canHitFill = true;
                 canHitStroke = true;
                 break;
-            case PointerEvents::None:
+            case PE_NONE:
                 // nothing to do here, defaults are all false.
                 break;
         }

@@ -29,27 +29,18 @@
 #include "config.h"
 #include "WorkerGlobalScopeFetch.h"
 
+#if ENABLE(FETCH_API)
+
 #include "FetchResponse.h"
-#include "JSFetchResponse.h"
 #include "WorkerGlobalScope.h"
 
 namespace WebCore {
 
-using FetchResponsePromise = DOMPromiseDeferred<IDLInterface<FetchResponse>>;
-
-void WorkerGlobalScopeFetch::fetch(WorkerGlobalScope& scope, FetchRequest::Info&& input, FetchRequest::Init&& init, Ref<DeferredPromise>&& deferred)
+void WorkerGlobalScopeFetch::fetch(WorkerGlobalScope& scope, FetchRequest& request, Ref<DeferredPromise>&& promise)
 {
-    FetchResponsePromise promise = WTFMove(deferred);
-
-    auto request = FetchRequest::create(scope, WTFMove(input), WTFMove(init));
-    if (request.hasException()) {
-        promise.reject(request.releaseException());
-        return;
-    }
-
-    FetchResponse::fetch(scope, request.releaseReturnValue().get(), [promise = WTFMove(promise)](ExceptionOr<FetchResponse&>&& result) mutable {
-        promise.settle(WTFMove(result));
-    });
+    FetchResponse::fetch(scope, request, WTFMove(promise));
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(FETCH_API)

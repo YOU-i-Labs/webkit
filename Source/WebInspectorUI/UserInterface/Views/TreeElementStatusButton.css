@@ -34,7 +34,7 @@
     color: hsl(0, 0%, 50%);
 }
 
-:focus .item.selected > .status > .status-button {
+:matches(:focus, .force-focus) .item.selected > .status > .status-button {
     color: white;
 }
 

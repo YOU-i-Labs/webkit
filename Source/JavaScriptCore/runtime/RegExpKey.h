@@ -32,15 +32,14 @@
 
 namespace JSC {
 
-enum RegExpFlags : int8_t {
+enum RegExpFlags {
     NoFlags = 0,
     FlagGlobal = 1,
     FlagIgnoreCase = 2,
     FlagMultiline = 4,
     FlagSticky = 8,
     FlagUnicode = 16,
-    FlagDotAll = 32,
-    InvalidFlags = 64,
+    InvalidFlags = 32,
     DeletedValueFlags = -1
 };
 

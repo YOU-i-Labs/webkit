@@ -25,12 +25,11 @@
 
 #pragma once
 
+#include "CodeOrigin.h"
 #include <wtf/Bag.h>
 #include <wtf/RefCounted.h>
 
 namespace JSC {
-
-struct InlineCallFrame;
 
 class InlineCallFrameSet : public RefCounted<InlineCallFrameSet> {
 public:

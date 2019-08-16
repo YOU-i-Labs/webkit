@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "ExceptionCode.h"
 #include "SVGPropertyTearOff.h"
 
 namespace WebCore {
@@ -37,6 +38,11 @@ public:
     }
 
     static Ref<SVGNumber> create(const float& initialValue = { })
+    {
+        return adoptRef(*new SVGNumber(initialValue));
+    }
+
+    static Ref<SVGNumber> create(const float* initialValue)
     {
         return adoptRef(*new SVGNumber(initialValue));
     }
@@ -56,7 +62,7 @@ public:
     ExceptionOr<void> setValueForBindings(float value)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         propertyReference() = value;
         commitChange();
@@ -71,6 +77,11 @@ private:
     }
 
     explicit SVGNumber(const float& initialValue)
+        : SVGPropertyTearOff<float>(initialValue)
+    {
+    }
+
+    explicit SVGNumber(const float* initialValue)
         : SVGPropertyTearOff<float>(initialValue)
     {
     }

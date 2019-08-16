@@ -24,10 +24,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ProbeSetDataFrame = class ProbeSetDataFrame
+WebInspector.ProbeSetDataFrame = class ProbeSetDataFrame extends WebInspector.Object
 {
     constructor(index)
     {
+        super();
+
         this._count = 0;
         this._index = index;
         this._separator = false;
@@ -37,8 +39,8 @@ WI.ProbeSetDataFrame = class ProbeSetDataFrame
 
     static compare(a, b)
     {
-        console.assert(a instanceof WI.ProbeSetDataFrame, a);
-        console.assert(b instanceof WI.ProbeSetDataFrame, b);
+        console.assert(a instanceof WebInspector.ProbeSetDataFrame, a);
+        console.assert(b instanceof WebInspector.ProbeSetDataFrame, b);
 
         return a.index - b.index;
     }
@@ -92,8 +94,8 @@ WI.ProbeSetDataFrame = class ProbeSetDataFrame
     fillMissingValues(probeSet)
     {
         for (var key of this.missingKeys(probeSet))
-            this[key] = WI.ProbeSetDataFrame.MissingValue;
+            this[key] = WebInspector.ProbeSetDataFrame.MissingValue;
     }
 };
 
-WI.ProbeSetDataFrame.MissingValue = "?";
+WebInspector.ProbeSetDataFrame.MissingValue = "?";

@@ -40,25 +40,24 @@ JSObject* construct(ExecState* exec, JSValue constructorObject, const ArgList& a
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     ConstructData constructData;
-    ConstructType constructType = getConstructData(vm, constructorObject, constructData);
+    ConstructType constructType = getConstructData(constructorObject, constructData);
     if (constructType == ConstructType::None)
         return throwTypeError(exec, scope, errorMessage);
 
-    RELEASE_AND_RETURN(scope, construct(exec, constructorObject, constructType, constructData, args, constructorObject));
+    scope.release();
+    return construct(exec, constructorObject, constructType, constructData, args, constructorObject);
 }
 
 
 JSObject* construct(ExecState* exec, JSValue constructorObject, ConstructType constructType, const ConstructData& constructData, const ArgList& args, JSValue newTarget)
 {
-    VM& vm = exec->vm();
     ASSERT(constructType == ConstructType::JS || constructType == ConstructType::Host);
-    return vm.interpreter->executeConstruct(exec, asObject(constructorObject), constructType, constructData, args, newTarget);
+    return exec->interpreter()->executeConstruct(exec, asObject(constructorObject), constructType, constructData, args, newTarget);
 }
 
 JSObject* profiledConstruct(ExecState* exec, ProfilingReason reason, JSValue constructorObject, ConstructType constructType, const ConstructData& constructData, const ArgList& args, JSValue newTarget)
 {
-    VM& vm = exec->vm();
-    ScriptProfilingScope profilingScope(vm.vmEntryGlobalObject(exec), reason);
+    ScriptProfilingScope profilingScope(exec->vmEntryGlobalObject(), reason);
     return construct(exec, constructorObject, constructType, constructData, args, newTarget);
 }
 

@@ -27,9 +27,19 @@
 
 #include "CryptoKey.h"
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 namespace WebCore {
+
+class RawKeyAlgorithm : public KeyAlgorithm {
+public:
+    RawKeyAlgorithm(const String& name)
+        : KeyAlgorithm(name)
+    {
+    }
+
+    KeyAlgorithmClass keyAlgorithmClass() const override { return KeyAlgorithmClass::Raw; }
+};
 
 class CryptoKeyRaw final : public CryptoKey {
 public:
@@ -45,7 +55,8 @@ private:
 
     CryptoKeyClass keyClass() const final { return CryptoKeyClass::Raw; }
 
-    KeyAlgorithm algorithm() const final;
+    std::unique_ptr<KeyAlgorithm> buildAlgorithm() const final;
+    std::unique_ptr<CryptoKeyData> exportData() const final;
 
     Vector<uint8_t> m_key;
 };
@@ -54,4 +65,6 @@ private:
 
 SPECIALIZE_TYPE_TRAITS_CRYPTO_KEY(CryptoKeyRaw, CryptoKeyClass::Raw)
 
-#endif // ENABLE(WEB_CRYPTO)
+SPECIALIZE_TYPE_TRAITS_KEY_ALGORITHM(RawKeyAlgorithm, KeyAlgorithmClass::Raw)
+
+#endif // ENABLE(SUBTLE_CRYPTO)

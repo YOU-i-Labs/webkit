@@ -43,7 +43,9 @@ WebGLCompressedTexturePVRTC::WebGLCompressedTexturePVRTC(WebGLRenderingContextBa
     context.addCompressedTextureFormat(Extensions3D::COMPRESSED_RGBA_PVRTC_2BPPV1_IMG);
 }
 
-WebGLCompressedTexturePVRTC::~WebGLCompressedTexturePVRTC() = default;
+WebGLCompressedTexturePVRTC::~WebGLCompressedTexturePVRTC()
+{
+}
 
 WebGLExtension::ExtensionName WebGLCompressedTexturePVRTC::getName() const
 {

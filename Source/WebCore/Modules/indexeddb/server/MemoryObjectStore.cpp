@@ -29,6 +29,7 @@
 #if ENABLE(INDEXED_DATABASE)
 
 #include "IDBBindingUtilities.h"
+#include "IDBDatabaseException.h"
 #include "IDBError.h"
 #include "IDBGetAllResult.h"
 #include "IDBKeyRangeData.h"
@@ -37,12 +38,14 @@
 #include "Logging.h"
 #include "MemoryBackingStoreTransaction.h"
 #include "UniqueIDBDatabase.h"
-#include <JavaScriptCore/JSCJSValue.h>
-#include <JavaScriptCore/JSCJSValueInlines.h>
-#include <JavaScriptCore/JSLock.h>
+#include <runtime/JSCJSValue.h>
+#include <runtime/JSCJSValueInlines.h>
+#include <runtime/JSLock.h>
+#include <wtf/NeverDestroyed.h>
+
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 namespace IDBServer {
 
 Ref<MemoryObjectStore> MemoryObjectStore::create(const IDBObjectStoreInfo& info)
@@ -87,7 +90,7 @@ IDBError MemoryObjectStore::createIndex(MemoryBackingStoreTransaction& transacti
     LOG(IndexedDB, "MemoryObjectStore::createIndex");
 
     if (!m_writeTransaction || !m_writeTransaction->isVersionChange() || m_writeTransaction != &transaction)
-        return IDBError(ConstraintError);
+        return IDBError(IDBDatabaseException::ConstraintError);
 
     ASSERT(!m_indexesByIdentifier.contains(info.identifier()));
     auto index = MemoryIndex::create(info, *this);
@@ -101,7 +104,7 @@ IDBError MemoryObjectStore::createIndex(MemoryBackingStoreTransaction& transacti
     transaction.addNewIndex(index.get());
     registerIndex(WTFMove(index));
 
-    return IDBError { };
+    return { };
 }
 
 void MemoryObjectStore::maybeRestoreDeletedIndex(Ref<MemoryIndex>&& index)
@@ -142,17 +145,17 @@ IDBError MemoryObjectStore::deleteIndex(MemoryBackingStoreTransaction& transacti
     LOG(IndexedDB, "MemoryObjectStore::deleteIndex");
 
     if (!m_writeTransaction || !m_writeTransaction->isVersionChange() || m_writeTransaction != &transaction)
-        return IDBError(ConstraintError);
+        return IDBError(IDBDatabaseException::ConstraintError);
     
     auto index = takeIndexByIdentifier(indexIdentifier);
     ASSERT(index);
     if (!index)
-        return IDBError(ConstraintError);
+        return IDBError(IDBDatabaseException::ConstraintError);
 
     m_info.deleteIndex(indexIdentifier);
     transaction.indexDeleted(*index);
 
-    return IDBError { };
+    return { };
 }
 
 void MemoryObjectStore::deleteAllIndexes(MemoryBackingStoreTransaction& transaction)
@@ -188,7 +191,7 @@ void MemoryObjectStore::clear()
         cursor->objectStoreCleared();
 }
 
-void MemoryObjectStore::replaceKeyValueStore(std::unique_ptr<KeyValueMap>&& store, std::unique_ptr<IDBKeyDataSet>&& orderedKeys)
+void MemoryObjectStore::replaceKeyValueStore(std::unique_ptr<KeyValueMap>&& store, std::unique_ptr<std::set<IDBKeyData>>&& orderedKeys)
 {
     ASSERT(m_writeTransaction);
     ASSERT(m_writeTransaction->isAborting());
@@ -260,7 +263,7 @@ IDBError MemoryObjectStore::addRecord(MemoryBackingStoreTransaction& transaction
     if (!m_keyValueStore) {
         ASSERT(!m_orderedKeys);
         m_keyValueStore = std::make_unique<KeyValueMap>();
-        m_orderedKeys = std::make_unique<IDBKeyDataSet>();
+        m_orderedKeys = std::make_unique<std::set<IDBKeyData>>();
     }
 
     auto mapResult = m_keyValueStore->set(keyData, value.data());
@@ -279,7 +282,7 @@ IDBError MemoryObjectStore::addRecord(MemoryBackingStoreTransaction& transaction
     return error;
 }
 
-void MemoryObjectStore::updateCursorsForPutRecord(IDBKeyDataSet::iterator iterator)
+void MemoryObjectStore::updateCursorsForPutRecord(std::set<IDBKeyData>::iterator iterator)
 {
     for (auto& cursor : m_cursors.values())
         cursor->keyAdded(iterator);
@@ -303,7 +306,7 @@ IDBError MemoryObjectStore::updateIndexesForPutRecord(const IDBKeyData& key, con
 
     auto jsValue = deserializeIDBValueToJSValue(UniqueIDBDatabase::databaseThreadExecState(), value);
     if (jsValue.isUndefinedOrNull())
-        return IDBError { };
+        return { };
 
     IDBError error;
     Vector<std::pair<MemoryIndex*, IndexKey>> changedIndexRecords;
@@ -334,14 +337,14 @@ IDBError MemoryObjectStore::updateIndexesForPutRecord(const IDBKeyData& key, con
 IDBError MemoryObjectStore::populateIndexWithExistingRecords(MemoryIndex& index)
 {
     if (!m_keyValueStore)
-        return IDBError { };
+        return { };
 
     JSLockHolder locker(UniqueIDBDatabase::databaseThreadVM());
 
-    for (const auto& iterator : *m_keyValueStore) {
+    for (auto iterator : *m_keyValueStore) {
         auto jsValue = deserializeIDBValueToJSValue(UniqueIDBDatabase::databaseThreadExecState(), iterator.value);
         if (jsValue.isUndefinedOrNull())
-            return IDBError { };
+            return { };
 
         IndexKey indexKey;
         generateIndexKeyForValue(UniqueIDBDatabase::databaseThreadExecState(), index.info(), jsValue, indexKey);
@@ -354,7 +357,7 @@ IDBError MemoryObjectStore::populateIndexWithExistingRecords(MemoryIndex& index)
             return error;
     }
 
-    return IDBError { };
+    return { };
 }
 
 uint64_t MemoryObjectStore::countForKeyRange(uint64_t indexIdentifier, const IDBKeyRangeData& inRange) const
@@ -405,7 +408,7 @@ ThreadSafeDataBuffer MemoryObjectStore::valueForKeyRange(const IDBKeyRangeData& 
     return m_keyValueStore->get(key);
 }
 
-void MemoryObjectStore::getAllRecords(const IDBKeyRangeData& keyRangeData, Optional<uint32_t> count, IndexedDB::GetAllType type, IDBGetAllResult& result) const
+void MemoryObjectStore::getAllRecords(const IDBKeyRangeData& keyRangeData, std::optional<uint32_t> count, IndexedDB::GetAllType type, IDBGetAllResult& result) const
 {
     result = { type };
 
@@ -479,9 +482,8 @@ void MemoryObjectStore::registerIndex(Ref<MemoryIndex>&& index)
     ASSERT(!m_indexesByIdentifier.contains(index->info().identifier()));
     ASSERT(!m_indexesByName.contains(index->info().name()));
 
-    auto identifier = index->info().identifier();
     m_indexesByName.set(index->info().name(), &index.get());
-    m_indexesByIdentifier.set(identifier, WTFMove(index));
+    m_indexesByIdentifier.set(index->info().identifier(), WTFMove(index));
 }
 
 void MemoryObjectStore::unregisterIndex(MemoryIndex& index)

@@ -60,7 +60,7 @@ ChildListMutationAccumulator::~ChildListMutationAccumulator()
     accumulatorMap().remove(m_target.ptr());
 }
 
-Ref<ChildListMutationAccumulator> ChildListMutationAccumulator::getOrCreate(ContainerNode& target)
+RefPtr<ChildListMutationAccumulator> ChildListMutationAccumulator::getOrCreate(ContainerNode& target)
 {
     AccumulatorMap::AddResult result = accumulatorMap().add(&target, nullptr);
     RefPtr<ChildListMutationAccumulator> accumulator;
@@ -70,8 +70,7 @@ Ref<ChildListMutationAccumulator> ChildListMutationAccumulator::getOrCreate(Cont
         accumulator = adoptRef(new ChildListMutationAccumulator(target, MutationObserverInterestGroup::createForChildListMutation(target)));
         result.iterator->value = accumulator.get();
     }
-    ASSERT(accumulator);
-    return accumulator.releaseNonNull();
+    return accumulator;
 }
 
 inline bool ChildListMutationAccumulator::isAddedNodeInOrder(Node& child)

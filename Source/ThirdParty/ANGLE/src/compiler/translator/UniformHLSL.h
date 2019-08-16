@@ -4,7 +4,7 @@
 // found in the LICENSE file.
 //
 // UniformHLSL.h:
-//   Methods for GLSL to HLSL translation for uniforms and uniform blocks.
+//   Methods for GLSL to HLSL translation for uniforms and interface blocks.
 //
 
 #ifndef COMPILER_TRANSLATOR_UNIFORMHLSL_H_
@@ -16,35 +16,32 @@
 namespace sh
 {
 class StructureHLSL;
-class TSymbolTable;
 
 class UniformHLSL : angle::NonCopyable
 {
   public:
-    UniformHLSL(sh::GLenum shaderType,
-                StructureHLSL *structureHLSL,
+    UniformHLSL(StructureHLSL *structureHLSL,
                 ShShaderOutput outputType,
                 const std::vector<Uniform> &uniforms);
 
     void reserveUniformRegisters(unsigned int registerCount);
-    void reserveUniformBlockRegisters(unsigned int registerCount);
+    void reserveInterfaceBlockRegisters(unsigned int registerCount);
     void uniformsHeader(TInfoSinkBase &out,
                         ShShaderOutput outputType,
-                        const ReferencedSymbols &referencedUniforms,
-                        TSymbolTable *symbolTable);
+                        const ReferencedSymbols &referencedUniforms);
 
     // Must be called after uniformsHeader
     void samplerMetadataUniforms(TInfoSinkBase &out, const char *reg);
 
-    TString uniformBlocksHeader(const ReferencedSymbols &referencedInterfaceBlocks);
+    TString interfaceBlocksHeader(const ReferencedSymbols &referencedInterfaceBlocks);
 
     // Used for direct index references
-    static TString uniformBlockInstanceString(const TInterfaceBlock &interfaceBlock,
-                                              unsigned int arrayIndex);
+    static TString interfaceBlockInstanceString(const TInterfaceBlock &interfaceBlock,
+                                                unsigned int arrayIndex);
 
-    const std::map<std::string, unsigned int> &getUniformBlockRegisterMap() const
+    const std::map<std::string, unsigned int> &getInterfaceBlockRegisterMap() const
     {
-        return mUniformBlockRegisterMap;
+        return mInterfaceBlockRegisterMap;
     }
     const std::map<std::string, unsigned int> &getUniformRegisterMap() const
     {
@@ -52,26 +49,19 @@ class UniformHLSL : angle::NonCopyable
     }
 
   private:
-    TString uniformBlockString(const TInterfaceBlock &interfaceBlock,
-                               unsigned int registerIndex,
-                               unsigned int arrayIndex);
-    TString uniformBlockMembersString(const TInterfaceBlock &interfaceBlock,
-                                      TLayoutBlockStorage blockStorage);
-    TString uniformBlockStructString(const TInterfaceBlock &interfaceBlock);
+    TString interfaceBlockString(const TInterfaceBlock &interfaceBlock,
+                                 unsigned int registerIndex,
+                                 unsigned int arrayIndex);
+    TString interfaceBlockMembersString(const TInterfaceBlock &interfaceBlock,
+                                        TLayoutBlockStorage blockStorage);
+    TString interfaceBlockStructString(const TInterfaceBlock &interfaceBlock);
     const Uniform *findUniformByName(const TString &name) const;
 
     void outputHLSL4_0_FL9_3Sampler(TInfoSinkBase &out,
                                     const TType &type,
                                     const TName &name,
                                     const unsigned int registerIndex);
-    void outputHLSL4_1_FL11Texture(TInfoSinkBase &out,
-                                   const TType &type,
-                                   const TName &name,
-                                   const unsigned int registerIndex);
-    void outputHLSL4_1_FL11RWTexture(TInfoSinkBase &out,
-                                     const TType &type,
-                                     const TName &name,
-                                     const unsigned int registerIndex);
+
     void outputUniform(TInfoSinkBase &out,
                        const TType &type,
                        const TName &name,
@@ -87,22 +77,19 @@ class UniformHLSL : angle::NonCopyable
 
     void outputHLSLSamplerUniformGroup(
         TInfoSinkBase &out,
-        const HLSLTextureGroup textureGroup,
+        const HLSLTextureSamplerGroup textureGroup,
         const TVector<const TIntermSymbol *> &group,
         const TMap<const TIntermSymbol *, TString> &samplerInStructSymbolsToAPINames,
         unsigned int *groupTextureRegisterIndex);
 
     unsigned int mUniformRegister;
-    unsigned int mUniformBlockRegister;
-    unsigned int mTextureRegister;
-    unsigned int mRWTextureRegister;
-    unsigned int mSamplerCount;
-    sh::GLenum mShaderType;
+    unsigned int mInterfaceBlockRegister;
+    unsigned int mSamplerRegister;
     StructureHLSL *mStructureHLSL;
     ShShaderOutput mOutputType;
 
     const std::vector<Uniform> &mUniforms;
-    std::map<std::string, unsigned int> mUniformBlockRegisterMap;
+    std::map<std::string, unsigned int> mInterfaceBlockRegisterMap;
     std::map<std::string, unsigned int> mUniformRegisterMap;
 };
 }

@@ -29,12 +29,12 @@
 
 namespace JSC {
 
-class JSGlobalLexicalEnvironment final : public JSSegmentedVariableObject {
+class JSGlobalLexicalEnvironment : public JSSegmentedVariableObject {
 
 public:
-    using Base = JSSegmentedVariableObject;
+    typedef JSSegmentedVariableObject Base;
 
-    static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot;
+    static const unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesToThis;
 
     static JSGlobalLexicalEnvironment* create(VM& vm, Structure* structure, JSScope* parentScope)
     {
@@ -55,6 +55,8 @@ public:
     bool isEmpty() const { return !symbolTable()->size(); }
     bool isConstVariable(UniquedStringImpl*);
 
+    static JSValue toThis(JSCell*, ExecState*, ECMAMode);
+    
     DECLARE_INFO;
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject)

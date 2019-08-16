@@ -27,14 +27,12 @@
 #define MediaSample_h
 
 #include "FloatSize.h"
-#include <JavaScriptCore/TypedArrays.h>
-#include <wtf/EnumTraits.h>
+#include <runtime/TypedArrays.h>
 #include <wtf/MediaTime.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/AtomicString.h>
 
 typedef struct opaqueCMSampleBuffer *CMSampleBufferRef;
-typedef struct _GstSample GstSample;
 
 namespace WebCore {
 
@@ -45,18 +43,16 @@ struct PlatformSample {
         None,
         MockSampleBoxType,
         CMSampleBufferType,
-        GStreamerSampleType,
     } type;
     union {
         MockSampleBox* mockSampleBox;
         CMSampleBufferRef cmSampleBuffer;
-        GstSample* gstSample;
     } sample;
 };
 
 class MediaSample : public RefCounted<MediaSample> {
 public:
-    virtual ~MediaSample() = default;
+    virtual ~MediaSample() { }
 
     virtual MediaTime presentationTime() const = 0;
     virtual MediaTime outputPresentationTime() const { return presentationTime(); }
@@ -80,7 +76,6 @@ public:
         None = 0,
         IsSync = 1 << 0,
         IsNonDisplaying = 1 << 1,
-        HasAlpha = 1 << 2,
     };
     virtual SampleFlags flags() const = 0;
     virtual PlatformSample platformSample() = 0;
@@ -93,29 +88,13 @@ public:
     };
     virtual VideoRotation videoRotation() const { return VideoRotation::None; }
     virtual bool videoMirrored() const { return false; }
-    virtual uint32_t videoPixelFormat() const { return 0; }
 
     bool isSync() const { return flags() & IsSync; }
     bool isNonDisplaying() const { return flags() & IsNonDisplaying; }
-    bool hasAlpha() const { return flags() & HasAlpha; }
 
     virtual void dump(PrintStream&) const = 0;
 };
 
-} // namespace WebCore
-
-namespace WTF {
-
-template<> struct EnumTraits<WebCore::MediaSample::VideoRotation> {
-    using values = EnumValues<
-        WebCore::MediaSample::VideoRotation,
-        WebCore::MediaSample::VideoRotation::None,
-        WebCore::MediaSample::VideoRotation::UpsideDown,
-        WebCore::MediaSample::VideoRotation::Right,
-        WebCore::MediaSample::VideoRotation::Left
-    >;
-};
-
-} // namespace WTF
+}
 
 #endif

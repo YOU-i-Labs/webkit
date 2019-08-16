@@ -22,14 +22,15 @@
 
 #if ENABLE(VIDEO) && USE(GSTREAMER)
 
-#include "GStreamerCommon.h"
+#include "GStreamerUtilities.h"
 
 #include <cairo.h>
 #include <gst/gst.h>
 #include <gst/video/gstvideometa.h>
 
 
-namespace WebCore {
+using namespace std;
+using namespace WebCore;
 
 ImageGStreamer::ImageGStreamer(GstSample* sample)
 {
@@ -43,11 +44,7 @@ ImageGStreamer::ImageGStreamer(GstSample* sample)
     ASSERT(GST_VIDEO_INFO_N_PLANES(&videoInfo) == 1);
 
     GstBuffer* buffer = gst_sample_get_buffer(sample);
-    if (UNLIKELY(!GST_IS_BUFFER(buffer)))
-        return;
-
-    m_frameMapped = gst_video_frame_map(&m_videoFrame, &videoInfo, buffer, GST_MAP_READ);
-    if (!m_frameMapped)
+    if (!gst_video_frame_map(&m_videoFrame, &videoInfo, buffer, GST_MAP_READ))
         return;
 
     unsigned char* bufferData = reinterpret_cast<unsigned char*>(GST_VIDEO_FRAME_PLANE_DATA(&m_videoFrame, 0));
@@ -114,10 +111,6 @@ ImageGStreamer::~ImageGStreamer()
 
     // We keep the buffer memory mapped until the image is destroyed because the internal
     // cairo_surface_t was created using cairo_image_surface_create_for_data().
-    if (m_frameMapped)
-        gst_video_frame_unmap(&m_videoFrame);
+    gst_video_frame_unmap(&m_videoFrame);
 }
-
-} // namespace WebCore
-
 #endif // USE(GSTREAMER)

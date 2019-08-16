@@ -26,7 +26,7 @@
 #pragma once
 
 #include <wtf/DeferrableRefCounted.h>
-#include <wtf/Forward.h>
+#include <wtf/Vector.h>
 
 namespace JSC {
 

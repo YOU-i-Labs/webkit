@@ -37,12 +37,9 @@
 #include "ScriptController.h"
 #include "Settings.h"
 #include "SubframeLoader.h"
-#include <wtf/IsoMallocInlines.h>
-#include <wtf/URL.h>
+#include "URL.h"
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLFrameElementBase);
 
 using namespace HTMLNames;
 
@@ -71,13 +68,13 @@ bool HTMLFrameElementBase::isURLAllowed(const URL& completeURL) const
     if (completeURL.isEmpty())
         return true;
 
-    if (WTF::protocolIsJavaScript(completeURL)) {
-        RefPtr<Document> contentDoc = this->contentDocument();
+    if (protocolIsJavaScript(completeURL)) {
+        Document* contentDoc = this->contentDocument();
         if (contentDoc && !ScriptController::canAccessFromCurrentOrigin(contentDoc->frame()))
             return false;
     }
 
-    RefPtr<Frame> parentFrame = document().frame();
+    Frame* parentFrame = document().frame();
     if (parentFrame)
         return parentFrame->isURLAllowed(completeURL);
 
@@ -90,17 +87,13 @@ void HTMLFrameElementBase::openURL(LockHistory lockHistory, LockBackForwardList 
         return;
 
     if (m_URL.isEmpty())
-        m_URL = WTF::blankURL().string();
+        m_URL = blankURL().string();
 
-    RefPtr<Frame> parentFrame = document().frame();
+    Frame* parentFrame = document().frame();
     if (!parentFrame)
         return;
 
-    String frameName = getNameAttribute();
-    if (frameName.isNull() && UNLIKELY(document().settings().needsFrameNameFallbackToIdQuirk()))
-        frameName = getIdAttribute();
-
-    parentFrame->loader().subframeLoader().requestFrame(*this, m_URL, frameName, lockHistory, lockBackForwardList);
+    parentFrame->loader().subframeLoader().requestFrame(*this, m_URL, m_frameName, lockHistory, lockBackForwardList);
 }
 
 void HTMLFrameElementBase::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -109,7 +102,17 @@ void HTMLFrameElementBase::parseAttribute(const QualifiedName& name, const Atomi
         setLocation("about:srcdoc");
     else if (name == srcAttr && !hasAttributeWithoutSynchronization(srcdocAttr))
         setLocation(stripLeadingAndTrailingHTMLSpaces(value));
-    else if (name == marginwidthAttr) {
+    else if (name == idAttr) {
+        HTMLFrameOwnerElement::parseAttribute(name, value);
+        // Falling back to using the 'id' attribute is not standard but some content relies on this behavior.
+        if (!hasAttributeWithoutSynchronization(nameAttr))
+            m_frameName = value;
+    } else if (name == nameAttr) {
+        m_frameName = value;
+        // FIXME: If we are already attached, this doesn't actually change the frame's name.
+        // FIXME: If we are already attached, this doesn't check for frame name
+        // conflicts and generate a unique frame name.
+    } else if (name == marginwidthAttr) {
         m_marginWidth = value.toInt();
         // FIXME: If we are already attached, this has no effect.
     } else if (name == marginheightAttr) {
@@ -126,15 +129,24 @@ void HTMLFrameElementBase::parseAttribute(const QualifiedName& name, const Atomi
         HTMLFrameOwnerElement::parseAttribute(name, value);
 }
 
-Node::InsertedIntoAncestorResult HTMLFrameElementBase::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
+void HTMLFrameElementBase::setNameAndOpenURL()
 {
-    HTMLFrameOwnerElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
-    if (insertionType.connectedToDocument)
-        return InsertedIntoAncestorResult::NeedsPostInsertionCallback;
-    return InsertedIntoAncestorResult::Done;
+    m_frameName = getNameAttribute();
+    // Falling back to using the 'id' attribute is not standard but some content relies on this behavior.
+    if (m_frameName.isNull())
+        m_frameName = getIdAttribute();
+    openURL();
 }
 
-void HTMLFrameElementBase::didFinishInsertingNode()
+Node::InsertionNotificationRequest HTMLFrameElementBase::insertedInto(ContainerNode& insertionPoint)
+{
+    HTMLFrameOwnerElement::insertedInto(insertionPoint);
+    if (insertionPoint.isConnected())
+        return InsertionShouldCallFinishedInsertingSubtree;
+    return InsertionDone;
+}
+
+void HTMLFrameElementBase::finishedInsertingSubtree()
 {
     if (!isConnected())
         return;
@@ -148,13 +160,13 @@ void HTMLFrameElementBase::didFinishInsertingNode()
 
     if (!renderer())
         invalidateStyleAndRenderersForSubtree();
-    openURL();
+    setNameAndOpenURL();
 }
 
 void HTMLFrameElementBase::didAttachRenderers()
 {
     if (RenderWidget* part = renderWidget()) {
-        if (RefPtr<Frame> frame = contentFrame())
+        if (Frame* frame = contentFrame())
             part->setWidget(frame->view());
     }
 }
@@ -162,7 +174,7 @@ void HTMLFrameElementBase::didAttachRenderers()
 URL HTMLFrameElementBase::location() const
 {
     if (hasAttributeWithoutSynchronization(srcdocAttr))
-        return URL({ }, "about:srcdoc");
+        return URL(ParsedURLString, "about:srcdoc");
     return document().completeURL(attributeWithoutSynchronization(srcAttr));
 }
 
@@ -179,7 +191,7 @@ void HTMLFrameElementBase::setLocation(const String& str)
 
 void HTMLFrameElementBase::setLocation(JSC::ExecState& state, const String& newLocation)
 {
-    if (WTF::protocolIsJavaScript(stripLeadingAndTrailingHTMLSpaces(newLocation))) {
+    if (protocolIsJavaScript(stripLeadingAndTrailingHTMLSpaces(newLocation))) {
         if (!BindingSecurity::shouldAllowAccessToNode(state, contentDocument()))
             return;
     }

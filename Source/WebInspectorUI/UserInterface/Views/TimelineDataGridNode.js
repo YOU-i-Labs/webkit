@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
+WebInspector.TimelineDataGridNode = class TimelineDataGridNode extends WebInspector.DataGridNode
 {
     constructor(includesGraph, graphDataSource, hasChildren)
     {
@@ -91,7 +91,7 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
         // Refresh child graphs since they haven't been updating while we were collapsed.
         var childNode = this.children[0];
         while (childNode) {
-            if (childNode instanceof WI.TimelineDataGridNode)
+            if (childNode instanceof WebInspector.TimelineDataGridNode)
                 childNode.refreshGraph();
             childNode = childNode.traverseNextNode(true, this);
         }
@@ -114,16 +114,16 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
             ignoreSearchTab: true,
         };
 
-        if (value instanceof WI.SourceCodeLocation) {
-            if (value.sourceCode instanceof WI.Resource) {
-                cell.classList.add(WI.ResourceTreeElement.ResourceIconStyleClassName);
+        if (value instanceof WebInspector.SourceCodeLocation) {
+            if (value.sourceCode instanceof WebInspector.Resource) {
+                cell.classList.add(WebInspector.ResourceTreeElement.ResourceIconStyleClassName);
                 cell.classList.add(value.sourceCode.type);
-            } else if (value.sourceCode instanceof WI.Script) {
+            } else if (value.sourceCode instanceof WebInspector.Script) {
                 if (value.sourceCode.url) {
-                    cell.classList.add(WI.ResourceTreeElement.ResourceIconStyleClassName);
-                    cell.classList.add(WI.Resource.Type.Script);
+                    cell.classList.add(WebInspector.ResourceTreeElement.ResourceIconStyleClassName);
+                    cell.classList.add(WebInspector.Resource.Type.Script);
                 } else
-                    cell.classList.add(WI.ScriptTreeElement.AnonymousScriptIconStyleClassName);
+                    cell.classList.add(WebInspector.ScriptTreeElement.AnonymousScriptIconStyleClassName);
             } else
                 console.error("Unknown SourceCode subclass.");
 
@@ -131,7 +131,7 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
             value.populateLiveDisplayLocationTooltip(cell);
 
             var fragment = document.createDocumentFragment();
-            fragment.appendChild(WI.createSourceCodeLocationLink(value, options));
+            fragment.appendChild(WebInspector.createSourceCodeLocationLink(value, options));
 
             var titleElement = document.createElement("span");
             value.populateLiveDisplayLocationString(titleElement, "textContent");
@@ -140,17 +140,17 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
             return fragment;
         }
 
-        if (value instanceof WI.CallFrame) {
+        if (value instanceof WebInspector.CallFrame) {
             var callFrame = value;
 
             var isAnonymousFunction = false;
             var functionName = callFrame.functionName;
             if (!functionName) {
-                functionName = WI.UIString("(anonymous function)");
+                functionName = WebInspector.UIString("(anonymous function)");
                 isAnonymousFunction = true;
             }
 
-            cell.classList.add(WI.CallFrameView.FunctionIconStyleClassName);
+            cell.classList.add(WebInspector.CallFrameView.FunctionIconStyleClassName);
 
             var fragment = document.createDocumentFragment();
 
@@ -158,19 +158,19 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
                 // Give the whole cell a tooltip and keep it up to date.
                 callFrame.sourceCodeLocation.populateLiveDisplayLocationTooltip(cell);
 
-                fragment.appendChild(WI.createSourceCodeLocationLink(callFrame.sourceCodeLocation, options));
+                fragment.appendChild(WebInspector.createSourceCodeLocationLink(callFrame.sourceCodeLocation, options));
 
                 if (isAnonymousFunction) {
                     // For anonymous functions we show the resource or script icon and name.
-                    if (callFrame.sourceCodeLocation.sourceCode instanceof WI.Resource) {
-                        cell.classList.add(WI.ResourceTreeElement.ResourceIconStyleClassName);
+                    if (callFrame.sourceCodeLocation.sourceCode instanceof WebInspector.Resource) {
+                        cell.classList.add(WebInspector.ResourceTreeElement.ResourceIconStyleClassName);
                         cell.classList.add(callFrame.sourceCodeLocation.sourceCode.type);
-                    } else if (callFrame.sourceCodeLocation.sourceCode instanceof WI.Script) {
+                    } else if (callFrame.sourceCodeLocation.sourceCode instanceof WebInspector.Script) {
                         if (callFrame.sourceCodeLocation.sourceCode.url) {
-                            cell.classList.add(WI.ResourceTreeElement.ResourceIconStyleClassName);
-                            cell.classList.add(WI.Resource.Type.Script);
+                            cell.classList.add(WebInspector.ResourceTreeElement.ResourceIconStyleClassName);
+                            cell.classList.add(WebInspector.Resource.Type.Script);
                         } else
-                            cell.classList.add(WI.ScriptTreeElement.AnonymousScriptIconStyleClassName);
+                            cell.classList.add(WebInspector.ScriptTreeElement.AnonymousScriptIconStyleClassName);
                     } else
                         console.error("Unknown SourceCode subclass.");
 
@@ -180,7 +180,7 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
                     fragment.appendChild(titleElement);
                 } else {
                     // Show the function name and icon.
-                    cell.classList.add(WI.CallFrameView.FunctionIconStyleClassName);
+                    cell.classList.add(WebInspector.CallFrameView.FunctionIconStyleClassName);
 
                     fragment.append(functionName);
 
@@ -241,7 +241,7 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
         {
             var timelineRecordBar = this._timelineRecordBars[recordBarIndex];
             if (!timelineRecordBar)
-                timelineRecordBar = this._timelineRecordBars[recordBarIndex] = new WI.TimelineRecordBar(this, records, renderMode);
+                timelineRecordBar = this._timelineRecordBars[recordBarIndex] = new WebInspector.TimelineRecordBar(records, renderMode);
             else {
                 timelineRecordBar.renderMode = renderMode;
                 timelineRecordBar.records = records;
@@ -271,7 +271,7 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
 
         if (this.expanded) {
             // When expanded just use the records for this node.
-            WI.TimelineRecordBar.createCombinedBars(this.records, secondsPerPixel, this._graphDataSource, boundCreateBar);
+            WebInspector.TimelineRecordBar.createCombinedBars(this.records, secondsPerPixel, this._graphDataSource, boundCreateBar);
         } else {
             // When collapsed use the records for this node and its descendants.
             // To share bars better, group records by type.
@@ -281,13 +281,13 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
 
             var childNode = this.children[0];
             while (childNode) {
-                if (childNode instanceof WI.TimelineDataGridNode)
+                if (childNode instanceof WebInspector.TimelineDataGridNode)
                     collectRecordsByType(childNode.records, recordTypeMap);
                 childNode = childNode.traverseNextNode(false, this);
             }
 
             for (var records of recordTypeMap.values())
-                WI.TimelineRecordBar.createCombinedBars(records, secondsPerPixel, this._graphDataSource, boundCreateBar);
+                WebInspector.TimelineRecordBar.createCombinedBars(records, secondsPerPixel, this._graphDataSource, boundCreateBar);
         }
 
         // Remove the remaining unused TimelineRecordBars.
@@ -305,7 +305,7 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
             // Notify the next visible ancestor that their graph needs to refresh.
             var ancestor = this;
             while (ancestor && !ancestor.root) {
-                if (ancestor.revealed && ancestor instanceof WI.TimelineDataGridNode) {
+                if (ancestor.revealed && ancestor instanceof WebInspector.TimelineDataGridNode) {
                     ancestor.needsGraphRefresh();
                     return;
                 }
@@ -325,14 +325,14 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
     displayName()
     {
         // Can be overridden by subclasses.
-        const includeDetailsInMainTitle = true;
-        return WI.TimelineTabContentView.displayNameForRecord(this.record, includeDetailsInMainTitle);
+        const includeDetails = true;
+        return WebInspector.TimelineTabContentView.displayNameForRecord(this.record, true);
     }
 
     iconClassNames()
     {
         // Can be overridden by subclasses.
-        return [WI.TimelineTabContentView.iconClassNameForRecord(this.record)];
+        return [WebInspector.TimelineTabContentView.iconClassNameForRecord(this.record)];
     }
 
     // Protected
@@ -349,7 +349,7 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
             callback(this, cellElement.__columnIdentifier);
         }
 
-        let button = WI.createGoToArrowButton();
+        let button = WebInspector.createGoToArrowButton();
         button.addEventListener("click", buttonClicked.bind(this));
 
         let contentElement = cellElement.firstChild;
@@ -378,10 +378,10 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
     filterableDataForColumn(columnIdentifier)
     {
         let value = this.data[columnIdentifier];
-        if (value instanceof WI.SourceCodeLocation)
+        if (value instanceof WebInspector.SourceCodeLocation)
             return value.displayLocationString();
 
-        if (value instanceof WI.CallFrame)
+        if (value instanceof WebInspector.CallFrame)
             return [value.functionName, value.sourceCodeLocation.displayLocationString()];
 
         return super.filterableDataForColumn(columnIdentifier);

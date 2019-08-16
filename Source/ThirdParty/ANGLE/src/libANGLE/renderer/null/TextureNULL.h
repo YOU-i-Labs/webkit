@@ -21,7 +21,7 @@ class TextureNULL : public TextureImpl
     TextureNULL(const gl::TextureState &state);
     ~TextureNULL() override;
 
-    gl::Error setImage(const gl::Context *context,
+    gl::Error setImage(ContextImpl *contextImpl,
                        GLenum target,
                        size_t level,
                        GLenum internalFormat,
@@ -30,7 +30,7 @@ class TextureNULL : public TextureImpl
                        GLenum type,
                        const gl::PixelUnpackState &unpack,
                        const uint8_t *pixels) override;
-    gl::Error setSubImage(const gl::Context *context,
+    gl::Error setSubImage(ContextImpl *contextImpl,
                           GLenum target,
                           size_t level,
                           const gl::Box &area,
@@ -39,7 +39,7 @@ class TextureNULL : public TextureImpl
                           const gl::PixelUnpackState &unpack,
                           const uint8_t *pixels) override;
 
-    gl::Error setCompressedImage(const gl::Context *context,
+    gl::Error setCompressedImage(ContextImpl *contextImpl,
                                  GLenum target,
                                  size_t level,
                                  GLenum internalFormat,
@@ -47,7 +47,7 @@ class TextureNULL : public TextureImpl
                                  const gl::PixelUnpackState &unpack,
                                  size_t imageSize,
                                  const uint8_t *pixels) override;
-    gl::Error setCompressedSubImage(const gl::Context *context,
+    gl::Error setCompressedSubImage(ContextImpl *contextImpl,
                                     GLenum target,
                                     size_t level,
                                     const gl::Box &area,
@@ -56,52 +56,46 @@ class TextureNULL : public TextureImpl
                                     size_t imageSize,
                                     const uint8_t *pixels) override;
 
-    gl::Error copyImage(const gl::Context *context,
+    gl::Error copyImage(ContextImpl *contextImpl,
                         GLenum target,
                         size_t level,
                         const gl::Rectangle &sourceArea,
                         GLenum internalFormat,
                         const gl::Framebuffer *source) override;
-    gl::Error copySubImage(const gl::Context *context,
+    gl::Error copySubImage(ContextImpl *contextImpl,
                            GLenum target,
                            size_t level,
                            const gl::Offset &destOffset,
                            const gl::Rectangle &sourceArea,
                            const gl::Framebuffer *source) override;
 
-    gl::Error setStorage(const gl::Context *context,
+    gl::Error setStorage(ContextImpl *contextImpl,
                          GLenum target,
                          size_t levels,
                          GLenum internalFormat,
                          const gl::Extents &size) override;
 
-    gl::Error setEGLImageTarget(const gl::Context *context,
-                                GLenum target,
-                                egl::Image *image) override;
+    gl::Error setEGLImageTarget(GLenum target, egl::Image *image) override;
 
-    gl::Error setImageExternal(const gl::Context *context,
-                               GLenum target,
+    gl::Error setImageExternal(GLenum target,
                                egl::Stream *stream,
                                const egl::Stream::GLTextureDescription &desc) override;
 
-    gl::Error generateMipmap(const gl::Context *context) override;
+    gl::Error generateMipmap(ContextImpl *contextImpl) override;
 
-    gl::Error setBaseLevel(const gl::Context *context, GLuint baseLevel) override;
+    void setBaseLevel(GLuint baseLevel) override;
 
-    gl::Error bindTexImage(const gl::Context *context, egl::Surface *surface) override;
-    gl::Error releaseTexImage(const gl::Context *context) override;
+    void bindTexImage(egl::Surface *surface) override;
+    void releaseTexImage() override;
 
     void syncState(const gl::Texture::DirtyBits &dirtyBits) override;
 
-    gl::Error setStorageMultisample(const gl::Context *context,
+    gl::Error setStorageMultisample(ContextImpl *contextImpl,
                                     GLenum target,
                                     GLsizei samples,
                                     GLint internalformat,
                                     const gl::Extents &size,
-                                    bool fixedSampleLocations) override;
-
-    gl::Error initializeContents(const gl::Context *context,
-                                 const gl::ImageIndex &imageIndex) override;
+                                    GLboolean fixedSampleLocations) override;
 };
 
 }  // namespace rx

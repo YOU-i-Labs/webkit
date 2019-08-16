@@ -25,7 +25,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef ParallelJobsLibdispatch_h
+#define ParallelJobsLibdispatch_h
 
 #if ENABLE(THREADING_LIBDISPATCH)
 
@@ -68,3 +69,5 @@ private:
 } // namespace WTF
 
 #endif // ENABLE(THREADING_LIBDISPATCH)
+
+#endif // ParallelJobsLibdispatch_h

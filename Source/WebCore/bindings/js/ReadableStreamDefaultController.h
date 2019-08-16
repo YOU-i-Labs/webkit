@@ -33,9 +33,9 @@
 
 #include "JSDOMConvertBufferSource.h"
 #include "JSReadableStreamDefaultController.h"
-#include <JavaScriptCore/JSCJSValue.h>
-#include <JavaScriptCore/JSCJSValueInlines.h>
-#include <JavaScriptCore/TypedArrays.h>
+#include <runtime/JSCJSValue.h>
+#include <runtime/JSCJSValueInlines.h>
+#include <runtime/TypedArrays.h>
 
 namespace WebCore {
 
@@ -49,9 +49,12 @@ public:
 
     bool enqueue(RefPtr<JSC::ArrayBuffer>&&);
 
-    void error(const Exception&);
+    template<class ResolveResultType>
+    void error(const ResolveResultType&);
 
     void close() { invoke(*globalObject().globalExec(), jsController(), "close", JSC::jsUndefined()); }
+
+    bool isControlledReadableStreamLocked() const;
 
 private:
     void error(JSC::ExecState& state, JSC::JSValue value) { invoke(state, jsController(), "error", value); }
@@ -98,16 +101,18 @@ inline bool ReadableStreamDefaultController::enqueue(RefPtr<JSC::ArrayBuffer>&& 
     }
     auto length = buffer->byteLength();
     auto chunk = JSC::Uint8Array::create(WTFMove(buffer), 0, length);
-    enqueue(state, toJS(&state, &globalObject, chunk.ptr()));
+    ASSERT(chunk);
+    enqueue(state, toJS(&state, &globalObject, chunk.get()));
     scope.assertNoException();
     return true;
 }
 
-inline void ReadableStreamDefaultController::error(const Exception& exception)
+template<>
+inline void ReadableStreamDefaultController::error<String>(const String& errorMessage)
 {
     JSC::ExecState& state = globalExec();
     JSC::JSLockHolder locker(&state);
-    error(state, createDOMException(&state, exception.code(), exception.message()));
+    error(state, JSC::createTypeError(&state, errorMessage));
 }
 
 } // namespace WebCore

@@ -8,7 +8,6 @@
 
 #include "angle_gl.h"
 #include "compiler/translator/Diagnostics.h"
-#include "compiler/translator/IntermTraverse.h"
 #include "compiler/translator/ParseContext.h"
 
 namespace sh
@@ -71,7 +70,7 @@ class ValidateLimitationsTraverser : public TLValueTrackingTraverser
 {
   public:
     ValidateLimitationsTraverser(sh::GLenum shaderType,
-                                 TSymbolTable *symbolTable,
+                                 const TSymbolTable &symbolTable,
                                  int shaderVersion,
                                  TDiagnostics *diagnostics);
 
@@ -104,7 +103,7 @@ class ValidateLimitationsTraverser : public TLValueTrackingTraverser
 };
 
 ValidateLimitationsTraverser::ValidateLimitationsTraverser(sh::GLenum shaderType,
-                                                           TSymbolTable *symbolTable,
+                                                           const TSymbolTable &symbolTable,
                                                            int shaderVersion,
                                                            TDiagnostics *diagnostics)
     : TLValueTrackingTraverser(true, false, false, symbolTable, shaderVersion),
@@ -148,7 +147,7 @@ bool ValidateLimitationsTraverser::visitLoop(Visit, TIntermLoop *node)
         return false;
 
     TIntermNode *body = node->getBody();
-    if (body != nullptr)
+    if (body != NULL)
     {
         mLoopSymbolIds.push_back(GetLoopSymbolId(node));
         body->traverse(this);
@@ -208,7 +207,7 @@ bool ValidateLimitationsTraverser::validateForLoopHeader(TIntermLoop *node)
 int ValidateLimitationsTraverser::validateForLoopInit(TIntermLoop *node)
 {
     TIntermNode *init = node->getInit();
-    if (init == nullptr)
+    if (init == NULL)
     {
         error(node->getLine(), "Missing init declaration", "for");
         return -1;
@@ -232,13 +231,13 @@ int ValidateLimitationsTraverser::validateForLoopInit(TIntermLoop *node)
         return -1;
     }
     TIntermBinary *declInit = (*declSeq)[0]->getAsBinaryNode();
-    if ((declInit == nullptr) || (declInit->getOp() != EOpInitialize))
+    if ((declInit == NULL) || (declInit->getOp() != EOpInitialize))
     {
         error(decl->getLine(), "Invalid init declaration", "for");
         return -1;
     }
     TIntermSymbol *symbol = declInit->getLeft()->getAsSymbolNode();
-    if (symbol == nullptr)
+    if (symbol == NULL)
     {
         error(declInit->getLine(), "Invalid init declaration", "for");
         return -1;
@@ -264,7 +263,7 @@ int ValidateLimitationsTraverser::validateForLoopInit(TIntermLoop *node)
 bool ValidateLimitationsTraverser::validateForLoopCond(TIntermLoop *node, int indexSymbolId)
 {
     TIntermNode *cond = node->getCondition();
-    if (cond == nullptr)
+    if (cond == NULL)
     {
         error(node->getLine(), "Missing condition", "for");
         return false;
@@ -274,14 +273,14 @@ bool ValidateLimitationsTraverser::validateForLoopCond(TIntermLoop *node, int in
     //     loop_index relational_operator constant_expression
     //
     TIntermBinary *binOp = cond->getAsBinaryNode();
-    if (binOp == nullptr)
+    if (binOp == NULL)
     {
         error(node->getLine(), "Invalid condition", "for");
         return false;
     }
     // Loop index should be to the left of relational operator.
     TIntermSymbol *symbol = binOp->getLeft()->getAsSymbolNode();
-    if (symbol == nullptr)
+    if (symbol == NULL)
     {
         error(binOp->getLine(), "Invalid condition", "for");
         return false;
@@ -320,7 +319,7 @@ bool ValidateLimitationsTraverser::validateForLoopCond(TIntermLoop *node, int in
 bool ValidateLimitationsTraverser::validateForLoopExpr(TIntermLoop *node, int indexSymbolId)
 {
     TIntermNode *expr = node->getExpression();
-    if (expr == nullptr)
+    if (expr == NULL)
     {
         error(node->getLine(), "Missing expression", "for");
         return false;
@@ -336,23 +335,23 @@ bool ValidateLimitationsTraverser::validateForLoopExpr(TIntermLoop *node, int in
     // The last two forms are not specified in the spec, but I am assuming
     // its an oversight.
     TIntermUnary *unOp   = expr->getAsUnaryNode();
-    TIntermBinary *binOp = unOp ? nullptr : expr->getAsBinaryNode();
+    TIntermBinary *binOp = unOp ? NULL : expr->getAsBinaryNode();
 
     TOperator op          = EOpNull;
-    TIntermSymbol *symbol = nullptr;
-    if (unOp != nullptr)
+    TIntermSymbol *symbol = NULL;
+    if (unOp != NULL)
     {
         op     = unOp->getOp();
         symbol = unOp->getOperand()->getAsSymbolNode();
     }
-    else if (binOp != nullptr)
+    else if (binOp != NULL)
     {
         op     = binOp->getOp();
         symbol = binOp->getLeft()->getAsSymbolNode();
     }
 
     // The operand must be loop index.
-    if (symbol == nullptr)
+    if (symbol == NULL)
     {
         error(expr->getLine(), "Invalid expression", "for");
         return false;
@@ -370,11 +369,11 @@ bool ValidateLimitationsTraverser::validateForLoopExpr(TIntermLoop *node, int in
         case EOpPostDecrement:
         case EOpPreIncrement:
         case EOpPreDecrement:
-            ASSERT((unOp != nullptr) && (binOp == nullptr));
+            ASSERT((unOp != NULL) && (binOp == NULL));
             break;
         case EOpAddAssign:
         case EOpSubAssign:
-            ASSERT((unOp == nullptr) && (binOp != nullptr));
+            ASSERT((unOp == NULL) && (binOp != NULL));
             break;
         default:
             error(expr->getLine(), "Invalid operator", GetOperatorString(op));
@@ -382,7 +381,7 @@ bool ValidateLimitationsTraverser::validateForLoopExpr(TIntermLoop *node, int in
     }
 
     // Loop index must be incremented/decremented with a constant.
-    if (binOp != nullptr)
+    if (binOp != NULL)
     {
         if (!isConstExpr(binOp->getRight()))
         {
@@ -403,7 +402,7 @@ bool ValidateLimitationsTraverser::isConstExpr(TIntermNode *node)
 
 bool ValidateLimitationsTraverser::isConstIndexExpr(TIntermNode *node)
 {
-    ASSERT(node != nullptr);
+    ASSERT(node != NULL);
 
     ValidateConstIndexExpr validate(mLoopSymbolIds);
     node->traverse(&validate);
@@ -432,7 +431,7 @@ bool ValidateLimitationsTraverser::validateIndexing(TIntermBinary *node)
 
 bool ValidateLimitations(TIntermNode *root,
                          GLenum shaderType,
-                         TSymbolTable *symbolTable,
+                         const TSymbolTable &symbolTable,
                          int shaderVersion,
                          TDiagnostics *diagnostics)
 {

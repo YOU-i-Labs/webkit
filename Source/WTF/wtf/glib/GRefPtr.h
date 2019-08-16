@@ -25,9 +25,10 @@
 
 #if USE(GLIB)
 
+#include <wtf/GetPtr.h>
 #include <wtf/HashTraits.h>
+#include <wtf/RefPtr.h>
 #include <algorithm>
-#include <glib.h>
 
 extern "C" void g_object_unref(gpointer);
 extern "C" gpointer g_object_ref_sink(gpointer);
@@ -237,8 +238,6 @@ template <> WTF_EXPORT_PRIVATE GBytes* refGPtr(GBytes*);
 template <> WTF_EXPORT_PRIVATE void derefGPtr(GBytes*);
 template <> WTF_EXPORT_PRIVATE GClosure* refGPtr(GClosure*);
 template <> WTF_EXPORT_PRIVATE void derefGPtr(GClosure*);
-template <> WTF_EXPORT_PRIVATE GRegex* refGPtr(GRegex*);
-template <> WTF_EXPORT_PRIVATE void derefGPtr(GRegex*);
 
 template <typename T> inline T* refGPtr(T* ptr)
 {

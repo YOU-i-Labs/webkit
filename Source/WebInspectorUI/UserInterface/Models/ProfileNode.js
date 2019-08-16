@@ -23,21 +23,23 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ProfileNode = class ProfileNode
+WebInspector.ProfileNode = class ProfileNode extends WebInspector.Object
 {
     constructor(id, type, functionName, sourceCodeLocation, callInfo, calls, childNodes)
     {
+        super();
+
         childNodes = childNodes || [];
 
         console.assert(id);
         console.assert(!calls || calls instanceof Array);
         console.assert(!calls || calls.length >= 1);
-        console.assert(!calls || calls.every((call) => call instanceof WI.ProfileNodeCall));
+        console.assert(!calls || calls.every((call) => call instanceof WebInspector.ProfileNodeCall));
         console.assert(childNodes instanceof Array);
-        console.assert(childNodes.every((node) => node instanceof WI.ProfileNode));
+        console.assert(childNodes.every((node) => node instanceof WebInspector.ProfileNode));
 
         this._id = id;
-        this._type = type || WI.ProfileNode.Type.Function;
+        this._type = type || WebInspector.ProfileNode.Type.Function;
         this._functionName = functionName || null;
         this._sourceCodeLocation = sourceCodeLocation || null;
         this._calls = calls || null;
@@ -168,7 +170,7 @@ WI.ProfileNode = class ProfileNode
                 endTime: this._endTime,
                 selfTime: this._selfTime,
                 totalTime: this._totalTime,
-                averageTime: this._selfTime / this._callCount,
+                averageTime: (this._selfTime / this._callCount),
             };
         }
 
@@ -230,11 +232,11 @@ WI.ProfileNode = class ProfileNode
 
     saveIdentityToCookie(cookie)
     {
-        cookie[WI.ProfileNode.TypeCookieKey] = this._type || null;
-        cookie[WI.ProfileNode.FunctionNameCookieKey] = this._functionName || null;
-        cookie[WI.ProfileNode.SourceCodeURLCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.sourceCode.url ? this._sourceCodeLocation.sourceCode.url.hash : null : null;
-        cookie[WI.ProfileNode.SourceCodeLocationLineCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.lineNumber : null;
-        cookie[WI.ProfileNode.SourceCodeLocationColumnCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.columnNumber : null;
+        cookie[WebInspector.ProfileNode.TypeCookieKey] = this._type || null;
+        cookie[WebInspector.ProfileNode.FunctionNameCookieKey] = this._functionName || null;
+        cookie[WebInspector.ProfileNode.SourceCodeURLCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.sourceCode.url ? this._sourceCodeLocation.sourceCode.url.hash : null : null;
+        cookie[WebInspector.ProfileNode.SourceCodeLocationLineCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.lineNumber : null;
+        cookie[WebInspector.ProfileNode.SourceCodeLocationColumnCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.columnNumber : null;
     }
 
     // Protected
@@ -263,14 +265,14 @@ WI.ProfileNode = class ProfileNode
     }
 };
 
-WI.ProfileNode.Type = {
+WebInspector.ProfileNode.Type = {
     Function: "profile-node-type-function",
     Program: "profile-node-type-program"
 };
 
-WI.ProfileNode.TypeIdentifier = "profile-node";
-WI.ProfileNode.TypeCookieKey = "profile-node-type";
-WI.ProfileNode.FunctionNameCookieKey = "profile-node-function-name";
-WI.ProfileNode.SourceCodeURLCookieKey = "profile-node-source-code-url";
-WI.ProfileNode.SourceCodeLocationLineCookieKey = "profile-node-source-code-location-line";
-WI.ProfileNode.SourceCodeLocationColumnCookieKey = "profile-node-source-code-location-column";
+WebInspector.ProfileNode.TypeIdentifier = "profile-node";
+WebInspector.ProfileNode.TypeCookieKey = "profile-node-type";
+WebInspector.ProfileNode.FunctionNameCookieKey = "profile-node-function-name";
+WebInspector.ProfileNode.SourceCodeURLCookieKey = "profile-node-source-code-url";
+WebInspector.ProfileNode.SourceCodeLocationLineCookieKey = "profile-node-source-code-location-line";
+WebInspector.ProfileNode.SourceCodeLocationColumnCookieKey = "profile-node-source-code-location-column";

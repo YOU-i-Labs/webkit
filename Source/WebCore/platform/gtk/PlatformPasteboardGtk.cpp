@@ -23,8 +23,8 @@
 #include "PasteboardHelper.h"
 #include "SelectionData.h"
 #include "SharedBuffer.h"
+#include "URL.h"
 #include <gtk/gtk.h>
-#include <wtf/URL.h>
 
 namespace WebCore {
 
@@ -34,7 +34,7 @@ PlatformPasteboard::PlatformPasteboard(const String& pasteboardName)
     ASSERT(m_clipboard);
 }
 
-void PlatformPasteboard::writeToClipboard(const SelectionData& selection, WTF::Function<void()>&& primarySelectionCleared)
+void PlatformPasteboard::writeToClipboard(const SelectionData& selection, std::function<void()>&& primarySelectionCleared)
 {
     PasteboardHelper::singleton().writeClipboardContents(m_clipboard, selection, gtk_clipboard_get(GDK_SELECTION_PRIMARY) == m_clipboard ? WTFMove(primarySelectionCleared) : nullptr);
 }
@@ -44,16 +44,6 @@ Ref<SelectionData> PlatformPasteboard::readFromClipboard()
     Ref<SelectionData> selection(SelectionData::create());
     PasteboardHelper::singleton().getClipboardContents(m_clipboard, selection.get());
     return selection;
-}
-
-Vector<String> PlatformPasteboard::typesSafeForDOMToReadAndWrite(const String&) const
-{
-    return { };
-}
-
-long PlatformPasteboard::write(const PasteboardCustomData&)
-{
-    return 0;
 }
 
 }

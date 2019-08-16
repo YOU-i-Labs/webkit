@@ -19,12 +19,12 @@
  */
 
 interface HTMLBodyElement : HTMLElement {
-    [CEReactions=NotNeeded, Reflect] attribute [TreatNullAs=EmptyString] DOMString aLink;
-    [CEReactions=NotNeeded, Reflect] attribute DOMString background;
-    [CEReactions=NotNeeded, Reflect] attribute [TreatNullAs=EmptyString] DOMString bgColor;
-    [CEReactions=NotNeeded, Reflect] attribute [TreatNullAs=EmptyString] DOMString link;
-    [CEReactions=NotNeeded, Reflect] attribute [TreatNullAs=EmptyString] DOMString text;
-    [CEReactions=NotNeeded, Reflect] attribute [TreatNullAs=EmptyString] DOMString vLink;
+    [Reflect] attribute [TreatNullAs=EmptyString] DOMString aLink;
+    [Reflect] attribute DOMString background;
+    [Reflect] attribute [TreatNullAs=EmptyString] DOMString bgColor;
+    [Reflect] attribute [TreatNullAs=EmptyString] DOMString link;
+    [Reflect] attribute [TreatNullAs=EmptyString] DOMString text;
+    [Reflect] attribute [TreatNullAs=EmptyString] DOMString vLink;
 
     [NotEnumerable, WindowEventHandler] attribute EventHandler onblur;
     [NotEnumerable, WindowEventHandler] attribute EventHandler onerror;
@@ -39,6 +39,10 @@ interface HTMLBodyElement : HTMLElement {
     [NotEnumerable, WindowEventHandler, Conditional=MOUSE_FORCE_EVENTS] attribute EventHandler onwebkitmouseforcedown;
     [NotEnumerable, WindowEventHandler, Conditional=MOUSE_FORCE_EVENTS] attribute EventHandler onwebkitmouseforcewillbegin;
     [NotEnumerable, WindowEventHandler, Conditional=MOUSE_FORCE_EVENTS] attribute EventHandler onwebkitmouseforceup;
+    [NotEnumerable, WindowEventHandler, Conditional=WILL_REVEAL_EDGE_EVENTS] attribute EventHandler onwebkitwillrevealbottom;
+    [NotEnumerable, WindowEventHandler, Conditional=WILL_REVEAL_EDGE_EVENTS] attribute EventHandler onwebkitwillrevealleft;
+    [NotEnumerable, WindowEventHandler, Conditional=WILL_REVEAL_EDGE_EVENTS] attribute EventHandler onwebkitwillrevealright;
+    [NotEnumerable, WindowEventHandler, Conditional=WILL_REVEAL_EDGE_EVENTS] attribute EventHandler onwebkitwillrevealtop;
 
     // Unique to Document and HTMLBodyElement
     [NotEnumerable, DocumentEventHandler] attribute EventHandler onselectionchange;

@@ -86,12 +86,12 @@ static bool isExtensionParameter(LinkHeader::LinkParameterName name)
 //          ^            ^
 //          position     end
 template <typename CharacterType>
-static Optional<String> findURLBoundaries(CharacterType*& position, CharacterType* const end)
+static std::optional<String> findURLBoundaries(CharacterType*& position, CharacterType* const end)
 {
     ASSERT(position <= end);
     skipWhile<CharacterType, isSpaceOrTab>(position, end);
     if (!skipExactly<CharacterType>(position, end, '<'))
-        return WTF::nullopt;
+        return std::nullopt;
     skipWhile<CharacterType, isSpaceOrTab>(position, end);
 
     CharacterType* urlStart = position;
@@ -99,7 +99,7 @@ static Optional<String> findURLBoundaries(CharacterType*& position, CharacterTyp
     CharacterType* urlEnd = position;
     skipUntil<CharacterType>(position, end, '>');
     if (!skipExactly<CharacterType>(position, end, '>'))
-        return WTF::nullopt;
+        return std::nullopt;
 
     return String(urlStart, urlEnd - urlStart);
 }
@@ -252,7 +252,7 @@ static bool parseParameterValue(CharacterType*& position, CharacterType* const e
     valueEnd = position;
     skipWhile<CharacterType, isSpaceOrTab>(position, end);
     if ((!completeQuotes && valueStart == valueEnd) || (position != end && !isParameterValueEnd(*position))) {
-        value = emptyString();
+        value = String("");
         return false;
     }
     if (hasQuotes)
@@ -309,7 +309,7 @@ LinkHeader::LinkHeader(CharacterType*& position, CharacterType* const end)
 {
     ASSERT(position <= end);
     auto urlResult = findURLBoundaries(position, end);
-    if (urlResult == WTF::nullopt) {
+    if (urlResult == std::nullopt) {
         m_isValid = false;
         findNextHeader(position, end);
         return;

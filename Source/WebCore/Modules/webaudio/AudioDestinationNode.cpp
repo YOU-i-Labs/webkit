@@ -60,7 +60,7 @@ void AudioDestinationNode::render(AudioBus*, AudioBus* destinationBus, size_t nu
     // This will take care of all AudioNodes because they all process within this scope.
     DenormalDisabler denormalDisabler;
     
-    context().setAudioThread(Thread::current());
+    context().setAudioThread(currentThread());
     
     if (!context().isInitialized()) {
         destinationBus->zero();

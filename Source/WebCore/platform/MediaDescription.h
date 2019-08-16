@@ -33,7 +33,7 @@ namespace WebCore {
 
 class MediaDescription : public RefCounted<MediaDescription> {
 public:
-    virtual ~MediaDescription() = default;
+    virtual ~MediaDescription() { }
 
     virtual AtomicString codec() const = 0;
     virtual bool isVideo() const = 0;

@@ -68,7 +68,7 @@ FormatterWorker = class FormatterWorker
             if (includeSourceMapData)
                 result.sourceMapData = {mapping: {original: [], formatted: []}, originalLineEndings: [], formattedLineEndings: []};
             return result;
-        } catch { }
+        } catch (e) {}
 
         // Format invalid JSON and anonymous functions.
         // Some applications do not use JSON.parse but eval on JSON content. That is more permissive

@@ -18,10 +18,10 @@
 */
 
 #include "config.h"
-#include <wtf/HashTable.h>
+#include "HashTable.h"
 
+#include "DataLog.h"
 #include <mutex>
-#include <wtf/DataLog.h>
 
 namespace WTF {
 
@@ -36,11 +36,11 @@ unsigned HashTableStats::numCollisions;
 unsigned HashTableStats::collisionGraph[4096];
 unsigned HashTableStats::maxCollisions;
 
-static Lock hashTableStatsMutex;
+static StaticLock hashTableStatsMutex;
 
 void HashTableStats::recordCollisionAtCount(unsigned count)
 {
-    std::lock_guard<Lock> lock(hashTableStatsMutex);
+    std::lock_guard<StaticLock> lock(hashTableStatsMutex);
 
     if (count > maxCollisions)
         maxCollisions = count;
@@ -50,7 +50,7 @@ void HashTableStats::recordCollisionAtCount(unsigned count)
 
 void HashTableStats::dumpStats()
 {
-    std::lock_guard<Lock> lock(hashTableStatsMutex);
+    std::lock_guard<StaticLock> lock(hashTableStatsMutex);
 
     dataLogF("\nWTF::HashTable statistics\n\n");
     dataLogF("%u accesses\n", numAccesses.load());

@@ -36,7 +36,6 @@
 #include "ContentSecurityPolicy.h"
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
-#include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
@@ -46,7 +45,7 @@
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "MIMETypeRegistry.h"
-#include "NavigationScheduler.h"
+#include "MainFrame.h"
 #include "Page.h"
 #include "PluginData.h"
 #include "PluginDocument.h"
@@ -77,25 +76,20 @@ bool SubframeLoader::requestFrame(HTMLFrameOwnerElement& ownerElement, const Str
     // Support for <frame src="javascript:string">
     URL scriptURL;
     URL url;
-    if (WTF::protocolIsJavaScript(urlString)) {
+    if (protocolIsJavaScript(urlString)) {
         scriptURL = completeURL(urlString); // completeURL() encodes the URL.
-        url = WTF::blankURL();
+        url = blankURL();
     } else
         url = completeURL(urlString);
 
     if (shouldConvertInvalidURLsToBlank() && !url.isValid())
-        url = WTF::blankURL();
+        url = blankURL();
 
-    bool hasExistingFrame = ownerElement.contentFrame();
     Frame* frame = loadOrRedirectSubframe(ownerElement, url, frameName, lockHistory, lockBackForwardList);
     if (!frame)
         return false;
 
-    // If we create a new subframe then an empty document is loaded into it synchronously and may
-    // cause script execution (say, via a DOM load event handler) that can do anything, including
-    // navigating the subframe. We only want to evaluate scriptURL if the frame has not been navigated.
-    bool canExecuteScript = hasExistingFrame || (frame->loader().documentLoader() && frame->loader().documentLoader()->originalURL() == WTF::blankURL());
-    if (!scriptURL.isEmpty() && canExecuteScript && ownerElement.isURLAllowed(scriptURL))
+    if (!scriptURL.isEmpty() && ownerElement.isURLAllowed(scriptURL))
         frame->script().executeIfJavaScriptURL(scriptURL);
 
     return true;
@@ -308,6 +302,17 @@ Frame* SubframeLoader::loadOrRedirectSubframe(HTMLFrameOwnerElement& ownerElemen
 Frame* SubframeLoader::loadSubframe(HTMLFrameOwnerElement& ownerElement, const URL& url, const String& name, const String& referrer)
 {
     Ref<Frame> protect(m_frame);
+
+    bool allowsScrolling = true;
+    int marginWidth = -1;
+    int marginHeight = -1;
+    if (is<HTMLFrameElementBase>(ownerElement)) {
+        auto& frameElementBase = downcast<HTMLFrameElementBase>(ownerElement);
+        allowsScrolling = frameElementBase.scrollingMode() != ScrollbarAlwaysOff;
+        marginWidth = frameElementBase.marginWidth();
+        marginHeight = frameElementBase.marginHeight();
+    }
+
     auto document = makeRef(ownerElement.document());
 
     if (!document->securityOrigin().canDisplay(url)) {
@@ -323,7 +328,7 @@ Frame* SubframeLoader::loadSubframe(HTMLFrameOwnerElement& ownerElement, const U
     // Prevent initial empty document load from triggering load events.
     document->incrementLoadEventDelayCount();
 
-    auto frame = m_frame.loader().client().createFrame(url, name, ownerElement, referrerToUse);
+    auto frame = m_frame.loader().client().createFrame(url, name, ownerElement, referrerToUse, allowsScrolling, marginWidth, marginHeight);
 
     document->decrementLoadEventDelayCount();
 
@@ -399,13 +404,13 @@ bool SubframeLoader::loadPlugin(HTMLPlugInImageElement& pluginElement, const URL
     IntSize contentSize = roundedIntSize(LayoutSize(renderer->contentWidth(), renderer->contentHeight()));
     bool loadManually = is<PluginDocument>(document) && !m_containsPlugins && downcast<PluginDocument>(document).shouldLoadPluginManually();
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     // On iOS, we only tell the plugin to be in full page mode if the containing plugin document is the top level document.
     if (document.ownerElement())
         loadManually = false;
 #endif
 
-    auto weakRenderer = makeWeakPtr(*renderer);
+    auto weakRenderer = renderer->createWeakPtr();
 
     auto widget = m_frame.loader().client().createPlugin(contentSize, pluginElement, url, paramNames, paramValues, mimeType, loadManually);
 

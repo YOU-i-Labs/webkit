@@ -30,7 +30,7 @@
 
 #include "ScrollingStateTree.h"
 #include "ScrollingTree.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 
@@ -39,7 +39,9 @@ ScrollingTreeScrollingNode::ScrollingTreeScrollingNode(ScrollingTree& scrollingT
 {
 }
 
-ScrollingTreeScrollingNode::~ScrollingTreeScrollingNode() = default;
+ScrollingTreeScrollingNode::~ScrollingTreeScrollingNode()
+{
+}
 
 void ScrollingTreeScrollingNode::commitStateBeforeChildren(const ScrollingStateNode& stateNode)
 {
@@ -62,9 +64,6 @@ void ScrollingTreeScrollingNode::commitStateBeforeChildren(const ScrollingStateN
 
     if (state.hasChangedProperty(ScrollingStateScrollingNode::ScrollPosition))
         m_lastCommittedScrollPosition = state.scrollPosition();
-
-    if (state.hasChangedProperty(ScrollingStateScrollingNode::ParentRelativeScrollableRect))
-        m_parentRelativeScrollableRect = state.parentRelativeScrollableRect();
 
     if (state.hasChangedProperty(ScrollingStateScrollingNode::ScrollOrigin))
         m_scrollOrigin = state.scrollOrigin();
@@ -118,7 +117,7 @@ void ScrollingTreeScrollingNode::setScrollPosition(const FloatPoint& scrollPosit
 void ScrollingTreeScrollingNode::setScrollPositionWithoutContentEdgeConstraints(const FloatPoint& scrollPosition)
 {
     setScrollLayerPosition(scrollPosition, { });
-    scrollingTree().scrollingTreeNodeDidScroll(scrollingNodeID(), scrollPosition, WTF::nullopt);
+    scrollingTree().scrollingTreeNodeDidScroll(scrollingNodeID(), scrollPosition, std::nullopt);
 }
 
 FloatPoint ScrollingTreeScrollingNode::minimumScrollPosition() const
@@ -142,10 +141,6 @@ void ScrollingTreeScrollingNode::dumpProperties(TextStream& ts, ScrollingStateTr
     if (m_reachableContentsSize != m_totalContentsSize)
         ts.dumpProperty("reachable content size", m_reachableContentsSize);
     ts.dumpProperty("last committed scroll position", m_lastCommittedScrollPosition);
-
-    if (!m_parentRelativeScrollableRect.isEmpty())
-        ts.dumpProperty("parent relative scrollable rect", m_parentRelativeScrollableRect);
-
     if (m_scrollOrigin != IntPoint())
         ts.dumpProperty("scroll origin", m_scrollOrigin);
 

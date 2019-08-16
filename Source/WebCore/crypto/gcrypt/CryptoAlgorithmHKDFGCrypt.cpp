@@ -28,11 +28,13 @@
 #include "config.h"
 #include "CryptoAlgorithmHKDF.h"
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 #include "CryptoAlgorithmHkdfParams.h"
 #include "CryptoKeyRaw.h"
+#include "ExceptionCode.h"
 #include "GCryptUtilities.h"
+#include "ScriptExecutionContext.h"
 
 namespace WebCore {
 
@@ -40,7 +42,7 @@ namespace WebCore {
 // We should switch to the libgcrypt-provided implementation once it's available.
 // https://bugs.webkit.org/show_bug.cgi?id=171536
 
-static Optional<Vector<uint8_t>> gcryptDeriveBits(const Vector<uint8_t>& key, const Vector<uint8_t>& salt, const Vector<uint8_t>& info, size_t lengthInBytes, CryptoAlgorithmIdentifier identifier)
+static std::optional<Vector<uint8_t>> gcryptDeriveBits(const Vector<uint8_t>& key, const Vector<uint8_t>& salt, const Vector<uint8_t>& info, size_t lengthInBytes, CryptoAlgorithmIdentifier identifier)
 {
     // libgcrypt doesn't provide HKDF support, so we have to implement
     // the functionality ourselves as specified in RFC5869.
@@ -48,18 +50,18 @@ static Optional<Vector<uint8_t>> gcryptDeriveBits(const Vector<uint8_t>& key, co
 
     auto macAlgorithm = hmacAlgorithm(identifier);
     if (!macAlgorithm)
-        return WTF::nullopt;
+        return std::nullopt;
 
     // We can immediately discard invalid output lengths, otherwise needed for the expand step.
     size_t macLength = gcry_mac_get_algo_maclen(*macAlgorithm);
     if (lengthInBytes > macLength * 255)
-        return WTF::nullopt;
+        return std::nullopt;
 
     PAL::GCrypt::Handle<gcry_mac_hd_t> handle;
     gcry_error_t error = gcry_mac_open(&handle, *macAlgorithm, 0, nullptr);
     if (error != GPG_ERR_NO_ERROR) {
         PAL::GCrypt::logError(error);
-        return WTF::nullopt;
+        return std::nullopt;
     }
 
     // Step 1 -- Extract. A pseudo-random key is generated with the specified algorithm
@@ -74,25 +76,25 @@ static Optional<Vector<uint8_t>> gcryptDeriveBits(const Vector<uint8_t>& key, co
             error = gcry_mac_setkey(handle, salt.data(), salt.size());
         if (error != GPG_ERR_NO_ERROR) {
             PAL::GCrypt::logError(error);
-            return WTF::nullopt;
+            return std::nullopt;
         }
 
         error = gcry_mac_write(handle, key.data(), key.size());
         if (error != GPG_ERR_NO_ERROR) {
             PAL::GCrypt::logError(error);
-            return WTF::nullopt;
+            return std::nullopt;
         }
 
         size_t pseudoRandomKeySize = pseudoRandomKey.size();
         error = gcry_mac_read(handle, pseudoRandomKey.data(), &pseudoRandomKeySize);
         if (error != GPG_ERR_NO_ERROR) {
             PAL::GCrypt::logError(error);
-            return WTF::nullopt;
+            return std::nullopt;
         }
 
         // Something went wrong if libgcrypt didn't write out the proper amount of data.
         if (pseudoRandomKeySize != macLength)
-            return WTF::nullopt;
+            return std::nullopt;
     }
 
     // Step #2 -- Expand.
@@ -108,13 +110,13 @@ static Optional<Vector<uint8_t>> gcryptDeriveBits(const Vector<uint8_t>& key, co
             error = gcry_mac_reset(handle);
             if (error != GPG_ERR_NO_ERROR) {
                 PAL::GCrypt::logError(error);
-                return WTF::nullopt;
+                return std::nullopt;
             }
 
             error = gcry_mac_setkey(handle, pseudoRandomKey.data(), pseudoRandomKey.size());
             if (error != GPG_ERR_NO_ERROR) {
                 PAL::GCrypt::logError(error);
-                return WTF::nullopt;
+                return std::nullopt;
             }
 
             // T(0) = empty string (zero length) -- i.e. empty lastBlock
@@ -128,19 +130,19 @@ static Optional<Vector<uint8_t>> gcryptDeriveBits(const Vector<uint8_t>& key, co
             error = gcry_mac_write(handle, blockData.data(), blockData.size());
             if (error != GPG_ERR_NO_ERROR) {
                 PAL::GCrypt::logError(error);
-                return WTF::nullopt;
+                return std::nullopt;
             }
 
             size_t blockSize = lastBlock.size();
             error = gcry_mac_read(handle, lastBlock.data(), &blockSize);
             if (error != GPG_ERR_NO_ERROR) {
                 PAL::GCrypt::logError(error);
-                return WTF::nullopt;
+                return std::nullopt;
             }
 
             // Something went wrong if libgcrypt didn't write out the proper amount of data.
             if (blockSize != lastBlock.size())
-                return WTF::nullopt;
+                return std::nullopt;
 
             // Append the current block data to the output vector.
             output.appendVector(lastBlock);
@@ -152,14 +154,34 @@ static Optional<Vector<uint8_t>> gcryptDeriveBits(const Vector<uint8_t>& key, co
     return output;
 }
 
-ExceptionOr<Vector<uint8_t>> CryptoAlgorithmHKDF::platformDeriveBits(const CryptoAlgorithmHkdfParams& parameters, const CryptoKeyRaw& key, size_t length)
+void CryptoAlgorithmHKDF::platformDeriveBits(std::unique_ptr<CryptoAlgorithmParameters>&& parameters, Ref<CryptoKey>&& baseKey, size_t length, VectorCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
 {
-    auto output = gcryptDeriveBits(key.key(), parameters.saltVector(), parameters.infoVector(), length / 8, parameters.hashIdentifier);
-    if (!output)
-        return Exception { OperationError };
-    return WTFMove(*output);
+    context.ref();
+    workQueue.dispatch(
+        [parameters = WTFMove(parameters), baseKey = WTFMove(baseKey), length, callback = WTFMove(callback), exceptionCallback = WTFMove(exceptionCallback), &context]() mutable {
+            auto& hkdfParameters = downcast<CryptoAlgorithmHkdfParams>(*parameters);
+            auto& rawKey = downcast<CryptoKeyRaw>(baseKey.get());
+
+            auto output = gcryptDeriveBits(rawKey.key(), hkdfParameters.saltVector(), hkdfParameters.infoVector(), length / 8, hkdfParameters.hashIdentifier);
+            if (!output) {
+                // We should only dereference callbacks after being back to the Document/Worker threads.
+                context.postTask(
+                    [callback = WTFMove(callback), exceptionCallback = WTFMove(exceptionCallback)](ScriptExecutionContext& context) {
+                        exceptionCallback(OperationError);
+                        context.deref();
+                    });
+                return;
+            }
+
+            // We should only dereference callbacks after being back to the Document/Worker threads.
+            context.postTask(
+                [output = WTFMove(*output), callback = WTFMove(callback), exceptionCallback = WTFMove(exceptionCallback)](ScriptExecutionContext& context) {
+                    callback(output);
+                    context.deref();
+                });
+        });
 }
 
 } // namespace WebCore
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

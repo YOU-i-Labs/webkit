@@ -25,7 +25,8 @@
 
 #include "AudioBus.h"
 #include "AudioIOCallback.h"
-#include "GStreamerCommon.h"
+#include "GRefPtrGStreamer.h"
+#include "GStreamerUtilities.h"
 #include <gst/app/gstappsrc.h>
 #include <gst/audio/audio-info.h>
 #include <gst/pbutils/missing-plugins.h>
@@ -68,8 +69,6 @@ struct _WebKitWebAudioSourcePrivate {
     guint64 numberOfSamples;
 
     GRefPtr<GstBufferPool> pool;
-
-    bool enableGapBufferSupport;
 };
 
 enum {
@@ -194,11 +193,6 @@ static void webkit_web_audio_src_init(WebKitWebAudioSrc* src)
     g_rec_mutex_init(&priv->mutex);
     priv->task = adoptGRef(gst_task_new(reinterpret_cast<GstTaskFunction>(webKitWebAudioSrcLoop), src, nullptr));
 
-    // GAP buffer support is enabled only for GStreamer 1.12.5 because of a
-    // memory leak that was fixed in that version.
-    // https://bugzilla.gnome.org/show_bug.cgi?id=793067
-    priv->enableGapBufferSupport = webkitGstCheckVersion(1, 12, 5);
-
     gst_task_set_lock(priv->task.get(), &priv->mutex);
 }
 
@@ -308,7 +302,7 @@ static void webKitWebAudioSrcGetProperty(GObject* object, guint propertyId, GVal
     }
 }
 
-static Optional<Vector<GRefPtr<GstBuffer>>> webKitWebAudioSrcAllocateBuffersAndRenderAudio(WebKitWebAudioSrc* src)
+static void webKitWebAudioSrcLoop(WebKitWebAudioSrc* src)
 {
     WebKitWebAudioSourcePrivate* priv = src->priv;
 
@@ -317,7 +311,7 @@ static Optional<Vector<GRefPtr<GstBuffer>>> webKitWebAudioSrcAllocateBuffersAndR
     if (!priv->provider || !priv->bus) {
         GST_ELEMENT_ERROR(src, CORE, FAILED, ("Internal WebAudioSrc error"), ("Can't start without provider or bus"));
         gst_task_stop(src->priv->task.get());
-        return WTF::nullopt;
+        return;
     }
 
     ASSERT(priv->pool);
@@ -327,52 +321,37 @@ static Optional<Vector<GRefPtr<GstBuffer>>> webKitWebAudioSrcAllocateBuffersAndR
 
     Vector<GRefPtr<GstBuffer>> channelBufferList;
     channelBufferList.reserveInitialCapacity(priv->sources.size());
-    Vector<GstMappedBuffer> mappedBuffers;
-    mappedBuffers.reserveInitialCapacity(priv->sources.size());
     for (unsigned i = 0; i < priv->sources.size(); ++i) {
         GRefPtr<GstBuffer> buffer;
         GstFlowReturn ret = gst_buffer_pool_acquire_buffer(priv->pool.get(), &buffer.outPtr(), nullptr);
         if (ret != GST_FLOW_OK) {
+            for (auto& buffer : channelBufferList)
+                unmapGstBuffer(buffer.get());
+
             // FLUSHING and EOS are not errors.
             if (ret < GST_FLOW_EOS || ret == GST_FLOW_NOT_LINKED)
                 GST_ELEMENT_ERROR(src, CORE, PAD, ("Internal WebAudioSrc error"), ("Failed to allocate buffer for flow: %s", gst_flow_get_name(ret)));
-            return WTF::nullopt;
+            gst_task_stop(src->priv->task.get());
+            return;
         }
 
         ASSERT(buffer);
         GST_BUFFER_TIMESTAMP(buffer.get()) = timestamp;
         GST_BUFFER_DURATION(buffer.get()) = duration;
-        GstMappedBuffer mappedBuffer(buffer.get(), GST_MAP_READWRITE);
-        ASSERT(mappedBuffer);
-        mappedBuffers.uncheckedAppend(WTFMove(mappedBuffer));
-        priv->bus->setChannelMemory(i, reinterpret_cast<float*>(mappedBuffers[i].data()), priv->framesToPull);
+        mapGstBuffer(buffer.get(), GST_MAP_READWRITE);
+        priv->bus->setChannelMemory(i, reinterpret_cast<float*>(getGstBufferDataPointer(buffer.get())), priv->framesToPull);
         channelBufferList.uncheckedAppend(WTFMove(buffer));
     }
 
     // FIXME: Add support for local/live audio input.
     priv->provider->render(nullptr, priv->bus, priv->framesToPull);
 
-    return makeOptional(channelBufferList);
-}
-
-static void webKitWebAudioSrcLoop(WebKitWebAudioSrc* src)
-{
-    WebKitWebAudioSourcePrivate* priv = src->priv;
-
-    Optional<Vector<GRefPtr<GstBuffer>>> channelBufferList = webKitWebAudioSrcAllocateBuffersAndRenderAudio(src);
-    if (!channelBufferList) {
-        gst_task_stop(src->priv->task.get());
-        return;
-    }
-
-    ASSERT(channelBufferList->size() == priv->sources.size());
-
+    ASSERT(channelBufferList.size() == priv->sources.size());
     bool failed = false;
     for (unsigned i = 0; i < priv->sources.size(); ++i) {
-        auto& buffer = channelBufferList.value()[i];
-
-        if (priv->enableGapBufferSupport && priv->bus->channel(i)->isSilent())
-            GST_BUFFER_FLAG_SET(buffer.get(), GST_BUFFER_FLAG_GAP);
+        // Unmap before passing on the buffer.
+        auto& buffer = channelBufferList[i];
+        unmapGstBuffer(buffer.get());
 
         if (failed)
             continue;
@@ -431,7 +410,9 @@ static GstStateChangeReturn webKitWebAudioSrcChangeState(GstElement* element, Gs
     case GST_STATE_CHANGE_PAUSED_TO_READY:
         GST_DEBUG_OBJECT(src, "PAUSED->READY");
 
+#if GST_CHECK_VERSION(1, 4, 0)
         gst_buffer_pool_set_flushing(src->priv->pool.get(), TRUE);
+#endif
         if (!gst_task_join(src->priv->task.get()))
             returnValue = GST_STATE_CHANGE_FAILURE;
         gst_buffer_pool_set_active(src->priv->pool.get(), FALSE);
