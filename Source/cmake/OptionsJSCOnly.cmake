@@ -84,11 +84,12 @@ else ()
     SET_AND_EXPOSE_TO_BUILD(WTF_DEFAULT_EVENT_LOOP 0)
 endif ()
 
-if (NOT APPLE)
-    find_package(ICU REQUIRED)
-else ()
-    set(ICU_LIBRARIES libicucore.dylib)
-endif ()
+hunter_add_package(ICU)
+find_package(ICU CONFIG REQUIRED)
+set(ICU_INCLUDE_DIRS "")
+set(ICU_DATA_LIBRARIES ICU::data)
+set(ICU_I18N_LIBRARIES ICU::i18n)
+set(ICU_LIBRARIES ICU::uc) 
 
 # From OptionsGTK.cmake
 if (CMAKE_MAJOR_VERSION LESS 3)

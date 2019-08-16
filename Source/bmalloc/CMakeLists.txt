@@ -32,6 +32,17 @@ set(bmalloc_LIBRARIES
 
 WEBKIT_WRAP_SOURCELIST(${bmalloc_SOURCES})
 include_directories(${bmalloc_INCLUDE_DIRECTORIES})
-add_library(bmalloc STATIC ${bmalloc_SOURCES})
-target_link_libraries(bmalloc ${bmalloc_LIBRARIES})
+add_library(bmalloc ${bmalloc_SOURCES})
+target_link_libraries(bmalloc PUBLIC ${bmalloc_LIBRARIES})
 set_target_properties(bmalloc PROPERTIES COMPILE_DEFINITIONS "BUILDING_bmalloc")
+
+include(GNUInstallDirs)
+
+install(
+    TARGETS bmalloc
+    EXPORT "${TARGETS_EXPORT_NAME}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
