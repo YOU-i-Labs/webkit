@@ -35,7 +35,9 @@ ActiveDOMCallbackMicrotask::ActiveDOMCallbackMicrotask(MicrotaskQueue& queue, Sc
 {
 }
 
-ActiveDOMCallbackMicrotask::~ActiveDOMCallbackMicrotask() = default;
+ActiveDOMCallbackMicrotask::~ActiveDOMCallbackMicrotask()
+{
+}
 
 Microtask::Result ActiveDOMCallbackMicrotask::run()
 {

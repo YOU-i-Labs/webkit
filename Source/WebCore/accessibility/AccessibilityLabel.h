@@ -38,12 +38,11 @@ public:
     virtual ~AccessibilityLabel();
     
     bool containsOnlyStaticText() const;
-    bool containsUnrelatedControls() const;
 
 private:
     explicit AccessibilityLabel(RenderObject*);
     bool computeAccessibilityIsIgnored() const final;
-    AccessibilityRole roleValue() const final { return AccessibilityRole::Label; }
+    AccessibilityRole roleValue() const final { return LabelRole; }
     bool isLabel() const final { return true; }
     String stringValue() const final;
     void updateChildrenIfNecessary() final;

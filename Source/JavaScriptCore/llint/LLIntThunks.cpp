@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2013, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,65 +42,66 @@
 
 namespace JSC {
 
+EncodedJSValue JS_EXPORT_PRIVATE vmEntryToWasm(void* code, VM* vm, ProtoCallFrame* frame)
+{
+    return vmEntryToJavaScript(code, vm, frame);
+}
+    
 #if ENABLE(JIT)
 
 namespace LLInt {
 
-static MacroAssemblerCodeRef<JITThunkPtrTag> generateThunkWithJumpTo(VM* vm, OpcodeID opcodeID, const char *thunkKind)
+static MacroAssemblerCodeRef generateThunkWithJumpTo(VM* vm, void (*target)(), const char *thunkKind)
 {
     JSInterfaceJIT jit(vm);
-
+    
     // FIXME: there's probably a better way to do it on X86, but I'm not sure I care.
-    LLIntCode target = LLInt::getCodeFunctionPtr<JSEntryPtrTag>(opcodeID);
-    assertIsTaggedWith(target, JSEntryPtrTag);
-
-    jit.move(JSInterfaceJIT::TrustedImmPtr(target), JSInterfaceJIT::regT0);
-    jit.jump(JSInterfaceJIT::regT0, JSEntryPtrTag);
-
+    jit.move(JSInterfaceJIT::TrustedImmPtr(bitwise_cast<void*>(target)), JSInterfaceJIT::regT0);
+    jit.jump(JSInterfaceJIT::regT0);
+    
     LinkBuffer patchBuffer(jit, GLOBAL_THUNK_ID);
-    return FINALIZE_CODE(patchBuffer, JITThunkPtrTag, "LLInt %s prologue thunk", thunkKind);
+    return FINALIZE_CODE(patchBuffer, ("LLInt %s prologue thunk", thunkKind));
 }
 
-MacroAssemblerCodeRef<JITThunkPtrTag> functionForCallEntryThunkGenerator(VM* vm)
+MacroAssemblerCodeRef functionForCallEntryThunkGenerator(VM* vm)
 {
-    return generateThunkWithJumpTo(vm, llint_function_for_call_prologue, "function for call");
+    return generateThunkWithJumpTo(vm, LLInt::getCodeFunctionPtr(llint_function_for_call_prologue), "function for call");
 }
 
-MacroAssemblerCodeRef<JITThunkPtrTag> functionForConstructEntryThunkGenerator(VM* vm)
+MacroAssemblerCodeRef functionForConstructEntryThunkGenerator(VM* vm)
 {
-    return generateThunkWithJumpTo(vm, llint_function_for_construct_prologue, "function for construct");
+    return generateThunkWithJumpTo(vm, LLInt::getCodeFunctionPtr(llint_function_for_construct_prologue), "function for construct");
 }
 
-MacroAssemblerCodeRef<JITThunkPtrTag> functionForCallArityCheckThunkGenerator(VM* vm)
+MacroAssemblerCodeRef functionForCallArityCheckThunkGenerator(VM* vm)
 {
-    return generateThunkWithJumpTo(vm, llint_function_for_call_arity_check, "function for call with arity check");
+    return generateThunkWithJumpTo(vm, LLInt::getCodeFunctionPtr(llint_function_for_call_arity_check), "function for call with arity check");
 }
 
-MacroAssemblerCodeRef<JITThunkPtrTag> functionForConstructArityCheckThunkGenerator(VM* vm)
+MacroAssemblerCodeRef functionForConstructArityCheckThunkGenerator(VM* vm)
 {
-    return generateThunkWithJumpTo(vm, llint_function_for_construct_arity_check, "function for construct with arity check");
+    return generateThunkWithJumpTo(vm, LLInt::getCodeFunctionPtr(llint_function_for_construct_arity_check), "function for construct with arity check");
 }
 
-MacroAssemblerCodeRef<JITThunkPtrTag> evalEntryThunkGenerator(VM* vm)
+MacroAssemblerCodeRef evalEntryThunkGenerator(VM* vm)
 {
-    return generateThunkWithJumpTo(vm, llint_eval_prologue, "eval");
+    return generateThunkWithJumpTo(vm, LLInt::getCodeFunctionPtr(llint_eval_prologue), "eval");
 }
 
-MacroAssemblerCodeRef<JITThunkPtrTag> programEntryThunkGenerator(VM* vm)
+MacroAssemblerCodeRef programEntryThunkGenerator(VM* vm)
 {
-    return generateThunkWithJumpTo(vm, llint_program_prologue, "program");
+    return generateThunkWithJumpTo(vm, LLInt::getCodeFunctionPtr(llint_program_prologue), "program");
 }
 
-MacroAssemblerCodeRef<JITThunkPtrTag> moduleProgramEntryThunkGenerator(VM* vm)
+MacroAssemblerCodeRef moduleProgramEntryThunkGenerator(VM* vm)
 {
-    return generateThunkWithJumpTo(vm, llint_module_program_prologue, "module_program");
+    return generateThunkWithJumpTo(vm, LLInt::getCodeFunctionPtr(llint_module_program_prologue), "module_program");
 }
 
 } // namespace LLInt
 
-#endif
+#else // ENABLE(JIT)
 
-#if ENABLE(C_LOOP)
 // Non-JIT (i.e. C Loop LLINT) case:
 
 EncodedJSValue vmEntryToJavaScript(void* executableAddress, VM* vm, ProtoCallFrame* protoCallFrame)
@@ -115,7 +116,7 @@ EncodedJSValue vmEntryToNative(void* executableAddress, VM* vm, ProtoCallFrame* 
     return JSValue::encode(result);
 }
 
-extern "C" VMEntryRecord* vmEntryRecord(EntryFrame* entryFrame)
+extern "C" VMEntryRecord* vmEntryRecord(VMEntryFrame* entryFrame)
 {
     // The C Loop doesn't have any callee save registers, so the VMEntryRecord is allocated at the base of the frame.
     intptr_t stackAlignment = stackAlignmentBytes();
@@ -123,6 +124,7 @@ extern "C" VMEntryRecord* vmEntryRecord(EntryFrame* entryFrame)
     return reinterpret_cast<VMEntryRecord*>(reinterpret_cast<char*>(entryFrame) - VMEntryTotalFrameSize);
 }
 
-#endif // ENABLE(C_LOOP)
+
+#endif // ENABLE(JIT)
 
 } // namespace JSC

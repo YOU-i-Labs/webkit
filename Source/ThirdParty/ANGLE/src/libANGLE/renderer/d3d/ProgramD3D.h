@@ -32,37 +32,31 @@ class ShaderExecutableD3D;
 #endif
 
 // Helper struct representing a single shader uniform
-// TODO(jmadill): Make uniform blocks shared between all programs, so we don't need separate
-// register indices.
-struct D3DUniform : private angle::NonCopyable
+struct D3DUniform : angle::NonCopyable
 {
-    D3DUniform(GLenum type,
+    D3DUniform(GLenum typeIn,
                const std::string &nameIn,
-               const std::vector<unsigned int> &arraySizesIn,
+               unsigned int arraySizeIn,
                bool defaultBlock);
     ~D3DUniform();
 
     bool isSampler() const;
-
-    bool isArray() const { return !arraySizes.empty(); }
-    unsigned int getArraySizeProduct() const;
-
+    unsigned int elementCount() const { return std::max(1u, arraySize); }
     bool isReferencedByVertexShader() const;
     bool isReferencedByFragmentShader() const;
     bool isReferencedByComputeShader() const;
 
-    const uint8_t *firstNonNullData() const;
-    const uint8_t *getDataPtrToElement(size_t elementIndex) const;
-
     // Duplicated from the GL layer
-    const gl::UniformTypeInfo &typeInfo;
-    std::string name;  // Names of arrays don't include [0], unlike at the GL layer.
-    std::vector<unsigned int> arraySizes;
+    GLenum type;
+    std::string name;
+    unsigned int arraySize;
 
-    // Pointer to a system copies of the data. Separate pointers for each uniform storage type.
-    uint8_t *vsData;
-    uint8_t *psData;
-    uint8_t *csData;
+    // Pointer to a system copy of the data.
+    // TODO(jmadill): remove this in favor of gl::LinkedUniform::data().
+    uint8_t *data;
+
+    // Has the data been updated since the last sync?
+    bool dirty;
 
     // Register information.
     unsigned int vsRegisterIndex;
@@ -74,9 +68,6 @@ struct D3DUniform : private angle::NonCopyable
     // uniforms
     // inside aggregate types, which are packed according C-like structure rules.
     unsigned int registerElement;
-
-    // Special buffer for sampler values.
-    std::vector<GLint> mSamplerData;
 };
 
 struct D3DUniformBlock
@@ -131,9 +122,6 @@ class ProgramD3DMetadata final : angle::NonCopyable
     bool usesPointSize() const;
     bool usesInsertedPointCoordValue() const;
     bool usesViewScale() const;
-    bool hasANGLEMultiviewEnabled() const;
-    bool usesViewID() const;
-    bool canSelectViewInVertexShader() const;
     bool addsPointCoordToVertexShader() const;
     bool usesTransformFeedbackGLPosition() const;
     bool usesSystemValuePointSize() const;
@@ -146,9 +134,6 @@ class ProgramD3DMetadata final : angle::NonCopyable
     const std::string mShaderModelSuffix;
     const bool mUsesInstancedPointSpriteEmulation;
     const bool mUsesViewScale;
-    const bool mHasANGLEMultiviewEnabled;
-    const bool mUsesViewID;
-    const bool mCanSelectViewInVertexShader;
     const ShaderD3D *mVertexShader;
     const ShaderD3D *mFragmentShader;
 };
@@ -157,7 +142,7 @@ class ProgramD3D : public ProgramImpl
 {
   public:
     ProgramD3D(const gl::ProgramState &data, RendererD3D *renderer);
-    ~ProgramD3D() override;
+    virtual ~ProgramD3D();
 
     const std::vector<PixelShaderOutputVariable> &getPixelShaderKey() { return mPixelShaderKey; }
 
@@ -166,114 +151,117 @@ class ProgramD3D : public ProgramImpl
                             const gl::Caps &caps) const;
     GLenum getSamplerTextureType(gl::SamplerType type, unsigned int samplerIndex) const;
     GLuint getUsedSamplerRange(gl::SamplerType type) const;
-
-    enum SamplerMapping
-    {
-        WasDirty,
-        WasClean,
-    };
-
-    SamplerMapping updateSamplerMapping();
+    void updateSamplerMapping();
 
     bool usesPointSize() const { return mUsesPointSize; }
     bool usesPointSpriteEmulation() const;
     bool usesGeometryShader(GLenum drawMode) const;
-    bool usesGeometryShaderForPointSpriteEmulation() const;
     bool usesInstancedPointSpriteEmulation() const;
 
-    gl::LinkResult load(const gl::Context *context,
-                        gl::InfoLog &infoLog,
-                        gl::BinaryInputStream *stream) override;
-    void save(const gl::Context *context, gl::BinaryOutputStream *stream) override;
+    LinkResult load(const ContextImpl *contextImpl,
+                    gl::InfoLog &infoLog,
+                    gl::BinaryInputStream *stream) override;
+    gl::Error save(gl::BinaryOutputStream *stream) override;
     void setBinaryRetrievableHint(bool retrievable) override;
     void setSeparable(bool separable) override;
 
-    gl::Error getVertexExecutableForCachedInputLayout(ShaderExecutableD3D **outExectuable,
-                                                      gl::InfoLog *infoLog);
-    gl::Error getGeometryExecutableForPrimitiveType(const gl::Context *context,
+    gl::Error getPixelExecutableForFramebuffer(const gl::Framebuffer *fbo,
+                                               ShaderExecutableD3D **outExectuable);
+    gl::Error getPixelExecutableForOutputLayout(const std::vector<GLenum> &outputLayout,
+                                                ShaderExecutableD3D **outExectuable,
+                                                gl::InfoLog *infoLog);
+    gl::Error getVertexExecutableForInputLayout(const gl::InputLayout &inputLayout,
+                                                ShaderExecutableD3D **outExectuable,
+                                                gl::InfoLog *infoLog);
+    gl::Error getGeometryExecutableForPrimitiveType(const gl::ContextState &data,
                                                     GLenum drawMode,
                                                     ShaderExecutableD3D **outExecutable,
                                                     gl::InfoLog *infoLog);
-    gl::Error getPixelExecutableForCachedOutputLayout(ShaderExecutableD3D **outExectuable,
-                                                      gl::InfoLog *infoLog);
-    gl::Error getComputeExecutable(ShaderExecutableD3D **outExecutable);
-    gl::LinkResult link(const gl::Context *context,
-                        const gl::ProgramLinkedResources &resources,
-                        gl::InfoLog &infoLog) override;
+    gl::Error getComputeExecutable(const gl::ContextState &data,
+                                   ShaderExecutableD3D **outExecutable,
+                                   gl::InfoLog *infoLog);
+
+    LinkResult link(ContextImpl *contextImpl,
+                    const gl::VaryingPacking &packing,
+                    gl::InfoLog &infoLog) override;
     GLboolean validate(const gl::Caps &caps, gl::InfoLog *infoLog) override;
 
+    bool getUniformBlockSize(const std::string &blockName, size_t *sizeOut) const override;
+    bool getUniformBlockMemberInfo(const std::string &memberUniformName,
+                                   sh::BlockMemberInfo *memberInfoOut) const override;
     void setPathFragmentInputGen(const std::string &inputName,
                                  GLenum genMode,
                                  GLint components,
                                  const GLfloat *coeffs) override;
 
     void initializeUniformStorage();
-    void updateUniformBufferCache(const gl::Caps &caps,
-                                  unsigned int reservedVertex,
-                                  unsigned int reservedFragment);
-    const std::vector<GLint> &getVertexUniformBufferCache() const;
-    const std::vector<GLint> &getFragmentUniformBufferCache() const;
-
+    gl::Error applyUniforms(GLenum drawMode);
+    gl::Error applyUniformBuffers(const gl::ContextState &data);
     void dirtyAllUniforms();
 
-    void setUniform1fv(GLint location, GLsizei count, const GLfloat *v) override;
-    void setUniform2fv(GLint location, GLsizei count, const GLfloat *v) override;
-    void setUniform3fv(GLint location, GLsizei count, const GLfloat *v) override;
-    void setUniform4fv(GLint location, GLsizei count, const GLfloat *v) override;
-    void setUniform1iv(GLint location, GLsizei count, const GLint *v) override;
-    void setUniform2iv(GLint location, GLsizei count, const GLint *v) override;
-    void setUniform3iv(GLint location, GLsizei count, const GLint *v) override;
-    void setUniform4iv(GLint location, GLsizei count, const GLint *v) override;
-    void setUniform1uiv(GLint location, GLsizei count, const GLuint *v) override;
-    void setUniform2uiv(GLint location, GLsizei count, const GLuint *v) override;
-    void setUniform3uiv(GLint location, GLsizei count, const GLuint *v) override;
-    void setUniform4uiv(GLint location, GLsizei count, const GLuint *v) override;
+    void setUniform1fv(GLint location, GLsizei count, const GLfloat *v);
+    void setUniform2fv(GLint location, GLsizei count, const GLfloat *v);
+    void setUniform3fv(GLint location, GLsizei count, const GLfloat *v);
+    void setUniform4fv(GLint location, GLsizei count, const GLfloat *v);
+    void setUniform1iv(GLint location, GLsizei count, const GLint *v);
+    void setUniform2iv(GLint location, GLsizei count, const GLint *v);
+    void setUniform3iv(GLint location, GLsizei count, const GLint *v);
+    void setUniform4iv(GLint location, GLsizei count, const GLint *v);
+    void setUniform1uiv(GLint location, GLsizei count, const GLuint *v);
+    void setUniform2uiv(GLint location, GLsizei count, const GLuint *v);
+    void setUniform3uiv(GLint location, GLsizei count, const GLuint *v);
+    void setUniform4uiv(GLint location, GLsizei count, const GLuint *v);
     void setUniformMatrix2fv(GLint location,
                              GLsizei count,
                              GLboolean transpose,
-                             const GLfloat *value) override;
+                             const GLfloat *value);
     void setUniformMatrix3fv(GLint location,
                              GLsizei count,
                              GLboolean transpose,
-                             const GLfloat *value) override;
+                             const GLfloat *value);
     void setUniformMatrix4fv(GLint location,
                              GLsizei count,
                              GLboolean transpose,
-                             const GLfloat *value) override;
+                             const GLfloat *value);
     void setUniformMatrix2x3fv(GLint location,
                                GLsizei count,
                                GLboolean transpose,
-                               const GLfloat *value) override;
+                               const GLfloat *value);
     void setUniformMatrix3x2fv(GLint location,
                                GLsizei count,
                                GLboolean transpose,
-                               const GLfloat *value) override;
+                               const GLfloat *value);
     void setUniformMatrix2x4fv(GLint location,
                                GLsizei count,
                                GLboolean transpose,
-                               const GLfloat *value) override;
+                               const GLfloat *value);
     void setUniformMatrix4x2fv(GLint location,
                                GLsizei count,
                                GLboolean transpose,
-                               const GLfloat *value) override;
+                               const GLfloat *value);
     void setUniformMatrix3x4fv(GLint location,
                                GLsizei count,
                                GLboolean transpose,
-                               const GLfloat *value) override;
+                               const GLfloat *value);
     void setUniformMatrix4x3fv(GLint location,
                                GLsizei count,
                                GLboolean transpose,
-                               const GLfloat *value) override;
-
-    void getUniformfv(const gl::Context *context, GLint location, GLfloat *params) const override;
-    void getUniformiv(const gl::Context *context, GLint location, GLint *params) const override;
-    void getUniformuiv(const gl::Context *context, GLint location, GLuint *params) const override;
+                               const GLfloat *value);
 
     void setUniformBlockBinding(GLuint uniformBlockIndex, GLuint uniformBlockBinding) override;
 
-    UniformStorageD3D &getVertexUniformStorage() const { return *mVertexUniformStorage.get(); }
-    UniformStorageD3D &getFragmentUniformStorage() const { return *mFragmentUniformStorage.get(); }
-    UniformStorageD3D &getComputeUniformStorage() const { return *mComputeUniformStorage.get(); }
+    const UniformStorageD3D &getVertexUniformStorage() const
+    {
+        return *mVertexUniformStorage.get();
+    }
+    const UniformStorageD3D &getFragmentUniformStorage() const
+    {
+        return *mFragmentUniformStorage.get();
+    }
+    const UniformStorageD3D &getComputeUniformStorage() const
+    {
+        return *mComputeUniformStorage.get();
+    }
 
     unsigned int getSerial() const;
 
@@ -282,21 +270,10 @@ class ProgramD3D : public ProgramImpl
         return mAttribLocationToD3DSemantic;
     }
 
-    void updateCachedInputLayout(Serial associatedSerial, const gl::State &state);
-    void updateCachedOutputLayout(const gl::Context *context, const gl::Framebuffer *framebuffer);
+    void updateCachedInputLayout(const gl::State &state);
+    const gl::InputLayout &getCachedInputLayout() const { return mCachedInputLayout; }
 
     bool isSamplerMappingDirty() { return mDirtySamplerMapping; }
-
-    // Checks if we need to recompile certain shaders.
-    bool hasVertexExecutableForCachedInputLayout();
-    bool hasGeometryExecutableForPrimitiveType(GLenum drawMode);
-    bool hasPixelExecutableForCachedOutputLayout();
-
-    bool areVertexUniformsDirty() const { return mVertexUniformsDirty; }
-    bool areFragmentUniformsDirty() const { return mFragmentUniformsDirty; }
-    bool areComputeUniformsDirty() const { return mComputeUniformsDirty; }
-    const std::vector<D3DUniform *> &getD3DUniforms() const { return mD3DUniforms; }
-    void markUniformsClean();
 
   private:
     // These forward-declared tasks are used for multi-thread shader compiles.
@@ -370,88 +347,49 @@ class ProgramD3D : public ProgramImpl
 
     typedef std::map<std::string, D3DUniform *> D3DUniformMap;
 
-    void defineUniformsAndAssignRegisters(const gl::Context *context);
+    void defineUniformsAndAssignRegisters();
     void defineUniformBase(const gl::Shader *shader,
                            const sh::Uniform &uniform,
                            D3DUniformMap *uniformMap);
-    void defineStructUniformFields(GLenum shaderType,
-                                   const std::vector<sh::ShaderVariable> &fields,
-                                   const std::string &namePrefix,
-                                   sh::HLSLBlockEncoder *encoder,
-                                   D3DUniformMap *uniformMap);
-    void defineArrayOfStructsUniformFields(GLenum shaderType,
-                                           const sh::ShaderVariable &uniform,
-                                           unsigned int arrayNestingIndex,
-                                           const std::string &prefix,
-                                           sh::HLSLBlockEncoder *encoder,
-                                           D3DUniformMap *uniformMap);
-    void defineArrayUniformElements(GLenum shaderType,
-                                    const sh::ShaderVariable &uniform,
-                                    const std::string &fullName,
-                                    sh::HLSLBlockEncoder *encoder,
-                                    D3DUniformMap *uniformMap);
     void defineUniform(GLenum shaderType,
                        const sh::ShaderVariable &uniform,
                        const std::string &fullName,
                        sh::HLSLBlockEncoder *encoder,
                        D3DUniformMap *uniformMap);
     void assignAllSamplerRegisters();
-    void assignSamplerRegisters(size_t uniformIndex);
+    void assignSamplerRegisters(D3DUniform *d3dUniform);
 
     static void AssignSamplers(unsigned int startSamplerIndex,
-                               const gl::UniformTypeInfo &typeInfo,
+                               GLenum samplerType,
                                unsigned int samplerCount,
                                std::vector<Sampler> &outSamplers,
                                GLuint *outUsedRange);
 
-    template <typename DestT>
-    void getUniformInternal(GLint location, DestT *dataOut) const;
-
     template <typename T>
-    void setUniformImpl(const gl::VariableLocation &locationInfo,
-                        GLsizei count,
-                        const T *v,
-                        uint8_t *targetData,
-                        GLenum uniformType);
-
-    template <typename T>
-    void setUniformInternal(GLint location, GLsizei count, const T *v, GLenum uniformType);
+    void setUniform(GLint location, GLsizei count, const T *v, GLenum targetUniformType);
 
     template <int cols, int rows>
-    bool setUniformMatrixfvImpl(GLint location,
-                                GLsizei count,
-                                GLboolean transpose,
-                                const GLfloat *value,
-                                uint8_t *targetData,
-                                GLenum targetUniformType);
+    void setUniformMatrixfv(GLint location,
+                            GLsizei count,
+                            GLboolean transpose,
+                            const GLfloat *value,
+                            GLenum targetUniformType);
 
-    template <int cols, int rows>
-    void setUniformMatrixfvInternal(GLint location,
-                                    GLsizei count,
-                                    GLboolean transpose,
-                                    const GLfloat *value,
-                                    GLenum targetUniformType);
-
-    gl::LinkResult compileProgramExecutables(const gl::Context *context, gl::InfoLog &infoLog);
-    gl::LinkResult compileComputeExecutable(const gl::Context *context, gl::InfoLog &infoLog);
+    LinkResult compileProgramExecutables(const gl::ContextState &data, gl::InfoLog &infoLog);
+    LinkResult compileComputeExecutable(gl::InfoLog &infoLog);
 
     void gatherTransformFeedbackVaryings(const gl::VaryingPacking &varyings,
                                          const BuiltinInfo &builtins);
     D3DUniform *getD3DUniformByName(const std::string &name);
     D3DUniform *getD3DUniformFromLocation(GLint location);
-    const D3DUniform *getD3DUniformFromLocation(GLint location) const;
 
-    void initAttribLocationsToD3DSemantic(const gl::Context *context);
+    void initAttribLocationsToD3DSemantic();
 
     void reset();
-    void initializeUniformBlocks();
+    void ensureUniformBlocksInitialized();
 
-    void updateCachedInputLayoutFromShader(const gl::Context *context);
-    void updateCachedOutputLayoutFromShader();
-    void updateCachedVertexExecutableIndex();
-    void updateCachedPixelExecutableIndex();
-
-    void linkResources(const gl::Context *context, const gl::ProgramLinkedResources &resources);
+    void initUniformBlockInfo(const gl::Shader *shader);
+    size_t getUniformBlockInfo(const sh::InterfaceBlock &interfaceBlock);
 
     RendererD3D *mRenderer;
     DynamicHLSL *mDynamicHLSL;
@@ -467,8 +405,6 @@ class ProgramD3D : public ProgramImpl
     std::string mPixelHLSL;
     angle::CompilerWorkaroundsD3D mPixelWorkarounds;
     bool mUsesFragDepth;
-    bool mHasANGLEMultiviewEnabled;
-    bool mUsesViewID;
     std::vector<PixelShaderOutputVariable> mPixelShaderKey;
 
     // Common code for all dynamic geometry shaders. Consists mainly of the GS input and output
@@ -491,9 +427,8 @@ class ProgramD3D : public ProgramImpl
     GLuint mUsedComputeSamplerRange;
     bool mDirtySamplerMapping;
 
-    // Cache for pixel shader output layout to save reallocations.
-    std::vector<GLenum> mPixelShaderOutputLayoutCache;
-    Optional<size_t> mCachedPixelExecutableIndex;
+    // Cache for getPixelExecutableForFramebuffer
+    std::vector<GLenum> mPixelShaderOutputFormatCache;
 
     AttribIndexArray mAttribLocationToD3DSemantic;
 
@@ -503,21 +438,17 @@ class ProgramD3D : public ProgramImpl
     std::vector<GLint> mFragmentUBOCache;
     VertexExecutable::Signature mCachedVertexSignature;
     gl::InputLayout mCachedInputLayout;
-    Optional<size_t> mCachedVertexExecutableIndex;
 
     std::vector<D3DVarying> mStreamOutVaryings;
     std::vector<D3DUniform *> mD3DUniforms;
     std::vector<D3DUniformBlock> mD3DUniformBlocks;
 
-    bool mVertexUniformsDirty;
-    bool mFragmentUniformsDirty;
-    bool mComputeUniformsDirty;
+    std::map<std::string, sh::BlockMemberInfo> mBlockInfo;
+    std::map<std::string, size_t> mBlockDataSizes;
 
     static unsigned int issueSerial();
     static unsigned int mCurrentSerial;
-
-    Serial mCurrentVertexArrayStateSerial;
 };
-}  // namespace rx
+}
 
 #endif  // LIBANGLE_RENDERER_D3D_PROGRAMD3D_H_

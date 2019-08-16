@@ -23,25 +23,25 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef ThreadCheck_h
+#define ThreadCheck_h
 
-#if PLATFORM(MAC)
-
+#if !PLATFORM(IOS)
 namespace WebCore {
-enum ThreadViolationBehavior {
-    NoThreadCheck,
-    LogOnFirstThreadViolation,
-    LogOnThreadViolation,
-    RaiseExceptionOnThreadViolation
-};
-enum ThreadViolationRound {
-    ThreadViolationRoundOne = 0,
-    ThreadViolationRoundTwo,
-    ThreadViolationRoundThree,
-    MaximumThreadViolationRound
-};
-WEBCORE_EXPORT void setDefaultThreadViolationBehavior(ThreadViolationBehavior, ThreadViolationRound);
-WEBCORE_EXPORT void reportThreadViolation(const char* function, ThreadViolationRound);
+    enum ThreadViolationBehavior {
+        NoThreadCheck,
+        LogOnFirstThreadViolation,
+        LogOnThreadViolation,
+        RaiseExceptionOnThreadViolation
+    };
+    enum ThreadViolationRound {
+        ThreadViolationRoundOne = 0,
+        ThreadViolationRoundTwo,
+        ThreadViolationRoundThree,
+        MaximumThreadViolationRound
+    };
+    WEBCORE_EXPORT void setDefaultThreadViolationBehavior(ThreadViolationBehavior, ThreadViolationRound);
+    WEBCORE_EXPORT void reportThreadViolation(const char* function, ThreadViolationRound);
 }
 
 extern "C" void WebCoreReportThreadViolation(const char* function, WebCore::ThreadViolationRound);
@@ -49,11 +49,10 @@ extern "C" void WebCoreReportThreadViolation(const char* function, WebCore::Thre
 #define WebCoreThreadViolationCheckRoundOne() ::WebCore::reportThreadViolation(WTF_PRETTY_FUNCTION, WebCore::ThreadViolationRoundOne)
 #define WebCoreThreadViolationCheckRoundTwo() ::WebCore::reportThreadViolation(WTF_PRETTY_FUNCTION, WebCore::ThreadViolationRoundTwo)
 #define WebCoreThreadViolationCheckRoundThree() ::WebCore::reportThreadViolation(WTF_PRETTY_FUNCTION, WebCore::ThreadViolationRoundThree)
-
 #else
-
 #define WebCoreThreadViolationCheckRoundOne() do { } while (0)
 #define WebCoreThreadViolationCheckRoundTwo() do { } while (0)
 #define WebCoreThreadViolationCheckRoundThree() do { } while (0)
+#endif // PLATFORM(IOS)
 
-#endif // PLATFORM(MAC)
+#endif

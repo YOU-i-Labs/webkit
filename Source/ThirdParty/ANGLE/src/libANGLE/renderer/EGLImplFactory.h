@@ -17,7 +17,6 @@ namespace egl
 class AttributeMap;
 struct Config;
 class ImageSibling;
-struct ImageState;
 struct SurfaceState;
 }
 
@@ -52,8 +51,8 @@ class EGLImplFactory : angle::NonCopyable
                                              NativePixmapType nativePixmap,
                                              const egl::AttributeMap &attribs) = 0;
 
-    virtual ImageImpl *createImage(const egl::ImageState &state,
-                                   EGLenum target,
+    virtual ImageImpl *createImage(EGLenum target,
+                                   egl::ImageSibling *buffer,
                                    const egl::AttributeMap &attribs) = 0;
 
     virtual ContextImpl *createContext(const gl::ContextState &state) = 0;

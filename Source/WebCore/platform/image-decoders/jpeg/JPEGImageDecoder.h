@@ -26,7 +26,7 @@
 
 #pragma once
 
-#include "ScalableImageDecoder.h"
+#include "ImageDecoder.h"
 #include <stdio.h> // Needed by jpeglib.h for FILE.
 
 // ICU defines TRUE and FALSE macros, breaking libjpeg v9 headers
@@ -41,19 +41,19 @@ namespace WebCore {
     class JPEGImageReader;
 
     // This class decodes the JPEG image format.
-    class JPEGImageDecoder final : public ScalableImageDecoder {
+    class JPEGImageDecoder final : public ImageDecoder {
     public:
-        static Ref<ScalableImageDecoder> create(AlphaOption alphaOption, GammaAndColorProfileOption gammaAndColorProfileOption)
+        static Ref<ImageDecoder> create(AlphaOption alphaOption, GammaAndColorProfileOption gammaAndColorProfileOption)
         {
             return adoptRef(*new JPEGImageDecoder(alphaOption, gammaAndColorProfileOption));
         }
 
         virtual ~JPEGImageDecoder();
 
-        // ScalableImageDecoder
-        String filenameExtension() const override { return "jpg"_s; }
+        // ImageDecoder
+        String filenameExtension() const override { return ASCIILiteral("jpg"); }
         bool setSize(const IntSize&) override;
-        ScalableImageDecoderFrame* frameBufferAtIndex(size_t index) override;
+        ImageFrame* frameBufferAtIndex(size_t index) override;
         // CAUTION: setFailed() deletes |m_reader|.  Be careful to avoid
         // accessing deleted memory, especially when calling this from inside
         // JPEGImageReader!
@@ -61,7 +61,7 @@ namespace WebCore {
 
         bool willDownSample()
         {
-            ASSERT(ScalableImageDecoder::encodedDataStatus() >= EncodedDataStatus::SizeAvailable);
+            ASSERT(ImageDecoder::encodedDataStatus() >= EncodedDataStatus::SizeAvailable);
             return m_scaled;
         }
 
@@ -80,10 +80,10 @@ namespace WebCore {
         void decode(bool onlySize, bool allDataReceived);
 
         template <J_COLOR_SPACE colorSpace>
-        bool outputScanlines(ScalableImageDecoderFrame& buffer);
+        bool outputScanlines(ImageFrame& buffer);
 
         template <J_COLOR_SPACE colorSpace, bool isScaled>
-        bool outputScanlines(ScalableImageDecoderFrame& buffer);
+        bool outputScanlines(ImageFrame& buffer);
 
         std::unique_ptr<JPEGImageReader> m_reader;
     };

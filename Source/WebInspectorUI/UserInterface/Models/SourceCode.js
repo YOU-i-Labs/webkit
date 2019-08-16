@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SourceCode = class SourceCode extends WI.Object
+WebInspector.SourceCode = class SourceCode extends WebInspector.Object
 {
     constructor()
     {
         super();
 
-        this._originalRevision = new WI.SourceCodeRevision(this, null, false);
+        this._originalRevision = new WebInspector.SourceCodeRevision(this, null, false);
         this._currentRevision = this._originalRevision;
 
         this._sourceMaps = null;
@@ -58,8 +58,8 @@ WI.SourceCode = class SourceCode extends WI.Object
 
     set currentRevision(revision)
     {
-        console.assert(revision instanceof WI.SourceCodeRevision);
-        if (!(revision instanceof WI.SourceCodeRevision))
+        console.assert(revision instanceof WebInspector.SourceCodeRevision);
+        if (!(revision instanceof WebInspector.SourceCodeRevision))
             return;
 
         console.assert(revision.sourceCode === this);
@@ -68,7 +68,7 @@ WI.SourceCode = class SourceCode extends WI.Object
 
         this._currentRevision = revision;
 
-        this.dispatchEventToListeners(WI.SourceCode.Event.ContentDidChange);
+        this.dispatchEventToListeners(WebInspector.SourceCode.Event.ContentDidChange);
     }
 
     get content()
@@ -97,14 +97,14 @@ WI.SourceCode = class SourceCode extends WI.Object
 
     addSourceMap(sourceMap)
     {
-        console.assert(sourceMap instanceof WI.SourceMap);
+        console.assert(sourceMap instanceof WebInspector.SourceMap);
 
         if (!this._sourceMaps)
             this._sourceMaps = [];
 
         this._sourceMaps.push(sourceMap);
 
-        this.dispatchEventToListeners(WI.SourceCode.Event.SourceMapAdded);
+        this.dispatchEventToListeners(WebInspector.SourceCode.Event.SourceMapAdded);
     }
 
     get formatterSourceMap()
@@ -115,11 +115,11 @@ WI.SourceCode = class SourceCode extends WI.Object
     set formatterSourceMap(formatterSourceMap)
     {
         console.assert(this._formatterSourceMap === null || formatterSourceMap === null);
-        console.assert(formatterSourceMap === null || formatterSourceMap instanceof WI.FormatterSourceMap);
+        console.assert(formatterSourceMap === null || formatterSourceMap instanceof WebInspector.FormatterSourceMap);
 
         this._formatterSourceMap = formatterSourceMap;
 
-        this.dispatchEventToListeners(WI.SourceCode.Event.FormatterDidChange);
+        this.dispatchEventToListeners(WebInspector.SourceCode.Event.FormatterDidChange);
     }
 
     requestContent()
@@ -131,17 +131,17 @@ WI.SourceCode = class SourceCode extends WI.Object
 
     createSourceCodeLocation(lineNumber, columnNumber)
     {
-        return new WI.SourceCodeLocation(this, lineNumber, columnNumber);
+        return new WebInspector.SourceCodeLocation(this, lineNumber, columnNumber);
     }
 
     createLazySourceCodeLocation(lineNumber, columnNumber)
     {
-        return new WI.LazySourceCodeLocation(this, lineNumber, columnNumber);
+        return new WebInspector.LazySourceCodeLocation(this, lineNumber, columnNumber);
     }
 
     createSourceCodeTextRange(textRange)
     {
-        return new WI.SourceCodeTextRange(this, textRange);
+        return new WebInspector.SourceCodeTextRange(this, textRange);
     }
 
     // Protected
@@ -156,7 +156,7 @@ WI.SourceCode = class SourceCode extends WI.Object
 
         this.handleCurrentRevisionContentChange();
 
-        this.dispatchEventToListeners(WI.SourceCode.Event.ContentDidChange);
+        this.dispatchEventToListeners(WebInspector.SourceCode.Event.ContentDidChange);
     }
 
     handleCurrentRevisionContentChange()
@@ -194,13 +194,12 @@ WI.SourceCode = class SourceCode extends WI.Object
     _processContent(parameters)
     {
         // Different backend APIs return one of `content, `body`, `text`, or `scriptSource`.
-        let rawContent = parameters.content || parameters.body || parameters.text || parameters.scriptSource;
-        let content = rawContent;
-        let error = parameters.error;
+        var content = parameters.content || parameters.body || parameters.text || parameters.scriptSource;
+        var error = parameters.error;
         if (parameters.base64Encoded)
-            content = content ? decodeBase64ToBlob(content, this.mimeType) : "";
+            content = decodeBase64ToBlob(content, this.mimeType);
 
-        let revision = this.revisionForRequestedContent;
+        var revision = this.revisionForRequestedContent;
 
         this._ignoreRevisionContentDidChangeEvent = true;
         revision.content = content || null;
@@ -214,13 +213,11 @@ WI.SourceCode = class SourceCode extends WI.Object
             error,
             sourceCode: this,
             content,
-            rawContent,
-            rawBase64Encoded: parameters.base64Encoded,
         });
     }
 };
 
-WI.SourceCode.Event = {
+WebInspector.SourceCode.Event = {
     ContentDidChange: "source-code-content-did-change",
     SourceMapAdded: "source-code-source-map-added",
     FormatterDidChange: "source-code-formatter-did-change",

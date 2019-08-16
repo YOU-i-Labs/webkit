@@ -154,7 +154,7 @@ public:
     unsigned width;
     unsigned height;
     int tpixel; // Index of transparent pixel.
-    WebCore::ScalableImageDecoderFrame::DisposalMethod disposalMethod; // Restore to background, leave in place, etc.
+    WebCore::ImageFrame::DisposalMethod disposalMethod; // Restore to background, leave in place, etc.
     size_t localColormapPosition; // Per-image colormap.
     int localColormapSize; // Size of local colormap array.
     int datasize;
@@ -173,7 +173,7 @@ public:
         , width(0)
         , height(0)
         , tpixel(0)
-        , disposalMethod(WebCore::ScalableImageDecoderFrame::DisposalMethod::Unspecified)
+        , disposalMethod(WebCore::ImageFrame::DisposalMethod::Unspecified)
         , localColormapPosition(0)
         , localColormapSize(0)
         , datasize(0)
@@ -186,6 +186,10 @@ public:
         , m_isComplete(false)
         , m_isHeaderDefined(false)
         , m_isDataSizeDefined(false)
+    {
+    }
+    
+    ~GIFFrameContext()
     {
     }
 
@@ -237,6 +241,10 @@ public:
     {
     }
 
+    ~GIFImageReader()
+    {
+    }
+
     void setData(WebCore::SharedBuffer* data) { m_data = data; }
     // FIXME: haltAtFrame should be size_t.
     bool decode(WebCore::GIFImageDecoder::GIFQuery, unsigned haltAtFrame);
@@ -274,11 +282,6 @@ public:
     const GIFFrameContext* frameContext() const
     {
         return m_currentDecodingFrame < m_frames.size() ? m_frames[m_currentDecodingFrame].get() : 0;
-    }
-
-    const GIFFrameContext* frameContext(size_t frame) const
-    {
-        return frame < m_frames.size() ? m_frames[frame].get() : nullptr;
     }
 
 private:

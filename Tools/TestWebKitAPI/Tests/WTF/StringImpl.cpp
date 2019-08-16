@@ -27,7 +27,6 @@
 
 #include <wtf/Hasher.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/text/ExternalStringImpl.h>
 #include <wtf/text/SymbolImpl.h>
 #include <wtf/text/WTFString.h>
 
@@ -56,17 +55,6 @@ TEST(WTF, StringImplCreationFromLiteral)
     ASSERT_TRUE(equal(programmaticStringNoLength.get(), stringWithoutLengthLiteral));
     ASSERT_EQ(stringWithoutLengthLiteral, reinterpret_cast<const char*>(programmaticStringNoLength->characters8()));
     ASSERT_TRUE(programmaticStringNoLength->is8Bit());
-
-    // AtomicStringImpl from createFromLiteral should use the same underlying string.
-    auto atomicStringWithTemplate = AtomicStringImpl::add(stringWithTemplate.ptr());
-    ASSERT_TRUE(atomicStringWithTemplate->is8Bit());
-    ASSERT_EQ(atomicStringWithTemplate->characters8(), stringWithTemplate->characters8());
-    auto atomicProgrammaticString = AtomicStringImpl::add(programmaticString.ptr());
-    ASSERT_TRUE(atomicProgrammaticString->is8Bit());
-    ASSERT_EQ(atomicProgrammaticString->characters8(), programmaticString->characters8());
-    auto atomicProgrammaticStringNoLength = AtomicStringImpl::add(programmaticStringNoLength.ptr());
-    ASSERT_TRUE(atomicProgrammaticStringNoLength->is8Bit());
-    ASSERT_EQ(atomicProgrammaticStringNoLength->characters8(), programmaticStringNoLength->characters8());
 }
 
 TEST(WTF, StringImplReplaceWithLiteral)
@@ -531,7 +519,6 @@ TEST(WTF, StringImplCreateNullSymbol)
 {
     auto reference = SymbolImpl::createNullSymbol();
     ASSERT_TRUE(reference->isSymbol());
-    ASSERT_FALSE(reference->isPrivate());
     ASSERT_TRUE(reference->isNullSymbol());
     ASSERT_FALSE(reference->isAtomic());
     ASSERT_EQ(0u, reference->length());
@@ -543,7 +530,6 @@ TEST(WTF, StringImplCreateSymbol)
     auto original = stringFromUTF8("original");
     auto reference = SymbolImpl::create(original);
     ASSERT_TRUE(reference->isSymbol());
-    ASSERT_FALSE(reference->isPrivate());
     ASSERT_FALSE(reference->isNullSymbol());
     ASSERT_FALSE(reference->isAtomic());
     ASSERT_FALSE(original->isSymbol());
@@ -554,32 +540,6 @@ TEST(WTF, StringImplCreateSymbol)
     auto empty = stringFromUTF8("");
     auto emptyReference = SymbolImpl::create(empty);
     ASSERT_TRUE(emptyReference->isSymbol());
-    ASSERT_FALSE(emptyReference->isPrivate());
-    ASSERT_FALSE(emptyReference->isNullSymbol());
-    ASSERT_FALSE(emptyReference->isAtomic());
-    ASSERT_FALSE(empty->isSymbol());
-    ASSERT_TRUE(empty->isAtomic());
-    ASSERT_EQ(empty->length(), emptyReference->length());
-    ASSERT_TRUE(equal(emptyReference.ptr(), ""));
-}
-
-TEST(WTF, StringImplCreatePrivateSymbol)
-{
-    auto original = stringFromUTF8("original");
-    auto reference = PrivateSymbolImpl::create(original);
-    ASSERT_TRUE(reference->isSymbol());
-    ASSERT_TRUE(reference->isPrivate());
-    ASSERT_FALSE(reference->isNullSymbol());
-    ASSERT_FALSE(reference->isAtomic());
-    ASSERT_FALSE(original->isSymbol());
-    ASSERT_FALSE(original->isAtomic());
-    ASSERT_EQ(original->length(), reference->length());
-    ASSERT_TRUE(equal(reference.ptr(), "original"));
-
-    auto empty = stringFromUTF8("");
-    auto emptyReference = PrivateSymbolImpl::create(empty);
-    ASSERT_TRUE(emptyReference->isSymbol());
-    ASSERT_TRUE(emptyReference->isPrivate());
     ASSERT_FALSE(emptyReference->isNullSymbol());
     ASSERT_FALSE(emptyReference->isAtomic());
     ASSERT_FALSE(empty->isSymbol());
@@ -593,7 +553,6 @@ TEST(WTF, StringImplSymbolToAtomicString)
     auto original = stringFromUTF8("original");
     auto reference = SymbolImpl::create(original);
     ASSERT_TRUE(reference->isSymbol());
-    ASSERT_FALSE(reference->isPrivate());
     ASSERT_FALSE(reference->isAtomic());
 
     auto result = AtomicStringImpl::lookUp(reference.ptr());
@@ -613,7 +572,6 @@ TEST(WTF, StringImplNullSymbolToAtomicString)
 {
     auto reference = SymbolImpl::createNullSymbol();
     ASSERT_TRUE(reference->isSymbol());
-    ASSERT_FALSE(reference->isPrivate());
     ASSERT_FALSE(reference->isAtomic());
 
     // Because the substring of the reference is the empty string which is already interned.
@@ -651,12 +609,8 @@ TEST(WTF, StringImplStaticToAtomicString)
     ASSERT_FALSE(original.isAtomic());
     ASSERT_TRUE(original.isStatic());
 
-    ASSERT_TRUE(atomic->is8Bit());
-    ASSERT_EQ(atomic->characters8(), original.characters8());
-
     auto result2 = AtomicStringImpl::lookUp(&original);
     ASSERT_TRUE(result2);
-    ASSERT_EQ(atomic, result2);
 }
 
 TEST(WTF, StringImplConstexprHasher)
@@ -719,139 +673,6 @@ TEST(WTF, StaticStringImpl)
     ASSERT_TRUE(equal(str1, str2));
     ASSERT_EQ(&str1, &str2);
     ASSERT_EQ(str1.impl(), str2.impl());
-}
-
-static SymbolImpl::StaticSymbolImpl staticSymbol {"Cocoa"};
-static SymbolImpl::StaticSymbolImpl staticPrivateSymbol {"Cocoa", SymbolImpl::s_flagIsPrivate };
-
-TEST(WTF, StaticSymbolImpl)
-{
-    auto& symbol = static_cast<SymbolImpl&>(staticSymbol);
-    ASSERT_TRUE(symbol.isSymbol());
-    ASSERT_FALSE(symbol.isPrivate());
-}
-
-TEST(WTF, StaticPrivateSymbolImpl)
-{
-    auto& symbol = static_cast<SymbolImpl&>(staticPrivateSymbol);
-    ASSERT_TRUE(symbol.isSymbol());
-    ASSERT_TRUE(symbol.isPrivate());
-}
-
-TEST(WTF, ExternalStringImplCreate8bit)
-{
-    constexpr LChar buffer[] = "hello";
-    constexpr size_t bufferStringLength = sizeof(buffer) - 1;
-    bool freeFunctionCalled = false;
-
-    {
-        auto external = ExternalStringImpl::create(buffer, bufferStringLength, [&freeFunctionCalled](ExternalStringImpl* externalStringImpl, void* buffer, unsigned bufferSize) mutable {
-            freeFunctionCalled = true;
-        });
-
-        ASSERT_TRUE(external->isExternal());
-        ASSERT_TRUE(external->is8Bit());
-        ASSERT_FALSE(external->isSymbol());
-        ASSERT_FALSE(external->isAtomic());
-        ASSERT_EQ(external->length(), bufferStringLength);
-        ASSERT_EQ(external->characters8(), buffer);
-    }
-
-    ASSERT_TRUE(freeFunctionCalled);
-}
-
-TEST(WTF, ExternalStringImplCreate16bit)
-{
-    constexpr UChar buffer[] = { L'h', L'e', L'l', L'l', L'o', L'\0' };
-    constexpr size_t bufferStringLength = (sizeof(buffer) - 1) / sizeof(UChar);
-    bool freeFunctionCalled = false;
-
-    {
-        auto external = ExternalStringImpl::create(buffer, bufferStringLength, [&freeFunctionCalled](ExternalStringImpl* externalStringImpl, void* buffer, unsigned bufferSize) mutable {
-            freeFunctionCalled = true;
-        });
-
-        ASSERT_TRUE(external->isExternal());
-        ASSERT_FALSE(external->is8Bit());
-        ASSERT_FALSE(external->isSymbol());
-        ASSERT_FALSE(external->isAtomic());
-        ASSERT_EQ(external->length(), bufferStringLength);
-        ASSERT_EQ(external->characters16(), buffer);
-    }
-
-    ASSERT_TRUE(freeFunctionCalled);
-}
-
-TEST(WTF, StringImplNotExternal)
-{
-    auto notExternal = stringFromUTF8("hello");
-    ASSERT_FALSE(notExternal->isExternal());
-}
-
-
-TEST(WTF, ExternalStringAtomic)
-{
-    constexpr LChar buffer[] = "hello";
-    constexpr size_t bufferStringLength = sizeof(buffer) - 1;
-    bool freeFunctionCalled = false;
-
-    {
-        auto external = ExternalStringImpl::create(buffer, bufferStringLength, [&freeFunctionCalled](ExternalStringImpl* externalStringImpl, void* buffer, unsigned bufferSize) mutable {
-            freeFunctionCalled = true;
-        });    
-
-        ASSERT_TRUE(external->isExternal());
-        ASSERT_FALSE(external->isAtomic());
-        ASSERT_FALSE(external->isSymbol());
-        ASSERT_TRUE(external->is8Bit());
-        ASSERT_EQ(external->length(), bufferStringLength);
-        ASSERT_EQ(external->characters8(), buffer);
-
-        auto result = AtomicStringImpl::lookUp(external.ptr());
-        ASSERT_FALSE(result);
-
-        auto atomic = AtomicStringImpl::add(external.ptr());
-        ASSERT_TRUE(atomic->isExternal());
-        ASSERT_TRUE(atomic->isAtomic());
-        ASSERT_FALSE(atomic->isSymbol());
-        ASSERT_TRUE(atomic->is8Bit());
-        ASSERT_EQ(atomic->length(), external->length());
-        ASSERT_EQ(atomic->characters8(), external->characters8());
-
-        auto result2 = AtomicStringImpl::lookUp(external.ptr());
-        ASSERT_TRUE(result2);
-        ASSERT_EQ(atomic, result2);
-    }
-
-    ASSERT_TRUE(freeFunctionCalled);
-}
-
-TEST(WTF, ExternalStringToSymbol)
-{
-    constexpr LChar buffer[] = "hello";
-    constexpr size_t bufferStringLength = sizeof(buffer) - 1;
-    bool freeFunctionCalled = false;
-
-    {
-        auto external = ExternalStringImpl::create(buffer, bufferStringLength, [&freeFunctionCalled](ExternalStringImpl* externalStringImpl, void* buffer, unsigned bufferSize) mutable {
-            freeFunctionCalled = true;
-        });    
-
-        ASSERT_TRUE(external->isExternal());
-        ASSERT_FALSE(external->isSymbol());
-        ASSERT_FALSE(external->isAtomic());
-
-        auto symbol = SymbolImpl::create(external);
-        ASSERT_FALSE(symbol->isExternal());
-        ASSERT_TRUE(symbol->isSymbol());
-        ASSERT_FALSE(symbol->isAtomic());
-        ASSERT_FALSE(symbol->isPrivate());
-        ASSERT_FALSE(symbol->isNullSymbol());
-        ASSERT_EQ(external->length(), symbol->length());
-        ASSERT_TRUE(equal(symbol.ptr(), buffer));
-    }
-
-    ASSERT_TRUE(freeFunctionCalled);
 }
 
 } // namespace TestWebKitAPI

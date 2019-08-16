@@ -27,7 +27,7 @@
  */
 
 #include "config.h"
-#include <wtf/SchedulePair.h>
+#include "SchedulePair.h"
 
 namespace WTF {
 

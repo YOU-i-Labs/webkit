@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.LayerTreeDataGridNode = class LayerTreeDataGridNode extends WI.DataGridNode
+WebInspector.LayerTreeDataGridNode = class LayerTreeDataGridNode extends WebInspector.DataGridNode
 {
     constructor(layer)
     {
@@ -44,7 +44,7 @@ WI.LayerTreeDataGridNode = class LayerTreeDataGridNode extends WI.DataGridNode
 
     createCellContent(columnIdentifier, cell)
     {
-        cell = columnIdentifier === "name" ? this._makeNameCell() : this._makeOutlet(columnIdentifier, document.createTextNode(enDash));
+        cell = columnIdentifier === "name" ? this._makeNameCell() : this._makeOutlet(columnIdentifier, document.createTextNode("–"));
         this._updateCell(columnIdentifier);
         return cell;
     }
@@ -60,10 +60,10 @@ WI.LayerTreeDataGridNode = class LayerTreeDataGridNode extends WI.DataGridNode
     {
         this._layer = layer;
 
-        var domNode = WI.domManager.nodeForId(layer.nodeId);
+        var domNode = WebInspector.domTreeManager.nodeForId(layer.nodeId);
 
         this.data = {
-            name: domNode ? domNode.displayName : WI.UIString("Unknown node"),
+            name: domNode ? domNode.displayName : WebInspector.UIString("Unknown node"),
             paintCount: layer.paintCount || emDash,
             memory: Number.bytesToString(layer.memory || 0)
         };
@@ -100,7 +100,7 @@ WI.LayerTreeDataGridNode = class LayerTreeDataGridNode extends WI.DataGridNode
 
         fragment.appendChild(document.createElement("img")).className = "icon";
 
-        var goToButton = this._makeOutlet("goToButton", fragment.appendChild(WI.createGoToArrowButton()));
+        var goToButton = this._makeOutlet("goToButton", fragment.appendChild(WebInspector.createGoToArrowButton()));
         goToButton.addEventListener("click", this._goToArrowWasClicked.bind(this), false);
 
         var label = this._makeOutlet("label", fragment.appendChild(document.createElement("span")));
@@ -114,7 +114,7 @@ WI.LayerTreeDataGridNode = class LayerTreeDataGridNode extends WI.DataGridNode
 
         var reflectionLabel = this._makeOutlet("reflectionLabel", document.createElement("span"));
         reflectionLabel.className = "reflection";
-        reflectionLabel.textContent = " \u2014 " + WI.UIString("Reflection");
+        reflectionLabel.textContent = " \u2014 " + WebInspector.UIString("Reflection");
 
         return fragment;
     }
@@ -135,7 +135,7 @@ WI.LayerTreeDataGridNode = class LayerTreeDataGridNode extends WI.DataGridNode
 
         this._outlets.nameLabel.textContent = data;
 
-        if (WI.domManager.nodeForId(layer.nodeId))
+        if (WebInspector.domTreeManager.nodeForId(layer.nodeId))
             label.parentNode.insertBefore(this._outlets.goToButton, label.parentNode.firstChild);
         else if (this._outlets.goToButton.parentNode)
             label.parentNode.removeChild(this._outlets.goToButton);
@@ -159,7 +159,7 @@ WI.LayerTreeDataGridNode = class LayerTreeDataGridNode extends WI.DataGridNode
 
     _goToArrowWasClicked()
     {
-        var domNode = WI.domManager.nodeForId(this._layer.nodeId);
-        WI.showMainFrameDOMTree(domNode, {ignoreSearchTab: true});
+        var domNode = WebInspector.domTreeManager.nodeForId(this._layer.nodeId);
+        WebInspector.showMainFrameDOMTree(domNode);
     }
 };

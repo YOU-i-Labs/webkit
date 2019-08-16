@@ -28,7 +28,7 @@
 
 #include "BridgeJSC.h"
 #include "JSDOMBinding.h"
-#include <JavaScriptCore/ArrayPrototype.h>
+#include <runtime/ArrayPrototype.h>
 
 namespace JSC {
     
@@ -39,12 +39,11 @@ public:
 
     static RuntimeArray* create(ExecState* exec, Bindings::Array* array)
     {
-        VM& vm = exec->vm();
         // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
         // We need to pass in the right global object for "array".
         Structure* domStructure = WebCore::deprecatedGetDOMStructure<RuntimeArray>(exec);
-        RuntimeArray* runtimeArray = new (NotNull, allocateCell<RuntimeArray>(vm.heap)) RuntimeArray(exec, domStructure);
-        runtimeArray->finishCreation(vm, array);
+        RuntimeArray* runtimeArray = new (NotNull, allocateCell<RuntimeArray>(*exec->heap())) RuntimeArray(exec, domStructure);
+        runtimeArray->finishCreation(exec->vm(), array);
         exec->vm().heap.addFinalizer(runtimeArray, destroy);
         return runtimeArray;
     }

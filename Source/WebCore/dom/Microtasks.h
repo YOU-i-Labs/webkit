@@ -22,13 +22,12 @@
 #pragma once
 
 #include "Timer.h"
-#include <wtf/Forward.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
 class MicrotaskQueue;
-class ScriptExecutionContext;
 
 class Microtask {
 public:
@@ -47,30 +46,11 @@ protected:
     void removeSelfFromQueue(MicrotaskQueue&);
 };
 
-class VoidMicrotask final : public Microtask {
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    explicit VoidMicrotask(Function<void()>&& function)
-        : m_function(WTFMove(function))
-    {
-    }
-
-private:
-    Result run() final
-    {
-        m_function();
-        return Result::Done;
-    }
-
-    Function<void()> m_function;
-};
-
 class MicrotaskQueue {
     friend NeverDestroyed<MicrotaskQueue>;
     friend class Microtask;
 public:
     WEBCORE_EXPORT static MicrotaskQueue& mainThreadQueue();
-    WEBCORE_EXPORT static MicrotaskQueue& contextQueue(ScriptExecutionContext&);
 
     WEBCORE_EXPORT MicrotaskQueue();
     WEBCORE_EXPORT ~MicrotaskQueue();

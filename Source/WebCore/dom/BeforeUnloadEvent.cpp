@@ -28,17 +28,17 @@
 namespace WebCore {
 
 BeforeUnloadEvent::BeforeUnloadEvent()
-    : Event(eventNames().beforeunloadEvent, CanBubble::No, IsCancelable::Yes)
-{
-}
-
-BeforeUnloadEvent::BeforeUnloadEvent(ForBindingsFlag)
+    : Event(eventNames().beforeunloadEvent, false, true)
 {
 }
 
 bool BeforeUnloadEvent::isBeforeUnloadEvent() const
 {
     return true;
+}
+
+BeforeUnloadEvent::~BeforeUnloadEvent()
+{
 }
 
 } // namespace WebCore

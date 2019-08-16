@@ -29,8 +29,8 @@
 #pragma once
 
 #include "Element.h"
+#include "LinkHash.h"
 #include "RenderStyleConstants.h"
-#include "SharedStringHash.h"
 #include <wtf/HashSet.h>
 
 namespace WebCore {
@@ -43,20 +43,20 @@ public:
     explicit VisitedLinkState(Document&);
 
     void invalidateStyleForAllLinks();
-    void invalidateStyleForLink(SharedStringHash);
-    InsideLink determineLinkState(const Element&);
+    void invalidateStyleForLink(LinkHash);
+    EInsideLink determineLinkState(const Element&);
 
 private:
-    InsideLink determineLinkStateSlowCase(const Element&);
+    EInsideLink determineLinkStateSlowCase(const Element&);
 
     Document& m_document;
-    HashSet<SharedStringHash, SharedStringHashHash> m_linksCheckedForVisitedState;
+    HashSet<LinkHash, LinkHashHash> m_linksCheckedForVisitedState;
 };
 
-inline InsideLink VisitedLinkState::determineLinkState(const Element& element)
+inline EInsideLink VisitedLinkState::determineLinkState(const Element& element)
 {
     if (!element.isLink())
-        return InsideLink::NotInside;
+        return NotInsideLink;
     return determineLinkStateSlowCase(element);
 }
 

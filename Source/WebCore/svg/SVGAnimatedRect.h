@@ -1,6 +1,5 @@
 /*
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,21 +19,25 @@
 
 #pragma once
 
+#include "SVGAnimatedPropertyMacros.h"
 #include "SVGAnimatedPropertyTearOff.h"
 #include "SVGAnimatedTypeAnimator.h"
-#include "SVGAttributeAccessor.h"
 #include "SVGRect.h"
 
 namespace WebCore {
 
-class SVGAnimationElement;
 class SVGRect;
 
 using SVGAnimatedRect = SVGAnimatedPropertyTearOff<SVGRect>;
-using SVGAnimatedRectAttribute = SVGAnimatedAttribute<SVGAnimatedRect>;
 
-template<typename OwnerType>
-using SVGAnimatedRectAttributeAccessor = SVGAnimatedAttributeAccessor<OwnerType, SVGAnimatedRectAttribute, AnimatedRect>;
+// Helper macros to declare/define a SVGAnimatedRect object
+#define DECLARE_ANIMATED_RECT(UpperProperty, LowerProperty) \
+DECLARE_ANIMATED_PROPERTY(SVGAnimatedRect, FloatRect, UpperProperty, LowerProperty, )
+
+#define DEFINE_ANIMATED_RECT(OwnerType, DOMAttribute, UpperProperty, LowerProperty) \
+DEFINE_ANIMATED_PROPERTY(AnimatedRect, OwnerType, DOMAttribute, DOMAttribute.localName(), UpperProperty, LowerProperty)
+
+class SVGAnimationElement;
 
 class SVGAnimatedRectAnimator final : public SVGAnimatedTypeAnimator {
 public:

@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef PackedIntVector_h
+#define PackedIntVector_h
 
 #include <wtf/BitVector.h>
 
@@ -121,3 +122,6 @@ private:
 } // namespace WTF
 
 using WTF::PackedIntVector;
+
+#endif // PackedIntVector_h
+

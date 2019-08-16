@@ -45,14 +45,14 @@ public:
         SVGTRefTargetEventListenerType,
     };
 
-    virtual ~EventListener() = default;
+    virtual ~EventListener() { }
     virtual bool operator==(const EventListener&) const = 0;
-    virtual void handleEvent(ScriptExecutionContext&, Event&) = 0;
+    virtual void handleEvent(ScriptExecutionContext*, Event*) = 0;
     virtual bool wasCreatedFromMarkup() const { return false; }
 
     virtual void visitJSFunction(JSC::SlotVisitor&) { }
 
-    virtual bool isAttribute() const { return false; }
+    bool isAttribute() const { return virtualisAttribute(); }
     Type type() const { return m_type; }
 
 protected:
@@ -62,6 +62,8 @@ protected:
     }
 
 private:
+    virtual bool virtualisAttribute() const { return false; }
+    
     Type m_type;
 };
 

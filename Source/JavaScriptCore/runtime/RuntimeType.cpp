@@ -32,7 +32,7 @@
 
 namespace JSC {
 
-RuntimeType runtimeTypeForValue(VM& vm, JSValue value)
+RuntimeType runtimeTypeForValue(JSValue value)
 {
     if (UNLIKELY(!value))
         return TypeNothing;
@@ -51,7 +51,7 @@ RuntimeType runtimeTypeForValue(VM& vm, JSValue value)
         return TypeBoolean;
     if (value.isObject())
         return TypeObject;
-    if (value.isFunction(vm))
+    if (value.isFunction())
         return TypeFunction;
     if (value.isSymbol())
         return TypeSymbol;
@@ -62,23 +62,23 @@ RuntimeType runtimeTypeForValue(VM& vm, JSValue value)
 String runtimeTypeAsString(RuntimeType type)
 {
     if (type == TypeUndefined)
-        return "Undefined"_s;
+        return ASCIILiteral("Undefined");
     if (type == TypeNull)
-        return "Null"_s;
+        return ASCIILiteral("Null");
     if (type == TypeAnyInt)
-        return "Integer"_s;
+        return ASCIILiteral("Integer");
     if (type == TypeNumber)
-        return "Number"_s;
+        return ASCIILiteral("Number");
     if (type == TypeString)
-        return "String"_s;
+        return ASCIILiteral("String");
     if (type == TypeObject)
-        return "Object"_s;
+        return ASCIILiteral("Object");
     if (type == TypeBoolean)
-        return "Boolean"_s;
+        return ASCIILiteral("Boolean");
     if (type == TypeFunction)
-        return "Function"_s;
+        return ASCIILiteral("Function");
     if (type == TypeNothing)
-        return "(Nothing)"_s;
+        return ASCIILiteral("(Nothing)");
 
     RELEASE_ASSERT_NOT_REACHED();
     return emptyString();

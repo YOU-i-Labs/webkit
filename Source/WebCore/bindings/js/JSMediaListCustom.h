@@ -27,6 +27,7 @@
 
 #include "CSSRule.h"
 #include "CSSStyleSheet.h"
+#include "JSCSSRuleCustom.h"
 #include "JSStyleSheetCustom.h"
 #include "MediaList.h"
 

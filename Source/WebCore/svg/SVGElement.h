@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
- * Copyright (C) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2013 Samsung Electronics. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -23,15 +23,14 @@
 #pragma once
 
 #include "SVGAnimatedString.h"
-#include "SVGAttributeOwnerProxy.h"
 #include "SVGLangSpace.h"
 #include "SVGLocatable.h"
 #include "SVGNames.h"
 #include "SVGParsingError.h"
+#include "SVGPropertyInfo.h"
 #include "StyledElement.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
-#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -39,6 +38,7 @@ class AffineTransform;
 class CSSStyleDeclaration;
 class DeprecatedCSSOMValue;
 class Document;
+class SVGAttributeToPropertyMap;
 class SVGDocumentExtensions;
 class SVGElementRareData;
 class SVGSVGElement;
@@ -46,8 +46,7 @@ class SVGUseElement;
 
 void mapAttributeToCSSProperty(HashMap<AtomicStringImpl*, CSSPropertyID>* propertyNameToIdMap, const QualifiedName& attrName);
 
-class SVGElement : public StyledElement, public SVGLangSpace, public CanMakeWeakPtr<SVGElement> {
-    WTF_MAKE_ISO_ALLOCATED(SVGElement);
+class SVGElement : public StyledElement, public SVGLangSpace {
 public:
     bool isOutermostSVGSVGElement() const;
 
@@ -57,6 +56,7 @@ public:
     String title() const override;
     static bool isAnimatableCSSProperty(const QualifiedName&);
     bool isPresentationAttributeWithSVGDOM(const QualifiedName&);
+    bool isKnownAttribute(const QualifiedName&);
     RefPtr<DeprecatedCSSOMValue> getPresentationAttribute(const String& name);
     virtual bool supportsMarkers() const { return false; }
     bool hasRelativeLengths() const { return !m_elementsWithRelativeLengths.isEmpty(); }
@@ -66,7 +66,6 @@ public:
     virtual AffineTransform localCoordinateSpaceTransform(SVGLocatable::CTMScope) const;
 
     virtual bool isSVGGraphicsElement() const { return false; }
-    virtual bool isSVGGeometryElement() const { return false; }
     virtual bool isFilterEffect() const { return false; }
     virtual bool isGradientStop() const { return false; }
     virtual bool isTextContent() const { return false; }
@@ -100,14 +99,22 @@ public:
     bool getBoundingBox(FloatRect&, SVGLocatable::StyleUpdateStrategy = SVGLocatable::AllowStyleUpdate);
 
     SVGElement* correspondingElement() const;
-    RefPtr<SVGUseElement> correspondingUseElement() const;
+    SVGUseElement* correspondingUseElement() const;
 
     void setCorrespondingElement(SVGElement*);
 
     void synchronizeAnimatedSVGAttribute(const QualifiedName&) const;
     static void synchronizeAllAnimatedSVGAttribute(SVGElement*);
  
-    Optional<ElementStyle> resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle* shadowHostStyle) override;
+    std::optional<ElementStyle> resolveCustomStyle(const RenderStyle& parentStyle, const RenderStyle* shadowHostStyle) override;
+
+    static void synchronizeRequiredFeatures(SVGElement* contextElement);
+    static void synchronizeRequiredExtensions(SVGElement* contextElement);
+    static void synchronizeSystemLanguage(SVGElement* contextElement);
+
+    virtual void synchronizeRequiredFeatures() { }
+    virtual void synchronizeRequiredExtensions() { }
+    virtual void synchronizeSystemLanguage() { }
 
     static QualifiedName animatableAttributeForName(const AtomicString&);
 #ifndef NDEBUG
@@ -124,35 +131,16 @@ public:
     bool removeEventListener(const AtomicString& eventType, EventListener&, const ListenerOptions&) override;
     bool hasFocusEventListeners() const;
 
+#if ENABLE(CSS_REGIONS)
+    bool shouldMoveToFlowThread(const RenderStyle&) const override;
+#endif
+
     bool hasTagName(const SVGQualifiedName& name) const { return hasLocalName(name.localName()); }
     int tabIndex() const override;
 
     void callClearTarget() { clearTarget(); }
 
     class InstanceUpdateBlocker;
-    class InstanceInvalidationGuard;
-
-    // The definition of the owner proxy has to match the class inheritance but we are interested in the SVG objects only.
-    using AttributeOwnerProxy = SVGAttributeOwnerProxyImpl<SVGElement, SVGLangSpace>;
-    static auto& attributeRegistry() { return AttributeOwnerProxy::attributeRegistry(); }
-    static bool isKnownAttribute(const QualifiedName& attributeName) { return AttributeOwnerProxy::isKnownAttribute(attributeName); }
-    static void registerAttributes();
-
-    // A super class will override this function to return its owner proxy. The attributes of the super class will
-    // be accessible through the registry of the owner proxy.
-    virtual const SVGAttributeOwnerProxy& attributeOwnerProxy() const { return m_attributeOwnerProxy; }
-
-    // Helper functions which return info for the super class' attributes.
-    void synchronizeAttribute(const QualifiedName& name) { attributeOwnerProxy().synchronizeAttribute(name); }
-    void synchronizeAttributes() { attributeOwnerProxy().synchronizeAttributes(); }
-    Vector<AnimatedPropertyType> animatedTypes(const QualifiedName& attributeName) const { return attributeOwnerProxy().animatedTypes(attributeName); }
-    RefPtr<SVGAnimatedProperty> lookupAnimatedProperty(const SVGAttribute& attribute) const { return attributeOwnerProxy().lookupAnimatedProperty(attribute); }
-    RefPtr<SVGAnimatedProperty> lookupOrCreateAnimatedProperty(const SVGAttribute& attribute) { return attributeOwnerProxy().lookupOrCreateAnimatedProperty(attribute); }
-    Vector<RefPtr<SVGAnimatedProperty>> lookupOrCreateAnimatedProperties(const QualifiedName& name) { return attributeOwnerProxy().lookupOrCreateAnimatedProperties(name); }
-
-    // These are needed for the RenderTree, animation and DOM.
-    const auto& className() const { return m_className.currentValue(attributeOwnerProxy()); }
-    auto classNameAnimated() { return m_className.animatedProperty(attributeOwnerProxy()); }
 
 protected:
     SVGElement(const QualifiedName&, Document&);
@@ -175,8 +163,8 @@ protected:
 
     bool isPresentationAttribute(const QualifiedName&) const override;
     void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
-    InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) override;
-    void removedFromAncestor(RemovalType, ContainerNode&) override;
+    InsertionNotificationRequest insertedInto(ContainerNode&) override;
+    void removedFrom(ContainerNode&) override;
     void childrenChanged(const ChildChange&) override;
     virtual bool selfHasRelativeLengths() const { return false; }
     void updateRelativeLengthsInformation() { updateRelativeLengthsInformation(selfHasRelativeLengths(), this); }
@@ -184,8 +172,10 @@ protected:
 
     void willRecalcStyle(Style::Change) override;
 
+    class InstanceInvalidationGuard;
+
 private:
-    const RenderStyle* computedStyle(PseudoId = PseudoId::None) final;
+    const RenderStyle* computedStyle(PseudoId = NOPSEUDO) final;
 
     virtual void clearTarget() { }
 
@@ -202,8 +192,10 @@ private:
 
     HashSet<SVGElement*> m_elementsWithRelativeLengths;
 
-    AttributeOwnerProxy m_attributeOwnerProxy { *this };
-    SVGAnimatedStringAttribute m_className;
+    BEGIN_DECLARE_ANIMATED_PROPERTIES_BASE(SVGElement)
+        DECLARE_ANIMATED_STRING(ClassName, className)
+    END_DECLARE_ANIMATED_PROPERTIES
+
 };
 
 class SVGElement::InstanceInvalidationGuard {
@@ -226,7 +218,7 @@ struct SVGAttributeHashTranslator {
     static unsigned hash(const QualifiedName& key)
     {
         if (key.hasPrefix()) {
-            QualifiedNameComponents components = { nullAtom().impl(), key.localName().impl(), key.namespaceURI().impl() };
+            QualifiedNameComponents components = { nullAtom.impl(), key.localName().impl(), key.namespaceURI().impl() };
             return hashComponents(components);
         }
         return DefaultHash<QualifiedName>::Hash::hash(key);

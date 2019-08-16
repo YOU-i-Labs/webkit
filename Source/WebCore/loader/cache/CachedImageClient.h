@@ -34,7 +34,7 @@ enum class VisibleInViewportState { Unknown, Yes, No };
 
 class CachedImageClient : public CachedResourceClient {
 public:
-    virtual ~CachedImageClient() = default;
+    virtual ~CachedImageClient() { }
     static CachedResourceClientType expectedType() { return ImageType; }
     CachedResourceClientType resourceClientType() const override { return expectedType(); }
 

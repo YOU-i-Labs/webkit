@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,29 +23,44 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef MediaPlaybackTarget_h
+#define MediaPlaybackTarget_h
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 
-#include <wtf/Forward.h>
+#include "MediaPlaybackTargetContext.h"
+#include <wtf/NeverDestroyed.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
 
-class MediaPlaybackTargetContext;
+static const MediaPlaybackTargetContext& noMediaPlaybackTargetContext()
+{
+    static NeverDestroyed<MediaPlaybackTargetContext> context;
+    return context;
+}
 
 class MediaPlaybackTarget : public RefCounted<MediaPlaybackTarget> {
 public:
-    virtual ~MediaPlaybackTarget() = default;
+    virtual ~MediaPlaybackTarget() { }
 
-    enum TargetType { AVFoundation, Mock };
-    virtual TargetType targetType() const = 0;
+    enum TargetType {
+        None,
+        AVFoundation,
+        Mock,
+    };
+    virtual TargetType targetType() const { return None; }
 
-    virtual const MediaPlaybackTargetContext& targetContext() const = 0;
-    virtual bool hasActiveRoute() const = 0;
-    virtual String deviceName() const = 0;
+    virtual const MediaPlaybackTargetContext& targetContext() const { return noMediaPlaybackTargetContext(); }
+    virtual bool hasActiveRoute() const { return false; }
+    virtual String deviceName() const { return emptyString(); }
+
+protected:
+    MediaPlaybackTarget() { }
 };
 
 }
 
 #endif // ENABLE(WIRELESS_PLAYBACK_TARGET)
+
+#endif

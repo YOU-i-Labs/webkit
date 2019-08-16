@@ -106,10 +106,7 @@ public:
                             if (extremeLogging)
                                 m_graph.dump();
                             m_graph.dethread();
-                            if (targetBlock == jettisonedBlock)
-                                mergeBlocks(block, targetBlock, noBlocks());
-                            else
-                                mergeBlocks(block, targetBlock, oneBlock(jettisonedBlock));
+                            mergeBlocks(block, targetBlock, oneBlock(jettisonedBlock));
                         } else {
                             if (extremeLogging)
                                 m_graph.dump();
@@ -119,8 +116,7 @@ public:
                             ASSERT(terminal->isTerminal());
                             NodeOrigin boundaryNodeOrigin = terminal->origin;
 
-                            if (targetBlock != jettisonedBlock)
-                                jettisonBlock(block, jettisonedBlock, boundaryNodeOrigin);
+                            jettisonBlock(block, jettisonedBlock, boundaryNodeOrigin);
 
                             block->replaceTerminal(
                                 m_graph, SpecNone, Jump, boundaryNodeOrigin,
@@ -138,7 +134,7 @@ public:
                         innerChanged = outerChanged = true;
                         break;
                     }
-
+                    
                     // Branch to same destination -> jump.
                     // FIXME: this will currently not be hit because of the lack of jump-only
                     // block simplification.
@@ -186,7 +182,7 @@ public:
                         
                         Vector<BasicBlock*, 1> jettisonedBlocks;
                         for (BasicBlock* successor : terminal->successors()) {
-                            if (successor != targetBlock && !jettisonedBlocks.contains(successor))
+                            if (successor != targetBlock)
                                 jettisonedBlocks.append(successor);
                         }
                         
@@ -343,7 +339,7 @@ private:
         Node* terminal = firstBlock->terminal();
         ASSERT(terminal->isTerminal());
         NodeOrigin boundaryNodeOrigin = terminal->origin;
-        terminal->remove(m_graph);
+        terminal->remove();
         ASSERT(terminal->refCount() == 1);
         
         for (unsigned i = jettisonedBlocks.size(); i--;) {

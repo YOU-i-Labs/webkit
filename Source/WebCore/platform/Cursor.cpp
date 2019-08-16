@@ -26,11 +26,8 @@
 #include "config.h"
 #include "Cursor.h"
 
-#if !PLATFORM(IOS_FAMILY)
-
 #include "Image.h"
 #include "IntRect.h"
-#include "NotImplemented.h"
 #include <wtf/Assertions.h>
 #include <wtf/NeverDestroyed.h>
 
@@ -449,14 +446,4 @@ const Cursor& grabbingCursor()
     return c;
 }
 
-#if !PLATFORM(COCOA) && !PLATFORM(GTK) && !PLATFORM(WIN)
-void Cursor::ensurePlatformCursor() const
-{
-    notImplemented();
-}
-#endif
-
 } // namespace WebCore
-
-#endif // !PLATFORM(IOS_FAMILY)
-

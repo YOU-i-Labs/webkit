@@ -40,6 +40,11 @@
 
 namespace WebCore {
 
+Widget::Widget(PlatformWidget widget)
+{
+    init(widget);
+}
+
 Widget::~Widget()
 {
     ASSERT(!parent());
@@ -92,6 +97,11 @@ void Widget::setIsSelected(bool isSelected)
         return;
 
     g_object_set(platformWidget(), "webkit-widget-is-selected", isSelected, NULL);
+}
+
+IntRect Widget::frameRect() const
+{
+    return m_frame;
 }
 
 void Widget::setFrameRect(const IntRect& rect)

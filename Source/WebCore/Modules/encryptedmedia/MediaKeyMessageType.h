@@ -30,11 +30,14 @@
 
 #if ENABLE(ENCRYPTED_MEDIA)
 
-#include "CDMMessageType.h"
-
 namespace WebCore {
 
-using MediaKeyMessageType = CDMMessageType;
+enum class MediaKeyMessageType {
+    LicenseRequest,
+    LicenseRenewal,
+    LicenseRelease,
+    IndividualizationRequest
+};
 
 } // namespace WebCore
 

@@ -23,7 +23,6 @@
 #include "config.h"
 #include "Navigator.h"
 
-#include "Chrome.h"
 #include "CookieJar.h"
 #include "DOMMimeTypeArray.h"
 #include "DOMPluginArray.h"
@@ -32,30 +31,26 @@
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "Geolocation.h"
-#include "JSDOMPromiseDeferred.h"
-#include "LoaderStrategy.h"
+#include "Language.h"
 #include "Page.h"
-#include "PlatformStrategies.h"
 #include "PluginData.h"
-#include "ResourceLoadObserver.h"
-#include "RuntimeEnabledFeatures.h"
 #include "ScriptController.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
-#include <wtf/Language.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/WeakPtr.h>
 
-namespace WebCore {
 using namespace WTF;
 
-Navigator::Navigator(ScriptExecutionContext* context, DOMWindow& window)
-    : NavigatorBase(context)
-    , DOMWindowProperty(&window)
+namespace WebCore {
+
+Navigator::Navigator(Frame& frame)
+    : DOMWindowProperty(&frame)
 {
 }
 
-Navigator::~Navigator() = default;
+Navigator::~Navigator()
+{
+}
 
 // If this function returns true, we need to hide the substring "4." that would otherwise
 // appear in the appVersion string. This is to avoid problems with old versions of a
@@ -73,129 +68,50 @@ static bool shouldHideFourDot(Frame& frame)
 
 String Navigator::appVersion() const
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return String();
-    if (RuntimeEnabledFeatures::sharedFeatures().webAPIStatisticsEnabled())
-        ResourceLoadObserver::shared().logNavigatorAPIAccessed(*frame->document(), ResourceLoadStatistics::NavigatorAPI::AppVersion);
     String appVersion = NavigatorBase::appVersion();
-    if (shouldHideFourDot(*frame))
+    if (shouldHideFourDot(*m_frame))
         appVersion.replace("4.", "4_");
     return appVersion;
 }
 
-const String& Navigator::userAgent() const
+String Navigator::userAgent() const
 {
-    auto* frame = this->frame();
-    if (!frame || !frame->page())
-        return m_userAgent;
-    if (RuntimeEnabledFeatures::sharedFeatures().webAPIStatisticsEnabled())
-        ResourceLoadObserver::shared().logNavigatorAPIAccessed(*frame->document(), ResourceLoadStatistics::NavigatorAPI::UserAgent);
-    if (m_userAgent.isNull())
-        m_userAgent = frame->loader().userAgent(frame->document()->url());
-    return m_userAgent;
-}
-    
-const String& Navigator::platform() const
-{
-    auto* frame = this->frame();
-    if (!frame || !frame->page())
-        return m_platform;
+    if (!m_frame)
+        return String();
 
-    if (m_platform.isNull())
-        m_platform = frame->loader().navigatorPlatform();
-    
-    if (m_platform.isNull())
-        m_platform = NavigatorBase::platform();
-    return m_platform;
-}
+    // If the frame is already detached, FrameLoader::userAgent may malfunction, because it calls a client method
+    // that uses frame's WebView (at least, in Mac WebKit).
+    if (!m_frame->page())
+        return String();
 
-void Navigator::userAgentChanged()
-{
-    m_userAgent = String();
-}
-
-bool Navigator::onLine() const
-{
-    return platformStrategies()->loaderStrategy()->isOnLine();
-}
-
-void Navigator::share(ScriptExecutionContext& context, ShareData data, Ref<DeferredPromise>&& promise)
-{
-    auto* frame = this->frame();
-    if (!frame || !frame->page()) {
-        promise->reject(TypeError);
-        return;
-    }
-    
-    if (data.title.isEmpty() && data.url.isEmpty() && data.text.isEmpty()) {
-        promise->reject(TypeError);
-        return;
-    }
-
-    Optional<URL> url;
-    if (!data.url.isEmpty()) {
-        url = context.completeURL(data.url);
-        if (!url->isValid()) {
-            promise->reject(TypeError);
-            return;
-        }
-    }
-    
-    if (!UserGestureIndicator::processingUserGesture()) {
-        promise->reject(NotAllowedError);
-        return;
-    }
-    
-    ShareDataWithParsedURL shareData = {
-        data,
-        url,
-    };
-
-    frame->page()->chrome().showShareSheet(shareData, [promise = WTFMove(promise)] (bool completed) {
-        if (completed) {
-            promise->resolve();
-            return;
-        }
-        promise->reject(Exception { AbortError, "Abort due to cancellation of share."_s });
-    });
+    return m_frame->loader().userAgent(m_frame->document()->url());
 }
 
 DOMPluginArray& Navigator::plugins()
 {
-    if (RuntimeEnabledFeatures::sharedFeatures().webAPIStatisticsEnabled()) {
-        if (auto* frame = this->frame())
-            ResourceLoadObserver::shared().logNavigatorAPIAccessed(*frame->document(), ResourceLoadStatistics::NavigatorAPI::Plugins);
-    }
     if (!m_plugins)
-        m_plugins = DOMPluginArray::create(m_window);
+        m_plugins = DOMPluginArray::create(m_frame);
     return *m_plugins;
 }
 
 DOMMimeTypeArray& Navigator::mimeTypes()
 {
-    if (RuntimeEnabledFeatures::sharedFeatures().webAPIStatisticsEnabled()) {
-        if (auto* frame = this->frame())
-            ResourceLoadObserver::shared().logNavigatorAPIAccessed(*frame->document(), ResourceLoadStatistics::NavigatorAPI::MimeTypes);
-    }
     if (!m_mimeTypes)
-        m_mimeTypes = DOMMimeTypeArray::create(m_window);
+        m_mimeTypes = DOMMimeTypeArray::create(m_frame);
     return *m_mimeTypes;
 }
 
 bool Navigator::cookieEnabled() const
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return false;
 
-    if (RuntimeEnabledFeatures::sharedFeatures().webAPIStatisticsEnabled())
-        ResourceLoadObserver::shared().logNavigatorAPIAccessed(*frame->document(), ResourceLoadStatistics::NavigatorAPI::CookieEnabled);
-
-    if (frame->page() && !frame->page()->settings().cookieEnabled())
+    if (m_frame->page() && !m_frame->page()->settings().cookieEnabled())
         return false;
 
-    auto* document = frame->document();
+    auto* document = m_frame->document();
     if (!document)
         return false;
 
@@ -204,27 +120,22 @@ bool Navigator::cookieEnabled() const
 
 bool Navigator::javaEnabled() const
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return false;
 
-    if (RuntimeEnabledFeatures::sharedFeatures().webAPIStatisticsEnabled())
-        ResourceLoadObserver::shared().logNavigatorAPIAccessed(*frame->document(), ResourceLoadStatistics::NavigatorAPI::JavaEnabled);
-
-    if (!frame->settings().isJavaEnabled())
+    if (!m_frame->settings().isJavaEnabled())
         return false;
-    if (frame->document()->securityOrigin().isLocal() && !frame->settings().isJavaEnabledForLocalFiles())
+    if (m_frame->document()->securityOrigin().isLocal() && !m_frame->settings().isJavaEnabledForLocalFiles())
         return false;
 
     return true;
 }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 
 bool Navigator::standalone() const
 {
-    auto* frame = this->frame();
-    return frame && frame->settings().standalone();
+    return m_frame && m_frame->settings().standalone();
 }
 
 #endif

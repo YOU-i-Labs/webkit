@@ -38,7 +38,6 @@ enum ImageSizeChangeType {
 };
 
 class RenderImage : public RenderReplaced {
-    WTF_MAKE_ISO_ALLOCATED(RenderImage);
 public:
     RenderImage(Element&, RenderStyle&&, StyleImage* = nullptr, const float = 1.0f);
     RenderImage(Document&, RenderStyle&&, StyleImage* = nullptr);
@@ -55,7 +54,7 @@ public:
     HTMLMapElement* imageMap() const;
     void areaElementFocusChanged(HTMLAreaElement*);
     
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     void collectSelectionRects(Vector<SelectionRect>&, unsigned, unsigned) override;
 #endif
 
@@ -76,8 +75,6 @@ public:
 
     bool hasNonBitmapImage() const;
 
-    bool isEditableImage() const;
-
 protected:
     void willBeDestroyed() override;
 
@@ -91,7 +88,7 @@ protected:
 
     void imageChanged(WrappedImagePtr, const IntRect* = nullptr) override;
 
-    ImageDrawResult paintIntoRect(PaintInfo&, const FloatRect&);
+    void paintIntoRect(PaintInfo&, const FloatRect&);
     void paint(PaintInfo&, const LayoutPoint&) final;
     void layout() override;
 
@@ -107,11 +104,8 @@ private:
 
     bool isImage() const override { return true; }
     bool isRenderImage() const final { return true; }
-    
-    bool requiresLayer() const override;
 
     void paintReplaced(PaintInfo&, const LayoutPoint&) override;
-    void paintIncompleteImageOutline(PaintInfo&, LayoutPoint, LayoutUnit) const;
 
     bool computeBackgroundIsKnownToBeObscured(const LayoutPoint& paintOffset) final;
 

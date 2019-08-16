@@ -40,24 +40,27 @@
 #include "PageConsoleClient.h"
 #include "PageGroup.h"
 #include "ScriptController.h"
-#include <JavaScriptCore/JSLock.h>
-#include <JavaScriptCore/StrongInlines.h>
-#include <JavaScriptCore/WeakGCMapInlines.h>
+#include <heap/StrongInlines.h>
+#include <runtime/JSLock.h>
+#include <runtime/WeakGCMapInlines.h>
+
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 
 ScriptCachedFrameData::ScriptCachedFrameData(Frame& frame)
 {
     JSLockHolder lock(commonVM());
 
-    for (auto windowProxy : frame.windowProxy().jsWindowProxiesAsVector()) {
-        auto* window = jsCast<JSDOMWindow*>(windowProxy->window());
+    auto& scriptController = frame.script();
+
+    for (auto windowProxy : scriptController.windowProxies()) {
+        auto* window = windowProxy->window();
         m_windows.add(&windowProxy->world(), Strong<JSDOMWindow>(window->vm(), window));
         window->setConsoleClient(nullptr);
     }
 
-    frame.windowProxy().attachDebugger(nullptr);
+    scriptController.attachDebugger(nullptr);
 }
 
 ScriptCachedFrameData::~ScriptCachedFrameData()
@@ -70,22 +73,22 @@ void ScriptCachedFrameData::restore(Frame& frame)
     JSLockHolder lock(commonVM());
 
     Page* page = frame.page();
+    auto& scriptController = frame.script();
 
-    for (auto windowProxy : frame.windowProxy().jsWindowProxiesAsVector()) {
+    for (auto windowProxy : scriptController.windowProxies()) {
         auto* world = &windowProxy->world();
 
         if (auto* window = m_windows.get(world).get())
-            windowProxy->setWindow(window->vm(), *window);
+            windowProxy->setWindow(window->vm(), window);
         else {
-            ASSERT(frame.document()->domWindow());
-            auto& domWindow = *frame.document()->domWindow();
-            if (&windowProxy->wrapped() == &domWindow)
+            auto* domWindow = frame.document()->domWindow();
+            if (&windowProxy->window()->wrapped() == domWindow)
                 continue;
 
             windowProxy->setWindow(domWindow);
 
             if (page) {
-                windowProxy->attachDebugger(page->debugger());
+                scriptController.attachDebugger(windowProxy.get(), page->debugger());
                 windowProxy->window()->setProfileGroup(page->group().identifier());
             }
         }

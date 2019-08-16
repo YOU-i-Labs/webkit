@@ -459,7 +459,7 @@ Value* Value::invertedCompare(Procedure& proc) const
 {
     if (!numChildren())
         return nullptr;
-    if (Optional<Opcode> invertedOpcode = B3::invertedCompare(opcode(), child(0)->type())) {
+    if (std::optional<Opcode> invertedOpcode = B3::invertedCompare(opcode(), child(0)->type())) {
         ASSERT(!kind().hasExtraBits());
         return proc.add<Value>(*invertedOpcode, type(), origin(), children());
     }
@@ -546,7 +546,6 @@ Effects Value::effects() const
     switch (opcode()) {
     case Nop:
     case Identity:
-    case Opaque:
     case Const32:
     case Const64:
     case ConstDouble:
@@ -701,13 +700,10 @@ Effects Value::effects() const
 
 ValueKey Value::key() const
 {
-    // NOTE: Except for exotic things like CheckAdd and friends, we want every case here to have a
-    // corresponding case in ValueKey::materialize().
     switch (opcode()) {
     case FramePointer:
         return ValueKey(kind(), type());
     case Identity:
-    case Opaque:
     case Abs:
     case Ceil:
     case Floor:
@@ -778,21 +774,13 @@ ValueKey Value::key() const
     }
 }
 
-Value* Value::foldIdentity() const
-{
-    Value* current = const_cast<Value*>(this);
-    while (current->opcode() == Identity)
-        current = current->child(0);
-    return current;
-}
-
 bool Value::performSubstitution()
 {
     bool result = false;
     for (Value*& child : children()) {
-        if (child->opcode() == Identity) {
+        while (child->opcode() == Identity) {
             result = true;
-            child = child->foldIdentity();
+            child = child->child(0);
         }
     }
     return result;
@@ -806,7 +794,6 @@ bool Value::isFree() const
     case ConstDouble:
     case ConstFloat:
     case Identity:
-    case Opaque:
     case Nop:
         return true;
     default:
@@ -822,7 +809,6 @@ Type Value::typeFor(Kind kind, Value* firstChild, Value* secondChild)
 {
     switch (kind.opcode()) {
     case Identity:
-    case Opaque:
     case Add:
     case Sub:
     case Mul:

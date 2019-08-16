@@ -52,7 +52,7 @@ public:
     };
 
     union Bounds {
-        GPRReg pinnedSize;
+        GPRReg pinned;
         size_t maximum;
     };
 
@@ -74,7 +74,6 @@ private:
     unsigned m_offset;
     Type m_boundsType;
     Bounds m_bounds;
-
 };
 
 } } // namespace JSC::B3

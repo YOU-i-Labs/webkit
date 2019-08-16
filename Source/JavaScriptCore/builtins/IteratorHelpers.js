@@ -33,11 +33,10 @@ function performIteration(iterable)
     let result = [];
 
     let iterator = iterable.@iteratorSymbol();
-    let next = iterator.next;
     let item;
     let index = 0;
     while (true) {
-        item = next.@call(iterator);
+        item = iterator.next();
         if (!@isObject(item))
             @throwTypeError("Iterator result interface is not an object");
         if (item.done)

@@ -40,10 +40,11 @@ class RenderStyle;
 class RenderTreePosition;
 class Settings;
 class ShadowRoot;
+class URL;
 
 class PluginReplacement : public RefCounted<PluginReplacement> {
 public:
-    virtual ~PluginReplacement() = default;
+    virtual ~PluginReplacement() { }
 
     virtual bool installReplacement(ShadowRoot&) = 0;
     virtual JSC::JSObject* scriptObject() { return nullptr; }

@@ -24,8 +24,7 @@
  */
 
 #include "config.h"
-#include <wtf/DataLog.h>
-
+#include "DataLog.h"
 #include <stdarg.h>
 #include <string.h>
 #include <wtf/FilePrintStream.h>
@@ -69,7 +68,7 @@ static void initializeLogFileOnce()
 #if DATA_LOG_TO_DARWIN_TEMP_DIR
     char filenameBuffer[maxPathLength + 1];
 #if defined(DATA_LOG_FILENAME)
-    const char* logBasename = strrchr(DATA_LOG_FILENAME, '/');
+    char* logBasename = strrchr(DATA_LOG_FILENAME, '/');
     if (!logBasename)
         logBasename = (char*)DATA_LOG_FILENAME;
 #else

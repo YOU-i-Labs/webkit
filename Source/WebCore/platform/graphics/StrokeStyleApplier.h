@@ -29,8 +29,8 @@ namespace WebCore {
         virtual void strokeStyle(GraphicsContext*) = 0;
 
     protected:
-        StrokeStyleApplier() = default;
-        virtual ~StrokeStyleApplier() = default;
+        StrokeStyleApplier() {}
+        virtual ~StrokeStyleApplier() {}
     };
 }
 

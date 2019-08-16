@@ -23,17 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-const SkipSeconds = 15;
-const MinimumSizeToShowAnyControl = 47;
-const MaximumSizeToShowSmallProminentControl = 88;
-
-let mediaControlsHost;
-
 // This is called from HTMLMediaElement::ensureMediaControlsInjectedScript().
 function createControls(shadowRoot, media, host)
 {
     if (host) {
-        mediaControlsHost = host;
         iconService.mediaControlsHost = host;
         shadowRoot.appendChild(document.createElement("style")).textContent = host.shadowRootCSSText;
     }
@@ -41,21 +34,17 @@ function createControls(shadowRoot, media, host)
     return new MediaController(shadowRoot, media, host);
 }
 
-function UIString(stringToLocalize, replacementString)
+function UIString(string)
 {
-    let allLocalizedStrings = {};
+    let localizedStrings = {};
     try {
-        allLocalizedStrings = UIStrings;
+        localizedStrings = UIStrings;
     } catch (error) {}
 
-    const localizedString = allLocalizedStrings[stringToLocalize];
-    if (!localizedString)
-        return stringToLocalize;
+    if (localizedStrings[string])
+        return localizedStrings[string];
 
-    if (replacementString)
-        return localizedString.replace("%s", replacementString);
-
-    return localizedString;
+    return string;
 }
 
 function formatTimeByUnit(value)
@@ -78,10 +67,12 @@ function unitizeTime(value, unit)
     return `${value} ${returnedUnit}`;
 }
 
-function formattedStringForDuration(timeInSeconds)
+function formatTimeToString(timeInSeconds)
 {
-    if (mediaControlsHost)
-        return mediaControlsHost.formattedStringForDuration(Math.abs(timeInSeconds));
-    else
-        return "";
+    const time = formatTimeByUnit(timeInSeconds);
+    const timeStrings = [unitizeTime(time.minutes, "Minute"), unitizeTime(time.seconds, "Second")];
+    if (time.hours > 0)
+        timeStrings.unshift(unitizeTime(time.hours, "Hour"));
+
+    return timeStrings.join(" ");
 }

@@ -27,7 +27,6 @@
 #include "config.h"
 
 #include "Test.h"
-#include <WebCore/FileMetadata.h>
 #include <WebCore/FileSystem.h>
 #include <wtf/MainThread.h>
 #include <wtf/StringExtras.h>
@@ -46,39 +45,34 @@ public:
         WTF::initializeMainThread();
         
         // create temp file
-        FileSystem::PlatformFileHandle handle;
-        m_tempFilePath = FileSystem::openTemporaryFile("tempTestFile", handle);
-        FileSystem::writeToFile(handle, FileSystemTestData, strlen(FileSystemTestData));
-        FileSystem::closeFile(handle);
+        PlatformFileHandle handle;
+        m_tempFilePath = openTemporaryFile("tempTestFile", handle);
+        writeToFile(handle, FileSystemTestData, strlen(FileSystemTestData));
+        closeFile(handle); 
 
-        m_tempFileSymlinkPath = m_tempFilePath + "-symlink";
-        FileSystem::createSymbolicLink(m_tempFilePath, m_tempFileSymlinkPath);
+        m_tempEmptyFilePath = openTemporaryFile("tempEmptyTestFile", handle);
+        closeFile(handle);
 
-        m_tempEmptyFilePath = FileSystem::openTemporaryFile("tempEmptyTestFile", handle);
-        FileSystem::closeFile(handle);
+        m_spaceContainingFilePath = openTemporaryFile("temp Empty Test File", handle);
+        closeFile(handle);
 
-        m_spaceContainingFilePath = FileSystem::openTemporaryFile("temp Empty Test File", handle);
-        FileSystem::closeFile(handle);
+        m_bangContainingFilePath = openTemporaryFile("temp!Empty!Test!File", handle);
+        closeFile(handle);
 
-        m_bangContainingFilePath = FileSystem::openTemporaryFile("temp!Empty!Test!File", handle);
-        FileSystem::closeFile(handle);
-
-        m_quoteContainingFilePath = FileSystem::openTemporaryFile("temp\"Empty\"TestFile", handle);
-        FileSystem::closeFile(handle);
+        m_quoteContainingFilePath = openTemporaryFile("temp\"Empty\"TestFile", handle);
+        closeFile(handle);
     }
 
     void TearDown() override
     {
-        FileSystem::deleteFile(m_tempFilePath);
-        FileSystem::deleteFile(m_tempFileSymlinkPath);
-        FileSystem::deleteFile(m_tempEmptyFilePath);
-        FileSystem::deleteFile(m_spaceContainingFilePath);
-        FileSystem::deleteFile(m_bangContainingFilePath);
-        FileSystem::deleteFile(m_quoteContainingFilePath);
+        deleteFile(m_tempFilePath);
+        deleteFile(m_tempEmptyFilePath);
+        deleteFile(m_spaceContainingFilePath);
+        deleteFile(m_bangContainingFilePath);
+        deleteFile(m_quoteContainingFilePath);
     }
 
     const String& tempFilePath() { return m_tempFilePath; }
-    const String& tempFileSymlinkPath() { return m_tempFileSymlinkPath; }
     const String& tempEmptyFilePath() { return m_tempEmptyFilePath; }
     const String& spaceContainingFilePath() { return m_spaceContainingFilePath; }
     const String& bangContainingFilePath() { return m_bangContainingFilePath; }
@@ -86,7 +80,6 @@ public:
 
 private:
     String m_tempFilePath;
-    String m_tempFileSymlinkPath;
     String m_tempEmptyFilePath;
     String m_spaceContainingFilePath;
     String m_bangContainingFilePath;
@@ -96,7 +89,7 @@ private:
 TEST_F(FileSystemTest, MappingMissingFile)
 {
     bool success;
-    FileSystem::MappedFileData mappedFileData(String("not_existing_file"), success);
+    MappedFileData mappedFileData(String("not_existing_file"), success);
     EXPECT_FALSE(success);
     EXPECT_TRUE(!mappedFileData);
 }
@@ -104,7 +97,7 @@ TEST_F(FileSystemTest, MappingMissingFile)
 TEST_F(FileSystemTest, MappingExistingFile)
 {
     bool success;
-    FileSystem::MappedFileData mappedFileData(tempFilePath(), success);
+    MappedFileData mappedFileData(tempFilePath(), success);
     EXPECT_TRUE(success);
     EXPECT_TRUE(!!mappedFileData);
     EXPECT_TRUE(mappedFileData.size() == strlen(FileSystemTestData));
@@ -114,37 +107,16 @@ TEST_F(FileSystemTest, MappingExistingFile)
 TEST_F(FileSystemTest, MappingExistingEmptyFile)
 {
     bool success;
-    FileSystem::MappedFileData mappedFileData(tempEmptyFilePath(), success);
+    MappedFileData mappedFileData(tempEmptyFilePath(), success);
     EXPECT_TRUE(success);
     EXPECT_TRUE(!mappedFileData);
 }
 
 TEST_F(FileSystemTest, FilesHaveSameVolume)
 {
-    EXPECT_TRUE(FileSystem::filesHaveSameVolume(tempFilePath(), spaceContainingFilePath()));
-    EXPECT_TRUE(FileSystem::filesHaveSameVolume(spaceContainingFilePath(), bangContainingFilePath()));
-    EXPECT_TRUE(FileSystem::filesHaveSameVolume(bangContainingFilePath(), quoteContainingFilePath()));
-}
-
-TEST_F(FileSystemTest, GetFileMetadataSymlink)
-{
-    auto symlinkMetadata = FileSystem::fileMetadata(tempFileSymlinkPath());
-    ASSERT_TRUE(symlinkMetadata.hasValue());
-    EXPECT_TRUE(symlinkMetadata.value().type == FileMetadata::Type::SymbolicLink);
-    EXPECT_FALSE(static_cast<size_t>(symlinkMetadata.value().length) == strlen(FileSystemTestData));
-
-    auto targetMetadata = FileSystem::fileMetadataFollowingSymlinks(tempFileSymlinkPath());
-    ASSERT_TRUE(targetMetadata.hasValue());
-    EXPECT_TRUE(targetMetadata.value().type == FileMetadata::Type::File);
-    EXPECT_EQ(strlen(FileSystemTestData), static_cast<size_t>(targetMetadata.value().length));
-}
-
-TEST_F(FileSystemTest, UnicodeDirectoryName)
-{
-    String path = String::fromUTF8("/test/a\u0308lo/test.txt");
-    String directoryName = FileSystem::directoryName(path);
-    String expectedDirectoryName = String::fromUTF8("/test/a\u0308lo");
-    EXPECT_TRUE(expectedDirectoryName == directoryName);
+    EXPECT_TRUE(filesHaveSameVolume(tempFilePath(), spaceContainingFilePath()));
+    EXPECT_TRUE(filesHaveSameVolume(spaceContainingFilePath(), bangContainingFilePath()));
+    EXPECT_TRUE(filesHaveSameVolume(bangContainingFilePath(), quoteContainingFilePath()));
 }
 
 }

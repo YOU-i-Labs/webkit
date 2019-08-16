@@ -1,5 +1,6 @@
+
 /*
- * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,28 +31,20 @@
 
 #include "WasmBBQPlanInlines.h"
 #include "WasmCallee.h"
-#include "WasmFormat.h"
 #include "WasmWorklist.h"
 
 namespace JSC { namespace Wasm {
 
-Ref<CodeBlock> CodeBlock::create(Context* context, MemoryMode mode, ModuleInformation& moduleInformation, CreateEmbedderWrapper&& createEmbedderWrapper, ThrowWasmException throwWasmException)
-{
-    auto* result = new (NotNull, fastMalloc(sizeof(CodeBlock))) CodeBlock(context, mode, moduleInformation, WTFMove(createEmbedderWrapper), throwWasmException);
-    return adoptRef(*result);
-}
-
-CodeBlock::CodeBlock(Context* context, MemoryMode mode, ModuleInformation& moduleInformation, CreateEmbedderWrapper&& createEmbedderWrapper, ThrowWasmException throwWasmException)
+CodeBlock::CodeBlock(MemoryMode mode, ModuleInformation& moduleInformation)
     : m_calleeCount(moduleInformation.internalFunctionCount())
     , m_mode(mode)
 {
     RefPtr<CodeBlock> protectedThis = this;
-
-    m_plan = adoptRef(*new BBQPlan(context, makeRef(moduleInformation), BBQPlan::FullCompile, createSharedTask<Plan::CallbackType>([this, protectedThis = WTFMove(protectedThis)] (Plan&) {
+    m_plan = adoptRef(*new BBQPlan(nullptr, makeRef(moduleInformation), BBQPlan::FullCompile, createSharedTask<Plan::CallbackType>([this, protectedThis = WTFMove(protectedThis)] (VM*, Plan&) {
         auto locker = holdLock(m_lock);
         if (m_plan->failed()) {
             m_errorMessage = m_plan->errorMessage();
-            setCompilationFinished();
+            m_plan = nullptr;
             return;
         }
 
@@ -60,9 +53,9 @@ CodeBlock::CodeBlock(Context* context, MemoryMode mode, ModuleInformation& modul
         m_optimizedCallees.resize(m_calleeCount);
         m_wasmIndirectCallEntryPoints.resize(m_calleeCount);
 
-        m_plan->initializeCallees([&] (unsigned calleeIndex, RefPtr<Wasm::Callee>&& embedderEntrypointCallee, Ref<Wasm::Callee>&& wasmEntrypointCallee) {
-            if (embedderEntrypointCallee) {
-                auto result = m_embedderCallees.set(calleeIndex, WTFMove(embedderEntrypointCallee));
+        m_plan->initializeCallees([&] (unsigned calleeIndex, RefPtr<Wasm::Callee>&& jsEntrypointCallee, Ref<Wasm::Callee>&& wasmEntrypointCallee) {
+            if (jsEntrypointCallee) {
+                auto result = m_jsCallees.set(calleeIndex, WTFMove(jsEntrypointCallee));
                 ASSERT_UNUSED(result, result.isNewEntry);
             }
             m_callees[calleeIndex] = WTFMove(wasmEntrypointCallee);
@@ -73,10 +66,10 @@ CodeBlock::CodeBlock(Context* context, MemoryMode mode, ModuleInformation& modul
         m_wasmToWasmCallsites = m_plan->takeWasmToWasmCallsites();
         m_tierUpCounts = m_plan->takeTierUpCounts();
 
-        setCompilationFinished();
-    }), WTFMove(createEmbedderWrapper), throwWasmException));
-    m_plan->setMode(mode);
+        m_plan = nullptr;
+    })));
 
+    m_plan->setMode(mode);
     auto& worklist = Wasm::ensureWorklist();
     // Note, immediately after we enqueue the plan, there is a chance the above callback will be called.
     worklist.enqueue(makeRef(*m_plan.get()));
@@ -99,7 +92,7 @@ void CodeBlock::waitUntilFinished()
     // else, if we don't have a plan, we're already compiled.
 }
 
-void CodeBlock::compileAsync(Context* context, AsyncCompilationCallback&& task)
+void CodeBlock::compileAsync(VM& vm, AsyncCompilationCallback&& task)
 {
     RefPtr<Plan> plan;
     {
@@ -111,11 +104,12 @@ void CodeBlock::compileAsync(Context* context, AsyncCompilationCallback&& task)
         // We don't need to keep a RefPtr on the Plan because the worklist will keep
         // a RefPtr on the Plan until the plan finishes notifying all of its callbacks.
         RefPtr<CodeBlock> protectedThis = this;
-        plan->addCompletionTask(context, createSharedTask<Plan::CallbackType>([this, task = WTFMove(task), protectedThis = WTFMove(protectedThis)] (Plan&) {
-            task->run(makeRef(*this));
+        plan->addCompletionTask(vm, createSharedTask<Plan::CallbackType>([this, task = WTFMove(task), protectedThis = WTFMove(protectedThis)] (VM* vm, Plan&) {
+            ASSERT(vm);
+            task->run(*vm, makeRef(*this));
         }));
     } else
-        task->run(makeRef(*this));
+        task->run(vm, makeRef(*this));
 }
 
 bool CodeBlock::isSafeToRun(MemoryMode memoryMode)
@@ -131,16 +125,11 @@ bool CodeBlock::isSafeToRun(MemoryMode memoryMode)
         // Its memory, even if empty, absolutely must also be in Signaling mode
         // because the page protection detects out-of-bounds accesses.
         return memoryMode == Wasm::MemoryMode::Signaling;
+    case Wasm::MemoryMode::NumberOfMemoryModes:
+        break;
     }
     RELEASE_ASSERT_NOT_REACHED();
     return false;
-}
-
-
-void CodeBlock::setCompilationFinished()
-{
-    m_plan = nullptr;
-    m_compilationFinished.store(true);
 }
 
 } } // namespace JSC::Wasm

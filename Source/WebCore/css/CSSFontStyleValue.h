@@ -46,11 +46,11 @@ public:
 
     bool equals(const CSSFontStyleValue&) const;
 
-    bool isItalicOrOblique() const
+    bool isItalic() const
     {
         if (!obliqueValue) {
             auto valueID = fontStyleValue->valueID();
-            return valueID == CSSValueItalic || valueID == CSSValueOblique;
+            return valueID == CSSValueItalic || CSSValueOblique;
         }
         return obliqueValue->value<float>(CSSPrimitiveValue::CSS_DEG) >= static_cast<float>(italicValue());
     }

@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TabContentView = class TabContentView extends WI.ContentView
+WebInspector.TabContentView = class TabContentView extends WebInspector.ContentView
 {
     constructor(identifier, styleClassNames, tabBarItem, navigationSidebarPanelConstructor, detailsSidebarPanelConstructors)
     {
         console.assert(typeof identifier === "string");
         console.assert(typeof styleClassNames === "string" || styleClassNames.every((className) => typeof className === "string"));
-        console.assert(tabBarItem instanceof WI.TabBarItem);
+        console.assert(tabBarItem instanceof WebInspector.TabBarItem);
         console.assert(!navigationSidebarPanelConstructor || typeof navigationSidebarPanelConstructor === "function");
         console.assert(!detailsSidebarPanelConstructors || detailsSidebarPanelConstructors.every((detailsSidebarPanelConstructor) => typeof detailsSidebarPanelConstructor === "function"));
 
@@ -49,20 +49,26 @@ WI.TabContentView = class TabContentView extends WI.ContentView
 
         const defaultSidebarWidth = 300;
 
-        this._navigationSidebarCollapsedSetting = new WI.Setting(identifier + "-navigation-sidebar-collapsed", false);
-        this._navigationSidebarWidthSetting = new WI.Setting(identifier + "-navigation-sidebar-width", defaultSidebarWidth);
+        this._navigationSidebarCollapsedSetting = new WebInspector.Setting(identifier + "-navigation-sidebar-collapsed", false);
+        this._navigationSidebarWidthSetting = new WebInspector.Setting(identifier + "-navigation-sidebar-width", defaultSidebarWidth);
 
-        this._detailsSidebarCollapsedSetting = new WI.Setting(identifier + "-details-sidebar-collapsed", true);
-        this._detailsSidebarSelectedPanelSetting = new WI.Setting(identifier + "-details-sidebar-selected-panel", null);
-        this._detailsSidebarWidthSetting = new WI.Setting(identifier + "-details-sidebar-width", defaultSidebarWidth);
+        this._detailsSidebarCollapsedSetting = new WebInspector.Setting(identifier + "-details-sidebar-collapsed", true);
+        this._detailsSidebarSelectedPanelSetting = new WebInspector.Setting(identifier + "-details-sidebar-selected-panel", null);
+        this._detailsSidebarWidthSetting = new WebInspector.Setting(identifier + "-details-sidebar-width", defaultSidebarWidth);
 
-        this._cookieSetting = new WI.Setting(identifier + "-tab-cookie", {});
+        this._cookieSetting = new WebInspector.Setting(identifier + "-tab-cookie", {});
     }
 
     static isTabAllowed()
     {
         // Returns false if a necessary domain or other features are unavailable.
         return true;
+    }
+
+    static isEphemeral()
+    {
+        // Returns true if the tab should not be shown in the new tab content view.
+        return false;
     }
 
     static shouldSaveTab()
@@ -79,6 +85,16 @@ WI.TabContentView = class TabContentView extends WI.ContentView
         return null;
     }
 
+    get parentTabBrowser()
+    {
+        return this._parentTabBrowser;
+    }
+
+    set parentTabBrowser(tabBrowser)
+    {
+        this._parentTabBrowser = tabBrowser || null;
+    }
+
     get identifier()
     {
         return this._identifier;
@@ -87,12 +103,6 @@ WI.TabContentView = class TabContentView extends WI.ContentView
     get tabBarItem()
     {
         return this._tabBarItem;
-    }
-
-    get managesNavigationSidebarPanel()
-    {
-        // Implemented by subclasses.
-        return false;
     }
 
     get managesDetailsSidebarPanels()
@@ -122,7 +132,7 @@ WI.TabContentView = class TabContentView extends WI.ContentView
         super.shown();
 
         if (this._shouldRestoreStateWhenShown)
-            this.restoreStateFromCookie(WI.StateRestorationType.Delayed);
+            this.restoreStateFromCookie(WebInspector.StateRestorationType.Delayed);
     }
 
     restoreStateFromCookie(restorationType)
@@ -135,9 +145,9 @@ WI.TabContentView = class TabContentView extends WI.ContentView
         this._shouldRestoreStateWhenShown = false;
 
         var relaxMatchDelay = 0;
-        if (restorationType === WI.StateRestorationType.Load)
+        if (restorationType === WebInspector.StateRestorationType.Load)
             relaxMatchDelay = 1000;
-        else if (restorationType === WI.StateRestorationType.Navigation)
+        else if (restorationType === WebInspector.StateRestorationType.Navigation)
             relaxMatchDelay = 2000;
 
         let cookie = this._cookieSetting.value || {};
@@ -167,10 +177,7 @@ WI.TabContentView = class TabContentView extends WI.ContentView
     {
         if (!this._navigationSidebarPanelConstructor)
             return null;
-        if (!this._navigationSidebarPanel)
-            this._navigationSidebarPanel = new this._navigationSidebarPanelConstructor;
-
-        return this._navigationSidebarPanel;
+        return WebInspector.instanceForClass(this._navigationSidebarPanelConstructor);
     }
 
     get navigationSidebarCollapsedSetting() { return this._navigationSidebarCollapsedSetting; }
@@ -179,7 +186,7 @@ WI.TabContentView = class TabContentView extends WI.ContentView
     get detailsSidebarPanels()
     {
         if (!this._detailsSidebarPanels)
-            this._detailsSidebarPanels = this._detailsSidebarPanelConstructors.map((constructor) => new constructor);
+            this._detailsSidebarPanels = this._detailsSidebarPanelConstructors.map(constructor => WebInspector.instanceForClass(constructor));
 
         return this._detailsSidebarPanels;
     }

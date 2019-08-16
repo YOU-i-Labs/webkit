@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.LayoutTimelineDataGridNode = class LayoutTimelineDataGridNode extends WI.TimelineDataGridNode
+WebInspector.LayoutTimelineDataGridNode = class LayoutTimelineDataGridNode extends WebInspector.TimelineDataGridNode
 {
     constructor(layoutTimelineRecord, baseStartTime)
     {
@@ -69,10 +69,10 @@ WI.LayoutTimelineDataGridNode = class LayoutTimelineDataGridNode extends WI.Time
 
         case "width":
         case "height":
-            return isNaN(value) ? emDash : WI.UIString("%dpx").format(value);
+            return isNaN(value) ? emDash : WebInspector.UIString("%dpx").format(value);
 
         case "area":
-            return isNaN(value) ? emDash : WI.UIString("%dpx\u00B2").format(value);
+            return isNaN(value) ? emDash : WebInspector.UIString("%dpx²").format(value);
 
         case "startTime":
             return isNaN(value) ? emDash : Number.secondsToString(value - this._baseStartTime, true);

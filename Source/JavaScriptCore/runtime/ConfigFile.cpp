@@ -33,6 +33,7 @@
 #include <string.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/DataLog.h>
+#include <wtf/StringExtras.h>
 #include <wtf/text/StringBuilder.h>
 
 #if HAVE(REGEX_H)
@@ -281,11 +282,9 @@ void ConfigFile::parse()
         char* filename = nullptr;
         if (scanner.tryConsume('=') && (filename = scanner.tryConsumeString())) {
             if (statementNesting != NestedStatementFailedCriteria) {
-                if (filename[0] != '/') {
-                    int spaceRequired = snprintf(logPathname, s_maxPathLength + 1, "%s/%s", m_configDirectory, filename);
-                    if (static_cast<unsigned>(spaceRequired) > s_maxPathLength)
-                        return ParseError;
-                } else
+                if (filename[0] != '/')
+                    snprintf(logPathname, s_maxPathLength + 1, "%s/%s", m_configDirectory, filename);
+                else
                     strncpy(logPathname, filename, s_maxPathLength);
             }
 
@@ -466,7 +465,6 @@ void ConfigFile::parse()
 
         if (!jscOptionsBuilder.isEmpty()) {
             const char* optionsStr = jscOptionsBuilder.toString().utf8().data();
-            Options::enableRestrictedOptions(true);
             Options::setOptions(optionsStr);
         }
     } else
@@ -488,18 +486,8 @@ void ConfigFile::canonicalizePaths()
             bool shouldAddPathSeparator = filenameBuffer[pathnameLength - 1] != '/';
             if (sizeof(filenameBuffer) - 1  >= pathnameLength + shouldAddPathSeparator) {
                 if (shouldAddPathSeparator)
-                    strncat(filenameBuffer, "/", 2); // Room for '/' plus NUL
-#if COMPILER(GCC)
-#if GCC_VERSION_AT_LEAST(8, 0, 0)
-                IGNORE_WARNINGS_BEGIN("stringop-truncation")
-#endif
-#endif
+                    strncat(filenameBuffer, "/", 1);
                 strncat(filenameBuffer, m_filename, sizeof(filenameBuffer) - strlen(filenameBuffer) - 1);
-#if COMPILER(GCC)
-#if GCC_VERSION_AT_LEAST(8, 0, 0)
-                IGNORE_WARNINGS_END
-#endif
-#endif
                 strncpy(m_filename, filenameBuffer, s_maxPathLength);
                 m_filename[s_maxPathLength] = '\0';
             }

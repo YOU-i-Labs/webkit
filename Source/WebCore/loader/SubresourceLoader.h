@@ -30,7 +30,6 @@
 
 #include "FrameLoaderTypes.h"
 #include "ResourceLoader.h"
-#include <wtf/CompletionHandler.h>
 #include <wtf/text/WTFString.h>
  
 namespace WebCore {
@@ -43,18 +42,17 @@ class SecurityOrigin;
 
 class SubresourceLoader final : public ResourceLoader {
 public:
-    WEBCORE_EXPORT static void create(Frame&, CachedResource&, ResourceRequest&&, const ResourceLoaderOptions&, CompletionHandler<void(RefPtr<SubresourceLoader>&&)>&&);
+    WEBCORE_EXPORT static RefPtr<SubresourceLoader> create(Frame&, CachedResource&, const ResourceRequest&, const ResourceLoaderOptions&);
 
     virtual ~SubresourceLoader();
 
     void cancelIfNotFinishing();
-    bool isSubresourceLoader() const override;
+    bool isSubresourceLoader() override;
     CachedResource* cachedResource();
-    WEBCORE_EXPORT const HTTPHeaderMap* originalHeaders() const;
 
     SecurityOrigin* origin() { return m_origin.get(); }
-#if PLATFORM(IOS_FAMILY)
-    void startLoading() override;
+#if PLATFORM(IOS)
+    bool startLoading() override;
 
     // FIXME: What is an "iOS" original request? Why is it necessary?
     const ResourceRequest& iOSOriginalRequest() const override { return m_iOSOriginalRequest; }
@@ -62,31 +60,34 @@ public:
 
     unsigned redirectCount() const { return m_redirectCount; }
 
-    void markInAsyncResponsePolicyCheck() { m_inAsyncResponsePolicyCheck = true; }
-    void didReceiveResponsePolicy();
-
 private:
     SubresourceLoader(Frame&, CachedResource&, const ResourceLoaderOptions&);
 
-    void init(ResourceRequest&&, CompletionHandler<void(bool)>&&) override;
+    bool init(const ResourceRequest&) override;
 
-    void willSendRequestInternal(ResourceRequest&&, const ResourceResponse& redirectResponse, CompletionHandler<void(ResourceRequest&&)>&&) override;
+    void willSendRequestInternal(ResourceRequest&, const ResourceResponse& redirectResponse) override;
     void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent) override;
-    void didReceiveResponse(const ResourceResponse&, CompletionHandler<void()>&& policyCompletionHandler) override;
+    void didReceiveResponse(const ResourceResponse&) override;
     void didReceiveData(const char*, unsigned, long long encodedDataLength, DataPayloadType) override;
     void didReceiveBuffer(Ref<SharedBuffer>&&, long long encodedDataLength, DataPayloadType) override;
     void didFinishLoading(const NetworkLoadMetrics&) override;
     void didFail(const ResourceError&) override;
     void willCancel(const ResourceError&) override;
     void didCancel(const ResourceError&) override;
-    
-    void updateReferrerPolicy(const String&);
+    void didRetrieveDerivedDataFromCache(const String& type, SharedBuffer&) override;
 
-#if PLATFORM(COCOA)
-    void willCacheResponseAsync(ResourceHandle*, NSCachedURLResponse*, CompletionHandler<void(NSCachedURLResponse *)>&&) override;
+#if PLATFORM(COCOA) && !USE(CFURLCONNECTION)
+    NSCachedURLResponse *willCacheResponse(ResourceHandle*, NSCachedURLResponse*) override;
+#endif
+#if PLATFORM(COCOA) && USE(CFURLCONNECTION)
+    CFCachedURLResponseRef willCacheResponse(ResourceHandle*, CFCachedURLResponseRef) override;
 #endif
 
     void releaseResources() override;
+
+#if USE(SOUP)
+    char* getOrCreateReadBuffer(size_t requestedSize, size_t& actualSize) override;
+#endif
 
     bool checkForHTTPStatusCodeError();
     bool checkResponseCrossOriginAccessControl(const ResourceResponse&, String&);
@@ -94,9 +95,11 @@ private:
 
     void didReceiveDataOrBuffer(const char*, int, RefPtr<SharedBuffer>&&, long long encodedDataLength, DataPayloadType);
 
-    void notifyDone(LoadCompletionType);
+    void notifyDone();
 
+#if ENABLE(WEB_TIMING)
     void reportResourceTiming(const NetworkLoadMetrics&);
+#endif
 
 #if USE(QUICK_LOOK)
     bool shouldCreatePreviewLoaderForResponse(const ResourceResponse&) const;
@@ -106,7 +109,7 @@ private:
         Uninitialized,
         Initialized,
         Finishing,
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
         CancelledWhileInitializing
 #endif
     };
@@ -123,17 +126,15 @@ private:
         const CachedResource& m_resource;
     };
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     ResourceRequest m_iOSOriginalRequest;
 #endif
     CachedResource* m_resource;
     SubresourceLoaderState m_state;
-    Optional<RequestCountTracker> m_requestCountTracker;
+    std::optional<RequestCountTracker> m_requestCountTracker;
     RefPtr<SecurityOrigin> m_origin;
-    CompletionHandler<void()> m_policyForResponseCompletionHandler;
     unsigned m_redirectCount { 0 };
     bool m_loadingMultipartContent { false };
-    bool m_inAsyncResponsePolicyCheck { false };
 };
 
 }

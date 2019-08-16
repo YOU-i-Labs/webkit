@@ -27,13 +27,14 @@
 #ifndef ContentType_h
 #define ContentType_h
 
+#include <wtf/HashMap.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class ContentType {
 public:
-    explicit ContentType(String&& type);
+    static ContentType create(const String& type) { return ContentType(type); }
     explicit ContentType(const String& type);
     ContentType() = default;
 

@@ -33,7 +33,7 @@ class Text;
 
 class DeleteFromTextNodeCommand : public SimpleEditCommand {
 public:
-    static Ref<DeleteFromTextNodeCommand> create(Ref<Text>&& node, unsigned offset, unsigned count, EditAction editingAction = EditAction::Delete)
+    static Ref<DeleteFromTextNodeCommand> create(Ref<Text>&& node, unsigned offset, unsigned count, EditAction editingAction = EditActionDelete)
     {
         return adoptRef(*new DeleteFromTextNodeCommand(WTFMove(node), offset, count, editingAction));
     }

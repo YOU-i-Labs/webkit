@@ -62,35 +62,37 @@ IDBError SQLiteIDBTransaction::begin(SQLiteDatabase& database)
     m_sqliteTransaction->begin();
 
     if (m_sqliteTransaction->inProgress())
-        return IDBError { };
+        return { };
 
-    return IDBError { UnknownError, "Could not start SQLite transaction in database backend"_s };
+    return { IDBDatabaseException::UnknownError, ASCIILiteral("Could not start SQLite transaction in database backend") };
 }
 
 IDBError SQLiteIDBTransaction::commit()
 {
     LOG(IndexedDB, "SQLiteIDBTransaction::commit");
     if (!m_sqliteTransaction || !m_sqliteTransaction->inProgress())
-        return IDBError { UnknownError, "No SQLite transaction in progress to commit"_s };
+        return { IDBDatabaseException::UnknownError, ASCIILiteral("No SQLite transaction in progress to commit") };
 
     m_sqliteTransaction->commit();
 
     if (m_sqliteTransaction->inProgress())
-        return IDBError { UnknownError, "Unable to commit SQLite transaction in database backend"_s };
+        return { IDBDatabaseException::UnknownError, ASCIILiteral("Unable to commit SQLite transaction in database backend") };
 
     deleteBlobFilesIfNecessary();
     moveBlobFilesIfNecessary();
 
     reset();
-    return IDBError { };
+    return { };
 }
 
 void SQLiteIDBTransaction::moveBlobFilesIfNecessary()
 {
     String databaseDirectory = m_backingStore.fullDatabaseDirectory();
     for (auto& entry : m_blobTemporaryAndStoredFilenames) {
-        if (!FileSystem::hardLinkOrCopyFile(entry.first, FileSystem::pathByAppendingComponent(databaseDirectory, entry.second)))
-            LOG_ERROR("Failed to link/copy temporary blob file '%s' to location '%s'", entry.first.utf8().data(), FileSystem::pathByAppendingComponent(databaseDirectory, entry.second).utf8().data());
+        m_backingStore.temporaryFileHandler().prepareForAccessToTemporaryFile(entry.first);
+
+        if (!hardLinkOrCopyFile(entry.first, pathByAppendingComponent(databaseDirectory, entry.second)))
+            LOG_ERROR("Failed to link/copy temporary blob file '%s' to location '%s'", entry.first.utf8().data(), pathByAppendingComponent(databaseDirectory, entry.second).utf8().data());
 
         m_backingStore.temporaryFileHandler().accessToTemporaryFileComplete(entry.first);
     }
@@ -105,7 +107,8 @@ void SQLiteIDBTransaction::deleteBlobFilesIfNecessary()
 
     String databaseDirectory = m_backingStore.fullDatabaseDirectory();
     for (auto& entry : m_blobRemovedFilenames) {
-        String fullPath = FileSystem::pathByAppendingComponent(databaseDirectory, entry);
+        String fullPath = pathByAppendingComponent(databaseDirectory, entry);
+        m_backingStore.temporaryFileHandler().prepareForAccessToTemporaryFile(fullPath);
         m_backingStore.temporaryFileHandler().accessToTemporaryFileComplete(fullPath);
     }
 
@@ -114,21 +117,23 @@ void SQLiteIDBTransaction::deleteBlobFilesIfNecessary()
 
 IDBError SQLiteIDBTransaction::abort()
 {
-    for (auto& entry : m_blobTemporaryAndStoredFilenames)
+    for (auto& entry : m_blobTemporaryAndStoredFilenames) {
+        m_backingStore.temporaryFileHandler().prepareForAccessToTemporaryFile(entry.first);
         m_backingStore.temporaryFileHandler().accessToTemporaryFileComplete(entry.first);
+    }
 
     m_blobTemporaryAndStoredFilenames.clear();
 
     if (!m_sqliteTransaction || !m_sqliteTransaction->inProgress())
-        return IDBError { UnknownError, "No SQLite transaction in progress to abort"_s };
+        return { IDBDatabaseException::UnknownError, ASCIILiteral("No SQLite transaction in progress to abort") };
 
     m_sqliteTransaction->rollback();
 
     if (m_sqliteTransaction->inProgress())
-        return IDBError { UnknownError, "Unable to abort SQLite transaction in database backend"_s };
+        return { IDBDatabaseException::UnknownError, ASCIILiteral("Unable to abort SQLite transaction in database backend") };
 
     reset();
-    return IDBError { };
+    return { };
 }
 
 void SQLiteIDBTransaction::reset()

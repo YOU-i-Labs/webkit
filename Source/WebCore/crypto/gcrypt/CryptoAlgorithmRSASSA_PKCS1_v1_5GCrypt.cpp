@@ -27,26 +27,29 @@
 #include "config.h"
 #include "CryptoAlgorithmRSASSA_PKCS1_v1_5.h"
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
+#include "CryptoAlgorithmRsaSsaParamsDeprecated.h"
 #include "CryptoKeyRSA.h"
+#include "ExceptionCode.h"
 #include "GCryptUtilities.h"
 #include "NotImplemented.h"
+#include "ScriptExecutionContext.h"
 
 namespace WebCore {
 
-static Optional<Vector<uint8_t>> gcryptSign(gcry_sexp_t keySexp, const Vector<uint8_t>& data, CryptoAlgorithmIdentifier hashAlgorithmIdentifier, size_t keySizeInBytes)
+static std::optional<Vector<uint8_t>> gcryptSign(gcry_sexp_t keySexp, const Vector<uint8_t>& data, CryptoAlgorithmIdentifier hashAlgorithmIdentifier)
 {
     // Perform digest operation with the specified algorithm on the given data.
     Vector<uint8_t> dataHash;
     {
         auto digestAlgorithm = hashCryptoDigestAlgorithm(hashAlgorithmIdentifier);
         if (!digestAlgorithm)
-            return WTF::nullopt;
+            return std::nullopt;
 
         auto digest = PAL::CryptoDigest::create(*digestAlgorithm);
         if (!digest)
-            return WTF::nullopt;
+            return std::nullopt;
 
         digest->addBytes(data.data(), data.size());
         dataHash = digest->computeHash();
@@ -57,13 +60,13 @@ static Optional<Vector<uint8_t>> gcryptSign(gcry_sexp_t keySexp, const Vector<ui
     {
         auto shaAlgorithm = hashAlgorithmName(hashAlgorithmIdentifier);
         if (!shaAlgorithm)
-            return WTF::nullopt;
+            return std::nullopt;
 
         gcry_error_t error = gcry_sexp_build(&dataSexp, nullptr, "(data(flags pkcs1)(hash %s %b))",
             *shaAlgorithm, dataHash.size(), dataHash.data());
         if (error != GPG_ERR_NO_ERROR) {
             PAL::GCrypt::logError(error);
-            return WTF::nullopt;
+            return std::nullopt;
         }
     }
 
@@ -75,29 +78,29 @@ static Optional<Vector<uint8_t>> gcryptSign(gcry_sexp_t keySexp, const Vector<ui
     gcry_error_t error = gcry_pk_sign(&signatureSexp, dataSexp, keySexp);
     if (error != GPG_ERR_NO_ERROR) {
         PAL::GCrypt::logError(error);
-        return WTF::nullopt;
+        return std::nullopt;
     }
 
     // Return MPI data of the embedded s integer.
     PAL::GCrypt::Handle<gcry_sexp_t> sSexp(gcry_sexp_find_token(signatureSexp, "s", 0));
     if (!sSexp)
-        return WTF::nullopt;
+        return std::nullopt;
 
-    return mpiZeroPrefixedData(sSexp, keySizeInBytes);
+    return mpiData(sSexp);
 }
 
-static Optional<bool> gcryptVerify(gcry_sexp_t keySexp, const Vector<uint8_t>& signature, const Vector<uint8_t>& data, CryptoAlgorithmIdentifier hashAlgorithmIdentifier)
+static std::optional<bool> gcryptVerify(gcry_sexp_t keySexp, const Vector<uint8_t>& signature, const Vector<uint8_t>& data, CryptoAlgorithmIdentifier hashAlgorithmIdentifier)
 {
     // Perform digest operation with the specified algorithm on the given data.
     Vector<uint8_t> dataHash;
     {
         auto digestAlgorithm = hashCryptoDigestAlgorithm(hashAlgorithmIdentifier);
         if (!digestAlgorithm)
-            return WTF::nullopt;
+            return std::nullopt;
 
         auto digest = PAL::CryptoDigest::create(*digestAlgorithm);
         if (!digest)
-            return WTF::nullopt;
+            return std::nullopt;
 
         digest->addBytes(data.data(), data.size());
         dataHash = digest->computeHash();
@@ -109,7 +112,7 @@ static Optional<bool> gcryptVerify(gcry_sexp_t keySexp, const Vector<uint8_t>& s
         signature.size(), signature.data());
     if (error != GPG_ERR_NO_ERROR) {
         PAL::GCrypt::logError(error);
-        return WTF::nullopt;
+        return std::nullopt;
     }
 
     // Construct the data s-expression that contains PKCS#1-padded hashed data.
@@ -117,13 +120,13 @@ static Optional<bool> gcryptVerify(gcry_sexp_t keySexp, const Vector<uint8_t>& s
     {
         auto shaAlgorithm = hashAlgorithmName(hashAlgorithmIdentifier);
         if (!shaAlgorithm)
-            return WTF::nullopt;
+            return std::nullopt;
 
         error = gcry_sexp_build(&dataSexp, nullptr, "(data(flags pkcs1)(hash %s %b))",
             *shaAlgorithm, dataHash.size(), dataHash.data());
         if (error != GPG_ERR_NO_ERROR) {
             PAL::GCrypt::logError(error);
-            return WTF::nullopt;
+            return std::nullopt;
         }
     }
 
@@ -134,23 +137,72 @@ static Optional<bool> gcryptVerify(gcry_sexp_t keySexp, const Vector<uint8_t>& s
     return { error == GPG_ERR_NO_ERROR };
 }
 
-ExceptionOr<Vector<uint8_t>> CryptoAlgorithmRSASSA_PKCS1_v1_5::platformSign(const CryptoKeyRSA& key, const Vector<uint8_t>& data)
+void CryptoAlgorithmRSASSA_PKCS1_v1_5::platformSign(Ref<CryptoKey>&& key, Vector<uint8_t>&& data, VectorCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
 {
-    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(!(key.keySizeInBits() % 8));
-    auto output = gcryptSign(key.platformKey(), data, key.hashAlgorithmIdentifier(), key.keySizeInBits() / 8);
-    if (!output)
-        return Exception { OperationError };
-    return WTFMove(*output);
+    context.ref();
+    workQueue.dispatch(
+        [key = WTFMove(key), data = WTFMove(data), callback = WTFMove(callback), exceptionCallback = WTFMove(exceptionCallback), &context]() mutable {
+            auto& rsaKey = downcast<CryptoKeyRSA>(key.get());
+
+            auto output = gcryptSign(rsaKey.platformKey(), data, rsaKey.hashAlgorithmIdentifier());
+            if (!output) {
+                // We should only dereference callbacks after being back to the Document/Worker threads.
+                context.postTask(
+                    [callback = WTFMove(callback), exceptionCallback = WTFMove(exceptionCallback)](ScriptExecutionContext& context) {
+                        exceptionCallback(OperationError);
+                        context.deref();
+                    });
+                return;
+            }
+
+            // We should only dereference callbacks after being back to the Document/Worker threads.
+            context.postTask(
+                [output = WTFMove(*output), callback = WTFMove(callback), exceptionCallback = WTFMove(exceptionCallback)](ScriptExecutionContext& context) {
+                    callback(output);
+                    context.deref();
+                });
+        });
 }
 
-ExceptionOr<bool> CryptoAlgorithmRSASSA_PKCS1_v1_5::platformVerify(const CryptoKeyRSA& key, const Vector<uint8_t>& signature, const Vector<uint8_t>& data)
+void CryptoAlgorithmRSASSA_PKCS1_v1_5::platformVerify(Ref<CryptoKey>&& key, Vector<uint8_t>&& signature, Vector<uint8_t>&& data, BoolCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
 {
-    auto output = gcryptVerify(key.platformKey(), signature, data, key.hashAlgorithmIdentifier());
-    if (!output)
-        return Exception { OperationError };
-    return *output;
+    context.ref();
+    workQueue.dispatch(
+        [key = WTFMove(key), signature = WTFMove(signature), data = WTFMove(data), callback = WTFMove(callback), exceptionCallback = WTFMove(exceptionCallback), &context]() mutable {
+            auto& rsaKey = downcast<CryptoKeyRSA>(key.get());
+
+            auto output = gcryptVerify(rsaKey.platformKey(), signature, data, rsaKey.hashAlgorithmIdentifier());
+            if (!output) {
+                // We should only dereference callbacks after being back to the Document/Worker threads.
+                context.postTask(
+                    [callback = WTFMove(callback), exceptionCallback = WTFMove(exceptionCallback)](ScriptExecutionContext& context) {
+                        exceptionCallback(OperationError);
+                        context.deref();
+                    });
+                return;
+            }
+
+            // We should only dereference callbacks after being back to the Document/Worker threads.
+            context.postTask(
+                [output = WTFMove(*output), callback = WTFMove(callback), exceptionCallback = WTFMove(exceptionCallback)](ScriptExecutionContext& context) {
+                    callback(output);
+                    context.deref();
+                });
+        });
+}
+
+ExceptionOr<void> CryptoAlgorithmRSASSA_PKCS1_v1_5::platformSign(const CryptoAlgorithmRsaSsaParamsDeprecated&, const CryptoKeyRSA&, const CryptoOperationData&, VectorCallback&&, VoidCallback&&)
+{
+    notImplemented();
+    return Exception { NOT_SUPPORTED_ERR };
+}
+
+ExceptionOr<void> CryptoAlgorithmRSASSA_PKCS1_v1_5::platformVerify(const CryptoAlgorithmRsaSsaParamsDeprecated&, const CryptoKeyRSA&, const CryptoOperationData&, const CryptoOperationData&, BoolCallback&&, VoidCallback&&)
+{
+    notImplemented();
+    return Exception { NOT_SUPPORTED_ERR };
 }
 
 } // namespace WebCore
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

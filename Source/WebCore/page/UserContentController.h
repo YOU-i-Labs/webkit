@@ -26,8 +26,6 @@
 #pragma once
 
 #include "UserContentProvider.h"
-#include "UserScriptTypes.h"
-#include "UserStyleSheetTypes.h"
 
 namespace WebCore {
 

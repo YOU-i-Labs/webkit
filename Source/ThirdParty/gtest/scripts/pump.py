@@ -29,7 +29,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-"""pump v0.2.0 - Pretty Useful for Meta Programming.
+"""pump v0.1 - Pretty Useful for Meta Programming.
 
 A tool for preprocessor meta programming.  Useful for generating
 repetitive boilerplate code.  Especially useful for writing C++
@@ -78,6 +78,7 @@ TOKEN_TABLE = [
     (re.compile(r'\$range\s+'), '$range'),
     (re.compile(r'\$[_A-Za-z]\w*'), '$id'),
     (re.compile(r'\$\(\$\)'), '$($)'),
+    (re.compile(r'\$\$.*'), '$$'),
     (re.compile(r'\$'), '$'),
     (re.compile(r'\[\[\n?'), '[['),
     (re.compile(r'\]\]\n?'), ']]'),
@@ -223,17 +224,6 @@ def SubString(lines, start, end):
   return ''.join(result_lines)
 
 
-def StripMetaComments(str):
-  """Strip meta comments from each line in the given string."""
-
-  # First, completely remove lines containing nothing but a meta
-  # comment, including the trailing \n.
-  str = re.sub(r'^\s*\$\$.*\n', '', str)
-
-  # Then, remove meta comments from contentful lines.
-  return re.sub(r'\s*\$\$.*', '', str)
-
-
 def MakeToken(lines, start, end, token_type):
   """Creates a new instance of Token."""
 
@@ -321,7 +311,11 @@ def TokenizeLines(lines, pos):
       prev_token = MakeToken(lines, pos, found.start, 'code')
       prev_token_rstripped = RStripNewLineFromToken(prev_token)
 
-    if found.token_type == '$var':
+    if found.token_type == '$$':  # A meta comment.
+      if prev_token_rstripped:
+        yield prev_token_rstripped
+      pos = Cursor(found.end.line + 1, 0)
+    elif found.token_type == '$var':
       if prev_token_rstripped:
         yield prev_token_rstripped
       yield found
@@ -380,11 +374,8 @@ def TokenizeLines(lines, pos):
 
 
 def Tokenize(s):
-  """A generator that yields the tokens in the given string."""
-  if s != '':
-    lines = s.splitlines(True)
-    for token in TokenizeLines(lines, Cursor(0, 0)):
-      yield token
+  lines = s.splitlines(True)
+  return TokenizeLines(lines, Cursor(0, 0))
 
 
 class CodeNode:
@@ -574,9 +565,11 @@ def ParseCodeNode(tokens):
   return CodeNode(atomic_code_list)
 
 
-def ParseToAST(pump_src_text):
-  """Convert the given Pump source text into an AST."""
-  tokens = list(Tokenize(pump_src_text))
+def Convert(file_path):
+  s = file(file_path, 'r').read()
+  tokens = []
+  for token in Tokenize(s):
+    tokens.append(token)
   code_node = ParseCodeNode(tokens)
   return code_node
 
@@ -704,14 +697,14 @@ def RunCode(env, code_node, output):
     RunAtomicCode(env, atomic_code, output)
 
 
-def IsSingleLineComment(cur_line):
+def IsComment(cur_line):
   return '//' in cur_line
 
 
-def IsInPreprocessorDirective(prev_lines, cur_line):
+def IsInPreprocessorDirevative(prev_lines, cur_line):
   if cur_line.lstrip().startswith('#'):
     return True
-  return prev_lines and prev_lines[-1].endswith('\\')
+  return prev_lines != [] and prev_lines[-1].endswith('\\')
 
 
 def WrapComment(line, output):
@@ -768,7 +761,7 @@ def WrapCode(line, line_concat, output):
     output.append(prefix + cur_line.strip())
 
 
-def WrapPreprocessorDirective(line, output):
+def WrapPreprocessorDirevative(line, output):
   WrapCode(line, ' \\', output)
 
 
@@ -776,37 +769,29 @@ def WrapPlainCode(line, output):
   WrapCode(line, '', output)
 
 
-def IsMultiLineIWYUPragma(line):
-  return re.search(r'/\* IWYU pragma: ', line)
-
-
-def IsHeaderGuardIncludeOrOneLineIWYUPragma(line):
+def IsHeaderGuardOrInclude(line):
   return (re.match(r'^#(ifndef|define|endif\s*//)\s*[\w_]+\s*$', line) or
-          re.match(r'^#include\s', line) or
-          # Don't break IWYU pragmas, either; that causes iwyu.py problems.
-          re.search(r'// IWYU pragma: ', line))
+          re.match(r'^#include\s', line))
 
 
 def WrapLongLine(line, output):
   line = line.rstrip()
   if len(line) <= 80:
     output.append(line)
-  elif IsSingleLineComment(line):
-    if IsHeaderGuardIncludeOrOneLineIWYUPragma(line):
-      # The style guide made an exception to allow long header guard lines,
-      # includes and IWYU pragmas.
+  elif IsComment(line):
+    if IsHeaderGuardOrInclude(line):
+      # The style guide made an exception to allow long header guard lines
+      # and includes.
       output.append(line)
     else:
       WrapComment(line, output)
-  elif IsInPreprocessorDirective(output, line):
-    if IsHeaderGuardIncludeOrOneLineIWYUPragma(line):
-      # The style guide made an exception to allow long header guard lines,
-      # includes and IWYU pragmas.
+  elif IsInPreprocessorDirevative(output, line):
+    if IsHeaderGuardOrInclude(line):
+      # The style guide made an exception to allow long header guard lines
+      # and includes.
       output.append(line)
     else:
-      WrapPreprocessorDirective(line, output)
-  elif IsMultiLineIWYUPragma(line):
-    output.append(line)
+      WrapPreprocessorDirevative(line, output)
   else:
     WrapPlainCode(line, output)
 
@@ -820,21 +805,16 @@ def BeautifyCode(string):
   return '\n'.join(output2) + '\n'
 
 
-def ConvertFromPumpSource(src_text):
-  """Return the text generated from the given Pump source text."""
-  ast = ParseToAST(StripMetaComments(src_text))
-  output = Output()
-  RunCode(Env(), ast, output)
-  return BeautifyCode(output.string)
-
-
 def main(argv):
   if len(argv) == 1:
     print __doc__
     sys.exit(1)
 
   file_path = argv[-1]
-  output_str = ConvertFromPumpSource(file(file_path, 'r').read())
+  ast = Convert(file_path)
+  output = Output()
+  RunCode(Env(), ast, output)
+  output_str = BeautifyCode(output.string)
   if file_path.endswith('.pump'):
     output_file_path = file_path[:-5]
   else:

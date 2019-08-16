@@ -26,10 +26,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef WTF_MediaTime_h
+#define WTF_MediaTime_h
 
 #include <wtf/FastMalloc.h>
-#include <wtf/text/WTFString.h>
 
 #include <cmath>
 #include <limits>
@@ -97,7 +97,6 @@ public:
     bool isNegativeInfinite() const { return m_timeFlags & NegativeInfinite; }
     bool isIndefinite() const { return m_timeFlags & Indefinite; }
     bool hasDoubleValue() const { return m_timeFlags & DoubleValue; }
-    uint8_t timeFlags() const { return m_timeFlags; }
 
     static const MediaTime& zeroTime();
     static const MediaTime& invalidTime();
@@ -109,8 +108,6 @@ public:
     const uint32_t& timeScale() const { return m_timeScale; }
 
     void dump(PrintStream& out) const;
-    String toString() const;
-    String toJSONString() const;
 
     // Make the following casts errors:
     operator double() const = delete;
@@ -151,13 +148,6 @@ inline MediaTime operator*(int32_t lhs, const MediaTime& rhs) { return rhs.opera
 
 WTF_EXPORT_PRIVATE extern MediaTime abs(const MediaTime& rhs);
 
-struct WTF_EXPORT_PRIVATE MediaTimeRange {
-    String toJSONString() const;
-
-    const MediaTime start;
-    const MediaTime end;
-};
-
 template<class Encoder>
 void MediaTime::encode(Encoder& encoder) const
 {
@@ -175,5 +165,6 @@ bool MediaTime::decode(Decoder& decoder, MediaTime& time)
 }
 
 using WTF::MediaTime;
-using WTF::MediaTimeRange;
 using WTF::abs;
+
+#endif

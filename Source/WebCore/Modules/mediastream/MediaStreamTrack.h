@@ -50,13 +50,12 @@ class MediaStreamTrack :
     public RefCounted<MediaStreamTrack>,
     public ActiveDOMObject,
     public EventTargetWithInlineData,
-    public CanMakeWeakPtr<MediaStreamTrack>,
     private MediaProducer,
     private MediaStreamTrackPrivate::Observer {
 public:
     class Observer {
     public:
-        virtual ~Observer() = default;
+        virtual ~Observer() { }
         virtual void trackDidEnd() = 0;
     };
 
@@ -69,10 +68,6 @@ public:
     WEBCORE_EXPORT const String& id() const;
     const String& label() const;
 
-
-    const AtomicString& contentHint() const;
-    void setContentHint(const String&);
-        
     bool enabled() const;
     void setEnabled(bool);
 
@@ -83,7 +78,7 @@ public:
 
     bool ended() const;
 
-    virtual RefPtr<MediaStreamTrack> clone();
+    Ref<MediaStreamTrack> clone();
 
     enum class StopMode { Silently, PostEvent };
     void stopTrack(StopMode = StopMode::Silently);
@@ -91,39 +86,37 @@ public:
     bool isCaptureTrack() const { return m_private->isCaptureTrack(); }
 
     struct TrackSettings {
-        Optional<int> width;
-        Optional<int> height;
-        Optional<double> aspectRatio;
-        Optional<double> frameRate;
+        std::optional<int> width;
+        std::optional<int> height;
+        std::optional<double> aspectRatio;
+        std::optional<double> frameRate;
         String facingMode;
-        Optional<double> volume;
-        Optional<int> sampleRate;
-        Optional<int> sampleSize;
-        Optional<bool> echoCancellation;
-        Optional<bool> displaySurface;
-        String logicalSurface;
+        std::optional<double> volume;
+        std::optional<int> sampleRate;
+        std::optional<int> sampleSize;
+        std::optional<bool> echoCancellation;
         String deviceId;
         String groupId;
     };
-    TrackSettings getSettings() const;
+    WEBCORE_EXPORT TrackSettings getSettings() const;
 
     struct TrackCapabilities {
-        Optional<LongRange> width;
-        Optional<LongRange> height;
-        Optional<DoubleRange> aspectRatio;
-        Optional<DoubleRange> frameRate;
-        Optional<Vector<String>> facingMode;
-        Optional<DoubleRange> volume;
-        Optional<LongRange> sampleRate;
-        Optional<LongRange> sampleSize;
-        Optional<Vector<bool>> echoCancellation;
+        std::optional<LongRange> width;
+        std::optional<LongRange> height;
+        std::optional<DoubleRange> aspectRatio;
+        std::optional<DoubleRange> frameRate;
+        std::optional<Vector<String>> facingMode;
+        std::optional<DoubleRange> volume;
+        std::optional<LongRange> sampleRate;
+        std::optional<LongRange> sampleSize;
+        std::optional<Vector<bool>> echoCancellation;
         String deviceId;
         String groupId;
     };
     TrackCapabilities getCapabilities() const;
 
     const MediaTrackConstraints& getConstraints() const { return m_constraints; }
-    void applyConstraints(const Optional<MediaTrackConstraints>&, DOMPromiseDeferred<void>&&);
+    void applyConstraints(const std::optional<MediaTrackConstraints>&, DOMPromiseDeferred<void>&&);
 
     RealtimeMediaSource& source() const { return m_private->source(); }
     MediaStreamTrackPrivate& privateTrack() { return m_private.get(); }
@@ -143,15 +136,9 @@ public:
     // ActiveDOMObject API.
     bool hasPendingActivity() const final;
 
-    void setIdForTesting(String&& id) { m_private->setIdForTesting(WTFMove(id)); }
-
 protected:
     MediaStreamTrack(ScriptExecutionContext&, Ref<MediaStreamTrackPrivate>&&);
 
-    ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
-        
-    Ref<MediaStreamTrackPrivate> m_private;
-        
 private:
     explicit MediaStreamTrack(MediaStreamTrack&);
 
@@ -168,6 +155,7 @@ private:
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
     EventTargetInterface eventTargetInterface() const final { return MediaStreamTrackEventTargetInterfaceType; }
+    ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
 
     // MediaStreamTrackPrivate::Observer
     void trackStarted(MediaStreamTrackPrivate&) final;
@@ -176,11 +164,14 @@ private:
     void trackSettingsChanged(MediaStreamTrackPrivate&) final;
     void trackEnabledChanged(MediaStreamTrackPrivate&) final;
 
-    Vector<Observer*> m_observers;
+    WeakPtr<MediaStreamTrack> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(); }
 
+    Vector<Observer*> m_observers;
+    Ref<MediaStreamTrackPrivate> m_private;
 
     MediaTrackConstraints m_constraints;
-    Optional<DOMPromiseDeferred<void>> m_promise;
+    std::optional<DOMPromiseDeferred<void>> m_promise;
+    WeakPtrFactory<MediaStreamTrack> m_weakPtrFactory;
     GenericTaskQueue<ScriptExecutionContext> m_taskQueue;
 
     bool m_ended { false };

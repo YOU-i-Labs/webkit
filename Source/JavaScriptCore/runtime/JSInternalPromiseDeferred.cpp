@@ -37,16 +37,19 @@ namespace JSC {
 
 const ClassInfo JSInternalPromiseDeferred::s_info = { "JSInternalPromiseDeferred", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSInternalPromiseDeferred) };
 
-JSInternalPromiseDeferred* JSInternalPromiseDeferred::tryCreate(ExecState* exec, JSGlobalObject* globalObject)
+JSInternalPromiseDeferred* JSInternalPromiseDeferred::create(ExecState* exec, JSGlobalObject* globalObject)
 {
     VM& vm = exec->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
 
-    DeferredData data = createDeferredData(exec, globalObject, globalObject->internalPromiseConstructor());
-    RETURN_IF_EXCEPTION(scope, nullptr);
+    JSValue deferred = newPromiseCapability(exec, globalObject, globalObject->internalPromiseConstructor());
+
+    JSValue promise = deferred.get(exec, vm.propertyNames->builtinNames().promisePrivateName());
+    ASSERT(promise.inherits(vm, JSInternalPromise::info()));
+    JSValue resolve = deferred.get(exec, vm.propertyNames->builtinNames().resolvePrivateName());
+    JSValue reject = deferred.get(exec, vm.propertyNames->builtinNames().rejectPrivateName());
 
     JSInternalPromiseDeferred* result = new (NotNull, allocateCell<JSInternalPromiseDeferred>(vm.heap)) JSInternalPromiseDeferred(vm);
-    result->finishCreation(vm, data.promise, data.resolve, data.reject);
+    result->finishCreation(vm, jsCast<JSObject*>(promise), resolve, reject);
     return result;
 }
 

@@ -1,6 +1,5 @@
 /*
  * Copyright (C) Research In Motion Limited 2011. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,6 +22,7 @@
 
 #include "SVGAnimateElementBase.h"
 #include "SVGAnimatedNumber.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -34,12 +34,12 @@ SVGAnimatedLengthAnimator::SVGAnimatedLengthAnimator(SVGAnimationElement* animat
 
 std::unique_ptr<SVGAnimatedType> SVGAnimatedLengthAnimator::constructFromString(const String& string)
 {
-    return SVGAnimatedType::create(SVGLengthValue(m_lengthMode, string));
+    return SVGAnimatedType::createLength(std::make_unique<SVGLengthValue>(m_lengthMode, string));
 }
 
 std::unique_ptr<SVGAnimatedType> SVGAnimatedLengthAnimator::startAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
 {
-    return constructFromBaseValue<SVGAnimatedLength>(animatedTypes);
+    return SVGAnimatedType::createLength(constructFromBaseValue<SVGAnimatedLength>(animatedTypes));
 }
 
 void SVGAnimatedLengthAnimator::stopAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
@@ -49,7 +49,7 @@ void SVGAnimatedLengthAnimator::stopAnimValAnimation(const SVGElementAnimatedPro
 
 void SVGAnimatedLengthAnimator::resetAnimValToBaseVal(const SVGElementAnimatedPropertyList& animatedTypes, SVGAnimatedType& type)
 {
-    resetFromBaseValue<SVGAnimatedLength>(animatedTypes, type);
+    resetFromBaseValue<SVGAnimatedLength>(animatedTypes, type, &SVGAnimatedType::length);
 }
 
 void SVGAnimatedLengthAnimator::animValWillChange(const SVGElementAnimatedPropertyList& animatedTypes)
@@ -68,8 +68,8 @@ void SVGAnimatedLengthAnimator::addAnimatedTypes(SVGAnimatedType* from, SVGAnima
     ASSERT(from->type() == to->type());
 
     SVGLengthContext lengthContext(m_contextElement);
-    const auto& fromLength = from->as<SVGLengthValue>();
-    auto& toLength = to->as<SVGLengthValue>();
+    const auto& fromLength = from->length();
+    auto& toLength = to->length();
 
     toLength.setValue(toLength.value(lengthContext) + fromLength.value(lengthContext), lengthContext);
 }
@@ -86,10 +86,10 @@ void SVGAnimatedLengthAnimator::calculateAnimatedValue(float percentage, unsigne
     ASSERT(m_animationElement);
     ASSERT(m_contextElement);
 
-    auto fromSVGLength = (m_animationElement->animationMode() == ToAnimation ? animated : from)->as<SVGLengthValue>();
-    auto toSVGLength = to->as<SVGLengthValue>();
-    const auto& toAtEndOfDurationSVGLength = toAtEndOfDuration->as<SVGLengthValue>();
-    auto& animatedSVGLength = animated->as<SVGLengthValue>();
+    auto fromSVGLength = m_animationElement->animationMode() == ToAnimation ? animated->length() : from->length();
+    auto toSVGLength = to->length();
+    const auto& toAtEndOfDurationSVGLength = toAtEndOfDuration->length();
+    auto& animatedSVGLength = animated->length();
 
     // Apply CSS inheritance rules.
     m_animationElement->adjustForInheritance<SVGLengthValue>(parseLengthFromString, m_animationElement->fromPropertyValueType(), fromSVGLength, m_contextElement);

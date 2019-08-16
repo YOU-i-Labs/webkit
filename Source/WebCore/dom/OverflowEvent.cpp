@@ -38,7 +38,7 @@ OverflowEvent::OverflowEvent()
 }
 
 OverflowEvent::OverflowEvent(bool horizontalOverflowChanged, bool horizontalOverflow, bool verticalOverflowChanged, bool verticalOverflow)
-    : Event(eventNames().overflowchangedEvent, CanBubble::No, IsCancelable::No)
+    : Event(eventNames().overflowchangedEvent, false, false)
     , m_horizontalOverflow(horizontalOverflow)
     , m_verticalOverflow(verticalOverflow)
 {
@@ -67,7 +67,7 @@ EventInterface OverflowEvent::eventInterface() const
 
 void OverflowEvent::initOverflowEvent(unsigned short orient, bool horizontalOverflow, bool verticalOverflow)
 {
-    if (isBeingDispatched())
+    if (dispatched())
         return;
 
     initEvent(eventNames().overflowchangedEvent, false, false);

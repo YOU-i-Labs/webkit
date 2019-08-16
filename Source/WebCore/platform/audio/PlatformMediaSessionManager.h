@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,8 +29,8 @@
 #include "AudioHardwareListener.h"
 #include "PlatformMediaSession.h"
 #include "RemoteCommandListener.h"
-#include "Timer.h"
-#include <pal/system/SystemSleepListener.h>
+#include "SystemSleepListener.h"
+#include <map>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -40,7 +40,7 @@ class HTMLMediaElement;
 class PlatformMediaSession;
 class RemoteCommandListener;
 
-class PlatformMediaSessionManager : private RemoteCommandListenerClient, private PAL::SystemSleepListener::Client, private AudioHardwareListener::Client {
+class PlatformMediaSessionManager : private RemoteCommandListenerClient, private SystemSleepListener::Client, private AudioHardwareListener::Client {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     WEBCORE_EXPORT static PlatformMediaSessionManager* sharedManagerIfExists();
@@ -48,9 +48,7 @@ public:
 
     static void updateNowPlayingInfoIfNecessary();
 
-    WEBCORE_EXPORT static void setShouldDeactivateAudioSession(bool);
-
-    virtual ~PlatformMediaSessionManager() = default;
+    virtual ~PlatformMediaSessionManager() { }
 
     virtual void scheduleUpdateNowPlayingInfo() { }
     bool has(PlatformMediaSession::MediaType) const;
@@ -58,17 +56,15 @@ public:
     bool activeAudioSessionRequired() const;
     bool canProduceAudio() const;
 
-    virtual bool hasActiveNowPlayingSession() const { return false; }
-    virtual String lastUpdatedNowPlayingTitle() const { return emptyString(); }
-    virtual double lastUpdatedNowPlayingDuration() const { return NAN; }
-    virtual double lastUpdatedNowPlayingElapsedTime() const { return NAN; }
-    virtual uint64_t lastUpdatedNowPlayingInfoUniqueIdentifier() const { return 0; }
-    virtual bool registeredAsNowPlayingApplication() const { return false; }
+    WEBCORE_EXPORT virtual bool hasActiveNowPlayingSession() const { return false; }
+    WEBCORE_EXPORT virtual String lastUpdatedNowPlayingTitle() const { return emptyString(); }
+    WEBCORE_EXPORT virtual double lastUpdatedNowPlayingDuration() const { return NAN; }
+    WEBCORE_EXPORT virtual double lastUpdatedNowPlayingElapsedTime() const { return NAN; }
 
     bool willIgnoreSystemInterruptions() const { return m_willIgnoreSystemInterruptions; }
     void setWillIgnoreSystemInterruptions(bool ignore) { m_willIgnoreSystemInterruptions = ignore; }
 
-    WEBCORE_EXPORT virtual void beginInterruption(PlatformMediaSession::InterruptionType);
+    WEBCORE_EXPORT void beginInterruption(PlatformMediaSession::InterruptionType);
     WEBCORE_EXPORT void endInterruption(PlatformMediaSession::EndInterruptionFlags);
 
     WEBCORE_EXPORT void applicationWillBecomeInactive() const;
@@ -78,9 +74,6 @@ public:
 
     void stopAllMediaPlaybackForDocument(const Document*);
     WEBCORE_EXPORT void stopAllMediaPlaybackForProcess();
-
-    void suspendAllMediaPlaybackForDocument(const Document&);
-    void resumeAllMediaPlaybackForDocument(const Document&);
 
     enum SessionRestrictionFlags {
         NoRestrictions = 0,
@@ -100,12 +93,11 @@ public:
 
     virtual bool sessionWillBeginPlayback(PlatformMediaSession&);
     virtual void sessionWillEndPlayback(PlatformMediaSession&);
-    virtual void sessionStateChanged(PlatformMediaSession&);
+    virtual bool sessionCanLoadMedia(const PlatformMediaSession&) const;
     virtual void sessionDidEndRemoteScrubbing(const PlatformMediaSession&) { };
     virtual void clientCharacteristicsChanged(PlatformMediaSession&) { }
-    virtual void sessionCanProduceAudioChanged(PlatformMediaSession&);
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     virtual void configureWireLessTargetMonitoring() { }
     virtual bool hasWirelessTargetsAvailable() { return false; }
 #endif
@@ -113,9 +105,10 @@ public:
     void setCurrentSession(PlatformMediaSession&);
     PlatformMediaSession* currentSession() const;
 
-    Vector<PlatformMediaSession*> currentSessionsMatching(const WTF::Function<bool(const PlatformMediaSession&)>&);
+    Vector<PlatformMediaSession*> currentSessionsMatching(std::function<bool(const PlatformMediaSession&)>);
 
     void sessionIsPlayingToWirelessPlaybackTargetChanged(PlatformMediaSession&);
+    void sessionCanProduceAudioChanged(PlatformMediaSession&);
 
 protected:
     friend class PlatformMediaSession;
@@ -128,12 +121,10 @@ protected:
     PlatformMediaSession* findSession(const Function<bool(PlatformMediaSession&, size_t)>&) const;
     bool anyOfSessions(const Function<bool(PlatformMediaSession&, size_t)>& predicate) const { return findSession(predicate); }
 
-    AudioHardwareListener* audioHardwareListener() { return m_audioHardwareListener.get(); }
-
 private:
     friend class Internals;
 
-    virtual void updateSessionState() { }
+    void updateSessionState();
 
     // RemoteCommandListenerClient
     WEBCORE_EXPORT void didReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType, const PlatformMediaSession::RemoteCommandArgument*) override;
@@ -144,19 +135,17 @@ private:
     void audioHardwareDidBecomeInactive() override { }
     void audioOutputDeviceChanged() override;
 
-    // PAL::SystemSleepListener
+    // SystemSleepListener
     void systemWillSleep() override;
     void systemDidWake() override;
-
-    static bool shouldDeactivateAudioSession();
 
     SessionRestrictions m_restrictions[PlatformMediaSession::MediaStreamCapturingAudio + 1];
     mutable Vector<PlatformMediaSession*> m_sessions;
     std::unique_ptr<RemoteCommandListener> m_remoteCommandListener;
-    std::unique_ptr<PAL::SystemSleepListener> m_systemSleepListener;
+    std::unique_ptr<SystemSleepListener> m_systemSleepListener;
     RefPtr<AudioHardwareListener> m_audioHardwareListener;
 
-#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS)
     RefPtr<MediaPlaybackTarget> m_playbackTarget;
     bool m_canPlayToTarget { false };
 #endif
@@ -165,10 +154,6 @@ private:
     mutable bool m_isApplicationInBackground { false };
     bool m_willIgnoreSystemInterruptions { false };
     mutable int m_iteratingOverSessions { 0 };
-
-#if USE(AUDIO_SESSION)
-    bool m_becameActive { false };
-#endif
 };
 
 }

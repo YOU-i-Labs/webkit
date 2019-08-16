@@ -20,15 +20,14 @@
 #include "config.h"
 #include "Pasteboard.h"
 
-#include "Color.h"
 #include "DragData.h"
 #include "Image.h"
 #include "NotImplemented.h"
 #include "PasteboardStrategy.h"
 #include "PlatformStrategies.h"
 #include "SelectionData.h"
+#include "URL.h"
 #include <wtf/NeverDestroyed.h>
-#include <wtf/URL.h>
 
 namespace WebCore {
 
@@ -51,6 +50,11 @@ std::unique_ptr<Pasteboard> Pasteboard::createForGlobalSelection()
     return std::make_unique<Pasteboard>("PRIMARY");
 }
 
+std::unique_ptr<Pasteboard> Pasteboard::createPrivate()
+{
+    return std::make_unique<Pasteboard>(SelectionData::create());
+}
+
 #if ENABLE(DRAG_SUPPORT)
 std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop()
 {
@@ -63,6 +67,15 @@ std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop(const DragData& dra
     return std::make_unique<Pasteboard>(*dragData.platformData());
 }
 #endif
+
+// Making this non-inline so that WebKit 2's decoding doesn't have to include Image.h.
+PasteboardImage::PasteboardImage()
+{
+}
+
+PasteboardImage::~PasteboardImage()
+{
+}
 
 Pasteboard::Pasteboard(SelectionData& selectionData)
     : m_selectionData(selectionData)
@@ -80,22 +93,32 @@ Pasteboard::Pasteboard()
 {
 }
 
-Pasteboard::~Pasteboard() = default;
+Pasteboard::~Pasteboard()
+{
+}
 
 const SelectionData& Pasteboard::selectionData() const
 {
     return m_selectionData.get();
 }
 
-static ClipboardDataType selectionDataTypeFromHTMLClipboardType(const String& type)
+static ClipboardDataType selectionDataTypeFromHTMLClipboardType(const String& rawType)
 {
+    String type(rawType.stripWhiteSpace());
+
+    // Two special cases for IE compatibility
+    if (type == "Text" || type == "text")
+        return ClipboardDataTypeText;
+    if (type == "URL")
+        return ClipboardDataTypeURL;
+
     // From the Mac port: Ignore any trailing charset - JS strings are
     // Unicode, which encapsulates the charset issue.
-    if (type == "text/plain")
+    if (type == "text/plain" || type.startsWith("text/plain;"))
         return ClipboardDataTypeText;
-    if (type == "text/html")
+    if (type == "text/html" || type.startsWith("text/html;"))
         return ClipboardDataTypeMarkup;
-    if (type == "Files" || type == "text/uri-list")
+    if (type == "Files" || type == "text/uri-list" || type.startsWith("text/uri-list;"))
         return ClipboardDataTypeURIList;
 
     // Not a known type, so just default to using the text portion.
@@ -123,20 +146,19 @@ void Pasteboard::writeString(const String& type, const String& data)
     case ClipboardDataTypeURIList:
     case ClipboardDataTypeURL:
         m_selectionData->setURIList(data);
-        break;
+        return;
     case ClipboardDataTypeMarkup:
         m_selectionData->setMarkup(data);
-        break;
+        return;
     case ClipboardDataTypeText:
         m_selectionData->setText(data);
-        break;
+        return;
     case ClipboardDataTypeUnknown:
         m_selectionData->setUnknownTypeData(type, data);
-        break;
+        return;
     case ClipboardDataTypeImage:
         break;
     }
-    writeToClipboard();
 }
 
 void Pasteboard::writePlainText(const String& text, SmartReplaceOption smartReplaceOption)
@@ -181,6 +203,29 @@ void Pasteboard::write(const PasteboardWebContent& pasteboardContent)
     m_selectionData->setText(pasteboardContent.text);
     m_selectionData->setMarkup(pasteboardContent.markup);
     m_selectionData->setCanSmartReplace(pasteboardContent.canSmartCopyOrDelete);
+
+    writeToClipboard();
+}
+
+void Pasteboard::writePasteboard(const Pasteboard& sourcePasteboard)
+{
+    const auto& sourceDataObject = sourcePasteboard.selectionData();
+    m_selectionData->clearAll();
+
+    if (sourceDataObject.hasText())
+        m_selectionData->setText(sourceDataObject.text());
+    if (sourceDataObject.hasMarkup())
+        m_selectionData->setMarkup(sourceDataObject.markup());
+    if (sourceDataObject.hasURL())
+        m_selectionData->setURL(sourceDataObject.url(), sourceDataObject.urlLabel());
+    if (sourceDataObject.hasURIList())
+        m_selectionData->setURIList(sourceDataObject.uriList());
+    if (sourceDataObject.hasImage())
+        m_selectionData->setImage(sourceDataObject.image());
+    if (sourceDataObject.hasUnknownTypeData()) {
+        for (auto& it : sourceDataObject.unknownTypes())
+            m_selectionData->setUnknownTypeData(it.key, it.value);
+    }
 
     writeToClipboard();
 }
@@ -237,15 +282,8 @@ void Pasteboard::read(PasteboardPlainText& text)
     text.text = m_selectionData->text();
 }
 
-void Pasteboard::read(PasteboardWebContentReader&, WebContentReadingPolicy)
+void Pasteboard::read(PasteboardWebContentReader&)
 {
-}
-
-void Pasteboard::read(PasteboardFileReader& reader)
-{
-    readFromClipboard();
-    for (auto& filename : m_selectionData->filenames())
-        reader.readFilename(filename);
 }
 
 bool Pasteboard::hasData()
@@ -254,41 +292,32 @@ bool Pasteboard::hasData()
     return m_selectionData->hasText() || m_selectionData->hasMarkup() || m_selectionData->hasURIList() || m_selectionData->hasImage() || m_selectionData->hasUnknownTypeData();
 }
 
-Vector<String> Pasteboard::typesSafeForBindings(const String&)
-{
-    notImplemented(); // webkit.org/b/177633: [GTK] Move to new Pasteboard API
-    return { };
-}
-
-Vector<String> Pasteboard::typesForLegacyUnsafeBindings()
+Vector<String> Pasteboard::types()
 {
     readFromClipboard();
 
     Vector<String> types;
     if (m_selectionData->hasText()) {
-        types.append("text/plain"_s);
-        types.append("Text"_s);
-        types.append("text"_s);
+        types.append(ASCIILiteral("text/plain"));
+        types.append(ASCIILiteral("Text"));
+        types.append(ASCIILiteral("text"));
     }
 
     if (m_selectionData->hasMarkup())
-        types.append("text/html"_s);
+        types.append(ASCIILiteral("text/html"));
 
     if (m_selectionData->hasURIList()) {
-        types.append("text/uri-list"_s);
-        types.append("URL"_s);
+        types.append(ASCIILiteral("text/uri-list"));
+        types.append(ASCIILiteral("URL"));
     }
+
+    if (m_selectionData->hasFilenames())
+        types.append(ASCIILiteral("Files"));
 
     for (auto& key : m_selectionData->unknownTypes().keys())
         types.append(key);
 
     return types;
-}
-
-String Pasteboard::readOrigin()
-{
-    notImplemented(); // webkit.org/b/177633: [GTK] Move to new Pasteboard API
-    return { };
 }
 
 String Pasteboard::readString(const String& type)
@@ -313,27 +342,13 @@ String Pasteboard::readString(const String& type)
     return String();
 }
 
-String Pasteboard::readStringInCustomData(const String&)
-{
-    notImplemented(); // webkit.org/b/177633: [GTK] Move to new Pasteboard API
-    return { };
-}
-
-Pasteboard::FileContentState Pasteboard::fileContentState()
+Vector<String> Pasteboard::readFilenames()
 {
     readFromClipboard();
-    return m_selectionData->filenames().isEmpty() ? FileContentState::NoFileOrImageData : FileContentState::MayContainFilePaths;
+    return m_selectionData->filenames();
 }
 
 void Pasteboard::writeMarkup(const String&)
-{
-}
-
-void Pasteboard::writeCustomData(const PasteboardCustomData&)
-{
-}
-
-void Pasteboard::write(const Color&)
 {
 }
 

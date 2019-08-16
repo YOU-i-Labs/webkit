@@ -32,11 +32,9 @@
 #include "CachedImage.h"
 #include "CachedImageClient.h"
 #include "CachedRawResource.h"
-#include "CachedRawResourceClient.h"
-#include "CachedResourceHandle.h"
+#include "CachedResourceLoader.h"
 #include "CachedScript.h"
 #include "CachedStyleSheetClient.h"
-#include "CachedTextTrack.h"
 
 #include <wtf/WeakPtr.h>
 
@@ -46,13 +44,14 @@ class LinkLoader;
 
 class LinkPreloadResourceClient {
 public:
-    virtual ~LinkPreloadResourceClient() = default;
+    virtual ~LinkPreloadResourceClient() { }
 
     void triggerEvents(const CachedResource&);
 
     virtual void clear() = 0;
 
 protected:
+
     LinkPreloadResourceClient(LinkLoader&, CachedResource&);
 
     void addResource(CachedResourceClient& client)
@@ -62,10 +61,10 @@ protected:
 
     void clearResource(CachedResourceClient& client)
     {
-        if (!m_resource)
-            return;
-
-        m_resource->removeClient(client);
+        if (m_resource) {
+            m_resource->cancelLoad();
+            m_resource->removeClient(client);
+        }
         m_resource = nullptr;
     }
 
@@ -76,90 +75,124 @@ private:
     CachedResourceHandle<CachedResource> m_resource;
 };
 
-class LinkPreloadDefaultResourceClient : public LinkPreloadResourceClient, CachedResourceClient {
-    WTF_MAKE_FAST_ALLOCATED;
+class LinkPreloadScriptResourceClient: public LinkPreloadResourceClient, CachedResourceClient {
 public:
-    LinkPreloadDefaultResourceClient(LinkLoader& loader, CachedResource& resource)
+    static std::unique_ptr<LinkPreloadScriptResourceClient> create(LinkLoader& loader, CachedScript& resource)
+    {
+        return std::unique_ptr<LinkPreloadScriptResourceClient>(new LinkPreloadScriptResourceClient(loader, resource));
+    }
+
+    virtual ~LinkPreloadScriptResourceClient() { }
+
+
+    void notifyFinished(CachedResource& resource) override { triggerEvents(resource); }
+
+    void clear() override { clearResource(*this); }
+    bool shouldMarkAsReferenced() const override { return false; }
+
+private:
+    LinkPreloadScriptResourceClient(LinkLoader& loader, CachedScript& resource)
         : LinkPreloadResourceClient(loader, resource)
     {
         addResource(*this);
     }
-
-private:
-    void notifyFinished(CachedResource& resource) final { triggerEvents(resource); }
-    void clear() final { clearResource(*this); }
-    bool shouldMarkAsReferenced() const final { return false; }
 };
 
-class LinkPreloadStyleResourceClient : public LinkPreloadResourceClient, public CachedStyleSheetClient {
-    WTF_MAKE_FAST_ALLOCATED;
+class LinkPreloadStyleResourceClient: public LinkPreloadResourceClient, public CachedStyleSheetClient {
 public:
-    LinkPreloadStyleResourceClient(LinkLoader& loader, CachedCSSStyleSheet& resource)
-        : LinkPreloadResourceClient(loader, resource)
+    static std::unique_ptr<LinkPreloadStyleResourceClient> create(LinkLoader& loader, CachedCSSStyleSheet& resource)
     {
-        addResource(*this);
+        return std::unique_ptr<LinkPreloadStyleResourceClient>(new LinkPreloadStyleResourceClient(loader, resource));
     }
 
-private:
-    void setCSSStyleSheet(const String&, const URL&, const String&, const CachedCSSStyleSheet* resource) final
+    virtual ~LinkPreloadStyleResourceClient() { }
+
+    void setCSSStyleSheet(const String&, const URL&, const String&, const CachedCSSStyleSheet* resource) override
     {
         ASSERT(resource);
         ASSERT(ownedResource() == resource);
         triggerEvents(*resource);
     }
 
-    void clear() final { clearResource(*this); }
-    bool shouldMarkAsReferenced() const final { return false; }
-};
-
-class LinkPreloadImageResourceClient : public LinkPreloadResourceClient, public CachedImageClient {
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    LinkPreloadImageResourceClient(LinkLoader& loader, CachedImage& resource)
-        : LinkPreloadResourceClient(loader, static_cast<CachedResource&>(resource))
-    {
-        addResource(*this);
-    }
+    void clear() override { clearResource(*this); }
+    bool shouldMarkAsReferenced() const override { return false; }
 
 private:
-    void notifyFinished(CachedResource& resource) final { triggerEvents(resource); }
-    void clear() final { clearResource(*this); }
-    bool shouldMarkAsReferenced() const final { return false; }
-};
-
-class LinkPreloadFontResourceClient : public LinkPreloadResourceClient, public CachedFontClient {
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    LinkPreloadFontResourceClient(LinkLoader& loader, CachedFont& resource)
+    LinkPreloadStyleResourceClient(LinkLoader& loader, CachedCSSStyleSheet& resource)
         : LinkPreloadResourceClient(loader, resource)
     {
         addResource(*this);
     }
+};
+
+class LinkPreloadImageResourceClient: public LinkPreloadResourceClient, public CachedImageClient {
+public:
+    static std::unique_ptr<LinkPreloadImageResourceClient> create(LinkLoader& loader, CachedImage& resource)
+    {
+        return std::unique_ptr<LinkPreloadImageResourceClient>(new LinkPreloadImageResourceClient(loader, resource));
+    }
+
+    virtual ~LinkPreloadImageResourceClient() { }
+
+    void notifyFinished(CachedResource& resource) override { triggerEvents(resource); }
+
+    void clear() override { clearResource(*this); }
+    bool shouldMarkAsReferenced() const override { return false; }
 
 private:
-    void fontLoaded(CachedFont& resource) final
+    LinkPreloadImageResourceClient(LinkLoader& loader, CachedImage& resource)
+        : LinkPreloadResourceClient(loader, dynamic_cast<CachedResource&>(resource))
+    {
+        addResource(*this);
+    }
+};
+
+class LinkPreloadFontResourceClient: public LinkPreloadResourceClient, public CachedFontClient {
+public:
+    static std::unique_ptr<LinkPreloadFontResourceClient> create(LinkLoader& loader, CachedFont& resource)
+    {
+        return std::unique_ptr<LinkPreloadFontResourceClient>(new LinkPreloadFontResourceClient(loader, resource));
+    }
+
+    virtual ~LinkPreloadFontResourceClient() { }
+
+    void fontLoaded(CachedFont& resource) override
     {
         ASSERT(ownedResource() == &resource);
         triggerEvents(resource);
     }
 
-    void clear() final { clearResource(*this); }
-    bool shouldMarkAsReferenced() const final { return false; }
+    void clear() override { clearResource(*this); }
+    bool shouldMarkAsReferenced() const override { return false; }
+
+private:
+    LinkPreloadFontResourceClient(LinkLoader& loader, CachedFont& resource)
+        : LinkPreloadResourceClient(loader, resource)
+    {
+        addResource(*this);
+    }
 };
 
-class LinkPreloadRawResourceClient : public LinkPreloadResourceClient, public CachedRawResourceClient {
-    WTF_MAKE_FAST_ALLOCATED;
+class LinkPreloadRawResourceClient: public LinkPreloadResourceClient, public CachedRawResourceClient {
 public:
+    static std::unique_ptr<LinkPreloadRawResourceClient> create(LinkLoader& loader, CachedRawResource& resource)
+    {
+        return std::unique_ptr<LinkPreloadRawResourceClient>(new LinkPreloadRawResourceClient(loader, resource));
+    }
+
+    virtual ~LinkPreloadRawResourceClient() { }
+
+    void notifyFinished(CachedResource& resource) override { triggerEvents(resource); }
+
+    void clear() override { clearResource(*this); }
+    bool shouldMarkAsReferenced() const override { return false; }
+
+private:
     LinkPreloadRawResourceClient(LinkLoader& loader, CachedRawResource& resource)
         : LinkPreloadResourceClient(loader, resource)
     {
         addResource(*this);
     }
-
-private:
-    void notifyFinished(CachedResource& resource) final { triggerEvents(resource); }
-    void clear() final { clearResource(*this); }
-    bool shouldMarkAsReferenced() const final { return false; }
 };
 
 }

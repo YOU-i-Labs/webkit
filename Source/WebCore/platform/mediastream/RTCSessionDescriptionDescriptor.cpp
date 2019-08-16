@@ -47,7 +47,9 @@ RTCSessionDescriptionDescriptor::RTCSessionDescriptionDescriptor(const String& t
 {
 }
 
-RTCSessionDescriptionDescriptor::~RTCSessionDescriptionDescriptor() = default;
+RTCSessionDescriptionDescriptor::~RTCSessionDescriptionDescriptor()
+{
+}
 
 } // namespace WebCore
 

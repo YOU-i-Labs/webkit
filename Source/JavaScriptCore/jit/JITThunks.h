@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,6 +35,7 @@
 #include "WeakHandleOwner.h"
 #include <tuple>
 #include <wtf/HashMap.h>
+#include <wtf/ThreadingPrimitives.h>
 #include <wtf/text/StringHash.h>
 
 namespace JSC {
@@ -51,29 +52,27 @@ public:
     JITThunks();
     virtual ~JITThunks();
 
-    MacroAssemblerCodePtr<JITThunkPtrTag> ctiNativeCall(VM*);
-    MacroAssemblerCodePtr<JITThunkPtrTag> ctiNativeConstruct(VM*);
-    MacroAssemblerCodePtr<JITThunkPtrTag> ctiNativeTailCall(VM*);
-    MacroAssemblerCodePtr<JITThunkPtrTag> ctiNativeTailCallWithoutSavedTags(VM*);
-    MacroAssemblerCodePtr<JITThunkPtrTag> ctiInternalFunctionCall(VM*);
-    MacroAssemblerCodePtr<JITThunkPtrTag> ctiInternalFunctionConstruct(VM*);
+    MacroAssemblerCodePtr ctiNativeCall(VM*);
+    MacroAssemblerCodePtr ctiNativeConstruct(VM*);
+    MacroAssemblerCodePtr ctiNativeTailCall(VM*);    
+    MacroAssemblerCodePtr ctiNativeTailCallWithoutSavedTags(VM*);    
 
-    MacroAssemblerCodeRef<JITThunkPtrTag> ctiStub(VM*, ThunkGenerator);
-    MacroAssemblerCodeRef<JITThunkPtrTag> existingCTIStub(ThunkGenerator);
+    MacroAssemblerCodeRef ctiStub(VM*, ThunkGenerator);
+    MacroAssemblerCodeRef existingCTIStub(ThunkGenerator);
 
-    NativeExecutable* hostFunctionStub(VM*, TaggedNativeFunction, TaggedNativeFunction constructor, const String& name);
-    NativeExecutable* hostFunctionStub(VM*, TaggedNativeFunction, TaggedNativeFunction constructor, ThunkGenerator, Intrinsic, const DOMJIT::Signature*, const String& name);
-    NativeExecutable* hostFunctionStub(VM*, TaggedNativeFunction, ThunkGenerator, Intrinsic, const String& name);
+    NativeExecutable* hostFunctionStub(VM*, NativeFunction, NativeFunction constructor, const String& name);
+    NativeExecutable* hostFunctionStub(VM*, NativeFunction, NativeFunction constructor, ThunkGenerator, Intrinsic, const DOMJIT::Signature*, const String& name);
+    NativeExecutable* hostFunctionStub(VM*, NativeFunction, ThunkGenerator, Intrinsic, const String& name);
 
     void clearHostFunctionStubs();
 
 private:
     void finalize(Handle<Unknown>, void* context) override;
     
-    typedef HashMap<ThunkGenerator, MacroAssemblerCodeRef<JITThunkPtrTag>> CTIStubMap;
+    typedef HashMap<ThunkGenerator, MacroAssemblerCodeRef> CTIStubMap;
     CTIStubMap m_ctiStubMap;
 
-    typedef std::tuple<TaggedNativeFunction, TaggedNativeFunction, String> HostFunctionKey;
+    typedef std::tuple<NativeFunction, NativeFunction, String> HostFunctionKey;
 
     struct HostFunctionHash {
         static unsigned hash(const HostFunctionKey& key)
@@ -90,9 +89,9 @@ private:
         static const bool safeToCompareToEmptyOrDeleted = true;
 
     private:
-        static inline unsigned hashPointer(TaggedNativeFunction p)
+        static inline unsigned hashPointer(NativeFunction p)
         {
-            return DefaultHash<TaggedNativeFunction>::Hash::hash(p);
+            return DefaultHash<NativeFunction>::Hash::hash(p);
         }
     };
 
@@ -100,8 +99,8 @@ private:
         static const bool emptyValueIsZero = true;
         static EmptyValueType emptyValue() { return std::make_tuple(nullptr, nullptr, String()); }
 
-        static void constructDeletedValue(HostFunctionKey& slot) { std::get<0>(slot) = TaggedNativeFunction(-1); }
-        static bool isDeletedValue(const HostFunctionKey& value) { return std::get<0>(value) == TaggedNativeFunction(-1); }
+        static void constructDeletedValue(HostFunctionKey& slot) { std::get<0>(slot) = reinterpret_cast<NativeFunction>(-1); }
+        static bool isDeletedValue(const HostFunctionKey& value) { return std::get<0>(value) == reinterpret_cast<NativeFunction>(-1); }
     };
     
     typedef HashMap<HostFunctionKey, Weak<NativeExecutable>, HostFunctionHash, HostFunctionHashTrait> HostFunctionStubMap;

@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(ASSEMBLER)
+#if ENABLE(JIT)
 
 #include "RegisterAtOffset.h"
 #include "RegisterSet.h"
@@ -69,4 +69,4 @@ private:
 
 } // namespace JSC
 
-#endif // ENABLE(ASSEMBLER)
+#endif // ENABLE(JIT)

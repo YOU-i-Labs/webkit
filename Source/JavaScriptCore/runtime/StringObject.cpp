@@ -67,14 +67,19 @@ bool StringObject::put(JSCell* cell, ExecState* exec, PropertyName propertyName,
 
     StringObject* thisObject = jsCast<StringObject*>(cell);
 
-    if (UNLIKELY(isThisValueAltered(slot, thisObject))) 
-        RELEASE_AND_RETURN(scope, ordinarySetSlow(exec, thisObject, propertyName, value, slot.thisValue(), slot.isStrictMode()));
+    if (UNLIKELY(isThisValueAltered(slot, thisObject))) {
+        scope.release();
+        return ordinarySetSlow(exec, thisObject, propertyName, value, slot.thisValue(), slot.isStrictMode());
+    }
 
     if (propertyName == vm.propertyNames->length)
-        return typeError(exec, scope, slot.isStrictMode(), ReadonlyPropertyWriteError);
-    if (Optional<uint32_t> index = parseIndex(propertyName)) 
-        RELEASE_AND_RETURN(scope, putByIndex(cell, exec, index.value(), value, slot.isStrictMode()));
-    RELEASE_AND_RETURN(scope, JSObject::put(cell, exec, propertyName, value, slot));
+        return typeError(exec, scope, slot.isStrictMode(), ASCIILiteral(ReadonlyPropertyWriteError));
+    if (std::optional<uint32_t> index = parseIndex(propertyName)) {
+        scope.release();
+        return putByIndex(cell, exec, index.value(), value, slot.isStrictMode());
+    }
+    scope.release();
+    return JSObject::put(cell, exec, propertyName, value, slot);
 }
 
 bool StringObject::putByIndex(JSCell* cell, ExecState* exec, unsigned propertyName, JSValue value, bool shouldThrow)
@@ -84,16 +89,16 @@ bool StringObject::putByIndex(JSCell* cell, ExecState* exec, unsigned propertyNa
 
     StringObject* thisObject = jsCast<StringObject*>(cell);
     if (thisObject->internalValue()->canGetIndex(propertyName))
-        return typeError(exec, scope, shouldThrow, ReadonlyPropertyWriteError);
-    RELEASE_AND_RETURN(scope, JSObject::putByIndex(cell, exec, propertyName, value, shouldThrow));
+        return typeError(exec, scope, shouldThrow, ASCIILiteral(ReadonlyPropertyWriteError));
+    scope.release();
+    return JSObject::putByIndex(cell, exec, propertyName, value, shouldThrow);
 }
 
 static bool isStringOwnProperty(ExecState* exec, StringObject* object, PropertyName propertyName)
 {
-    VM& vm = exec->vm();
-    if (propertyName == vm.propertyNames->length)
+    if (propertyName == exec->propertyNames().length)
         return true;
-    if (Optional<uint32_t> index = parseIndex(propertyName)) {
+    if (std::optional<uint32_t> index = parseIndex(propertyName)) {
         if (object->internalValue()->canGetIndex(index.value()))
             return true;
     }
@@ -114,23 +119,23 @@ bool StringObject::defineOwnProperty(JSObject* object, ExecState* exec, Property
         // https://tc39.github.io/ecma262/#sec-string-exotic-objects-getownproperty-p
         PropertyDescriptor current;
         bool isCurrentDefined = thisObject->getOwnPropertyDescriptor(exec, propertyName, current);
-        EXCEPTION_ASSERT(!scope.exception() == isCurrentDefined);
-        RETURN_IF_EXCEPTION(scope, false);
+        ASSERT(isCurrentDefined);
         bool isExtensible = thisObject->isExtensible(exec);
         RETURN_IF_EXCEPTION(scope, false);
-        RELEASE_AND_RETURN(scope, validateAndApplyPropertyDescriptor(exec, nullptr, propertyName, isExtensible, descriptor, isCurrentDefined, current, throwException));
+        scope.release();
+        return validateAndApplyPropertyDescriptor(exec, nullptr, propertyName, isExtensible, descriptor, isCurrentDefined, current, throwException);
     }
 
-    RELEASE_AND_RETURN(scope, Base::defineOwnProperty(object, exec, propertyName, descriptor, throwException));
+    scope.release();
+    return Base::defineOwnProperty(object, exec, propertyName, descriptor, throwException);
 }
 
 bool StringObject::deleteProperty(JSCell* cell, ExecState* exec, PropertyName propertyName)
 {
-    VM& vm = exec->vm();
     StringObject* thisObject = jsCast<StringObject*>(cell);
-    if (propertyName == vm.propertyNames->length)
+    if (propertyName == exec->propertyNames().length)
         return false;
-    Optional<uint32_t> index = parseIndex(propertyName);
+    std::optional<uint32_t> index = parseIndex(propertyName);
     if (index && thisObject->internalValue()->canGetIndex(index.value()))
         return false;
     return JSObject::deleteProperty(thisObject, exec, propertyName);
@@ -157,10 +162,9 @@ void StringObject::getOwnPropertyNames(JSObject* object, ExecState* exec, Proper
 
 void StringObject::getOwnNonIndexPropertyNames(JSObject* object, ExecState* exec, PropertyNameArray& propertyNames, EnumerationMode mode)
 {
-    VM& vm = exec->vm();
     StringObject* thisObject = jsCast<StringObject*>(object);
     if (mode.includeDontEnumProperties())
-        propertyNames.add(vm.propertyNames->length);
+        propertyNames.add(exec->propertyNames().length);
     return JSObject::getOwnNonIndexPropertyNames(thisObject, exec, propertyNames, mode);
 }
 

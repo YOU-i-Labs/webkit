@@ -23,7 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef BloomFilter_h
+#define BloomFilter_h
 
 #include <array>
 #include <wtf/text/AtomicString.h>
@@ -262,3 +263,5 @@ bool CountingBloomFilter<keyBits>::isClear() const
 
 using WTF::BloomFilter;
 using WTF::CountingBloomFilter;
+
+#endif

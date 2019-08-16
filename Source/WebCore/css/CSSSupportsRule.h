@@ -42,7 +42,7 @@ public:
         return adoptRef(*new CSSSupportsRule(rule, sheet));
     }
 
-    virtual ~CSSSupportsRule() = default;
+    virtual ~CSSSupportsRule() { }
 
     String cssText() const final;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "ExceptionCode.h"
 #include "SVGPreserveAspectRatioValue.h"
 #include "SVGPropertyTearOff.h"
 
@@ -38,6 +39,11 @@ public:
     }
 
     static Ref<SVGPreserveAspectRatio> create(const SVGPreserveAspectRatioValue& initialValue = { })
+    {
+        return adoptRef(*new SVGPreserveAspectRatio(initialValue));
+    }
+
+    static Ref<SVGPreserveAspectRatio> create(const SVGPreserveAspectRatioValue* initialValue)
     {
         return adoptRef(*new SVGPreserveAspectRatio(initialValue));
     }
@@ -57,7 +63,7 @@ public:
     ExceptionOr<void> setAlign(float value)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         auto result = propertyReference().setAlign(value);
         if (result.hasException())
@@ -75,7 +81,7 @@ public:
     ExceptionOr<void> setMeetOrSlice(float value)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         auto result = propertyReference().setMeetOrSlice(value);
         if (result.hasException())
@@ -92,6 +98,11 @@ private:
     }
 
     explicit SVGPreserveAspectRatio(const SVGPreserveAspectRatioValue& initialValue)
+        : SVGPropertyTearOff<SVGPreserveAspectRatioValue>(initialValue)
+    {
+    }
+
+    explicit SVGPreserveAspectRatio(const SVGPreserveAspectRatioValue* initialValue)
         : SVGPropertyTearOff<SVGPreserveAspectRatioValue>(initialValue)
     {
     }

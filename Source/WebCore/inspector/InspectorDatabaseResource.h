@@ -30,7 +30,7 @@
 
 #pragma once
 
-#include <JavaScriptCore/InspectorFrontendDispatchers.h>
+#include <inspector/InspectorFrontendDispatchers.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>

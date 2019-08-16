@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,35 +30,30 @@
 #include "JSCJSValue.h"
 
 #if CPU(ARM_THUMB2)
-#define TARGET_ASSEMBLER ARMv7Assembler
-#define TARGET_MACROASSEMBLER MacroAssemblerARMv7
 #include "MacroAssemblerARMv7.h"
 namespace JSC { typedef MacroAssemblerARMv7 MacroAssemblerBase; };
 
-#elif CPU(ARM64E) && __has_include(<WebKitAdditions/MacroAssemblerARM64E.h>)
-#define TARGET_ASSEMBLER ARM64EAssembler
-#define TARGET_MACROASSEMBLER MacroAssemblerARM64E
-#include <WebKitAdditions/MacroAssemblerARM64E.h>
-
 #elif CPU(ARM64)
-#define TARGET_ASSEMBLER ARM64Assembler
-#define TARGET_MACROASSEMBLER MacroAssemblerARM64
 #include "MacroAssemblerARM64.h"
+namespace JSC { typedef MacroAssemblerARM64 MacroAssemblerBase; };
+
+#elif CPU(ARM_TRADITIONAL)
+#include "MacroAssemblerARM.h"
+namespace JSC { typedef MacroAssemblerARM MacroAssemblerBase; };
 
 #elif CPU(MIPS)
-#define TARGET_ASSEMBLER MIPSAssembler
-#define TARGET_MACROASSEMBLER MacroAssemblerMIPS
 #include "MacroAssemblerMIPS.h"
+namespace JSC {
+typedef MacroAssemblerMIPS MacroAssemblerBase;
+};
 
 #elif CPU(X86)
-#define TARGET_ASSEMBLER X86Assembler
-#define TARGET_MACROASSEMBLER MacroAssemblerX86
 #include "MacroAssemblerX86.h"
+namespace JSC { typedef MacroAssemblerX86 MacroAssemblerBase; };
 
 #elif CPU(X86_64)
-#define TARGET_ASSEMBLER X86Assembler
-#define TARGET_MACROASSEMBLER MacroAssemblerX86_64
 #include "MacroAssemblerX86_64.h"
+namespace JSC { typedef MacroAssemblerX86_64 MacroAssemblerBase; };
 
 #else
 #error "The MacroAssembler is not supported on this platform."
@@ -66,32 +61,14 @@ namespace JSC { typedef MacroAssemblerARMv7 MacroAssemblerBase; };
 
 #include "MacroAssemblerHelpers.h"
 
-namespace WTF {
-
-template<typename FunctionType>
-class ScopedLambda;
-
-} // namespace WTF
-
 namespace JSC {
-
-#if ENABLE(MASM_PROBE)
-namespace Probe {
-
-class Context;
-typedef void (*Function)(Context&);
-
-} // namespace Probe
-#endif // ENABLE(MASM_PROBE)
 
 namespace Printer {
 
 struct PrintRecord;
 typedef Vector<PrintRecord> PrintRecordList;
 
-} // namespace Printer
-
-using MacroAssemblerBase = TARGET_MACROASSEMBLER;
+}
 
 class MacroAssembler : public MacroAssemblerBase {
 public:
@@ -106,9 +83,19 @@ public:
         return static_cast<FPRegisterID>(reg + 1);
     }
     
+    static constexpr unsigned numberOfRegisters()
+    {
+        return lastRegister() - firstRegister() + 1;
+    }
+    
     static constexpr unsigned registerIndex(RegisterID reg)
     {
         return reg - firstRegister();
+    }
+    
+    static constexpr unsigned numberOfFPRegisters()
+    {
+        return lastFPRegister() - firstFPRegister() + 1;
     }
     
     static constexpr unsigned fpRegisterIndex(FPRegisterID reg)
@@ -137,7 +124,7 @@ public:
     using MacroAssemblerBase::and32;
     using MacroAssemblerBase::branchAdd32;
     using MacroAssemblerBase::branchMul32;
-#if CPU(ARM64) || CPU(ARM_THUMB2) || CPU(X86_64) || CPU(MIPS)
+#if CPU(ARM64) || CPU(ARM_THUMB2) || CPU(ARM_TRADITIONAL) || CPU(X86_64) || CPU(MIPS)
     using MacroAssemblerBase::branchPtr;
 #endif
     using MacroAssemblerBase::branchSub32;
@@ -302,11 +289,6 @@ public:
         storePtr(imm, addressForPoke(index));
     }
 
-    void poke(FPRegisterID src, int index = 0)
-    {
-        storeDouble(src, addressForPoke(index));
-    }
-
 #if !CPU(ARM64)
     void pushToSave(RegisterID src)
     {
@@ -348,6 +330,14 @@ public:
     void poke64(RegisterID src, int index = 0)
     {
         store64(src, addressForPoke(index));
+    }
+#endif
+    
+#if CPU(MIPS)
+    void poke(FPRegisterID src, int index = 0)
+    {
+        ASSERT(!(index & 1));
+        storeDouble(src, addressForPoke(index));
     }
 #endif
 
@@ -414,12 +404,12 @@ public:
     }
 
 #if !CPU(ARM_THUMB2) && !CPU(ARM64)
-    PatchableJump patchableBranchPtr(RelationalCondition cond, Address left, TrustedImmPtr right = TrustedImmPtr(nullptr))
+    PatchableJump patchableBranchPtr(RelationalCondition cond, Address left, TrustedImmPtr right = TrustedImmPtr(0))
     {
         return PatchableJump(branchPtr(cond, left, right));
     }
     
-    PatchableJump patchableBranchPtrWithPatch(RelationalCondition cond, Address left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(nullptr))
+    PatchableJump patchableBranchPtrWithPatch(RelationalCondition cond, Address left, DataLabelPtr& dataLabel, TrustedImmPtr initialRightValue = TrustedImmPtr(0))
     {
         return PatchableJump(branchPtrWithPatch(cond, left, dataLabel, initialRightValue));
     }
@@ -429,6 +419,7 @@ public:
         return PatchableJump(branch32WithPatch(cond, left, dataLabel, initialRightValue));
     }
 
+#if !CPU(ARM_TRADITIONAL)
     PatchableJump patchableJump()
     {
         return PatchableJump(jump());
@@ -444,15 +435,11 @@ public:
         return PatchableJump(branch32(cond, reg, imm));
     }
 
-    PatchableJump patchableBranch8(RelationalCondition cond, Address address, TrustedImm32 imm)
-    {
-        return PatchableJump(branch8(cond, address, imm));
-    }
-
     PatchableJump patchableBranch32(RelationalCondition cond, Address address, TrustedImm32 imm)
     {
         return PatchableJump(branch32(cond, address, imm));
     }
+#endif
 #endif
 
     void jump(Label target)
@@ -525,13 +512,7 @@ public:
         loadFloat(src, scratch);
         storeFloat(scratch, dest);
     }
-
-    // Overload mostly for use in templates.
-    void move(FPRegisterID src, FPRegisterID dest)
-    {
-        moveDouble(src, dest);
-    }
-
+    
     void moveDouble(Address src, Address dest, FPRegisterID scratch)
     {
         loadDouble(src, scratch);
@@ -602,19 +583,9 @@ public:
         lshift32(trustedImm32ForShift(imm), srcDest);
     }
     
-    void lshiftPtr(TrustedImm32 imm, RegisterID srcDest)
-    {
-        lshift32(imm, srcDest);
-    }
-    
     void rshiftPtr(Imm32 imm, RegisterID srcDest)
     {
         rshift32(trustedImm32ForShift(imm), srcDest);
-    }
-
-    void rshiftPtr(TrustedImm32 imm, RegisterID srcDest)
-    {
-        rshift32(imm, srcDest);
     }
 
     void urshiftPtr(Imm32 imm, RegisterID srcDest)
@@ -622,19 +593,9 @@ public:
         urshift32(trustedImm32ForShift(imm), srcDest);
     }
 
-    void urshiftPtr(RegisterID shiftAmmount, RegisterID srcDest)
-    {
-        urshift32(shiftAmmount, srcDest);
-    }
-
     void negPtr(RegisterID dest)
     {
         neg32(dest);
-    }
-
-    void negPtr(RegisterID src, RegisterID dest)
-    {
-        neg32(src, dest);
     }
 
     void orPtr(RegisterID src, RegisterID dest)
@@ -680,11 +641,6 @@ public:
     void xorPtr(TrustedImm32 imm, RegisterID srcDest)
     {
         xor32(imm, srcDest);
-    }
-
-    void xorPtr(TrustedImmPtr imm, RegisterID srcDest)
-    {
-        xor32(TrustedImm32(imm), srcDest);
     }
 
     void xorPtr(Address src, RegisterID dest)
@@ -936,19 +892,9 @@ public:
         lshift64(trustedImm32ForShift(imm), srcDest);
     }
 
-    void lshiftPtr(TrustedImm32 imm, RegisterID srcDest)
-    {
-        lshift64(imm, srcDest);
-    }
-
     void rshiftPtr(Imm32 imm, RegisterID srcDest)
     {
         rshift64(trustedImm32ForShift(imm), srcDest);
-    }
-
-    void rshiftPtr(TrustedImm32 imm, RegisterID srcDest)
-    {
-        rshift64(imm, srcDest);
     }
 
     void urshiftPtr(Imm32 imm, RegisterID srcDest)
@@ -956,19 +902,9 @@ public:
         urshift64(trustedImm32ForShift(imm), srcDest);
     }
 
-    void urshiftPtr(RegisterID shiftAmmount, RegisterID srcDest)
-    {
-        urshift64(shiftAmmount, srcDest);
-    }
-
     void negPtr(RegisterID dest)
     {
         neg64(dest);
-    }
-
-    void negPtr(RegisterID src, RegisterID dest)
-    {
-        neg64(src, dest);
     }
 
     void orPtr(RegisterID src, RegisterID dest)
@@ -1034,12 +970,6 @@ public:
     void xorPtr(TrustedImm32 imm, RegisterID srcDest)
     {
         xor64(imm, srcDest);
-    }
-
-    // FIXME: Look into making the need for a scratch register explicit, or providing the option to specify a scratch register.
-    void xorPtr(TrustedImmPtr imm, RegisterID srcDest)
-    {
-        xor64(TrustedImm64(imm), srcDest);
     }
 
     void loadPtr(ImplicitAddress address, RegisterID dest)
@@ -1265,7 +1195,7 @@ public:
 
         // First off we'll special case common, "safe" values to avoid hurting
         // performance too much
-        uint64_t value = imm.asTrustedImmPtr().asIntptr();
+        uintptr_t value = imm.asTrustedImmPtr().asIntptr();
         switch (value) {
         case 0xffff:
         case 0xffffff:
@@ -1286,14 +1216,7 @@ public:
         if (!shouldConsiderBlinding())
             return false;
 
-        return shouldBlindPointerForSpecificArch(static_cast<uintptr_t>(value));
-    }
-
-    uint8_t generateRotationSeed(size_t widthInBits)
-    {
-        // Generate the seed in [1, widthInBits - 1]. We should not generate widthInBits or 0
-        // since it leads to `<< widthInBits` or `>> widthInBits`, which cause undefined behaviors.
-        return (random() % (widthInBits - 1)) + 1;
+        return shouldBlindPointerForSpecificArch(value);
     }
     
     struct RotatedImmPtr {
@@ -1308,7 +1231,7 @@ public:
     
     RotatedImmPtr rotationBlindConstant(ImmPtr imm)
     {
-        uint8_t rotation = generateRotationSeed(sizeof(void*) * 8);
+        uint8_t rotation = random() % (sizeof(void*) * 8);
         uintptr_t value = imm.asTrustedImmPtr().asIntptr();
         value = (value << rotation) | (value >> (sizeof(void*) * 8 - rotation));
         return RotatedImmPtr(value, rotation);
@@ -1376,7 +1299,7 @@ public:
     
     RotatedImm64 rotationBlindConstant(Imm64 imm)
     {
-        uint8_t rotation = generateRotationSeed(sizeof(int64_t) * 8);
+        uint8_t rotation = random() % (sizeof(int64_t) * 8);
         uint64_t value = imm.asTrustedImm64().m_value;
         value = (value << rotation) | (value >> (sizeof(int64_t) * 8 - rotation));
         return RotatedImm64(value, rotation);
@@ -1464,13 +1387,20 @@ public:
 
 #endif // !CPU(X86_64)
 
-#if !CPU(X86) && !CPU(X86_64) && !CPU(ARM64)
+#if ENABLE(B3_JIT)
     // We should implement this the right way eventually, but for now, it's fine because it arises so
     // infrequently.
     void compareDouble(DoubleCondition cond, FPRegisterID left, FPRegisterID right, RegisterID dest)
     {
         move(TrustedImm32(0), dest);
         Jump falseCase = branchDouble(invert(cond), left, right);
+        move(TrustedImm32(1), dest);
+        falseCase.link(this);
+    }
+    void compareFloat(DoubleCondition cond, FPRegisterID left, FPRegisterID right, RegisterID dest)
+    {
+        move(TrustedImm32(0), dest);
+        Jump falseCase = branchFloat(invert(cond), left, right);
         move(TrustedImm32(1), dest);
         falseCase.link(this);
     }
@@ -1904,72 +1834,39 @@ public:
         urshift32(src, trustedImm32ForShift(amount), dest);
     }
 
-    // If the result jump is taken that means the assert passed.
-    void jitAssert(const WTF::ScopedLambda<Jump(void)>&);
-
 #if ENABLE(MASM_PROBE)
-    // This function emits code to preserve the CPUState (e.g. registers),
-    // call a user supplied probe function, and restore the CPUState before
-    // continuing with other JIT generated code.
-    //
-    // The user supplied probe function will be called with a single pointer to
-    // a Probe::State struct (defined below) which contains, among other things,
-    // the preserved CPUState. This allows the user probe function to inspect
-    // the CPUState at that point in the JIT generated code.
-    //
-    // If the user probe function alters the register values in the Probe::State,
-    // the altered values will be loaded into the CPU registers when the probe
-    // returns.
-    //
-    // The Probe::State is stack allocated and is only valid for the duration
-    // of the call to the user probe function.
-    //
-    // The probe function may choose to move the stack pointer (in any direction).
-    // To do this, the probe function needs to set the new sp value in the CPUState.
-    //
-    // The probe function may also choose to fill stack space with some values.
-    // To do this, the probe function must first:
-    // 1. Set the new sp value in the Probe::State's CPUState.
-    // 2. Set the Probe::State's initializeStackFunction to a Probe::Function callback
-    //    which will do the work of filling in the stack values after the probe
-    //    trampoline has adjusted the machine stack pointer.
-    // 3. Set the Probe::State's initializeStackArgs to any value that the client wants
-    //    to pass to the initializeStackFunction callback.
-    // 4. Return from the probe function.
-    //
-    // Upon returning from the probe function, the probe trampoline will adjust the
-    // the stack pointer based on the sp value in CPUState. If initializeStackFunction
-    // is not set, the probe trampoline will restore registers and return to its caller.
-    //
-    // If initializeStackFunction is set, the trampoline will move the Probe::State
-    // beyond the range of the stack pointer i.e. it will place the new Probe::State at
-    // an address lower than where CPUState.sp() points. This ensures that the
-    // Probe::State will not be trashed by the initializeStackFunction when it writes to
-    // the stack. Then, the trampoline will call back to the initializeStackFunction
-    // Probe::Function to let it fill in the stack values as desired. The
-    // initializeStackFunction Probe::Function will be passed the moved Probe::State at
-    // the new location.
-    //
-    // initializeStackFunction may now write to the stack at addresses greater or
-    // equal to CPUState.sp(), but not below that. initializeStackFunction is also
-    // not allowed to change CPUState.sp(). If the initializeStackFunction does not
-    // abide by these rules, then behavior is undefined, and bad things may happen.
-    //
-    // Note: this version of probe() should be implemented by the target specific
-    // MacroAssembler.
-    void probe(Probe::Function, void* arg);
+    using MacroAssemblerBase::probe;
 
-    JS_EXPORT_PRIVATE void probe(Function<void(Probe::Context&)>);
+    void probe(std::function<void(ProbeContext*)>);
+#endif
 
     // Let's you print from your JIT generated code.
+    // This only works if ENABLE(MASM_PROBE). Otherwise, print() is a no-op.
     // See comments in MacroAssemblerPrinter.h for examples of how to use this.
     template<typename... Arguments>
     void print(Arguments&&... args);
 
     void print(Printer::PrintRecordList*);
-#endif // ENABLE(MASM_PROBE)
 };
 
+#if ENABLE(MASM_PROBE)
+struct ProbeContext {
+    using CPUState = MacroAssembler::CPUState;
+    using RegisterID = MacroAssembler::RegisterID;
+    using FPRegisterID = MacroAssembler::FPRegisterID;
+
+    ProbeFunction probeFunction;
+    void* arg;
+    CPUState cpu;
+
+    // Convenience methods:
+    void*& gpr(RegisterID regID) { return cpu.gpr(regID); }
+    double& fpr(FPRegisterID regID) { return cpu.fpr(regID); }
+    const char* gprName(RegisterID regID) { return cpu.gprName(regID); }
+    const char* fprName(FPRegisterID regID) { return cpu.fprName(regID); }
+};
+#endif // ENABLE(MASM_PROBE)
+    
 } // namespace JSC
 
 namespace WTF {
@@ -1995,8 +1892,8 @@ private:
     
 public:
     
-    enum RegisterID : int8_t { NoRegister, InvalidGPRReg = -1 };
-    enum FPRegisterID : int8_t { NoFPRegister, InvalidFPRReg = -1 };
+    enum RegisterID { NoRegister };
+    enum FPRegisterID { NoFPRegister };
 };
 
 } // namespace JSC

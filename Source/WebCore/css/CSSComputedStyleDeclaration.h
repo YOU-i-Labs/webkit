@@ -21,9 +21,9 @@
 #pragma once
 
 #include "CSSStyleDeclaration.h"
+#include "FontDescription.h"
 #include "RenderStyleConstants.h"
 #include "SVGRenderStyleDefs.h"
-#include "TextFlags.h"
 #include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
 
@@ -38,7 +38,7 @@ class FilterOperations;
 class FontSelectionValue;
 class MutableStyleProperties;
 class Node;
-class RenderElement;
+class RenderObject;
 class RenderStyle;
 class SVGPaint;
 class ShadowData;
@@ -51,11 +51,10 @@ enum AdjustPixelValuesForComputedStyle { AdjustPixelValues, DoNotAdjustPixelValu
 
 class ComputedStyleExtractor {
 public:
-    ComputedStyleExtractor(Node*, bool allowVisitedStyle = false, PseudoId = PseudoId::None);
-    ComputedStyleExtractor(Element*, bool allowVisitedStyle = false, PseudoId = PseudoId::None);
+    ComputedStyleExtractor(Node*, bool allowVisitedStyle = false, PseudoId = NOPSEUDO);
+    ComputedStyleExtractor(Element*, bool allowVisitedStyle = false, PseudoId = NOPSEUDO);
 
     RefPtr<CSSValue> propertyValue(CSSPropertyID, EUpdateLayout = UpdateLayout);
-    RefPtr<CSSValue> valueForPropertyinStyle(const RenderStyle&, CSSPropertyID, RenderElement* = nullptr);
     String customPropertyText(const String& propertyName);
     RefPtr<CSSValue> customPropertyValue(const String& propertyName);
 
@@ -73,28 +72,22 @@ public:
     static Ref<CSSPrimitiveValue> fontNonKeywordStretchFromStyleValue(FontSelectionValue);
     static Ref<CSSPrimitiveValue> fontStretchFromStyleValue(FontSelectionValue);
     static Ref<CSSFontStyleValue> fontNonKeywordStyleFromStyleValue(FontSelectionValue);
-    static Ref<CSSFontStyleValue> fontStyleFromStyleValue(Optional<FontSelectionValue>, FontStyleAxis);
+    static Ref<CSSFontStyleValue> fontStyleFromStyleValue(FontSelectionValue, FontStyleAxis);
 
 private:
-    // The styled element is either the element passed into
-    // computedPropertyValue, or the PseudoElement for :before and :after if
-    // they exist.
-    Element* styledElement() const;
-
-    // The renderer we should use for resolving layout-dependent properties.
-    // Note that it differs from styledElement()->renderer() in the case we have
-    // no pseudo-element.
-    RenderElement* styledRenderer() const;
+    // The styled element is either the element passed into computedPropertyValue, or the
+    // PseudoElement for :before and :after if they exist.
+    Element* styledElement();
 
     RefPtr<CSSValue> svgPropertyValue(CSSPropertyID, EUpdateLayout);
-    Ref<CSSValue> adjustSVGPaintForCurrentColor(SVGPaintType, const String& url, const Color&, const Color& currentColor) const;
+    RefPtr<CSSValue> adjustSVGPaintForCurrentColor(SVGPaintType, const String& url, const Color&, const Color& currentColor) const;
     static Ref<CSSValue> valueForShadow(const ShadowData*, CSSPropertyID, const RenderStyle&, AdjustPixelValuesForComputedStyle = AdjustPixelValues);
-    Ref<CSSPrimitiveValue> currentColorOrValidColor(const RenderStyle*, const Color&) const;
+    RefPtr<CSSPrimitiveValue> currentColorOrValidColor(const RenderStyle*, const Color&) const;
 
-    Ref<CSSValueList> getCSSPropertyValuesForShorthandProperties(const StylePropertyShorthand&);
+    RefPtr<CSSValueList> getCSSPropertyValuesForShorthandProperties(const StylePropertyShorthand&);
     RefPtr<CSSValueList> getCSSPropertyValuesForSidesShorthand(const StylePropertyShorthand&);
     Ref<CSSValueList> getBackgroundShorthandValue();
-    Ref<CSSValueList> getCSSPropertyValuesForGridShorthand(const StylePropertyShorthand&);
+    RefPtr<CSSValueList> getCSSPropertyValuesForGridShorthand(const StylePropertyShorthand&);
 
     RefPtr<Element> m_element;
     PseudoId m_pseudoElementSpecifier;

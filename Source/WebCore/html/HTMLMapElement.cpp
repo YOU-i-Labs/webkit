@@ -31,11 +31,8 @@
 #include "HitTestResult.h"
 #include "IntSize.h"
 #include "NodeRareData.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLMapElement);
 
 using namespace HTMLNames;
 
@@ -55,11 +52,13 @@ Ref<HTMLMapElement> HTMLMapElement::create(const QualifiedName& tagName, Documen
     return adoptRef(*new HTMLMapElement(tagName, document));
 }
 
-HTMLMapElement::~HTMLMapElement() = default;
+HTMLMapElement::~HTMLMapElement()
+{
+}
 
 bool HTMLMapElement::mapMouseEvent(LayoutPoint location, const LayoutSize& size, HitTestResult& result)
 {
-    RefPtr<HTMLAreaElement> defaultArea;
+    HTMLAreaElement* defaultArea = 0;
 
     for (auto& area : descendantsOfType<HTMLAreaElement>(*this)) {
         if (area.isDefault()) {
@@ -70,8 +69,8 @@ bool HTMLMapElement::mapMouseEvent(LayoutPoint location, const LayoutSize& size,
     }
     
     if (defaultArea) {
-        result.setInnerNode(defaultArea.get());
-        result.setURLElement(defaultArea.get());
+        result.setInnerNode(defaultArea);
+        result.setURLElement(defaultArea);
     }
     return defaultArea;
 }
@@ -80,7 +79,7 @@ HTMLImageElement* HTMLMapElement::imageElement()
 {
     if (m_name.isEmpty())
         return nullptr;
-    return treeScope().imageElementByUsemap(*m_name.impl());
+    return document().imageElementByUsemap(*m_name.impl());
 }
 
 void HTMLMapElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -115,19 +114,19 @@ Ref<HTMLCollection> HTMLMapElement::areas()
     return ensureRareData().ensureNodeLists().addCachedCollection<GenericCachedHTMLCollection<CollectionTypeTraits<MapAreas>::traversalType>>(*this, MapAreas);
 }
 
-Node::InsertedIntoAncestorResult HTMLMapElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
+Node::InsertionNotificationRequest HTMLMapElement::insertedInto(ContainerNode& insertionPoint)
 {
-    Node::InsertedIntoAncestorResult request = HTMLElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
-    if (insertionType.treeScopeChanged)
+    Node::InsertionNotificationRequest request = HTMLElement::insertedInto(insertionPoint);
+    if (insertionPoint.isConnected())
         treeScope().addImageMap(*this);
     return request;
 }
 
-void HTMLMapElement::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
+void HTMLMapElement::removedFrom(ContainerNode& insertionPoint)
 {
-    if (removalType.treeScopeChanged)
-        oldParentOfRemovedTree.treeScope().removeImageMap(*this);
-    HTMLElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
+    if (insertionPoint.isConnected())
+        treeScope().removeImageMap(*this);
+    HTMLElement::removedFrom(insertionPoint);
 }
 
 }

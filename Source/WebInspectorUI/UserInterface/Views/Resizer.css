@@ -26,7 +26,6 @@
 .resizer {
     position: absolute;
     z-index: var(--z-index-resizer);
-    pointer-events: all;
 }
 
 .resizer.vertical-rule {

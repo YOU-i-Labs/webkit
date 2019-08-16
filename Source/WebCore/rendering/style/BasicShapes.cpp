@@ -73,7 +73,8 @@ struct SVGPathTranslatedByteStream {
 
     Path path() const
     {
-        Path path = buildPathFromByteStream(m_rawStream);
+        Path path;
+        buildPathFromByteStream(m_rawStream, path);
         path.translate(toFloatSize(m_offset));
         return path;
     }

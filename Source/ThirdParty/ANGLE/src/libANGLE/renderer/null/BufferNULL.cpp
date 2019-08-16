@@ -29,11 +29,11 @@ BufferNULL::~BufferNULL()
     ASSERT(memoryReleaseResult);
 }
 
-gl::Error BufferNULL::setData(const gl::Context *context,
-                              gl::BufferBinding target,
+gl::Error BufferNULL::setData(ContextImpl *context,
+                              GLenum target,
                               const void *data,
                               size_t size,
-                              gl::BufferUsage usage)
+                              GLenum usage)
 {
     if (!mAllocationTracker->updateMemoryAllocation(mData.size(), size))
     {
@@ -48,8 +48,8 @@ gl::Error BufferNULL::setData(const gl::Context *context,
     return gl::NoError();
 }
 
-gl::Error BufferNULL::setSubData(const gl::Context *context,
-                                 gl::BufferBinding target,
+gl::Error BufferNULL::setSubData(ContextImpl *context,
+                                 GLenum target,
                                  const void *data,
                                  size_t size,
                                  size_t offset)
@@ -61,7 +61,7 @@ gl::Error BufferNULL::setSubData(const gl::Context *context,
     return gl::NoError();
 }
 
-gl::Error BufferNULL::copySubData(const gl::Context *context,
+gl::Error BufferNULL::copySubData(ContextImpl *context,
                                   BufferImpl *source,
                                   GLintptr sourceOffset,
                                   GLintptr destOffset,
@@ -75,30 +75,29 @@ gl::Error BufferNULL::copySubData(const gl::Context *context,
     return gl::NoError();
 }
 
-gl::Error BufferNULL::map(const gl::Context *context, GLenum access, void **mapPtr)
+gl::Error BufferNULL::map(ContextImpl *context, GLenum access, GLvoid **mapPtr)
 {
     *mapPtr = mData.data();
     return gl::NoError();
 }
 
-gl::Error BufferNULL::mapRange(const gl::Context *context,
+gl::Error BufferNULL::mapRange(ContextImpl *context,
                                size_t offset,
                                size_t length,
                                GLbitfield access,
-                               void **mapPtr)
+                               GLvoid **mapPtr)
 {
     *mapPtr = mData.data() + offset;
     return gl::NoError();
 }
 
-gl::Error BufferNULL::unmap(const gl::Context *context, GLboolean *result)
+gl::Error BufferNULL::unmap(ContextImpl *context, GLboolean *result)
 {
     *result = GL_TRUE;
     return gl::NoError();
 }
 
-gl::Error BufferNULL::getIndexRange(const gl::Context *context,
-                                    GLenum type,
+gl::Error BufferNULL::getIndexRange(GLenum type,
                                     size_t offset,
                                     size_t count,
                                     bool primitiveRestartEnabled,
@@ -106,16 +105,6 @@ gl::Error BufferNULL::getIndexRange(const gl::Context *context,
 {
     *outRange = gl::ComputeIndexRange(type, mData.data() + offset, count, primitiveRestartEnabled);
     return gl::NoError();
-}
-
-uint8_t *BufferNULL::getDataPtr()
-{
-    return mData.data();
-}
-
-const uint8_t *BufferNULL::getDataPtr() const
-{
-    return mData.data();
 }
 
 }  // namespace rx

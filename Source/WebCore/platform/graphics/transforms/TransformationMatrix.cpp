@@ -28,14 +28,14 @@
 #include "TransformationMatrix.h"
 
 #include "AffineTransform.h"
-#include "FloatQuad.h"
 #include "FloatRect.h"
+#include "FloatQuad.h"
 #include "IntRect.h"
 #include "LayoutRect.h"
+#include "TextStream.h"
 #include <cmath>
 #include <wtf/Assertions.h>
 #include <wtf/MathExtras.h>
-#include <wtf/text/TextStream.h>
 
 #if CPU(X86_64)
 #include <emmintrin.h>
@@ -69,8 +69,6 @@ typedef double Vector4[4];
 typedef double Vector3[3];
 
 const double SMALL_NUMBER = 1.e-8;
-
-const TransformationMatrix TransformationMatrix::identity { };
 
 // inverse(original_matrix, inverse_matrix)
 //
@@ -1050,7 +1048,7 @@ TransformationMatrix TransformationMatrix::rectToRect(const FloatRect& from, con
 // this = mat * this.
 TransformationMatrix& TransformationMatrix::multiply(const TransformationMatrix& mat)
 {
-#if CPU(ARM64) && defined(_LP64)
+#if CPU(ARM64)
     double* leftMatrix = &(m_matrix[0][0]);
     const double* rightMatrix = &(mat.m_matrix[0][0]);
     asm volatile (
@@ -1216,7 +1214,7 @@ TransformationMatrix& TransformationMatrix::multiply(const TransformationMatrix&
         : [leftMatrix]"+r"(leftMatrix), [rightMatrix]"+r"(rightMatrix)
         :
         : "memory", "r3", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31");
-#elif CPU(ARM_VFP) && PLATFORM(IOS_FAMILY)
+#elif CPU(ARM_VFP) && PLATFORM(IOS)
 
 #define MATRIX_MULTIPLY_ONE_LINE \
     "vldmia.64  %[rightMatrix]!, { d0-d3}\n\t" \
@@ -1418,7 +1416,7 @@ TransformationMatrix& TransformationMatrix::multiply(const TransformationMatrix&
     tmp[3][3] = (mat.m_matrix[3][0] * m_matrix[0][3] + mat.m_matrix[3][1] * m_matrix[1][3]
                + mat.m_matrix[3][2] * m_matrix[2][3] + mat.m_matrix[3][3] * m_matrix[3][3]);
 
-    memcpy(&m_matrix[0][0], &tmp[0][0], sizeof(Matrix4));
+    setMatrix(tmp);
 #endif
     return *this;
 }
@@ -1460,7 +1458,7 @@ bool TransformationMatrix::isInvertible() const
     return true;
 }
 
-Optional<TransformationMatrix> TransformationMatrix::inverse() const
+std::optional<TransformationMatrix> TransformationMatrix::inverse() const
 {
     if (isIdentityOrTranslation()) {
         // identity matrix
@@ -1478,7 +1476,7 @@ Optional<TransformationMatrix> TransformationMatrix::inverse() const
     // FIXME: Use LU decomposition to apply the inverse instead of calculating the inverse explicitly.
     // Calculating the inverse of a 4x4 matrix using cofactors is numerically unstable and unnecessary to apply the inverse transformation to a point.
     if (!WebCore::inverse(m_matrix, invMat.m_matrix))
-        return WTF::nullopt;
+        return std::nullopt;
 
     return invMat;
 }
@@ -1724,13 +1722,24 @@ TransformationMatrix TransformationMatrix::to2dTransform() const
                                 m_matrix[3][0], m_matrix[3][1], 0, m_matrix[3][3]);
 }
 
-auto TransformationMatrix::toColumnMajorFloatArray() const -> FloatMatrix4
+void TransformationMatrix::toColumnMajorFloatArray(FloatMatrix4& result) const
 {
-    return { {
-        float(m11()), float(m12()), float(m13()), float(m14()),
-        float(m21()), float(m22()), float(m23()), float(m24()),
-        float(m31()), float(m32()), float(m33()), float(m34()),
-        float(m41()), float(m42()), float(m43()), float(m44()) } };
+    result[0] = m11();
+    result[1] = m12();
+    result[2] = m13();
+    result[3] = m14();
+    result[4] = m21();
+    result[5] = m22();
+    result[6] = m23();
+    result[7] = m24();
+    result[8] = m31();
+    result[9] = m32();
+    result[10] = m33();
+    result[11] = m34();
+    result[12] = m41();
+    result[13] = m42();
+    result[14] = m43();
+    result[15] = m44();
 }
 
 bool TransformationMatrix::isBackFaceVisible() const
@@ -1763,12 +1772,17 @@ bool TransformationMatrix::isBackFaceVisible() const
 
 TextStream& operator<<(TextStream& ts, const TransformationMatrix& transform)
 {
-    TextStream::IndentScope indentScope(ts);
     ts << "\n";
-    ts << indent << "[" << transform.m11() << " " << transform.m12() << " " << transform.m13() << " " << transform.m14() << "]\n";
-    ts << indent << "[" << transform.m21() << " " << transform.m22() << " " << transform.m23() << " " << transform.m24() << "]\n";
-    ts << indent << "[" << transform.m31() << " " << transform.m32() << " " << transform.m33() << " " << transform.m34() << "]\n";
-    ts << indent << "[" << transform.m41() << " " << transform.m42() << " " << transform.m43() << " " << transform.m44() << "]";
+    ts.increaseIndent();
+    ts.writeIndent();
+    ts << "[" << transform.m11() << " " << transform.m12() << " " << transform.m13() << " " << transform.m14() << "]\n";
+    ts.writeIndent();
+    ts << "[" << transform.m21() << " " << transform.m22() << " " << transform.m23() << " " << transform.m24() << "]\n";
+    ts.writeIndent();
+    ts << "[" << transform.m31() << " " << transform.m32() << " " << transform.m33() << " " << transform.m34() << "]\n";
+    ts.writeIndent();
+    ts << "[" << transform.m41() << " " << transform.m42() << " " << transform.m43() << " " << transform.m44() << "]";
+    ts.decreaseIndent();
     return ts;
 }
 

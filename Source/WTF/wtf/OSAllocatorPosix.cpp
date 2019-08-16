@@ -24,14 +24,14 @@
  */
 
 #include "config.h"
-#include <wtf/OSAllocator.h>
+#include "OSAllocator.h"
 
 #if OS(UNIX)
 
+#include "PageAllocation.h"
 #include <errno.h>
 #include <sys/mman.h>
 #include <wtf/Assertions.h>
-#include <wtf/PageAllocation.h>
 
 namespace WTF {
 
@@ -71,7 +71,7 @@ void* OSAllocator::reserveAndCommit(size_t bytes, Usage usage, bool writable, bo
         protection |= PROT_EXEC;
 
     int flags = MAP_PRIVATE | MAP_ANON;
-#if OS(DARWIN)
+#if PLATFORM(IOS)
     if (executable)
         flags |= MAP_JIT;
 #endif

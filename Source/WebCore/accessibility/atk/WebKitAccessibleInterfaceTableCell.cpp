@@ -119,22 +119,12 @@ gboolean webkitAccessibleTableCellGetPosition(AtkTableCell* cell, gint* row, gin
 
     std::pair<unsigned, unsigned> columnRowRange;
     if (row) {
-        // aria-rowindex is 1-based.
-        int rowIndex = downcast<AccessibilityTableCell>(*axObject).axRowIndex() - 1;
-        if (rowIndex <= -1) {
-            downcast<AccessibilityTableCell>(*axObject).rowIndexRange(columnRowRange);
-            rowIndex = columnRowRange.first;
-        }
-        *row = rowIndex;
+        downcast<AccessibilityTableCell>(*axObject).rowIndexRange(columnRowRange);
+        *row = columnRowRange.first;
     }
     if (column) {
-        // aria-colindex is 1-based.
-        int columnIndex = downcast<AccessibilityTableCell>(*axObject).axColumnIndex() - 1;
-        if (columnIndex <= -1) {
-            downcast<AccessibilityTableCell>(*axObject).columnIndexRange(columnRowRange);
-            columnIndex = columnRowRange.first;
-        }
-        *column = columnIndex;
+        downcast<AccessibilityTableCell>(*axObject).columnIndexRange(columnRowRange);
+        *column = columnRowRange.first;
     }
 
     return true;

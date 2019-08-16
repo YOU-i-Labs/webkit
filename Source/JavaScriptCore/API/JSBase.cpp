@@ -54,17 +54,16 @@ JSValueRef JSEvaluateScript(JSContextRef ctx, JSStringRef script, JSObjectRef th
         return 0;
     }
     ExecState* exec = toJS(ctx);
-    VM& vm = exec->vm();
-    JSLockHolder locker(vm);
+    JSLockHolder locker(exec);
 
     JSObject* jsThisObject = toJS(thisObject);
 
     startingLineNumber = std::max(1, startingLineNumber);
 
     // evaluate sets "this" to the global object if it is NULL
-    JSGlobalObject* globalObject = vm.vmEntryGlobalObject(exec);
+    JSGlobalObject* globalObject = exec->vmEntryGlobalObject();
     auto sourceURLString = sourceURL ? sourceURL->string() : String();
-    SourceCode source = makeSource(script->string(), SourceOrigin { sourceURLString }, URL({ }, sourceURLString), TextPosition(OrdinalNumber::fromOneBasedInt(startingLineNumber), OrdinalNumber()));
+    SourceCode source = makeSource(script->string(), SourceOrigin { sourceURLString }, sourceURLString, TextPosition(OrdinalNumber::fromOneBasedInt(startingLineNumber), OrdinalNumber()));
 
     NakedPtr<Exception> evaluationException;
     JSValue returnValue = profiledEvaluate(globalObject->globalExec(), ProfilingReason::API, source, jsThisObject, evaluationException);
@@ -97,23 +96,22 @@ bool JSCheckScriptSyntax(JSContextRef ctx, JSStringRef script, JSStringRef sourc
         return false;
     }
     ExecState* exec = toJS(ctx);
-    VM& vm = exec->vm();
-    JSLockHolder locker(vm);
+    JSLockHolder locker(exec);
 
     startingLineNumber = std::max(1, startingLineNumber);
 
     auto sourceURLString = sourceURL ? sourceURL->string() : String();
-    SourceCode source = makeSource(script->string(), SourceOrigin { sourceURLString }, URL({ }, sourceURLString), TextPosition(OrdinalNumber::fromOneBasedInt(startingLineNumber), OrdinalNumber()));
+    SourceCode source = makeSource(script->string(), SourceOrigin { sourceURLString }, sourceURLString, TextPosition(OrdinalNumber::fromOneBasedInt(startingLineNumber), OrdinalNumber()));
     
     JSValue syntaxException;
-    bool isValidSyntax = checkSyntax(vm.vmEntryGlobalObject(exec)->globalExec(), source, &syntaxException);
+    bool isValidSyntax = checkSyntax(exec->vmEntryGlobalObject()->globalExec(), source, &syntaxException);
 
     if (!isValidSyntax) {
         if (exception)
             *exception = toRef(exec, syntaxException);
 #if ENABLE(REMOTE_INSPECTOR)
-        Exception* exception = Exception::create(vm, syntaxException);
-        vm.vmEntryGlobalObject(exec)->inspectorController().reportAPIException(exec, exception);
+        Exception* exception = Exception::create(exec->vm(), syntaxException);
+        exec->vmEntryGlobalObject()->inspectorController().reportAPIException(exec, exception);
 #endif
         return false;
     }
@@ -132,10 +130,9 @@ void JSGarbageCollect(JSContextRef ctx)
         return;
 
     ExecState* exec = toJS(ctx);
-    VM& vm = exec->vm();
-    JSLockHolder locker(vm);
+    JSLockHolder locker(exec);
 
-    vm.heap.reportAbandonedObjectGraph();
+    exec->vm().heap.reportAbandonedObjectGraph();
 }
 
 void JSReportExtraMemoryCost(JSContextRef ctx, size_t size)
@@ -145,10 +142,9 @@ void JSReportExtraMemoryCost(JSContextRef ctx, size_t size)
         return;
     }
     ExecState* exec = toJS(ctx);
-    VM& vm = exec->vm();
-    JSLockHolder locker(vm);
+    JSLockHolder locker(exec);
 
-    vm.heap.deprecatedReportExtraMemory(size);
+    exec->vm().heap.deprecatedReportExtraMemory(size);
 }
 
 extern "C" JS_EXPORT void JSSynchronousGarbageCollectForDebugging(JSContextRef);
@@ -160,9 +156,8 @@ void JSSynchronousGarbageCollectForDebugging(JSContextRef ctx)
         return;
 
     ExecState* exec = toJS(ctx);
-    VM& vm = exec->vm();
-    JSLockHolder locker(vm);
-    vm.heap.collectNow(Sync, CollectionScope::Full);
+    JSLockHolder locker(exec);
+    exec->vm().heap.collectNow(Sync, CollectionScope::Full);
 }
 
 void JSSynchronousEdenCollectForDebugging(JSContextRef ctx)
@@ -171,9 +166,8 @@ void JSSynchronousEdenCollectForDebugging(JSContextRef ctx)
         return;
 
     ExecState* exec = toJS(ctx);
-    VM& vm = exec->vm();
-    JSLockHolder locker(vm);
-    vm.heap.collectSync(CollectionScope::Eden);
+    JSLockHolder locker(exec);
+    exec->vm().heap.collectSync(CollectionScope::Eden);
 }
 
 void JSDisableGCTimer(void)
@@ -181,7 +175,7 @@ void JSDisableGCTimer(void)
     GCActivityCallback::s_shouldCreateGCTimer = false;
 }
 
-#if PLATFORM(IOS_FAMILY) && TARGET_OS_IOS
+#if PLATFORM(IOS)
 // FIXME: Expose symbols to tell dyld where to find JavaScriptCore on older versions of
 // iOS (< 7.0). We should remove these symbols once we no longer need to support such
 // versions of iOS. See <rdar://problem/13696872> for more details.

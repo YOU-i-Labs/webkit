@@ -36,7 +36,6 @@
 namespace WebCore {
 
 class HTMLOutputElement final : public HTMLFormControlElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLOutputElement);
 public:
     static Ref<HTMLOutputElement> create(const QualifiedName&, Document&, HTMLFormElement*);
 

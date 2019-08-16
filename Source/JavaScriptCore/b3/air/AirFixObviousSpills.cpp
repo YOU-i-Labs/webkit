@@ -39,9 +39,7 @@ namespace JSC { namespace B3 { namespace Air {
 
 namespace {
 
-namespace AirFixObviousSpillsInternal {
-static const bool verbose = false;
-}
+bool verbose = false;
 
 class FixObviousSpills {
 public:
@@ -53,7 +51,7 @@ public:
 
     void run()
     {
-        if (AirFixObviousSpillsInternal::verbose)
+        if (verbose)
             dataLog("Code before fixObviousSpills:\n", m_code);
         
         computeAliases();
@@ -75,7 +73,7 @@ private:
                 if (!m_state.wasVisited)
                     continue;
 
-                if (AirFixObviousSpillsInternal::verbose)
+                if (verbose)
                     dataLog("Executing block ", *m_block, ": ", m_state, "\n");
                 
                 for (m_instIndex = 0; m_instIndex < block->size(); ++m_instIndex)
@@ -121,11 +119,11 @@ private:
                 else if (isSpillSlot(inst.args[1]))
                     func(SlotConst(inst.args[1].stackSlot(), inst.args[0].value()));
             } else if (isSpillSlot(inst.args[0]) && inst.args[1].isReg()) {
-                if (Optional<int64_t> constant = m_state.constantFor(inst.args[0]))
+                if (std::optional<int64_t> constant = m_state.constantFor(inst.args[0]))
                     func(RegConst(inst.args[1].reg(), *constant));
                 func(RegSlot(inst.args[1].reg(), inst.args[0].stackSlot(), RegSlot::AllBits));
             } else if (inst.args[0].isReg() && isSpillSlot(inst.args[1])) {
-                if (Optional<int64_t> constant = m_state.constantFor(inst.args[0]))
+                if (std::optional<int64_t> constant = m_state.constantFor(inst.args[0]))
                     func(SlotConst(inst.args[1].stackSlot(), *constant));
                 func(RegSlot(inst.args[0].reg(), inst.args[1].stackSlot(), RegSlot::AllBits));
             }
@@ -138,11 +136,11 @@ private:
                 else if (isSpillSlot(inst.args[1]))
                     func(SlotConst(inst.args[1].stackSlot(), static_cast<uint32_t>(inst.args[0].value())));
             } else if (isSpillSlot(inst.args[0]) && inst.args[1].isReg()) {
-                if (Optional<int64_t> constant = m_state.constantFor(inst.args[0]))
+                if (std::optional<int64_t> constant = m_state.constantFor(inst.args[0]))
                     func(RegConst(inst.args[1].reg(), static_cast<uint32_t>(*constant)));
                 func(RegSlot(inst.args[1].reg(), inst.args[0].stackSlot(), RegSlot::ZExt32));
             } else if (inst.args[0].isReg() && isSpillSlot(inst.args[1])) {
-                if (Optional<int64_t> constant = m_state.constantFor(inst.args[0]))
+                if (std::optional<int64_t> constant = m_state.constantFor(inst.args[0]))
                     func(SlotConst(inst.args[1].stackSlot(), static_cast<int32_t>(*constant)));
                 func(RegSlot(inst.args[0].reg(), inst.args[1].stackSlot(), RegSlot::Match32));
             }
@@ -171,13 +169,13 @@ private:
     {
         Inst& inst = m_block->at(m_instIndex);
 
-        if (AirFixObviousSpillsInternal::verbose)
+        if (verbose)
             dataLog("    Executing ", inst, ": ", m_state, "\n");
 
         Inst::forEachDefWithExtraClobberedRegs<Arg>(
             &inst, &inst,
             [&] (const Arg& arg, Arg::Role, Bank, Width) {
-                if (AirFixObviousSpillsInternal::verbose)
+                if (verbose)
                     dataLog("        Clobbering ", arg, "\n");
                 m_state.clobber(arg);
             });
@@ -192,7 +190,7 @@ private:
     {
         Inst& inst = m_block->at(m_instIndex);
 
-        if (AirFixObviousSpillsInternal::verbose)
+        if (verbose)
             dataLog("Fixing inst ", inst, ": ", m_state, "\n");
         
         // Check if alias analysis says that this is unnecessary.
@@ -269,13 +267,13 @@ private:
                 case Width64:
                     if (alias->mode != RegSlot::AllBits)
                         return;
-                    if (AirFixObviousSpillsInternal::verbose)
+                    if (verbose)
                         dataLog("    Replacing ", arg, " with ", alias->reg, "\n");
                     arg = Tmp(alias->reg);
                     didThings = true;
                     return;
                 case Width32:
-                    if (AirFixObviousSpillsInternal::verbose)
+                    if (verbose)
                         dataLog("    Replacing ", arg, " with ", alias->reg, " (subwidth case)\n");
                     arg = Tmp(alias->reg);
                     didThings = true;
@@ -287,7 +285,7 @@ private:
 
             // Revert to immediate if that didn't work.
             if (const SlotConst* alias = m_state.getSlotConst(arg.stackSlot())) {
-                if (AirFixObviousSpillsInternal::verbose)
+                if (verbose)
                     dataLog("    Replacing ", arg, " with constant ", alias->constant, "\n");
                 if (Arg::isValidImmForm(alias->constant))
                     arg = Arg::imm(alias->constant);
@@ -504,19 +502,19 @@ private:
             return nullptr;
         }
 
-        Optional<int64_t> constantFor(const Arg& arg)
+        std::optional<int64_t> constantFor(const Arg& arg)
         {
             if (arg.isReg()) {
                 if (const RegConst* alias = getRegConst(arg.reg()))
                     return alias->constant;
-                return WTF::nullopt;
+                return std::nullopt;
             }
             if (arg.isStack()) {
                 if (const SlotConst* alias = getSlotConst(arg.stackSlot()))
                     return alias->constant;
-                return WTF::nullopt;
+                return std::nullopt;
             }
-            return WTF::nullopt;
+            return std::nullopt;
         }
 
         void clobber(const Arg& arg)

@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include <wtf/FunctionDispatcher.h>
+#include "FunctionDispatcher.h"
 
 namespace WTF {
 

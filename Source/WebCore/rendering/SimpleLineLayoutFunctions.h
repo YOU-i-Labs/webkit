@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "LayoutRect.h"
 #include "RenderBlockFlow.h"
 #include "RenderText.h"
 #include <wtf/text/WTFString.h>
@@ -64,15 +65,10 @@ Vector<FloatQuad> collectAbsoluteQuadsForRange(const RenderObject&, unsigned sta
 LayoutUnit lineHeightFromFlow(const RenderBlockFlow&);
 LayoutUnit baselineFromFlow(const RenderBlockFlow&);
 
-bool canUseForLineBoxTree(RenderBlockFlow&, const Layout&);
-void generateLineBoxTree(RenderBlockFlow&, const Layout&);
-
 const RenderObject& rendererForPosition(const FlowContents&, unsigned);
 
-void simpleLineLayoutWillBeDeleted(const Layout&);
-
 #if ENABLE(TREE_DEBUGGING)
-void outputLineLayoutForFlow(WTF::TextStream&, const RenderBlockFlow&, const Layout&, int depth);
+void showLineLayoutForFlow(const RenderBlockFlow&, const Layout&, int depth);
 #endif
 
 }
@@ -111,7 +107,7 @@ inline unsigned findCaretMinimumOffset(const RenderText&, const Layout& layout)
 inline unsigned findCaretMaximumOffset(const RenderText& renderer, const Layout& layout)
 {
     if (!layout.runCount())
-        return renderer.text().length();
+        return renderer.textLength();
     auto& last = layout.runAt(layout.runCount() - 1);
     return last.end;
 }

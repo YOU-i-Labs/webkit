@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "JSCPtrTag.h"
 #include "JSExportMacros.h"
 #include <functional>
 #include <wtf/PrintStream.h>
@@ -33,13 +32,13 @@
 
 namespace JSC {
 
-template<PtrTag> class MacroAssemblerCodePtr;
-template<PtrTag> class MacroAssemblerCodeRef;
+class MacroAssemblerCodePtr;
+class MacroAssemblerCodeRef;
 
 #if ENABLE(DISASSEMBLER)
-bool tryToDisassemble(const MacroAssemblerCodePtr<DisassemblyPtrTag>&, size_t, const char* prefix, PrintStream&);
+bool tryToDisassemble(const MacroAssemblerCodePtr&, size_t, const char* prefix, PrintStream&);
 #else
-inline bool tryToDisassemble(const MacroAssemblerCodePtr<DisassemblyPtrTag>&, size_t, const char*, PrintStream&)
+inline bool tryToDisassemble(const MacroAssemblerCodePtr&, size_t, const char*, PrintStream&)
 {
     return false;
 }
@@ -47,12 +46,12 @@ inline bool tryToDisassemble(const MacroAssemblerCodePtr<DisassemblyPtrTag>&, si
 
 // Prints either the disassembly, or a line of text indicating that disassembly failed and
 // the range of machine code addresses.
-void disassemble(const MacroAssemblerCodePtr<DisassemblyPtrTag>&, size_t, const char* prefix, PrintStream& out);
+void disassemble(const MacroAssemblerCodePtr&, size_t, const char* prefix, PrintStream& out);
 
 // Asynchronous disassembly. This happens on another thread, and calls the provided
 // callback when the disassembly is done.
 void disassembleAsynchronously(
-    const CString& header, const MacroAssemblerCodeRef<DisassemblyPtrTag>&, size_t, const char* prefix);
+    const CString& header, const MacroAssemblerCodeRef&, size_t, const char* prefix);
 
 JS_EXPORT_PRIVATE void waitForAsynchronousDisassembly();
 

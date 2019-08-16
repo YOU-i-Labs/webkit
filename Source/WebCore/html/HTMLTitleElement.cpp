@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -32,13 +32,10 @@
 #include "StyleResolver.h"
 #include "Text.h"
 #include "TextNodeTraversal.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Ref.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLTitleElement);
 
 using namespace HTMLNames;
 
@@ -53,17 +50,19 @@ Ref<HTMLTitleElement> HTMLTitleElement::create(const QualifiedName& tagName, Doc
     return adoptRef(*new HTMLTitleElement(tagName, document));
 }
 
-Node::InsertedIntoAncestorResult HTMLTitleElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
+Node::InsertionNotificationRequest HTMLTitleElement::insertedInto(ContainerNode& insertionPoint)
 {
-    HTMLElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
-    document().titleElementAdded(*this);
-    return InsertedIntoAncestorResult::Done;
+    HTMLElement::insertedInto(insertionPoint);
+    if (isConnected() && !isInShadowTree())
+        document().titleElementAdded(*this);
+    return InsertionDone;
 }
 
-void HTMLTitleElement::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
+void HTMLTitleElement::removedFrom(ContainerNode& insertionPoint)
 {
-    HTMLElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
-    document().titleElementRemoved(*this);
+    HTMLElement::removedFrom(insertionPoint);
+    if (insertionPoint.isConnected() && !insertionPoint.isInShadowTree())
+        document().titleElementRemoved(*this);
 }
 
 void HTMLTitleElement::childrenChanged(const ChildChange& change)
@@ -75,12 +74,15 @@ void HTMLTitleElement::childrenChanged(const ChildChange& change)
 
 String HTMLTitleElement::text() const
 {
-    return TextNodeTraversal::childTextContent(*this);
+    StringBuilder result;
+    for (Text* text = TextNodeTraversal::firstChild(*this); text; text = TextNodeTraversal::nextSibling(*text))
+        result.append(text->data());
+    return result.toString();
 }
 
 StringWithDirection HTMLTitleElement::computedTextWithDirection()
 {
-    auto direction = TextDirection::LTR;
+    TextDirection direction = LTR;
     if (auto* computedStyle = this->computedStyle())
         direction = computedStyle->direction();
     else

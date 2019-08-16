@@ -30,7 +30,7 @@
 namespace WebCore {
 
 TransitionEvent::TransitionEvent(const AtomicString& type, const String& propertyName, double elapsedTime, const String& pseudoElement)
-    : Event(type, CanBubble::Yes, IsCancelable::Yes)
+    : Event(type, true, true)
     , m_propertyName(propertyName)
     , m_elapsedTime(elapsedTime)
     , m_pseudoElement(pseudoElement)
@@ -45,7 +45,9 @@ TransitionEvent::TransitionEvent(const AtomicString& type, const Init& initializ
 {
 }
 
-TransitionEvent::~TransitionEvent() = default;
+TransitionEvent::~TransitionEvent()
+{
+}
 
 const String& TransitionEvent::propertyName() const
 {

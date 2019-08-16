@@ -30,7 +30,6 @@
 #include "IntRect.h"
 #include "Timer.h"
 #include <wtf/RefCounted.h>
-#include <wtf/WallTime.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -48,7 +47,7 @@ class PageOverlay final : public RefCounted<PageOverlay> {
 public:
     class Client {
     protected:
-        virtual ~Client() = default;
+        virtual ~Client() { }
     
     public:
         virtual void willMoveToPage(PageOverlay&, Page*) = 0;
@@ -127,8 +126,8 @@ private:
     Page* m_page { nullptr };
 
     Timer m_fadeAnimationTimer;
-    WallTime m_fadeAnimationStartTime;
-    Seconds m_fadeAnimationDuration;
+    double m_fadeAnimationStartTime { 0 };
+    double m_fadeAnimationDuration;
 
     enum FadeAnimationType {
         NoAnimation,

@@ -20,6 +20,7 @@
 #pragma once
 
 #include "ImageBuffer.h"
+#include "IntSize.h"
 #include "RenderSVGResourceContainer.h"
 #include "SVGMaskElement.h"
 #include "SVGUnitTypes.h"
@@ -35,7 +36,6 @@ struct MaskerData {
 };
 
 class RenderSVGResourceMasker final : public RenderSVGResourceContainer {
-    WTF_MAKE_ISO_ALLOCATED(RenderSVGResourceMasker);
 public:
     RenderSVGResourceMasker(SVGMaskElement&, RenderStyle&&);
     virtual ~RenderSVGResourceMasker();

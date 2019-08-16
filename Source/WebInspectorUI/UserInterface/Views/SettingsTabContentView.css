@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Devin Rousso <webkit@devinrousso.com>. All rights reserved.
+ * Copyright (C) 2016 Devin Rousso <dcrousso+webkit@gmail.com>. All rights reserved.
  * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,13 +29,6 @@
     overflow-y: auto;
 }
 
-.content-view.settings .navigation-bar {
-    position: -webkit-sticky;
-    top: 0;
-    z-index: 1;
-    background-color: white;
-}
-
 .content-view.settings .navigation-bar.invisible {
     visibility: hidden;
 }
@@ -55,29 +48,24 @@
 
 .content-view.settings > .settings-view > .container {
     display: flex;
-    align-items: center;
     margin-top: 1em;
     font-size: 13px;
 }
 
-.content-view.settings > .settings-view > .container.hidden {
-    display: none;
-}
-
-.content-view.settings > .settings-view > .container-centered {
-    display: block;
-    text-align: center;
-}
-
-.content-view.settings > .settings-view > .container button {
-    -webkit-margin-end: 4px;
-    font-size: inherit;
-}
-
 .content-view.settings > .settings-view > .container > .title {
+    margin-top: 2px;
     width: 50%;
-    -webkit-margin-end: 6px;
     text-align: end;
+
+    --setting-name-margin-end: 6px;
+}
+
+body[dir=ltr] .content-view.settings > .settings-view > .container > .title {
+    margin-right: var(--setting-name-margin-end);
+}
+
+body[dir=rtl] .content-view.settings > .settings-view > .container > .title {
+    margin-left: var(--setting-name-margin-end);
 }
 
 .content-view.settings > .settings-view > .container > .editor-group {
@@ -90,9 +78,18 @@
 }
 
 .content-view.settings > .settings-view > .container > .editor-group > .editor input[type="checkbox"] {
-    -webkit-margin-end: 4px;
     /* Vertically align <select> with the group title text. */
     font-size: 16px;
+
+    --settings-input-checkbox-margin-end: 4px;
+}
+
+body[dir=ltr] .content-view.settings > .settings-view > .container > .editor-group > .editor input[type="checkbox"] {
+    margin-right: var(--settings-input-checkbox-margin-end);
+}
+
+body[dir=rtl] .content-view.settings > .settings-view > .container > .editor-group > .editor input[type="checkbox"] {
+    margin-left: var(--settings-input-checkbox-margin-end);
 }
 
 .content-view.settings > .settings-view > .container > .editor-group > .editor select {
@@ -125,14 +122,4 @@ body[dir=ltr] .content-view.settings > .settings-view > .container > .editor-gro
 body[dir=rtl] .content-view.settings > .settings-view > .container > .editor-group > .editor input[type="number"] {
     margin-left: var(--settings-input-number-margin-end);
     margin-right: var(--settings-input-number-margin-start);
-}
-
-@media (prefers-color-scheme: dark) {
-    .content-view.settings .navigation-bar {
-        background-color: var(--background-color-content);
-    }
-
-    .content-view.settings .navigation-bar .item.radio.button.text-only.selected {
-        color: var(--glyph-color-active);
-    }
 }

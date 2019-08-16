@@ -31,6 +31,7 @@
 #include "JSElement.h"
 
 #include "Document.h"
+#include "ExceptionCode.h"
 #include "HTMLFrameElementBase.h"
 #include "HTMLNames.h"
 #include "JSAttr.h"
@@ -41,17 +42,17 @@
 #include "NodeList.h"
 #include "SVGElement.h"
 
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 
 using namespace HTMLNames;
 
 static JSValue createNewElementWrapper(JSDOMGlobalObject* globalObject, Ref<Element>&& element)
 {
-    if (is<HTMLElement>(element))
+    if (is<HTMLElement>(element.get()))
         return createJSHTMLWrapper(globalObject, static_reference_cast<HTMLElement>(WTFMove(element)));
-    if (is<SVGElement>(element))
+    if (is<SVGElement>(element.get()))
         return createJSSVGWrapper(globalObject, static_reference_cast<SVGElement>(WTFMove(element)));
     return createWrapper<Element>(globalObject, WTFMove(element));
 }

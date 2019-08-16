@@ -30,11 +30,8 @@
 #if ENABLE(MATHML)
 
 #include "RenderMathMLFraction.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(MathMLFractionElement);
 
 using namespace MathMLNames;
 
@@ -72,7 +69,7 @@ const MathMLElement::Length& MathMLFractionElement::lineThickness()
     return m_lineThickness.value();
 }
 
-MathMLFractionElement::FractionAlignment MathMLFractionElement::cachedFractionAlignment(const QualifiedName& name, Optional<FractionAlignment>& alignment)
+MathMLFractionElement::FractionAlignment MathMLFractionElement::cachedFractionAlignment(const QualifiedName& name, std::optional<FractionAlignment>& alignment)
 {
     if (alignment)
         return alignment.value();
@@ -100,11 +97,11 @@ MathMLFractionElement::FractionAlignment MathMLFractionElement::denominatorAlign
 void MathMLFractionElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == linethicknessAttr)
-        m_lineThickness = WTF::nullopt;
+        m_lineThickness = std::nullopt;
     else if (name == numalignAttr)
-        m_numeratorAlignment = WTF::nullopt;
+        m_numeratorAlignment = std::nullopt;
     else if (name == denomalignAttr)
-        m_denominatorAlignment = WTF::nullopt;
+        m_denominatorAlignment = std::nullopt;
 
     MathMLElement::parseAttribute(name, value);
 }

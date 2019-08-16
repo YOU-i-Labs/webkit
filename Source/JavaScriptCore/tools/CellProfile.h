@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "JSCast.h"
+#include "JSCell.h"
 #include "Structure.h"
 #include <wtf/MonotonicTime.h>
 #include <wtf/StackTrace.h>
@@ -45,7 +45,7 @@ struct CellProfile {
         , m_liveness(liveness)
         , m_timestamp(MonotonicTime::now())
     {
-        if (isJSCellKind(m_kind) && m_liveness != Dead)
+        if (m_kind == HeapCell::JSCell && m_liveness != Dead)
             m_className = jsCell()->structure()->classInfo()->className;
     }
 
@@ -65,7 +65,7 @@ struct CellProfile {
         return static_cast<JSCell*>(m_cell);
     }
 
-    bool isJSCell() const { return isJSCellKind(m_kind); }
+    bool isJSCell() const { return m_kind == HeapCell::JSCell; }
     
     HeapCell::Kind kind() const { return m_kind; }
 

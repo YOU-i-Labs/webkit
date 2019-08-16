@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,21 +23,30 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
-#include "Logger.h"
+#ifndef RefLogger_h
 
 namespace TestWebKitAPI {
 
+std::ostringstream& log();
+
+inline std::string takeLogStr()
+{
+    std::string string = log().str();
+    log().str("");
+    return string;
+}
+
 struct RefLogger {
-    RefLogger(const char* name);
-    void ref();
-    void deref();
+    RefLogger(const char* name) : name(*name) { }
+    void ref() { log() << "ref(" << &name << ") "; }
+    void deref() { log() << "deref(" << &name << ") "; }
     const char& name;
 };
 
 struct DerivedRefLogger : RefLogger {
-    DerivedRefLogger(const char* name);
+    DerivedRefLogger(const char* name) : RefLogger(name) { log().str(""); }
 };
 
 }
+
+#endif

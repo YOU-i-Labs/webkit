@@ -36,7 +36,6 @@ class DOMRect;
 class DOMRectList : public RefCounted<DOMRectList> {
 public:
     static Ref<DOMRectList> create(const Vector<FloatQuad>& quads) { return adoptRef(*new DOMRectList(quads)); }
-    static Ref<DOMRectList> create(const Vector<FloatRect>& rects) { return adoptRef(*new DOMRectList(rects)); }
     static Ref<DOMRectList> create() { return adoptRef(*new DOMRectList()); }
     WEBCORE_EXPORT ~DOMRectList();
 
@@ -45,7 +44,6 @@ public:
 
 private:
     WEBCORE_EXPORT explicit DOMRectList(const Vector<FloatQuad>& quads);
-    WEBCORE_EXPORT explicit DOMRectList(const Vector<FloatRect>& rects);
     DOMRectList() = default;
 
     Vector<Ref<DOMRect>> m_items;

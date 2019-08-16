@@ -24,13 +24,14 @@
 
 #include "CSSHelper.h"
 #include "CSSPrimitiveValue.h"
+#include "ExceptionCode.h"
 #include "FloatConversion.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
+#include "TextStream.h"
 #include <wtf/MathExtras.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringView.h>
-#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
@@ -219,11 +220,11 @@ ExceptionOr<void> SVGLengthValue::setValueAsString(const String& string)
     const UChar* end = ptr + string.length();
 
     if (!parseNumber(ptr, end, convertedNumber, false))
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
 
     auto type = parseLengthType(ptr, end);
     if (type == LengthTypeUnknown)
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
 
     m_unit = storeUnit(extractMode(m_unit), type);
     m_valueInSpecifiedUnits = convertedNumber;
@@ -238,7 +239,7 @@ String SVGLengthValue::valueAsString() const
 ExceptionOr<void> SVGLengthValue::newValueSpecifiedUnits(unsigned short type, float value)
 {
     if (type == LengthTypeUnknown || type > LengthTypePC)
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
     m_unit = storeUnit(extractMode(m_unit), static_cast<SVGLengthType>(type));
     m_valueInSpecifiedUnits = value;
@@ -248,7 +249,7 @@ ExceptionOr<void> SVGLengthValue::newValueSpecifiedUnits(unsigned short type, fl
 ExceptionOr<void> SVGLengthValue::convertToSpecifiedUnits(unsigned short type, const SVGLengthContext& context)
 {
     if (type == LengthTypeUnknown || type > LengthTypePC)
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
     auto valueInUserUnits = valueForBindings(context);
     if (valueInUserUnits.hasException())

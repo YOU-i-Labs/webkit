@@ -52,7 +52,6 @@ enum ProtectionSpaceAuthenticationScheme {
     ProtectionSpaceAuthenticationSchemeNegotiate = 6,
     ProtectionSpaceAuthenticationSchemeClientCertificateRequested = 7,
     ProtectionSpaceAuthenticationSchemeServerTrustEvaluationRequested = 8,
-    ProtectionSpaceAuthenticationSchemeOAuth = 9,
     ProtectionSpaceAuthenticationSchemeUnknown = 100
 };
   
@@ -68,7 +67,7 @@ public:
     WEBCORE_EXPORT const String& realm() const;
     WEBCORE_EXPORT ProtectionSpaceAuthenticationScheme authenticationScheme() const;
     
-    WEBCORE_EXPORT bool receivesCredentialSecurely() const;
+    bool receivesCredentialSecurely() const;
     WEBCORE_EXPORT bool isPasswordBased() const;
 
     bool encodingRequiresPlatformData() const { return false; }

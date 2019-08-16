@@ -25,18 +25,13 @@
 
 #pragma once
 
-#include "CanvasActivityRecord.h"
-#include "ResourceLoadStatistics.h"
-#include "Timer.h"
+#include "ResourceLoadStatisticsStore.h"
 #include <wtf/HashMap.h>
-#include <wtf/HashSet.h>
-#include <wtf/NeverDestroyed.h>
 #include <wtf/text/WTFString.h>
 
 namespace WTF {
 class Lock;
 class WorkQueue;
-class WallTime;
 }
 
 namespace WebCore {
@@ -46,62 +41,60 @@ class Frame;
 class Page;
 class ResourceRequest;
 class ResourceResponse;
-class ScriptExecutionContext;
+class URL;
 
 struct ResourceLoadStatistics;
 
 class ResourceLoadObserver {
-    friend class WTF::NeverDestroyed<ResourceLoadObserver>;
+    friend class NeverDestroyed<ResourceLoadObserver>;
 public:
-    WEBCORE_EXPORT static ResourceLoadObserver& shared();
-
-    void logSubresourceLoading(const Frame*, const ResourceRequest& newRequest, const ResourceResponse& redirectResponse);
-    void logWebSocketLoading(const URL& targetURL, const URL& mainFrameURL, bool usesEphemeralSession);
-    void logUserInteractionWithReducedTimeResolution(const Document&);
+    WEBCORE_EXPORT static ResourceLoadObserver& sharedObserver();
     
-    void logFontLoad(const Document&, const String& familyName, bool loadStatus);
-    void logCanvasRead(const Document&);
-    void logCanvasWriteOrMeasure(const Document&, const String& textWritten);
-    void logNavigatorAPIAccessed(const Document&, const ResourceLoadStatistics::NavigatorAPI);
-    void logScreenAPIAccessed(const Document&, const ResourceLoadStatistics::ScreenAPI);
+    void logFrameNavigation(const Frame& frame, const Frame& topFrame, const ResourceRequest& newRequest, const ResourceResponse& redirectResponse);
+    void logSubresourceLoading(const Frame*, const ResourceRequest& newRequest, const ResourceResponse& redirectResponse);
+    void logWebSocketLoading(const Frame*, const URL&);
+    void logUserInteractionWithReducedTimeResolution(const Document&);
+
+    WEBCORE_EXPORT void logUserInteraction(const URL&);
+    WEBCORE_EXPORT bool hasHadUserInteraction(const URL&);
+    WEBCORE_EXPORT void clearUserInteraction(const URL&);
+
+    WEBCORE_EXPORT void setPrevalentResource(const URL&);
+    WEBCORE_EXPORT bool isPrevalentResource(const URL&);
+    WEBCORE_EXPORT void clearPrevalentResource(const URL&);
+    WEBCORE_EXPORT void setGrandfathered(const URL&, bool value);
+    WEBCORE_EXPORT bool isGrandfathered(const URL&);
+    
+    WEBCORE_EXPORT void setSubframeUnderTopFrameOrigin(const URL& subframe, const URL& topFrame);
+    WEBCORE_EXPORT void setSubresourceUnderTopFrameOrigin(const URL& subresource, const URL& topFrame);
+    WEBCORE_EXPORT void setSubresourceUniqueRedirectTo(const URL& subresource, const URL& hostNameRedirectedTo);
+
+    WEBCORE_EXPORT void setTimeToLiveUserInteraction(double seconds);
+    WEBCORE_EXPORT void setTimeToLiveCookiePartitionFree(double seconds);
+    WEBCORE_EXPORT void setMinimumTimeBetweeenDataRecordsRemoval(double seconds);
+    WEBCORE_EXPORT void setReducedTimestampResolution(double seconds);
+    WEBCORE_EXPORT void setGrandfatheringTime(double seconds);
+    
+    WEBCORE_EXPORT void fireDataModificationHandler();
+    WEBCORE_EXPORT void fireShouldPartitionCookiesHandler();
+    WEBCORE_EXPORT void fireShouldPartitionCookiesHandler(const Vector<String>& domainsToRemove, const Vector<String>& domainsToAdd, bool clearFirst);
+
+    WEBCORE_EXPORT void setStatisticsStore(Ref<ResourceLoadStatisticsStore>&&);
+    WEBCORE_EXPORT void setStatisticsQueue(Ref<WTF::WorkQueue>&&);
+    WEBCORE_EXPORT void clearInMemoryStore();
+    WEBCORE_EXPORT void clearInMemoryAndPersistentStore();
+    WEBCORE_EXPORT void clearInMemoryAndPersistentStore(std::chrono::system_clock::time_point modifiedSince);
 
     WEBCORE_EXPORT String statisticsForOrigin(const String&);
 
-    WEBCORE_EXPORT void setNotificationCallback(WTF::Function<void (Vector<ResourceLoadStatistics>&&)>&&);
-    WEBCORE_EXPORT void setRequestStorageAccessUnderOpenerCallback(WTF::Function<void(const String&, uint64_t, const String&)>&&);
-
-    WEBCORE_EXPORT void notifyObserver();
-    WEBCORE_EXPORT void clearState();
-
-#if ENABLE(RESOURCE_LOAD_STATISTICS) && !RELEASE_LOG_DISABLED
-    bool shouldLogUserInteraction() const { return m_shouldLogUserInteraction; }
-    void setShouldLogUserInteraction(bool shouldLogUserInteraction) { m_shouldLogUserInteraction = shouldLogUserInteraction; }
-#endif
-
 private:
-    ResourceLoadObserver();
+    bool shouldLog(Page*);
+    static String primaryDomain(const URL&);
+    static String primaryDomain(const String& host);
 
-    bool shouldLog(bool usesEphemeralSession) const;
-    ResourceLoadStatistics& ensureResourceStatisticsForPrimaryDomain(const String&);
-
-    void scheduleNotificationIfNeeded();
-    Vector<ResourceLoadStatistics> takeStatistics();
-
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
-    void requestStorageAccessUnderOpener(const String& domainInNeedOfStorageAccess, uint64_t openerPageID, Document& openerDocument);
-#endif
-
-    HashMap<String, ResourceLoadStatistics> m_resourceStatisticsMap;
-    HashMap<String, WTF::WallTime> m_lastReportedUserInteractionMap;
-    WTF::Function<void (Vector<ResourceLoadStatistics>&&)> m_notificationCallback;
-    WTF::Function<void(const String&, uint64_t, const String&)> m_requestStorageAccessUnderOpenerCallback;
-    Timer m_notificationTimer;
-#if ENABLE(RESOURCE_LOAD_STATISTICS) && !RELEASE_LOG_DISABLED
-    uint64_t m_loggingCounter { 0 };
-    bool m_shouldLogUserInteraction { false };
-#endif
-
-    URL nonNullOwnerURL(const Document&) const;
+    RefPtr<ResourceLoadStatisticsStore> m_store;
+    RefPtr<WTF::WorkQueue> m_queue;
+    HashMap<String, size_t> m_originsVisitedMap;
 };
     
 } // namespace WebCore

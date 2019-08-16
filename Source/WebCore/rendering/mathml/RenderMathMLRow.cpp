@@ -34,13 +34,10 @@
 #include "RenderIterator.h"
 #include "RenderMathMLOperator.h"
 #include "RenderMathMLRoot.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
 using namespace MathMLNames;
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMathMLRow);
 
 RenderMathMLRow::RenderMathMLRow(MathMLRowElement& element, RenderStyle&& style)
     : RenderMathMLBlock(element, WTFMove(style))
@@ -52,75 +49,38 @@ MathMLRowElement& RenderMathMLRow::element() const
     return static_cast<MathMLRowElement&>(nodeForNonAnonymous());
 }
 
-Optional<int> RenderMathMLRow::firstLineBaseline() const
+std::optional<int> RenderMathMLRow::firstLineBaseline() const
 {
     auto* baselineChild = firstChildBox();
     if (!baselineChild)
-        return Optional<int>();
+        return std::optional<int>();
 
-    return Optional<int>(static_cast<int>(lroundf(ascentForChild(*baselineChild) + baselineChild->logicalTop())));
+    return std::optional<int>(static_cast<int>(lroundf(ascentForChild(*baselineChild) + baselineChild->logicalTop())));
 }
 
-static RenderMathMLOperator* toVerticalStretchyOperator(RenderBox* box)
+void RenderMathMLRow::computeLineVerticalStretch(LayoutUnit& ascent, LayoutUnit& descent)
 {
-    if (is<RenderMathMLBlock>(box)) {
-        auto* renderOperator = downcast<RenderMathMLBlock>(*box).unembellishedOperator();
-        if (renderOperator && renderOperator->isStretchy() && renderOperator->isVertical())
-            return renderOperator;
-    }
-    return nullptr;
-}
-
-void RenderMathMLRow::stretchVerticalOperatorsAndLayoutChildren()
-{
-    // First calculate stretch ascent and descent.
-    LayoutUnit stretchAscent, stretchDescent;
     for (auto* child = firstChildBox(); child; child = child->nextSiblingBox()) {
-        if (child->isOutOfFlowPositioned()) {
-            child->containingBlock()->insertPositionedObject(*child);
-            continue;
+        if (is<RenderMathMLBlock>(child)) {
+            auto* renderOperator = downcast<RenderMathMLBlock>(child)->unembellishedOperator();
+            if (renderOperator && renderOperator->isStretchy())
+                continue;
         }
-        if (toVerticalStretchyOperator(child))
-            continue;
+
         child->layoutIfNeeded();
-        LayoutUnit childAscent = ascentForChild(*child);
-        LayoutUnit childDescent = child->logicalHeight() - childAscent;
-        stretchAscent = std::max(stretchAscent, childAscent);
-        stretchDescent = std::max(stretchDescent, childDescent);
-    }
-    if (stretchAscent + stretchDescent <= 0) {
-        // We ensure a minimal stretch size.
-        stretchAscent = style().computedFontPixelSize();
-        stretchDescent = 0;
+
+        LayoutUnit childHeightAboveBaseline = ascentForChild(*child);
+        LayoutUnit childDepthBelowBaseline = child->logicalHeight() - childHeightAboveBaseline;
+
+        ascent = std::max(ascent, childHeightAboveBaseline);
+        descent = std::max(descent, childDepthBelowBaseline);
     }
 
-    // Next, we stretch the vertical operators.
-    for (auto* child = firstChildBox(); child; child = child->nextSiblingBox()) {
-        if (child->isOutOfFlowPositioned())
-            continue;
-        if (auto renderOperator = toVerticalStretchyOperator(child)) {
-            renderOperator->stretchTo(stretchAscent, stretchDescent);
-            renderOperator->layoutIfNeeded();
-        }
+    // We ensure a minimal stretch size.
+    if (ascent + descent <= 0) {
+        ascent = style().fontSize();
+        descent = 0;
     }
-}
-
-void RenderMathMLRow::getContentBoundingBox(LayoutUnit& width, LayoutUnit& ascent, LayoutUnit& descent) const
-{
-    ascent = 0;
-    descent = 0;
-    width = borderAndPaddingStart();
-    for (auto* child = firstChildBox(); child; child = child->nextSiblingBox()) {
-        if (child->isOutOfFlowPositioned())
-            continue;
-
-        width += child->marginStart() + child->logicalWidth() + child->marginEnd();
-        LayoutUnit childAscent = ascentForChild(*child);
-        LayoutUnit childDescent = child->logicalHeight() - childAscent;
-        ascent = std::max(ascent, childAscent + child->marginTop());
-        descent = std::max(descent, childDescent + child->marginBottom());
-    }
-    width += borderEnd() + paddingEnd();
 }
 
 void RenderMathMLRow::computePreferredLogicalWidths()
@@ -129,32 +89,80 @@ void RenderMathMLRow::computePreferredLogicalWidths()
 
     m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = 0;
 
-    LayoutUnit preferredWidth;
-    for (auto* child = firstChildBox(); child; child = child->nextSiblingBox()) {
-        if (child->isOutOfFlowPositioned())
-            continue;
+    LayoutUnit preferredWidth = 0;
+    for (auto* child = firstChildBox(); child; child = child->nextSiblingBox())
         preferredWidth += child->maxPreferredLogicalWidth() + child->marginLogicalWidth();
-    }
 
     m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = preferredWidth + borderAndPaddingLogicalWidth();
 
     setPreferredLogicalWidthsDirty(false);
 }
 
-void RenderMathMLRow::layoutRowItems(LayoutUnit width, LayoutUnit ascent)
+void RenderMathMLRow::layoutRowItems(LayoutUnit& ascent, LayoutUnit& descent)
 {
-    LayoutUnit horizontalOffset = borderAndPaddingStart();
+    // We first stretch the vertical operators.
+    // For inline formulas, we can then calculate the logical width.
+    LayoutUnit width = borderAndPaddingStart();
     for (auto* child = firstChildBox(); child; child = child->nextSiblingBox()) {
         if (child->isOutOfFlowPositioned())
             continue;
-        horizontalOffset += child->marginStart();
-        LayoutUnit childAscent = ascentForChild(*child);
-        LayoutUnit childVerticalOffset = borderTop() + paddingTop() + child->marginTop() + ascent - childAscent;
-        LayoutUnit childWidth = child->logicalWidth();
-        LayoutUnit childHorizontalOffset = style().isLeftToRightDirection() ? horizontalOffset : width - horizontalOffset - childWidth;
-        child->setLocation(LayoutPoint(childHorizontalOffset, childVerticalOffset));
-        horizontalOffset += childWidth + child->marginEnd();
+
+        if (is<RenderMathMLBlock>(child)) {
+            auto renderOperator = downcast<RenderMathMLBlock>(child)->unembellishedOperator();
+            if (renderOperator && renderOperator->isStretchy() && renderOperator->isVertical())
+                renderOperator->stretchTo(ascent, descent);
+        }
+
+        child->layoutIfNeeded();
+
+        width += child->marginStart() + child->logicalWidth() + child->marginEnd();
     }
+
+    width += borderEnd() + paddingEnd();
+    if ((!isRenderMathMLMath() || style().display() == INLINE))
+        setLogicalWidth(width);
+
+    LayoutUnit verticalOffset = borderTop() + paddingTop();
+    LayoutUnit maxAscent = 0, maxDescent = 0; // Used baseline alignment.
+    LayoutUnit horizontalOffset = borderAndPaddingStart();
+    bool shouldFlipHorizontal = !style().isLeftToRightDirection();
+    for (auto* child = firstChildBox(); child; child = child->nextSiblingBox()) {
+        if (child->isOutOfFlowPositioned()) {
+            child->containingBlock()->insertPositionedObject(*child);
+            continue;
+        }
+        LayoutUnit childHorizontalExtent = child->logicalWidth();
+        LayoutUnit ascent = ascentForChild(*child);
+        LayoutUnit descent = child->verticalMarginExtent() + child->logicalHeight() - ascent;
+        maxAscent = std::max(maxAscent, ascent);
+        maxDescent = std::max(maxDescent, descent);
+        LayoutUnit childVerticalMarginBoxExtent = maxAscent + maxDescent;
+
+        horizontalOffset += child->marginStart();
+
+        setLogicalHeight(std::max(logicalHeight(), verticalOffset + borderBottom() + paddingBottom() + childVerticalMarginBoxExtent + horizontalScrollbarHeight()));
+
+        LayoutPoint childLocation(shouldFlipHorizontal ? logicalWidth() - horizontalOffset - childHorizontalExtent : horizontalOffset, verticalOffset + child->marginTop());
+        child->setLocation(childLocation);
+
+        horizontalOffset += childHorizontalExtent + child->marginEnd();
+    }
+
+    LayoutUnit centerBlockOffset = 0;
+    if (style().display() == BLOCK)
+        centerBlockOffset = std::max<LayoutUnit>(0, (logicalWidth() - (horizontalOffset + borderEnd() + paddingEnd())) / 2);
+
+    if (shouldFlipHorizontal && centerBlockOffset > 0)
+        centerBlockOffset = -centerBlockOffset;
+
+    for (auto* child = firstChildBox(); child; child = child->nextSiblingBox()) {
+        LayoutUnit ascent = ascentForChild(*child);
+        LayoutUnit startOffset = maxAscent - ascent;
+        child->setLocation(child->location() + LayoutPoint(centerBlockOffset, startOffset));
+    }
+
+    ascent = maxAscent;
+    descent = maxDescent;
 }
 
 void RenderMathMLRow::layoutBlock(bool relayoutChildren, LayoutUnit)
@@ -164,19 +172,17 @@ void RenderMathMLRow::layoutBlock(bool relayoutChildren, LayoutUnit)
     if (!relayoutChildren && simplifiedLayout())
         return;
 
+    LayoutUnit ascent = 0;
+    LayoutUnit descent = 0;
+    computeLineVerticalStretch(ascent, descent);
+
     recomputeLogicalWidth();
 
     setLogicalHeight(borderAndPaddingLogicalHeight() + scrollbarLogicalHeight());
 
-    LayoutUnit width, ascent, descent;
-    stretchVerticalOperatorsAndLayoutChildren();
-    getContentBoundingBox(width, ascent, descent);
-    layoutRowItems(width, ascent);
-    setLogicalWidth(width);
-    setLogicalHeight(borderTop() + paddingTop() + ascent + descent + borderBottom() + paddingBottom() + horizontalScrollbarHeight());
-    updateLogicalHeight();
+    layoutRowItems(ascent, descent);
 
-    layoutPositionedObjects(relayoutChildren);
+    updateLogicalHeight();
 
     clearNeedsLayout();
 }

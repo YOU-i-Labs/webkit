@@ -26,7 +26,7 @@
 
 namespace JSC {
 
-class SymbolObject final : public JSWrapperObject {
+class SymbolObject : public JSWrapperObject {
 public:
     typedef JSWrapperObject Base;
 

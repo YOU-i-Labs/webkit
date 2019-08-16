@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef CompilationThread_h
+#define CompilationThread_h
 
 namespace WTF {
 
@@ -53,3 +54,6 @@ private:
 
 using WTF::CompilationScope;
 using WTF::exchangeIsCompilationThread;
+
+#endif // CompilationThread_h
+

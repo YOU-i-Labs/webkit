@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -31,37 +30,36 @@ namespace WebCore {
     
 class SVGPathElement;
 
-class SVGMPathElement final : public SVGElement, public SVGExternalResourcesRequired, public SVGURIReference {
-    WTF_MAKE_ISO_ALLOCATED(SVGMPathElement);
+class SVGMPathElement final : public SVGElement, public SVGURIReference, public SVGExternalResourcesRequired {
 public:
     static Ref<SVGMPathElement> create(const QualifiedName&, Document&);
 
     virtual ~SVGMPathElement();
 
-    RefPtr<SVGPathElement> pathElement();
+    SVGPathElement* pathElement();
 
     void targetPathChanged();
 
 private:
     SVGMPathElement(const QualifiedName&, Document&);
 
-    using AttributeOwnerProxy = SVGAttributeOwnerProxyImpl<SVGMPathElement, SVGElement, SVGExternalResourcesRequired, SVGURIReference>;
+    void buildPendingResource() final;
+    void clearResourceReferences();
+    InsertionNotificationRequest insertedInto(ContainerNode&) final;
+    void removedFrom(ContainerNode&) final;
 
-    const SVGAttributeOwnerProxy& attributeOwnerProxy() const final { return m_attributeOwnerProxy; }
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
     void svgAttributeChanged(const QualifiedName&) final;
 
-    void buildPendingResource() final;
-    void clearResourceReferences();
-    InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) final;
-    void removedFromAncestor(RemovalType, ContainerNode&) final;
-
     bool rendererIsNeeded(const RenderStyle&) final { return false; }
-    void didFinishInsertingNode() final;
+    void finishedInsertingSubtree() final;
 
     void notifyParentOfPathChange(ContainerNode*);
 
-    AttributeOwnerProxy m_attributeOwnerProxy { *this };
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGMPathElement)
+        DECLARE_ANIMATED_STRING_OVERRIDE(Href, href)
+        DECLARE_ANIMATED_BOOLEAN_OVERRIDE(ExternalResourcesRequired, externalResourcesRequired)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

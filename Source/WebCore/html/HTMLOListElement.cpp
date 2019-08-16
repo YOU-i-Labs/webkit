@@ -28,23 +28,16 @@
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "RenderListItem.h"
-#include <wtf/IsoMallocInlines.h>
-
-// FIXME: There should be a standard way to turn a std::expected into a Optional.
-// Maybe we should put this into the header file for Expected and give it a better name.
-template<typename T, typename E> inline Optional<T> optionalValue(Expected<T, E>&& expected)
-{
-    return expected ? Optional<T>(WTFMove(expected.value())) : WTF::nullopt;
-}
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLOListElement);
-
 using namespace HTMLNames;
 
-inline HTMLOListElement::HTMLOListElement(const QualifiedName& tagName, Document& document)
+HTMLOListElement::HTMLOListElement(const QualifiedName& tagName, Document& document)
     : HTMLElement(tagName, document)
+    , m_itemCount(0)
+    , m_isReversed(false)
+    , m_shouldRecalculateItemCount(false)
 {
     ASSERT(hasTagName(olTag));
 }
@@ -87,16 +80,17 @@ void HTMLOListElement::parseAttribute(const QualifiedName& name, const AtomicStr
 {
     if (name == startAttr) {
         int oldStart = start();
-        m_start = optionalValue(parseHTMLInteger(value));
+        auto optionalStart = parseHTMLInteger(value);
+        m_start = optionalStart ? std::optional<int>(optionalStart.value()) : std::nullopt;
         if (oldStart == start())
             return;
-        RenderListItem::updateItemValuesForOrderedList(*this);
+        updateItemValues();
     } else if (name == reversedAttr) {
         bool reversed = !value.isNull();
         if (reversed == m_isReversed)
             return;
         m_isReversed = reversed;
-        RenderListItem::updateItemValuesForOrderedList(*this);
+        updateItemValues();
     } else
         HTMLElement::parseAttribute(name, value);
 }
@@ -106,11 +100,29 @@ void HTMLOListElement::setStartForBindings(int start)
     setIntegralAttribute(startAttr, start);
 }
 
+void HTMLOListElement::updateItemValues()
+{
+    RenderListItem::updateItemValuesForOrderedList(*this);
+}
+
 unsigned HTMLOListElement::itemCount() const
 {
-    if (!m_itemCount)
-        m_itemCount = RenderListItem::itemCountForOrderedList(*this);
-    return m_itemCount.value();
+    if (m_shouldRecalculateItemCount)
+        const_cast<HTMLOListElement*>(this)->recalculateItemCount();
+    return m_itemCount;
+}
+
+unsigned HTMLOListElement::itemCountAfterLayout() const
+{
+    document().updateLayoutIgnorePendingStylesheets();
+
+    return itemCount();
+}
+
+void HTMLOListElement::recalculateItemCount()
+{
+    m_itemCount = RenderListItem::itemCountForOrderedList(*this);
+    m_shouldRecalculateItemCount = false;
 }
 
 }

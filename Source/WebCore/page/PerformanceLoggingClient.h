@@ -45,7 +45,7 @@ public:
 
     WEBCORE_EXPORT static String synchronousScrollingReasonsAsString(SynchronousScrollingReasons);
 
-    virtual ~PerformanceLoggingClient() = default;
+    virtual ~PerformanceLoggingClient() { }
 };
 
 } // namespace WebCore

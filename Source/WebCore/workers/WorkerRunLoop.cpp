@@ -39,6 +39,7 @@
 #include "WorkerGlobalScope.h"
 #include "WorkerThread.h"
 #include <JavaScriptCore/PromiseDeferredTimer.h>
+#include <wtf/CurrentTime.h>
 
 #if USE(GLIB)
 #include <glib.h>
@@ -49,7 +50,7 @@ namespace WebCore {
 class WorkerSharedTimer final : public SharedTimer {
 public:
     // SharedTimer interface.
-    void setFiredFunction(WTF::Function<void()>&& function) override { m_sharedTimerFunction = WTFMove(function); }
+    void setFiredFunction(std::function<void()>&& function) override { m_sharedTimerFunction = WTFMove(function); }
     void setFireInterval(Seconds interval) override { m_nextFireTime = interval + WallTime::now(); }
     void stop() override { m_nextFireTime = WallTime(); }
 
@@ -58,7 +59,7 @@ public:
     void fire() { m_sharedTimerFunction(); }
 
 private:
-    WTF::Function<void()> m_sharedTimerFunction;
+    std::function<void()> m_sharedTimerFunction;
     WallTime m_nextFireTime;
 };
 
@@ -104,7 +105,7 @@ String WorkerRunLoop::defaultMode()
 
 String WorkerRunLoop::debuggerMode()
 {
-    return "debugger"_s;
+    return ASCIILiteral("debugger");
 }
 
 class RunLoopSetup {
@@ -150,7 +151,7 @@ MessageQueueWaitResult WorkerRunLoop::runInMode(WorkerGlobalScope* context, cons
 MessageQueueWaitResult WorkerRunLoop::runInMode(WorkerGlobalScope* context, const ModePredicate& predicate, WaitMode waitMode)
 {
     ASSERT(context);
-    ASSERT(context->thread().thread() == &Thread::current());
+    ASSERT(context->thread().threadID() == currentThread());
 
     JSC::JSRunLoopTimer::TimerNotificationCallback timerAddedTask = WTF::createSharedTask<JSC::JSRunLoopTimer::TimerNotificationType>([this] {
         // We don't actually do anything here, we just want to loop around runInMode
@@ -220,7 +221,7 @@ MessageQueueWaitResult WorkerRunLoop::runInMode(WorkerGlobalScope* context, cons
 void WorkerRunLoop::runCleanupTasks(WorkerGlobalScope* context)
 {
     ASSERT(context);
-    ASSERT(context->thread().thread() == &Thread::current());
+    ASSERT(context->thread().threadID() == currentThread());
     ASSERT(m_messageQueue.killed());
 
     while (true) {

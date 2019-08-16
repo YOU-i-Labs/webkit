@@ -37,10 +37,10 @@ namespace ContentExtensions {
 
 class ContentExtensionCompilationClient {
 public:
-    virtual ~ContentExtensionCompilationClient() = default;
+    virtual ~ContentExtensionCompilationClient() { }
     
     // Functions should be called in this order. All except writeActions and finalize can be called multiple times, though.
-    virtual void writeSource(String&&) = 0;
+    virtual void writeSource(const String&) = 0;
     virtual void writeActions(Vector<SerializedActionByte>&&, bool conditionsApplyOnlyToDomain) = 0;
     virtual void writeFiltersWithoutConditionsBytecode(Vector<DFABytecode>&&) = 0;
     virtual void writeFiltersWithConditionsBytecode(Vector<DFABytecode>&&) = 0;
@@ -48,7 +48,7 @@ public:
     virtual void finalize() = 0;
 };
 
-WEBCORE_EXPORT std::error_code compileRuleList(ContentExtensionCompilationClient&, String&& ruleJSON, Vector<ContentExtensionRule>&&);
+WEBCORE_EXPORT std::error_code compileRuleList(ContentExtensionCompilationClient&, String&&);
 
 } // namespace ContentExtensions
 } // namespace WebCore

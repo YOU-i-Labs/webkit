@@ -60,8 +60,7 @@ inline Ref<StringImpl> Identifier::add(ExecState* exec, StringImpl* r)
 #ifndef NDEBUG
     checkCurrentAtomicStringTable(exec);
 #endif
-    VM& vm = exec->vm();
-    return *AtomicStringImpl::addWithStringTableProvider(vm, r);
+    return *AtomicStringImpl::addWithStringTableProvider(*exec, r);
 }
 inline Ref<StringImpl> Identifier::add(VM* vm, StringImpl* r)
 {
@@ -144,7 +143,7 @@ inline JSValue identifierToJSValue(VM& vm, const Identifier& identifier)
 
 inline JSValue identifierToSafePublicJSValue(VM& vm, const Identifier& identifier) 
 {
-    if (identifier.isSymbol() && !identifier.isPrivateName())
+    if (identifier.isSymbol() && !vm.propertyNames->isPrivateName(identifier))
         return Symbol::create(vm, static_cast<SymbolImpl&>(*identifier.impl()));
     return jsString(&vm, identifier.impl());
 }

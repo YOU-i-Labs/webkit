@@ -23,7 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef TypeCasts_h
+#define TypeCasts_h
 
 #include <type_traits>
 
@@ -107,3 +108,5 @@ private:
 using WTF::TypeCastTraits;
 using WTF::is;
 using WTF::downcast;
+
+#endif // TypeCasts_h

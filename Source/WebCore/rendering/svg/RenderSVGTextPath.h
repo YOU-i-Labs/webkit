@@ -25,7 +25,6 @@
 namespace WebCore {
 
 class RenderSVGTextPath final : public RenderSVGInline {
-    WTF_MAKE_ISO_ALLOCATED(RenderSVGTextPath);
 public:
     RenderSVGTextPath(SVGTextPathElement&, RenderStyle&&);
 

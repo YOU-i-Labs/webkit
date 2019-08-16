@@ -46,12 +46,13 @@
 #include "SerializedScriptValue.h"
 #include "SharedBuffer.h"
 #include "ThreadSafeDataBuffer.h"
-#include <JavaScriptCore/ArrayBuffer.h>
-#include <JavaScriptCore/DateInstance.h>
-#include <JavaScriptCore/ObjectConstructor.h>
+#include <runtime/ArrayBuffer.h>
+#include <runtime/DateInstance.h>
+#include <runtime/ObjectConstructor.h>
+
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 
 static bool get(ExecState& exec, JSValue object, const String& keyPathElement, JSValue& result)
 {
@@ -96,7 +97,7 @@ JSValue toJS(ExecState& state, JSGlobalObject& globalObject, IDBKey* key)
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     switch (key->type()) {
-    case IndexedDB::KeyType::Array: {
+    case KeyType::Array: {
         auto& inArray = key->array();
         unsigned size = inArray.size();
         auto outArray = constructEmptyArray(&state, 0, &globalObject, size);
@@ -107,7 +108,7 @@ JSValue toJS(ExecState& state, JSGlobalObject& globalObject, IDBKey* key)
         }
         return outArray;
     }
-    case IndexedDB::KeyType::Binary: {
+    case KeyType::Binary: {
         auto* data = key->binary().data();
         if (!data) {
             ASSERT_NOT_REACHED();
@@ -121,17 +122,17 @@ JSValue toJS(ExecState& state, JSGlobalObject& globalObject, IDBKey* key)
 
         return JSArrayBuffer::create(state.vm(), structure, WTFMove(arrayBuffer));
     }
-    case IndexedDB::KeyType::String:
+    case KeyType::String:
         return jsStringWithCache(&state, key->string());
-    case IndexedDB::KeyType::Date:
+    case KeyType::Date:
         // FIXME: This should probably be toJS<IDLDate>(...) as per:
         // http://w3c.github.io/IndexedDB/#request-convert-a-key-to-a-value
         return toJS<IDLNullable<IDLDate>>(state, key->date());
-    case IndexedDB::KeyType::Number:
+    case KeyType::Number:
         return jsNumber(key->number());
-    case IndexedDB::KeyType::Min:
-    case IndexedDB::KeyType::Max:
-    case IndexedDB::KeyType::Invalid:
+    case KeyType::Min:
+    case KeyType::Max:
+    case KeyType::Invalid:
         ASSERT_NOT_REACHED();
         return jsUndefined();
     }
@@ -151,7 +152,7 @@ static RefPtr<IDBKey> createIDBKeyFromValue(ExecState& exec, JSValue value, Vect
     if (value.isString())
         return IDBKey::createString(asString(value)->value(&exec));
 
-    if (value.inherits<DateInstance>(vm)) {
+    if (value.inherits(vm, DateInstance::info())) {
         auto dateValue = valueToDate(exec, value);
         if (!std::isnan(dateValue))
             return IDBKey::createDate(dateValue);
@@ -159,7 +160,8 @@ static RefPtr<IDBKey> createIDBKeyFromValue(ExecState& exec, JSValue value, Vect
 
     if (value.isObject()) {
         JSObject* object = asObject(value);
-        if (auto* array = jsDynamicCast<JSArray*>(vm, object)) {
+        if (isJSArray(object) || object->inherits(vm, JSArray::info())) {
+            JSArray* array = asArray(object);
             size_t length = array->length();
 
             if (stack.contains(array))
@@ -343,7 +345,7 @@ static JSValue deserializeIDBValueToJSValue(ExecState& state, JSC::JSGlobalObjec
 
     state.vm().apiLock().lock();
     Vector<RefPtr<MessagePort>> messagePorts;
-    JSValue result = serializedValue->deserialize(state, &globalObject, messagePorts, value.blobURLs(), value.sessionID(), value.blobFilePaths(), SerializationErrorMode::NonThrowing);
+    JSValue result = serializedValue->deserialize(state, &globalObject, messagePorts, value.blobURLs(), value.blobFilePaths(), SerializationErrorMode::NonThrowing);
     state.vm().apiLock().unlock();
 
     return result;

@@ -23,14 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SourceCodeTimelineTimelineDataGridNode = class SourceCodeTimelineTimelineDataGridNode extends WI.TimelineDataGridNode
+WebInspector.SourceCodeTimelineTimelineDataGridNode = class SourceCodeTimelineTimelineDataGridNode extends WebInspector.TimelineDataGridNode
 {
     constructor(sourceCodeTimeline, graphDataSource)
     {
         super(true, graphDataSource);
 
         this._sourceCodeTimeline = sourceCodeTimeline;
-        this._sourceCodeTimeline.addEventListener(WI.Timeline.Event.RecordAdded, this._timelineRecordAdded, this);
+        this._sourceCodeTimeline.addEventListener(WebInspector.Timeline.Event.RecordAdded, this._timelineRecordAdded, this);
     }
 
     // Public
@@ -85,14 +85,14 @@ WI.SourceCodeTimelineTimelineDataGridNode = class SourceCodeTimelineTimelineData
         if (sourceCodeLocation) {
             let subtitleElement = document.createElement("span");
             subtitleElement.classList.add("subtitle");
-            sourceCodeLocation.populateLiveDisplayLocationString(subtitleElement, "textContent", null, WI.SourceCodeLocation.NameStyle.None, WI.UIString("line "));
+            sourceCodeLocation.populateLiveDisplayLocationString(subtitleElement, "textContent", null, WebInspector.SourceCodeLocation.NameStyle.None, WebInspector.UIString("line "));
 
             const options = {
                 useGoToArrowButton: true,
                 ignoreNetworkTab: true,
                 ignoreSearchTab: true,
             };
-            let goToArrowButtonLink = WI.createSourceCodeLocationLink(sourceCodeLocation, options);
+            let goToArrowButtonLink = WebInspector.createSourceCodeLocationLink(sourceCodeLocation, options);
             fragment.append(goToArrowButtonLink, subtitleElement);
 
             // Give the whole cell a tooltip and keep it up to date.

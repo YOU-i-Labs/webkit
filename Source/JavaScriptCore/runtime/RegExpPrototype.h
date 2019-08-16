@@ -25,7 +25,7 @@
 
 namespace JSC {
 
-class RegExpPrototype final : public JSNonFinalObject {
+class RegExpPrototype : public JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
     static const unsigned StructureFlags = Base::StructureFlags;

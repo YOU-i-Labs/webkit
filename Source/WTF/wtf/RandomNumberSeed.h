@@ -23,11 +23,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef WTF_RandomNumberSeed_h
+#define WTF_RandomNumberSeed_h
 
+#include "RandomNumber.h"
 #include <stdlib.h>
 #include <time.h>
-#include <wtf/CryptographicallyRandomNumber.h>
 
 #if HAVE(SYS_TIME_H)
 #include <sys/time.h>
@@ -47,11 +48,16 @@ inline void initializeRandomNumberGenerator()
 #elif COMPILER(MSVC) && defined(_CRT_RAND_S)
     // On Windows we use rand_s which initialises itself
 #elif OS(UNIX)
-    srandom(cryptographicallyRandomNumber());
+    // srandomdev is not guaranteed to exist on linux so we use this poor seed, this should be improved
+    timeval time;
+    gettimeofday(&time, 0);
+    srandom(static_cast<unsigned>(time.tv_usec * getpid()));
 #else
-    srand(cryptographicallyRandomNumber());
+    srand(static_cast<unsigned>(time(0)));
 #endif
 
 }
 
 }
+
+#endif

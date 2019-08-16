@@ -28,6 +28,7 @@
 #if ENABLE(JIT)
 
 #include "DOMJITEffect.h"
+#include "RegisterSet.h"
 #include "Snippet.h"
 
 namespace JSC { namespace DOMJIT {

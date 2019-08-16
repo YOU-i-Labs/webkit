@@ -44,7 +44,7 @@
 //      </svg>
 //  </div>
 
-WI.StackedLineChart = class StackedLineChart
+WebInspector.StackedLineChart = class StackedLineChart
 {
     constructor(size)
     {

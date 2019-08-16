@@ -443,7 +443,7 @@ void InProcessIDBServer::didGetAllDatabaseNames(uint64_t callbackID, const Vecto
 
 void InProcessIDBServer::accessToTemporaryFileComplete(const String& path)
 {
-    FileSystem::deleteFile(path);
+    deleteFile(path);
 }
 
 } // namespace WebCore

@@ -31,7 +31,7 @@
 namespace JSC {
 
 template<typename Func>
-ALWAYS_INLINE HeapCell* FreeList::allocate(const Func& slowPath)
+HeapCell* FreeList::allocate(const Func& slowPath)
 {
     unsigned remaining = m_remaining;
     if (remaining) {

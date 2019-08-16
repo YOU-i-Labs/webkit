@@ -30,7 +30,6 @@
 #define GlyphMetricsMap_h
 
 #include "Glyph.h"
-#include "Path.h"
 #include <array>
 #include <wtf/HashMap.h>
 
@@ -44,11 +43,6 @@ public:
     T metricsForGlyph(Glyph glyph)
     {
         return locatePage(glyph / GlyphMetricsPage::size).metricsForGlyph(glyph);
-    }
-
-    const T& existingMetricsForGlyph(Glyph glyph)
-    {
-        return locatePage(glyph / GlyphMetricsPage::size).existingMetricsForGlyph(glyph);
     }
 
     void setMetricsForGlyph(Glyph glyph, const T& metrics)
@@ -74,7 +68,6 @@ private:
         }
 
         T metricsForGlyph(Glyph glyph) const { return m_metrics[glyph % size]; }
-        const T& existingMetricsForGlyph(Glyph glyph) const { return m_metrics[glyph % size]; }
         void setMetricsForGlyph(Glyph glyph, const T& metrics)
         {
             setMetricsForIndex(glyph % size, metrics);
@@ -113,11 +106,6 @@ template<> inline float GlyphMetricsMap<float>::unknownMetrics()
 template<> inline FloatRect GlyphMetricsMap<FloatRect>::unknownMetrics()
 {
     return FloatRect(0, 0, cGlyphSizeUnknown, cGlyphSizeUnknown);
-}
-
-template<> inline Optional<Path> GlyphMetricsMap<Optional<Path>>::unknownMetrics()
-{
-    return WTF::nullopt;
 }
 
 template<class T> typename GlyphMetricsMap<T>::GlyphMetricsPage& GlyphMetricsMap<T>::locatePageSlowCase(unsigned pageNumber)

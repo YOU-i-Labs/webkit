@@ -27,7 +27,6 @@
 namespace WebCore {
 
 class HTMLParamElement final : public HTMLElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLParamElement);
 public:
     static Ref<HTMLParamElement> create(const QualifiedName&, Document&);
 

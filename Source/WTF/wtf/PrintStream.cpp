@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include <wtf/PrintStream.h>
+#include "PrintStream.h"
 
 #include <stdio.h>
 #include <wtf/text/CString.h>
@@ -46,14 +46,22 @@ void PrintStream::printf(const char* format, ...)
 
 void PrintStream::printfVariableFormat(const char* format, ...)
 {
-    ALLOW_NONLITERAL_FORMAT_BEGIN
-    IGNORE_GCC_WARNINGS_BEGIN("suggest-attribute=format")
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+#elif COMPILER(GCC)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsuggest-attribute=format"
+#endif
     va_list argList;
     va_start(argList, format);
     vprintf(format, argList);
     va_end(argList);
-    IGNORE_GCC_WARNINGS_END
-    ALLOW_NONLITERAL_FORMAT_END
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#elif COMPILER(GCC)
+#pragma GCC diagnostic pop
+#endif
 }
 
 void PrintStream::flush()
@@ -74,21 +82,9 @@ void printInternal(PrintStream& out, const char* string)
     out.printf("%s", string);
 }
 
-static void printExpectedCStringHelper(PrintStream& out, const char* type, Expected<CString, UTF8ConversionError> expectedCString)
-{
-    if (UNLIKELY(!expectedCString)) {
-        if (expectedCString.error() == UTF8ConversionError::OutOfMemory)
-            out.print("(Out of memory while converting ", type, " to utf8)");
-        else
-            out.print("(failed to convert ", type, " to utf8)");
-        return;
-    }
-    out.print(expectedCString.value());
-}
-
 void printInternal(PrintStream& out, const StringView& string)
 {
-    printExpectedCStringHelper(out, "StringView", string.tryGetUtf8());
+    out.print(string.utf8());
 }
 
 void printInternal(PrintStream& out, const CString& string)
@@ -98,7 +94,7 @@ void printInternal(PrintStream& out, const CString& string)
 
 void printInternal(PrintStream& out, const String& string)
 {
-    printExpectedCStringHelper(out, "String", string.tryGetUtf8());
+    out.print(string.utf8());
 }
 
 void printInternal(PrintStream& out, const StringImpl* string)
@@ -107,12 +103,15 @@ void printInternal(PrintStream& out, const StringImpl* string)
         out.print("(null StringImpl*)");
         return;
     }
-    printExpectedCStringHelper(out, "StringImpl*", string->tryGetUtf8());
+    out.print(string->utf8());
 }
 
 void printInternal(PrintStream& out, bool value)
 {
-    out.print(boolForPrinting(value));
+    if (value)
+        out.print("true");
+    else
+        out.print("false");
 }
 
 void printInternal(PrintStream& out, int value)

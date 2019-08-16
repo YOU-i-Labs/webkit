@@ -34,10 +34,10 @@ class Text;
 
 class TextInsertionMarkerSupplier : public RefCounted<TextInsertionMarkerSupplier> {
 public:
-    virtual ~TextInsertionMarkerSupplier() = default;
+    virtual ~TextInsertionMarkerSupplier() { }
     virtual void addMarkersToTextNode(Text*, unsigned offsetOfInsertion, const String& textInserted) = 0;
 protected:
-    TextInsertionMarkerSupplier() = default;
+    TextInsertionMarkerSupplier() { }
 };
 
 class InsertTextCommand : public CompositeEditCommand {
@@ -48,12 +48,12 @@ public:
     };
 
     static Ref<InsertTextCommand> create(Document& document, const String& text, bool selectInsertedText = false,
-        RebalanceType rebalanceType = RebalanceLeadingAndTrailingWhitespaces, EditAction editingAction = EditAction::Insert)
+        RebalanceType rebalanceType = RebalanceLeadingAndTrailingWhitespaces, EditAction editingAction = EditActionInsert)
     {
         return adoptRef(*new InsertTextCommand(document, text, selectInsertedText, rebalanceType, editingAction));
     }
 
-    static Ref<InsertTextCommand> createWithMarkerSupplier(Document& document, const String& text, Ref<TextInsertionMarkerSupplier>&& markerSupplier, EditAction editingAction = EditAction::Insert)
+    static Ref<InsertTextCommand> createWithMarkerSupplier(Document& document, const String& text, Ref<TextInsertionMarkerSupplier>&& markerSupplier, EditAction editingAction = EditActionInsert)
     {
         return adoptRef(*new InsertTextCommand(document, text, WTFMove(markerSupplier), editingAction));
     }

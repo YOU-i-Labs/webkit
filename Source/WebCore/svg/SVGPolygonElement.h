@@ -25,7 +25,6 @@
 namespace WebCore {
 
 class SVGPolygonElement final : public SVGPolyElement {
-    WTF_MAKE_ISO_ALLOCATED(SVGPolygonElement);
 public:
     static Ref<SVGPolygonElement> create(const QualifiedName&, Document&);
 

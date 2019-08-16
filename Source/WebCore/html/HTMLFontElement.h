@@ -28,7 +28,6 @@
 namespace WebCore {
 
 class HTMLFontElement final : public HTMLElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLFontElement);
 public:
     static Ref<HTMLFontElement> create(const QualifiedName&, Document&);
     

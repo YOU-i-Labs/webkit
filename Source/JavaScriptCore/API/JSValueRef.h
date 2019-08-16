@@ -42,7 +42,6 @@
 @constant     kJSTypeNumber     A primitive number value.
 @constant     kJSTypeString     A primitive string value.
 @constant     kJSTypeObject     An object value (meaning that this JSValueRef is a JSObjectRef).
-@constant     kJSTypeSymbol     A primitive symbol value.
 */
 typedef enum {
     kJSTypeUndefined,
@@ -50,8 +49,7 @@ typedef enum {
     kJSTypeBoolean,
     kJSTypeNumber,
     kJSTypeString,
-    kJSTypeObject,
-    kJSTypeSymbol JSC_API_AVAILABLE(macosx(JSC_MAC_TBA), ios(JSC_IOS_TBA))
+    kJSTypeObject
 } JSType;
 
 /*!
@@ -82,7 +80,7 @@ typedef enum {
     kJSTypedArrayTypeFloat64Array,
     kJSTypedArrayTypeArrayBuffer,
     kJSTypedArrayTypeNone,
-} JSTypedArrayType JSC_API_AVAILABLE(macosx(10.12), ios(10.0));
+} JSTypedArrayType CF_ENUM_AVAILABLE(10_12, 10_0);
 
 #ifdef __cplusplus
 extern "C" {
@@ -151,7 +149,6 @@ JS_EXPORT bool JSValueIsString(JSContextRef ctx, JSValueRef value);
 */
 JS_EXPORT bool JSValueIsObject(JSContextRef ctx, JSValueRef value);
 
-
 /*!
 @function
 @abstract Tests whether a JavaScript value is an object with a given class in its class chain.
@@ -169,7 +166,7 @@ JS_EXPORT bool JSValueIsObjectOfClass(JSContextRef ctx, JSValueRef value, JSClas
 @param value    The JSValue to test.
 @result         true if value is an array, otherwise false.
 */
-JS_EXPORT bool JSValueIsArray(JSContextRef ctx, JSValueRef value) JSC_API_AVAILABLE(macosx(10.11), ios(9.0));
+JS_EXPORT bool JSValueIsArray(JSContextRef ctx, JSValueRef value) CF_AVAILABLE(10_11, 9_0);
 
 /*!
 @function
@@ -178,7 +175,7 @@ JS_EXPORT bool JSValueIsArray(JSContextRef ctx, JSValueRef value) JSC_API_AVAILA
 @param value    The JSValue to test.
 @result         true if value is a date, otherwise false.
 */
-JS_EXPORT bool JSValueIsDate(JSContextRef ctx, JSValueRef value) JSC_API_AVAILABLE(macosx(10.11), ios(9.0));
+JS_EXPORT bool JSValueIsDate(JSContextRef ctx, JSValueRef value) CF_AVAILABLE(10_11, 9_0);
 
 /*!
 @function
@@ -188,7 +185,7 @@ JS_EXPORT bool JSValueIsDate(JSContextRef ctx, JSValueRef value) JSC_API_AVAILAB
 @param exception    A pointer to a JSValueRef in which to store an exception, if any. Pass NULL if you do not care to store an exception.
 @result             A value of type JSTypedArrayType that identifies value's Typed Array type, or kJSTypedArrayTypeNone if the value is not a Typed Array object.
  */
-JS_EXPORT JSTypedArrayType JSValueGetTypedArrayType(JSContextRef ctx, JSValueRef value, JSValueRef* exception) JSC_API_AVAILABLE(macosx(10.12), ios(10.0));
+JS_EXPORT JSTypedArrayType JSValueGetTypedArrayType(JSContextRef ctx, JSValueRef value, JSValueRef* exception) CF_AVAILABLE(10_12, 10_0);
 
 /* Comparing values */
 
@@ -279,7 +276,7 @@ JS_EXPORT JSValueRef JSValueMakeString(JSContextRef ctx, JSStringRef string);
  @param string   The JSString containing the JSON string to be parsed.
  @result         A JSValue containing the parsed value, or NULL if the input is invalid.
  */
-JS_EXPORT JSValueRef JSValueMakeFromJSONString(JSContextRef ctx, JSStringRef string) JSC_API_AVAILABLE(macosx(10.7), ios(7.0));
+JS_EXPORT JSValueRef JSValueMakeFromJSONString(JSContextRef ctx, JSStringRef string) CF_AVAILABLE(10_7, 7_0);
 
 /*!
  @function
@@ -290,7 +287,7 @@ JS_EXPORT JSValueRef JSValueMakeFromJSONString(JSContextRef ctx, JSStringRef str
  @param exception A pointer to a JSValueRef in which to store an exception, if any. Pass NULL if you do not care to store an exception.
  @result         A JSString with the result of serialization, or NULL if an exception is thrown.
  */
-JS_EXPORT JSStringRef JSValueCreateJSONString(JSContextRef ctx, JSValueRef value, unsigned indent, JSValueRef* exception) JSC_API_AVAILABLE(macosx(10.7), ios(7.0));
+JS_EXPORT JSStringRef JSValueCreateJSONString(JSContextRef ctx, JSValueRef value, unsigned indent, JSValueRef* exception) CF_AVAILABLE(10_7, 7_0);
 
 /* Converting to primitive values */
 

@@ -29,7 +29,6 @@
 
 import os
 import sys
-import subprocess
 
 program_name = os.path.basename(__file__)
 if len(sys.argv) < 2:
@@ -42,7 +41,7 @@ input_file = open(input_path)
 http_header_name_to_id = { }
 http_header_names = []
 
-for line in input_file:
+for line in input_file.xreadlines():
     http_header_name = line.strip()
     if not http_header_name or http_header_name[:2] == '//':
         continue
@@ -90,10 +89,12 @@ gperf_file.write('''
 
 #include <wtf/text/StringView.h>
 
-IGNORE_WARNINGS_BEGIN("implicit-fallthrough")
-
-// Older versions of gperf like to use the `register` keyword.
-#define register
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunknown-pragmas"
+#pragma clang diagnostic ignored "-Wdeprecated-register"
+#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
+#endif
 
 namespace WebCore {
 
@@ -175,7 +176,7 @@ StringView httpHeaderNameString(HTTPHeaderName headerName)
 } // namespace WebCore
 
 #if defined(__clang__)
-IGNORE_WARNINGS_END
+#pragma clang diagnostic pop
 #endif
 ''')
 
@@ -239,6 +240,6 @@ header_file.close()
 
 gperf = os.getenv('GPERF') or sys.argv[2]
 
-if subprocess.call([gperf, '--key-positions=*', '-D', '-n', '-s', '2', 'HTTPHeaderNames.gperf', '--output-file=HTTPHeaderNames.cpp']) != 0:
+if os.system('%s --key-positions="*" -D -n -s 2 HTTPHeaderNames.gperf --output-file=HTTPHeaderNames.cpp' % gperf):
     sys.stderr.write('Failed to run gperf.')
     exit(1)

@@ -36,7 +36,6 @@
 
 namespace WebCore {
 
-class Document;
 class MediaKeySystemAccess;
 class Navigator;
 class Page;

@@ -97,10 +97,6 @@ FunctionsWGL::FunctionsWGL()
 {
 }
 
-FunctionsWGL::~FunctionsWGL()
-{
-}
-
 void FunctionsWGL::initialize(HMODULE glModule, HDC context)
 {
     // First grab the wglGetProcAddress function from the gl module

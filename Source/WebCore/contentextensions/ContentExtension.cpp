@@ -36,12 +36,12 @@
 namespace WebCore {
 namespace ContentExtensions {
 
-Ref<ContentExtension> ContentExtension::create(const String& identifier, Ref<CompiledContentExtension>&& compiledExtension, ShouldCompileCSS shouldCompileCSS)
+RefPtr<ContentExtension> ContentExtension::create(const String& identifier, Ref<CompiledContentExtension>&& compiledExtension)
 {
-    return adoptRef(*new ContentExtension(identifier, WTFMove(compiledExtension), shouldCompileCSS));
+    return adoptRef(*new ContentExtension(identifier, WTFMove(compiledExtension)));
 }
 
-ContentExtension::ContentExtension(const String& identifier, Ref<CompiledContentExtension>&& compiledExtension, ShouldCompileCSS shouldCompileCSS)
+ContentExtension::ContentExtension(const String& identifier, Ref<CompiledContentExtension>&& compiledExtension)
     : m_identifier(identifier)
     , m_compiledExtension(WTFMove(compiledExtension))
 {
@@ -55,9 +55,8 @@ ContentExtension::ContentExtension(const String& identifier, Ref<CompiledContent
         ASSERT((action & ~IfConditionFlag) == static_cast<uint32_t>(action));
         m_universalActionsWithConditions.append(action);
     }
-
-    if (shouldCompileCSS == ShouldCompileCSS::Yes)
-        compileGlobalDisplayNoneStyleSheet();
+    
+    compileGlobalDisplayNoneStyleSheet();
     m_universalActionsWithoutConditions.shrinkToFit();
     m_universalActionsWithConditions.shrinkToFit();
 }
@@ -104,9 +103,9 @@ void ContentExtension::compileGlobalDisplayNoneStyleSheet()
     }
     if (css.isEmpty())
         return;
-    css.append('{');
+    css.append("{");
     css.append(ContentExtensionsBackend::displayNoneCSSRule());
-    css.append('}');
+    css.append("}");
 
     m_globalDisplayNoneStyleSheet = StyleSheetContents::create();
     m_globalDisplayNoneStyleSheet->setIsUserStyleSheet(true);
@@ -122,7 +121,7 @@ void ContentExtension::populateConditionCacheIfNeeded(const URL& topURL)
     if (m_cachedTopURL != topURL) {
         DFABytecodeInterpreter interpreter(m_compiledExtension->topURLFiltersBytecode(), m_compiledExtension->topURLFiltersBytecodeLength());
         const uint16_t allLoadTypesAndResourceTypes = LoadTypeMask | ResourceTypeMask;
-        String string = m_compiledExtension->conditionsApplyOnlyToDomain() ? topURL.host().toString() : topURL.string();
+        String string = m_compiledExtension->conditionsApplyOnlyToDomain() ? topURL.host() : topURL.string();
         auto topURLActions = interpreter.interpret(string.utf8(), allLoadTypesAndResourceTypes);
         
         m_cachedTopURLActions.clear();

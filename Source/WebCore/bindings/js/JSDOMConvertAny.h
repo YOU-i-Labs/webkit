@@ -61,19 +61,4 @@ template<> struct JSConverter<IDLAny> {
     }
 };
 
-template<> struct VariadicConverter<IDLAny> {
-    using Item = typename IDLAny::ImplementationType;
-
-    static Optional<Item> convert(JSC::ExecState& state, JSC::JSValue value)
-    {
-        auto& vm = state.vm();
-        auto scope = DECLARE_THROW_SCOPE(vm);
-
-        auto result = Converter<IDLAny>::convert(state, value);
-        RETURN_IF_EXCEPTION(scope, WTF::nullopt);
-
-        return Item { vm, result };
-    }
-};
-
 } // namespace WebCore

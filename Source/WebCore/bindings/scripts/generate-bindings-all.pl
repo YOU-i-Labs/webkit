@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl
 #
 # Copyright (C) 2016 Sony Interactive Entertainment Inc.
 #
@@ -163,15 +163,11 @@ sub spawnGenerateBindingsIfNeeded
 {
     return if $abort;
     return unless @idlFilesToUpdate;
-    my $batchCount = 30;
-    # my $batchCount = int(($totalCount - $currentCount) / $numOfJobs) || 1;
-    my @files = splice(@idlFilesToUpdate, 0, $batchCount);
-    for (@files) {
-        $currentCount++;
-        my $basename = basename($_);
-        printProgress("[$currentCount/$totalCount] $basename");
-    }
-    my $pid = spawnCommand($perl, @args, @files);
+    my $file = shift @idlFilesToUpdate;
+    $currentCount++;
+    my $basename = basename($file);
+    printProgress("[$currentCount/$totalCount] $basename");
+    my $pid = spawnCommand($perl, @args, $file);
     $abort = 1 unless defined $pid;
 }
 

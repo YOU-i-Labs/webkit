@@ -39,7 +39,7 @@ using namespace JSC;
 
 namespace {
 
-Lock crashLock;
+StaticLock crashLock;
 const char* nameFilter;
 unsigned requestedIterationCount;
 
@@ -60,10 +60,10 @@ NEVER_INLINE void benchmarkImpl(const char* name, unsigned iterationCount, const
     if (requestedIterationCount)
         iterationCount = requestedIterationCount;
     
-    MonotonicTime before = MonotonicTime::now();
+    double before = monotonicallyIncreasingTimeMS();
     callback(iterationCount);
-    MonotonicTime after = MonotonicTime::now();
-    dataLog(name, ": ", (after - before).milliseconds(), " ms.\n");
+    double after = monotonicallyIncreasingTimeMS();
+    dataLog(name, ": ", after - before, " ms.\n");
 }
 
 } // anonymous namespace

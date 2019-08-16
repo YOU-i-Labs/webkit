@@ -25,6 +25,8 @@
 
 const InsideMargin = 6; // Minimum margin to guarantee around all controls, this constant needs to stay in sync with the --inline-controls-inside-margin CSS variable.
 const BottomControlsBarHeight = 31; // This constant needs to stay in sync with the --inline-controls-bar-height CSS variable.
+const MinimumSizeToShowAnyControl = 47;
+const MaximumSizeToShowSmallProminentControl = 88;
 
 class InlineMediaControls extends MediaControls
 {
@@ -40,9 +42,6 @@ class InlineMediaControls extends MediaControls
 
         this.topLeftControlsBar = new ControlsBar("top-left");
         this._topLeftControlsBarContainer = this.topLeftControlsBar.addChild(new ButtonsContainer);
-
-        this.topRightControlsBar = new ControlsBar("top-right");
-        this._topRightControlsBarContainer = this.topRightControlsBar.addChild(new ButtonsContainer);
 
         this.leftContainer = new ButtonsContainer({ cssClassName: "left" });
         this.rightContainer = new ButtonsContainer({ cssClassName: "right" });
@@ -126,15 +125,11 @@ class InlineMediaControls extends MediaControls
         if (!this.bottomControlsBar)
             return;
 
-        // Ensure the tracks panel is a child if it were presented.
-        if (this.tracksPanel.presented)
-            children.push(this.tracksPanel);
-
         // Update the top left controls bar.
-        this._topLeftControlsBarContainer.children = this._topLeftContainerButtons();
+        this._topLeftControlsBarContainer.buttons = this._topLeftContainerButtons();
         this._topLeftControlsBarContainer.layout();
         this.topLeftControlsBar.width = this._topLeftControlsBarContainer.width;
-        this.topLeftControlsBar.visible = this._topLeftControlsBarContainer.children.some(button => button.visible);
+        this.topLeftControlsBar.visible = this._topLeftControlsBarContainer.children.length > 0;
 
         // Compute the visible size for the controls bar.
         this.bottomControlsBar.width = this._shouldUseAudioLayout ? this.width : (this.width - 2 * InsideMargin);
@@ -149,8 +144,8 @@ class InlineMediaControls extends MediaControls
         if (this.bottomControlsBar.width < minimumControlsBarWidthForCenterControl) {
             this.playPauseButton.style = Button.Styles.Corner;
             if (!this._shouldUseSingleBarLayout && this.height >= 82) {
-                children.push(this.topLeftControlsBar);
-                this._addTopRightBarWithMuteButtonToChildren(children);
+                this.muteButton.style = Button.Styles.Corner;
+                children.push(this.topLeftControlsBar, this.muteButton);
             }
             this.children = children.concat(this.playPauseButton);
             return;
@@ -162,11 +157,10 @@ class InlineMediaControls extends MediaControls
         // Iterate through controls to see if we need to drop any of them. Reset all default states before we proceed.
         this.bottomControlsBar.visible = true;
         this.playPauseButton.style = Button.Styles.Bar;
-        this.leftContainer.children = this._leftContainerButtons();
-        this.rightContainer.children = this._rightContainerButtons();
-        this.rightContainer.children.concat(this.leftContainer.children).forEach(button => delete button.dropped);
+        this.leftContainer.buttons = this._leftContainerButtons();
+        this.rightContainer.buttons = this._rightContainerButtons();
+        this.rightContainer.buttons.concat(this.leftContainer.buttons).forEach(button => delete button.dropped);
         this.muteButton.style = this.preferredMuteButtonStyle;
-        this.muteButton.usesRTLIconVariant = false;
 
         for (let button of this._droppableButtons()) {
             // If the button is not enabled, we can skip it.
@@ -213,8 +207,10 @@ class InlineMediaControls extends MediaControls
         if (!this._shouldUseAudioLayout && !this._shouldUseSingleBarLayout)
             children.push(this.topLeftControlsBar);
         children.push(this.bottomControlsBar);
-        if (this.muteButton.style === Button.Styles.Corner || (this.muteButton.dropped && !this._shouldUseAudioLayout && !this._shouldUseSingleBarLayout))
-            this._addTopRightBarWithMuteButtonToChildren(children);
+        if (this.muteButton.style === Button.Styles.Corner || (this.muteButton.dropped && !this._shouldUseAudioLayout && !this._shouldUseSingleBarLayout)) {
+            children.push(this.muteButton);
+            this.muteButton.style = Button.Styles.Corner;
+        }
         this.children = children;
     }
 
@@ -234,8 +230,7 @@ class InlineMediaControls extends MediaControls
 
     // Private
 
-    _updateBottomControlsBarLabel()
-    {
+    _updateBottomControlsBarLabel() {
         this.bottomControlsBar.element.setAttribute("aria-label", this._shouldUseAudioLayout ? UIString("Audio Controls") : UIString("Video Controls"));
     }
     
@@ -243,9 +238,7 @@ class InlineMediaControls extends MediaControls
     {
         if (this._shouldUseSingleBarLayout)
             return [];
-        if (this.usesLTRUserInterfaceLayoutDirection)
-            return [this.fullscreenButton, this.pipButton];
-        return [this.pipButton, this.fullscreenButton];
+        return [this.fullscreenButton, this.pipButton];
     }
 
     _leftContainerButtons()
@@ -256,7 +249,7 @@ class InlineMediaControls extends MediaControls
     _rightContainerButtons()
     {
         if (this._shouldUseAudioLayout)
-            return [this.muteButton, this.airplayButton];
+            return [this.airplayButton, this.muteButton];
 
         if (this._shouldUseSingleBarLayout)
             return [this.muteButton, this.airplayButton, this.pipButton, this.tracksButton, this.fullscreenButton];
@@ -277,20 +270,6 @@ class InlineMediaControls extends MediaControls
         if (this.preferredMuteButtonStyle === Button.Styles.Bar)
             buttons.push(this.muteButton);
         return buttons;
-    }
-
-    _addTopRightBarWithMuteButtonToChildren(children)
-    {
-        if (!this.muteButton.enabled)
-            return;
-
-        delete this.muteButton.dropped;
-        this.muteButton.style = Button.Styles.Bar;
-        this.muteButton.usesRTLIconVariant = !this.usesLTRUserInterfaceLayoutDirection;
-        this._topRightControlsBarContainer.children = [this.muteButton];
-        this._topRightControlsBarContainer.layout();
-        this.topRightControlsBar.width = this._topRightControlsBarContainer.width;
-        children.push(this.topRightControlsBar);
     }
 
 }

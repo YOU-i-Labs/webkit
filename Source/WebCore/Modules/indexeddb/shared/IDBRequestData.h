@@ -126,11 +126,8 @@ bool IDBRequestData::decode(Decoder& decoder, IDBRequestData& request)
     if (!decoder.decode(request.m_indexIdentifier))
         return false;
 
-    Optional<IDBDatabaseIdentifier> databaseIdentifier;
-    decoder >> databaseIdentifier;
-    if (!databaseIdentifier)
+    if (!decoder.decode(request.m_databaseIdentifier))
         return false;
-    request.m_databaseIdentifier = WTFMove(*databaseIdentifier);
 
     if (!decoder.decode(request.m_requestedVersion))
         return false;

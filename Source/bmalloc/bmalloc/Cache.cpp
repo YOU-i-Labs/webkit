@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,54 +23,62 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "BInline.h"
 #include "Cache.h"
 #include "Heap.h"
+#include "Inline.h"
 #include "PerProcess.h"
 
 namespace bmalloc {
 
-void Cache::scavenge(HeapKind heapKind)
+void* Cache::operator new(size_t size)
 {
-    PerHeapKind<Cache>* caches = PerThread<PerHeapKind<Cache>>::getFastCase();
-    if (!caches)
+    return vmAllocate(vmSize(size));
+}
+
+void Cache::operator delete(void* p, size_t size)
+{
+    vmDeallocate(p, vmSize(size));
+}
+
+void Cache::scavenge()
+{
+    Cache* cache = PerThread<Cache>::getFastCase();
+    if (!cache)
         return;
-    if (!isActiveHeapKind(heapKind))
-        return;
 
-    caches->at(heapKind).allocator().scavenge();
-    caches->at(heapKind).deallocator().scavenge();
+    cache->allocator().scavenge();
+    cache->deallocator().scavenge();
 }
 
-Cache::Cache(HeapKind heapKind)
-    : m_deallocator(PerProcess<PerHeapKind<Heap>>::get()->at(heapKind))
-    , m_allocator(PerProcess<PerHeapKind<Heap>>::get()->at(heapKind), m_deallocator)
+Cache::Cache()
+    : m_deallocator(PerProcess<Heap>::get())
+    , m_allocator(PerProcess<Heap>::get(), m_deallocator)
 {
 }
 
-BNO_INLINE void* Cache::tryAllocateSlowCaseNullCache(HeapKind heapKind, size_t size)
+NO_INLINE void* Cache::tryAllocateSlowCaseNullCache(size_t size)
 {
-    return PerThread<PerHeapKind<Cache>>::getSlowCase()->at(mapToActiveHeapKind(heapKind)).allocator().tryAllocate(size);
+    return PerThread<Cache>::getSlowCase()->allocator().tryAllocate(size);
 }
 
-BNO_INLINE void* Cache::allocateSlowCaseNullCache(HeapKind heapKind, size_t size)
+NO_INLINE void* Cache::allocateSlowCaseNullCache(size_t size)
 {
-    return PerThread<PerHeapKind<Cache>>::getSlowCase()->at(mapToActiveHeapKind(heapKind)).allocator().allocate(size);
+    return PerThread<Cache>::getSlowCase()->allocator().allocate(size);
 }
 
-BNO_INLINE void* Cache::allocateSlowCaseNullCache(HeapKind heapKind, size_t alignment, size_t size)
+NO_INLINE void* Cache::allocateSlowCaseNullCache(size_t alignment, size_t size)
 {
-    return PerThread<PerHeapKind<Cache>>::getSlowCase()->at(mapToActiveHeapKind(heapKind)).allocator().allocate(alignment, size);
+    return PerThread<Cache>::getSlowCase()->allocator().allocate(alignment, size);
 }
 
-BNO_INLINE void Cache::deallocateSlowCaseNullCache(HeapKind heapKind, void* object)
+NO_INLINE void Cache::deallocateSlowCaseNullCache(void* object)
 {
-    PerThread<PerHeapKind<Cache>>::getSlowCase()->at(mapToActiveHeapKind(heapKind)).deallocator().deallocate(object);
+    PerThread<Cache>::getSlowCase()->deallocator().deallocate(object);
 }
 
-BNO_INLINE void* Cache::reallocateSlowCaseNullCache(HeapKind heapKind, void* object, size_t newSize)
+NO_INLINE void* Cache::reallocateSlowCaseNullCache(void* object, size_t newSize)
 {
-    return PerThread<PerHeapKind<Cache>>::getSlowCase()->at(mapToActiveHeapKind(heapKind)).allocator().reallocate(object, newSize);
+    return PerThread<Cache>::getSlowCase()->allocator().reallocate(object, newSize);
 }
 
 } // namespace bmalloc

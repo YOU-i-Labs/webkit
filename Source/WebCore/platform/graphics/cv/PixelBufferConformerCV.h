@@ -23,9 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
-#if HAVE(CORE_VIDEO)
+#ifndef PixelBufferConformerCV_h
+#define PixelBufferConformerCV_h
 
 #include <wtf/RetainPtr.h>
 
@@ -49,4 +48,4 @@ private:
 
 }
 
-#endif // HAVE(CORE_VIDEO)
+#endif // PixelBufferConformerCV_h

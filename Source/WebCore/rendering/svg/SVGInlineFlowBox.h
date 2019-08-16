@@ -28,7 +28,6 @@ namespace WebCore {
 class RenderSVGInlineText;
 
 class SVGInlineFlowBox final : public InlineFlowBox {
-    WTF_MAKE_ISO_ALLOCATED(SVGInlineFlowBox);
 public:
     SVGInlineFlowBox(RenderSVGInline& renderer)
         : InlineFlowBox(renderer)

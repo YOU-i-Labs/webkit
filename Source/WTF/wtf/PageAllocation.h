@@ -23,11 +23,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef PageAllocation_h
+#define PageAllocation_h
 
 #include <wtf/Assertions.h>
 #include <wtf/OSAllocator.h>
 #include <wtf/PageBlock.h>
+#include <wtf/VMTags.h>
 #include <algorithm>
 
 #if OS(DARWIN)
@@ -113,3 +115,5 @@ private:
 } // namespace WTF
 
 using WTF::PageAllocation;
+
+#endif // PageAllocation_h

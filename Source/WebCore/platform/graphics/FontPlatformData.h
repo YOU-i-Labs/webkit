@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * Copyright (C) 2007 Pioneer Research Center USA, Inc.
@@ -26,7 +26,9 @@
 
 #include "TextFlags.h"
 #include <wtf/Forward.h>
+#include <wtf/RefCounted.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/text/StringImpl.h>
 
 
 #if PLATFORM(WIN)
@@ -36,13 +38,14 @@
 
 #if USE(CAIRO)
 #include "RefPtrCairo.h"
+#include <wtf/HashFunctions.h>
+#include <cairo.h>
 #endif
 
 #if USE(FREETYPE)
 #include "FcUniquePtr.h"
-#include "HbUniquePtr.h"
-#include "RefPtrFontconfig.h"
-#include <memory>
+#include "HarfBuzzFace.h"
+#include "OpenTypeVerticalData.h"
 #endif
 
 #if USE(APPKIT)
@@ -64,10 +67,6 @@ interface IDWriteFont;
 interface IDWriteFontFace;
 #endif
 
-#if USE(DIRECT2D)
-#include <dwrite.h>
-#endif
-
 namespace WebCore {
 
 class FontDescription;
@@ -81,17 +80,17 @@ public:
     FontPlatformData();
 
     FontPlatformData(const FontDescription&, const AtomicString& family);
-    FontPlatformData(float size, bool syntheticBold, bool syntheticOblique, FontOrientation = FontOrientation::Horizontal, FontWidthVariant = FontWidthVariant::RegularWidth, TextRenderingMode = TextRenderingMode::AutoTextRendering);
+    FontPlatformData(float size, bool syntheticBold, bool syntheticOblique, FontOrientation = Horizontal, FontWidthVariant = RegularWidth, TextRenderingMode = AutoTextRendering);
 
 #if PLATFORM(COCOA)
-    WEBCORE_EXPORT FontPlatformData(CTFontRef, float size, bool syntheticBold = false, bool syntheticOblique = false, FontOrientation = FontOrientation::Horizontal, FontWidthVariant = FontWidthVariant::RegularWidth, TextRenderingMode = TextRenderingMode::AutoTextRendering);
+    WEBCORE_EXPORT FontPlatformData(CTFontRef, float size, bool syntheticBold = false, bool syntheticOblique = false, FontOrientation = Horizontal, FontWidthVariant = RegularWidth, TextRenderingMode = AutoTextRendering);
 #endif
 
     static FontPlatformData cloneWithOrientation(const FontPlatformData&, FontOrientation);
     static FontPlatformData cloneWithSyntheticOblique(const FontPlatformData&, bool);
     static FontPlatformData cloneWithSize(const FontPlatformData&, float);
 
-#if USE(CG) && PLATFORM(WIN)
+#if USE(CG) && (PLATFORM(WIN) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED < 100000))
     FontPlatformData(CGFontRef, float size, bool syntheticBold, bool syntheticOblique, FontOrientation, FontWidthVariant, TextRenderingMode);
 #endif
 
@@ -112,7 +111,8 @@ public:
 #endif
 
 #if USE(FREETYPE)
-    FontPlatformData(cairo_font_face_t*, FcPattern*, float size, bool fixedWidth, bool syntheticBold, bool syntheticOblique, FontOrientation);
+    FontPlatformData(FcPattern*, const FontDescription&);
+    FontPlatformData(cairo_font_face_t*, const FontDescription&, bool syntheticBold, bool syntheticOblique);
     FontPlatformData(const FontPlatformData&);
     FontPlatformData(FontPlatformData&&) = default;
     FontPlatformData& operator=(const FontPlatformData&);
@@ -142,15 +142,13 @@ public:
 
     bool hasVariations() const { return m_hasVariations; }
 
-#if USE(CG) && PLATFORM(WIN)
+#if USE(CG) && (PLATFORM(WIN) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED < 100000))
     CGFontRef cgFont() const { return m_cgFont.get(); }
 #endif
 
 #if USE(DIRECT2D)
     IDWriteFont* dwFont() const { return m_dwFont.get(); }
     IDWriteFontFace* dwFontFace() const { return m_dwFontFace.get(); }
-
-    static HRESULT createFallbackFont(const LOGFONT&, IDWriteFont**);
 #endif
 
     bool isFixedPitch() const;
@@ -161,19 +159,16 @@ public:
     FontOrientation orientation() const { return m_orientation; }
     FontWidthVariant widthVariant() const { return m_widthVariant; }
     TextRenderingMode textRenderingMode() const { return m_textRenderingMode; }
-    bool isForTextCombine() const { return widthVariant() != FontWidthVariant::RegularWidth; } // Keep in sync with callers of FontDescription::setWidthVariant().
+    bool isForTextCombine() const { return widthVariant() != RegularWidth; } // Keep in sync with callers of FontDescription::setWidthVariant().
 
 #if USE(CAIRO)
     cairo_scaled_font_t* scaledFont() const { return m_scaledFont.get(); }
 #endif
 
 #if USE(FREETYPE)
-#if USE(HARFBUZZ) && !ENABLE(OPENTYPE_MATH)
-    HbUniquePtr<hb_font_t> createOpenTypeMathHarfBuzzFont() const;
-#endif
+    HarfBuzzFace* harfBuzzFace() const;
     bool hasCompatibleCharmap() const;
-    FcPattern* fcPattern() const;
-    bool isFixedWidth() const { return m_fixedWidth; }
+    FcFontSet* fallbacks() const;
 #endif
 
     unsigned hash() const;
@@ -198,7 +193,7 @@ public:
 
     bool isEmoji() const
     {
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
         return m_isEmoji;
 #else
         return false;
@@ -209,7 +204,7 @@ public:
     RefPtr<SharedBuffer> openTypeTable(uint32_t table) const;
 #endif
 
-#if !LOG_DISABLED
+#ifndef NDEBUG
     String description() const;
 #endif
 
@@ -236,7 +231,7 @@ private:
     RefPtr<SharedGDIObject<HFONT>> m_font;
 #endif
 
-#if USE(CG) && PLATFORM(WIN)
+#if USE(CG) && (PLATFORM(WIN) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200) || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MIN_REQUIRED < 100000))
     RetainPtr<CGFontRef> m_cgFont;
 #endif
 
@@ -251,15 +246,17 @@ private:
 
 #if USE(FREETYPE)
     RefPtr<FcPattern> m_pattern;
+    mutable FcUniquePtr<FcFontSet> m_fallbacks;
+    mutable RefPtr<HarfBuzzFace> m_harfBuzzFace;
 #endif
 
     // The values below are common to all ports
     // FIXME: If they're common to all ports, they should move to Font
     float m_size { 0 };
 
-    FontOrientation m_orientation { FontOrientation::Horizontal };
-    FontWidthVariant m_widthVariant { FontWidthVariant::RegularWidth };
-    TextRenderingMode m_textRenderingMode { TextRenderingMode::AutoTextRendering };
+    FontOrientation m_orientation { Horizontal };
+    FontWidthVariant m_widthVariant { RegularWidth };
+    TextRenderingMode m_textRenderingMode { AutoTextRendering };
 
     bool m_syntheticBold { false };
     bool m_syntheticOblique { false };
@@ -269,7 +266,7 @@ private:
     bool m_hasVariations { false };
     // The values above are common to all ports
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     bool m_isEmoji { false };
 #endif
 
@@ -282,17 +279,17 @@ private:
 #endif
 };
 
-#if USE(APPKIT) && defined(__OBJC__)
+#if USE(APPKIT)
 
 // NSFonts and CTFontRefs are toll-free-bridged.
 inline CTFontRef toCTFont(NSFont *font)
 {
-    return (__bridge CTFontRef)font;
+    return (CTFontRef)font;
 }
 
 inline NSFont *toNSFont(CTFontRef font)
 {
-    return (__bridge NSFont *)font;
+    return (NSFont *)font;
 }
 
 #endif

@@ -484,9 +484,6 @@ get_simple_globs (XdgGlobHashNode *glob_hash_node,
                   xdg_unichar_t   *prefix,
                   int              depth)
 {
-  assert (*n >= 0);
-  assert (depth >= 0);
-
   if (*n >= n_globs)
     return FALSE;
 
@@ -498,7 +495,7 @@ get_simple_globs (XdgGlobHashNode *glob_hash_node,
         {
           int i;
 
-          globs[*n] = malloc ((depth + 1) * sizeof (char));
+          globs[*n] = malloc (depth * sizeof (char));
           for (i = 0; i < depth; i++)
             globs[*n][depth - i - 1] = prefix[i];
           globs[*n][depth] = '\0';

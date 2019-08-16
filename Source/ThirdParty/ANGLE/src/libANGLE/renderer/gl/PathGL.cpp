@@ -32,7 +32,7 @@ gl::Error PathGL::setCommands(GLsizei numCommands,
 
 void PathGL::setPathParameter(GLenum pname, GLfloat value)
 {
-    mFunctions->pathParameterfNV(mPathID, pname, value);
+    mFunctions->setPathParameterfNV(mPathID, pname, value);
 }
 
 }  // rx

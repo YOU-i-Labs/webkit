@@ -29,15 +29,14 @@
 #pragma once
 
 #include "AudioContext.h"
-#include <JavaScriptCore/Float32Array.h>
+#include <runtime/Float32Array.h>
 #include <wtf/Lock.h>
+#include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
 class AudioParamTimeline {
-    WTF_MAKE_NONCOPYABLE(AudioParamTimeline);
-    WTF_MAKE_FAST_ALLOCATED;
 public:
     AudioParamTimeline()
     {

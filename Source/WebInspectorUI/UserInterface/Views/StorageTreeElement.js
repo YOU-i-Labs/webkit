@@ -23,15 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.StorageTreeElement = class StorageTreeElement extends WI.GeneralTreeElement
+WebInspector.StorageTreeElement = class StorageTreeElement extends WebInspector.GeneralTreeElement
 {
     constructor(classNames, title, representedObject)
     {
-        const subtitle = null;
-        super(classNames, title, subtitle, representedObject);
+        super(classNames, title, null, representedObject, false);
 
         this.flattened = false;
-        this.tooltipHandledSeparately = true;
     }
 
     // Public

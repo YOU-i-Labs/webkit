@@ -23,11 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TypeTokenView = class TypeTokenView extends WI.Object
+WebInspector.TypeTokenView = class TypeTokenView extends WebInspector.Object
 {
     constructor(tokenAnnotator, shouldHaveRightMargin, shouldHaveLeftMargin, titleType, functionOrVariableName)
     {
-        console.assert(titleType === WI.TypeTokenView.TitleType.Variable || titleType === WI.TypeTokenView.TitleType.ReturnStatement);
+        console.assert(titleType === WebInspector.TypeTokenView.TitleType.Variable || titleType === WebInspector.TypeTokenView.TitleType.ReturnStatement);
 
         super();
 
@@ -45,7 +45,7 @@ WI.TypeTokenView = class TypeTokenView extends WI.Object
 
         this._colorClass = null;
 
-        this._popoverTitle = WI.TypeTokenView.titleForPopover(titleType, functionOrVariableName);
+        this._popoverTitle = WebInspector.TypeTokenView.titleForPopover(titleType, functionOrVariableName);
 
         this._setUpMouseoverHandlers();
     }
@@ -54,20 +54,20 @@ WI.TypeTokenView = class TypeTokenView extends WI.Object
 
     static titleForPopover(titleType, functionOrVariableName)
     {
-        if (titleType === WI.TypeTokenView.TitleType.Variable)
-            return WI.UIString("Type information for variable: %s").format(functionOrVariableName);
+        if (titleType === WebInspector.TypeTokenView.TitleType.Variable)
+            return WebInspector.UIString("Type information for variable: %s").format(functionOrVariableName);
 
         if (functionOrVariableName)
-            return WI.UIString("Return type for function: %s").format(functionOrVariableName);
+            return WebInspector.UIString("Return type for function: %s").format(functionOrVariableName);
 
-        return WI.UIString("Return type for anonymous function");
+        return WebInspector.UIString("Return type for anonymous function");
     }
 
     // Public
 
     update(typeDescription)
     {
-        console.assert(typeDescription instanceof WI.TypeDescription);
+        console.assert(typeDescription instanceof WebInspector.TypeDescription);
 
         this._typeDescription = typeDescription;
 
@@ -81,7 +81,7 @@ WI.TypeTokenView = class TypeTokenView extends WI.Object
         if (this._colorClass)
             this.element.classList.remove(this._colorClass);
 
-        this._colorClass = WI.TypeTokenView.ColorClassForType[hashString] || "type-token-default";
+        this._colorClass = WebInspector.TypeTokenView.ColorClassForType[hashString] || "type-token-default";
         this.element.classList.add(this._colorClass);
     }
 
@@ -97,12 +97,12 @@ WI.TypeTokenView = class TypeTokenView extends WI.Object
                 timeoutID = null;
 
                 var domRect = this.element.getBoundingClientRect();
-                var bounds = new WI.Rect(domRect.left, domRect.top, domRect.width, domRect.height);
+                var bounds = new WebInspector.Rect(domRect.left, domRect.top, domRect.width, domRect.height);
                 this._tokenAnnotator.sourceCodeTextEditor.showPopoverForTypes(this._typeDescription, bounds, this._popoverTitle);
             }
 
             if (this._shouldShowPopover())
-                timeoutID = setTimeout(showPopoverAfterDelay.bind(this), WI.TypeTokenView.DelayHoverTime);
+                timeoutID = setTimeout(showPopoverAfterDelay.bind(this), WebInspector.TypeTokenView.DelayHoverTime);
         }.bind(this));
 
         this.element.addEventListener("mouseout", function() {
@@ -133,9 +133,9 @@ WI.TypeTokenView = class TypeTokenView extends WI.Object
         var typeSet = this._typeDescription.typeSet;
 
         if (this._typeDescription.leastCommonAncestor) {
-            if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Object))
+            if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Object))
                 return this._typeDescription.leastCommonAncestor;
-            if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Object | WI.TypeSet.NullOrUndefinedTypeBits))
+            if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Object | WebInspector.TypeSet.NullOrUndefinedTypeBits))
                 return this._typeDescription.leastCommonAncestor + "?";
         }
 
@@ -144,54 +144,54 @@ WI.TypeTokenView = class TypeTokenView extends WI.Object
         // Therefore, more specific types must be checked first.
 
         // The strings returned here should match those in TypeTokenView.ColorClassForType
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Function))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Function))
             return "Function";
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Undefined))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Undefined))
             return "Undefined";
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Null))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Null))
             return "Null";
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Boolean))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Boolean))
             return "Boolean";
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Integer))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Integer))
             return "Integer";
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Number | WI.TypeSet.TypeBit.Integer))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Number | WebInspector.TypeSet.TypeBit.Integer))
             return "Number";
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.String))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.String))
             return "String";
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Symbol))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Symbol))
             return "Symbol";
 
-        if (typeSet.isContainedIn(WI.TypeSet.NullOrUndefinedTypeBits))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.NullOrUndefinedTypeBits))
             return "(?)";
 
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Function | WI.TypeSet.NullOrUndefinedTypeBits))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Function | WebInspector.TypeSet.NullOrUndefinedTypeBits))
             return "Function?";
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Boolean | WI.TypeSet.NullOrUndefinedTypeBits))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Boolean | WebInspector.TypeSet.NullOrUndefinedTypeBits))
             return "Boolean?";
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Integer | WI.TypeSet.NullOrUndefinedTypeBits))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Integer | WebInspector.TypeSet.NullOrUndefinedTypeBits))
             return "Integer?";
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Number | WI.TypeSet.TypeBit.Integer | WI.TypeSet.NullOrUndefinedTypeBits))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Number | WebInspector.TypeSet.TypeBit.Integer | WebInspector.TypeSet.NullOrUndefinedTypeBits))
             return "Number?";
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.String | WI.TypeSet.NullOrUndefinedTypeBits))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.String | WebInspector.TypeSet.NullOrUndefinedTypeBits))
             return "String?";
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Symbol | WI.TypeSet.NullOrUndefinedTypeBits))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Symbol | WebInspector.TypeSet.NullOrUndefinedTypeBits))
             return "Symbol?";
 
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Object | WI.TypeSet.TypeBit.Function | WI.TypeSet.TypeBit.String))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Object | WebInspector.TypeSet.TypeBit.Function | WebInspector.TypeSet.TypeBit.String))
             return "Object";
-        if (typeSet.isContainedIn(WI.TypeSet.TypeBit.Object | WI.TypeSet.TypeBit.Function | WI.TypeSet.TypeBit.String | WI.TypeSet.NullOrUndefinedTypeBits))
+        if (typeSet.isContainedIn(WebInspector.TypeSet.TypeBit.Object | WebInspector.TypeSet.TypeBit.Function | WebInspector.TypeSet.TypeBit.String | WebInspector.TypeSet.NullOrUndefinedTypeBits))
             return "Object?";
 
-        return WI.UIString("(many)");
+        return WebInspector.UIString("(many)");
     }
 };
 
-WI.TypeTokenView.TitleType = {
+WebInspector.TypeTokenView.TitleType = {
     Variable: Symbol("title-type-variable"),
     ReturnStatement: Symbol("title-type-return-statement")
 };
 
-WI.TypeTokenView.ColorClassForType = {
+WebInspector.TypeTokenView.ColorClassForType = {
     "String": "type-token-string",
     "Symbol": "type-token-symbol",
     "Function": "type-token-function",
@@ -204,4 +204,4 @@ WI.TypeTokenView.ColorClassForType = {
     "(many)": "type-token-many"
 };
 
-WI.TypeTokenView.DelayHoverTime = 350;
+WebInspector.TypeTokenView.DelayHoverTime = 350;

@@ -30,7 +30,7 @@
 
 namespace WebCore {
 
-class OfflineAudioCompletionEvent final : public Event {
+class OfflineAudioCompletionEvent : public Event {
 public:
     static Ref<OfflineAudioCompletionEvent> create(RefPtr<AudioBuffer>&& renderedBuffer);
     

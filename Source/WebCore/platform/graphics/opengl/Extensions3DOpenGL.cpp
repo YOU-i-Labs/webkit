@@ -31,15 +31,15 @@
 
 #include "GraphicsContext3D.h"
 
-#if PLATFORM(GTK) || PLATFORM(WIN)
-#include "OpenGLShims.h"
-#elif USE(OPENGL_ES)
+#if PLATFORM(IOS)
 #include <OpenGLES/ES2/glext.h>
-#elif USE(OPENGL)
+#elif PLATFORM(MAC)
 #include <OpenGL/gl.h>
+#elif PLATFORM(GTK) || PLATFORM(WIN)
+#include "OpenGLShims.h"
 #endif
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #include "GraphicsContext3DIOS.h"
 #endif
 
@@ -50,12 +50,14 @@ Extensions3DOpenGL::Extensions3DOpenGL(GraphicsContext3D* context, bool useIndex
 {
 }
 
-Extensions3DOpenGL::~Extensions3DOpenGL() = default;
+Extensions3DOpenGL::~Extensions3DOpenGL()
+{
+}
 
 
 void Extensions3DOpenGL::blitFramebuffer(long srcX0, long srcY0, long srcX1, long srcY1, long dstX0, long dstY0, long dstX1, long dstY1, unsigned long mask, unsigned long filter)
 {
-#if PLATFORM(COCOA) && USE(OPENGL_ES)
+#if PLATFORM(IOS)
     UNUSED_PARAM(srcX0);
     UNUSED_PARAM(srcY0);
     UNUSED_PARAM(srcX1);
@@ -81,7 +83,7 @@ Platform3DObject Extensions3DOpenGL::createVertexArrayOES()
 {
     m_context->makeContextCurrent();
     GLuint array = 0;
-#if PLATFORM(GTK) || PLATFORM(WIN) || (PLATFORM(COCOA) && USE(OPENGL_ES))
+#if (PLATFORM(GTK) || PLATFORM(WIN) || PLATFORM(IOS))
     if (isVertexArrayObjectSupported())
         glGenVertexArrays(1, &array);
 #elif defined(GL_APPLE_vertex_array_object) && GL_APPLE_vertex_array_object
@@ -96,7 +98,7 @@ void Extensions3DOpenGL::deleteVertexArrayOES(Platform3DObject array)
         return;
 
     m_context->makeContextCurrent();
-#if PLATFORM(GTK) || PLATFORM(WIN) || (PLATFORM(COCOA) && USE(OPENGL_ES))
+#if (PLATFORM(GTK) || PLATFORM(WIN) || PLATFORM(IOS))
     if (isVertexArrayObjectSupported())
         glDeleteVertexArrays(1, &array);
 #elif defined(GL_APPLE_vertex_array_object) && GL_APPLE_vertex_array_object
@@ -110,7 +112,7 @@ GC3Dboolean Extensions3DOpenGL::isVertexArrayOES(Platform3DObject array)
         return GL_FALSE;
 
     m_context->makeContextCurrent();
-#if PLATFORM(GTK) || PLATFORM(WIN) || (PLATFORM(COCOA) && USE(OPENGL_ES))
+#if (PLATFORM(GTK) || PLATFORM(WIN) || PLATFORM(IOS))
     if (isVertexArrayObjectSupported())
         return glIsVertexArray(array);
 #elif defined(GL_APPLE_vertex_array_object) && GL_APPLE_vertex_array_object
@@ -122,7 +124,7 @@ GC3Dboolean Extensions3DOpenGL::isVertexArrayOES(Platform3DObject array)
 void Extensions3DOpenGL::bindVertexArrayOES(Platform3DObject array)
 {
     m_context->makeContextCurrent();
-#if PLATFORM(GTK) || PLATFORM(WIN) || (PLATFORM(COCOA) && USE(OPENGL_ES))
+#if (PLATFORM(GTK) || PLATFORM(WIN) || PLATFORM(IOS))
     if (isVertexArrayObjectSupported())
         glBindVertexArray(array);
 #elif defined(GL_APPLE_vertex_array_object) && GL_APPLE_vertex_array_object
@@ -157,7 +159,7 @@ bool Extensions3DOpenGL::supportsExtension(const String& name)
     if (name == "GL_ANGLE_framebuffer_blit")
         return m_availableExtensions.contains("GL_EXT_framebuffer_blit");
     if (name == "GL_ANGLE_framebuffer_multisample")
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
         return m_availableExtensions.contains("GL_APPLE_framebuffer_multisample");
 #else
         return m_availableExtensions.contains("GL_EXT_framebuffer_multisample");
@@ -169,7 +171,7 @@ bool Extensions3DOpenGL::supportsExtension(const String& name)
     }
 
     if (name == "GL_EXT_sRGB")
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
         return m_availableExtensions.contains("GL_EXT_sRGB");
 #else
         return m_availableExtensions.contains("GL_EXT_texture_sRGB") && (m_availableExtensions.contains("GL_EXT_framebuffer_sRGB") || m_availableExtensions.contains("GL_ARB_framebuffer_sRGB"));
@@ -195,7 +197,7 @@ bool Extensions3DOpenGL::supportsExtension(const String& name)
     if (name == "GL_OES_vertex_array_object") {
 #if (PLATFORM(GTK))
         return m_availableExtensions.contains("GL_ARB_vertex_array_object");
-#elif PLATFORM(IOS_FAMILY)
+#elif PLATFORM(IOS)
         return m_availableExtensions.contains("GL_OES_vertex_array_object");
 #else
         return m_availableExtensions.contains("GL_APPLE_vertex_array_object");
@@ -217,7 +219,7 @@ bool Extensions3DOpenGL::supportsExtension(const String& name)
         return m_availableExtensions.contains("GL_EXT_texture_filter_anisotropic");
 
     if (name == "GL_EXT_draw_buffers") {
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
         return m_availableExtensions.contains(name);
 #elif PLATFORM(MAC) || PLATFORM(GTK)
         return m_availableExtensions.contains("GL_ARB_draw_buffers");
@@ -227,7 +229,7 @@ bool Extensions3DOpenGL::supportsExtension(const String& name)
 #endif
     }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     if (name == "GL_EXT_packed_depth_stencil")
         return m_availableExtensions.contains("GL_OES_packed_depth_stencil");
 #endif
@@ -298,7 +300,7 @@ String Extensions3DOpenGL::getExtensions()
     return String(reinterpret_cast<const char*>(::glGetString(GL_EXTENSIONS)));
 }
 
-#if PLATFORM(GTK) || PLATFORM(WIN) || (PLATFORM(COCOA) && USE(OPENGL_ES))
+#if (PLATFORM(GTK) || PLATFORM(WIN) || PLATFORM(IOS))
 bool Extensions3DOpenGL::isVertexArrayObjectSupported()
 {
     static const bool supportsVertexArrayObject = supports("GL_OES_vertex_array_object");

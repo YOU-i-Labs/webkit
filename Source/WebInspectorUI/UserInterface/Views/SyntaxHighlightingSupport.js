@@ -23,9 +23,9 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SyntaxHighlightedStyleClassName = "syntax-highlighted";
+WebInspector.SyntaxHighlightedStyleClassName = "syntax-highlighted";
 
-WI.syntaxHighlightStringAsDocumentFragment = function(string, mimeType, baseURL)
+WebInspector.syntaxHighlightStringAsDocumentFragment = function(string, mimeType, baseURL)
 {
     var resultFragment = document.createDocumentFragment();
 

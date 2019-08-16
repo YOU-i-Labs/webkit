@@ -55,10 +55,7 @@ public:
     {
     }
 
-    ShadowData(const ShadowData&);
-    static Optional<ShadowData> clone(const ShadowData*);
-
-    ShadowData& operator=(ShadowData&&) = default;
+    ShadowData(const ShadowData& o);
 
     bool operator==(const ShadowData& o) const;
     bool operator!=(const ShadowData& o) const

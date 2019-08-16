@@ -28,33 +28,19 @@
 #include "MessageChannel.h"
 
 #include "MessagePort.h"
-#include "MessagePortChannelProvider.h"
+#include "MessagePortChannel.h"
 
 namespace WebCore {
 
-Ref<MessageChannel> MessageChannel::create(ScriptExecutionContext& context)
-{
-    return adoptRef(*new MessageChannel(context));
-}
-
 MessageChannel::MessageChannel(ScriptExecutionContext& context)
+    : m_port1(MessagePort::create(context))
+    , m_port2(MessagePort::create(context))
 {
-    MessagePortIdentifier id1 = { Process::identifier(), generateObjectIdentifier<MessagePortIdentifier::PortIdentifierType>() };
-    MessagePortIdentifier id2 = { Process::identifier(), generateObjectIdentifier<MessagePortIdentifier::PortIdentifierType>() };
-
-    m_port1 = MessagePort::create(context, id1, id2);
-    m_port2 = MessagePort::create(context, id2, id1);
-
-    if (!context.activeDOMObjectsAreStopped()) {
-        ASSERT(!m_port1->closed());
-        ASSERT(!m_port2->closed());
-        MessagePortChannelProvider::singleton().createNewMessagePortChannel(id1, id2);
-    } else {
-        ASSERT(m_port1->closed());
-        ASSERT(m_port2->closed());
-    }
+    MessagePortChannel::createChannel(m_port1.get(), m_port2.get());
 }
 
-MessageChannel::~MessageChannel() = default;
+MessageChannel::~MessageChannel()
+{
+}
 
 } // namespace WebCore

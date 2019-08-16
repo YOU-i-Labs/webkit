@@ -33,15 +33,15 @@ class JS_EXPORT_PRIVATE EdenGCActivityCallback : public GCActivityCallback {
 public:
     EdenGCActivityCallback(Heap*);
 
-    void doCollection(VM&) override;
+    void doCollection() override;
 
 protected:
-    Seconds lastGCLength(Heap&) override;
+    Seconds lastGCLength() override;
     double gcTimeSlice(size_t bytes) override;
-    double deathRate(Heap&) override;
+    double deathRate() override;
 };
 
-inline RefPtr<GCActivityCallback> GCActivityCallback::tryCreateEdenTimer(Heap* heap)
+inline RefPtr<GCActivityCallback> GCActivityCallback::createEdenTimer(Heap* heap)
 {
     return s_shouldCreateGCTimer ? adoptRef(new EdenGCActivityCallback(heap)) : nullptr;
 }

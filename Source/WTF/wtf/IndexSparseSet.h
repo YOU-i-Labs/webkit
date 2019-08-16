@@ -23,8 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef IndexSparseSet_h
+#define IndexSparseSet_h
 
+#include <wtf/HashTraits.h>
 #include <wtf/Vector.h>
 
 namespace WTF {
@@ -106,7 +108,7 @@ private:
 template<typename EntryType, typename EntryTypeTraits, typename OverflowHandler>
 inline IndexSparseSet<EntryType, EntryTypeTraits, OverflowHandler>::IndexSparseSet(unsigned size)
 {
-    m_map.grow(size);
+    m_map.resize(size);
 }
 
 template<typename EntryType, typename EntryTypeTraits, typename OverflowHandler>
@@ -158,7 +160,7 @@ inline bool IndexSparseSet<EntryType, EntryTypeTraits, OverflowHandler>::remove(
 template<typename EntryType, typename EntryTypeTraits, typename OverflowHandler>
 void IndexSparseSet<EntryType, EntryTypeTraits, OverflowHandler>::clear()
 {
-    m_values.shrink(0);
+    m_values.resize(0);
 }
 
 template<typename EntryType, typename EntryTypeTraits, typename OverflowHandler>
@@ -229,3 +231,5 @@ auto IndexSparseSet<EntryType, EntryTypeTraits, OverflowHandler>::end() const ->
 
 using WTF::DefaultIndexSparseSetTraits;
 using WTF::IndexSparseSet;
+
+#endif // IndexSparseSet_h

@@ -30,7 +30,7 @@
 
 namespace JSC {
 
-class JSFixedArray final : public JSCell {
+class JSFixedArray : public JSCell {
     typedef JSCell Base;
 
 public:
@@ -41,27 +41,6 @@ public:
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {
         return Structure::create(vm, globalObject, prototype, TypeInfo(JSFixedArrayType, StructureFlags), info());
-    }
-
-    ALWAYS_INLINE static JSFixedArray* tryCreate(VM& vm, Structure* structure, unsigned size)
-    {
-        Checked<size_t, RecordOverflow> checkedAllocationSize = allocationSize(size);
-        if (UNLIKELY(checkedAllocationSize.hasOverflowed()))
-            return nullptr;
-
-        void* buffer = tryAllocateCell<JSFixedArray>(vm.heap, checkedAllocationSize.unsafeGet());
-        if (UNLIKELY(!buffer))
-            return nullptr;
-        JSFixedArray* result = new (NotNull, buffer) JSFixedArray(vm, structure, size);
-        result->finishCreation(vm);
-        return result;
-    }
-
-    static JSFixedArray* create(VM& vm, unsigned length)
-    {
-        auto* array = tryCreate(vm, vm.fixedArrayStructure.get(), length);
-        RELEASE_ASSERT(array);
-        return array;
     }
 
     ALWAYS_INLINE static JSFixedArray* createFromArray(ExecState* exec, VM& vm, JSArray* array)
@@ -81,7 +60,7 @@ public:
 
         if (indexingType == ContiguousShape || indexingType == Int32Shape) {
             for (unsigned i = 0; i < length; i++) {
-                JSValue value = array->butterfly()->contiguous().at(array, i).get();
+                JSValue value = array->butterfly()->contiguous()[i].get();
                 value = !!value ? value : jsUndefined();
                 result->buffer()[i].set(vm, result, value);
             }
@@ -90,7 +69,7 @@ public:
 
         if (indexingType == DoubleShape) {
             for (unsigned i = 0; i < length; i++) {
-                double d = array->butterfly()->contiguousDouble().at(array, i);
+                double d = array->butterfly()->contiguousDouble()[i];
                 JSValue value = std::isnan(d) ? jsUndefined() : JSValue(JSValue::EncodeAsDouble, d);
                 result->buffer()[i].set(vm, result, value);
             }
@@ -117,26 +96,17 @@ public:
         return result;
     }
 
-    ALWAYS_INLINE JSValue get(unsigned index) const
+    ALWAYS_INLINE JSValue get(unsigned index)
     {
         ASSERT(index < m_size);
         return buffer()[index].get();
     }
 
-    void set(VM& vm, unsigned index, JSValue value)
-    {
-        ASSERT(index < m_size);
-        return buffer()[index].set(vm, this, value);
-    }
-
     ALWAYS_INLINE WriteBarrier<Unknown>* buffer() { return bitwise_cast<WriteBarrier<Unknown>*>(bitwise_cast<char*>(this) + offsetOfData()); }
-    ALWAYS_INLINE WriteBarrier<Unknown>* buffer() const { return const_cast<JSFixedArray*>(this)->buffer(); }
-    ALWAYS_INLINE const JSValue* values() const { return bitwise_cast<const JSValue*>(buffer()); }
 
     static void visitChildren(JSCell*, SlotVisitor&);
 
     unsigned size() const { return m_size; }
-    unsigned length() const { return m_size; }
 
     static size_t offsetOfSize() { return OBJECT_OFFSETOF(JSFixedArray, m_size); }
 
@@ -147,14 +117,24 @@ public:
 
     void copyToArguments(ExecState*, VirtualRegister firstElementDest, unsigned offset, unsigned length);
 
-    static void dumpToStream(const JSCell*, PrintStream&);
+private:
+    unsigned m_size;
 
-    static Checked<size_t, RecordOverflow> allocationSize(Checked<size_t, RecordOverflow> numItems)
+    ALWAYS_INLINE static JSFixedArray* tryCreate(VM& vm, Structure* structure, unsigned size)
     {
-        return offsetOfData() + numItems * sizeof(WriteBarrier<Unknown>);
+        Checked<size_t, RecordOverflow> checkedAllocationSize = allocationSize(size);
+        if (UNLIKELY(checkedAllocationSize.hasOverflowed()))
+            return nullptr;
+
+        void* buffer = tryAllocateCell<JSFixedArray>(vm.heap, checkedAllocationSize.unsafeGet());
+        if (UNLIKELY(!buffer))
+            return nullptr;
+        JSFixedArray* result = new (NotNull, buffer) JSFixedArray(vm, structure, size);
+        result->finishCreation(vm);
+        return result;
     }
 
-private:
+
     JSFixedArray(VM& vm, Structure* structure, unsigned size)
         : Base(vm, structure)
         , m_size(size)
@@ -163,7 +143,11 @@ private:
             buffer()[i].setStartingValue(JSValue());
     }
 
-    unsigned m_size;
+
+    static Checked<size_t, RecordOverflow> allocationSize(Checked<size_t, RecordOverflow> numItems)
+    {
+        return offsetOfData() + numItems * sizeof(WriteBarrier<Unknown>);
+    }
 };
 
 } // namespace JSC

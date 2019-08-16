@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.HeapAllocationsInstrument = class HeapAllocationsInstrument extends WI.Instrument
+WebInspector.HeapAllocationsInstrument = class HeapAllocationsInstrument extends WebInspector.Instrument
 {
     constructor()
     {
         super();
 
-        console.assert(WI.HeapAllocationsInstrument.supported());
+        console.assert(WebInspector.HeapAllocationsInstrument.supported());
 
         this._snapshotIntervalIdentifier = undefined;
     }
@@ -46,7 +46,7 @@ WI.HeapAllocationsInstrument = class HeapAllocationsInstrument extends WI.Instru
 
     get timelineRecordType()
     {
-        return WI.TimelineRecord.Type.HeapAllocations;
+        return WebInspector.TimelineRecord.Type.HeapAllocations;
     }
 
     startInstrumentation(initiatedByBackend)
@@ -76,10 +76,10 @@ WI.HeapAllocationsInstrument = class HeapAllocationsInstrument extends WI.Instru
     _takeHeapSnapshot()
     {
         HeapAgent.snapshot(function(error, timestamp, snapshotStringData) {
-            let workerProxy = WI.HeapSnapshotWorkerProxy.singleton();
+            let workerProxy = WebInspector.HeapSnapshotWorkerProxy.singleton();
             workerProxy.createSnapshot(snapshotStringData, ({objectId, snapshot: serializedSnapshot}) => {
-                let snapshot = WI.HeapSnapshotProxy.deserialize(objectId, serializedSnapshot);
-                WI.timelineManager.heapSnapshotAdded(timestamp, snapshot);
+                let snapshot = WebInspector.HeapSnapshotProxy.deserialize(objectId, serializedSnapshot);
+                WebInspector.timelineManager.heapSnapshotAdded(timestamp, snapshot);
             });
         });
     }

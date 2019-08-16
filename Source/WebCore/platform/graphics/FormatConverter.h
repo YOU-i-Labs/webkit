@@ -29,7 +29,6 @@
 
 #include "GraphicsContext3D.h"
 #include <wtf/StdLibExtras.h>
-#include <wtf/UniqueArray.h>
 
 namespace WebCore {
 
@@ -46,7 +45,7 @@ public:
     {
         const unsigned MaxNumberOfComponents = 4;
         const unsigned MaxBytesPerComponent  = 4;
-        m_unpackedIntermediateSrcData = makeUniqueArray<uint8_t>((Checked<size_t>(m_width) * MaxNumberOfComponents * MaxBytesPerComponent).unsafeGet());
+        m_unpackedIntermediateSrcData = std::make_unique<uint8_t[]>(m_width * MaxNumberOfComponents * MaxBytesPerComponent);
 
         ASSERT(m_unpackedIntermediateSrcData.get());
     }
@@ -69,7 +68,7 @@ private:
     void* const m_dstStart;
     const int m_srcStride, m_dstStride;
     bool m_success;
-    UniqueArray<uint8_t> m_unpackedIntermediateSrcData;
+    std::unique_ptr<uint8_t[]> m_unpackedIntermediateSrcData;
 };
 
 } // namespace WebCore

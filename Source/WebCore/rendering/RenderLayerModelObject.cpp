@@ -30,25 +30,13 @@
 #include "RenderView.h"
 #include "Settings.h"
 #include "StyleScrollSnapPoints.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderLayerModelObject);
 
 bool RenderLayerModelObject::s_wasFloating = false;
 bool RenderLayerModelObject::s_hadLayer = false;
 bool RenderLayerModelObject::s_hadTransform = false;
 bool RenderLayerModelObject::s_layerWasSelfPainting = false;
-
-typedef WTF::HashMap<const RenderLayerModelObject*, RepaintLayoutRects> RepaintLayoutRectsMap;
-static RepaintLayoutRectsMap* gRepaintLayoutRectsMap = nullptr;
-
-RepaintLayoutRects::RepaintLayoutRects(const RenderLayerModelObject& renderer, const RenderLayerModelObject* repaintContainer, const RenderGeometryMap* geometryMap)
-    : m_repaintRect(renderer.clippedOverflowRectForRepaint(repaintContainer))
-    , m_outlineBox(renderer.outlineBoundsForRepaint(repaintContainer, geometryMap))
-{
-}
 
 RenderLayerModelObject::RenderLayerModelObject(Element& element, RenderStyle&& style, BaseTypeFlags baseTypeFlags)
     : RenderElement(element, WTFMove(style), baseTypeFlags | RenderLayerModelObjectFlag)
@@ -72,22 +60,17 @@ void RenderLayerModelObject::willBeDestroyed()
             view().frameView().removeViewportConstrainedObject(this);
     }
 
-    if (hasLayer()) {
-        setHasLayer(false);
-        destroyLayer();
-    }
-
     RenderElement::willBeDestroyed();
-    
-    clearRepaintLayoutRects();
+
+    // Our layer should have been destroyed and cleared by now
+    ASSERT(!hasLayer());
+    ASSERT(!m_layer);
 }
 
 void RenderLayerModelObject::destroyLayer()
 {
-    ASSERT(!hasLayer());
+    ASSERT(!hasLayer()); // Callers should have already called setHasLayer(false)
     ASSERT(m_layer);
-    if (m_layer->isSelfPaintingLayer())
-        clearRepaintLayoutRects();
     m_layer = nullptr;
 }
 
@@ -119,15 +102,15 @@ void RenderLayerModelObject::styleWillChange(StyleDifference diff, const RenderS
         if (parent()) {
             // Do a repaint with the old style first, e.g., for example if we go from
             // having an outline to not having an outline.
-            if (diff == StyleDifference::RepaintLayer) {
+            if (diff == StyleDifferenceRepaintLayer) {
                 layer()->repaintIncludingDescendants();
                 if (!(oldStyle->clip() == newStyle.clip()))
                     layer()->clearClipRectsIncludingDescendants();
-            } else if (diff == StyleDifference::Repaint || newStyle.outlineSize() < oldStyle->outlineSize())
+            } else if (diff == StyleDifferenceRepaint || newStyle.outlineSize() < oldStyle->outlineSize())
                 repaint();
         }
 
-        if (diff == StyleDifference::Layout || diff == StyleDifference::SimplifiedLayout) {
+        if (diff == StyleDifferenceLayout || diff == StyleDifferenceSimplifiedLayout) {
             // When a layout hint happens, we do a repaint of the layer, since the layer could end up being destroyed.
             if (hasLayer()) {
                 if (oldStyle->position() != newStyle.position()
@@ -170,7 +153,9 @@ void RenderLayerModelObject::styleDidChange(StyleDifference diff, const RenderSt
             createLayer();
             if (parent() && !needsLayout() && containingBlock()) {
                 layer()->setRepaintStatus(NeedsFullRepaint);
-                layer()->updateLayerPositions();
+                // There is only one layer to update, it is not worth using |cachedOffset| since
+                // we are not sure the value will be used.
+                layer()->updateLayerPositions(0);
             }
         }
     } else if (layer() && layer()->parent()) {
@@ -181,8 +166,8 @@ void RenderLayerModelObject::styleDidChange(StyleDifference diff, const RenderSt
         setHasTransformRelatedProperty(false); // All transform-related propeties force layers, so we know we don't have one or the object doesn't support them.
         setHasReflection(false);
         // Repaint the about to be destroyed self-painting layer when style change also triggers repaint.
-        if (layer()->isSelfPaintingLayer() && layer()->repaintStatus() == NeedsFullRepaint && hasRepaintLayoutRects())
-            repaintUsingContainer(containerForRepaint(), repaintLayoutRects().m_repaintRect);
+        if (layer()->isSelfPaintingLayer() && layer()->repaintStatus() == NeedsFullRepaint && layer()->hasComputedRepaintRect())
+            repaintUsingContainer(containerForRepaint(), layer()->repaintRect());
         layer()->removeOnlyThisLayer(); // calls destroyLayer() which clears m_layer
         if (s_wasFloating && isFloating())
             setChildNeedsLayout();
@@ -236,51 +221,18 @@ void RenderLayerModelObject::styleDidChange(StyleDifference diff, const RenderSt
 bool RenderLayerModelObject::shouldPlaceBlockDirectionScrollbarOnLeft() const
 {
 // RTL Scrollbars require some system support, and this system support does not exist on certain versions of OS X. iOS uses a separate mechanism.
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101200)
     return false;
 #else
     switch (settings().userInterfaceDirectionPolicy()) {
     case UserInterfaceDirectionPolicy::Content:
         return style().shouldPlaceBlockDirectionScrollbarOnLeft();
     case UserInterfaceDirectionPolicy::System:
-        return settings().systemLayoutDirection() == TextDirection::RTL;
+        return settings().systemLayoutDirection() == RTL;
     }
     ASSERT_NOT_REACHED();
     return style().shouldPlaceBlockDirectionScrollbarOnLeft();
 #endif
-}
-
-bool RenderLayerModelObject::hasRepaintLayoutRects() const
-{
-    return gRepaintLayoutRectsMap && gRepaintLayoutRectsMap->contains(this);
-}
-
-void RenderLayerModelObject::setRepaintLayoutRects(const RepaintLayoutRects& rects)
-{
-    if (!gRepaintLayoutRectsMap)
-        gRepaintLayoutRectsMap = new RepaintLayoutRectsMap();
-    gRepaintLayoutRectsMap->set(this, rects);
-}
-
-void RenderLayerModelObject::clearRepaintLayoutRects()
-{
-    if (gRepaintLayoutRectsMap)
-        gRepaintLayoutRectsMap->remove(this);
-}
-
-RepaintLayoutRects RenderLayerModelObject::repaintLayoutRects() const
-{
-    if (!hasRepaintLayoutRects())
-        return RepaintLayoutRects();
-    return gRepaintLayoutRectsMap->get(this);
-}
-
-void RenderLayerModelObject::computeRepaintLayoutRects(const RenderLayerModelObject* repaintContainer, const RenderGeometryMap* geometryMap)
-{
-    if (!m_layer || !m_layer->isSelfPaintingLayer())
-        clearRepaintLayoutRects();
-    else
-        setRepaintLayoutRects(RepaintLayoutRects(*this, repaintContainer, geometryMap));
 }
 
 } // namespace WebCore

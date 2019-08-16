@@ -34,7 +34,7 @@ struct CSSParserContext;
 
 class CachedCSSStyleSheet final : public CachedResource {
 public:
-    CachedCSSStyleSheet(CachedResourceRequest&&, PAL::SessionID);
+    CachedCSSStyleSheet(CachedResourceRequest&&, SessionID);
     virtual ~CachedCSSStyleSheet();
 
     enum class MIMETypeCheckHint { Strict, Lax };
@@ -43,7 +43,9 @@ public:
     RefPtr<StyleSheetContents> restoreParsedStyleSheet(const CSSParserContext&, CachePolicy, FrameLoader&);
     void saveParsedStyleSheet(Ref<StyleSheetContents>&&);
 
+#if ENABLE(NOSNIFF)
     bool mimeTypeAllowedByNosniff() const;
+#endif
 
 private:
     String responseMIMEType() const;
@@ -71,4 +73,4 @@ protected:
 
 } // namespace WebCore
 
-SPECIALIZE_TYPE_TRAITS_CACHED_RESOURCE(CachedCSSStyleSheet, CachedResource::Type::CSSStyleSheet)
+SPECIALIZE_TYPE_TRAITS_CACHED_RESOURCE(CachedCSSStyleSheet, CachedResource::CSSStyleSheet)

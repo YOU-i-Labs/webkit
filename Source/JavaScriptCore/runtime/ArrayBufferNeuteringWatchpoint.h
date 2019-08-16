@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "JSCast.h"
+#include "JSCell.h"
 #include "Watchpoint.h"
 
 namespace JSC {
@@ -44,14 +44,14 @@ public:
     
     static Structure* createStructure(VM&);
     
-    WatchpointSet& set() { return m_set.get(); }
+    WatchpointSet* set() { return m_set.get(); }
     
     void fireAll();
 
 private:
     explicit ArrayBufferNeuteringWatchpoint(VM&);
     
-    Ref<WatchpointSet> m_set;
+    RefPtr<WatchpointSet> m_set;
 };
 
 } // namespace JSC

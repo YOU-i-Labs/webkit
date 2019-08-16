@@ -29,8 +29,9 @@
 #include "Filter.h"
 #include "FloatPoint.h"
 #include "GraphicsContext.h"
-#include <JavaScriptCore/Uint8ClampedArray.h>
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
+
+#include <runtime/Uint8ClampedArray.h>
 
 namespace WebCore {
 
@@ -43,6 +44,11 @@ FEBlend::FEBlend(Filter& filter, BlendMode mode)
 Ref<FEBlend> FEBlend::create(Filter& filter, BlendMode mode)
 {
     return adoptRef(*new FEBlend(filter, mode));
+}
+
+BlendMode FEBlend::blendMode() const
+{
+    return m_mode;
 }
 
 bool FEBlend::setBlendMode(BlendMode mode)
@@ -64,8 +70,8 @@ void FEBlend::platformApplySoftware()
         return;
     GraphicsContext& filterContext = resultImage->context();
 
-    ImageBuffer* imageBuffer = in->imageBufferResult();
-    ImageBuffer* imageBuffer2 = in2->imageBufferResult();
+    ImageBuffer* imageBuffer = in->asImageBuffer();
+    ImageBuffer* imageBuffer2 = in2->asImageBuffer();
     if (!imageBuffer || !imageBuffer2)
         return;
 
@@ -74,15 +80,18 @@ void FEBlend::platformApplySoftware()
 }
 #endif
 
-TextStream& FEBlend::externalRepresentation(TextStream& ts, RepresentationType representation) const
+void FEBlend::dump()
 {
-    ts << indent << "[feBlend";
-    FilterEffect::externalRepresentation(ts, representation);
-    ts << " mode=\"" << (m_mode == BlendMode::Normal ? "normal" : compositeOperatorName(CompositeSourceOver, m_mode)) << "\"]\n";
+}
 
-    TextStream::IndentScope indentScope(ts);
-    inputEffect(0)->externalRepresentation(ts, representation);
-    inputEffect(1)->externalRepresentation(ts, representation);
+TextStream& FEBlend::externalRepresentation(TextStream& ts, int indent) const
+{
+    writeIndent(ts, indent);
+    ts << "[feBlend";
+    FilterEffect::externalRepresentation(ts);
+    ts << " mode=\"" << (m_mode == BlendModeNormal ? "normal" : compositeOperatorName(CompositeSourceOver, m_mode)) << "\"]\n";
+    inputEffect(0)->externalRepresentation(ts, indent + 1);
+    inputEffect(1)->externalRepresentation(ts, indent + 1);
     return ts;
 }
 

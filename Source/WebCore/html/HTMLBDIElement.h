@@ -25,7 +25,6 @@
 namespace WebCore {
 
 class HTMLBDIElement final : public HTMLElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLBDIElement);
 public:
     static Ref<HTMLBDIElement> create(const QualifiedName& name, Document& document)
     {

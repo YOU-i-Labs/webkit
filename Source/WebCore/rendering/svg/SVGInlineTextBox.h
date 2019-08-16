@@ -22,6 +22,7 @@
 #pragma once
 
 #include "InlineTextBox.h"
+#include "SVGTextLayoutEngine.h"
 #include "RenderSVGInlineText.h"
 #include "RenderSVGResource.h"
 
@@ -29,10 +30,8 @@ namespace WebCore {
 
 class RenderSVGResource;
 class SVGRootInlineBox;
-struct SVGTextFragment;
 
 class SVGInlineTextBox final : public InlineTextBox {
-    WTF_MAKE_ISO_ALLOCATED(SVGInlineTextBox);
 public:
     explicit SVGInlineTextBox(RenderSVGInlineText&);
 
@@ -81,8 +80,8 @@ private:
     bool prepareGraphicsContextForTextPainting(GraphicsContext*&, float scalingFactor, const RenderStyle&);
     void restoreGraphicsContextAfterTextPainting(GraphicsContext*&);
 
-    void paintDecoration(GraphicsContext&, OptionSet<TextDecoration>, const SVGTextFragment&);
-    void paintDecorationWithStyle(GraphicsContext&, OptionSet<TextDecoration>, const SVGTextFragment&, RenderBoxModelObject& decorationRenderer);
+    void paintDecoration(GraphicsContext&, TextDecoration, const SVGTextFragment&);
+    void paintDecorationWithStyle(GraphicsContext&, TextDecoration, const SVGTextFragment&, RenderBoxModelObject& decorationRenderer);
     void paintTextWithShadows(GraphicsContext&, const RenderStyle&, TextRun&, const SVGTextFragment&, unsigned startPosition, unsigned endPosition);
     void paintText(GraphicsContext&, const RenderStyle&, const RenderStyle& selectionStyle, const SVGTextFragment&, bool hasSelection, bool paintSelectedTextOnly);
 

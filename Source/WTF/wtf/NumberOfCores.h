@@ -18,10 +18,13 @@
  *
  */
 
-#pragma once
+#ifndef NumberOfCores_h
+#define NumberOfCores_h
 
 namespace WTF {
 
 WTF_EXPORT_PRIVATE int numberOfProcessorCores();
 
 }
+
+#endif

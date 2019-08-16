@@ -62,7 +62,7 @@ public:
 
 private:
     CloseEvent(bool wasClean, int code, const String& reason)
-        : Event(eventNames().closeEvent, CanBubble::No, IsCancelable::No)
+        : Event(eventNames().closeEvent, false, false)
         , m_wasClean(wasClean)
         , m_code(code)
         , m_reason(reason)

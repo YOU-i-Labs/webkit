@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +32,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
 #include <wtf/text/AtomicStringHash.h>
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -60,7 +61,7 @@ private:
 
         const CSSSelector* selector;
 #if ENABLE(CSS_SELECTOR_JIT)
-        mutable JSC::MacroAssemblerCodeRef<CSSSelectorPtrTag> compiledSelectorCodeRef;
+        mutable JSC::MacroAssemblerCodeRef compiledSelectorCodeRef;
         mutable SelectorCompilationStatus compilationStatus;
 #if CSS_SELECTOR_JIT_PROFILING
         ~SelectorData()
@@ -87,7 +88,7 @@ private:
     template <typename SelectorQueryTrait> void executeCompiledSimpleSelectorChecker(const ContainerNode& searchRootNode, SelectorCompiler::QuerySelectorSimpleSelectorChecker, typename SelectorQueryTrait::OutputType&, const SelectorData&) const;
     template <typename SelectorQueryTrait> void executeCompiledSelectorCheckerWithCheckingContext(const ContainerNode& rootNode, const ContainerNode& searchRootNode, SelectorCompiler::QuerySelectorSelectorCheckerWithCheckingContext, typename SelectorQueryTrait::OutputType&, const SelectorData&) const;
     template <typename SelectorQueryTrait> void executeCompiledSingleMultiSelectorData(const ContainerNode& rootNode, typename SelectorQueryTrait::OutputType&) const;
-    static bool compileSelector(const SelectorData&);
+    static bool compileSelector(const SelectorData&, const ContainerNode& rootNode);
 #endif // ENABLE(CSS_SELECTOR_JIT)
 
     Vector<SelectorData> m_selectors;

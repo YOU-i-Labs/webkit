@@ -44,7 +44,7 @@ class VisibleSelection;
 
 class DOMSelection : public RefCounted<DOMSelection>, public DOMWindowProperty {
 public:
-    static Ref<DOMSelection> create(DOMWindow& window) { return adoptRef(*new DOMSelection(window)); }
+    static Ref<DOMSelection> create(Frame& frame) { return adoptRef(*new DOMSelection(frame)); }
 
     Node* baseNode() const;
     Node* extentNode() const;
@@ -80,9 +80,9 @@ public:
     void empty();
 
 private:
-    explicit DOMSelection(DOMWindow&);
+    explicit DOMSelection(Frame&);
 
-    // Convenience method for accessors, caller must null-check frame().
+    // Convenience method for accessors, caller must null-check m_frame.
     const VisibleSelection& visibleSelection() const;
 
     Node* shadowAdjustedNode(const Position&) const;

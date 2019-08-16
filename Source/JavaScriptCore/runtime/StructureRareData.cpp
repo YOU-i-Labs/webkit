@@ -27,7 +27,6 @@
 #include "StructureRareData.h"
 
 #include "AdaptiveInferredPropertyValueWatchpointBase.h"
-#include "JSImmutableButterfly.h"
 #include "JSPropertyNameEnumerator.h"
 #include "JSString.h"
 #include "JSCInlines.h"
@@ -67,13 +66,20 @@ void StructureRareData::visitChildren(JSCell* cell, SlotVisitor& visitor)
     StructureRareData* thisObject = jsCast<StructureRareData*>(cell);
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
 
-    Base::visitChildren(thisObject, visitor);
+    JSCell::visitChildren(thisObject, visitor);
     visitor.append(thisObject->m_previous);
     visitor.append(thisObject->m_objectToStringValue);
     visitor.append(thisObject->m_cachedPropertyNameEnumerator);
-    auto* cachedOwnKeys = thisObject->m_cachedOwnKeys.unvalidatedGet();
-    if (cachedOwnKeys != cachedOwnKeysSentinel())
-        visitor.appendUnbarriered(cachedOwnKeys);
+}
+
+JSPropertyNameEnumerator* StructureRareData::cachedPropertyNameEnumerator() const
+{
+    return m_cachedPropertyNameEnumerator.get();
+}
+
+void StructureRareData::setCachedPropertyNameEnumerator(VM& vm, JSPropertyNameEnumerator* enumerator)
+{
+    m_cachedPropertyNameEnumerator.set(vm, this, enumerator);
 }
 
 // ----------- Object.prototype.toString() helper watchpoint classes -----------
@@ -85,7 +91,7 @@ public:
 
 private:
     bool isValid() const override;
-    void handleFire(VM&, const FireDetail&) override;
+    void handleFire(const FireDetail&) override;
 
     StructureRareData* m_structureRareData;
 };
@@ -94,10 +100,10 @@ class ObjectToStringAdaptiveStructureWatchpoint : public Watchpoint {
 public:
     ObjectToStringAdaptiveStructureWatchpoint(const ObjectPropertyCondition&, StructureRareData*);
 
-    void install(VM&);
+    void install();
 
 protected:
-    void fireInternal(VM&, const FireDetail&) override;
+    void fireInternal(const FireDetail&) override;
     
 private:
     ObjectPropertyCondition m_key;
@@ -154,9 +160,9 @@ void StructureRareData::setObjectToStringValue(ExecState* exec, VM& vm, Structur
     for (ObjectPropertyCondition condition : conditionSet) {
         if (condition.condition().kind() == PropertyCondition::Presence) {
             m_objectToStringAdaptiveInferredValueWatchpoint = std::make_unique<ObjectToStringAdaptiveInferredPropertyValueWatchpoint>(equivCondition, this);
-            m_objectToStringAdaptiveInferredValueWatchpoint->install(vm);
+            m_objectToStringAdaptiveInferredValueWatchpoint->install();
         } else
-            m_objectToStringAdaptiveWatchpointSet.add(condition, this)->install(vm);
+            m_objectToStringAdaptiveWatchpointSet.add(condition, this)->install();
     }
 
     m_objectToStringValue.set(vm, this, value);
@@ -179,22 +185,24 @@ ObjectToStringAdaptiveStructureWatchpoint::ObjectToStringAdaptiveStructureWatchp
     RELEASE_ASSERT(!key.watchingRequiresReplacementWatchpoint());
 }
 
-void ObjectToStringAdaptiveStructureWatchpoint::install(VM& vm)
+void ObjectToStringAdaptiveStructureWatchpoint::install()
 {
     RELEASE_ASSERT(m_key.isWatchable());
 
-    m_key.object()->structure(vm)->addTransitionWatchpoint(this);
+    m_key.object()->structure()->addTransitionWatchpoint(this);
 }
 
-void ObjectToStringAdaptiveStructureWatchpoint::fireInternal(VM& vm, const FireDetail&)
+void ObjectToStringAdaptiveStructureWatchpoint::fireInternal(const FireDetail& detail)
 {
-    if (!m_structureRareData->isLive())
-        return;
-
     if (m_key.isWatchable(PropertyCondition::EnsureWatchability)) {
-        install(vm);
+        install();
         return;
     }
+
+    StringPrintStream out;
+    out.print("ObjectToStringValue Adaptation of ", m_key, " failed: ", detail);
+
+    StringFireDetail stringDetail(out.toCString().data());
 
     m_structureRareData->clearObjectToStringValue();
 }
@@ -210,8 +218,13 @@ bool ObjectToStringAdaptiveInferredPropertyValueWatchpoint::isValid() const
     return m_structureRareData->isLive();
 }
 
-void ObjectToStringAdaptiveInferredPropertyValueWatchpoint::handleFire(VM&, const FireDetail&)
+void ObjectToStringAdaptiveInferredPropertyValueWatchpoint::handleFire(const FireDetail& detail)
 {
+    StringPrintStream out;
+    out.print("Adaptation of ", key(), " failed: ", detail);
+    
+    StringFireDetail stringDetail(out.toCString().data());
+    
     m_structureRareData->clearObjectToStringValue();
 }
 

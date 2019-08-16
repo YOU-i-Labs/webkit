@@ -26,12 +26,9 @@
 #include "CSSStyleSheet.h"
 #include "Document.h"
 #include "SVGNames.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(SVGStyleElement);
 
 inline SVGStyleElement::SVGStyleElement(const QualifiedName& tagName, Document& document, bool createdByParser)
     : SVGElement(tagName, document)
@@ -58,7 +55,7 @@ bool SVGStyleElement::disabled() const
 
 void SVGStyleElement::setDisabled(bool setDisabled)
 {
-    if (auto styleSheet = makeRefPtr(sheet()))
+    if (CSSStyleSheet* styleSheet = sheet())
         styleSheet->setDisabled(setDisabled);
 }
 
@@ -94,7 +91,7 @@ String SVGStyleElement::title() const
 void SVGStyleElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == SVGNames::titleAttr) {
-        if (sheet() && !isInShadowTree())
+        if (sheet())
             sheet()->setTitle(value);
         return;
     }
@@ -116,18 +113,19 @@ void SVGStyleElement::finishParsingChildren()
     SVGElement::finishParsingChildren();
 }
 
-Node::InsertedIntoAncestorResult SVGStyleElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
+Node::InsertionNotificationRequest SVGStyleElement::insertedInto(ContainerNode& rootParent)
 {
-    auto result = SVGElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
-    if (insertionType.connectedToDocument)
+    bool wasInDocument = isConnected();
+    auto result = SVGElement::insertedInto(rootParent);
+    if (rootParent.isConnected() && !wasInDocument)
         m_styleSheetOwner.insertedIntoDocument(*this);
     return result;
 }
 
-void SVGStyleElement::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
+void SVGStyleElement::removedFrom(ContainerNode& rootParent)
 {
-    SVGElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
-    if (removalType.disconnectedFromDocument)
+    SVGElement::removedFrom(rootParent);
+    if (rootParent.isConnected() && !isConnected())
         m_styleSheetOwner.removedFromDocument(*this);
 }
 

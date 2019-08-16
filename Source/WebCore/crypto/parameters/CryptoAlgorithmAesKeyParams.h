@@ -27,7 +27,7 @@
 
 #include "CryptoAlgorithmParameters.h"
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 namespace WebCore {
 
@@ -42,4 +42,4 @@ public:
 
 SPECIALIZE_TYPE_TRAITS_CRYPTO_ALGORITHM_PARAMETERS(AesKeyParams)
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

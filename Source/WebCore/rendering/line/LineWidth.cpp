@@ -76,7 +76,7 @@ static bool newFloatShrinksLine(const FloatingObject& newFloat, const RenderBloc
 
     // initial-letter float always shrinks the first line.
     const auto& style = newFloat.renderer().style();
-    if (isFirstLine && style.styleType() == PseudoId::FirstLetter && !style.initialLetter().isEmpty())
+    if (isFirstLine && style.styleType() == FIRST_LETTER && !style.initialLetter().isEmpty())
         return true;
     return false;
 }
@@ -129,11 +129,11 @@ void LineWidth::commit()
     m_hasCommitted = true;
 }
 
-void LineWidth::applyOverhang(const RenderRubyRun& rubyRun, RenderObject* startRenderer, RenderObject* endRenderer)
+void LineWidth::applyOverhang(RenderRubyRun* rubyRun, RenderObject* startRenderer, RenderObject* endRenderer)
 {
     float startOverhang;
     float endOverhang;
-    rubyRun.getOverhang(m_isFirstLine, startRenderer, endRenderer, startOverhang, endOverhang);
+    rubyRun->getOverhang(m_isFirstLine, startRenderer, endRenderer, startOverhang, endOverhang);
 
     startOverhang = std::min(startOverhang, m_committedWidth);
     m_availableWidth += startOverhang;
@@ -237,10 +237,10 @@ IndentTextOrNot requiresIndent(bool isFirstLine, bool isAfterHardLineBreak, cons
     if (isFirstLine)
         shouldIndentText = IndentText;
 #if ENABLE(CSS3_TEXT)
-    else if (isAfterHardLineBreak && style.textIndentLine() == TextIndentLine::EachLine)
+    else if (isAfterHardLineBreak && style.textIndentLine() == TextIndentEachLine)
         shouldIndentText = IndentText;
 
-    if (style.textIndentType() == TextIndentType::Hanging)
+    if (style.textIndentType() == TextIndentHanging)
         shouldIndentText = shouldIndentText == IndentText ? DoNotIndentText : IndentText;
 #else
     UNUSED_PARAM(isAfterHardLineBreak);

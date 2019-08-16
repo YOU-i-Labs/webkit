@@ -29,7 +29,7 @@
 
 namespace JSC {
 
-class InspectorInstrumentationObject final : public JSNonFinalObject {
+class InspectorInstrumentationObject : public JSNonFinalObject {
 private:
     InspectorInstrumentationObject(VM&, Structure*);
 

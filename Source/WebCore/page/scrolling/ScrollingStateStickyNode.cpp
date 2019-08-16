@@ -31,7 +31,7 @@
 #include "GraphicsLayer.h"
 #include "Logging.h"
 #include "ScrollingStateTree.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 
@@ -41,7 +41,7 @@ Ref<ScrollingStateStickyNode> ScrollingStateStickyNode::create(ScrollingStateTre
 }
 
 ScrollingStateStickyNode::ScrollingStateStickyNode(ScrollingStateTree& tree, ScrollingNodeID nodeID)
-    : ScrollingStateNode(ScrollingNodeType::Sticky, tree, nodeID)
+    : ScrollingStateNode(StickyNode, tree, nodeID)
 {
 }
 
@@ -51,7 +51,9 @@ ScrollingStateStickyNode::ScrollingStateStickyNode(const ScrollingStateStickyNod
 {
 }
 
-ScrollingStateStickyNode::~ScrollingStateStickyNode() = default;
+ScrollingStateStickyNode::~ScrollingStateStickyNode()
+{
+}
 
 Ref<ScrollingStateNode> ScrollingStateStickyNode::clone(ScrollingStateTree& adoptiveTree)
 {
@@ -63,21 +65,17 @@ void ScrollingStateStickyNode::updateConstraints(const StickyPositionViewportCon
     if (m_constraints == constraints)
         return;
 
-    LOG_WITH_STREAM(Scrolling, stream << "ScrollingStateStickyNode " << scrollingNodeID() << " updateConstraints with constraining rect " << constraints.constrainingRectAtLastLayout() << " sticky offset " << constraints.stickyOffsetAtLastLayout() << " layer pos at last layout " << constraints.layerPositionAtLastLayout());
-
     m_constraints = constraints;
     setPropertyChanged(ViewportConstraints);
 }
 
 void ScrollingStateStickyNode::reconcileLayerPositionForViewportRect(const LayoutRect& viewportRect, ScrollingLayerPositionAction action)
 {
-    ScrollingStateNode::reconcileLayerPositionForViewportRect(viewportRect, action);
-
     FloatPoint position = m_constraints.layerPositionForConstrainingRect(viewportRect);
     if (layer().representsGraphicsLayer()) {
-        auto* graphicsLayer = static_cast<GraphicsLayer*>(layer());
+        GraphicsLayer* graphicsLayer = static_cast<GraphicsLayer*>(layer());
 
-        LOG_WITH_STREAM(Compositing, stream << "ScrollingStateStickyNode " << scrollingNodeID() << " reconcileLayerPositionForViewportRect " << action << " position of layer " << graphicsLayer->primaryLayerID() << " to " << position << " sticky offset " << m_constraints.stickyOffsetAtLastLayout());
+        LOG_WITH_STREAM(Compositing, stream << "ScrollingStateStickyNode::reconcileLayerPositionForViewportRect setting position of layer " << graphicsLayer->primaryLayerID() << " to " << position);
         
         switch (action) {
         case ScrollingLayerPositionAction::Set:

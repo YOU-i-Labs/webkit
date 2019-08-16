@@ -16,12 +16,11 @@
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-
-#pragma once
+#ifndef Bitmap_h
+#define Bitmap_h
 
 #include <array>
 #include <wtf/Atomics.h>
-#include <wtf/HashFunctions.h>
 #include <wtf/StdLibExtras.h>
 #include <stdint.h>
 #include <string.h>
@@ -34,20 +33,20 @@ class Bitmap {
     
     static_assert(sizeof(WordType) <= sizeof(unsigned), "WordType must not be bigger than unsigned");
 public:
-    constexpr Bitmap();
+    Bitmap();
 
     static constexpr size_t size()
     {
         return bitmapSize;
     }
 
-    bool get(size_t, Dependency = Dependency()) const;
+    bool get(size_t, Dependency = nullDependency()) const;
     void set(size_t);
     void set(size_t, bool);
     bool testAndSet(size_t);
     bool testAndClear(size_t);
-    bool concurrentTestAndSet(size_t, Dependency = Dependency());
-    bool concurrentTestAndClear(size_t, Dependency = Dependency());
+    bool concurrentTestAndSet(size_t, Dependency = nullDependency());
+    bool concurrentTestAndClear(size_t, Dependency = nullDependency());
     size_t nextPossiblyUnset(size_t) const;
     void clear(size_t);
     void clearAll();
@@ -59,8 +58,6 @@ public:
     void merge(const Bitmap&);
     void filter(const Bitmap&);
     void exclude(const Bitmap&);
-
-    void concurrentFilter(const Bitmap&);
     
     bool subsumes(const Bitmap&) const;
     
@@ -133,7 +130,7 @@ private:
 };
 
 template<size_t bitmapSize, typename WordType>
-constexpr Bitmap<bitmapSize, WordType>::Bitmap()
+inline Bitmap<bitmapSize, WordType>::Bitmap()
 {
     clearAll();
 }
@@ -141,7 +138,7 @@ constexpr Bitmap<bitmapSize, WordType>::Bitmap()
 template<size_t bitmapSize, typename WordType>
 inline bool Bitmap<bitmapSize, WordType>::get(size_t n, Dependency dependency) const
 {
-    return !!(dependency.consume(this)->bits[n / wordSize] & (one << (n % wordSize)));
+    return !!(bits[n / wordSize + dependency] & (one << (n % wordSize)));
 }
 
 template<size_t bitmapSize, typename WordType>
@@ -184,7 +181,7 @@ ALWAYS_INLINE bool Bitmap<bitmapSize, WordType>::concurrentTestAndSet(size_t n, 
 {
     WordType mask = one << (n % wordSize);
     size_t index = n / wordSize;
-    WordType* data = dependency.consume(bits.data()) + index;
+    WordType* data = bits.data() + index + dependency;
     return !bitwise_cast<Atomic<WordType>*>(data)->transactionRelaxed(
         [&] (WordType& value) -> bool {
             if (value & mask)
@@ -200,7 +197,7 @@ ALWAYS_INLINE bool Bitmap<bitmapSize, WordType>::concurrentTestAndClear(size_t n
 {
     WordType mask = one << (n % wordSize);
     size_t index = n / wordSize;
-    WordType* data = dependency.consume(bits.data()) + index;
+    WordType* data = bits.data() + index + dependency;
     return !bitwise_cast<Atomic<WordType>*>(data)->transactionRelaxed(
         [&] (WordType& value) -> bool {
             if (!(value & mask))
@@ -304,26 +301,6 @@ inline void Bitmap<bitmapSize, WordType>::exclude(const Bitmap& other)
 }
 
 template<size_t bitmapSize, typename WordType>
-inline void Bitmap<bitmapSize, WordType>::concurrentFilter(const Bitmap& other)
-{
-    for (size_t i = 0; i < words; ++i) {
-        for (;;) {
-            WordType otherBits = other.bits[i];
-            if (!otherBits) {
-                bits[i] = 0;
-                break;
-            }
-            WordType oldBits = bits[i];
-            WordType filteredBits = oldBits & otherBits;
-            if (oldBits == filteredBits)
-                break;
-            if (atomicCompareExchangeWeakRelaxed(&bits[i], oldBits, filteredBits))
-                break;
-        }
-    }
-}
-
-template<size_t bitmapSize, typename WordType>
 inline bool Bitmap<bitmapSize, WordType>::subsumes(const Bitmap& other) const
 {
     for (size_t i = 0; i < words; ++i) {
@@ -420,3 +397,5 @@ inline unsigned Bitmap<bitmapSize, WordType>::hash() const
 } // namespace WTF
 
 using WTF::Bitmap;
+
+#endif

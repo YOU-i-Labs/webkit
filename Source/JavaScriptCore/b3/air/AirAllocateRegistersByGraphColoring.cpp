@@ -466,7 +466,7 @@ protected:
             return m_value & 0xffffffff;
         }
 
-        bool operator==(const InterferenceEdge& other) const
+        bool operator==(const InterferenceEdge other) const
         {
             return m_value == other.m_value;
         }
@@ -1653,7 +1653,7 @@ protected:
                 }
             };
 
-            for (Tmp liveTmp : localCalc.live())
+            for (const Tmp& liveTmp : localCalc.live())
                 considerEdge(liveTmp);
             for (const Tmp& pinnedRegTmp : m_pinnedRegs)
                 considerEdge(pinnedRegTmp);
@@ -1673,7 +1673,7 @@ protected:
         m_worklistMoves.startAddingLowPriorityMoves();
         for (BasicBlock* block : m_code) {
             for (Inst& inst : *block) {
-                if (Optional<unsigned> defArgIndex = inst.shouldTryAliasingDef()) {
+                if (std::optional<unsigned> defArgIndex = inst.shouldTryAliasingDef()) {
                     Arg op1 = inst.args[*defArgIndex - 2];
                     Arg op2 = inst.args[*defArgIndex - 1];
                     Arg dest = inst.args[*defArgIndex];
@@ -1699,7 +1699,7 @@ protected:
                 if (argBank != bank)
                     return;
                 
-                for (Tmp liveTmp : liveTmps) {
+                for (const Tmp& liveTmp : liveTmps) {
                     ASSERT(liveTmp.isGP() == (bank == GP));
                     
                     if (traceDebug)

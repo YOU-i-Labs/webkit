@@ -23,7 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.Object = class WebInspectorObject
+WebInspector.Object = class WebInspectorObject
 {
     constructor()
     {
@@ -100,7 +100,7 @@ WI.Object = class WebInspectorObject
 
     static awaitEvent(eventType)
     {
-        let wrapper = new WI.WrappedPromise;
+        let wrapper = new WebInspector.WrappedPromise;
         this.singleFireEventListener(eventType, (event) => wrapper.resolve(event));
         return wrapper.promise;
     }
@@ -135,16 +135,16 @@ WI.Object = class WebInspectorObject
 
     // Public
 
-    addEventListener() { return WI.Object.addEventListener.apply(this, arguments); }
-    singleFireEventListener() { return WI.Object.singleFireEventListener.apply(this, arguments); }
-    removeEventListener() { return WI.Object.removeEventListener.apply(this, arguments); }
-    awaitEvent() { return WI.Object.awaitEvent.apply(this, arguments); }
-    hasEventListeners() { return WI.Object.hasEventListeners.apply(this, arguments); }
-    retainedObjectsWithPrototype() { return WI.Object.retainedObjectsWithPrototype.apply(this, arguments); }
+    addEventListener() { return WebInspector.Object.addEventListener.apply(this, arguments); }
+    singleFireEventListener() { return WebInspector.Object.singleFireEventListener.apply(this, arguments); }
+    removeEventListener() { return WebInspector.Object.removeEventListener.apply(this, arguments); }
+    awaitEvent() { return WebInspector.Object.awaitEvent.apply(this, arguments); }
+    hasEventListeners() { return WebInspector.Object.hasEventListeners.apply(this, arguments); }
+    retainedObjectsWithPrototype() { return WebInspector.Object.retainedObjectsWithPrototype.apply(this, arguments); }
 
     dispatchEventToListeners(eventType, eventData)
     {
-        let event = new WI.Event(this, eventType, eventData);
+        let event = new WebInspector.Event(this, eventType, eventData);
 
         function dispatch(object)
         {
@@ -194,7 +194,7 @@ WI.Object = class WebInspectorObject
     }
 };
 
-WI.Event = class Event
+WebInspector.Event = class Event
 {
     constructor(target, type, data)
     {
@@ -216,14 +216,14 @@ WI.Event = class Event
     }
 };
 
-WI.notifications = new WI.Object;
+WebInspector.notifications = new WebInspector.Object;
 
-WI.Notification = {
+WebInspector.Notification = {
     GlobalModifierKeysDidChange: "global-modifiers-did-change",
     PageArchiveStarted: "page-archive-started",
     PageArchiveEnded: "page-archive-ended",
     ExtraDomainsActivated: "extra-domains-activated",
+    TabTypesChanged: "tab-types-changed",
     DebugUIEnabledDidChange: "debug-ui-enabled-did-change",
     VisibilityStateDidChange: "visibility-state-did-change",
-    TransitionPageTarget: "transition-page-target",
 };

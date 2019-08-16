@@ -49,20 +49,17 @@
 #include "Path.h"
 #include "PlatformMouseEvent.h"
 #include "PluginViewBase.h"
-#include "RenderLayoutState.h"
+#include "RenderLayer.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "Settings.h"
 #include "Text.h"
 #include "TextRun.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderEmbeddedObject);
 
 static const float replacementTextRoundedRectHeight = 22;
 static const float replacementTextRoundedRectLeftTextMargin = 10;
@@ -136,7 +133,7 @@ bool RenderEmbeddedObject::requiresLayer() const
 
 bool RenderEmbeddedObject::allowsAcceleratedCompositing() const
 {
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     // The timing of layer creation is different on the phone, since the plugin can only be manipulated from the main thread.
     return is<PluginViewBase>(widget()) && downcast<PluginViewBase>(*widget()).willProvidePluginLayer();
 #else
@@ -144,7 +141,7 @@ bool RenderEmbeddedObject::allowsAcceleratedCompositing() const
 #endif
 }
 
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
 static String unavailablePluginReplacementText(RenderEmbeddedObject::PluginUnavailabilityReason pluginUnavailabilityReason)
 {
     switch (pluginUnavailabilityReason) {
@@ -156,8 +153,6 @@ static String unavailablePluginReplacementText(RenderEmbeddedObject::PluginUnava
         return blockedPluginByContentSecurityPolicyText();
     case RenderEmbeddedObject::InsecurePluginVersion:
         return insecurePluginVersionText();
-    case RenderEmbeddedObject::UnsupportedPlugin:
-        return unsupportedPluginText();
     }
 
     ASSERT_NOT_REACHED();
@@ -172,7 +167,7 @@ static bool shouldUnavailablePluginMessageBeButton(Page& page, RenderEmbeddedObj
 
 void RenderEmbeddedObject::setPluginUnavailabilityReason(PluginUnavailabilityReason pluginUnavailabilityReason)
 {
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     UNUSED_PARAM(pluginUnavailabilityReason);
 #else
     setPluginUnavailabilityReasonWithDescription(pluginUnavailabilityReason, unavailablePluginReplacementText(pluginUnavailabilityReason));
@@ -181,7 +176,7 @@ void RenderEmbeddedObject::setPluginUnavailabilityReason(PluginUnavailabilityRea
 
 void RenderEmbeddedObject::setPluginUnavailabilityReasonWithDescription(PluginUnavailabilityReason pluginUnavailabilityReason, const String& description)
 {
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     UNUSED_PARAM(pluginUnavailabilityReason);
     UNUSED_PARAM(description);
 #else
@@ -249,7 +244,7 @@ void RenderEmbeddedObject::paintContents(PaintInfo& paintInfo, const LayoutPoint
 void RenderEmbeddedObject::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
     // The relevant repainted object heuristic is not tuned for plugin documents.
-    bool countsTowardsRelevantObjects = !document().isPluginDocument() && paintInfo.phase == PaintPhase::Foreground;
+    bool countsTowardsRelevantObjects = !document().isPluginDocument() && paintInfo.phase == PaintPhaseForeground;
 
     if (isPluginUnavailable()) {
         if (countsTowardsRelevantObjects)
@@ -292,7 +287,7 @@ void RenderEmbeddedObject::paintReplaced(PaintInfo& paintInfo, const LayoutPoint
     if (!showsUnavailablePluginIndicator())
         return;
 
-    if (paintInfo.phase == PaintPhase::Selection)
+    if (paintInfo.phase == PaintPhaseSelection)
         return;
 
     GraphicsContext& context = paintInfo.context();
@@ -306,7 +301,8 @@ void RenderEmbeddedObject::paintReplaced(PaintInfo& paintInfo, const LayoutPoint
     FontCascade font;
     TextRun run(emptyString());
     float textWidth;
-    getReplacementTextGeometry(paintOffset, contentRect, indicatorRect, replacementTextRect, arrowRect, font, run, textWidth);
+    if (!getReplacementTextGeometry(paintOffset, contentRect, indicatorRect, replacementTextRect, arrowRect, font, run, textWidth))
+        return;
 
     Path background;
     background.addRoundedRect(indicatorRect, FloatSize(replacementTextRoundedRectRadius, replacementTextRoundedRectRadius));
@@ -353,20 +349,7 @@ void RenderEmbeddedObject::setUnavailablePluginIndicatorIsHidden(bool hidden)
     repaint();
 }
 
-LayoutRect RenderEmbeddedObject::getReplacementTextGeometry(const LayoutPoint& accumulatedOffset) const
-{
-    FloatRect contentRect;
-    FloatRect indicatorRect;
-    FloatRect replacementTextRect;
-    FloatRect arrowRect;
-    FontCascade font;
-    TextRun run(emptyString());
-    float textWidth;
-    getReplacementTextGeometry(accumulatedOffset, contentRect, indicatorRect, replacementTextRect, arrowRect, font, run, textWidth);
-    return LayoutRect(indicatorRect);
-}
-
-void RenderEmbeddedObject::getReplacementTextGeometry(const LayoutPoint& accumulatedOffset, FloatRect& contentRect, FloatRect& indicatorRect, FloatRect& replacementTextRect, FloatRect& arrowRect, FontCascade& font, TextRun& run, float& textWidth) const
+bool RenderEmbeddedObject::getReplacementTextGeometry(const LayoutPoint& accumulatedOffset, FloatRect& contentRect, FloatRect& indicatorRect, FloatRect& replacementTextRect, FloatRect& arrowRect, FontCascade& font, TextRun& run, float& textWidth) const
 {
     bool includesArrow = shouldUnavailablePluginMessageBeButton(page(), m_pluginUnavailabilityReason);
 
@@ -378,14 +361,16 @@ void RenderEmbeddedObject::getReplacementTextGeometry(const LayoutPoint& accumul
     fontDescription.setWeight(boldWeightValue());
     fontDescription.setRenderingMode(settings().fontRenderingMode());
     fontDescription.setComputedSize(12);
-    font = FontCascade(WTFMove(fontDescription), 0, 0);
+    font = FontCascade(fontDescription, 0, 0);
     font.update(0);
 
     run = TextRun(m_unavailablePluginReplacementText);
     textWidth = font.width(run);
 
     replacementTextRect.setSize(FloatSize(textWidth + replacementTextRoundedRectLeftTextMargin + (includesArrow ? replacementTextRoundedRectRightTextMarginWithArrow : replacementTextRoundedRectRightTextMargin), replacementTextRoundedRectHeight));
-    replacementTextRect.setLocation(contentRect.location() + (contentRect.size() / 2 - replacementTextRect.size() / 2));
+    float x = (contentRect.size().width() / 2 - replacementTextRect.size().width() / 2) + contentRect.location().x();
+    float y = (contentRect.size().height() / 2 - replacementTextRect.size().height() / 2) + contentRect.location().y();
+    replacementTextRect.setLocation(FloatPoint(x, y));
 
     indicatorRect = replacementTextRect;
 
@@ -396,11 +381,91 @@ void RenderEmbeddedObject::getReplacementTextGeometry(const LayoutPoint& accumul
         arrowRect.setWidth(arrowRect.height());
         indicatorRect.unite(arrowRect);
     }
+
+    return true;
 }
 
 LayoutRect RenderEmbeddedObject::unavailablePluginIndicatorBounds(const LayoutPoint& accumulatedOffset) const
 {
-    return getReplacementTextGeometry(accumulatedOffset);
+    FloatRect contentRect;
+    FloatRect indicatorRect;
+    FloatRect replacementTextRect;
+    FloatRect arrowRect;
+    FontCascade font;
+    TextRun run(emptyString());
+    float textWidth;
+    if (getReplacementTextGeometry(accumulatedOffset, contentRect, indicatorRect, replacementTextRect, arrowRect, font, run, textWidth))
+        return LayoutRect(indicatorRect);
+
+    return LayoutRect();
+}
+
+bool RenderEmbeddedObject::isReplacementObscured() const
+{
+    // Return whether or not the replacement content for blocked plugins is accessible to the user.
+
+    // Check the opacity of each layer containing the element or its ancestors.
+    float opacity = 1.0;
+    for (RenderLayer* layer = enclosingLayer(); layer; layer = layer->parent()) {
+        opacity *= layer->renderer().style().opacity();
+        if (opacity < 0.1)
+            return true;
+    }
+
+    // Calculate the absolute rect for the blocked plugin replacement text.
+    IntRect absoluteBoundingBox = absoluteBoundingBoxRect();
+    LayoutPoint absoluteLocation(absoluteBoundingBox.location());
+    LayoutRect rect = unavailablePluginIndicatorBounds(absoluteLocation);
+    if (rect.isEmpty())
+        return true;
+
+    RenderView* rootRenderView = document().topDocument().renderView();
+    ASSERT(rootRenderView);
+    if (!rootRenderView)
+        return true;
+
+    // We should always start hit testing a clean tree.
+    view().frameView().updateLayoutAndStyleIfNeededRecursive();
+
+    HitTestRequest request(HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::IgnoreClipping | HitTestRequest::DisallowUserAgentShadowContent | HitTestRequest::AllowChildFrameContent);
+    HitTestResult result;
+    HitTestLocation location;
+    
+    IntRect rootViewRect = view().frameView().convertToRootView(snappedIntRect(rect));
+    LayoutUnit x = rootViewRect.x();
+    LayoutUnit y = rootViewRect.y();
+    LayoutUnit width = rootViewRect.width();
+    LayoutUnit height = rootViewRect.height();
+    
+    // Hit test the center and near the corners of the replacement text to ensure
+    // it is visible and is not masked by other elements.
+    bool hit = false;
+    location = LayoutPoint(x + width / 2, y + height / 2);
+    hit = rootRenderView->hitTest(request, location, result);
+    if (!hit || result.innerNode() != &frameOwnerElement())
+        return true;
+    
+    location = LayoutPoint(x, y);
+    hit = rootRenderView->hitTest(request, location, result);
+    if (!hit || result.innerNode() != &frameOwnerElement())
+        return true;
+    
+    location = LayoutPoint(x + width, y);
+    hit = rootRenderView->hitTest(request, location, result);
+    if (!hit || result.innerNode() != &frameOwnerElement())
+        return true;
+    
+    location = LayoutPoint(x + width, y + height);
+    hit = rootRenderView->hitTest(request, location, result);
+    if (!hit || result.innerNode() != &frameOwnerElement())
+        return true;
+    
+    location = LayoutPoint(x, y + height);
+    hit = rootRenderView->hitTest(request, location, result);
+    if (!hit || result.innerNode() != &frameOwnerElement())
+        return true;
+
+    return false;
 }
 
 void RenderEmbeddedObject::layout()
@@ -458,7 +523,7 @@ void RenderEmbeddedObject::layout()
     // When calling layout() on a child node, a parent must either push a LayoutStateMaintainter, or
     // instantiate LayoutStateDisabler. Since using a LayoutStateMaintainer is slightly more efficient,
     // and this method will be called many times per second during playback, use a LayoutStateMaintainer:
-    LayoutStateMaintainer statePusher(*this, locationOffset(), hasTransform() || hasReflection() || style().isFlippedBlocksWritingMode());
+    LayoutStateMaintainer statePusher(view(), *this, locationOffset(), hasTransform() || hasReflection() || style().isFlippedBlocksWritingMode());
     
     childBox.setLocation(LayoutPoint(borderLeft(), borderTop()) + LayoutSize(paddingLeft(), paddingTop()));
     childBox.mutableStyle().setHeight(Length(newSize.height(), Fixed));
@@ -466,6 +531,8 @@ void RenderEmbeddedObject::layout()
     childBox.setNeedsLayout(MarkOnlyThis);
     childBox.layout();
     clearChildNeedsLayout();
+    
+    statePusher.pop();
 }
 
 bool RenderEmbeddedObject::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction hitTestAction)
@@ -513,7 +580,15 @@ bool RenderEmbeddedObject::logicalScroll(ScrollLogicalDirection direction, Scrol
 
 bool RenderEmbeddedObject::isInUnavailablePluginIndicator(const FloatPoint& point) const
 {
-    return getReplacementTextGeometry(LayoutPoint()).contains(LayoutPoint(point));
+    FloatRect contentRect;
+    FloatRect indicatorRect;
+    FloatRect replacementTextRect;
+    FloatRect arrowRect;
+    FontCascade font;
+    TextRun run(emptyString());
+    float textWidth;
+    return getReplacementTextGeometry(IntPoint(), contentRect, indicatorRect, replacementTextRect, arrowRect, font, run, textWidth)
+        && indicatorRect.contains(point);
 }
 
 bool RenderEmbeddedObject::isInUnavailablePluginIndicator(const MouseEvent& event) const

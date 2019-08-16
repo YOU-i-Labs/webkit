@@ -23,11 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ApplicationCacheManifestTreeElement = class ApplicationCacheManifestTreeElement extends WI.StorageTreeElement
+WebInspector.ApplicationCacheManifestTreeElement = class ApplicationCacheManifestTreeElement extends WebInspector.StorageTreeElement
 {
     constructor(representedObject)
     {
-        console.assert(representedObject instanceof WI.ApplicationCacheManifest);
+        console.assert(representedObject instanceof WebInspector.ApplicationCacheManifest);
 
         super("application-cache-manifest", "", representedObject);
 
@@ -55,7 +55,7 @@ WI.ApplicationCacheManifestTreeElement = class ApplicationCacheManifestTreeEleme
 
     get categoryName()
     {
-        return WI.UIString("Application Cache");
+        return WebInspector.UIString("Application Cache");
     }
 
     _generateTitles()
@@ -63,10 +63,10 @@ WI.ApplicationCacheManifestTreeElement = class ApplicationCacheManifestTreeEleme
         var parsedURL = parseURL(this.representedObject.manifestURL);
 
         // Prefer the last path component, with a fallback for the host as the main title.
-        this._name = WI.displayNameForURL(this.representedObject.manifestURL, parsedURL);
+        this._name = WebInspector.displayNameForURL(this.representedObject.manifestURL, parsedURL);
 
         // Show the host as the subtitle.
-        var secondaryName = WI.displayNameForHost(parsedURL.host);
+        var secondaryName = WebInspector.displayNameForHost(parsedURL.host);
         this._secondaryName = this._name !== secondaryName ? secondaryName : null;
     }
 };

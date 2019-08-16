@@ -32,6 +32,7 @@
 
 #include "FloatPoint.h"
 #include "ScrollableArea.h"
+#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
@@ -39,7 +40,7 @@ static const double frameRate = 60;
 static const Seconds tickTime = 1_s / frameRate;
 static const Seconds minimumTimerInterval { 1_ms };
 
-ScrollAnimationSmooth::ScrollAnimationSmooth(ScrollableArea& scrollableArea, const FloatPoint& position, WTF::Function<void (FloatPoint&&)>&& notifyPositionChangedFunction)
+ScrollAnimationSmooth::ScrollAnimationSmooth(ScrollableArea& scrollableArea, const FloatPoint& position, std::function<void (FloatPoint&&)>&& notifyPositionChangedFunction)
     : ScrollAnimation(scrollableArea)
     , m_notifyPositionChangedFunction(WTFMove(notifyPositionChangedFunction))
     , m_horizontalData(position.x(), scrollableArea.visibleWidth())
@@ -85,7 +86,9 @@ void ScrollAnimationSmooth::setCurrentPosition(const FloatPoint& position)
     m_verticalData = PerAxisData(position.y(), m_verticalData.visibleLength);
 }
 
-ScrollAnimationSmooth::~ScrollAnimationSmooth() = default;
+ScrollAnimationSmooth::~ScrollAnimationSmooth()
+{
+}
 
 static inline double curveAt(ScrollAnimationSmooth::Curve curve, double t)
 {

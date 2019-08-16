@@ -27,6 +27,8 @@
 
 #if ENABLE(DFG_JIT)
 
+#include "CodeOrigin.h"
+#include "DFGCommon.h"
 #include "MacroAssembler.h"
 
 namespace JSC { namespace DFG {
@@ -35,7 +37,6 @@ struct OSRExitCompilationInfo {
     MacroAssembler::JumpList m_failureJumps;
     MacroAssembler::Label m_replacementSource;
     MacroAssembler::Label m_replacementDestination;
-    MacroAssembler::PatchableJump m_patchableJump;
 };
 
 } } // namespace JSC::DFG

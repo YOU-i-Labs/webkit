@@ -25,10 +25,11 @@
 #include "FEConvolveMatrix.h"
 
 #include "Filter.h"
-#include <JavaScriptCore/Uint8ClampedArray.h>
+#include "TextStream.h"
+
+#include <runtime/Uint8ClampedArray.h>
 #include <wtf/ParallelJobs.h>
 #include <wtf/WorkQueue.h>
-#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
@@ -57,6 +58,12 @@ Ref<FEConvolveMatrix> FEConvolveMatrix::create(Filter& filter, const IntSize& ke
         preserveAlpha, kernelMatrix));
 }
 
+
+IntSize FEConvolveMatrix::kernelSize() const
+{
+    return m_kernelSize;
+}
+
 void FEConvolveMatrix::setKernelSize(const IntSize& kernelSize)
 {
     ASSERT(kernelSize.width() > 0);
@@ -64,9 +71,19 @@ void FEConvolveMatrix::setKernelSize(const IntSize& kernelSize)
     m_kernelSize = kernelSize;
 }
 
+const Vector<float>& FEConvolveMatrix::kernel() const
+{
+    return m_kernelMatrix; 
+}
+
 void FEConvolveMatrix::setKernel(const Vector<float>& kernel)
 {
     m_kernelMatrix = kernel; 
+}
+
+float FEConvolveMatrix::divisor() const
+{
+    return m_divisor; 
 }
 
 bool FEConvolveMatrix::setDivisor(float divisor)
@@ -78,12 +95,22 @@ bool FEConvolveMatrix::setDivisor(float divisor)
     return true;
 }
 
+float FEConvolveMatrix::bias() const
+{
+    return m_bias; 
+}
+
 bool FEConvolveMatrix::setBias(float bias)
 {
     if (m_bias == bias)
         return false;
     m_bias = bias;
     return true;
+}
+
+IntPoint FEConvolveMatrix::targetOffset() const
+{
+    return m_targetOffset; 
 }
 
 bool FEConvolveMatrix::setTargetOffset(const IntPoint& targetOffset)
@@ -94,12 +121,22 @@ bool FEConvolveMatrix::setTargetOffset(const IntPoint& targetOffset)
     return true;
 }
 
+EdgeModeType FEConvolveMatrix::edgeMode() const
+{
+    return m_edgeMode;
+}
+
 bool FEConvolveMatrix::setEdgeMode(EdgeModeType edgeMode)
 {
     if (m_edgeMode == edgeMode)
         return false;
     m_edgeMode = edgeMode;
     return true;
+}
+
+FloatPoint FEConvolveMatrix::kernelUnitLength() const
+{
+    return m_kernelUnitLength; 
 }
 
 bool FEConvolveMatrix::setKernelUnitLength(const FloatPoint& kernelUnitLength)
@@ -110,6 +147,11 @@ bool FEConvolveMatrix::setKernelUnitLength(const FloatPoint& kernelUnitLength)
         return false;
     m_kernelUnitLength = kernelUnitLength;
     return true;
+}
+
+bool FEConvolveMatrix::preserveAlpha() const
+{
+    return m_preserveAlpha; 
 }
 
 bool FEConvolveMatrix::setPreserveAlpha(bool preserveAlpha)
@@ -186,17 +228,17 @@ static ALWAYS_INLINE unsigned char clampRGBAValue(float channel, unsigned char m
 }
 
 template<bool preserveAlphaValues>
-ALWAYS_INLINE void setDestinationPixels(const Uint8ClampedArray& sourcePixels, Uint8ClampedArray& destPixels, int& pixel, float* totals, float divisor, float bias)
+ALWAYS_INLINE void setDestinationPixels(Uint8ClampedArray* image, int& pixel, float* totals, float divisor, float bias, Uint8ClampedArray* src)
 {
     unsigned char maxAlpha = preserveAlphaValues ? 255 : clampRGBAValue(totals[3] / divisor + bias);
     for (int i = 0; i < 3; ++i)
-        destPixels.set(pixel++, clampRGBAValue(totals[i] / divisor + bias, maxAlpha));
+        image->set(pixel++, clampRGBAValue(totals[i] / divisor + bias, maxAlpha));
 
     if (preserveAlphaValues) {
-        destPixels.set(pixel, sourcePixels.item(pixel));
+        image->set(pixel, src->item(pixel));
         ++pixel;
     } else
-        destPixels.set(pixel++, maxAlpha);
+        image->set(pixel++, maxAlpha);
 }
 
 #if COMPILER(MSVC)
@@ -236,11 +278,11 @@ ALWAYS_INLINE void FEConvolveMatrix::fastSetInteriorPixels(PaintingData& paintin
                 totals[3] = 0;
 
             while (kernelValue >= 0) {
-                totals[0] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray.item(kernelPixel++));
-                totals[1] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray.item(kernelPixel++));
-                totals[2] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray.item(kernelPixel++));
+                totals[0] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(kernelPixel++));
+                totals[1] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(kernelPixel++));
+                totals[2] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(kernelPixel++));
                 if (!preserveAlphaValues)
-                    totals[3] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray.item(kernelPixel));
+                    totals[3] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(kernelPixel));
                 ++kernelPixel;
                 --kernelValue;
                 if (!--width) {
@@ -249,7 +291,7 @@ ALWAYS_INLINE void FEConvolveMatrix::fastSetInteriorPixels(PaintingData& paintin
                 }
             }
 
-            setDestinationPixels<preserveAlphaValues>(paintingData.srcPixelArray, paintingData.dstPixelArray, pixel, totals, m_divisor, paintingData.bias);
+            setDestinationPixels<preserveAlphaValues>(paintingData.dstPixelArray, pixel, totals, m_divisor, paintingData.bias, paintingData.srcPixelArray);
             startKernelPixel += 4;
         }
         pixel += xIncrease;
@@ -319,12 +361,12 @@ void FEConvolveMatrix::fastSetOuterPixels(PaintingData& paintingData, int x1, in
             while (kernelValue >= 0) {
                 int pixelIndex = getPixelValue(paintingData, kernelPixelX, kernelPixelY);
                 if (pixelIndex >= 0) {
-                    totals[0] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray.item(pixelIndex));
-                    totals[1] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray.item(pixelIndex + 1));
-                    totals[2] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray.item(pixelIndex + 2));
+                    totals[0] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(pixelIndex));
+                    totals[1] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(pixelIndex + 1));
+                    totals[2] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(pixelIndex + 2));
                 }
                 if (!preserveAlphaValues && pixelIndex >= 0)
-                    totals[3] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray.item(pixelIndex + 3));
+                    totals[3] += paintingData.kernelMatrix[kernelValue] * static_cast<float>(paintingData.srcPixelArray->item(pixelIndex + 3));
                 ++kernelPixelX;
                 --kernelValue;
                 if (!--width) {
@@ -334,7 +376,7 @@ void FEConvolveMatrix::fastSetOuterPixels(PaintingData& paintingData, int x1, in
                 }
             }
 
-            setDestinationPixels<preserveAlphaValues>(paintingData.srcPixelArray, paintingData.dstPixelArray, pixel, totals, m_divisor, paintingData.bias);
+            setDestinationPixels<preserveAlphaValues>(paintingData.dstPixelArray, pixel, totals, m_divisor, paintingData.bias, paintingData.srcPixelArray);
             ++startKernelPixelX;
         }
         pixel += xIncrease;
@@ -383,24 +425,18 @@ void FEConvolveMatrix::platformApplySoftware()
 
     RefPtr<Uint8ClampedArray> srcPixelArray;
     if (m_preserveAlpha)
-        srcPixelArray = in->unmultipliedResult(effectDrawingRect);
+        srcPixelArray = in->asUnmultipliedImage(effectDrawingRect);
     else
-        srcPixelArray = in->premultipliedResult(effectDrawingRect);
-
-    if (!srcPixelArray)
-        return;
+        srcPixelArray = in->asPremultipliedImage(effectDrawingRect);
 
     IntSize paintSize = absolutePaintRect().size();
-    paintSize.scale(filter().filterScale());
-
-    PaintingData paintingData = {
-        *srcPixelArray,
-        *resultImage,
-        paintSize.width(),
-        paintSize.height(),
-        m_bias * 255,
-        normalizedFloats(m_kernelMatrix)
-    };
+    PaintingData paintingData;
+    paintingData.srcPixelArray = srcPixelArray.get();
+    paintingData.dstPixelArray = resultImage;
+    paintingData.width = paintSize.width();
+    paintingData.height = paintSize.height();
+    paintingData.bias = m_bias * 255;
+    paintingData.kernelMatrix = normalizedFloats(m_kernelMatrix);
 
     // Drawing fully covered pixels
     int clipRight = paintSize.width() - m_kernelSize.width();
@@ -437,6 +473,10 @@ void FEConvolveMatrix::platformApplySoftware()
         setOuterPixels(paintingData, clipRight, m_targetOffset.y(), paintSize.width(), clipBottom);
 }
 
+void FEConvolveMatrix::dump()
+{
+}
+
 static TextStream& operator<<(TextStream& ts, const EdgeModeType& type)
 {
     switch (type) {
@@ -456,10 +496,11 @@ static TextStream& operator<<(TextStream& ts, const EdgeModeType& type)
     return ts;
 }
 
-TextStream& FEConvolveMatrix::externalRepresentation(TextStream& ts, RepresentationType representation) const
+TextStream& FEConvolveMatrix::externalRepresentation(TextStream& ts, int indent) const
 {
-    ts << indent << "[feConvolveMatrix";
-    FilterEffect::externalRepresentation(ts, representation);
+    writeIndent(ts, indent);
+    ts << "[feConvolveMatrix";
+    FilterEffect::externalRepresentation(ts);
     ts << " order=\"" << m_kernelSize << "\" "
        << "kernelMatrix=\"" << m_kernelMatrix  << "\" "
        << "divisor=\"" << m_divisor << "\" "
@@ -468,9 +509,7 @@ TextStream& FEConvolveMatrix::externalRepresentation(TextStream& ts, Representat
        << "edgeMode=\"" << m_edgeMode << "\" "
        << "kernelUnitLength=\"" << m_kernelUnitLength << "\" "
        << "preserveAlpha=\"" << m_preserveAlpha << "\"]\n";
-
-    TextStream::IndentScope indentScope(ts);
-    inputEffect(0)->externalRepresentation(ts, representation);
+    inputEffect(0)->externalRepresentation(ts, indent + 1);
     return ts;
 }
 

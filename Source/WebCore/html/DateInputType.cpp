@@ -35,6 +35,7 @@
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "InputTypeNames.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -43,7 +44,6 @@ using namespace HTMLNames;
 static const int dateDefaultStep = 1;
 static const int dateDefaultStepBase = 0;
 static const int dateStepScaleFactor = 86400000;
-static const StepRange::StepDescription dateStepDescription { dateDefaultStep, dateDefaultStepBase, dateStepScaleFactor, StepRange::ParsedStepValueShouldBeInteger };
 
 DateInputType::DateInputType(HTMLInputElement& element)
     : BaseChooserOnlyDateAndTimeInputType(element)
@@ -62,12 +62,13 @@ DateComponents::Type DateInputType::dateType() const
 
 StepRange DateInputType::createStepRange(AnyStepHandling anyStepHandling) const
 {
-    ASSERT(element());
-    const Decimal stepBase = parseToNumber(element()->attributeWithoutSynchronization(minAttr), 0);
-    const Decimal minimum = parseToNumber(element()->attributeWithoutSynchronization(minAttr), Decimal::fromDouble(DateComponents::minimumDate()));
-    const Decimal maximum = parseToNumber(element()->attributeWithoutSynchronization(maxAttr), Decimal::fromDouble(DateComponents::maximumDate()));
-    const Decimal step = StepRange::parseStep(anyStepHandling, dateStepDescription, element()->attributeWithoutSynchronization(stepAttr));
-    return StepRange(stepBase, RangeLimitations::Valid, minimum, maximum, step, dateStepDescription);
+    static NeverDestroyed<const StepRange::StepDescription> stepDescription(dateDefaultStep, dateDefaultStepBase, dateStepScaleFactor, StepRange::ParsedStepValueShouldBeInteger);
+
+    const Decimal stepBase = parseToNumber(element().attributeWithoutSynchronization(minAttr), 0);
+    const Decimal minimum = parseToNumber(element().attributeWithoutSynchronization(minAttr), Decimal::fromDouble(DateComponents::minimumDate()));
+    const Decimal maximum = parseToNumber(element().attributeWithoutSynchronization(maxAttr), Decimal::fromDouble(DateComponents::maximumDate()));
+    const Decimal step = StepRange::parseStep(anyStepHandling, stepDescription, element().attributeWithoutSynchronization(stepAttr));
+    return StepRange(stepBase, RangeLimitations::Valid, minimum, maximum, step, stepDescription);
 }
 
 bool DateInputType::parseToDateComponentsInternal(const UChar* characters, unsigned length, DateComponents* out) const

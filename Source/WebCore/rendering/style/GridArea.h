@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include "GridPosition.h"
+#include "GridPositionsResolver.h"
 #include <wtf/HashMap.h>
 #include <wtf/text/WTFString.h>
 
@@ -148,7 +148,7 @@ private:
     GridSpan(int startLine, int endLine, GridSpanType type)
         : m_type(type)
     {
-#if !ASSERT_DISABLED
+#if ENABLE(ASSERT)
         ASSERT(startLine < endLine);
         if (type == TranslatedDefinite) {
             ASSERT(startLine >= 0);

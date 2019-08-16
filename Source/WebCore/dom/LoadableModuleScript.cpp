@@ -28,31 +28,31 @@
 
 #include "Document.h"
 #include "Frame.h"
-#include "ModuleFetchParameters.h"
 #include "ScriptController.h"
 #include "ScriptElement.h"
 
 namespace WebCore {
 
-Ref<LoadableModuleScript> LoadableModuleScript::create(const String& nonce, const String& integrity, const String& crossOriginMode, const String& charset, const AtomicString& initiatorName, bool isInUserAgentShadowTree)
+Ref<LoadableModuleScript> LoadableModuleScript::create(const String& nonce, const String& crossOriginMode, const String& charset, const AtomicString& initiatorName, bool isInUserAgentShadowTree)
 {
-    return adoptRef(*new LoadableModuleScript(nonce, integrity, crossOriginMode, charset, initiatorName, isInUserAgentShadowTree));
+    return adoptRef(*new LoadableModuleScript(nonce, crossOriginMode, charset, initiatorName, isInUserAgentShadowTree));
 }
 
-LoadableModuleScript::LoadableModuleScript(const String& nonce, const String& integrity, const String& crossOriginMode, const String& charset, const AtomicString& initiatorName, bool isInUserAgentShadowTree)
+LoadableModuleScript::LoadableModuleScript(const String& nonce, const String& crossOriginMode, const String& charset, const AtomicString& initiatorName, bool isInUserAgentShadowTree)
     : LoadableScript(nonce, crossOriginMode, charset, initiatorName, isInUserAgentShadowTree)
-    , m_parameters(ModuleFetchParameters::create(integrity))
 {
 }
 
-LoadableModuleScript::~LoadableModuleScript() = default;
+LoadableModuleScript::~LoadableModuleScript()
+{
+}
 
 bool LoadableModuleScript::isLoaded() const
 {
     return m_isLoaded;
 }
 
-Optional<LoadableScript::Error> LoadableModuleScript::error() const
+std::optional<LoadableScript::Error> LoadableModuleScript::error() const
 {
     return m_error;
 }
@@ -91,7 +91,7 @@ void LoadableModuleScript::execute(ScriptElement& scriptElement)
 void LoadableModuleScript::load(Document& document, const URL& rootURL)
 {
     if (auto* frame = document.frame())
-        frame->script().loadModuleScript(*this, rootURL.string(), m_parameters.copyRef());
+        frame->script().loadModuleScript(*this, rootURL.string());
 }
 
 void LoadableModuleScript::load(Document& document, const ScriptSourceCode& sourceCode)

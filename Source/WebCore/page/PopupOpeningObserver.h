@@ -32,7 +32,7 @@ public:
     virtual void willOpenPopup() = 0;
 
 protected:
-    virtual ~PopupOpeningObserver() = default;
+    virtual ~PopupOpeningObserver() { }
 };
     
 } // namespace WebCore

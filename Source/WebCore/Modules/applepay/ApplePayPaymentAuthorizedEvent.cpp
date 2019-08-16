@@ -32,13 +32,15 @@
 
 namespace WebCore {
 
-ApplePayPaymentAuthorizedEvent::ApplePayPaymentAuthorizedEvent(const AtomicString& type, unsigned version, const Payment& payment)
-    : Event(type, CanBubble::No, IsCancelable::No)
-    , m_payment(payment.toApplePayPayment(version))
+ApplePayPaymentAuthorizedEvent::ApplePayPaymentAuthorizedEvent(const AtomicString& type, const Payment& payment)
+    : Event(type, false, false)
+    , m_payment(payment.toApplePayPayment())
 {
 }
 
-ApplePayPaymentAuthorizedEvent::~ApplePayPaymentAuthorizedEvent() = default;
+ApplePayPaymentAuthorizedEvent::~ApplePayPaymentAuthorizedEvent()
+{
+}
 
 EventInterface ApplePayPaymentAuthorizedEvent::eventInterface() const
 {

@@ -23,10 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.Branch = class Branch
+WebInspector.Branch = class Branch extends WebInspector.Object
 {
     constructor(displayName, revisions, locked)
     {
+        super();
+
         console.assert(displayName);
 
         this._displayName = displayName;
@@ -64,14 +66,14 @@ WI.Branch = class Branch
     {
         for (var i = 0; i < this._revisions.length; ++i) {
             var revision = this._revisions[i];
-            if (revision instanceof WI.SourceCodeRevision && revision.sourceCode === representedObject)
+            if (revision instanceof WebInspector.SourceCodeRevision && revision.sourceCode === representedObject)
                 return revision;
         }
 
         if (doNotCreateIfNeeded)
             return null;
 
-        if (representedObject instanceof WI.SourceCode) {
+        if (representedObject instanceof WebInspector.SourceCode) {
             var revision = representedObject.originalRevision.copy();
             representedObject.currentRevision = revision;
             this.addRevision(revision);
@@ -83,7 +85,7 @@ WI.Branch = class Branch
 
     addRevision(revision)
     {
-        console.assert(revision instanceof WI.Revision);
+        console.assert(revision instanceof WebInspector.Revision);
 
         if (this._locked)
             return;
@@ -96,7 +98,7 @@ WI.Branch = class Branch
 
     removeRevision(revision)
     {
-        console.assert(revision instanceof WI.Revision);
+        console.assert(revision instanceof WebInspector.Revision);
 
         if (this._locked)
             return;
@@ -115,7 +117,7 @@ WI.Branch = class Branch
     fork(displayName)
     {
         var copiedRevisions = this._revisions.map(function(revision) { return revision.copy(); });
-        return new WI.Branch(displayName, copiedRevisions);
+        return new WebInspector.Branch(displayName, copiedRevisions);
     }
 
     apply()

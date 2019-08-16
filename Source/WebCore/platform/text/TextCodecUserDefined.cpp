@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2017 Apple, Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,8 +26,9 @@
 #include "config.h"
 #include "TextCodecUserDefined.h"
 
-#include <array>
+#include <stdio.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringBuffer.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
 
@@ -38,62 +39,73 @@ void TextCodecUserDefined::registerEncodingNames(EncodingNameRegistrar registrar
     registrar("x-user-defined", "x-user-defined");
 }
 
+static std::unique_ptr<TextCodec> newStreamingTextDecoderUserDefined(const TextEncoding&, const void*)
+{
+    return std::make_unique<TextCodecUserDefined>();
+}
+
 void TextCodecUserDefined::registerCodecs(TextCodecRegistrar registrar)
 {
-    registrar("x-user-defined", [] {
-        return std::make_unique<TextCodecUserDefined>();
-    });
+    registrar("x-user-defined", newStreamingTextDecoderUserDefined, 0);
 }
 
 String TextCodecUserDefined::decode(const char* bytes, size_t length, bool, bool, bool&)
 {
     StringBuilder result;
     result.reserveCapacity(length);
+
     for (size_t i = 0; i < length; ++i) {
         signed char c = bytes[i];
         result.append(static_cast<UChar>(c & 0xF7FF));
     }
+
     return result.toString();
 }
 
-static Vector<uint8_t> encodeComplexUserDefined(StringView string, UnencodableHandling handling)
+static CString encodeComplexUserDefined(const UChar* characters, size_t length, UnencodableHandling handling)
 {
-    Vector<uint8_t> result;
+    Vector<char> result(length);
+    char* bytes = result.data();
 
-    for (auto character : string.codePoints()) {
-        int8_t signedByte = character;
-        if ((signedByte & 0xF7FF) == character)
-            result.append(signedByte);
+    size_t resultLength = 0;
+    for (size_t i = 0; i < length; ) {
+        UChar32 c;
+        U16_NEXT(characters, i, length, c);
+        signed char signedByte = c;
+        if ((signedByte & 0xF7FF) == c)
+            bytes[resultLength++] = signedByte;
         else {
             // No way to encode this character with x-user-defined.
             UnencodableReplacementArray replacement;
-            int replacementLength = TextCodec::getUnencodableReplacement(character, handling, replacement);
-            result.append(replacement.data(), replacementLength);
+            int replacementLength = TextCodec::getUnencodableReplacement(c, handling, replacement);
+            result.grow(resultLength + replacementLength + length - i);
+            bytes = result.data();
+            memcpy(bytes + resultLength, replacement, replacementLength);
+            resultLength += replacementLength;
         }
     }
 
-    return result;
+    return CString(bytes, resultLength);
 }
 
-Vector<uint8_t> TextCodecUserDefined::encode(StringView string, UnencodableHandling handling)
+CString TextCodecUserDefined::encode(const UChar* characters, size_t length, UnencodableHandling handling)
 {
-    {
-        Vector<uint8_t> result(string.length());
-        auto* bytes = result.data();
+    char* bytes;
+    CString string = CString::newUninitialized(length, bytes);
 
-        // Convert and simultaneously do a check to see if it's all ASCII.
-        UChar ored = 0;
-        for (auto character : string.codeUnits()) {
-            *bytes++ = character;
-            ored |= character;
-        }
-
-        if (!(ored & 0xFF80))
-            return result;
+    // Convert the string a fast way and simultaneously do an efficient check to see if it's all ASCII.
+    UChar ored = 0;
+    for (size_t i = 0; i < length; ++i) {
+        UChar c = characters[i];
+        bytes[i] = c;
+        ored |= c;
     }
 
+    if (!(ored & 0xFF80))
+        return string;
+
     // If it wasn't all ASCII, call the function that handles more-complex cases.
-    return encodeComplexUserDefined(string, handling);
+    return encodeComplexUserDefined(characters, length, handling);
 }
 
 } // namespace WebCore

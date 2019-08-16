@@ -29,6 +29,7 @@
 
 #include "FloatPoint.h"
 #include "RenderBlockFlow.h"
+#include "RenderInline.h"
 
 namespace WebCore {
 
@@ -37,7 +38,6 @@ class VTTCue;
 class VTTCueBox;
 
 class RenderVTTCue final : public RenderBlockFlow {
-    WTF_MAKE_ISO_ALLOCATED(RenderVTTCue);
 public:
     RenderVTTCue(VTTCueBox&, RenderStyle&&);
 

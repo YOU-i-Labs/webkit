@@ -34,12 +34,11 @@ class JSInternalPromise;
 class JSModuleNamespaceObject;
 class SourceCode;
 
-class JSModuleLoader final : public JSNonFinalObject {
+class JSModuleLoader : public JSNonFinalObject {
 private:
     JSModuleLoader(VM&, Structure*);
 public:
-    using Base = JSNonFinalObject;
-    static const unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;
+    typedef JSNonFinalObject Base;
 
     enum Status {
         Fetch = 1,
@@ -64,18 +63,17 @@ public:
     }
 
     // APIs to control the module loader.
-    JSValue provideFetch(ExecState*, JSValue key, const SourceCode&);
-    JSInternalPromise* loadAndEvaluateModule(ExecState*, JSValue moduleName, JSValue parameters, JSValue scriptFetcher);
-    JSInternalPromise* loadModule(ExecState*, JSValue moduleName, JSValue parameters, JSValue scriptFetcher);
+    JSValue provide(ExecState*, JSValue key, Status, const SourceCode&);
+    JSInternalPromise* loadAndEvaluateModule(ExecState*, JSValue moduleName, JSValue referrer, JSValue scriptFetcher);
+    JSInternalPromise* loadModule(ExecState*, JSValue moduleName, JSValue referrer, JSValue scriptFetcher);
     JSValue linkAndEvaluateModule(ExecState*, JSValue moduleKey, JSValue scriptFetcher);
-    JSInternalPromise* requestImportModule(ExecState*, const Identifier&, JSValue parameters, JSValue scriptFetcher);
+    JSInternalPromise* requestImportModule(ExecState*, const Identifier&, JSValue scriptFetcher);
 
     // Platform dependent hooked APIs.
-    JSInternalPromise* importModule(ExecState*, JSString* moduleName, JSValue parameters, const SourceOrigin& referrer);
+    JSInternalPromise* importModule(ExecState*, JSString* moduleName, const SourceOrigin& referrer);
     JSInternalPromise* resolve(ExecState*, JSValue name, JSValue referrer, JSValue scriptFetcher);
-    Identifier resolveSync(ExecState*, JSValue name, JSValue referrer, JSValue scriptFetcher);
-    JSInternalPromise* fetch(ExecState*, JSValue key, JSValue parameters, JSValue scriptFetcher);
-    JSObject* createImportMetaProperties(ExecState*, JSValue key, JSModuleRecord*, JSValue scriptFetcher);
+    JSInternalPromise* fetch(ExecState*, JSValue key, JSValue scriptFetcher);
+    JSInternalPromise* instantiate(ExecState*, JSValue key, JSValue source, JSValue scriptFetcher);
 
     // Additional platform dependent hooked APIs.
     JSValue evaluate(ExecState*, JSValue key, JSValue moduleRecord, JSValue scriptFetcher);

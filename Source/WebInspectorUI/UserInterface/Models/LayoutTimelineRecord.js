@@ -23,17 +23,17 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.LayoutTimelineRecord = class LayoutTimelineRecord extends WI.TimelineRecord
+WebInspector.LayoutTimelineRecord = class LayoutTimelineRecord extends WebInspector.TimelineRecord
 {
     constructor(eventType, startTime, endTime, callFrames, sourceCodeLocation, quad)
     {
-        super(WI.TimelineRecord.Type.Layout, startTime, endTime, callFrames, sourceCodeLocation);
+        super(WebInspector.TimelineRecord.Type.Layout, startTime, endTime, callFrames, sourceCodeLocation);
 
         console.assert(eventType);
-        console.assert(!quad || quad instanceof WI.Quad);
+        console.assert(!quad || quad instanceof WebInspector.Quad);
 
-        if (eventType in WI.LayoutTimelineRecord.EventType)
-            eventType = WI.LayoutTimelineRecord.EventType[eventType];
+        if (eventType in WebInspector.LayoutTimelineRecord.EventType)
+            eventType = WebInspector.LayoutTimelineRecord.EventType[eventType];
 
         this._eventType = eventType;
         this._quad = quad || null;
@@ -44,20 +44,20 @@ WI.LayoutTimelineRecord = class LayoutTimelineRecord extends WI.TimelineRecord
     static displayNameForEventType(eventType)
     {
         switch (eventType) {
-        case WI.LayoutTimelineRecord.EventType.InvalidateStyles:
-            return WI.UIString("Styles Invalidated");
-        case WI.LayoutTimelineRecord.EventType.RecalculateStyles:
-            return WI.UIString("Styles Recalculated");
-        case WI.LayoutTimelineRecord.EventType.InvalidateLayout:
-            return WI.UIString("Layout Invalidated");
-        case WI.LayoutTimelineRecord.EventType.ForcedLayout:
-            return WI.UIString("Forced Layout");
-        case WI.LayoutTimelineRecord.EventType.Layout:
-            return WI.UIString("Layout");
-        case WI.LayoutTimelineRecord.EventType.Paint:
-            return WI.UIString("Paint");
-        case WI.LayoutTimelineRecord.EventType.Composite:
-            return WI.UIString("Composite");
+        case WebInspector.LayoutTimelineRecord.EventType.InvalidateStyles:
+            return WebInspector.UIString("Styles Invalidated");
+        case WebInspector.LayoutTimelineRecord.EventType.RecalculateStyles:
+            return WebInspector.UIString("Styles Recalculated");
+        case WebInspector.LayoutTimelineRecord.EventType.InvalidateLayout:
+            return WebInspector.UIString("Layout Invalidated");
+        case WebInspector.LayoutTimelineRecord.EventType.ForcedLayout:
+            return WebInspector.UIString("Forced Layout");
+        case WebInspector.LayoutTimelineRecord.EventType.Layout:
+            return WebInspector.UIString("Layout");
+        case WebInspector.LayoutTimelineRecord.EventType.Paint:
+            return WebInspector.UIString("Paint");
+        case WebInspector.LayoutTimelineRecord.EventType.Composite:
+            return WebInspector.UIString("Composite");
         }
     }
 
@@ -92,11 +92,11 @@ WI.LayoutTimelineRecord = class LayoutTimelineRecord extends WI.TimelineRecord
     {
         super.saveIdentityToCookie(cookie);
 
-        cookie[WI.LayoutTimelineRecord.EventTypeCookieKey] = this._eventType;
+        cookie[WebInspector.LayoutTimelineRecord.EventTypeCookieKey] = this._eventType;
     }
 };
 
-WI.LayoutTimelineRecord.EventType = {
+WebInspector.LayoutTimelineRecord.EventType = {
     InvalidateStyles: "layout-timeline-record-invalidate-styles",
     RecalculateStyles: "layout-timeline-record-recalculate-styles",
     InvalidateLayout: "layout-timeline-record-invalidate-layout",
@@ -106,5 +106,5 @@ WI.LayoutTimelineRecord.EventType = {
     Composite: "layout-timeline-record-composite"
 };
 
-WI.LayoutTimelineRecord.TypeIdentifier = "layout-timeline-record";
-WI.LayoutTimelineRecord.EventTypeCookieKey = "layout-timeline-record-event-type";
+WebInspector.LayoutTimelineRecord.TypeIdentifier = "layout-timeline-record";
+WebInspector.LayoutTimelineRecord.EventTypeCookieKey = "layout-timeline-record-event-type";

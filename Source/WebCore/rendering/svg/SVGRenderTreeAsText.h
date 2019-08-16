@@ -26,7 +26,7 @@
 #pragma once
 
 #include "RenderTreeAsText.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 
@@ -48,21 +48,21 @@ class AffineTransform;
 class SVGUnitTypes;
 
 // functions used by the main RenderTreeAsText code
-void write(WTF::TextStream&, const RenderSVGShape&, RenderAsTextBehavior);
-void write(WTF::TextStream&, const RenderSVGRoot&, RenderAsTextBehavior);
-void writeSVGGradientStop(WTF::TextStream&, const RenderSVGGradientStop&, RenderAsTextBehavior);
-void writeSVGResourceContainer(WTF::TextStream&, const RenderSVGResourceContainer&, RenderAsTextBehavior);
-void writeSVGContainer(WTF::TextStream&, const RenderSVGContainer&, RenderAsTextBehavior);
-void writeSVGImage(WTF::TextStream&, const RenderSVGImage&, RenderAsTextBehavior);
-void writeSVGInlineText(WTF::TextStream&, const RenderSVGInlineText&, RenderAsTextBehavior);
-void writeSVGText(WTF::TextStream&, const RenderSVGText&, RenderAsTextBehavior);
-void writeResources(WTF::TextStream&, const RenderObject&, RenderAsTextBehavior);
+void write(TextStream&, const RenderSVGShape&, int indent, RenderAsTextBehavior);
+void write(TextStream&, const RenderSVGRoot&, int indent, RenderAsTextBehavior);
+void writeSVGGradientStop(TextStream&, const RenderSVGGradientStop&, int indent, RenderAsTextBehavior);
+void writeSVGResourceContainer(TextStream&, const RenderSVGResourceContainer&, int indent, RenderAsTextBehavior);
+void writeSVGContainer(TextStream&, const RenderSVGContainer&, int indent, RenderAsTextBehavior);
+void writeSVGImage(TextStream&, const RenderSVGImage&, int indent, RenderAsTextBehavior);
+void writeSVGInlineText(TextStream&, const RenderSVGInlineText&, int indent, RenderAsTextBehavior);
+void writeSVGText(TextStream&, const RenderSVGText&, int indent, RenderAsTextBehavior);
+void writeResources(TextStream&, const RenderObject&, int indent, RenderAsTextBehavior);
 
 // helper operators specific to dumping the render tree. these are used in various classes to dump the render tree
 // these could be defined in separate namespace to avoid matching these generic signatures unintentionally.
 
 template<typename Item>
-WTF::TextStream& operator<<(WTF::TextStream& ts, const Vector<Item*>& v)
+TextStream& operator<<(TextStream& ts, const Vector<Item*>& v)
 {
     ts << "[";
 
@@ -77,7 +77,7 @@ WTF::TextStream& operator<<(WTF::TextStream& ts, const Vector<Item*>& v)
 }
 
 template<typename Pointer>
-WTF::TextStream& operator<<(WTF::TextStream& ts, Pointer* t)
+TextStream& operator<<(TextStream& ts, Pointer* t)
 {
     ts << reinterpret_cast<intptr_t>(t);
     return ts;

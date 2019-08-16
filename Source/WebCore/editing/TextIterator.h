@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2009, 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,19 +38,14 @@ namespace WebCore {
 class InlineTextBox;
 class RenderText;
 class RenderTextFragment;
-
 namespace SimpleLineLayout {
 class RunResolver;
 }
-
-WEBCORE_EXPORT String plainText(Position start, Position end, TextIteratorBehavior = TextIteratorDefaultBehavior, bool isDisplayString = false);
 
 WEBCORE_EXPORT String plainText(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior, bool isDisplayString = false);
 WEBCORE_EXPORT String plainTextReplacingNoBreakSpace(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior, bool isDisplayString = false);
 Ref<Range> findPlainText(const Range&, const String&, FindOptions);
 WEBCORE_EXPORT Ref<Range> findClosestPlainText(const Range&, const String&, FindOptions, unsigned);
-WEBCORE_EXPORT bool hasAnyPlainText(const Range&, TextIteratorBehavior = TextIteratorDefaultBehavior);
-bool findPlainText(const String& document, const String&, FindOptions); // Lets us use the search algorithm on a string.
 
 // FIXME: Move this somewhere else in the editing directory. It doesn't belong here.
 bool isRendererReplacedElement(RenderObject*);
@@ -101,7 +96,6 @@ private:
 
 class TextIterator {
 public:
-    explicit TextIterator(Position start, Position end, TextIteratorBehavior = TextIteratorDefaultBehavior);
     WEBCORE_EXPORT explicit TextIterator(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior);
     WEBCORE_EXPORT ~TextIterator();
 
@@ -121,7 +115,6 @@ public:
     WEBCORE_EXPORT static Ref<Range> subrange(Range& entireRange, int characterOffset, int characterCount);
 
 private:
-    void init();
     void exitNode(Node*);
     bool shouldRepresentNodeOffsetZero();
     bool shouldEmitSpaceBeforeAndAfterNode(Node&);

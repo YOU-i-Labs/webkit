@@ -41,11 +41,10 @@
 #include "LoadableClassicScript.h"
 #include "LoadableModuleScript.h"
 #include "MIMETypeRegistry.h"
+#include "NoEventDispatchAssertion.h"
 #include "PendingScript.h"
-#include "RuntimeApplicationChecks.h"
 #include "SVGScriptElement.h"
 #include "ScriptController.h"
-#include "ScriptDisallowedScope.h"
 #include "ScriptRunner.h"
 #include "ScriptSourceCode.h"
 #include "ScriptableDocumentParser.h"
@@ -56,8 +55,6 @@
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
-
-static const auto maxUserGesturePropagationTime = 1_s;
 
 ScriptElement::ScriptElement(Element& element, bool parserInserted, bool alreadyStarted)
     : m_element(element)
@@ -72,14 +69,17 @@ ScriptElement::ScriptElement(Element& element, bool parserInserted, bool already
     , m_forceAsync(!parserInserted)
     , m_willExecuteInOrder(false)
     , m_isModuleScript(false)
-    , m_creationTime(MonotonicTime::now())
-    , m_userGestureToken(UserGestureIndicator::currentUserGesture())
 {
     if (parserInserted && m_element.document().scriptableDocumentParser() && !m_element.document().isInDocumentWrite())
         m_startLineNumber = m_element.document().scriptableDocumentParser()->textPosition().m_line;
 }
 
-void ScriptElement::didFinishInsertingNode()
+bool ScriptElement::shouldCallFinishedInsertingSubtree(ContainerNode& insertionPoint)
+{
+    return insertionPoint.isConnected() && !m_parserInserted;
+}
+
+void ScriptElement::finishedInsertingSubtree()
 {
     ASSERT(!m_parserInserted);
     prepareScript(); // FIXME: Provide a real starting line number here.
@@ -104,31 +104,43 @@ void ScriptElement::handleAsyncAttribute()
     m_forceAsync = false;
 }
 
+// Helper function
 static bool isLegacySupportedJavaScriptLanguage(const String& language)
 {
-    static const auto languages = makeNeverDestroyed(HashSet<String, ASCIICaseInsensitiveHash> {
-        "javascript",
-        "javascript1.0",
-        "javascript1.1",
-        "javascript1.2",
-        "javascript1.3",
-        "javascript1.4",
-        "javascript1.5",
-        "javascript1.6",
-        "javascript1.7",
-        "livescript",
-        "ecmascript",
-        "jscript",
-    });
+    // Mozilla 1.8 accepts javascript1.0 - javascript1.7, but WinIE 7 accepts only javascript1.1 - javascript1.3.
+    // Mozilla 1.8 and WinIE 7 both accept javascript and livescript.
+    // WinIE 7 accepts ecmascript and jscript, but Mozilla 1.8 doesn't.
+    // Neither Mozilla 1.8 nor WinIE 7 accept leading or trailing whitespace.
+    // We want to accept all the values that either of these browsers accept, but not other values.
+
+    // FIXME: This function is not HTML5 compliant. These belong in the MIME registry as "text/javascript<version>" entries.
+    typedef HashSet<String, ASCIICaseInsensitiveHash> LanguageSet;
+    static NeverDestroyed<LanguageSet> languages;
+    if (languages.get().isEmpty()) {
+        languages.get().add("javascript");
+        languages.get().add("javascript");
+        languages.get().add("javascript1.0");
+        languages.get().add("javascript1.1");
+        languages.get().add("javascript1.2");
+        languages.get().add("javascript1.3");
+        languages.get().add("javascript1.4");
+        languages.get().add("javascript1.5");
+        languages.get().add("javascript1.6");
+        languages.get().add("javascript1.7");
+        languages.get().add("livescript");
+        languages.get().add("ecmascript");
+        languages.get().add("jscript");
+    }
+
     return languages.get().contains(language);
 }
 
 void ScriptElement::dispatchErrorEvent()
 {
-    m_element.dispatchEvent(Event::create(eventNames().errorEvent, Event::CanBubble::No, Event::IsCancelable::No));
+    m_element.dispatchEvent(Event::create(eventNames().errorEvent, false, false));
 }
 
-Optional<ScriptElement::ScriptType> ScriptElement::determineScriptType(LegacyTypeSupport supportLegacyTypes) const
+std::optional<ScriptElement::ScriptType> ScriptElement::determineScriptType(LegacyTypeSupport supportLegacyTypes) const
 {
     // FIXME: isLegacySupportedJavaScriptLanguage() is not valid HTML5. It is used here to maintain backwards compatibility with existing layout tests. The specific violations are:
     // - Allowing type=javascript. type= should only support MIME types, such as text/javascript.
@@ -142,7 +154,7 @@ Optional<ScriptElement::ScriptType> ScriptElement::determineScriptType(LegacyTyp
             return ScriptType::Classic;
         if (isLegacySupportedJavaScriptLanguage(language))
             return ScriptType::Classic;
-        return WTF::nullopt;
+        return std::nullopt;
     }
     if (MIMETypeRegistry::isSupportedJavaScriptMIMEType(type.stripWhiteSpace()))
         return ScriptType::Classic;
@@ -154,13 +166,13 @@ Optional<ScriptElement::ScriptType> ScriptElement::determineScriptType(LegacyTyp
     // Once "defer" is implemented, we can reconsider enabling modules in XHTML.
     // https://bugs.webkit.org/show_bug.cgi?id=123387
     if (!m_element.document().isHTMLDocument())
-        return WTF::nullopt;
+        return std::nullopt;
 
     // https://html.spec.whatwg.org/multipage/scripting.html#attr-script-type
     // Setting the attribute to an ASCII case-insensitive match for the string "module" means that the script is a module script.
     if (equalLettersIgnoringASCIICase(type, "module"))
         return ScriptType::Module;
-    return WTF::nullopt;
+    return std::nullopt;
 }
 
 // http://dev.w3.org/html5/spec/Overview.html#prepare-a-script
@@ -187,7 +199,7 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
         return false;
 
     ScriptType scriptType = ScriptType::Classic;
-    if (Optional<ScriptType> result = determineScriptType(supportLegacyTypes))
+    if (std::optional<ScriptType> result = determineScriptType(supportLegacyTypes))
         scriptType = result.value();
     else
         return false;
@@ -264,7 +276,7 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
     } else {
         ASSERT(scriptType == ScriptType::Classic);
         TextPosition position = document.isInDocumentWrite() ? TextPosition() : scriptStartPosition;
-        executeClassicScript(ScriptSourceCode(scriptContent(), URL(document.url()), position, JSC::SourceProviderSourceType::Program, InlineClassicScript::create(*this)));
+        executeClassicScript(ScriptSourceCode(scriptContent(), document.url(), position, JSC::SourceProviderSourceType::Program, InlineClassicScript::create(*this)));
     }
 
     return true;
@@ -308,7 +320,7 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
     String nonce = m_element.attributeWithoutSynchronization(HTMLNames::nonceAttr);
     String crossOriginMode = m_element.attributeWithoutSynchronization(HTMLNames::crossoriginAttr);
     if (crossOriginMode.isNull())
-        crossOriginMode = "omit"_s;
+        crossOriginMode = ASCIILiteral("omit");
 
     if (hasSourceAttribute()) {
         String sourceURL = sourceAttributeValue();
@@ -332,22 +344,16 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
         }
 
         m_isExternalScript = true;
-        auto script = LoadableModuleScript::create(
-            nonce,
-            m_element.document().settings().subresourceIntegrityEnabled() ? m_element.attributeWithoutSynchronization(HTMLNames::integrityAttr).string() : emptyString(),
-            crossOriginMode,
-            scriptCharset(),
-            m_element.localName(),
-            m_element.isInUserAgentShadowTree());
+        auto script = LoadableModuleScript::create(nonce, crossOriginMode, scriptCharset(), m_element.localName(), m_element.isInUserAgentShadowTree());
         script->load(m_element.document(), moduleScriptRootURL);
         m_loadableScript = WTFMove(script);
         return true;
     }
 
-    auto script = LoadableModuleScript::create(nonce, emptyString(), crossOriginMode, scriptCharset(), m_element.localName(), m_element.isInUserAgentShadowTree());
+    auto script = LoadableModuleScript::create(nonce, crossOriginMode, scriptCharset(), m_element.localName(), m_element.isInUserAgentShadowTree());
 
     TextPosition position = m_element.document().isInDocumentWrite() ? TextPosition() : scriptStartPosition;
-    ScriptSourceCode sourceCode(scriptContent(), URL(m_element.document().url()), position, JSC::SourceProviderSourceType::Module, script.copyRef());
+    ScriptSourceCode sourceCode(scriptContent(), m_element.document().url(), position, JSC::SourceProviderSourceType::Module, script.copyRef());
 
     ASSERT(m_element.document().contentSecurityPolicy());
     const auto& contentSecurityPolicy = *m_element.document().contentSecurityPolicy();
@@ -362,7 +368,7 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
 
 void ScriptElement::executeClassicScript(const ScriptSourceCode& sourceCode)
 {
-    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed() || !isInWebProcess());
+    ASSERT_WITH_SECURITY_IMPLICATION(NoEventDispatchAssertion::isEventAllowedInMainThread());
     ASSERT(m_alreadyStarted);
 
     if (sourceCode.isEmpty())
@@ -404,27 +410,16 @@ void ScriptElement::executeModuleScript(LoadableModuleScript& loadableModuleScri
     frame->script().linkAndEvaluateModuleScript(loadableModuleScript);
 }
 
-void ScriptElement::dispatchLoadEventRespectingUserGestureIndicator()
-{
-    if (MonotonicTime::now() - m_creationTime > maxUserGesturePropagationTime) {
-        dispatchLoadEvent();
-        return;
-    }
-
-    UserGestureIndicator indicator(m_userGestureToken);
-    dispatchLoadEvent();
-}
-
 void ScriptElement::executeScriptAndDispatchEvent(LoadableScript& loadableScript)
 {
-    if (Optional<LoadableScript::Error> error = loadableScript.error()) {
-        if (Optional<LoadableScript::ConsoleMessage> message = error->consoleMessage)
+    if (std::optional<LoadableScript::Error> error = loadableScript.error()) {
+        if (std::optional<LoadableScript::ConsoleMessage> message = error->consoleMessage)
             m_element.document().addConsoleMessage(message->source, message->level, message->message);
         dispatchErrorEvent();
     } else if (!loadableScript.wasCanceled()) {
         ASSERT(!loadableScript.error());
         loadableScript.execute(*this);
-        dispatchLoadEventRespectingUserGestureIndicator();
+        dispatchLoadEvent();
     }
 }
 
@@ -435,8 +430,8 @@ void ScriptElement::executePendingScript(PendingScript& pendingScript)
     else {
         ASSERT(!pendingScript.error());
         ASSERT_WITH_MESSAGE(scriptType() == ScriptType::Classic, "Module script always have a loadableScript pointer.");
-        executeClassicScript(ScriptSourceCode(scriptContent(), URL(m_element.document().url()), pendingScript.startingPosition(), JSC::SourceProviderSourceType::Program, InlineClassicScript::create(*this)));
-        dispatchLoadEventRespectingUserGestureIndicator();
+        executeClassicScript(ScriptSourceCode(scriptContent(), m_element.document().url(), pendingScript.startingPosition(), JSC::SourceProviderSourceType::Program, InlineClassicScript::create(*this)));
+        dispatchLoadEvent();
     }
 }
 
@@ -463,7 +458,10 @@ bool ScriptElement::isScriptForEventSupported() const
 
 String ScriptElement::scriptContent() const
 {
-    return TextNodeTraversal::childTextContent(m_element);
+    StringBuilder result;
+    for (auto* text = TextNodeTraversal::firstChild(m_element); text; text = TextNodeTraversal::nextSibling(*text))
+        result.append(text->data());
+    return result.toString();
 }
 
 void ScriptElement::ref()

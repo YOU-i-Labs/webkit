@@ -20,7 +20,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#pragma once
+#ifndef PointLightSource_h
+#define PointLightSource_h
 
 #include "LightSource.h"
 #include <wtf/Ref.h>
@@ -34,27 +35,26 @@ public:
         return adoptRef(*new PointLightSource(position));
     }
 
-    const FloatPoint3D& position() const { return m_userSpacePosition; }
+    const FloatPoint3D& position() const { return m_position; }
     bool setX(float) override;
     bool setY(float) override;
     bool setZ(float) override;
 
-    void initPaintingData(const FilterEffect&, PaintingData&) override;
-    ComputedLightingData computePixelLightingData(const PaintingData&, int x, int y, float z) const final;
+    void initPaintingData(PaintingData&) override;
+    void updatePaintingData(PaintingData&, int x, int y, float z) override;
 
-    WTF::TextStream& externalRepresentation(WTF::TextStream&) const override;
+    TextStream& externalRepresentation(TextStream&) const override;
 
 private:
     PointLightSource(const FloatPoint3D& position)
         : LightSource(LS_POINT)
-        , m_userSpacePosition(position)
+        , m_position(position)
     {
     }
 
-    FloatPoint3D m_userSpacePosition;
-    FloatPoint3D m_bufferPosition;
+    FloatPoint3D m_position;
 };
 
 } // namespace WebCore
 
-SPECIALIZE_TYPE_TRAITS_LIGHTSOURCE(PointLightSource, LS_POINT)
+#endif // PointLightSource_h

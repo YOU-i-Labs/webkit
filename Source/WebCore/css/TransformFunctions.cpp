@@ -35,6 +35,7 @@
 #include "CSSFunctionValue.h"
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSValueList.h"
+#include "CSSValuePool.h"
 #include "Matrix3DTransformOperation.h"
 #include "MatrixTransformOperation.h"
 #include "PerspectiveTransformOperation.h"
@@ -110,7 +111,7 @@ bool transformsForValue(const CSSValue& value, const CSSToLengthConversionData& 
 
     TransformOperations operations;
     for (auto& currentValue : downcast<CSSValueList>(value)) {
-        if (!is<CSSFunctionValue>(currentValue))
+        if (!is<CSSFunctionValue>(currentValue.get()))
             continue;
 
         auto& transformValue = downcast<CSSFunctionValue>(currentValue.get());

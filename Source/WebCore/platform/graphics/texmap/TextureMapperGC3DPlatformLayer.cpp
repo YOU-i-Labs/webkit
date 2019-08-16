@@ -20,22 +20,29 @@
 #include "config.h"
 #include "TextureMapperGC3DPlatformLayer.h"
 
-#if ENABLE(GRAPHICS_CONTEXT_3D) && USE(TEXTURE_MAPPER) && !USE(NICOSIA)
+#if ENABLE(GRAPHICS_CONTEXT_3D) && USE(TEXTURE_MAPPER)
+
+#if USE(OPENGL_ES_2)
+#define GL_GLEXT_PROTOTYPES 1
+#include <GLES2/gl2.h>
+#include <GLES2/gl2ext.h>
+#endif
 
 #include "BitmapTextureGL.h"
 #include "GLContext.h"
-#include "TextureMapperGLHeaders.h"
 #include "TextureMapperPlatformLayerBuffer.h"
-#include "TextureMapperPlatformLayerProxy.h"
 
 namespace WebCore {
 
 TextureMapperGC3DPlatformLayer::TextureMapperGC3DPlatformLayer(GraphicsContext3D& context, GraphicsContext3D::RenderStyle renderStyle)
     : m_context(context)
+    , m_renderStyle(renderStyle)
 {
     switch (renderStyle) {
     case GraphicsContext3D::RenderOffscreen:
         m_glContext = GLContext::createOffscreenContext(&PlatformDisplay::sharedDisplayForCompositing());
+        break;
+    case GraphicsContext3D::RenderToCurrentGLContext:
         break;
     case GraphicsContext3D::RenderDirectlyToHostWindow:
         ASSERT_NOT_REACHED();
@@ -43,7 +50,8 @@ TextureMapperGC3DPlatformLayer::TextureMapperGC3DPlatformLayer(GraphicsContext3D
     }
 
 #if USE(COORDINATED_GRAPHICS_THREADED)
-    m_platformLayerProxy = adoptRef(new TextureMapperPlatformLayerProxy());
+    if (m_renderStyle == GraphicsContext3D::RenderOffscreen)
+        m_platformLayerProxy = adoptRef(new TextureMapperPlatformLayerProxy());
 #endif
 }
 
@@ -57,14 +65,12 @@ TextureMapperGC3DPlatformLayer::~TextureMapperGC3DPlatformLayer()
 
 bool TextureMapperGC3DPlatformLayer::makeContextCurrent()
 {
-    ASSERT(m_glContext);
-    return m_glContext->makeContextCurrent();
+    return m_glContext ? m_glContext->makeContextCurrent() : false;
 }
 
 PlatformGraphicsContext3D TextureMapperGC3DPlatformLayer::platformContext()
 {
-    ASSERT(m_glContext);
-    return m_glContext->platformContext();
+    return m_glContext ? m_glContext->platformContext() : GLContext::current()->platformContext();
 }
 
 #if USE(COORDINATED_GRAPHICS_THREADED)
@@ -75,6 +81,7 @@ RefPtr<TextureMapperPlatformLayerProxy> TextureMapperGC3DPlatformLayer::proxy() 
 
 void TextureMapperGC3DPlatformLayer::swapBuffersIfNeeded()
 {
+    ASSERT(m_renderStyle == GraphicsContext3D::RenderOffscreen);
     if (m_context.layerComposited())
         return;
 
@@ -92,7 +99,10 @@ void TextureMapperGC3DPlatformLayer::swapBuffersIfNeeded()
 #else
 void TextureMapperGC3DPlatformLayer::paintToTextureMapper(TextureMapper& textureMapper, const FloatRect& targetRect, const TransformationMatrix& matrix, float opacity)
 {
-    ASSERT(m_glContext);
+    if (!m_glContext)
+        return;
+
+    ASSERT(m_renderStyle == GraphicsContext3D::RenderOffscreen);
 
     m_context.markLayerComposited();
 

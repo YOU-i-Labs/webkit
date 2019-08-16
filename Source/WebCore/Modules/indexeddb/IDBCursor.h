@@ -27,12 +27,13 @@
 
 #if ENABLE(INDEXED_DATABASE)
 
+#include "ActiveDOMObject.h"
+#include "DOMWrapperWorld.h"
 #include "ExceptionOr.h"
 #include "IDBCursorDirection.h"
 #include "IDBCursorInfo.h"
-#include <JavaScriptCore/Strong.h>
+#include <heap/Strong.h>
 #include <wtf/Variant.h>
-#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -41,10 +42,10 @@ class IDBIndex;
 class IDBObjectStore;
 class IDBTransaction;
 
-class IDBCursor : public ScriptWrappable, public RefCounted<IDBCursor> {
+class IDBCursor : public ScriptWrappable, public RefCounted<IDBCursor>, public ActiveDOMObject {
 public:
-    static Ref<IDBCursor> create(IDBObjectStore&, const IDBCursorInfo&);
-    static Ref<IDBCursor> create(IDBIndex&, const IDBCursorInfo&);
+    static Ref<IDBCursor> create(IDBTransaction&, IDBObjectStore&, const IDBCursorInfo&);
+    static Ref<IDBCursor> create(IDBTransaction&, IDBIndex&, const IDBCursorInfo&);
     
     virtual ~IDBCursor();
 
@@ -66,19 +67,26 @@ public:
 
     const IDBCursorInfo& info() const { return m_info; }
 
-    void setRequest(IDBRequest& request) { m_request = makeWeakPtr(&request); }
-    void clearRequest() { m_request.clear(); }
-    IDBRequest* request() { return m_request.get(); }
+    void setRequest(IDBRequest& request) { m_request = &request; }
+    void clearRequest() { m_request = nullptr; }
+    IDBRequest* request() { return m_request; }
 
     void setGetResult(IDBRequest&, const IDBGetResult&);
 
     virtual bool isKeyCursorWithValue() const { return false; }
 
+    void decrementOutstandingRequestCount();
+
+    bool hasPendingActivity() const final;
+
 protected:
-    IDBCursor(IDBObjectStore&, const IDBCursorInfo&);
-    IDBCursor(IDBIndex&, const IDBCursorInfo&);
+    IDBCursor(IDBTransaction&, IDBObjectStore&, const IDBCursorInfo&);
+    IDBCursor(IDBTransaction&, IDBIndex&, const IDBCursorInfo&);
 
 private:
+    const char* activeDOMObjectName() const final;
+    bool canSuspendForDocumentSuspension() const final;
+
     bool sourcesDeleted() const;
     IDBObjectStore& effectiveObjectStore() const;
     IDBTransaction& transaction() const;
@@ -86,17 +94,18 @@ private:
     void uncheckedIterateCursor(const IDBKeyData&, unsigned count);
     void uncheckedIterateCursor(const IDBKeyData&, const IDBKeyData&);
 
+    // Cursors are created with an outstanding iteration request.
+    unsigned m_outstandingRequestCount { 1 };
+
     IDBCursorInfo m_info;
     Source m_source;
-    WeakPtr<IDBRequest> m_request;
+    IDBRequest* m_request { nullptr };
 
     bool m_gotValue { false };
 
     IDBKeyData m_currentKeyData;
     IDBKeyData m_currentPrimaryKeyData;
 
-    // FIXME: The following uses of JSC::Strong are incorrect and can lead to storage leaks
-    // due to reference cycles; we should use JSValueInWrappedObject instead.
     JSC::Strong<JSC::Unknown> m_currentKey;
     JSC::Strong<JSC::Unknown> m_currentPrimaryKey;
     JSC::Strong<JSC::Unknown> m_currentValue;

@@ -32,7 +32,7 @@
 
 namespace WebCore {
 
-class Page;
+class MainFrame;
 class RegionOverlay;
 
 class DebugPageOverlays {
@@ -48,44 +48,44 @@ public:
     static void didLayout(Frame&);
     static void didChangeEventHandlers(Frame&);
 
-    WEBCORE_EXPORT static void settingsChanged(Page&);
+    WEBCORE_EXPORT static void settingsChanged(MainFrame&);
 
 private:
-    static bool hasOverlays(Page&);
+    static bool hasOverlays(MainFrame&);
 
-    void showRegionOverlay(Page&, RegionType);
-    void hideRegionOverlay(Page&, RegionType);
+    void showRegionOverlay(MainFrame&, RegionType);
+    void hideRegionOverlay(MainFrame&, RegionType);
 
     void regionChanged(Frame&, RegionType);
 
-    bool hasOverlaysForPage(Page& page) const
+    bool hasOverlaysForFrame(MainFrame& frame) const
     {
-        return m_pageRegionOverlays.contains(&page);
+        return m_frameRegionOverlays.contains(&frame);
     }
     
-    void updateOverlayRegionVisibility(Page&, DebugOverlayRegions);
+    void updateOverlayRegionVisibility(MainFrame&, DebugOverlayRegions);
 
-    RegionOverlay* regionOverlayForPage(Page&, RegionType) const;
-    RegionOverlay& ensureRegionOverlayForPage(Page&, RegionType);
+    RegionOverlay* regionOverlayForFrame(MainFrame&, RegionType) const;
+    RegionOverlay& ensureRegionOverlayForFrame(MainFrame&, RegionType);
 
-    HashMap<Page*, Vector<RefPtr<RegionOverlay>>> m_pageRegionOverlays;
+    HashMap<MainFrame*, Vector<RefPtr<RegionOverlay>>> m_frameRegionOverlays;
 
     static DebugPageOverlays* sharedDebugOverlays;
 };
 
-#define FAST_RETURN_IF_NO_OVERLAYS(page) if (LIKELY(!page || !hasOverlays(*page))) return;
+#define FAST_RETURN_IF_NO_OVERLAYS(frame) if (LIKELY(!hasOverlays(frame))) return;
 
-inline bool DebugPageOverlays::hasOverlays(Page& page)
+inline bool DebugPageOverlays::hasOverlays(MainFrame& frame)
 {
     if (!sharedDebugOverlays)
         return false;
 
-    return sharedDebugOverlays->hasOverlaysForPage(page);
+    return sharedDebugOverlays->hasOverlaysForFrame(frame);
 }
 
 inline void DebugPageOverlays::didLayout(Frame& frame)
 {
-    FAST_RETURN_IF_NO_OVERLAYS(frame.page());
+    FAST_RETURN_IF_NO_OVERLAYS(frame.mainFrame());
 
     sharedDebugOverlays->regionChanged(frame, RegionType::WheelEventHandlers);
     sharedDebugOverlays->regionChanged(frame, RegionType::NonFastScrollableRegion);
@@ -93,7 +93,7 @@ inline void DebugPageOverlays::didLayout(Frame& frame)
 
 inline void DebugPageOverlays::didChangeEventHandlers(Frame& frame)
 {
-    FAST_RETURN_IF_NO_OVERLAYS(frame.page());
+    FAST_RETURN_IF_NO_OVERLAYS(frame.mainFrame());
 
     sharedDebugOverlays->regionChanged(frame, RegionType::WheelEventHandlers);
     sharedDebugOverlays->regionChanged(frame, RegionType::NonFastScrollableRegion);

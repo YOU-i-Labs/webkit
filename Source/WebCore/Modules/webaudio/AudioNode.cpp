@@ -32,6 +32,7 @@
 #include "AudioNodeInput.h"
 #include "AudioNodeOutput.h"
 #include "AudioParam.h"
+#include "ExceptionCode.h"
 #include <wtf/Atomics.h>
 #include <wtf/MainThread.h>
 
@@ -69,7 +70,7 @@ AudioNode::~AudioNode()
     ASSERT(isMainThread());
 #if DEBUG_AUDIONODE_REFERENCES
     --s_nodeCount[nodeType()];
-    fprintf(stderr, "%p: %d: AudioNode::~AudioNode() %d %d\n", this, nodeType(), m_normalRefCount.load(), m_connectionRefCount);
+    WTFLogAlways("%p: %d: AudioNode::~AudioNode() %d %d\n", this, nodeType(), m_normalRefCount.load(), m_connectionRefCount);
 #endif
 }
 
@@ -129,13 +130,13 @@ ExceptionOr<void> AudioNode::connect(AudioNode& destination, unsigned outputInde
 
     // Sanity check input and output indices.
     if (outputIndex >= numberOfOutputs())
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     if (inputIndex >= destination.numberOfInputs())
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     if (context() != destination.context())
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
 
     auto* input = destination.input(inputIndex);
     auto* output = this->output(outputIndex);
@@ -153,10 +154,10 @@ ExceptionOr<void> AudioNode::connect(AudioParam& param, unsigned outputIndex)
     AudioContext::AutoLocker locker(context());
 
     if (outputIndex >= numberOfOutputs())
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     if (context() != param.context())
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
 
     auto* output = this->output(outputIndex);
     param.connect(output);
@@ -171,7 +172,7 @@ ExceptionOr<void> AudioNode::disconnect(unsigned outputIndex)
 
     // Sanity check input and output indices.
     if (outputIndex >= numberOfOutputs())
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     auto* output = this->output(outputIndex);
     output->disconnectAll();
@@ -190,7 +191,7 @@ ExceptionOr<void> AudioNode::setChannelCount(unsigned channelCount)
     AudioContext::AutoLocker locker(context());
 
     if (!(channelCount > 0 && channelCount <= AudioContext::maxNumberOfChannels()))
-        return Exception { InvalidStateError };
+        return Exception { INVALID_STATE_ERR };
 
     if (m_channelCount == channelCount)
         return { };
@@ -205,11 +206,11 @@ String AudioNode::channelCountMode()
 {
     switch (m_channelCountMode) {
     case Max:
-        return "max"_s;
+        return ASCIILiteral("max");
     case ClampedMax:
-        return "clamped-max"_s;
+        return ASCIILiteral("clamped-max");
     case Explicit:
-        return "explicit"_s;
+        return ASCIILiteral("explicit");
     }
     ASSERT_NOT_REACHED();
     return emptyString();
@@ -229,7 +230,7 @@ ExceptionOr<void> AudioNode::setChannelCountMode(const String& mode)
     else if (mode == "explicit")
         m_channelCountMode = Explicit;
     else
-        return Exception { InvalidStateError };
+        return Exception { INVALID_STATE_ERR };
 
     if (m_channelCountMode != oldMode)
         updateChannelsForInputs();
@@ -241,9 +242,9 @@ String AudioNode::channelInterpretation()
 {
     switch (m_channelInterpretation) {
     case AudioBus::Speakers:
-        return "speakers"_s;
+        return ASCIILiteral("speakers");
     case AudioBus::Discrete:
-        return "discrete"_s;
+        return ASCIILiteral("discrete");
     }
     ASSERT_NOT_REACHED();
     return emptyString();
@@ -259,7 +260,7 @@ ExceptionOr<void> AudioNode::setChannelInterpretation(const String& interpretati
     else if (interpretation == "discrete")
         m_channelInterpretation = AudioBus::Discrete;
     else
-        return Exception { InvalidStateError };
+        return Exception { INVALID_STATE_ERR };
 
     return { };
 }
@@ -403,7 +404,7 @@ void AudioNode::ref(RefType refType)
     }
 
 #if DEBUG_AUDIONODE_REFERENCES
-    fprintf(stderr, "%p: %d: AudioNode::ref(%d) %d %d\n", this, nodeType(), refType, m_normalRefCount, m_connectionRefCount);
+    WTFLogAlways("%p: %d: AudioNode::ref(%d) %d %d\n", this, nodeType(), refType, m_normalRefCount, m_connectionRefCount);
 #endif
 
     // See the disabling code in finishDeref() below. This handles the case where a node
@@ -466,7 +467,7 @@ void AudioNode::finishDeref(RefType refType)
     }
     
 #if DEBUG_AUDIONODE_REFERENCES
-    fprintf(stderr, "%p: %d: AudioNode::deref(%d) %d %d\n", this, nodeType(), refType, m_normalRefCount, m_connectionRefCount);
+    WTFLogAlways("%p: %d: AudioNode::deref(%d) %d %d\n", this, nodeType(), refType, m_normalRefCount, m_connectionRefCount);
 #endif
 
     if (!m_connectionRefCount) {
@@ -492,15 +493,15 @@ int AudioNode::s_nodeCount[NodeTypeEnd];
 
 void AudioNode::printNodeCounts()
 {
-    fprintf(stderr, "\n\n");
-    fprintf(stderr, "===========================\n");
-    fprintf(stderr, "AudioNode: reference counts\n");
-    fprintf(stderr, "===========================\n");
+    WTFLogAlways("\n\n");
+    WTFLogAlways("===========================\n");
+    WTFLogAlways("AudioNode: reference counts\n");
+    WTFLogAlways("===========================\n");
 
     for (unsigned i = 0; i < NodeTypeEnd; ++i)
-        fprintf(stderr, "%d: %d\n", i, s_nodeCount[i]);
+        WTFLogAlways("%d: %d\n", i, s_nodeCount[i]);
 
-    fprintf(stderr, "===========================\n\n\n");
+    WTFLogAlways("===========================\n\n\n");
 }
 
 #endif // DEBUG_AUDIONODE_REFERENCES

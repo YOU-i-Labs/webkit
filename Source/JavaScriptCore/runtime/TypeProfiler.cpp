@@ -32,9 +32,7 @@
 
 namespace JSC {
 
-namespace TypeProfilerInternal {
 static const bool verbose = false;
-}
 
 TypeProfiler::TypeProfiler()
     : m_nextUniqueVariableID(1)
@@ -61,7 +59,7 @@ void TypeProfiler::logTypesForTypeLocation(TypeLocation* location, VM& vm)
 
 void TypeProfiler::insertNewLocation(TypeLocation* location)
 {
-    if (TypeProfilerInternal::verbose)
+    if (verbose)
         dataLogF("Registering location:: divotStart:%u, divotEnd:%u\n", location->m_divotStart, location->m_divotEnd);
 
     if (!m_bucketMap.contains(location->m_sourceID)) {

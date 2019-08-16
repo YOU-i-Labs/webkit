@@ -27,7 +27,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef DecodeEscapeSequences_h
+#define DecodeEscapeSequences_h
 
 #include "TextEncoding.h"
 #include <wtf/ASCIICType.h>
@@ -101,7 +102,7 @@ struct URLEscapeSequence {
         // For URL escape sequences, we know that findEndOfRun() has given us a run where every %-sign introduces
         // a valid escape sequence, but there may be characters between the sequences.
         Vector<char, 512> buffer;
-        buffer.grow(run.length()); // Unescaping hex sequences only makes the length smaller.
+        buffer.resize(run.length()); // Unescaping hex sequences only makes the length smaller.
         char* p = buffer.data();
         while (!run.isEmpty()) {
             if (run[0] == '%') {
@@ -154,11 +155,11 @@ String decodeEscapeSequences(StringView string, const TextEncoding& encoding)
     return result.toString();
 }
 
-inline Vector<uint8_t> decodeURLEscapeSequencesAsData(StringView string, const TextEncoding& encoding)
+inline Vector<char> decodeURLEscapeSequencesAsData(StringView string, const TextEncoding& encoding)
 {
     ASSERT(encoding.isValid());
 
-    Vector<uint8_t> result;
+    Vector<char> result;
     size_t decodedPosition = 0;
     size_t searchPosition = 0;
     while (true) {
@@ -172,9 +173,10 @@ inline Vector<uint8_t> decodeURLEscapeSequencesAsData(StringView string, const T
                 continue;
             }
         }
-
         // Strings are encoded as requested.
-        result.appendVector(encoding.encode(string.substring(decodedPosition, encodedRunPosition - decodedPosition), UnencodableHandling::URLEncodedEntities));
+        auto stringFragment = string.substring(decodedPosition, encodedRunPosition - decodedPosition);
+        auto encodedStringFragment = encoding.encode(stringFragment, URLEncodedEntitiesForUnencodables);
+        result.append(encodedStringFragment.data(), encodedStringFragment.length());
 
         if (encodedRunPosition == notFound)
             return result;
@@ -190,3 +192,4 @@ inline Vector<uint8_t> decodeURLEscapeSequencesAsData(StringView string, const T
 
 } // namespace WebCore
 
+#endif // DecodeEscapeSequences_h

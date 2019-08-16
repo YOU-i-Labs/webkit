@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,17 +36,10 @@ EncodedJSValue JSC_HOST_CALL boundFunctionConstruct(ExecState*);
 EncodedJSValue JSC_HOST_CALL isBoundFunction(ExecState*);
 EncodedJSValue JSC_HOST_CALL hasInstanceBoundFunction(ExecState*);
 
-class JSBoundFunction final : public JSFunction {
+class JSBoundFunction : public JSFunction {
 public:
     typedef JSFunction Base;
-    const static unsigned StructureFlags = Base::StructureFlags & ~ImplementsDefaultHasInstance;
-    static_assert(StructureFlags & ImplementsHasInstance, "");
-
-    template<typename CellType>
-    static IsoSubspace* subspaceFor(VM& vm)
-    {
-        return &vm.boundFunctionSpace;
-    }
+    const static unsigned StructureFlags = ~ImplementsDefaultHasInstance & Base::StructureFlags;
 
     static JSBoundFunction* create(VM&, ExecState*, JSGlobalObject*, JSObject* targetFunction, JSValue boundThis, JSArray* boundArgs, int, const String& name);
     
@@ -76,8 +69,6 @@ private:
     
     void finishCreation(VM&, NativeExecutable*, int length);
 
-    // FIXME: Consider poisoning these pointers.
-    // https://bugs.webkit.org/show_bug.cgi?id=182713
     WriteBarrier<JSObject> m_targetFunction;
     WriteBarrier<Unknown> m_boundThis;
     WriteBarrier<JSArray> m_boundArgs;

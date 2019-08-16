@@ -27,9 +27,9 @@
 
 namespace JSC {
 
-ALWAYS_INLINE constexpr bool isIOS()
+ALWAYS_INLINE bool isIOS()
 {
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     return true;
 #else
     return false;

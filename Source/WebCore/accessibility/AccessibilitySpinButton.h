@@ -45,7 +45,7 @@ public:
 private:
     AccessibilitySpinButton();
 
-    AccessibilityRole roleValue() const override { return AccessibilityRole::SpinButton; }
+    AccessibilityRole roleValue() const override { return SpinButtonRole; }
     bool isSpinButton() const override { return true; }
     bool isNativeSpinButton() const override { return true; }
     void addChildren() override;
@@ -57,7 +57,7 @@ private:
 class AccessibilitySpinButtonPart final : public AccessibilityMockObject {
 public:
     static Ref<AccessibilitySpinButtonPart> create();
-    virtual ~AccessibilitySpinButtonPart() = default;
+    virtual ~AccessibilitySpinButtonPart() { }
     
     bool isIncrementor() const { return m_isIncrementor; }
     void setIsIncrementor(bool value) { m_isIncrementor = value; }
@@ -66,7 +66,7 @@ private:
     AccessibilitySpinButtonPart();
     
     bool press() override;
-    AccessibilityRole roleValue() const override { return AccessibilityRole::Button; }
+    AccessibilityRole roleValue() const override { return ButtonRole; }
     bool isSpinButtonPart() const override { return true; }
     LayoutRect elementRect() const override;
 

@@ -31,6 +31,9 @@
     Exposed=(Window,Worker),
     GenerateIsReachable=ImplScriptExecutionContext,
 ] interface Crypto {
-    [Conditional=WEB_CRYPTO] readonly attribute SubtleCrypto subtle;
-    [MayThrowException] ArrayBufferView getRandomValues([ReturnValue] ArrayBufferView array);
+    [Conditional=SUBTLE_CRYPTO] readonly attribute SubtleCrypto subtle;
+    [Custom, MayThrowException] ArrayBufferView getRandomValues(ArrayBufferView array);
+
+    // Will be deprecated.
+    [Conditional=SUBTLE_CRYPTO, GetterMayThrowException] readonly attribute WebKitSubtleCrypto webkitSubtle;
 };

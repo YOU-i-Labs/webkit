@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,11 +31,10 @@
 #include "DFGAdaptiveInferredPropertyValueWatchpoint.h"
 #include "DFGAdaptiveStructureWatchpoint.h"
 #include "DFGJumpReplacement.h"
-#include "DFGOSREntry.h"
 #include "InlineCallFrameSet.h"
-#include "JSCast.h"
+#include "JSCell.h"
 #include "ProfilerCompilation.h"
-#include "RecordedStatuses.h"
+#include "SymbolTable.h"
 #include <wtf/Bag.h>
 #include <wtf/Noncopyable.h>
 
@@ -48,7 +47,7 @@ class TrackedReferences;
 namespace DFG {
 
 struct Node;
-class Plan;
+struct Plan;
 
 // CommonData holds the set of data that both DFG and FTL code blocks need to know
 // about themselves.
@@ -77,7 +76,6 @@ public:
         , frameRegisterCount(std::numeric_limits<unsigned>::max())
         , requiredRegisterCountForExit(std::numeric_limits<unsigned>::max())
     { }
-    ~CommonData();
     
     void notifyCompilingStructureTransition(Plan&, CodeBlock*, Node*);
     CallSiteIndex addCodeOrigin(CodeOrigin);
@@ -89,22 +87,8 @@ public:
     
     bool invalidate(); // Returns true if we did invalidate, or false if the code block was already invalidated.
     bool hasInstalledVMTrapsBreakpoints() const { return isStillValid && hasVMTrapsBreakpointsInstalled; }
-    void installVMTrapBreakpoints(CodeBlock* owner);
+    void installVMTrapBreakpoints();
     bool isVMTrapBreakpoint(void* address);
-
-    CatchEntrypointData* catchOSREntryDataForBytecodeIndex(unsigned bytecodeIndex)
-    {
-        return tryBinarySearch<CatchEntrypointData, unsigned>(
-            catchEntrypoints, catchEntrypoints.size(), bytecodeIndex,
-            [] (const CatchEntrypointData* item) { return item->bytecodeIndex; });
-    }
-
-    void appendCatchEntrypoint(unsigned bytecodeIndex, MacroAssemblerCodePtr<ExceptionHandlerPtrTag> machineCode, Vector<FlushFormat>&& argumentFormats)
-    {
-        catchEntrypoints.append(CatchEntrypointData { machineCode,  WTFMove(argumentFormats), bytecodeIndex });
-    }
-
-    void finalizeCatchEntrypoints();
 
     unsigned requiredRegisterCountForExecutionAndExit() const
     {
@@ -122,14 +106,11 @@ public:
     Vector<WeakReferenceTransition> transitions;
     Vector<WriteBarrier<JSCell>> weakReferences;
     Vector<WriteBarrier<Structure>> weakStructureReferences;
-    Vector<CatchEntrypointData> catchEntrypoints;
     Bag<CodeBlockJettisoningWatchpoint> watchpoints;
     Bag<AdaptiveStructureWatchpoint> adaptiveStructureWatchpoints;
     Bag<AdaptiveInferredPropertyValueWatchpoint> adaptiveInferredPropertyValueWatchpoints;
-    RecordedStatuses recordedStatuses;
     Vector<JumpReplacement> jumpReplacements;
     
-    ScratchBuffer* catchOSREntryBuffer;
     RefPtr<Profiler::Compilation> compilation;
     bool livenessHasBeenProved; // Initialized and used on every GC.
     bool allTransitionsHaveBeenMarked; // Initialized and used on every GC.
@@ -147,8 +128,6 @@ private:
     HashSet<unsigned, WTF::IntHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>> callSiteIndexFreeList;
 
 };
-
-CodeBlock* codeBlockForVMTrapPC(void* pc);
 
 } } // namespace JSC::DFG
 

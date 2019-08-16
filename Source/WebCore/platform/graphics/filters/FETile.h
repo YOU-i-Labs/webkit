@@ -19,7 +19,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#pragma once
+#ifndef FETile_h
+#define FETile_h
 
 #include "FilterEffect.h"
 #include "Filter.h"
@@ -30,19 +31,19 @@ class FETile : public FilterEffect {
 public:
     static Ref<FETile> create(Filter&);
 
-private:
-    FETile(Filter&);
-
-    const char* filterName() const final { return "FETile"; }
-
-    FilterEffectType filterEffectType() const override { return FilterEffectTypeTile; }
-
     void platformApplySoftware() override;
+    void dump() override;
 
     void determineAbsolutePaintRect() override { setAbsolutePaintRect(enclosingIntRect(maxEffectRect())); }
 
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
+    FilterEffectType filterEffectType() const override { return FilterEffectTypeTile; }
+
+    TextStream& externalRepresentation(TextStream&, int indention) const override;
+
+private:
+    FETile(Filter&);
 };
 
 } // namespace WebCore
 
+#endif // FETile_h

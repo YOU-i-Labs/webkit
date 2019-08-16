@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.EditableDataGridNode = class EditableDataGridNode extends WI.DataGridNode
+WebInspector.EditableDataGridNode = class EditableDataGridNode extends WebInspector.DataGridNode
 {
     constructor(data)
     {
@@ -62,10 +62,10 @@ WI.EditableDataGridNode = class EditableDataGridNode extends WI.DataGridNode
 
     _handleKeyPress(columnIdentifier, event)
     {
-        if (event.keyCode === WI.KeyboardShortcut.Key.Escape.keyCode)
+        if (event.keyCode === WebInspector.KeyboardShortcut.Key.Escape.keyCode)
             this.dataGrid.element.focus();
 
-        if (event.keyCode === WI.KeyboardShortcut.Key.Enter.keyCode)
+        if (event.keyCode === WebInspector.KeyboardShortcut.Key.Enter.keyCode)
             this._notifyInputElementValueChanged(columnIdentifier, event.target.value);
     }
 
@@ -77,10 +77,10 @@ WI.EditableDataGridNode = class EditableDataGridNode extends WI.DataGridNode
     _notifyInputElementValueChanged(columnIdentifier, value)
     {
         if (value !== this.data[columnIdentifier])
-            this.dispatchEventToListeners(WI.EditableDataGridNode.Event.ValueChanged, {value, columnIdentifier});
+            this.dispatchEventToListeners(WebInspector.EditableDataGridNode.Event.ValueChanged, {value, columnIdentifier});
     }
 };
 
-WI.EditableDataGridNode.Event = {
+WebInspector.EditableDataGridNode.Event = {
     ValueChanged: "editable-data-grid-node-value-changed",
 };

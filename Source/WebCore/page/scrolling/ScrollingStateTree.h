@@ -27,14 +27,12 @@
 
 #if ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)
 
-#include "ScrollingCoordinator.h"
-#include "ScrollingStateNode.h"
+#include "ScrollingStateFrameScrollingNode.h"
 #include <wtf/RefPtr.h>
  
 namespace WebCore {
 
 class AsyncScrollingCoordinator;
-class ScrollingStateFrameScrollingNode;
 
 // The ScrollingStateTree is a tree that managed ScrollingStateNodes. The nodes keep track of the current
 // state of scrolling related properties. Whenever any properties change, the scrolling coordinator
@@ -51,7 +49,7 @@ public:
     ScrollingStateFrameScrollingNode* rootStateNode() const { return m_rootStateNode.get(); }
     WEBCORE_EXPORT ScrollingStateNode* stateNodeForID(ScrollingNodeID) const;
 
-    WEBCORE_EXPORT ScrollingNodeID attachNode(ScrollingNodeType, ScrollingNodeID, ScrollingNodeID parentID, size_t childIndex);
+    WEBCORE_EXPORT ScrollingNodeID attachNode(ScrollingNodeType, ScrollingNodeID, ScrollingNodeID parentID);
     void detachNode(ScrollingNodeID);
     void clear();
     
@@ -76,12 +74,12 @@ public:
     void setPreferredLayerRepresentation(LayerRepresentation::Type representation) { m_preferredLayerRepresentation = representation; }
 
 private:
-    void setRootStateNode(Ref<ScrollingStateFrameScrollingNode>&&);
-    void addNode(ScrollingStateNode&);
+    void setRootStateNode(Ref<ScrollingStateFrameScrollingNode>&& rootStateNode) { m_rootStateNode = WTFMove(rootStateNode); }
+    void addNode(ScrollingStateNode*);
 
     Ref<ScrollingStateNode> createNode(ScrollingNodeType, ScrollingNodeID);
 
-    bool nodeTypeAndParentMatch(ScrollingStateNode&, ScrollingNodeType, ScrollingStateNode* parentNode) const;
+    bool nodeTypeAndParentMatch(ScrollingStateNode&, ScrollingNodeType, ScrollingNodeID parentID) const;
 
     enum class SubframeNodeRemoval { Delete, Orphan };
     void removeNodeAndAllDescendants(ScrollingStateNode*, SubframeNodeRemoval = SubframeNodeRemoval::Delete);

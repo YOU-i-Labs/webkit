@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,30 +28,25 @@
 
 #if ENABLE(FTL_JIT)
 
-#include "BytecodeStructs.h"
 #include "ClonedArguments.h"
-#include "CommonSlowPaths.h"
 #include "DirectArguments.h"
 #include "FTLJITCode.h"
 #include "FTLLazySlowPath.h"
 #include "InlineCallFrame.h"
-#include "Interpreter.h"
 #include "JSAsyncFunction.h"
-#include "JSAsyncGeneratorFunction.h"
 #include "JSCInlines.h"
 #include "JSFixedArray.h"
 #include "JSGeneratorFunction.h"
-#include "JSImmutableButterfly.h"
 #include "JSLexicalEnvironment.h"
-#include "RegExpObject.h"
 
 namespace JSC { namespace FTL {
+
+using namespace JSC::DFG;
 
 extern "C" void JIT_OPERATION operationPopulateObjectInOSR(
     ExecState* exec, ExitTimeObjectMaterialization* materialization,
     EncodedJSValue* encodedValue, EncodedJSValue* values)
 {
-    using namespace DFG;
     VM& vm = exec->vm();
     CodeBlock* codeBlock = exec->codeBlock();
 
@@ -63,7 +58,7 @@ extern "C" void JIT_OPERATION operationPopulateObjectInOSR(
     switch (materialization->type()) {
     case PhantomNewObject: {
         JSFinalObject* object = jsCast<JSFinalObject*>(JSValue::decode(*encodedValue));
-        Structure* structure = object->structure(vm);
+        Structure* structure = object->structure();
 
         // Figure out what the heck to populate the object with. Use
         // getPropertiesConcurrently() because that happens to be
@@ -89,13 +84,11 @@ extern "C" void JIT_OPERATION operationPopulateObjectInOSR(
     case PhantomNewFunction:
     case PhantomNewGeneratorFunction:
     case PhantomNewAsyncFunction:
-    case PhantomNewAsyncGeneratorFunction:
     case PhantomDirectArguments:
     case PhantomClonedArguments:
     case PhantomCreateRest:
     case PhantomSpread:
     case PhantomNewArrayWithSpread:
-    case PhantomNewArrayBuffer:
         // Those are completely handled by operationMaterializeObjectInOSR
         break;
 
@@ -108,25 +101,12 @@ extern "C" void JIT_OPERATION operationPopulateObjectInOSR(
             if (property.location().kind() != ClosureVarPLoc)
                 continue;
 
-            activation->variableAt(ScopeOffset(property.location().info())).set(vm, activation, JSValue::decode(values[i]));
+            activation->variableAt(ScopeOffset(property.location().info())).set(exec->vm(), activation, JSValue::decode(values[i]));
         }
 
         break;
     }
 
-    case PhantomNewRegexp: {
-        RegExpObject* regExpObject = jsCast<RegExpObject*>(JSValue::decode(*encodedValue));
-
-        for (unsigned i = materialization->properties().size(); i--;) {
-            const ExitPropertyValue& property = materialization->properties()[i];
-            if (property.location().kind() != RegExpObjectLastIndexPLoc)
-                continue;
-
-            regExpObject->setLastIndex(exec, JSValue::decode(values[i]), false /* shouldThrow */);
-            break;
-        }
-        break;
-    }
 
     default:
         RELEASE_ASSERT_NOT_REACHED();
@@ -138,7 +118,6 @@ extern "C" void JIT_OPERATION operationPopulateObjectInOSR(
 extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(
     ExecState* exec, ExitTimeObjectMaterialization* materialization, EncodedJSValue* values)
 {
-    using namespace DFG;
     VM& vm = exec->vm();
 
     // We cannot GC. We've got pointers in evil places.
@@ -153,7 +132,7 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(
             if (property.location() != PromotedLocationDescriptor(StructurePLoc))
                 continue;
 
-            RELEASE_ASSERT(JSValue::decode(values[i]).asCell()->inherits<Structure>(vm));
+            RELEASE_ASSERT(JSValue::decode(values[i]).asCell()->inherits(vm, Structure::info()));
             structure = jsCast<Structure*>(JSValue::decode(values[i]));
             break;
         }
@@ -179,7 +158,6 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(
 
     case PhantomNewFunction:
     case PhantomNewGeneratorFunction:
-    case PhantomNewAsyncGeneratorFunction:
     case PhantomNewAsyncFunction: {
         // Figure out what the executable and activation are
         FunctionExecutable* executable = nullptr;
@@ -187,11 +165,11 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(
         for (unsigned i = materialization->properties().size(); i--;) {
             const ExitPropertyValue& property = materialization->properties()[i];
             if (property.location() == PromotedLocationDescriptor(FunctionExecutablePLoc)) {
-                RELEASE_ASSERT(JSValue::decode(values[i]).asCell()->inherits<FunctionExecutable>(vm));
+                RELEASE_ASSERT(JSValue::decode(values[i]).asCell()->inherits(vm, FunctionExecutable::info()));
                 executable = jsCast<FunctionExecutable*>(JSValue::decode(values[i]));
             }
             if (property.location() == PromotedLocationDescriptor(FunctionActivationPLoc)) {
-                RELEASE_ASSERT(JSValue::decode(values[i]).asCell()->inherits<JSScope>(vm));
+                RELEASE_ASSERT(JSValue::decode(values[i]).asCell()->inherits(vm, JSScope::info()));
                 activation = jsCast<JSScope*>(JSValue::decode(values[i]));
             }
         }
@@ -201,8 +179,6 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(
             return JSFunction::createWithInvalidatedReallocationWatchpoint(vm, executable, activation);
         else if (materialization->type() == PhantomNewGeneratorFunction)
             return JSGeneratorFunction::createWithInvalidatedReallocationWatchpoint(vm, executable, activation);    
-        else if (materialization->type() == PhantomNewAsyncGeneratorFunction)
-            return JSAsyncGeneratorFunction::createWithInvalidatedReallocationWatchpoint(vm, executable, activation);
         ASSERT(materialization->type() == PhantomNewAsyncFunction);
         return JSAsyncFunction::createWithInvalidatedReallocationWatchpoint(vm, executable, activation);
     }
@@ -214,10 +190,10 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(
         for (unsigned i = materialization->properties().size(); i--;) {
             const ExitPropertyValue& property = materialization->properties()[i];
             if (property.location() == PromotedLocationDescriptor(ActivationScopePLoc)) {
-                RELEASE_ASSERT(JSValue::decode(values[i]).asCell()->inherits<JSScope>(vm));
+                RELEASE_ASSERT(JSValue::decode(values[i]).asCell()->inherits(vm, JSScope::info()));
                 scope = jsCast<JSScope*>(JSValue::decode(values[i]));
             } else if (property.location() == PromotedLocationDescriptor(ActivationSymbolTablePLoc)) {
-                RELEASE_ASSERT(JSValue::decode(values[i]).asCell()->inherits<SymbolTable>(vm));
+                RELEASE_ASSERT(JSValue::decode(values[i]).asCell()->inherits(vm, SymbolTable::info()));
                 table = jsCast<SymbolTable*>(JSValue::decode(values[i]));
             }
         }
@@ -225,7 +201,7 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(
         RELEASE_ASSERT(table);
 
         CodeBlock* codeBlock = baselineCodeBlockForOriginAndBaselineCodeBlock(
-            materialization->origin(), exec->codeBlock()->baselineAlternative());
+            materialization->origin(), exec->codeBlock());
         Structure* structure = codeBlock->globalObject()->activationStructure();
 
         // It doesn't matter what values we initialize as bottom values inside the activation constructor because
@@ -244,7 +220,7 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(
                 continue;
 
             result->variableAt(ScopeOffset(property.location().info())).set(
-                vm, result, jsNumber(29834));
+                exec->vm(), result, jsNumber(29834));
         }
 
         if (validationEnabled()) {
@@ -286,7 +262,7 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(
                 return ClonedArguments::createWithMachineFrame(exec, exec, ArgumentsMode::Cloned);
             case PhantomCreateRest: {
                 CodeBlock* codeBlock = baselineCodeBlockForOriginAndBaselineCodeBlock(
-                    materialization->origin(), exec->codeBlock()->baselineAlternative());
+                    materialization->origin(), exec->codeBlock());
 
                 unsigned numberOfArgumentsToSkip = codeBlock->numberOfArgumentsToSkip();
                 JSGlobalObject* globalObject = codeBlock->globalObject();
@@ -312,7 +288,7 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(
                 break;
             }
         } else
-            argumentCount = materialization->origin().inlineCallFrame->argumentCountIncludingThis;
+            argumentCount = materialization->origin().inlineCallFrame->arguments.size();
         RELEASE_ASSERT(argumentCount);
         
         JSFunction* callee = nullptr;
@@ -330,7 +306,7 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(
         RELEASE_ASSERT(callee);
         
         CodeBlock* codeBlock = baselineCodeBlockForOriginAndBaselineCodeBlock(
-            materialization->origin(), exec->codeBlock()->baselineAlternative());
+            materialization->origin(), exec->codeBlock());
         
         // We have an inline frame and we have all of the data we need to recreate it.
         switch (materialization->type()) {
@@ -339,7 +315,7 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(
             unsigned capacity = std::max(length, static_cast<unsigned>(codeBlock->numParameters() - 1));
             DirectArguments* result = DirectArguments::create(
                 vm, codeBlock->globalObject()->directArgumentsStructure(), length, capacity);
-            result->setCallee(vm, callee);
+            result->callee().set(vm, result, callee);
             for (unsigned i = materialization->properties().size(); i--;) {
                 const ExitPropertyValue& property = materialization->properties()[i];
                 if (property.location().kind() != ArgumentPLoc)
@@ -460,53 +436,9 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(
         return fixedArray;
     }
 
-    case PhantomNewArrayBuffer: {
-        JSImmutableButterfly* immutableButterfly = nullptr;
-        for (unsigned i = materialization->properties().size(); i--;) {
-            const ExitPropertyValue& property = materialization->properties()[i];
-            if (property.location().kind() == NewArrayBufferPLoc) {
-                immutableButterfly = jsCast<JSImmutableButterfly*>(JSValue::decode(values[i]));
-                break;
-            }
-        }
-        RELEASE_ASSERT(immutableButterfly);
-
-        // For now, we use array allocation profile in the actual CodeBlock. It is OK since current NewArrayBuffer
-        // and PhantomNewArrayBuffer are always bound to a specific op_new_array_buffer.
-        CodeBlock* codeBlock = baselineCodeBlockForOriginAndBaselineCodeBlock(materialization->origin(), exec->codeBlock()->baselineAlternative());
-        const Instruction* currentInstruction = codeBlock->instructions().at(materialization->origin().bytecodeIndex).ptr();
-        RELEASE_ASSERT(currentInstruction->is<OpNewArrayBuffer>());
-        auto newArrayBuffer = currentInstruction->as<OpNewArrayBuffer>();
-        ArrayAllocationProfile* profile = &newArrayBuffer.metadata(codeBlock).arrayAllocationProfile;
-
-        // FIXME: Share the code with CommonSlowPaths. Currently, codeBlock etc. are slightly different.
-        IndexingType indexingMode = profile->selectIndexingType();
-        Structure* structure = exec->lexicalGlobalObject()->arrayStructureForIndexingTypeDuringAllocation(indexingMode);
-        ASSERT(isCopyOnWrite(indexingMode));
-        ASSERT(!structure->outOfLineCapacity());
-
-        if (UNLIKELY(immutableButterfly->indexingMode() != indexingMode)) {
-            auto* newButterfly = JSImmutableButterfly::create(vm, indexingMode, immutableButterfly->length());
-            for (unsigned i = 0; i < immutableButterfly->length(); ++i)
-                newButterfly->setIndex(vm, i, immutableButterfly->get(i));
-            immutableButterfly = newButterfly;
-
-            // FIXME: This is kinda gross and only works because we can't inline new_array_bufffer in the baseline.
-            // We also cannot allocate a new butterfly from compilation threads since it's invalid to allocate cells from
-            // a compilation thread.
-            WTF::storeStoreFence();
-            codeBlock->constantRegister(newArrayBuffer.immutableButterfly.offset()).set(vm, codeBlock, immutableButterfly);
-            WTF::storeStoreFence();
-        }
-
-        JSArray* result = CommonSlowPaths::allocateNewArrayBuffer(vm, structure, immutableButterfly);
-        ArrayAllocationProfile::updateLastAllocationFor(profile, result);
-        return result;
-    }
-
     case PhantomNewArrayWithSpread: {
         CodeBlock* codeBlock = baselineCodeBlockForOriginAndBaselineCodeBlock(
-            materialization->origin(), exec->codeBlock()->baselineAlternative());
+            materialization->origin(), exec->codeBlock());
         JSGlobalObject* globalObject = codeBlock->globalObject();
         Structure* structure = globalObject->arrayStructureForIndexingTypeDuringAllocation(ArrayWithContiguous);
 
@@ -575,21 +507,7 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(
         return result;
     }
 
-    case PhantomNewRegexp: {
-        RegExp* regExp = nullptr;
-        for (unsigned i = materialization->properties().size(); i--;) {
-            const ExitPropertyValue& property = materialization->properties()[i];
-            if (property.location() == PromotedLocationDescriptor(RegExpObjectRegExpPLoc)) {
-                RELEASE_ASSERT(JSValue::decode(values[i]).asCell()->inherits<RegExp>(vm));
-                regExp = jsCast<RegExp*>(JSValue::decode(values[i]));
-            }
-        }
-        RELEASE_ASSERT(regExp);
-        CodeBlock* codeBlock = baselineCodeBlockForOriginAndBaselineCodeBlock(materialization->origin(), exec->codeBlock()->baselineAlternative());
-        Structure* structure = codeBlock->globalObject()->regExpStructure();
-        return RegExpObject::create(vm, structure, regExp);
-    }
-
+        
     default:
         RELEASE_ASSERT_NOT_REACHED();
         return nullptr;

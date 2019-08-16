@@ -35,6 +35,7 @@
 #include "SVGSVGElement.h"
 #include "ScriptableDocumentParser.h"
 #include "ShadowRoot.h"
+#include "XLinkNames.h"
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
@@ -46,7 +47,9 @@ SVGDocumentExtensions::SVGDocumentExtensions(Document& document)
 {
 }
 
-SVGDocumentExtensions::~SVGDocumentExtensions() = default;
+SVGDocumentExtensions::~SVGDocumentExtensions()
+{
+}
 
 void SVGDocumentExtensions::addTimeContainer(SVGSVGElement* element)
 {
@@ -261,7 +264,7 @@ void SVGDocumentExtensions::markPendingResourcesForRemoval(const AtomicString& i
         m_pendingResourcesForRemoval.add(id, WTFMove(existing));
 }
 
-RefPtr<Element> SVGDocumentExtensions::removeElementFromPendingResourcesForRemovalMap(const AtomicString& id)
+Element* SVGDocumentExtensions::removeElementFromPendingResourcesForRemovalMap(const AtomicString& id)
 {
     if (id.isEmpty())
         return 0;
@@ -271,7 +274,7 @@ RefPtr<Element> SVGDocumentExtensions::removeElementFromPendingResourcesForRemov
         return 0;
 
     auto firstElement = resourceSet->begin();
-    RefPtr<Element> element = *firstElement;
+    Element* element = *firstElement;
 
     resourceSet->remove(firstElement);
 
@@ -325,7 +328,7 @@ void SVGDocumentExtensions::rebuildElements()
 {
     Vector<SVGElement*> shadowRebuildElements = WTFMove(m_rebuildElements);
     for (auto* element : shadowRebuildElements)
-        element->svgAttributeChanged(SVGNames::hrefAttr);
+        element->svgAttributeChanged(XLinkNames::hrefAttr);
 }
 
 void SVGDocumentExtensions::clearTargetDependencies(SVGElement& referencedElement)
@@ -355,7 +358,7 @@ void SVGDocumentExtensions::rebuildAllElementReferencesForTarget(SVGElement& ref
         elementsToRebuild.uncheckedAppend(element);
 
     for (auto* element : elementsToRebuild)
-        element->svgAttributeChanged(SVGNames::hrefAttr);
+        element->svgAttributeChanged(XLinkNames::hrefAttr);
 }
 
 void SVGDocumentExtensions::removeAllElementReferencesForTarget(SVGElement* referencedElement)

@@ -30,7 +30,7 @@ class IntRect;
 
 class PopupMenu : public RefCounted<PopupMenu> {
 public:
-    virtual ~PopupMenu() = default;
+    virtual ~PopupMenu() {}
     virtual void show(const IntRect&, FrameView*, int index) = 0;
     virtual void hide() = 0;
     virtual void updateFromElement() = 0;

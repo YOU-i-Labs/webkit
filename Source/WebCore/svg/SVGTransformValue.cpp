@@ -32,7 +32,9 @@
 
 namespace WebCore {
 
-SVGTransformValue::SVGTransformValue() = default;
+SVGTransformValue::SVGTransformValue()
+{
+}
 
 SVGTransformValue::SVGTransformValue(SVGTransformType type, ConstructionMode mode)
     : m_type(type)

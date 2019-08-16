@@ -47,7 +47,7 @@ enum class BiquadFilterType {
     Allpass
 };
 
-class BiquadProcessor final : public AudioDSPKernelProcessor {
+class BiquadProcessor : public AudioDSPKernelProcessor {
 public:
     BiquadProcessor(AudioContext&, float sampleRate, size_t numberOfChannels, bool autoInitialize);
 

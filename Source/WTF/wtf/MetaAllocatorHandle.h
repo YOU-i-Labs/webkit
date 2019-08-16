@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,12 +26,13 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef WTF_MetaAllocatorHandle_h
+#define WTF_MetaAllocatorHandle_h
 
 #include <wtf/Assertions.h>
-#include <wtf/MetaAllocatorPtr.h>
 #include <wtf/RedBlackTree.h>
 #include <wtf/ThreadSafeRefCounted.h>
+#include <wtf/RefPtr.h>
 
 namespace WTF {
 
@@ -41,40 +42,38 @@ class PrintStream;
 class MetaAllocatorHandle : public ThreadSafeRefCounted<MetaAllocatorHandle>, public RedBlackTree<MetaAllocatorHandle, void*>::Node {
 private:
     MetaAllocatorHandle(MetaAllocator*, void* start, size_t sizeInBytes, void* ownerUID);
-
+    
 public:
-    using MemoryPtr = MetaAllocatorPtr<HandleMemoryPtrTag>;
-
     WTF_EXPORT_PRIVATE ~MetaAllocatorHandle();
-
-    MemoryPtr start() const
+    
+    void* start() const
     {
         return m_start;
     }
-
-    MemoryPtr end() const
+    
+    void* end() const
     {
-        return m_end;
+        return reinterpret_cast<void*>(endAsInteger());
     }
-
+    
     uintptr_t startAsInteger() const
     {
-        return m_start.untaggedPtr<uintptr_t>();
+        return reinterpret_cast<uintptr_t>(m_start);
     }
-
+    
     uintptr_t endAsInteger() const
     {
-        return m_end.untaggedPtr<uintptr_t>();
+        return startAsInteger() + m_sizeInBytes;
     }
-
+        
     size_t sizeInBytes() const
     {
-        return m_end.untaggedPtr<size_t>() - m_start.untaggedPtr<size_t>();
+        return m_sizeInBytes;
     }
     
     bool containsIntegerAddress(uintptr_t address) const
     {
-        return address >= startAsInteger() && address < endAsInteger();
+        return address - startAsInteger() < sizeInBytes();
     }
     
     bool contains(void* address) const
@@ -102,7 +101,7 @@ public:
 
     void* key()
     {
-        return m_start.untaggedPtr();
+        return m_start;
     }
 
     WTF_EXPORT_PRIVATE void dump(PrintStream& out) const;
@@ -111,9 +110,11 @@ private:
     friend class MetaAllocator;
     
     MetaAllocator* m_allocator;
-    MemoryPtr m_start;
-    MemoryPtr m_end;
+    void* m_start;
+    size_t m_sizeInBytes;
     void* m_ownerUID;
 };
 
 }
+
+#endif

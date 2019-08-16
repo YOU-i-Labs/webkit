@@ -28,72 +28,51 @@
 
 #pragma once
 
+#if ENABLE(FETCH_API)
+
 #include "ActiveDOMObject.h"
 #include "FetchBody.h"
-#include "FetchBodySource.h"
 #include "FetchHeaders.h"
-#include "FetchLoader.h"
 #include "FetchLoaderClient.h"
-#include "ResourceError.h"
+#include "FetchResponseSource.h"
 
 namespace WebCore {
 
+class FetchLoader;
+
 class FetchBodyOwner : public RefCounted<FetchBodyOwner>, public ActiveDOMObject {
 public:
-    FetchBodyOwner(ScriptExecutionContext&, Optional<FetchBody>&&, Ref<FetchHeaders>&&);
-    ~FetchBodyOwner();
+    FetchBodyOwner(ScriptExecutionContext&, std::optional<FetchBody>&&, Ref<FetchHeaders>&&);
 
-    bool bodyUsed() const { return isDisturbed(); }
+    // Exposed Body API
+    bool isDisturbed() const { return m_isDisturbed; };
+
     void arrayBuffer(Ref<DeferredPromise>&&);
     void blob(Ref<DeferredPromise>&&);
     void formData(Ref<DeferredPromise>&&);
     void json(Ref<DeferredPromise>&&);
     void text(Ref<DeferredPromise>&&);
 
-    bool isDisturbed() const;
     bool isDisturbedOrLocked() const;
 
     void loadBlob(const Blob&, FetchBodyConsumer*);
 
     bool isActive() const { return !!m_blobLoader; }
 
-    RefPtr<ReadableStream> readableStream(JSC::ExecState&);
-    bool hasReadableStreamBody() const { return m_body && m_body->hasReadableStream(); }
-
-#if ENABLE(STREAMS_API)
-    virtual void consumeBodyAsStream();
-    virtual void feedStream() { }
-    virtual void cancel() { }
-#endif
-
-    bool hasLoadingError() const;
-    ResourceError loadingError() const;
-    Optional<Exception> loadingException() const;
-
 protected:
     const FetchBody& body() const { return *m_body; }
     FetchBody& body() { return *m_body; }
     bool isBodyNull() const { return !m_body; }
-    bool isBodyNullOrOpaque() const { return !m_body || m_isBodyOpaque; }
-    void cloneBody(FetchBodyOwner&);
+    void cloneBody(const FetchBodyOwner&);
 
-    void extractBody(ScriptExecutionContext&, FetchBody::Init&&);
+    void extractBody(ScriptExecutionContext&, JSC::ExecState&, JSC::JSValue);
     void updateContentType();
     void consumeOnceLoadingFinished(FetchBodyConsumer::Type, Ref<DeferredPromise>&&);
-
-    void setBody(FetchBody&& body) { m_body = WTFMove(body); }
-    void createReadableStream(JSC::ExecState&);
 
     // ActiveDOMObject API
     void stop() override;
 
     void setDisturbed() { m_isDisturbed = true; }
-
-    void setBodyAsOpaque() { m_isBodyOpaque = true; }
-    bool isBodyOpaque() const { return m_isBodyOpaque; }
-
-    void setLoadingError(Exception&&);
-    void setLoadingError(ResourceError&&);
 
 private:
     // Blob loading routines
@@ -108,7 +87,7 @@ private:
         // FetchLoaderClient API
         void didReceiveResponse(const ResourceResponse&) final;
         void didReceiveData(const char* data, size_t size) final { owner.blobChunk(data, size); }
-        void didFail(const ResourceError&) final;
+        void didFail() final;
         void didSucceed() final { owner.blobLoadingSucceeded(); }
 
         FetchBodyOwner& owner;
@@ -116,19 +95,18 @@ private:
     };
 
 protected:
-    Optional<FetchBody> m_body;
+    std::optional<FetchBody> m_body;
     String m_contentType;
     bool m_isDisturbed { false };
 #if ENABLE(STREAMS_API)
-    RefPtr<FetchBodySource> m_readableStreamSource;
+    RefPtr<FetchResponseSource> m_readableStreamSource;
 #endif
     Ref<FetchHeaders> m_headers;
 
 private:
-    Optional<BlobLoader> m_blobLoader;
-    bool m_isBodyOpaque { false };
-
-    Variant<std::nullptr_t, Exception, ResourceError> m_loadingError;
+    std::optional<BlobLoader> m_blobLoader;
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(FETCH_API)

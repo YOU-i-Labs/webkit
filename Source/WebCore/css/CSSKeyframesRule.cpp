@@ -32,6 +32,8 @@
 #include "CSSRuleList.h"
 #include "CSSStyleSheet.h"
 #include "Document.h"
+#include "StyleProperties.h"
+#include "StyleSheet.h"
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
@@ -59,7 +61,9 @@ StyleRuleKeyframes::StyleRuleKeyframes(const StyleRuleKeyframes& o)
         m_keyframes.uncheckedAppend(keyframe.copyRef());
 }
 
-StyleRuleKeyframes::~StyleRuleKeyframes() = default;
+StyleRuleKeyframes::~StyleRuleKeyframes()
+{
+}
 
 void StyleRuleKeyframes::parseDeferredRulesIfNeeded() const
 {
@@ -156,7 +160,7 @@ void CSSKeyframesRule::insertRule(const String& ruleText)
 {
     if (CSSStyleSheet* parent = parentStyleSheet()) {
         if (Document* ownerDocument = parent->ownerDocument())
-            ownerDocument->addConsoleMessage(MessageSource::JS, MessageLevel::Warning, "CSSKeyframesRule 'insertRule' function is deprecated.  Use 'appendRule' instead."_s);
+            ownerDocument->addConsoleMessage(MessageSource::JS, MessageLevel::Warning, ASCIILiteral("CSSKeyframesRule 'insertRule' function is deprecated.  Use 'appendRule' instead."));
     }
     appendRule(ruleText);
 }

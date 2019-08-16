@@ -31,10 +31,10 @@
 
 #include "FontDescription.h"
 #include "FontPlatformData.h"
+#include "NoEventDispatchAssertion.h"
 #include "SVGDocument.h"
 #include "SVGFontElement.h"
 #include "SVGFontFaceElement.h"
-#include "ScriptDisallowedScope.h"
 #include "SharedBuffer.h"
 #include "TextResourceDecoder.h"
 #include "TypedElementDescendantIterator.h"
@@ -46,16 +46,17 @@
 
 namespace WebCore {
 
-CachedSVGFont::CachedSVGFont(CachedResourceRequest&& request, PAL::SessionID sessionID)
-    : CachedFont(WTFMove(request), sessionID, Type::SVGFontResource)
+CachedSVGFont::CachedSVGFont(CachedResourceRequest&& request, SessionID sessionID)
+    : CachedFont(WTFMove(request), sessionID, SVGFontResource)
     , m_externalSVGFontElement(nullptr)
 {
 }
 
 RefPtr<Font> CachedSVGFont::createFont(const FontDescription& fontDescription, const AtomicString& remoteURI, bool syntheticBold, bool syntheticItalic, const FontFeatureSettings& fontFaceFeatures, const FontVariantSettings& fontFaceVariantSettings, FontSelectionSpecifiedCapabilities fontFaceCapabilities)
 {
-    ASSERT(firstFontFace(remoteURI));
-    return CachedFont::createFont(fontDescription, remoteURI, syntheticBold, syntheticItalic, fontFaceFeatures, fontFaceVariantSettings, fontFaceCapabilities);
+    if (firstFontFace(remoteURI))
+        return CachedFont::createFont(fontDescription, remoteURI, syntheticBold, syntheticItalic, fontFaceFeatures, fontFaceVariantSettings, fontFaceCapabilities);
+    return nullptr;
 }
 
 FontPlatformData CachedSVGFont::platformDataFromCustomData(const FontDescription& fontDescription, bool bold, bool italic, const FontFeatureSettings& fontFaceFeatures, const FontVariantSettings& fontFaceVariantSettings, FontSelectionSpecifiedCapabilities fontFaceCapabilities)
@@ -75,7 +76,7 @@ bool CachedSVGFont::ensureCustomFontData(const AtomicString& remoteURI)
             m_externalSVGDocument = SVGDocument::create(nullptr, URL());
             auto decoder = TextResourceDecoder::create("application/xml");
 
-            ScriptDisallowedScope::DisableAssertionsInScope disabledScope;
+            NoEventDispatchAssertion::EventAllowedScope allowedScope(*m_externalSVGDocument);
 
             m_externalSVGDocument->setContent(decoder->decodeAndFlush(m_data->data(), m_data->size()));
             sawError = decoder->sawError();
@@ -85,7 +86,7 @@ bool CachedSVGFont::ensureCustomFontData(const AtomicString& remoteURI)
             m_externalSVGDocument = nullptr;
         if (m_externalSVGDocument)
             maybeInitializeExternalSVGFontElement(remoteURI);
-        if (!m_externalSVGFontElement || !firstFontFace(remoteURI))
+        if (!m_externalSVGFontElement)
             return false;
         if (auto convertedFont = convertSVGToOTFFont(*m_externalSVGFontElement))
             m_convertedFont = SharedBuffer::create(WTFMove(convertedFont.value()));

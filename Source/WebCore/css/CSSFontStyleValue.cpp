@@ -37,17 +37,17 @@ String CSSFontStyleValue::customCSSText() const
 
     StringBuilder builder;
     builder.append(fontStyleValue->cssText());
-    builder.append(' ');
+    builder.append(" ");
     builder.append(obliqueValue->cssText());
     return builder.toString();
 }
 
 bool CSSFontStyleValue::equals(const CSSFontStyleValue& other) const
 {
-    if (!obliqueValue && !other.obliqueValue)
+    if (!obliqueValue)
         return fontStyleValue.get() == other.fontStyleValue.get();
     return fontStyleValue.get() == other.fontStyleValue.get()
-        && obliqueValue && other.obliqueValue && *obliqueValue == *other.obliqueValue;
+        && *obliqueValue == *other.obliqueValue;
 }
 
 }

@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.DashboardContainerView = class DashboardContainerView extends WI.Object
+WebInspector.DashboardContainerView = class DashboardContainerView extends WebInspector.Object
 {
     constructor()
     {
         super();
 
-        this._toolbarItem = new WI.NavigationItem("dashboard-container", "group", WI.UIString("Activity Viewer"));
+        this._toolbarItem = new WebInspector.NavigationItem("dashboard-container", "group", WebInspector.UIString("Activity Viewer"));
 
         this._advanceForwardArrowElement = this._toolbarItem.element.appendChild(document.createElement("div"));
         this._advanceForwardArrowElement.className = "advance-arrow advance-forward";
@@ -111,16 +111,16 @@ WI.DashboardContainerView = class DashboardContainerView extends WI.Object
 
     _dismissAdvanceArrows()
     {
-        this._advanceForwardArrowElement.classList.add(WI.DashboardContainerView.InactiveStyleClassName);
-        this._advanceBackwardArrowElement.classList.add(WI.DashboardContainerView.InactiveStyleClassName);
+        this._advanceForwardArrowElement.classList.add(WebInspector.DashboardContainerView.InactiveStyleClassName);
+        this._advanceBackwardArrowElement.classList.add(WebInspector.DashboardContainerView.InactiveStyleClassName);
     }
 
     _updateAdvanceArrowVisibility()
     {
         var canAdvanceForward = this._currentIndex < this._dashboardStack.length - 1;
         var canAdvanceBackward = this._currentIndex > 0;
-        this._advanceForwardArrowElement.classList.toggle(WI.DashboardContainerView.InactiveStyleClassName, !canAdvanceForward);
-        this._advanceBackwardArrowElement.classList.toggle(WI.DashboardContainerView.InactiveStyleClassName, !canAdvanceBackward);
+        this._advanceForwardArrowElement.classList.toggle(WebInspector.DashboardContainerView.InactiveStyleClassName, !canAdvanceForward);
+        this._advanceBackwardArrowElement.classList.toggle(WebInspector.DashboardContainerView.InactiveStyleClassName, !canAdvanceBackward);
     }
 
     _dashboardViewForRepresentedObject(representedObject, onlyReturnExistingViews)
@@ -137,7 +137,7 @@ WI.DashboardContainerView = class DashboardContainerView extends WI.Object
             return null;
 
         // No existing content view found, make a new one.
-        dashboardView = WI.DashboardView.create(representedObject);
+        dashboardView = WebInspector.DashboardView.create(representedObject);
 
         console.assert(dashboardView, "Unknown representedObject", representedObject);
         if (!dashboardView)
@@ -158,10 +158,10 @@ WI.DashboardContainerView = class DashboardContainerView extends WI.Object
 
         var advanceDirection = null;
         if (this._currentIndex < index)
-            advanceDirection = WI.DashboardContainerView.AdvanceDirection.Forward;
+            advanceDirection = WebInspector.DashboardContainerView.AdvanceDirection.Forward;
         else
-            advanceDirection = WI.DashboardContainerView.AdvanceDirection.Backward;
-        var initialDirection = WI.DashboardContainerView.AdvanceDirection.None;
+            advanceDirection = WebInspector.DashboardContainerView.AdvanceDirection.Backward;
+        var initialDirection = WebInspector.DashboardContainerView.AdvanceDirection.None;
         var isInitialDashboard = this._currentIndex === -1;
         if (!isInitialDashboard)
             this._hideDashboardView(this.currentDashboardView, advanceDirection);
@@ -172,19 +172,19 @@ WI.DashboardContainerView = class DashboardContainerView extends WI.Object
 
     _showDashboardView(dashboardView, advanceDirection)
     {
-        console.assert(dashboardView instanceof WI.DashboardView);
+        console.assert(dashboardView instanceof WebInspector.DashboardView);
 
         dashboardView.shown();
         this._dismissAdvanceArrows();
 
         var animationClass = null;
-        if (advanceDirection === WI.DashboardContainerView.AdvanceDirection.Forward)
-            animationClass = WI.DashboardContainerView.ForwardIncomingDashboardStyleClassName;
-        if (advanceDirection === WI.DashboardContainerView.AdvanceDirection.Backward)
-            animationClass = WI.DashboardContainerView.BackwardIncomingDashboardStyleClassName;
+        if (advanceDirection === WebInspector.DashboardContainerView.AdvanceDirection.Forward)
+            animationClass = WebInspector.DashboardContainerView.ForwardIncomingDashboardStyleClassName;
+        if (advanceDirection === WebInspector.DashboardContainerView.AdvanceDirection.Backward)
+            animationClass = WebInspector.DashboardContainerView.BackwardIncomingDashboardStyleClassName;
 
         var container = this;
-        dashboardView.element.classList.add(WI.DashboardContainerView.VisibleDashboardStyleClassName);
+        dashboardView.element.classList.add(WebInspector.DashboardContainerView.VisibleDashboardStyleClassName);
 
         function animationEnded(event) {
             if (event.target !== dashboardView.element)
@@ -205,17 +205,17 @@ WI.DashboardContainerView = class DashboardContainerView extends WI.Object
 
     _hideDashboardView(dashboardView, advanceDirection, callback)
     {
-        console.assert(dashboardView instanceof WI.DashboardView);
+        console.assert(dashboardView instanceof WebInspector.DashboardView);
         console.assert(this.currentDashboardView === dashboardView);
 
         dashboardView.hidden();
         this._dismissAdvanceArrows();
 
         var animationClass = null;
-        if (advanceDirection === WI.DashboardContainerView.AdvanceDirection.Forward)
-            animationClass = WI.DashboardContainerView.ForwardOutgoingDashboardStyleClassName;
-        if (advanceDirection === WI.DashboardContainerView.AdvanceDirection.Backward)
-            animationClass = WI.DashboardContainerView.BackwardOutgoingDashboardStyleClassName;
+        if (advanceDirection === WebInspector.DashboardContainerView.AdvanceDirection.Forward)
+            animationClass = WebInspector.DashboardContainerView.ForwardOutgoingDashboardStyleClassName;
+        if (advanceDirection === WebInspector.DashboardContainerView.AdvanceDirection.Backward)
+            animationClass = WebInspector.DashboardContainerView.BackwardOutgoingDashboardStyleClassName;
 
         var container = this;
 
@@ -225,7 +225,7 @@ WI.DashboardContainerView = class DashboardContainerView extends WI.Object
 
             dashboardView.element.removeEventListener("animationend", animationEnded);
             dashboardView.element.classList.remove(animationClass);
-            dashboardView.element.classList.remove(WI.DashboardContainerView.VisibleDashboardStyleClassName);
+            dashboardView.element.classList.remove(WebInspector.DashboardContainerView.VisibleDashboardStyleClassName);
             container._updateAdvanceArrowVisibility();
 
             if (typeof callback === "function")
@@ -236,12 +236,12 @@ WI.DashboardContainerView = class DashboardContainerView extends WI.Object
             dashboardView.element.classList.add(animationClass);
             dashboardView.element.addEventListener("animationend", animationEnded);
         } else
-            dashboardView.element.classList.remove(WI.DashboardContainerView.VisibleDashboardStyleClassName);
+            dashboardView.element.classList.remove(WebInspector.DashboardContainerView.VisibleDashboardStyleClassName);
     }
 
     _closeDashboardView(dashboardView)
     {
-        console.assert(dashboardView instanceof WI.DashboardView);
+        console.assert(dashboardView instanceof WebInspector.DashboardView);
 
         function dissociateDashboardView() {
             dashboardView.closed();
@@ -251,7 +251,7 @@ WI.DashboardContainerView = class DashboardContainerView extends WI.Object
         var index = this._dashboardStack.indexOf(dashboardView);
 
         if (this.currentDashboardView === dashboardView) {
-            var direction = WI.DashboardContainerView.AdvanceDirection.Backward;
+            var direction = WebInspector.DashboardContainerView.AdvanceDirection.Backward;
             this._hideDashboardView(this.currentDashboardView, direction, dissociateDashboardView);
             this._dashboardStack.splice(index, 1);
             --this._currentIndex;
@@ -268,16 +268,16 @@ WI.DashboardContainerView = class DashboardContainerView extends WI.Object
     }
 };
 
-WI.DashboardContainerView.VisibleDashboardStyleClassName = "visible";
-WI.DashboardContainerView.InactiveStyleClassName = "inactive";
+WebInspector.DashboardContainerView.VisibleDashboardStyleClassName = "visible";
+WebInspector.DashboardContainerView.InactiveStyleClassName = "inactive";
 
-WI.DashboardContainerView.AdvanceDirection = {
+WebInspector.DashboardContainerView.AdvanceDirection = {
     Forward: Symbol("dashboard-container-view-advance-direction-forward"),
     Backward: Symbol("dashboard-container-view-advance-direction-backward"),
     None: Symbol("dashboard-container-view-advance-direction-none")
 };
 
-WI.DashboardContainerView.ForwardIncomingDashboardStyleClassName = "slide-in-down";
-WI.DashboardContainerView.BackwardIncomingDashboardStyleClassName = "slide-in-up";
-WI.DashboardContainerView.ForwardOutgoingDashboardStyleClassName = "slide-out-down";
-WI.DashboardContainerView.BackwardOutgoingDashboardStyleClassName = "slide-out-up";
+WebInspector.DashboardContainerView.ForwardIncomingDashboardStyleClassName = "slide-in-down";
+WebInspector.DashboardContainerView.BackwardIncomingDashboardStyleClassName = "slide-in-up";
+WebInspector.DashboardContainerView.ForwardOutgoingDashboardStyleClassName = "slide-out-down";
+WebInspector.DashboardContainerView.BackwardOutgoingDashboardStyleClassName = "slide-out-up";

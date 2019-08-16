@@ -61,13 +61,13 @@ function parseSecurityOrigin(securityOrigin)
 {
     securityOrigin = securityOrigin ? securityOrigin.trim() : "";
 
-    let match = securityOrigin.match(/^(?<scheme>[^:]+):\/\/(?<host>[^\/:]*)(?::(?<port>[\d]+))?$/i);
+    var match = securityOrigin.match(/^([^:]+):\/\/([^\/:]*)(?::([\d]+))?$/i);
     if (!match)
         return {scheme: null, host: null, port: null};
 
-    let scheme = match.groups.scheme.toLowerCase();
-    let host = match.groups.host.toLowerCase();
-    let port = Number(match.groups.port) || null;
+    var scheme = match[1].toLowerCase();
+    var host = match[2].toLowerCase();
+    var port = Number(match[3]) || null;
 
     return {scheme, host, port};
 }
@@ -78,15 +78,15 @@ function parseDataURL(url)
         return null;
 
     // data:[<media type>][;charset=<character set>][;base64],<data>
-    let match = url.match(/^data:(?<mime>[^;,]*)?(?:;charset=(?<charset>[^;,]*?))?(?<base64>;base64)?,(?<data>.*)$/);
+    let match = url.match(/^data:([^;,]*)?(?:;charset=([^;,]*?))?(;base64)?,(.*)$/);
     if (!match)
         return null;
 
     let scheme = "data";
-    let mimeType = match.groups.mime || "text/plain";
-    let charset = match.groups.charset || "US-ASCII";
-    let base64 = !!match.groups.base64;
-    let data = decodeURIComponent(match.groups.data);
+    let mimeType = match[1] || "text/plain";
+    let charset = match[2] || "US-ASCII";
+    let base64 = !!match[3];
+    let data = decodeURIComponent(match[4]);
 
     return {scheme, mimeType, charset, base64, data};
 }
@@ -96,24 +96,23 @@ function parseURL(url)
     url = url ? url.trim() : "";
 
     if (url.startsWith("data:"))
-        return {scheme: "data", userinfo: null, host: null, port: null, path: null, queryString: null, fragment: null, lastPathComponent: null};
+        return {scheme: "data", host: null, port: null, path: null, queryString: null, fragment: null, lastPathComponent: null};
 
-    let match = url.match(/^(?<scheme>[^\/:]+):\/\/(?:(?<userinfo>[^#@\/]+)@)?(?<host>[^\/#:]*)(?::(?<port>[\d]+))?(?:(?<path>\/[^#]*)?(?:#(?<fragment>.*))?)?$/i);
+    var match = url.match(/^([^\/:]+):\/\/([^\/#:]*)(?::([\d]+))?(?:(\/[^#]*)?(?:#(.*))?)?$/i);
     if (!match)
-        return {scheme: null, userinfo: null, host: null, port: null, path: null, queryString: null, fragment: null, lastPathComponent: null};
+        return {scheme: null, host: null, port: null, path: null, queryString: null, fragment: null, lastPathComponent: null};
 
-    let scheme = match.groups.scheme.toLowerCase();
-    let userinfo = match.groups.userinfo || null;
-    let host = match.groups.host.toLowerCase();
-    let port = Number(match.groups.port) || null;
-    let wholePath = match.groups.path || null;
-    let fragment = match.groups.fragment || null;
-    let path = wholePath;
-    let queryString = null;
+    var scheme = match[1].toLowerCase();
+    var host = match[2].toLowerCase();
+    var port = Number(match[3]) || null;
+    var wholePath = match[4] || null;
+    var fragment = match[5] || null;
+    var path = wholePath;
+    var queryString = null;
 
     // Split the path and the query string.
     if (wholePath) {
-        let indexOfQuery = wholePath.indexOf("?");
+        var indexOfQuery = wholePath.indexOf("?");
         if (indexOfQuery !== -1) {
             path = wholePath.substring(0, indexOfQuery);
             queryString = wholePath.substring(indexOfQuery + 1);
@@ -122,16 +121,16 @@ function parseURL(url)
     }
 
     // Find last path component.
-    let lastPathComponent = null;
+    var lastPathComponent = null;
     if (path && path !== "/") {
         // Skip the trailing slash if there is one.
-        let endOffset = path[path.length - 1] === "/" ? 1 : 0;
-        let lastSlashIndex = path.lastIndexOf("/", path.length - 1 - endOffset);
+        var endOffset = path[path.length - 1] === "/" ? 1 : 0;
+        var lastSlashIndex = path.lastIndexOf("/", path.length - 1 - endOffset);
         if (lastSlashIndex !== -1)
             lastPathComponent = path.substring(lastSlashIndex + 1, path.length - endOffset);
     }
 
-    return {scheme, userinfo, host, port, path, queryString, fragment, lastPathComponent};
+    return {scheme, host, port, path, queryString, fragment, lastPathComponent};
 }
 
 function absoluteURL(partialURL, baseURL)
@@ -186,6 +185,12 @@ function absoluteURL(partialURL, baseURL)
     return baseURLPrefix + resolveDotsInPath(basePath + partialURL);
 }
 
+function parseLocationQueryParameters(arrayResult)
+{
+    // The first character is always the "?".
+    return parseQueryString(window.location.search.substring(1), arrayResult);
+}
+
 function parseQueryString(queryString, arrayResult)
 {
     if (!queryString)
@@ -196,7 +201,7 @@ function parseQueryString(queryString, arrayResult)
         try {
             // Replace "+" with " " then decode percent encoded values.
             return decodeURIComponent(string.replace(/\+/g, " "));
-        } catch {
+        } catch (e) {
             return string;
         }
     }
@@ -214,10 +219,10 @@ function parseQueryString(queryString, arrayResult)
     return parameters;
 }
 
-WI.displayNameForURL = function(url, urlComponents)
+WebInspector.displayNameForURL = function(url, urlComponents)
 {
     if (url.startsWith("data:"))
-        return WI.truncateURL(url);
+        return WebInspector.truncateURL(url);
 
     if (!urlComponents)
         urlComponents = parseURL(url);
@@ -225,14 +230,14 @@ WI.displayNameForURL = function(url, urlComponents)
     var displayName;
     try {
         displayName = decodeURIComponent(urlComponents.lastPathComponent || "");
-    } catch {
+    } catch (e) {
         displayName = urlComponents.lastPathComponent;
     }
 
-    return displayName || WI.displayNameForHost(urlComponents.host) || url;
+    return displayName || WebInspector.displayNameForHost(urlComponents.host) || url;
 };
 
-WI.truncateURL = function(url, multiline = false, dataURIMaxSize = 6)
+WebInspector.truncateURL = function(url, multiline = false, dataURIMaxSize = 6)
 {
     if (!url.startsWith("data:"))
         return url;
@@ -253,42 +258,8 @@ WI.truncateURL = function(url, multiline = false, dataURIMaxSize = 6)
     return header + firstChunk + middleChunk + lastChunk;
 };
 
-WI.displayNameForHost = function(host)
+WebInspector.displayNameForHost = function(host)
 {
     // FIXME <rdar://problem/11237413>: This should decode punycode hostnames.
     return host;
-};
-
-// https://tools.ietf.org/html/rfc7540#section-8.1.2.3
-WI.h2Authority = function(components)
-{
-    let {scheme, userinfo, host, port} = components;
-    let result = host || "";
-
-    // The authority MUST NOT include the deprecated "userinfo"
-    // subcomponent for "http" or "https" schemed URIs.
-    if (userinfo && (scheme !== "http" && scheme !== "https"))
-        result = userinfo + "@" + result;
-    if (port)
-        result += ":" + port;
-
-    return result;
-};
-
-// https://tools.ietf.org/html/rfc7540#section-8.1.2.3
-WI.h2Path = function(components)
-{
-    let {scheme, path, queryString} = components;
-    let result = path || "";
-
-    // The ":path" pseudo-header field includes the path and query parts
-    // of the target URI. [...] This pseudo-header field MUST NOT be empty
-    // for "http" or "https" URIs; "http" or "https" URIs that do not contain
-    // a path component MUST include a value of '/'.
-    if (!path && (scheme === "http" || scheme === "https"))
-        result = "/";
-    if (queryString)
-        result += "?" + queryString;
-
-    return result;
 };

@@ -41,7 +41,7 @@
     readonly attribute unsigned long bufferedAmount;
     attribute unsigned long bufferedAmountLowThreshold;
 
-    attribute DOMString binaryType;
+    [SetterMayThrowException] attribute DOMString binaryType;
 
     [MayThrowException] void send(ArrayBuffer data);
     [MayThrowException] void send(ArrayBufferView data);

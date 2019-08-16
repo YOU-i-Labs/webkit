@@ -20,9 +20,9 @@
 
 #pragma once
 
+#include <chrono>
 #include <wtf/Forward.h>
 #include <wtf/Vector.h>
-#include <wtf/WallTime.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -31,12 +31,12 @@ class PopupMenu;
 
 struct RecentSearch {
     String string;
-    WallTime time;
+    std::chrono::system_clock::time_point time;
 };
 
 class SearchPopupMenu : public RefCounted<SearchPopupMenu> {
 public:
-    virtual ~SearchPopupMenu() = default;
+    virtual ~SearchPopupMenu() { }
     virtual PopupMenu* popupMenu() = 0;
     virtual void saveRecentSearches(const AtomicString& name, const Vector<RecentSearch>&) = 0;
     virtual void loadRecentSearches(const AtomicString& name, Vector<RecentSearch>&) = 0;

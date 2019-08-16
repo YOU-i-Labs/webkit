@@ -38,7 +38,7 @@ class IntRect;
 
 class TextTrackRepresentationClient {
 public:
-    virtual ~TextTrackRepresentationClient() = default;
+    virtual ~TextTrackRepresentationClient() { }
 
     virtual RefPtr<Image> createTextTrackRepresentationImage() = 0;
     virtual void textTrackRepresentationBoundsChanged(const IntRect&) = 0;
@@ -48,7 +48,7 @@ class TextTrackRepresentation {
 public:
     static std::unique_ptr<TextTrackRepresentation> create(TextTrackRepresentationClient&);
 
-    virtual ~TextTrackRepresentation() = default;
+    virtual ~TextTrackRepresentation() { }
 
     virtual void update() = 0;
     virtual PlatformLayer* platformLayer() = 0;

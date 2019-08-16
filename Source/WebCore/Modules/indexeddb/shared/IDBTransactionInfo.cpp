@@ -100,13 +100,13 @@ String IDBTransactionInfo::loggingString() const
     String modeString;
     switch (m_mode) {
     case IDBTransactionMode::Readonly:
-        modeString = "readonly"_s;
+        modeString = ASCIILiteral("readonly");
         break;
     case IDBTransactionMode::Readwrite:
-        modeString = "readwrite"_s;
+        modeString = ASCIILiteral("readwrite");
         break;
     case IDBTransactionMode::Versionchange:
-        modeString = "versionchange"_s;
+        modeString = ASCIILiteral("versionchange");
         break;
     default:
         ASSERT_NOT_REACHED();

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,28 +36,26 @@
 #include "JSFunction.h"
 #include "JSCInlines.h"
 #include "LinkBuffer.h"
-#include "OpcodeInlines.h"
 #include "ResultType.h"
 #include "SetupVarargsFrame.h"
 #include "StackAlignment.h"
-#include "ThunkGenerators.h"
 #include <wtf/StringPrintStream.h>
+
 
 namespace JSC {
 
-template<typename Op>
-void JIT::emitPutCallResult(const Op& bytecode)
+void JIT::emitPutCallResult(Instruction* instruction)
 {
-    emitValueProfilingSite(bytecode.metadata(m_codeBlock));
-    emitStore(bytecode.dst.offset(), regT1, regT0);
+    int dst = instruction[1].u.operand;
+    emitValueProfilingSite();
+    emitStore(dst, regT1, regT0);
 }
 
-void JIT::emit_op_ret(const Instruction* currentInstruction)
+void JIT::emit_op_ret(Instruction* currentInstruction)
 {
-    auto bytecode = currentInstruction->as<OpRet>();
-    int value = bytecode.value.offset();
+    unsigned dst = currentInstruction[1].u.operand;
 
-    emitLoad(value, regT1, regT0);
+    emitLoad(dst, regT1, regT0);
 
     checkStackPointerAlignment();
     emitRestoreCalleeSaves();
@@ -65,139 +63,110 @@ void JIT::emit_op_ret(const Instruction* currentInstruction)
     ret();
 }
 
-void JIT::emitSlow_op_call(const Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
+void JIT::emitSlow_op_call(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    compileOpCallSlowCase<OpCall>(currentInstruction, iter, m_callLinkInfoIndex++);
+    compileOpCallSlowCase(op_call, currentInstruction, iter, m_callLinkInfoIndex++);
 }
 
-void JIT::emitSlow_op_tail_call(const Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
+void JIT::emitSlow_op_tail_call(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    compileOpCallSlowCase<OpTailCall>(currentInstruction, iter, m_callLinkInfoIndex++);
+    compileOpCallSlowCase(op_tail_call, currentInstruction, iter, m_callLinkInfoIndex++);
 }
 
-void JIT::emitSlow_op_call_eval(const Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
+void JIT::emitSlow_op_call_eval(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    compileOpCallSlowCase<OpCallEval>(currentInstruction, iter, m_callLinkInfoIndex);
+    compileOpCallSlowCase(op_call_eval, currentInstruction, iter, m_callLinkInfoIndex);
 }
  
-void JIT::emitSlow_op_call_varargs(const Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
+void JIT::emitSlow_op_call_varargs(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    compileOpCallSlowCase<OpCallVarargs>(currentInstruction, iter, m_callLinkInfoIndex++);
+    compileOpCallSlowCase(op_call_varargs, currentInstruction, iter, m_callLinkInfoIndex++);
 }
 
-void JIT::emitSlow_op_tail_call_varargs(const Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
+void JIT::emitSlow_op_tail_call_varargs(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    compileOpCallSlowCase<OpTailCallVarargs>(currentInstruction, iter, m_callLinkInfoIndex++);
+    compileOpCallSlowCase(op_tail_call_varargs, currentInstruction, iter, m_callLinkInfoIndex++);
 }
 
-void JIT::emitSlow_op_tail_call_forward_arguments(const Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
+void JIT::emitSlow_op_tail_call_forward_arguments(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    compileOpCallSlowCase<OpTailCallForwardArguments>(currentInstruction, iter, m_callLinkInfoIndex++);
+    compileOpCallSlowCase(op_tail_call_forward_arguments, currentInstruction, iter, m_callLinkInfoIndex++);
 }
     
-void JIT::emitSlow_op_construct_varargs(const Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
+void JIT::emitSlow_op_construct_varargs(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    compileOpCallSlowCase<OpConstructVarargs>(currentInstruction, iter, m_callLinkInfoIndex++);
+    compileOpCallSlowCase(op_construct_varargs, currentInstruction, iter, m_callLinkInfoIndex++);
 }
     
-void JIT::emitSlow_op_construct(const Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
+void JIT::emitSlow_op_construct(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    compileOpCallSlowCase<OpConstruct>(currentInstruction, iter, m_callLinkInfoIndex++);
+    compileOpCallSlowCase(op_construct, currentInstruction, iter, m_callLinkInfoIndex++);
 }
 
-void JIT::emit_op_call(const Instruction* currentInstruction)
+void JIT::emit_op_call(Instruction* currentInstruction)
 {
-    compileOpCall<OpCall>(currentInstruction, m_callLinkInfoIndex++);
+    compileOpCall(op_call, currentInstruction, m_callLinkInfoIndex++);
 }
 
-void JIT::emit_op_tail_call(const Instruction* currentInstruction)
+void JIT::emit_op_tail_call(Instruction* currentInstruction)
 {
-    compileOpCall<OpTailCall>(currentInstruction, m_callLinkInfoIndex++);
+    compileOpCall(op_tail_call, currentInstruction, m_callLinkInfoIndex++);
 }
 
-void JIT::emit_op_call_eval(const Instruction* currentInstruction)
+void JIT::emit_op_call_eval(Instruction* currentInstruction)
 {
-    compileOpCall<OpCallEval>(currentInstruction, m_callLinkInfoIndex);
+    compileOpCall(op_call_eval, currentInstruction, m_callLinkInfoIndex);
 }
 
-void JIT::emit_op_call_varargs(const Instruction* currentInstruction)
+void JIT::emit_op_call_varargs(Instruction* currentInstruction)
 {
-    compileOpCall<OpCallVarargs>(currentInstruction, m_callLinkInfoIndex++);
+    compileOpCall(op_call_varargs, currentInstruction, m_callLinkInfoIndex++);
 }
 
-void JIT::emit_op_tail_call_varargs(const Instruction* currentInstruction)
+void JIT::emit_op_tail_call_varargs(Instruction* currentInstruction)
 {
-    compileOpCall<OpTailCallVarargs>(currentInstruction, m_callLinkInfoIndex++);
+    compileOpCall(op_tail_call_varargs, currentInstruction, m_callLinkInfoIndex++);
 }
 
-void JIT::emit_op_tail_call_forward_arguments(const Instruction* currentInstruction)
+void JIT::emit_op_tail_call_forward_arguments(Instruction* currentInstruction)
 {
-    compileOpCall<OpTailCallForwardArguments>(currentInstruction, m_callLinkInfoIndex++);
-}
-    
-void JIT::emit_op_construct_varargs(const Instruction* currentInstruction)
-{
-    compileOpCall<OpConstructVarargs>(currentInstruction, m_callLinkInfoIndex++);
+    compileOpCall(op_tail_call_forward_arguments, currentInstruction, m_callLinkInfoIndex++);
 }
     
-void JIT::emit_op_construct(const Instruction* currentInstruction)
+void JIT::emit_op_construct_varargs(Instruction* currentInstruction)
 {
-    compileOpCall<OpConstruct>(currentInstruction, m_callLinkInfoIndex++);
+    compileOpCall(op_construct_varargs, currentInstruction, m_callLinkInfoIndex++);
+}
+    
+void JIT::emit_op_construct(Instruction* currentInstruction)
+{
+    compileOpCall(op_construct, currentInstruction, m_callLinkInfoIndex++);
 }
 
-template <typename Op>
-std::enable_if_t<
-    Op::opcodeID != op_call_varargs && Op::opcodeID != op_construct_varargs
-    && Op::opcodeID != op_tail_call_varargs && Op::opcodeID != op_tail_call_forward_arguments
-, void>
-JIT::compileSetupFrame(const Op& bytecode, CallLinkInfo*)
+void JIT::compileSetupVarargsFrame(OpcodeID opcode, Instruction* instruction, CallLinkInfo* info)
 {
-    auto& metadata = bytecode.metadata(m_codeBlock);
-    int argCount = bytecode.argc;
-    int registerOffset = -static_cast<int>(bytecode.argv);
-
-    if (Op::opcodeID == op_call && shouldEmitProfiling()) {
-        emitLoad(registerOffset + CallFrame::argumentOffsetIncludingThis(0), regT0, regT1);
-        Jump done = branchIfNotCell(regT0);
-        load32(Address(regT1, JSCell::structureIDOffset()), regT1);
-        store32(regT1, metadata.arrayProfile.addressOfLastSeenStructureID());
-        done.link(this);
-    }
-
-    addPtr(TrustedImm32(registerOffset * sizeof(Register) + sizeof(CallerFrameAndPC)), callFrameRegister, stackPointerRegister);
-    store32(TrustedImm32(argCount), Address(stackPointerRegister, CallFrameSlot::argumentCount * static_cast<int>(sizeof(Register)) + PayloadOffset - sizeof(CallerFrameAndPC)));
-}
-
-template<typename Op>
-std::enable_if_t<
-    Op::opcodeID == op_call_varargs || Op::opcodeID == op_construct_varargs
-    || Op::opcodeID == op_tail_call_varargs || Op::opcodeID == op_tail_call_forward_arguments
-, void>
-JIT::compileSetupFrame(const Op& bytecode, CallLinkInfo* info)
-{
-    OpcodeID opcodeID = Op::opcodeID;
-    int thisValue = bytecode.thisValue.offset();
-    int arguments = bytecode.arguments.offset();
-    int firstFreeRegister = bytecode.firstFree.offset();
-    int firstVarArgOffset = bytecode.firstVarArg;
+    int thisValue = instruction[3].u.operand;
+    int arguments = instruction[4].u.operand;
+    int firstFreeRegister = instruction[5].u.operand;
+    int firstVarArgOffset = instruction[6].u.operand;
 
     emitLoad(arguments, regT1, regT0);
     Z_JITOperation_EJZZ sizeOperation;
-    if (Op::opcodeID == op_tail_call_forward_arguments)
+    if (opcode == op_tail_call_forward_arguments)
         sizeOperation = operationSizeFrameForForwardArguments;
     else
         sizeOperation = operationSizeFrameForVarargs;
-    callOperation(sizeOperation, JSValueRegs(regT1, regT0), -firstFreeRegister, firstVarArgOffset);
+    callOperation(sizeOperation, regT1, regT0, -firstFreeRegister, firstVarArgOffset);
     move(TrustedImm32(-firstFreeRegister), regT1);
     emitSetVarargsFrame(*this, returnValueGPR, false, regT1, regT1);
     addPtr(TrustedImm32(-(sizeof(CallerFrameAndPC) + WTF::roundUpToMultipleOf(stackAlignmentBytes(), 6 * sizeof(void*)))), regT1, stackPointerRegister);
     emitLoad(arguments, regT2, regT4);
     F_JITOperation_EFJZZ setupOperation;
-    if (opcodeID == op_tail_call_forward_arguments)
+    if (opcode == op_tail_call_forward_arguments)
         setupOperation = operationSetupForwardArgumentsFrame;
     else
         setupOperation = operationSetupVarargsFrame;
-    callOperation(setupOperation, regT1, JSValueRegs(regT2, regT4), firstVarArgOffset, regT0);
+    callOperation(setupOperation, regT1, regT2, regT4, firstVarArgOffset, regT0);
     move(returnValueGPR, regT1);
 
     // Profile the argument count.
@@ -215,14 +184,7 @@ JIT::compileSetupFrame(const Op& bytecode, CallLinkInfo* info)
     addPtr(TrustedImm32(sizeof(CallerFrameAndPC)), regT1, stackPointerRegister);
 }
 
-template<typename Op>
-bool JIT::compileCallEval(const Op&)
-{
-    return false;
-}
-
-template<>
-bool JIT::compileCallEval(const OpCallEval& bytecode)
+void JIT::compileCallEval(Instruction* instruction)
 {
     addPtr(TrustedImm32(-static_cast<ptrdiff_t>(sizeof(CallerFrameAndPC))), stackPointerRegister, regT1);
     storePtr(callFrameRegister, Address(regT1, CallFrame::callerFrameOffset()));
@@ -231,44 +193,41 @@ bool JIT::compileCallEval(const OpCallEval& bytecode)
 
     callOperation(operationCallEval, regT1);
 
-    addSlowCase(branchIfEmpty(regT1));
+    addSlowCase(branch32(Equal, regT1, TrustedImm32(JSValue::EmptyValueTag)));
 
     sampleCodeBlock(m_codeBlock);
     
-    emitPutCallResult(bytecode);
-
-    return true;
+    emitPutCallResult(instruction);
 }
 
-void JIT::compileCallEvalSlowCase(const Instruction* instruction, Vector<SlowCaseEntry>::iterator& iter)
+void JIT::compileCallEvalSlowCase(Instruction* instruction, Vector<SlowCaseEntry>::iterator& iter)
 {
-    linkAllSlowCases(iter);
-
-    auto bytecode = instruction->as<OpCallEval>();
     CallLinkInfo* info = m_codeBlock->addCallLinkInfo();
     info->setUpCall(CallLinkInfo::Call, CodeOrigin(m_bytecodeOffset), regT0);
 
-    int registerOffset = -bytecode.argv;
-    int callee = bytecode.callee.offset();
+    linkSlowCase(iter);
+
+    int registerOffset = -instruction[4].u.operand;
 
     addPtr(TrustedImm32(registerOffset * sizeof(Register) + sizeof(CallerFrameAndPC)), callFrameRegister, stackPointerRegister);
 
-    emitLoad(callee, regT1, regT0);
-    emitDumbVirtualCall(*vm(), info);
+    move(TrustedImmPtr(info), regT2);
+
+    emitLoad(CallFrameSlot::callee, regT1, regT0);
+    MacroAssemblerCodeRef virtualThunk = virtualThunkFor(m_vm, *info);
+    info->setSlowStub(createJITStubRoutine(virtualThunk, *m_vm, nullptr, true));
+    emitNakedCall(virtualThunk.code());
     addPtr(TrustedImm32(stackPointerOffsetFor(m_codeBlock) * sizeof(Register)), callFrameRegister, stackPointerRegister);
     checkStackPointerAlignment();
 
     sampleCodeBlock(m_codeBlock);
     
-    emitPutCallResult(bytecode);
+    emitPutCallResult(instruction);
 }
 
-template <typename Op>
-void JIT::compileOpCall(const Instruction* instruction, unsigned callLinkInfoIndex)
+void JIT::compileOpCall(OpcodeID opcodeID, Instruction* instruction, unsigned callLinkInfoIndex)
 {
-    OpcodeID opcodeID = Op::opcodeID;
-    auto bytecode = instruction->as<Op>();
-    int callee = bytecode.callee.offset();
+    int callee = instruction[2].u.operand;
 
     /* Caller always:
         - Updates callFrameRegister to callee callFrame.
@@ -285,26 +244,44 @@ void JIT::compileOpCall(const Instruction* instruction, unsigned callLinkInfoInd
     CallLinkInfo* info = nullptr;
     if (opcodeID != op_call_eval)
         info = m_codeBlock->addCallLinkInfo();
-    compileSetupFrame(bytecode, info);
-    // SP holds newCallFrame + sizeof(CallerFrameAndPC), with ArgumentCount initialized.
+    if (opcodeID == op_call_varargs || opcodeID == op_construct_varargs || opcodeID == op_tail_call_varargs || opcodeID == op_tail_call_forward_arguments)
+        compileSetupVarargsFrame(opcodeID, instruction, info);
+    else {
+        int argCount = instruction[3].u.operand;
+        int registerOffset = -instruction[4].u.operand;
+        
+        if (opcodeID == op_call && shouldEmitProfiling()) {
+            emitLoad(registerOffset + CallFrame::argumentOffsetIncludingThis(0), regT0, regT1);
+            Jump done = branch32(NotEqual, regT0, TrustedImm32(JSValue::CellTag));
+            loadPtr(Address(regT1, JSCell::structureIDOffset()), regT1);
+            storePtr(regT1, instruction[OPCODE_LENGTH(op_call) - 2].u.arrayProfile->addressOfLastSeenStructureID());
+            done.link(this);
+        }
+    
+        addPtr(TrustedImm32(registerOffset * sizeof(Register) + sizeof(CallerFrameAndPC)), callFrameRegister, stackPointerRegister);
+
+        store32(TrustedImm32(argCount), Address(stackPointerRegister, CallFrameSlot::argumentCount * static_cast<int>(sizeof(Register)) + PayloadOffset - sizeof(CallerFrameAndPC)));
+    } // SP holds newCallFrame + sizeof(CallerFrameAndPC), with ArgumentCount initialized.
     
     uint32_t locationBits = CallSiteIndex(instruction).bits();
-    store32(TrustedImm32(locationBits), tagFor(CallFrameSlot::argumentCount));
+    store32(TrustedImm32(locationBits), tagFor(CallFrameSlot::argumentCount, callFrameRegister));
     emitLoad(callee, regT1, regT0); // regT1, regT0 holds callee.
 
     store32(regT0, Address(stackPointerRegister, CallFrameSlot::callee * static_cast<int>(sizeof(Register)) + PayloadOffset - sizeof(CallerFrameAndPC)));
     store32(regT1, Address(stackPointerRegister, CallFrameSlot::callee * static_cast<int>(sizeof(Register)) + TagOffset - sizeof(CallerFrameAndPC)));
 
-    if (compileCallEval(bytecode))
+    if (opcodeID == op_call_eval) {
+        compileCallEval(instruction);
         return;
+    }
 
     if (opcodeID == op_tail_call || opcodeID == op_tail_call_varargs)
         emitRestoreCalleeSaves();
 
-    addSlowCase(branchIfNotCell(regT1));
+    addSlowCase(branch32(NotEqual, regT1, TrustedImm32(JSValue::CellTag)));
 
     DataLabelPtr addressOfLinkedFunctionCheck;
-    Jump slowCase = branchPtrWithPatch(NotEqual, regT0, addressOfLinkedFunctionCheck, TrustedImmPtr(nullptr));
+    Jump slowCase = branchPtrWithPatch(NotEqual, regT0, addressOfLinkedFunctionCheck, TrustedImmPtr(0));
 
     addSlowCase(slowCase);
 
@@ -327,27 +304,25 @@ void JIT::compileOpCall(const Instruction* instruction, unsigned callLinkInfoInd
     checkStackPointerAlignment();
 
     sampleCodeBlock(m_codeBlock);
-    emitPutCallResult(bytecode);
+    emitPutCallResult(instruction);
 }
 
-template <typename Op>
-void JIT::compileOpCallSlowCase(const Instruction* instruction, Vector<SlowCaseEntry>::iterator& iter, unsigned callLinkInfoIndex)
+void JIT::compileOpCallSlowCase(OpcodeID opcodeID, Instruction* instruction, Vector<SlowCaseEntry>::iterator& iter, unsigned callLinkInfoIndex)
 {
-    OpcodeID opcodeID = Op::opcodeID;
-
     if (opcodeID == op_call_eval) {
         compileCallEvalSlowCase(instruction, iter);
         return;
     }
 
-    linkAllSlowCases(iter);
+    linkSlowCase(iter);
+    linkSlowCase(iter);
 
     move(TrustedImmPtr(m_callCompilationInfo[callLinkInfoIndex].callLinkInfo), regT2);
 
-    if (opcodeID == op_tail_call || opcodeID == op_tail_call_varargs || opcodeID == op_tail_call_forward_arguments)
+    if (opcodeID == op_tail_call || opcodeID == op_tail_call_varargs)
         emitRestoreCalleeSaves();
 
-    m_callCompilationInfo[callLinkInfoIndex].callReturnLocation = emitNakedCall(m_vm->getCTIStub(linkCallThunkGenerator).retaggedCode<NoPtrTag>());
+    m_callCompilationInfo[callLinkInfoIndex].callReturnLocation = emitNakedCall(m_vm->getCTIStub(linkCallThunkGenerator).code());
 
     if (opcodeID == op_tail_call || opcodeID == op_tail_call_varargs) {
         abortWithReason(JITDidReturnFromTailCall);
@@ -358,9 +333,7 @@ void JIT::compileOpCallSlowCase(const Instruction* instruction, Vector<SlowCaseE
     checkStackPointerAlignment();
 
     sampleCodeBlock(m_codeBlock);
-
-    auto bytecode = instruction->as<Op>();
-    emitPutCallResult(bytecode);
+    emitPutCallResult(instruction);
 }
 
 } // namespace JSC

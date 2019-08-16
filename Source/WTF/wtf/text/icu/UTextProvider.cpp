@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include <wtf/text/icu/UTextProvider.h>
+#include "UTextProvider.h"
 
 #include <algorithm>
 #include <string.h>

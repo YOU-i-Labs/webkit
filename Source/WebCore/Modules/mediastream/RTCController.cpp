@@ -27,7 +27,6 @@
 
 #if ENABLE(WEB_RTC)
 
-#include "Document.h"
 #include "LibWebRTCProvider.h"
 #include "RTCPeerConnection.h"
 
@@ -39,15 +38,6 @@ RTCController::~RTCController()
         connection.clearController();
 }
 
-void RTCController::reset(bool shouldFilterICECandidates)
-{
-    m_shouldFilterICECandidates = shouldFilterICECandidates;
-    for (RTCPeerConnection& connection : m_peerConnections)
-        connection.clearController();
-    m_peerConnections.clear();
-    m_filteringDisabledOrigins.clear();
-}
-
 void RTCController::remove(RTCPeerConnection& connection)
 {
     m_peerConnections.removeFirstMatching([&connection](auto item) {
@@ -55,30 +45,14 @@ void RTCController::remove(RTCPeerConnection& connection)
     });
 }
 
-static inline bool matchDocumentOrigin(Document& document, SecurityOrigin& topOrigin, SecurityOrigin& clientOrigin)
-{
-    if (originsMatch(topOrigin, document.securityOrigin()))
-        return true;
-    return originsMatch(topOrigin, document.topOrigin()) && originsMatch(clientOrigin, document.securityOrigin());
-}
-
-bool RTCController::shouldDisableICECandidateFiltering(Document& document)
-{
-    if (!m_shouldFilterICECandidates)
-        return true;
-    return notFound != m_filteringDisabledOrigins.findMatching([&] (const auto& origin) {
-        return matchDocumentOrigin(document, origin.topOrigin, origin.clientOrigin);
-    });
-}
-
 void RTCController::add(RTCPeerConnection& connection)
 {
     m_peerConnections.append(connection);
-    if (shouldDisableICECandidateFiltering(downcast<Document>(*connection.scriptExecutionContext())))
+    if (!m_shouldFilterICECandidates)
         connection.disableICECandidateFiltering();
 }
 
-void RTCController::disableICECandidateFilteringForAllOrigins()
+void RTCController::disableICECandidateFiltering()
 {
     if (!LibWebRTCProvider::webRTCAvailable())
         return;
@@ -88,26 +62,11 @@ void RTCController::disableICECandidateFilteringForAllOrigins()
         connection.disableICECandidateFiltering();
 }
 
-void RTCController::disableICECandidateFilteringForDocument(Document& document)
-{
-    if (!LibWebRTCProvider::webRTCAvailable())
-        return;
-
-    m_filteringDisabledOrigins.append(PeerConnectionOrigin { document.topOrigin(), document.securityOrigin() });
-    for (RTCPeerConnection& connection : m_peerConnections) {
-        if (auto* peerConnectionDocument = downcast<Document>(connection.scriptExecutionContext())) {
-            if (matchDocumentOrigin(*peerConnectionDocument, document.topOrigin(), document.securityOrigin()))
-                connection.disableICECandidateFiltering();
-        }
-    }
-}
-
 void RTCController::enableICECandidateFiltering()
 {
     if (!LibWebRTCProvider::webRTCAvailable())
         return;
 
-    m_filteringDisabledOrigins.clear();
     m_shouldFilterICECandidates = true;
     for (RTCPeerConnection& connection : m_peerConnections)
         connection.enableICECandidateFiltering();

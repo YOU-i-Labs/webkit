@@ -45,9 +45,3 @@
 
     margin: auto 0;
 }
-
-@media (prefers-color-scheme: dark) {
-    .content-view.resource.image {
-        background: var(--background-color-content);
-    }
-}

@@ -19,7 +19,7 @@ Query9::Query9(Renderer9 *renderer, GLenum type)
       mResult(GL_FALSE),
       mQueryFinished(false),
       mRenderer(renderer),
-      mQuery(nullptr)
+      mQuery(NULL)
 {
 }
 
@@ -36,7 +36,7 @@ gl::Error Query9::begin()
         HRESULT result = mRenderer->getDevice()->CreateQuery(d3dQueryType, &mQuery);
         if (FAILED(result))
         {
-            return gl::OutOfMemory() << "Internal query creation failed, " << gl::FmtHR(result);
+            return gl::Error(GL_OUT_OF_MEMORY, "Internal query creation failed, result: 0x%X.", result);
         }
     }
 
@@ -46,7 +46,8 @@ gl::Error Query9::begin()
         ASSERT(SUCCEEDED(result));
         if (FAILED(result))
         {
-            return gl::OutOfMemory() << "Failed to begin internal query, " << gl::FmtHR(result);
+            return gl::Error(GL_OUT_OF_MEMORY, "Failed to begin internal query, result: 0x%X.",
+                             result);
         }
     }
 
@@ -61,7 +62,7 @@ gl::Error Query9::end()
     ASSERT(SUCCEEDED(result));
     if (FAILED(result))
     {
-        return gl::OutOfMemory() << "Failed to end internal query, " << gl::FmtHR(result);
+        return gl::Error(GL_OUT_OF_MEMORY, "Failed to end internal query, result: 0x%X.", result);
     }
 
     mQueryFinished = false;
@@ -73,7 +74,7 @@ gl::Error Query9::end()
 gl::Error Query9::queryCounter()
 {
     UNIMPLEMENTED();
-    return gl::InternalError() << "Unimplemented";
+    return gl::Error(GL_INVALID_OPERATION, "Unimplemented");
 }
 
 template <typename T>
@@ -173,12 +174,12 @@ gl::Error Query9::testQuery()
         if (d3d9::isDeviceLostError(result))
         {
             mRenderer->notifyDeviceLost();
-            return gl::OutOfMemory() << "Failed to test get query result, device is lost.";
+            return gl::Error(GL_OUT_OF_MEMORY, "Failed to test get query result, device is lost.");
         }
         else if (mRenderer->testDeviceLost())
         {
             mRenderer->notifyDeviceLost();
-            return gl::OutOfMemory() << "Failed to test get query result, device is lost.";
+            return gl::Error(GL_OUT_OF_MEMORY, "Failed to test get query result, device is lost.");
         }
     }
 

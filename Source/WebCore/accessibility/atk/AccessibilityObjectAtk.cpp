@@ -43,117 +43,117 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
 {
     AccessibilityObject* parent = parentObject();
     if (!parent)
-        return AccessibilityObjectInclusion::DefaultBehavior;
+        return DefaultBehavior;
 
     // If the author has provided a role, platform-specific inclusion likely doesn't apply.
-    if (ariaRoleAttribute() != AccessibilityRole::Unknown)
-        return AccessibilityObjectInclusion::DefaultBehavior;
+    if (ariaRoleAttribute() != UnknownRole)
+        return DefaultBehavior;
 
     AccessibilityRole role = roleValue();
     // We expose the slider as a whole but not its value indicator.
-    if (role == AccessibilityRole::SliderThumb)
-        return AccessibilityObjectInclusion::IgnoreObject;
+    if (role == SliderThumbRole)
+        return IgnoreObject;
 
     // When a list item is made up entirely of children (e.g. paragraphs)
     // the list item gets ignored. We need it.
     if (isGroup() && parent->isList())
-        return AccessibilityObjectInclusion::IncludeObject;
+        return IncludeObject;
 
     // Entries and password fields have extraneous children which we want to ignore.
     if (parent->isPasswordField() || parent->isTextControl())
-        return AccessibilityObjectInclusion::IgnoreObject;
+        return IgnoreObject;
 
     // Include all tables, even layout tables. The AT can decide what to do with each.
-    if (role == AccessibilityRole::Cell || role == AccessibilityRole::Table || role == AccessibilityRole::ColumnHeader || role == AccessibilityRole::RowHeader)
-        return AccessibilityObjectInclusion::IncludeObject;
+    if (role == CellRole || role == TableRole || role == ColumnHeaderRole || role == RowHeaderRole)
+        return IncludeObject;
 
     // The object containing the text should implement AtkText itself.
     // However, WebCore also maps ARIA's "text" role to the StaticTextRole.
-    if (role == AccessibilityRole::StaticText)
-        return ariaRoleAttribute() != AccessibilityRole::Unknown ? AccessibilityObjectInclusion::DefaultBehavior : AccessibilityObjectInclusion::IgnoreObject;
+    if (role == StaticTextRole)
+        return ariaRoleAttribute() != UnknownRole ? DefaultBehavior : IgnoreObject;
 
     // Include all list items, regardless they have or not inline children
-    if (role == AccessibilityRole::ListItem)
-        return AccessibilityObjectInclusion::IncludeObject;
+    if (role == ListItemRole)
+        return IncludeObject;
 
     // Bullets/numbers for list items shouldn't be exposed as AtkObjects.
-    if (role == AccessibilityRole::ListMarker)
-        return AccessibilityObjectInclusion::IgnoreObject;
+    if (role == ListMarkerRole)
+        return IgnoreObject;
 
     // Never expose an unknown object, since AT's won't know what to
     // do with them. This is what is done on the Mac as well.
-    if (role == AccessibilityRole::Unknown)
-        return AccessibilityObjectInclusion::IgnoreObject;
+    if (role == UnknownRole)
+        return IgnoreObject;
 
-    if (role == AccessibilityRole::Inline)
-        return AccessibilityObjectInclusion::IncludeObject;
+    if (role == InlineRole)
+        return IncludeObject;
 
     // Lines past this point only make sense for AccessibilityRenderObjects.
     RenderObject* renderObject = renderer();
     if (!renderObject)
-        return AccessibilityObjectInclusion::DefaultBehavior;
+        return DefaultBehavior;
 
     // We always want to include paragraphs that have rendered content.
     // WebCore Accessibility does so unless there is a RenderBlock child.
-    if (role == AccessibilityRole::Paragraph) {
+    if (role == ParagraphRole) {
         auto child = childrenOfType<RenderBlock>(downcast<RenderElement>(*renderObject)).first();
-        return child ? AccessibilityObjectInclusion::IncludeObject : AccessibilityObjectInclusion::DefaultBehavior;
+        return child ? IncludeObject : DefaultBehavior;
     }
 
     // We always want to include table cells (layout and CSS) that have rendered text content.
     if (is<RenderTableCell>(renderObject)) {
         for (const auto& child : childrenOfType<RenderObject>(downcast<RenderElement>(*renderObject))) {
             if (is<RenderInline>(child) || is<RenderText>(child) || is<HTMLSpanElement>(child.node()))
-                return AccessibilityObjectInclusion::IncludeObject;
+                return IncludeObject;
         }
-        return AccessibilityObjectInclusion::DefaultBehavior;
+        return DefaultBehavior;
     }
 
     if (renderObject->isAnonymousBlock()) {
         // The text displayed by an ARIA menu item is exposed through the accessible name.
         if (parent->isMenuItem())
-            return AccessibilityObjectInclusion::IgnoreObject;
+            return IgnoreObject;
 
         // The text displayed in headings is typically exposed in the heading itself.
         if (parent->isHeading())
-            return AccessibilityObjectInclusion::IgnoreObject;
+            return IgnoreObject;
 
         // The text displayed in list items is typically exposed in the list item itself.
         if (parent->isListItem())
-            return AccessibilityObjectInclusion::IgnoreObject;
+            return IgnoreObject;
 
         // The text displayed in links is typically exposed in the link itself.
         if (parent->isLink())
-            return AccessibilityObjectInclusion::IgnoreObject;
+            return IgnoreObject;
 
         // FIXME: This next one needs some further consideration. But paragraphs are not
         // typically huge (like divs). And ignoring anonymous block children of paragraphs
         // will preserve existing behavior.
-        if (parent->roleValue() == AccessibilityRole::Paragraph)
-            return AccessibilityObjectInclusion::IgnoreObject;
+        if (parent->roleValue() == ParagraphRole)
+            return IgnoreObject;
 
-        return AccessibilityObjectInclusion::DefaultBehavior;
+        return DefaultBehavior;
     }
 
     Node* node = renderObject->node();
     if (!node)
-        return AccessibilityObjectInclusion::DefaultBehavior;
+        return DefaultBehavior;
 
     // We don't want <span> elements to show up in the accessibility hierarchy unless
     // we have good reasons for that (e.g. focusable or visible because of containing
     // a meaningful accessible name, maybe set through ARIA), so we can use
     // atk_component_grab_focus() to set the focus to it.
     if (is<HTMLSpanElement>(node) && !canSetFocusAttribute() && !hasAttributesRequiredForInclusion() && !supportsARIAAttributes())
-        return AccessibilityObjectInclusion::IgnoreObject;
+        return IgnoreObject;
 
     // If we include TextControlInnerTextElement children, changes to those children
     // will result in focus and text notifications that suggest the user is no longer
     // in the control. This can be especially problematic for screen reader users with
     // key echo enabled when typing in a password input.
     if (is<TextControlInnerTextElement>(node))
-        return AccessibilityObjectInclusion::IgnoreObject;
+        return IgnoreObject;
 
-    return AccessibilityObjectInclusion::DefaultBehavior;
+    return DefaultBehavior;
 }
 
 AccessibilityObjectWrapper* AccessibilityObject::wrapper() const
@@ -183,7 +183,7 @@ bool AccessibilityObject::allowsTextRanges() const
 
     // Check roles as the last fallback mechanism.
     AccessibilityRole role = roleValue();
-    return role == AccessibilityRole::Paragraph || role == AccessibilityRole::Label || role == AccessibilityRole::Div || role == AccessibilityRole::Form || role == AccessibilityRole::Pre;
+    return role == ParagraphRole || role == LabelRole || role == DivRole || role == FormRole || role == PreRole;
 }
 
 unsigned AccessibilityObject::getLengthForTextRange() const
@@ -197,7 +197,7 @@ unsigned AccessibilityObject::getLengthForTextRange() const
     Node* node = this->node();
     RenderObject* renderer = node ? node->renderer() : nullptr;
     if (is<RenderText>(renderer))
-        textLength = downcast<RenderText>(*renderer).text().length();
+        textLength = downcast<RenderText>(*renderer).textLength();
 
     // Get the text length from the elements under the
     // accessibility object if the value is still zero.

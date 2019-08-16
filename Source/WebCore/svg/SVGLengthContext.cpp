@@ -25,6 +25,7 @@
 #include "SVGLengthContext.h"
 
 #include "CSSHelper.h"
+#include "ExceptionCode.h"
 #include "FontMetrics.h"
 #include "Frame.h"
 #include "LengthFunctions.h"
@@ -42,7 +43,7 @@ SVGLengthContext::SVGLengthContext(const SVGElement* context)
 
 SVGLengthContext::SVGLengthContext(const SVGElement* context, const FloatRect& viewport)
     : m_context(context)
-    , m_overriddenViewport(viewport)
+    , m_overridenViewport(viewport)
 {
 }
 
@@ -113,7 +114,7 @@ float SVGLengthContext::valueForLength(const Length& length, SVGLengthMode mode)
 ExceptionOr<float> SVGLengthContext::convertValueToUserUnits(float value, SVGLengthMode mode, SVGLengthType fromUnit) const
 {
     // If the SVGLengthContext carries a custom viewport, force resolving against it.
-    if (!m_overriddenViewport.isEmpty()) {
+    if (!m_overridenViewport.isEmpty()) {
         // 100% = 100.0 instead of 1.0 for historical reasons, this could eventually be changed
         if (fromUnit == LengthTypePercentage)
             value /= 100;
@@ -122,7 +123,7 @@ ExceptionOr<float> SVGLengthContext::convertValueToUserUnits(float value, SVGLen
 
     switch (fromUnit) {
     case LengthTypeUnknown:
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
     case LengthTypeNumber:
         return value;
     case LengthTypePX:
@@ -153,7 +154,7 @@ ExceptionOr<float> SVGLengthContext::convertValueFromUserUnits(float value, SVGL
 {
     switch (toUnit) {
     case LengthTypeUnknown:
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
     case LengthTypeNumber:
         return value;
     case LengthTypePercentage:
@@ -184,7 +185,7 @@ ExceptionOr<float> SVGLengthContext::convertValueFromUserUnitsToPercentage(float
 {
     FloatSize viewportSize;
     if (!determineViewport(viewportSize))
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
     switch (mode) {
     case LengthModeWidth:
@@ -203,7 +204,7 @@ ExceptionOr<float> SVGLengthContext::convertValueFromPercentageToUserUnits(float
 {
     FloatSize viewportSize;
     if (!determineViewport(viewportSize))
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
     switch (mode) {
     case LengthModeWidth:
@@ -239,11 +240,11 @@ ExceptionOr<float> SVGLengthContext::convertValueFromUserUnitsToEMS(float value)
 {
     auto* style = renderStyleForLengthResolving(m_context);
     if (!style)
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
-    float fontSize = style->computedFontPixelSize();
+    float fontSize = style->fontSize();
     if (!fontSize)
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
     return value / fontSize;
 }
@@ -252,22 +253,22 @@ ExceptionOr<float> SVGLengthContext::convertValueFromEMSToUserUnits(float value)
 {
     auto* style = renderStyleForLengthResolving(m_context);
     if (!style)
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
-    return value * style->computedFontPixelSize();
+    return value * style->fontSize();
 }
 
 ExceptionOr<float> SVGLengthContext::convertValueFromUserUnitsToEXS(float value) const
 {
     auto* style = renderStyleForLengthResolving(m_context);
     if (!style)
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
     // Use of ceil allows a pixel match to the W3Cs expected output of coords-units-03-b.svg
     // if this causes problems in real world cases maybe it would be best to remove this
     float xHeight = std::ceil(style->fontMetrics().xHeight());
     if (!xHeight)
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
     return value / xHeight;
 }
@@ -276,7 +277,7 @@ ExceptionOr<float> SVGLengthContext::convertValueFromEXSToUserUnits(float value)
 {
     auto* style = renderStyleForLengthResolving(m_context);
     if (!style)
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
     // Use of ceil allows a pixel match to the W3Cs expected output of coords-units-03-b.svg
     // if this causes problems in real world cases maybe it would be best to remove this
@@ -288,9 +289,9 @@ bool SVGLengthContext::determineViewport(FloatSize& viewportSize) const
     if (!m_context)
         return false;
 
-    // If an overridden viewport is given, it has precedence.
-    if (!m_overriddenViewport.isEmpty()) {
-        viewportSize = m_overriddenViewport.size();
+    // If an overriden viewport is given, it has precedence.
+    if (!m_overridenViewport.isEmpty()) {
+        viewportSize = m_overridenViewport.size();
         return true;
     }
 
@@ -301,7 +302,7 @@ bool SVGLengthContext::determineViewport(FloatSize& viewportSize) const
     }
 
     // Take size from nearest viewport element.
-    auto viewportElement = makeRefPtr(m_context->viewportElement());
+    SVGElement* viewportElement = m_context->viewportElement();
     if (!is<SVGSVGElement>(viewportElement))
         return false;
 

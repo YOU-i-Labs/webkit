@@ -24,13 +24,19 @@
  */
 
 #include "config.h"
-#include <wtf/MonotonicTime.h>
+#include "MonotonicTime.h"
 
-#include <wtf/PrintStream.h>
-#include <wtf/TimeWithDynamicClockType.h>
-#include <wtf/WallTime.h>
+#include "CurrentTime.h"
+#include "PrintStream.h"
+#include "TimeWithDynamicClockType.h"
+#include "WallTime.h"
 
 namespace WTF {
+
+MonotonicTime MonotonicTime::now()
+{
+    return fromRawSeconds(monotonicallyIncreasingTime());
+}
 
 WallTime MonotonicTime::approximateWallTime() const
 {

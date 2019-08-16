@@ -29,7 +29,7 @@
 #include "RsaOtherPrimesInfo.h"
 #include <wtf/Vector.h>
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 namespace WebCore {
 
@@ -37,11 +37,11 @@ struct JsonWebKey {
     String kty;
     String use;
     // FIXME: Consider merging key_ops and usages.
-    Optional<Vector<CryptoKeyUsage>> key_ops;
+    std::optional<Vector<CryptoKeyUsage>> key_ops;
     CryptoKeyUsageBitmap usages;
     String alg;
 
-    Optional<bool> ext;
+    std::optional<bool> ext;
 
     String crv;
     String x;
@@ -54,10 +54,10 @@ struct JsonWebKey {
     String dp;
     String dq;
     String qi;
-    Optional<Vector<RsaOtherPrimesInfo>> oth;
+    std::optional<Vector<RsaOtherPrimesInfo>> oth;
     String k;
 };
 
 } // namespace WebCore
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

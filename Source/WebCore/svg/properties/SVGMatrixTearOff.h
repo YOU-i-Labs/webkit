@@ -29,8 +29,8 @@ public:
     static Ref<SVGMatrixTearOff> create(SVGTransform& parent, SVGMatrixValue& value)
     {
         ASSERT_UNUSED(value, &parent.propertyReference().svgMatrix() == &value);
-        auto result = adoptRef(*new SVGMatrixTearOff(parent));
-        parent.addChild(makeWeakPtr(result.get()));
+        Ref<SVGMatrixTearOff> result = adoptRef(*new SVGMatrixTearOff(parent));
+        parent.addChild(result->m_weakFactory.createWeakPtr());
         return result;
     }
 
@@ -48,10 +48,12 @@ private:
     SVGMatrixTearOff(SVGTransform& parent)
         : SVGMatrix(nullptr)
         , m_parent(&parent)
+        , m_weakFactory(this)
     {
     }
 
     RefPtr<SVGTransform> m_parent;
+    WeakPtrFactory<SVGPropertyTearOffBase> m_weakFactory;
 };
 
 } // namespace WebCore

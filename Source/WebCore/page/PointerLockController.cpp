@@ -35,8 +35,9 @@
 #include "Page.h"
 #include "PlatformMouseEvent.h"
 #include "RuntimeEnabledFeatures.h"
-#include "UserGestureIndicator.h"
+#include "ScriptController.h"
 #include "VoidCallback.h"
+
 
 namespace WebCore {
 
@@ -52,14 +53,14 @@ void PointerLockController::requestPointerLock(Element* target)
         return;
     }
 
-    if (m_documentAllowedToRelockWithoutUserGesture != &target->document() && !UserGestureIndicator::processingUserGesture()) {
+    if (m_documentAllowedToRelockWithoutUserGesture != &target->document() && !ScriptController::processingUserGesture()) {
         enqueueEvent(eventNames().pointerlockerrorEvent, target);
         return;
     }
 
     if (target->document().isSandboxed(SandboxPointerLock)) {
         // FIXME: This message should be moved off the console once a solution to https://bugs.webkit.org/show_bug.cgi?id=103274 exists.
-        target->document().addConsoleMessage(MessageSource::Security, MessageLevel::Error, "Blocked pointer lock on an element because the element's frame is sandboxed and the 'allow-pointer-lock' permission is not set."_s);
+        target->document().addConsoleMessage(MessageSource::Security, MessageLevel::Error, ASCIILiteral("Blocked pointer lock on an element because the element's frame is sandboxed and the 'allow-pointer-lock' permission is not set."));
         enqueueEvent(eventNames().pointerlockerrorEvent, target);
         return;
     }
@@ -105,7 +106,7 @@ void PointerLockController::requestPointerUnlockAndForceCursorVisible()
 void PointerLockController::elementRemoved(Element& element)
 {
     if (m_element == &element) {
-        m_documentOfRemovedElementWhileWaitingForUnlock = makeWeakPtr(m_element->document());
+        m_documentOfRemovedElementWhileWaitingForUnlock = &m_element->document();
         // Set element null immediately to block any future interaction with it
         // including mouse events received before the unlock completes.
         requestPointerUnlock();
@@ -115,11 +116,8 @@ void PointerLockController::elementRemoved(Element& element)
 
 void PointerLockController::documentDetached(Document& document)
 {
-    if (m_documentAllowedToRelockWithoutUserGesture == &document)
-        m_documentAllowedToRelockWithoutUserGesture = nullptr;
-
     if (m_element && &m_element->document() == &document) {
-        m_documentOfRemovedElementWhileWaitingForUnlock = makeWeakPtr(m_element->document());
+        m_documentOfRemovedElementWhileWaitingForUnlock = &m_element->document();
         requestPointerUnlock();
         clearElement();
     }
@@ -150,7 +148,7 @@ void PointerLockController::didAcquirePointerLock()
     enqueueEvent(eventNames().pointerlockchangeEvent, m_element.get());
     m_lockPending = false;
     m_forceCursorVisibleUponUnlock = false;
-    m_documentAllowedToRelockWithoutUserGesture = makeWeakPtr(m_element->document());
+    m_documentAllowedToRelockWithoutUserGesture = &m_element->document();
 }
 
 void PointerLockController::didNotAcquirePointerLock()
@@ -210,7 +208,7 @@ void PointerLockController::enqueueEvent(const AtomicString& type, Element* elem
 void PointerLockController::enqueueEvent(const AtomicString& type, Document* document)
 {
     if (document)
-        document->enqueueDocumentEvent(Event::create(type, Event::CanBubble::Yes, Event::IsCancelable::No));
+        document->enqueueDocumentEvent(Event::create(type, true, false));
 }
 
 } // namespace WebCore

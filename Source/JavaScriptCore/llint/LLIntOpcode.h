@@ -25,17 +25,17 @@
 
 #pragma once
 
-#if ENABLE(C_LOOP)
+#if !ENABLE(JIT)
 
 #define FOR_EACH_LLINT_NOJIT_NATIVE_HELPER(macro) \
     FOR_EACH_CLOOP_BYTECODE_HELPER_ID(macro)
 
-#else // !ENABLE(C_LOOP)
+#else // ENABLE(JIT)
 
 #define FOR_EACH_LLINT_NOJIT_NATIVE_HELPER(macro) \
-    // Nothing to do here. Use the LLInt ASM / JIT impl instead.
+    // Nothing to do here. Use the JIT impl instead.
 
-#endif // ENABLE(C_LOOP)
+#endif // !ENABLE(JIT)
 
 
 #define FOR_EACH_LLINT_NATIVE_HELPER(macro) \

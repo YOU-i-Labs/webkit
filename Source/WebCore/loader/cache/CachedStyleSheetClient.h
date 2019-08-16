@@ -31,10 +31,11 @@
 namespace WebCore {
 
 class CachedCSSStyleSheet;
+class URL;
 
 class CachedStyleSheetClient : public CachedResourceClient {
 public:
-    virtual ~CachedStyleSheetClient() = default;
+    virtual ~CachedStyleSheetClient() { }
     static CachedResourceClientType expectedType() { return StyleSheetType; }
     CachedResourceClientType resourceClientType() const override { return expectedType(); }
     virtual void setCSSStyleSheet(const String& /* href */, const URL& /* baseURL */, const String& /* charset */, const CachedCSSStyleSheet*) { }

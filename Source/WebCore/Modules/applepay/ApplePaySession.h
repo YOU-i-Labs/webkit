@@ -31,7 +31,6 @@
 #include "ApplePayPaymentRequest.h"
 #include "EventTarget.h"
 #include "ExceptionOr.h"
-#include "PaymentSession.h"
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
@@ -48,6 +47,7 @@ class Payment;
 class PaymentContact;
 class PaymentCoordinator;
 class PaymentMethod;
+class URL;
 enum class PaymentAuthorizationStatus;
 struct ApplePayLineItem;
 struct ApplePayPaymentRequest;
@@ -57,7 +57,7 @@ struct ApplePayPaymentMethodUpdate;
 struct ApplePayShippingContactUpdate;
 struct ApplePayShippingMethodUpdate;
 
-class ApplePaySession final : public PaymentSession, public ActiveDOMObject, public EventTargetWithInlineData {
+class ApplePaySession final : public RefCounted<ApplePaySession>, public ActiveDOMObject, public EventTargetWithInlineData {
 public:
     static ExceptionOr<Ref<ApplePaySession>> create(Document&, unsigned version, ApplePayPaymentRequest&&);
     virtual ~ApplePaySession();
@@ -90,13 +90,20 @@ public:
     ExceptionOr<void> completePaymentMethodSelection(ApplePayLineItem&& newTotal, Vector<ApplePayLineItem>&& newLineItems);
     ExceptionOr<void> completePayment(unsigned short status);
 
-    const ApplePaySessionPaymentRequest& paymentRequest() const { return m_paymentRequest; }
+    const PaymentRequest& paymentRequest() const { return m_paymentRequest; }
 
-    using PaymentSession::ref;
-    using PaymentSession::deref;
+    void validateMerchant(const URL&);
+    void didAuthorizePayment(const Payment&);
+    void didSelectShippingMethod(const PaymentRequest::ShippingMethod&);
+    void didSelectShippingContact(const PaymentContact&);
+    void didSelectPaymentMethod(const PaymentMethod&);
+    void didCancelPaymentSession();
+
+    using RefCounted<ApplePaySession>::ref;
+    using RefCounted<ApplePaySession>::deref;
 
 private:
-    ApplePaySession(Document&, unsigned version, ApplePaySessionPaymentRequest&&);
+    ApplePaySession(Document&, PaymentRequest&&);
 
     // ActiveDOMObject.
     const char* activeDOMObjectName() const override;
@@ -108,15 +115,6 @@ private:
     ScriptExecutionContext* scriptExecutionContext() const override { return ActiveDOMObject::scriptExecutionContext(); }
     void refEventTarget() override { ref(); }
     void derefEventTarget() override { deref(); }
-
-    // PaymentSession
-    unsigned version() const override;
-    void validateMerchant(URL&&) override;
-    void didAuthorizePayment(const Payment&) override;
-    void didSelectShippingMethod(const ApplePaySessionPaymentRequest::ShippingMethod&) override;
-    void didSelectShippingContact(const PaymentContact&) override;
-    void didSelectPaymentMethod(const PaymentMethod&) override;
-    void didCancelPaymentSession() override;
 
     PaymentCoordinator& paymentCoordinator() const;
 
@@ -153,8 +151,7 @@ private:
         ValidationComplete,
     } m_merchantValidationState { MerchantValidationState::Idle };
 
-    const ApplePaySessionPaymentRequest m_paymentRequest;
-    unsigned m_version;
+    const PaymentRequest m_paymentRequest;
 };
 
 }

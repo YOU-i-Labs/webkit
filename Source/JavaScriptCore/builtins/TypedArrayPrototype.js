@@ -43,7 +43,7 @@ function typedArraySpeciesConstructor(value)
         @throwTypeError("|this|.constructor is not an Object or undefined");
 
     constructor = constructor.@speciesSymbol;
-    if (@isUndefinedOrNull(constructor))
+    if (constructor == null)
         return @typedArrayGetOriginalConstructor(value);
     // The lack of an @isConstructor(constructor) check here is not observable because
     // the first thing we will do with the value is attempt to construct the result with it.
@@ -339,8 +339,8 @@ function map(callback /*, thisArg */)
     if (constructor === @undefined)
         result = new (@typedArrayGetOriginalConstructor(this))(length);
     else {
-        var speciesConstructor = constructor.@speciesSymbol;
-        if (@isUndefinedOrNull(speciesConstructor))
+        var speciesConstructor = @Object(constructor).@speciesSymbol;
+        if (speciesConstructor === null || speciesConstructor === @undefined)
             result = new (@typedArrayGetOriginalConstructor(this))(length);
         else {
             result = new speciesConstructor(length);
@@ -380,8 +380,8 @@ function filter(callback /*, thisArg */)
     if (constructor === @undefined)
         result = new (@typedArrayGetOriginalConstructor(this))(resultLength);
     else {
-        var speciesConstructor = constructor.@speciesSymbol;
-        if (@isUndefinedOrNull(speciesConstructor))
+        var speciesConstructor = @Object(constructor).@speciesSymbol;
+        if (speciesConstructor === null || speciesConstructor === @undefined)
             result = new (@typedArrayGetOriginalConstructor(this))(resultLength);
         else {
             result = new speciesConstructor(resultLength);
@@ -396,7 +396,7 @@ function filter(callback /*, thisArg */)
     return result;
 }
 
-function toLocaleString(/* locale, options */)
+function toLocaleString()
 {
     "use strict";
 
@@ -405,9 +405,9 @@ function toLocaleString(/* locale, options */)
     if (length == 0)
         return "";
 
-    var string = this[0].toLocaleString(@argument(0), @argument(1));
+    var string = this[0].toLocaleString();
     for (var i = 1; i < length; i++)
-        string += "," + this[i].toLocaleString(@argument(0), @argument(1));
+        string += "," + this[i].toLocaleString();
 
     return string;
 }

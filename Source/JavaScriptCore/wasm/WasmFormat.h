@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,7 +34,6 @@
 #include "RegisterAtOffsetList.h"
 #include "WasmMemoryInformation.h"
 #include "WasmName.h"
-#include "WasmNameSection.h"
 #include "WasmOps.h"
 #include "WasmPageCount.h"
 #include "WasmSignature.h"
@@ -45,14 +44,13 @@
 
 namespace JSC {
 
+class JSFunction;
+
 namespace B3 {
 class Compilation;
 }
 
 namespace Wasm {
-
-struct CompilationContext;
-struct ModuleInformation;
 
 inline bool isValueType(Type type)
 {
@@ -140,10 +138,9 @@ struct Global {
     uint64_t initialBitsOrImportNumber { 0 };
 };
 
-struct FunctionData {
+struct FunctionLocationInBinary {
     size_t start;
     size_t end;
-    Vector<uint8_t> data;
 };
 
 class I32InitExpr {
@@ -212,7 +209,7 @@ public:
         ASSERT(!*this);
     }
 
-    TableInformation(uint32_t initial, Optional<uint32_t> maximum, bool isImport)
+    TableInformation(uint32_t initial, std::optional<uint32_t> maximum, bool isImport)
         : m_initial(initial)
         , m_maximum(maximum)
         , m_isImport(isImport)
@@ -224,11 +221,11 @@ public:
     explicit operator bool() const { return m_isValid; }
     bool isImport() const { return m_isImport; }
     uint32_t initial() const { return m_initial; }
-    Optional<uint32_t> maximum() const { return m_maximum; }
+    std::optional<uint32_t> maximum() const { return m_maximum; }
 
 private:
     uint32_t m_initial;
-    Optional<uint32_t> m_maximum;
+    std::optional<uint32_t> m_maximum;
     bool m_isImport { false };
     bool m_isValid { false };
 };
@@ -239,7 +236,6 @@ struct CustomSection {
 };
 
 enum class NameType : uint8_t {
-    Module = 0,
     Function = 1,
     Local = 2,
 };
@@ -248,16 +244,23 @@ template<typename Int>
 inline bool isValidNameType(Int val)
 {
     switch (val) {
-    case static_cast<Int>(NameType::Module):
     case static_cast<Int>(NameType::Function):
     case static_cast<Int>(NameType::Local):
         return true;
     }
     return false;
 }
+    
+struct NameSection {
+    Vector<Name> functionNames;
+    const Name* get(size_t functionIndexSpace)
+    {
+        return functionIndexSpace < functionNames.size() ? &functionNames[functionIndexSpace] : nullptr;
+    }
+};
 
 struct UnlinkedWasmToWasmCall {
-    CodeLocationNearCall<WasmEntryPtrTag> callLocation;
+    CodeLocationNearCall callLocation;
     size_t functionIndexSpace;
 };
 
@@ -267,23 +270,35 @@ struct Entrypoint {
 };
 
 struct InternalFunction {
-    CodeLocationDataLabelPtr<WasmEntryPtrTag> calleeMoveLocation;
+    CodeLocationDataLabelPtr calleeMoveLocation;
     Entrypoint entrypoint;
 };
 
-// WebAssembly direct calls and call_indirect use indices into "function index space". This space starts
-// with all imports, and then all internal functions. WasmToWasmImportableFunction and FunctionIndexSpace are only
-// meant as fast lookup tables for these opcodes and do not own code.
-struct WasmToWasmImportableFunction {
-    using LoadLocation = MacroAssemblerCodePtr<WasmEntryPtrTag>*;
-    static ptrdiff_t offsetOfSignatureIndex() { return OBJECT_OFFSETOF(WasmToWasmImportableFunction, signatureIndex); }
-    static ptrdiff_t offsetOfEntrypointLoadLocation() { return OBJECT_OFFSETOF(WasmToWasmImportableFunction, entrypointLoadLocation); }
-
-    // FIXME: Pack signature index and code pointer into one 64-bit value. See <https://bugs.webkit.org/show_bug.cgi?id=165511>.
-    SignatureIndex signatureIndex { Signature::invalidIndex };
-    LoadLocation entrypointLoadLocation;
+struct WasmExitStubs {
+    MacroAssemblerCodeRef wasmToJs;
+    MacroAssemblerCodeRef wasmToWasm;
 };
-using FunctionIndexSpace = Vector<WasmToWasmImportableFunction>;
+
+typedef void** WasmEntrypointLoadLocation;
+
+// WebAssembly direct calls and call_indirect use indices into "function index space". This space starts with all imports, and then all internal functions.
+// CallableFunction and FunctionIndexSpace are only meant as fast lookup tables for these opcodes, and do not own code.
+struct CallableFunction {
+    CallableFunction() = default;
+
+    CallableFunction(SignatureIndex signatureIndex, WasmEntrypointLoadLocation code = nullptr)
+        : signatureIndex(signatureIndex)
+        , code(code)
+    {
+    }
+
+    static ptrdiff_t offsetOfWasmEntrypointLoadLocation() { return OBJECT_OFFSETOF(CallableFunction, code); }
+
+    // FIXME pack the SignatureIndex and the code pointer into one 64-bit value. https://bugs.webkit.org/show_bug.cgi?id=165511
+    SignatureIndex signatureIndex { Signature::invalidIndex };
+    WasmEntrypointLoadLocation code { nullptr };
+};
+typedef Vector<CallableFunction> FunctionIndexSpace;
 
 } } // namespace JSC::Wasm
 

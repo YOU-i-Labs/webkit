@@ -50,7 +50,9 @@ AccessibilityListBoxOption::AccessibilityListBoxOption()
 {
 }
 
-AccessibilityListBoxOption::~AccessibilityListBoxOption() = default;
+AccessibilityListBoxOption::~AccessibilityListBoxOption()
+{
+}    
     
 Ref<AccessibilityListBoxOption> AccessibilityListBoxOption::create()
 {
@@ -175,9 +177,6 @@ void AccessibilityListBoxOption::setSelected(bool selected)
         return;
     
     if (!canSetSelectedAttribute())
-        return;
-    
-    if (selected && dispatchAccessibilityEventWithType(AccessibilityEventType::Select))
         return;
     
     bool isOptionSelected = isSelected();

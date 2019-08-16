@@ -48,12 +48,7 @@ std::unique_ptr<PlatformDisplay> PlatformDisplayX11::create()
     if (!display)
         return nullptr;
 
-    return std::unique_ptr<PlatformDisplayX11>(new PlatformDisplayX11(display, NativeDisplayOwned::Yes));
-}
-
-std::unique_ptr<PlatformDisplay> PlatformDisplayX11::create(Display* display)
-{
-    return std::unique_ptr<PlatformDisplayX11>(new PlatformDisplayX11(display, NativeDisplayOwned::No));
+    return std::make_unique<PlatformDisplayX11>(display, NativeDisplayOwned::Yes);
 }
 
 PlatformDisplayX11::PlatformDisplayX11(Display* display, NativeDisplayOwned displayOwned)
@@ -103,7 +98,7 @@ bool PlatformDisplayX11::supportsXComposite() const
     return m_supportsXComposite.value();
 }
 
-bool PlatformDisplayX11::supportsXDamage(Optional<int>& damageEventBase, Optional<int>& damageErrorBase) const
+bool PlatformDisplayX11::supportsXDamage(std::optional<int>& damageEventBase, std::optional<int>& damageErrorBase) const
 {
     if (!m_supportsXDamage) {
         m_supportsXDamage = false;

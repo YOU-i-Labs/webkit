@@ -23,13 +23,15 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.HeapSnapshotRootPath = class HeapSnapshotRootPath
+WebInspector.HeapSnapshotRootPath = class HeapSnapshotRootPath extends WebInspector.Object
 {
     constructor(node, pathComponent, parent, isGlobalScope)
     {
-        console.assert(!node || node instanceof WI.HeapSnapshotNodeProxy);
+        super();
+
+        console.assert(!node || node instanceof WebInspector.HeapSnapshotNodeProxy);
         console.assert(!pathComponent || typeof pathComponent === "string");
-        console.assert(!parent || parent instanceof WI.HeapSnapshotRootPath);
+        console.assert(!parent || parent instanceof WebInspector.HeapSnapshotRootPath);
 
         this._node = node || null;
         this._parent = parent || null;
@@ -45,19 +47,19 @@ WI.HeapSnapshotRootPath = class HeapSnapshotRootPath
 
     static emptyPath()
     {
-        return new WI.HeapSnapshotRootPath(null);
+        return new WebInspector.HeapSnapshotRootPath(null);
     }
 
     static pathComponentForIndividualEdge(edge)
     {
         switch (edge.type) {
-        case WI.HeapSnapshotEdgeProxy.EdgeType.Internal:
+        case WebInspector.HeapSnapshotEdgeProxy.EdgeType.Internal:
             return null;
-        case WI.HeapSnapshotEdgeProxy.EdgeType.Index:
+        case WebInspector.HeapSnapshotEdgeProxy.EdgeType.Index:
             return "[" + edge.data + "]";
-        case WI.HeapSnapshotEdgeProxy.EdgeType.Property:
-        case WI.HeapSnapshotEdgeProxy.EdgeType.Variable:
-            if (WI.HeapSnapshotRootPath.canPropertyNameBeDotAccess(edge.data))
+        case WebInspector.HeapSnapshotEdgeProxy.EdgeType.Property:
+        case WebInspector.HeapSnapshotEdgeProxy.EdgeType.Variable:
+            if (WebInspector.HeapSnapshotRootPath.canPropertyNameBeDotAccess(edge.data))
                 return edge.data;
             return "[" + doubleQuotedString(edge.data) + "]";
         }
@@ -124,19 +126,19 @@ WI.HeapSnapshotRootPath = class HeapSnapshotRootPath
 
     appendInternal(node)
     {
-        return new WI.HeapSnapshotRootPath(node, WI.HeapSnapshotRootPath.SpecialPathComponent.InternalPropertyName, this);
+        return new WebInspector.HeapSnapshotRootPath(node, WebInspector.HeapSnapshotRootPath.SpecialPathComponent.InternalPropertyName, this);
     }
 
     appendArrayIndex(node, index)
     {
         let component = "[" + index + "]";
-        return new WI.HeapSnapshotRootPath(node, component, this);
+        return new WebInspector.HeapSnapshotRootPath(node, component, this);
     }
 
     appendPropertyName(node, propertyName)
     {
-        let component = WI.HeapSnapshotRootPath.canPropertyNameBeDotAccess(propertyName) ? "." + propertyName : "[" + doubleQuotedString(propertyName) + "]";
-        return new WI.HeapSnapshotRootPath(node, component, this);
+        let component = WebInspector.HeapSnapshotRootPath.canPropertyNameBeDotAccess(propertyName) ? "." + propertyName : "[" + doubleQuotedString(propertyName) + "]";
+        return new WebInspector.HeapSnapshotRootPath(node, component, this);
     }
 
     appendVariableName(node, variableName)
@@ -144,26 +146,26 @@ WI.HeapSnapshotRootPath = class HeapSnapshotRootPath
         // Treat as a property of the global object, e.g. "window.foo".
         if (this._isGlobalScope)
             return this.appendPropertyName(node, variableName);
-        return new WI.HeapSnapshotRootPath(node, variableName, this);
+        return new WebInspector.HeapSnapshotRootPath(node, variableName, this);
     }
 
     appendGlobalScopeName(node, globalScopeName)
     {
-        return new WI.HeapSnapshotRootPath(node, globalScopeName, this, true);
+        return new WebInspector.HeapSnapshotRootPath(node, globalScopeName, this, true);
     }
 
     appendEdge(edge)
     {
-        console.assert(edge instanceof WI.HeapSnapshotEdgeProxy);
+        console.assert(edge instanceof WebInspector.HeapSnapshotEdgeProxy);
 
         switch (edge.type) {
-        case WI.HeapSnapshotEdgeProxy.EdgeType.Internal:
+        case WebInspector.HeapSnapshotEdgeProxy.EdgeType.Internal:
             return this.appendInternal(edge.to);
-        case WI.HeapSnapshotEdgeProxy.EdgeType.Index:
+        case WebInspector.HeapSnapshotEdgeProxy.EdgeType.Index:
             return this.appendArrayIndex(edge.to, edge.data);
-        case WI.HeapSnapshotEdgeProxy.EdgeType.Property:
+        case WebInspector.HeapSnapshotEdgeProxy.EdgeType.Property:
             return this.appendPropertyName(edge.to, edge.data);
-        case WI.HeapSnapshotEdgeProxy.EdgeType.Variable:
+        case WebInspector.HeapSnapshotEdgeProxy.EdgeType.Variable:
             return this.appendVariableName(edge.to, edge.data);
         }
 
@@ -171,6 +173,6 @@ WI.HeapSnapshotRootPath = class HeapSnapshotRootPath
     }
 };
 
-WI.HeapSnapshotRootPath.SpecialPathComponent = {
+WebInspector.HeapSnapshotRootPath.SpecialPathComponent = {
     InternalPropertyName: "@internal",
 };

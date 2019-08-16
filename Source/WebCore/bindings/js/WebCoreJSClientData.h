@@ -24,6 +24,7 @@
 #include "DOMWrapperWorld.h"
 #include "WebCoreBuiltinNames.h"
 #include "WebCoreJSBuiltins.h"
+#include "WebCoreTypedArrayController.h"
 #include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
 
@@ -59,10 +60,8 @@ public:
     WebCoreBuiltinNames& builtinNames() { return m_builtinNames; }
     JSBuiltinFunctions& builtinFunctions() { return m_builtinFunctions; }
     
-    JSC::IsoSubspace& runtimeMethodSpace() { return m_runtimeMethodSpace; }
-    
-    JSC::CompleteSubspace& outputConstraintSpace() { return m_outputConstraintSpace; }
-    JSC::CompleteSubspace& globalObjectOutputConstraintSpace() { return m_globalObjectOutputConstraintSpace; }
+    JSC::Subspace& outputConstraintSpace() { return m_outputConstraintSpace; }
+    JSC::Subspace& globalObjectOutputConstraintSpace() { return m_globalObjectOutputConstraintSpace; }
     
     template<typename Func>
     void forEachOutputConstraintSpace(const Func& func)
@@ -78,10 +77,8 @@ private:
     JSBuiltinFunctions m_builtinFunctions;
     WebCoreBuiltinNames m_builtinNames;
     
-    JSC::IsoSubspace m_runtimeMethodSpace;
-    
-    JSC::CompleteSubspace m_outputConstraintSpace;
-    JSC::CompleteSubspace m_globalObjectOutputConstraintSpace;
+    JSC::JSDestructibleObjectSubspace m_outputConstraintSpace;
+    JSC::JSSegmentedVariableObjectSubspace m_globalObjectOutputConstraintSpace;
 };
 
 } // namespace WebCore

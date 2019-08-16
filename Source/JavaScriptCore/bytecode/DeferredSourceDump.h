@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,6 @@
 
 #include "CodeOrigin.h"
 #include "JITCode.h"
-#include "Strong.h"
 
 namespace JSC {
 
@@ -36,15 +35,15 @@ class CodeBlock;
 class DeferredSourceDump {
 public:
     DeferredSourceDump(CodeBlock*);
-    DeferredSourceDump(CodeBlock*, CodeBlock* rootCodeBlock, JITCode::JITType rootJITType, unsigned callerBytecodeIndex);
+    DeferredSourceDump(CodeBlock*, CodeBlock* rootCodeBlock, JITCode::JITType rootJITType, CodeOrigin callerCodeOrigin);
 
     void dump();
 
 private:
-    Strong<CodeBlock> m_codeBlock;
-    Strong<CodeBlock> m_rootCodeBlock;
+    CodeBlock* m_codeBlock;
+    CodeBlock* m_rootCodeBlock;
     JITCode::JITType m_rootJITType;
-    unsigned m_callerBytecodeIndex { UINT_MAX };
+    CodeOrigin m_callerCodeOrigin;
 };
 
 } // namespace JSC

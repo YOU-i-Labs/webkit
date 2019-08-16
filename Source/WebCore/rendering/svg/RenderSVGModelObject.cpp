@@ -36,14 +36,12 @@
 #include "SVGNames.h"
 #include "SVGResourcesCache.h"
 #include "ShadowRoot.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGModelObject);
-
 RenderSVGModelObject::RenderSVGModelObject(SVGElement& element, RenderStyle&& style)
     : RenderElement(element, WTFMove(style), 0)
+    , m_hasSVGShadow(false)
 {
 }
 
@@ -52,9 +50,9 @@ LayoutRect RenderSVGModelObject::clippedOverflowRectForRepaint(const RenderLayer
     return SVGRenderSupport::clippedOverflowRectForRepaint(*this, repaintContainer);
 }
 
-Optional<FloatRect> RenderSVGModelObject::computeFloatVisibleRectInContainer(const FloatRect& rect, const RenderLayerModelObject* container, VisibleRectContext context) const
+FloatRect RenderSVGModelObject::computeFloatRectForRepaint(const FloatRect& repaintRect, const RenderLayerModelObject* repaintContainer, bool fixed) const
 {
-    return SVGRenderSupport::computeFloatVisibleRectInContainer(*this, rect, container, context);
+    return SVGRenderSupport::computeFloatRectForRepaint(*this, repaintRect, repaintContainer, fixed);
 }
 
 void RenderSVGModelObject::mapLocalToContainer(const RenderLayerModelObject* repaintContainer, TransformState& transformState, MapCoordinatesFlags, bool* wasFixed) const
@@ -99,7 +97,7 @@ void RenderSVGModelObject::willBeDestroyed()
 
 void RenderSVGModelObject::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
-    if (diff == StyleDifference::Layout) {
+    if (diff == StyleDifferenceLayout) {
         setNeedsBoundariesUpdate();
         if (style().hasTransform())
             setNeedsTransformUpdate();
@@ -117,6 +115,7 @@ bool RenderSVGModelObject::nodeAtPoint(const HitTestRequest&, HitTestResult&, co
 static void getElementCTM(SVGElement* element, AffineTransform& transform)
 {
     ASSERT(element);
+    element->document().updateLayoutIgnorePendingStylesheets();
 
     SVGElement* stopAtElement = SVGLocatable::nearestViewportElement(element);
     ASSERT(stopAtElement);
@@ -167,7 +166,7 @@ void RenderSVGModelObject::absoluteFocusRingQuads(Vector<FloatQuad>& quads)
     
 bool RenderSVGModelObject::checkIntersection(RenderElement* renderer, const FloatRect& rect)
 {
-    if (!renderer || renderer->style().pointerEvents() == PointerEvents::None)
+    if (!renderer || renderer->style().pointerEvents() == PE_NONE)
         return false;
     if (!isGraphicsElement(*renderer))
         return false;
@@ -180,7 +179,7 @@ bool RenderSVGModelObject::checkIntersection(RenderElement* renderer, const Floa
 
 bool RenderSVGModelObject::checkEnclosure(RenderElement* renderer, const FloatRect& rect)
 {
-    if (!renderer || renderer->style().pointerEvents() == PointerEvents::None)
+    if (!renderer || renderer->style().pointerEvents() == PE_NONE)
         return false;
     if (!isGraphicsElement(*renderer))
         return false;

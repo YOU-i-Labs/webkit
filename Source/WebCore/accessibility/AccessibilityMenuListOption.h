@@ -42,7 +42,7 @@ private:
 
     bool isMenuListOption() const override { return true; }
 
-    AccessibilityRole roleValue() const override { return AccessibilityRole::MenuListOption; }
+    AccessibilityRole roleValue() const override { return MenuListOptionRole; }
     bool canHaveChildren() const override { return false; }
 
     Element* actionElement() const override;

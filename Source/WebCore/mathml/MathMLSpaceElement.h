@@ -32,7 +32,6 @@
 namespace WebCore {
 
 class MathMLSpaceElement final : public MathMLPresentationElement {
-    WTF_MAKE_ISO_ALLOCATED(MathMLSpaceElement);
 public:
     static Ref<MathMLSpaceElement> create(const QualifiedName& tagName, Document&);
     const Length& width();
@@ -45,9 +44,9 @@ private:
 
     bool acceptsDisplayStyleAttribute() final { return false; }
 
-    Optional<Length> m_width;
-    Optional<Length> m_height;
-    Optional<Length> m_depth;
+    std::optional<Length> m_width;
+    std::optional<Length> m_height;
+    std::optional<Length> m_depth;
 };
 
 }

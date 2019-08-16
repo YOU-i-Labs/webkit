@@ -33,17 +33,16 @@ namespace WebCore {
 class RemoteCommandListenerClient {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    virtual ~RemoteCommandListenerClient() = default;
+    virtual ~RemoteCommandListenerClient() { }
     virtual void didReceiveRemoteControlCommand(PlatformMediaSession::RemoteControlCommandType, const PlatformMediaSession::RemoteCommandArgument*) = 0;
     virtual bool supportsSeeking() const = 0;
 };
 
 class RemoteCommandListener {
-    WTF_MAKE_FAST_ALLOCATED;
 public:
     WEBCORE_EXPORT static std::unique_ptr<RemoteCommandListener> create(RemoteCommandListenerClient&);
     RemoteCommandListener(RemoteCommandListenerClient& client) : m_client(client) { }
-    virtual ~RemoteCommandListener() = default;
+    virtual ~RemoteCommandListener() { }
 
     virtual void updateSupportedCommands() { }
 

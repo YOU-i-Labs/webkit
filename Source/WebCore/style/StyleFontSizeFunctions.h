@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "TextFlags.h"
 
 namespace WebCore {
 

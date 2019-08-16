@@ -29,7 +29,6 @@
 #include "CachedResourceLoader.h"
 #include "CachedScript.h"
 #include "ContentSecurityPolicy.h"
-#include "CrossOriginAccessControl.h"
 #include "Document.h"
 #include "Settings.h"
 
@@ -40,12 +39,12 @@ Ref<CachedScriptFetcher> CachedScriptFetcher::create(const String& charset)
     return adoptRef(*new CachedScriptFetcher(charset));
 }
 
-CachedResourceHandle<CachedScript> CachedScriptFetcher::requestModuleScript(Document& document, const URL& sourceURL, String&& integrity) const
+CachedResourceHandle<CachedScript> CachedScriptFetcher::requestModuleScript(Document& document, const URL& sourceURL) const
 {
-    return requestScriptWithCache(document, sourceURL, String { }, WTFMove(integrity));
+    return requestScriptWithCache(document, sourceURL, String());
 }
 
-CachedResourceHandle<CachedScript> CachedScriptFetcher::requestScriptWithCache(Document& document, const URL& sourceURL, const String& crossOriginMode, String&& integrity) const
+CachedResourceHandle<CachedScript> CachedScriptFetcher::requestScriptWithCache(Document& document, const URL& sourceURL, const String& crossOriginMode) const
 {
     if (!document.settings().isScriptEnabled())
         return nullptr;
@@ -55,14 +54,16 @@ CachedResourceHandle<CachedScript> CachedScriptFetcher::requestScriptWithCache(D
     ResourceLoaderOptions options = CachedResourceLoader::defaultCachedResourceOptions();
     options.contentSecurityPolicyImposition = hasKnownNonce ? ContentSecurityPolicyImposition::SkipPolicyCheck : ContentSecurityPolicyImposition::DoPolicyCheck;
     options.sameOriginDataURLFlag = SameOriginDataURLFlag::Set;
-    options.integrity = WTFMove(integrity);
 
-    auto request = createPotentialAccessControlRequest(sourceURL, document, crossOriginMode, WTFMove(options));
+    CachedResourceRequest request(ResourceRequest(sourceURL), options);
+    request.setAsPotentiallyCrossOrigin(crossOriginMode, document);
     request.upgradeInsecureRequestIfNeeded(document);
+
     request.setCharset(m_charset);
     if (!m_initiatorName.isNull())
         request.setInitiator(m_initiatorName);
-    return document.cachedResourceLoader().requestScript(WTFMove(request)).value_or(nullptr);
+
+    return document.cachedResourceLoader().requestScript(WTFMove(request));
 }
 
 }

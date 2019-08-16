@@ -40,7 +40,7 @@ class VideoTrackPrivate;
 
 class SourceBufferPrivateClient {
 public:
-    virtual ~SourceBufferPrivateClient() = default;
+    virtual ~SourceBufferPrivateClient() { }
 
     struct InitializationSegment {
         MediaTime duration;
@@ -71,7 +71,8 @@ public:
     virtual void sourceBufferPrivateReenqueSamples(const AtomicString& trackID) = 0;
     virtual void sourceBufferPrivateDidBecomeReadyForMoreSamples(const AtomicString& trackID) = 0;
 
-    virtual MediaTime sourceBufferPrivateFastSeekTimeForMediaTime(const MediaTime&, const MediaTime&, const MediaTime&) = 0;
+    virtual MediaTime sourceBufferPrivateFastSeekTimeForMediaTime(const MediaTime& time, const MediaTime&, const MediaTime&) { return time; }
+    virtual void sourceBufferPrivateSeekToTime(const MediaTime&) { };
 
     enum AppendResult { AppendSucceeded, ReadStreamFailed, ParsingFailed };
     virtual void sourceBufferPrivateAppendComplete(AppendResult) = 0;

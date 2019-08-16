@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,15 +28,15 @@
 
 #if ENABLE(APPLE_PAY)
 
+#include "ApplePaySession.h"
 #include "PaymentAuthorizationStatus.h"
 #include "PaymentCoordinatorClient.h"
-#include "PaymentSession.h"
-#include <wtf/URL.h>
+#include "URL.h"
 
 namespace WebCore {
 
 PaymentCoordinator::PaymentCoordinator(PaymentCoordinatorClient& client)
-    : m_client { client }
+    : m_client(client)
 {
 }
 
@@ -45,7 +45,7 @@ PaymentCoordinator::~PaymentCoordinator()
     m_client.paymentCoordinatorDestroyed();
 }
 
-bool PaymentCoordinator::supportsVersion(unsigned version) const
+bool PaymentCoordinator::supportsVersion(unsigned version)
 {
     return m_client.supportsVersion(version);
 }
@@ -65,7 +65,7 @@ void PaymentCoordinator::openPaymentSetup(const String& merchantIdentifier, cons
     m_client.openPaymentSetup(merchantIdentifier, domainName, WTFMove(completionHandler));
 }
 
-bool PaymentCoordinator::beginPaymentSession(PaymentSession& paymentSession, const URL& originatingURL, const Vector<URL>& linkIconURLs, const ApplePaySessionPaymentRequest& paymentRequest)
+bool PaymentCoordinator::beginPaymentSession(ApplePaySession& paymentSession, const URL& originatingURL, const Vector<URL>& linkIconURLs, const PaymentRequest& paymentRequest)
 {
     ASSERT(!m_activeSession);
 
@@ -83,28 +83,28 @@ void PaymentCoordinator::completeMerchantValidation(const PaymentMerchantSession
     m_client.completeMerchantValidation(paymentMerchantSession);
 }
 
-void PaymentCoordinator::completeShippingMethodSelection(Optional<ShippingMethodUpdate>&& update)
+void PaymentCoordinator::completeShippingMethodSelection(std::optional<ShippingMethodUpdate>&& update)
 {
     ASSERT(m_activeSession);
 
     m_client.completeShippingMethodSelection(WTFMove(update));
 }
 
-void PaymentCoordinator::completeShippingContactSelection(Optional<ShippingContactUpdate>&& update)
+void PaymentCoordinator::completeShippingContactSelection(std::optional<ShippingContactUpdate>&& update)
 {
     ASSERT(m_activeSession);
 
     m_client.completeShippingContactSelection(WTFMove(update));
 }
 
-void PaymentCoordinator::completePaymentMethodSelection(Optional<PaymentMethodUpdate>&& update)
+void PaymentCoordinator::completePaymentMethodSelection(std::optional<PaymentMethodUpdate>&& update)
 {
     ASSERT(m_activeSession);
 
     m_client.completePaymentMethodSelection(WTFMove(update));
 }
 
-void PaymentCoordinator::completePaymentSession(Optional<PaymentAuthorizationResult>&& result)
+void PaymentCoordinator::completePaymentSession(std::optional<PaymentAuthorizationResult>&& result)
 {
     ASSERT(m_activeSession);
 
@@ -133,14 +133,14 @@ void PaymentCoordinator::cancelPaymentSession()
     m_client.cancelPaymentSession();
 }
 
-void PaymentCoordinator::validateMerchant(URL&& validationURL)
+void PaymentCoordinator::validateMerchant(const URL& validationURL)
 {
     if (!m_activeSession) {
         // It's possible that the payment has been aborted already.
         return;
     }
 
-    m_activeSession->validateMerchant(WTFMove(validationURL));
+    m_activeSession->validateMerchant(validationURL);
 }
 
 void PaymentCoordinator::didAuthorizePayment(const Payment& payment)
@@ -163,7 +163,7 @@ void PaymentCoordinator::didSelectPaymentMethod(const PaymentMethod& paymentMeth
     m_activeSession->didSelectPaymentMethod(paymentMethod);
 }
 
-void PaymentCoordinator::didSelectShippingMethod(const ApplePaySessionPaymentRequest::ShippingMethod& shippingMethod)
+void PaymentCoordinator::didSelectShippingMethod(const PaymentRequest::ShippingMethod& shippingMethod)
 {
     if (!m_activeSession) {
         // It's possible that the payment has been aborted already.
@@ -194,17 +194,6 @@ void PaymentCoordinator::didCancelPaymentSession()
     m_activeSession = nullptr;
 }
 
-Optional<String> PaymentCoordinator::validatedPaymentNetwork(unsigned version, const String& paymentNetwork) const
-{
-    if (version < 2 && equalIgnoringASCIICase(paymentNetwork, "jcb"))
-        return WTF::nullopt;
-
-    if (version < 3 && equalIgnoringASCIICase(paymentNetwork, "carteBancaire"))
-        return WTF::nullopt;
-
-    return m_client.validatedPaymentNetwork(paymentNetwork);
 }
 
-} // namespace WebCore
-
-#endif // ENABLE(APPLE_PAY)
+#endif

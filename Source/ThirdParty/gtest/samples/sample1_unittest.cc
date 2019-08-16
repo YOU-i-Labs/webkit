@@ -28,6 +28,9 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // A sample program demonstrating using Google C++ testing framework.
+//
+// Author: wan@google.com (Zhanyong Wan)
+
 
 // This sample shows how to write a simple unit test for a function,
 // using Google C++ testing framework.
@@ -42,8 +45,8 @@
 
 #include <limits.h>
 #include "sample1.h"
-#include "gtest/gtest.h"
-namespace {
+#include <gtest/gtest.h>
+
 
 // Step 2. Use the TEST macro to define your tests.
 //
@@ -78,7 +81,7 @@ TEST(FactorialTest, Negative) {
   // test case.
   EXPECT_EQ(1, Factorial(-5));
   EXPECT_EQ(1, Factorial(-1));
-  EXPECT_GT(Factorial(-10), 0);
+  EXPECT_TRUE(Factorial(-10) > 0);
 
   // <TechnicalDetails>
   //
@@ -136,7 +139,6 @@ TEST(IsPrimeTest, Positive) {
   EXPECT_FALSE(IsPrime(6));
   EXPECT_TRUE(IsPrime(23));
 }
-}  // namespace
 
 // Step 3. Call RUN_ALL_TESTS() in main().
 //

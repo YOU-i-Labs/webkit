@@ -56,11 +56,9 @@ HRESULT NativeWindow11Win32::createSwapChain(ID3D11Device *device,
                                              DXGI_FORMAT format,
                                              UINT width,
                                              UINT height,
-                                             UINT samples,
                                              IDXGISwapChain **swapChain)
 {
-    if (device == nullptr || factory == nullptr || swapChain == nullptr || width == 0 ||
-        height == 0)
+    if (device == NULL || factory == NULL || swapChain == NULL || width == 0 || height == 0)
     {
         return E_INVALIDARG;
     }
@@ -154,8 +152,8 @@ HRESULT NativeWindow11Win32::createSwapChain(ID3D11Device *device,
         swapChainDesc.Height                = height;
         swapChainDesc.Format                = format;
         swapChainDesc.Stereo                = FALSE;
-        swapChainDesc.SampleDesc.Count      = samples;
-        swapChainDesc.SampleDesc.Quality    = 0;
+        swapChainDesc.SampleDesc.Count      = 1;
+        swapChainDesc.SampleDesc.Quality = 0;
         swapChainDesc.BufferUsage =
             DXGI_USAGE_RENDER_TARGET_OUTPUT | DXGI_USAGE_SHADER_INPUT | DXGI_USAGE_BACK_BUFFER;
         swapChainDesc.BufferCount   = 1;
@@ -188,7 +186,7 @@ HRESULT NativeWindow11Win32::createSwapChain(ID3D11Device *device,
         DXGI_USAGE_RENDER_TARGET_OUTPUT | DXGI_USAGE_SHADER_INPUT | DXGI_USAGE_BACK_BUFFER;
     swapChainDesc.Flags              = 0;
     swapChainDesc.OutputWindow       = getNativeWindow();
-    swapChainDesc.SampleDesc.Count   = samples;
+    swapChainDesc.SampleDesc.Count   = 1;
     swapChainDesc.SampleDesc.Quality = 0;
     swapChainDesc.Windowed           = TRUE;
     swapChainDesc.SwapEffect         = DXGI_SWAP_EFFECT_DISCARD;

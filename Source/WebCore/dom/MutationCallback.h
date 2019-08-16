@@ -30,24 +30,21 @@
 
 #pragma once
 
-#include "ActiveDOMCallback.h"
-#include "CallbackResult.h"
-#include <wtf/Forward.h>
-#include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
+#include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
 class MutationRecord;
 class MutationObserver;
 
-class MutationCallback : public RefCounted<MutationCallback>, public ActiveDOMCallback {
+class MutationCallback : public RefCounted<MutationCallback> {
 public:
-    using ActiveDOMCallback::ActiveDOMCallback;
+    virtual ~MutationCallback() { }
 
-    virtual bool hasCallback() const = 0;
-
-    virtual CallbackResult<void> handleEvent(MutationObserver&, const Vector<Ref<MutationRecord>>&, MutationObserver&) = 0;
+    virtual void call(const Vector<Ref<MutationRecord>>&, MutationObserver*) = 0;
+    virtual bool canInvokeCallback() const = 0;
 };
 
 } // namespace WebCore

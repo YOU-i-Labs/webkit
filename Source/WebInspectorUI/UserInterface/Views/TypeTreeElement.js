@@ -23,16 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TypeTreeElement = class TypeTreeElement extends WI.GeneralTreeElement
+WebInspector.TypeTreeElement = class TypeTreeElement extends WebInspector.GeneralTreeElement
 {
     constructor(name, structureDescription, isPrototype)
     {
-        const classNames = null;
-        const title = null;
-        const subtitle = null;
-        super(classNames, title, subtitle, structureDescription || null);
+        super(null, null, null, structureDescription || null, false);
 
-        console.assert(!structureDescription || structureDescription instanceof WI.StructureDescription);
+        console.assert(!structureDescription || structureDescription instanceof WebInspector.StructureDescription);
 
         this._name = name;
         this._structureDescription = structureDescription || null;
@@ -46,7 +43,7 @@ WI.TypeTreeElement = class TypeTreeElement extends WI.GeneralTreeElement
         this.tooltipHandledSeparately = true;
         this.hasChildren = structureDescription;
 
-        var displayName = this._isPrototype ? WI.UIString("%s Prototype").format(name.replace(/Prototype$/, "")) : name;
+        var displayName = this._isPrototype ? WebInspector.UIString("%s Prototype").format(name.replace(/Prototype$/, "")) : name;
         var nameElement = document.createElement("span");
         nameElement.classList.add("type-name");
         nameElement.textContent = displayName;
@@ -85,7 +82,7 @@ WI.TypeTreeElement = class TypeTreeElement extends WI.GeneralTreeElement
                 continue;
             properties.push({name});
         }
-        properties.sort(WI.ObjectTreeView.comparePropertyDescriptors);
+        properties.sort(WebInspector.ObjectTreeView.comparePropertyDescriptors);
 
         var optionalProperties = [];
         for (var name of this._structureDescription.optionalFields) {
@@ -94,28 +91,28 @@ WI.TypeTreeElement = class TypeTreeElement extends WI.GeneralTreeElement
                 continue;
             optionalProperties.push({name: name + "?"});
         }
-        optionalProperties.sort(WI.ObjectTreeView.comparePropertyDescriptors);
+        optionalProperties.sort(WebInspector.ObjectTreeView.comparePropertyDescriptors);
 
         for (var property of properties)
-            this.appendChild(new WI.TypeTreeElement(property.name, null));
+            this.appendChild(new WebInspector.TypeTreeElement(property.name, null));
         for (var property of optionalProperties)
-            this.appendChild(new WI.TypeTreeElement(property.name, null));
+            this.appendChild(new WebInspector.TypeTreeElement(property.name, null));
 
         if (this._structureDescription.imprecise) {
-            var truncatedMessageElement = WI.ObjectTreeView.createEmptyMessageElement(ellipsis);
-            this.appendChild(new WI.TreeElement(truncatedMessageElement, null, false));
+            var truncatedMessageElement = WebInspector.ObjectTreeView.createEmptyMessageElement(ellipsis);
+            this.appendChild(new WebInspector.TreeElement(truncatedMessageElement, null, false));
         }
 
         if (!this.children.length) {
-            var emptyMessageElement = WI.ObjectTreeView.createEmptyMessageElement(WI.UIString("No Properties"));
-            this.appendChild(new WI.TreeElement(emptyMessageElement, null, false));
+            var emptyMessageElement = WebInspector.ObjectTreeView.createEmptyMessageElement(WebInspector.UIString("No Properties"));
+            this.appendChild(new WebInspector.TreeElement(emptyMessageElement, null, false));
         }
 
         console.assert(this.children.length > 0);
 
         var prototypeStructure = this._structureDescription.prototypeStructure;
         if (prototypeStructure)
-            this.appendChild(new WI.TypeTreeElement(prototypeStructure.constructorName, prototypeStructure, true));
+            this.appendChild(new WebInspector.TypeTreeElement(prototypeStructure.constructorName, prototypeStructure, true));
     }
 
     onexpand()

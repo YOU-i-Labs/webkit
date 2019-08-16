@@ -24,51 +24,51 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ProbeSetDetailsSection = class ProbeSetDetailsSection extends WI.DetailsSection
+WebInspector.ProbeSetDetailsSection = class ProbeSetDetailsSection extends WebInspector.DetailsSection
 {
     constructor(probeSet)
     {
-        console.assert(probeSet instanceof WI.ProbeSet, "Invalid ProbeSet argument:", probeSet);
+        console.assert(probeSet instanceof WebInspector.ProbeSet, "Invalid ProbeSet argument:", probeSet);
 
         var optionsElement = document.createElement("div");
-        var dataGrid = new WI.ProbeSetDataGrid(probeSet);
+        var dataGrid = new WebInspector.ProbeSetDataGrid(probeSet);
 
-        var singletonRow = new WI.DetailsSectionRow;
+        var singletonRow = new WebInspector.DetailsSectionRow;
         singletonRow.element.appendChild(dataGrid.element);
 
-        var probeSectionGroup = new WI.DetailsSectionGroup([singletonRow]);
+        var probeSectionGroup = new WebInspector.DetailsSectionGroup([singletonRow]);
 
         super("probe", "", [probeSectionGroup], optionsElement);
 
         this.element.classList.add("probe-set");
 
-        this._listenerSet = new WI.EventListenerSet(this, "ProbeSetDetailsSection UI listeners");
+        this._listenerSet = new WebInspector.EventListenerSet(this, "ProbeSetDetailsSection UI listeners");
         this._probeSet = probeSet;
         this._dataGrid = dataGrid;
 
-        this._navigationBar = new WI.NavigationBar;
+        this._navigationBar = new WebInspector.NavigationBar;
         this._optionsElement.appendChild(this._navigationBar.element);
 
-        this._addProbeButtonItem = new WI.ButtonNavigationItem("add-probe", WI.UIString("Add probe expression"), "Images/Plus13.svg", 13, 13);
-        this._addProbeButtonItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._addProbeButtonClicked, this);
+        this._addProbeButtonItem = new WebInspector.ButtonNavigationItem("add-probe", WebInspector.UIString("Add probe expression"), "Images/Plus13.svg", 13, 13);
+        this._addProbeButtonItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._addProbeButtonClicked, this);
         this._navigationBar.addNavigationItem(this._addProbeButtonItem);
 
-        this._clearSamplesButtonItem = new WI.ButtonNavigationItem("clear-samples", WI.UIString("Clear samples"), "Images/NavigationItemTrash.svg", 15, 15);
-        this._clearSamplesButtonItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._clearSamplesButtonClicked, this);
+        this._clearSamplesButtonItem = new WebInspector.ButtonNavigationItem("clear-samples", WebInspector.UIString("Clear samples"), "Images/NavigationItemTrash.svg", 14, 14);
+        this._clearSamplesButtonItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._clearSamplesButtonClicked, this);
         this._clearSamplesButtonItem.enabled = this._probeSetHasSamples();
         this._navigationBar.addNavigationItem(this._clearSamplesButtonItem);
 
-        this._removeProbeButtonItem = new WI.ButtonNavigationItem("remove-probe", WI.UIString("Remove probe"), "Images/CloseLarge.svg", 12, 12);
-        this._removeProbeButtonItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._removeProbeButtonClicked, this);
+        this._removeProbeButtonItem = new WebInspector.ButtonNavigationItem("remove-probe", WebInspector.UIString("Remove probe"), "Images/CloseLarge.svg", 12, 12);
+        this._removeProbeButtonItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._removeProbeButtonClicked, this);
         this._navigationBar.addNavigationItem(this._removeProbeButtonItem);
 
-        this._listenerSet.register(this._probeSet, WI.ProbeSet.Event.SampleAdded, this._probeSetSamplesChanged);
-        this._listenerSet.register(this._probeSet, WI.ProbeSet.Event.SamplesCleared, this._probeSetSamplesChanged);
+        this._listenerSet.register(this._probeSet, WebInspector.ProbeSet.Event.SampleAdded, this._probeSetSamplesChanged);
+        this._listenerSet.register(this._probeSet, WebInspector.ProbeSet.Event.SamplesCleared, this._probeSetSamplesChanged);
 
         // Update the source link when the breakpoint's resolved state changes,
         // so that it can become a live location link when possible.
         this._updateLinkElement();
-        this._listenerSet.register(this._probeSet.breakpoint, WI.Breakpoint.Event.ResolvedStateDidChange, this._updateLinkElement);
+        this._listenerSet.register(this._probeSet.breakpoint, WebInspector.Breakpoint.Event.ResolvedStateDidChange, this._updateLinkElement);
 
         this._listenerSet.install();
     }
@@ -100,15 +100,15 @@ WI.ProbeSetDetailsSection = class ProbeSetDetailsSection extends WI.DetailsSecti
 
         var breakpoint = this._probeSet.breakpoint;
         if (breakpoint.sourceCodeLocation.sourceCode)
-            this.titleElement = WI.createSourceCodeLocationLink(breakpoint.sourceCodeLocation, options);
+            this.titleElement = WebInspector.createSourceCodeLocationLink(breakpoint.sourceCodeLocation, options);
         else {
             // Fallback for when we can't create a live source link.
             console.assert(!breakpoint.resolved);
 
-            this.titleElement = WI.linkifyLocation(breakpoint.contentIdentifier, breakpoint.sourceCodeLocation.position, options);
+            this.titleElement = WebInspector.linkifyLocation(breakpoint.contentIdentifier, breakpoint.sourceCodeLocation.position, options);
         }
 
-        this.titleElement.classList.add(WI.ProbeSetDetailsSection.DontFloatLinkStyleClassName);
+        this.titleElement.classList.add(WebInspector.ProbeSetDetailsSection.DontFloatLinkStyleClassName);
     }
 
     _addProbeButtonClicked(event)
@@ -122,21 +122,21 @@ WI.ProbeSetDetailsSection = class ProbeSetDetailsSection extends WI.DetailsSecti
             visiblePopover.dismiss();
         }
 
-        let popover = new WI.Popover;
+        let popover = new WebInspector.Popover;
         let content = document.createElement("div");
-        content.classList.add(WI.ProbeSetDetailsSection.ProbePopoverElementStyleClassName);
-        content.createChild("div").textContent = WI.UIString("Add New Probe Expression");
+        content.classList.add(WebInspector.ProbeSetDetailsSection.ProbePopoverElementStyleClassName);
+        content.createChild("div").textContent = WebInspector.UIString("Add New Probe Expression");
         let textBox = content.createChild("input");
         textBox.addEventListener("keypress", createProbeFromEnteredExpression.bind(this, popover));
         textBox.addEventListener("click", function (event) { event.target.select(); });
         textBox.type = "text";
-        textBox.placeholder = WI.UIString("Expression");
+        textBox.placeholder = WebInspector.UIString("Expression");
         popover.content = content;
-        let target = WI.Rect.rectFromClientRect(event.target.element.getBoundingClientRect());
-        popover.present(target, [WI.RectEdge.MAX_Y, WI.RectEdge.MIN_Y, WI.RectEdge.MAX_X]);
+        let target = WebInspector.Rect.rectFromClientRect(event.target.element.getBoundingClientRect());
+        popover.present(target, [WebInspector.RectEdge.MAX_Y, WebInspector.RectEdge.MIN_Y, WebInspector.RectEdge.MAX_X]);
         popover.windowResizeHandler = () => {
-            let target = WI.Rect.rectFromClientRect(event.target.element.getBoundingClientRect());
-            popover.present(target, [WI.RectEdge.MAX_Y, WI.RectEdge.MIN_Y, WI.RectEdge.MAX_X]);
+            let target = WebInspector.Rect.rectFromClientRect(event.target.element.getBoundingClientRect());
+            popover.present(target, [WebInspector.RectEdge.MAX_Y, WebInspector.RectEdge.MIN_Y, WebInspector.RectEdge.MAX_X]);
         };
         textBox.select();
     }
@@ -162,5 +162,5 @@ WI.ProbeSetDetailsSection = class ProbeSetDetailsSection extends WI.DetailsSecti
     }
 };
 
-WI.ProbeSetDetailsSection.DontFloatLinkStyleClassName = "dont-float";
-WI.ProbeSetDetailsSection.ProbePopoverElementStyleClassName = "probe-popover";
+WebInspector.ProbeSetDetailsSection.DontFloatLinkStyleClassName = "dont-float";
+WebInspector.ProbeSetDetailsSection.ProbePopoverElementStyleClassName = "probe-popover";

@@ -24,7 +24,7 @@
 
 #include "Filter.h"
 #include "GraphicsContext.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 
@@ -51,22 +51,25 @@ void FEMerge::platformApplySoftware()
     GraphicsContext& filterContext = resultImage->context();
     for (unsigned i = 0; i < size; ++i) {
         FilterEffect* in = inputEffect(i);
-        if (ImageBuffer* inBuffer = in->imageBufferResult())
+        if (ImageBuffer* inBuffer = in->asImageBuffer())
             filterContext.drawImageBuffer(*inBuffer, drawingRegionOfInputImage(in->absolutePaintRect()));
     }
 }
 
-TextStream& FEMerge::externalRepresentation(TextStream& ts, RepresentationType representation) const
+void FEMerge::dump()
 {
-    ts << indent << "[feMerge";
-    FilterEffect::externalRepresentation(ts, representation);
+}
+
+TextStream& FEMerge::externalRepresentation(TextStream& ts, int indent) const
+{
+    writeIndent(ts, indent);
+    ts << "[feMerge";
+    FilterEffect::externalRepresentation(ts);
     unsigned size = numberOfEffectInputs();
     ASSERT(size > 0);
     ts << " mergeNodes=\"" << size << "\"]\n";
-
-    TextStream::IndentScope indentScope(ts);
     for (unsigned i = 0; i < size; ++i)
-        inputEffect(i)->externalRepresentation(ts, representation);
+        inputEffect(i)->externalRepresentation(ts, indent + 1);
     return ts;
 }
 

@@ -53,11 +53,11 @@ public:
     void columnHeaders(AccessibilityChildrenVector&);
     void rowHeaders(AccessibilityChildrenVector&);
     
-    int axColumnIndex() const;
-    int axRowIndex() const;
-    int axColumnSpan() const;
-    int axRowSpan() const;
-    void setAXColIndexFromRow(int index) { m_axColIndexFromRow = index; }
+    int ariaColumnIndex() const;
+    int ariaRowIndex() const;
+    int ariaColumnSpan() const;
+    int ariaRowSpan() const;
+    void setARIAColIndexFromRow(int index) { m_ariaColIndexFromRow = index; }
 
 protected:
     explicit AccessibilityTableCell(RenderObject*);
@@ -67,7 +67,7 @@ protected:
     AccessibilityRole determineAccessibilityRole() final;
 
     int m_rowIndex;
-    int m_axColIndexFromRow;
+    int m_ariaColIndexFromRow;
 
 private:
     // If a table cell is not exposed as a table cell, a TH element can serve as its title UI element.

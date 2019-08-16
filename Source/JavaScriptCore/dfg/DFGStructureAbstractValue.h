@@ -30,7 +30,7 @@
 #include "DFGRegisteredStructureSet.h"
 #include "DFGTransition.h"
 #include "DumpContext.h"
-#include "JSCast.h"
+#include "JSCell.h"
 #include "SpeculatedType.h"
 #include "StructureSet.h"
 

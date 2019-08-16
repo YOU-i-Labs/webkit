@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "IntSize.h"
 #include "TiledBacking.h"
 #include <wtf/Forward.h>
 
@@ -48,16 +49,16 @@ enum GraphicsLayerPaintingPhaseFlags {
     GraphicsLayerPaintChildClippingMask     = 1 << 6,
     GraphicsLayerPaintAllWithOverflowClip   = GraphicsLayerPaintBackground | GraphicsLayerPaintForeground
 };
-typedef uint8_t GraphicsLayerPaintingPhase;
+typedef unsigned GraphicsLayerPaintingPhase;
 
 enum AnimatedPropertyID {
     AnimatedPropertyInvalid,
     AnimatedPropertyTransform,
     AnimatedPropertyOpacity,
     AnimatedPropertyBackgroundColor,
-    AnimatedPropertyFilter,
+    AnimatedPropertyFilter
 #if ENABLE(FILTERS_LEVEL_2)
-    AnimatedPropertyWebkitBackdropFilter,
+    , AnimatedPropertyWebkitBackdropFilter
 #endif
 };
 
@@ -72,25 +73,19 @@ enum LayerTreeAsTextBehaviorFlags {
     LayerTreeAsTextIncludePageOverlayLayers     = 1 << 6,
     LayerTreeAsTextIncludeAcceleratesDrawing    = 1 << 7,
     LayerTreeAsTextIncludeBackingStoreAttached  = 1 << 8,
-    LayerTreeAsTextShowAll                      = 0xFFFF
 };
 typedef unsigned LayerTreeAsTextBehavior;
 
-enum GraphicsLayerPaintFlags {
-    GraphicsLayerPaintNormal                    = 0,
-    GraphicsLayerPaintSnapshotting              = 1 << 0,
-    GraphicsLayerPaintFirstTilePaint            = 1 << 1,
-};
-typedef unsigned GraphicsLayerPaintBehavior;
+enum class GraphicsLayerPaintFlags { None, Snapshotting };
     
 class GraphicsLayerClient {
 public:
-    virtual ~GraphicsLayerClient() = default;
+    virtual ~GraphicsLayerClient() {}
 
     virtual void tiledBackingUsageChanged(const GraphicsLayer*, bool /*usingTiledBacking*/) { }
     
     // Callback for when hardware-accelerated animation started.
-    virtual void notifyAnimationStarted(const GraphicsLayer*, const String& /*animationKey*/, MonotonicTime /*time*/) { }
+    virtual void notifyAnimationStarted(const GraphicsLayer*, const String& /*animationKey*/, double /*time*/) { }
     virtual void notifyAnimationEnded(const GraphicsLayer*, const String& /*animationKey*/) { }
 
     // Notification that a layer property changed that requires a subsequent call to flushCompositingState()
@@ -100,7 +95,7 @@ public:
     // Notification that this layer requires a flush before the next display refresh.
     virtual void notifyFlushBeforeDisplayRefresh(const GraphicsLayer*) { }
 
-    virtual void paintContents(const GraphicsLayer*, GraphicsContext&, GraphicsLayerPaintingPhase, const FloatRect& /* inClip */, GraphicsLayerPaintBehavior) { }
+    virtual void paintContents(const GraphicsLayer*, GraphicsContext&, GraphicsLayerPaintingPhase, const FloatRect& /* inClip */, GraphicsLayerPaintFlags) { }
     virtual void didCommitChangesForLayer(const GraphicsLayer*) const { }
 
     // Provides current transform (taking transform-origin and animations into account). Input matrix has been

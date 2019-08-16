@@ -31,11 +31,8 @@
 #include "HTMLTableElement.h"
 #include "RenderTableCol.h"
 #include "Text.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLTableColElement);
 
 const unsigned defaultSpan { 1 };
 const unsigned minSpan { 1 };
@@ -92,7 +89,7 @@ const StyleProperties* HTMLTableColElement::additionalPresentationAttributeStyle
 {
     if (!hasTagName(colgroupTag))
         return nullptr;
-    if (RefPtr<HTMLTableElement> table = findParentTable())
+    if (HTMLTableElement* table = findParentTable())
         return table->additionalGroupStyle(false);
     return nullptr;
 }

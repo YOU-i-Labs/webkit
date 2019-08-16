@@ -35,6 +35,8 @@
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
+using WebCore::IndexedDB::KeyType;
+
 namespace JSC {
 class JSArrayBuffer;
 class JSArrayBufferView;
@@ -51,7 +53,7 @@ public:
 
     static Ref<IDBKey> createNumber(double number)
     {
-        return adoptRef(*new IDBKey(IndexedDB::KeyType::Number, number));
+        return adoptRef(*new IDBKey(KeyType::Number, number));
     }
 
     static Ref<IDBKey> createString(const String& string)
@@ -61,7 +63,7 @@ public:
 
     static Ref<IDBKey> createDate(double date)
     {
-        return adoptRef(*new IDBKey(IndexedDB::KeyType::Date, date));
+        return adoptRef(*new IDBKey(KeyType::Date, date));
     }
 
     static Ref<IDBKey> createMultiEntryArray(const Vector<RefPtr<IDBKey>>& array)
@@ -105,36 +107,36 @@ public:
 
     WEBCORE_EXPORT ~IDBKey();
 
-    IndexedDB::KeyType type() const { return m_type; }
+    KeyType type() const { return m_type; }
     WEBCORE_EXPORT bool isValid() const;
 
     const Vector<RefPtr<IDBKey>>& array() const
     {
-        ASSERT(m_type == IndexedDB::KeyType::Array);
+        ASSERT(m_type == KeyType::Array);
         return WTF::get<Vector<RefPtr<IDBKey>>>(m_value);
     }
 
     const String& string() const
     {
-        ASSERT(m_type == IndexedDB::KeyType::String);
+        ASSERT(m_type == KeyType::String);
         return WTF::get<String>(m_value);
     }
 
     double date() const
     {
-        ASSERT(m_type == IndexedDB::KeyType::Date);
+        ASSERT(m_type == KeyType::Date);
         return WTF::get<double>(m_value);
     }
 
     double number() const
     {
-        ASSERT(m_type == IndexedDB::KeyType::Number);
+        ASSERT(m_type == KeyType::Number);
         return WTF::get<double>(m_value);
     }
 
     const ThreadSafeDataBuffer& binary() const
     {
-        ASSERT(m_type == IndexedDB::KeyType::Binary);
+        ASSERT(m_type == KeyType::Binary);
         return WTF::get<ThreadSafeDataBuffer>(m_value);
     }
 
@@ -144,7 +146,7 @@ public:
 
     size_t sizeEstimate() const { return m_sizeEstimate; }
 
-    static int compareTypes(IndexedDB::KeyType a, IndexedDB::KeyType b)
+    static int compareTypes(KeyType a, KeyType b)
     {
         return b - a;
     }
@@ -158,17 +160,17 @@ public:
 
 private:
     IDBKey()
-        : m_type(IndexedDB::KeyType::Invalid)
+        : m_type(KeyType::Invalid)
         , m_sizeEstimate(OverheadSize)
     {
     }
 
-    IDBKey(IndexedDB::KeyType, double number);
+    IDBKey(KeyType, double number);
     explicit IDBKey(const String& value);
     IDBKey(const Vector<RefPtr<IDBKey>>& keyArray, size_t arraySize);
     explicit IDBKey(const ThreadSafeDataBuffer&);
 
-    const IndexedDB::KeyType m_type;
+    const KeyType m_type;
     Variant<Vector<RefPtr<IDBKey>>, String, double, ThreadSafeDataBuffer> m_value;
 
     const size_t m_sizeEstimate;

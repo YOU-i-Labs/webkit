@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,9 +34,7 @@
 
 namespace JSC { namespace B3 {
 
-using Arg = Air::Arg;
-using Inst = Air::Inst;
-using Tmp = Air::Tmp;
+using namespace Air;
 
 StackmapSpecial::StackmapSpecial()
 {
@@ -75,8 +73,8 @@ RegisterSet StackmapSpecial::extraEarlyClobberedRegs(Inst& inst)
 
 void StackmapSpecial::forEachArgImpl(
     unsigned numIgnoredB3Args, unsigned numIgnoredAirArgs,
-    Inst& inst, RoleMode roleMode, Optional<unsigned> firstRecoverableIndex,
-    const ScopedLambda<Inst::EachArgCallback>& callback, Optional<Width> optionalDefArgWidth)
+    Inst& inst, RoleMode roleMode, std::optional<unsigned> firstRecoverableIndex,
+    const ScopedLambda<Inst::EachArgCallback>& callback, std::optional<Width> optionalDefArgWidth)
 {
     StackmapValue* value = inst.origin->as<StackmapValue>();
     ASSERT(value);
@@ -110,9 +108,6 @@ void StackmapSpecial::forEachArgImpl(
             case ValueRep::Constant:
                 role = Arg::Use;
                 break;
-            case ValueRep::SomeRegisterWithClobber:
-                role = Arg::UseDef;
-                break;
             case ValueRep::LateRegister:
                 role = Arg::LateUse;
                 break;
@@ -131,10 +126,6 @@ void StackmapSpecial::forEachArgImpl(
             // be able to recover the stackmap value. So, force LateColdUse to preserve the
             // original stackmap value across the Special operation.
             if (!Arg::isLateUse(role) && optionalDefArgWidth && *optionalDefArgWidth < child.value()->resultWidth()) {
-                // The role can only be some kind of def if we did SomeRegisterWithClobber, which is
-                // only allowed for patchpoints. Patchpoints don't use the defArgWidth feature.
-                RELEASE_ASSERT(!Arg::isAnyDef(role));
-                
                 if (Arg::isWarmUse(role))
                     role = Arg::LateUse;
                 else
@@ -219,7 +210,8 @@ bool StackmapSpecial::admitsStackImpl(
     return false;
 }
 
-Vector<ValueRep> StackmapSpecial::repsImpl(Air::GenerationContext& context, unsigned numIgnoredB3Args, unsigned numIgnoredAirArgs, Inst& inst)
+Vector<ValueRep> StackmapSpecial::repsImpl(
+    GenerationContext& context, unsigned numIgnoredB3Args, unsigned numIgnoredAirArgs, Inst& inst)
 {
     Vector<ValueRep> result;
     for (unsigned i = 0; i < inst.origin->numChildren() - numIgnoredB3Args; ++i)
@@ -252,7 +244,6 @@ bool StackmapSpecial::isArgValidForRep(Air::Code& code, const Air::Arg& arg, con
         // We already verified by isArgValidForValue().
         return true;
     case ValueRep::SomeRegister:
-    case ValueRep::SomeRegisterWithClobber:
     case ValueRep::SomeEarlyRegister:
         return arg.isTmp();
     case ValueRep::LateRegister:
@@ -263,7 +254,7 @@ bool StackmapSpecial::isArgValidForRep(Air::Code& code, const Air::Arg& arg, con
             return true;
         if ((arg.isAddr() || arg.isExtendedOffsetAddr()) && code.frameSize()) {
             if (arg.base() == Tmp(GPRInfo::callFrameRegister)
-                && arg.offset() == static_cast<int64_t>(rep.offsetFromSP()) - code.frameSize())
+                && arg.offset() == rep.offsetFromSP() - code.frameSize())
                 return true;
             if (arg.base() == Tmp(MacroAssembler::stackPointerRegister)
                 && arg.offset() == rep.offsetFromSP())
@@ -276,7 +267,7 @@ bool StackmapSpecial::isArgValidForRep(Air::Code& code, const Air::Arg& arg, con
     }
 }
 
-ValueRep StackmapSpecial::repForArg(Air::Code& code, const Arg& arg)
+ValueRep StackmapSpecial::repForArg(Code& code, const Arg& arg)
 {
     switch (arg.kind()) {
     case Arg::Tmp:

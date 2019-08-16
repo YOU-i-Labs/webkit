@@ -30,15 +30,12 @@
 #include "Editing.h"
 #include "Element.h"
 #include "HTMLInputElement.h"
-#include "Settings.h"
-#include "ShadowRoot.h"
 #include "TextIterator.h"
 #include "VisibleUnits.h"
 #include <stdio.h>
 #include <wtf/Assertions.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
-#include <wtf/text/TextStream.h>
 #include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
@@ -288,7 +285,7 @@ void VisibleSelection::setStartAndEndFromBaseAndExtentRespectingGranularity(Text
             // General case: Select the word the caret is positioned inside of, or at the start of (RightWordIfOnBoundary).
             // Edge case: If the caret is after the last word in a soft-wrapped line or the last word in
             // the document, select that last word (LeftWordIfOnBoundary).
-            // Edge case: If the caret is after the last word in a paragraph, select from the end of the
+            // Edge case: If the caret is after the last word in a paragraph, select from the the end of the
             // last word to the line break (also RightWordIfOnBoundary);
             VisiblePosition start = VisiblePosition(m_start, m_affinity);
             VisiblePosition originalEnd(m_end, m_affinity);
@@ -470,7 +467,7 @@ void VisibleSelection::setWithoutValidation(const Position& base, const Position
     m_selectionType = base == extent ? CaretSelection : RangeSelection;
 }
 
-Position VisibleSelection::adjustPositionForEnd(const Position& currentPosition, Node* startContainerNode)
+static Position adjustPositionForEnd(const Position& currentPosition, Node* startContainerNode)
 {
     TreeScope& treeScope = startContainerNode->treeScope();
 
@@ -488,7 +485,7 @@ Position VisibleSelection::adjustPositionForEnd(const Position& currentPosition,
     return Position();
 }
 
-Position VisibleSelection::adjustPositionForStart(const Position& currentPosition, Node* endContainerNode)
+static Position adjustPositionForStart(const Position& currentPosition, Node* endContainerNode)
 {
     TreeScope& treeScope = endContainerNode->treeScope();
 
@@ -506,37 +503,13 @@ Position VisibleSelection::adjustPositionForStart(const Position& currentPositio
     return Position();
 }
 
-static bool isInUserAgentShadowRootOrHasEditableShadowAncestor(Node& node)
-{
-    auto* shadowRoot = node.containingShadowRoot();
-    if (!shadowRoot)
-        return false;
-
-    if (shadowRoot->mode() == ShadowRootMode::UserAgent)
-        return true;
-
-    for (RefPtr<Node> currentNode = &node; currentNode; currentNode = currentNode->parentOrShadowHostNode()) {
-        if (currentNode->hasEditableStyle())
-            return true;
-    }
-    return false;
-}
-
 void VisibleSelection::adjustSelectionToAvoidCrossingShadowBoundaries()
 {
     if (m_base.isNull() || m_start.isNull() || m_end.isNull())
         return;
 
-    auto startNode = makeRef(*m_start.anchorNode());
-    auto endNode = makeRef(*m_end.anchorNode());
-    if (&startNode->treeScope() == &endNode->treeScope())
+    if (&m_start.anchorNode()->treeScope() == &m_end.anchorNode()->treeScope())
         return;
-
-    if (startNode->document().settings().selectionAcrossShadowBoundariesEnabled()) {
-        if (!isInUserAgentShadowRootOrHasEditableShadowAncestor(startNode)
-            && !isInUserAgentShadowRootOrHasEditableShadowAncestor(endNode))
-            return;
-    }
 
     if (m_baseIsFirst) {
         m_extent = adjustPositionForEnd(m_end, m_start.containerNode());
@@ -545,6 +518,8 @@ void VisibleSelection::adjustSelectionToAvoidCrossingShadowBoundaries()
         m_extent = adjustPositionForStart(m_start, m_end.containerNode());
         m_start = m_extent;
     }
+
+    ASSERT(&m_start.anchorNode()->treeScope() == &m_end.anchorNode()->treeScope());
 }
 
 void VisibleSelection::adjustSelectionToAvoidCrossingEditingBoundaries()
@@ -696,21 +671,21 @@ bool VisibleSelection::isInPasswordField() const
 
 void VisibleSelection::debugPosition() const
 {
-    fprintf(stderr, "VisibleSelection ===============\n");
+    WTFLogAlways("VisibleSelection ===============\n");
 
     if (!m_start.anchorNode())
         fputs("pos:   null", stderr);
     else if (m_start == m_end) {
-        fprintf(stderr, "pos:   %s ", m_start.anchorNode()->nodeName().utf8().data());
+        WTFLogAlways("pos:   %s ", m_start.anchorNode()->nodeName().utf8().data());
         m_start.showAnchorTypeAndOffset();
     } else {
-        fprintf(stderr, "start: %s ", m_start.anchorNode()->nodeName().utf8().data());
+        WTFLogAlways("start: %s ", m_start.anchorNode()->nodeName().utf8().data());
         m_start.showAnchorTypeAndOffset();
-        fprintf(stderr, "end:   %s ", m_end.anchorNode()->nodeName().utf8().data());
+        WTFLogAlways("end:   %s ", m_end.anchorNode()->nodeName().utf8().data());
         m_end.showAnchorTypeAndOffset();
     }
 
-    fprintf(stderr, "================================\n");
+    WTFLogAlways("================================\n");
 }
 
 void VisibleSelection::formatForDebugger(char* buffer, unsigned length) const
@@ -743,19 +718,6 @@ void VisibleSelection::showTreeForThis() const
         fputs("end: ", stderr);
         end().showAnchorTypeAndOffset();
     }
-}
-    
-TextStream& operator<<(TextStream& stream, const VisibleSelection& v)
-{
-    TextStream::GroupScope scope(stream);
-    stream << "VisibleSelection " << &v;
-    
-    stream.dumpProperty("base", v.base());
-    stream.dumpProperty("extent", v.extent());
-    stream.dumpProperty("start", v.start());
-    stream.dumpProperty("end", v.end());
-    
-    return stream;
 }
 
 #endif

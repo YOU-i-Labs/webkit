@@ -23,32 +23,30 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ScriptTreeElement = class ScriptTreeElement extends WI.SourceCodeTreeElement
+WebInspector.ScriptTreeElement = class ScriptTreeElement extends WebInspector.SourceCodeTreeElement
 {
     constructor(script)
     {
-        console.assert(script instanceof WI.Script);
+        console.assert(script instanceof WebInspector.Script);
 
-        const title = null;
-        const subtitle = null;
-        super(script, "script", title, subtitle);
+        super(script, "script", null, null, script, false);
 
         this.mainTitle = script.displayName;
 
         if (script.url && !script.dynamicallyAddedScriptElement) {
             // Show the host as the subtitle if it is different from the main title.
-            let host = WI.displayNameForHost(script.urlComponents.host);
-            this.subtitle = this.mainTitle !== host ? host : null;
+            var subtitle = WebInspector.displayNameForHost(script.urlComponents.host);
+            this.subtitle = this.mainTitle !== subtitle ? subtitle : null;
 
             this.tooltip = script.url;
 
-            this.addClassName(WI.ResourceTreeElement.ResourceIconStyleClassName);
-            this.addClassName(WI.Resource.Type.Script);
+            this.addClassName(WebInspector.ResourceTreeElement.ResourceIconStyleClassName);
+            this.addClassName(WebInspector.Resource.Type.Script);
         } else
-            this.addClassName(WI.ScriptTreeElement.AnonymousScriptIconStyleClassName);
+            this.addClassName(WebInspector.ScriptTreeElement.AnonymousScriptIconStyleClassName);
 
         if (script.isMainResource()) {
-            console.assert(script.target.type === WI.Target.Type.Worker || script.target.type === WI.Target.Type.ServiceWorker, script.target.type);
+            console.assert(script.target.type === WebInspector.Target.Type.Worker);
             this.addClassName("worker-icon");
         }
 
@@ -63,4 +61,4 @@ WI.ScriptTreeElement = class ScriptTreeElement extends WI.SourceCodeTreeElement
     }
 };
 
-WI.ScriptTreeElement.AnonymousScriptIconStyleClassName = "anonymous-script-icon";
+WebInspector.ScriptTreeElement.AnonymousScriptIconStyleClassName = "anonymous-script-icon";

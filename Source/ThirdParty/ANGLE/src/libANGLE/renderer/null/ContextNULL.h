@@ -39,45 +39,36 @@ class ContextNULL : public ContextImpl
     gl::Error initialize() override;
 
     // Flush and finish.
-    gl::Error flush(const gl::Context *context) override;
-    gl::Error finish(const gl::Context *context) override;
+    gl::Error flush() override;
+    gl::Error finish() override;
 
     // Drawing methods.
-    gl::Error drawArrays(const gl::Context *context,
-                         GLenum mode,
-                         GLint first,
-                         GLsizei count) override;
-    gl::Error drawArraysInstanced(const gl::Context *context,
-                                  GLenum mode,
+    gl::Error drawArrays(GLenum mode, GLint first, GLsizei count) override;
+    gl::Error drawArraysInstanced(GLenum mode,
                                   GLint first,
                                   GLsizei count,
                                   GLsizei instanceCount) override;
 
-    gl::Error drawElements(const gl::Context *context,
-                           GLenum mode,
+    gl::Error drawElements(GLenum mode,
                            GLsizei count,
                            GLenum type,
-                           const void *indices) override;
-    gl::Error drawElementsInstanced(const gl::Context *context,
-                                    GLenum mode,
+                           const GLvoid *indices,
+                           const gl::IndexRange &indexRange) override;
+    gl::Error drawElementsInstanced(GLenum mode,
                                     GLsizei count,
                                     GLenum type,
-                                    const void *indices,
-                                    GLsizei instances) override;
-    gl::Error drawRangeElements(const gl::Context *context,
-                                GLenum mode,
+                                    const GLvoid *indices,
+                                    GLsizei instances,
+                                    const gl::IndexRange &indexRange) override;
+    gl::Error drawRangeElements(GLenum mode,
                                 GLuint start,
                                 GLuint end,
                                 GLsizei count,
                                 GLenum type,
-                                const void *indices) override;
-    gl::Error drawArraysIndirect(const gl::Context *context,
-                                 GLenum mode,
-                                 const void *indirect) override;
-    gl::Error drawElementsIndirect(const gl::Context *context,
-                                   GLenum mode,
-                                   GLenum type,
-                                   const void *indirect) override;
+                                const GLvoid *indices,
+                                const gl::IndexRange &indexRange) override;
+    gl::Error drawArraysIndirect(GLenum mode, const GLvoid *indirect) override;
+    gl::Error drawElementsIndirect(GLenum mode, GLenum type, const GLvoid *indirect) override;
 
     // CHROMIUM_path_rendering path drawing methods.
     void stencilFillPath(const gl::Path *path, GLenum fillMode, GLuint mask) override;
@@ -132,24 +123,20 @@ class ContextNULL : public ContextImpl
     std::string getVendorString() const override;
     std::string getRendererDescription() const override;
 
-    // EXT_debug_marker
+    // Debug markers.
     void insertEventMarker(GLsizei length, const char *marker) override;
     void pushGroupMarker(GLsizei length, const char *marker) override;
     void popGroupMarker() override;
 
-    // KHR_debug
-    void pushDebugGroup(GLenum source, GLuint id, GLsizei length, const char *message) override;
-    void popDebugGroup() override;
-
     // State sync with dirty bits.
-    void syncState(const gl::Context *context, const gl::State::DirtyBits &dirtyBits) override;
+    void syncState(const gl::State::DirtyBits &dirtyBits) override;
 
     // Disjoint timer queries
     GLint getGPUDisjoint() override;
     GLint64 getTimestamp() override;
 
     // Context switching
-    void onMakeCurrent(const gl::Context *context) override;
+    void onMakeCurrent(const gl::ContextState &data) override;
 
     // Native capabilities, unmodified by gl::Context.
     const gl::Caps &getNativeCaps() const override;
@@ -180,24 +167,18 @@ class ContextNULL : public ContextImpl
     // Query and Fence creation
     QueryImpl *createQuery(GLenum type) override;
     FenceNVImpl *createFenceNV() override;
-    SyncImpl *createSync() override;
+    FenceSyncImpl *createFenceSync() override;
 
     // Transform Feedback creation
     TransformFeedbackImpl *createTransformFeedback(
         const gl::TransformFeedbackState &state) override;
 
     // Sampler object creation
-    SamplerImpl *createSampler(const gl::SamplerState &state) override;
-
-    // Program Pipeline object creation
-    ProgramPipelineImpl *createProgramPipeline(const gl::ProgramPipelineState &data) override;
+    SamplerImpl *createSampler() override;
 
     std::vector<PathImpl *> createPaths(GLsizei range) override;
 
-    gl::Error dispatchCompute(const gl::Context *context,
-                              GLuint numGroupsX,
-                              GLuint numGroupsY,
-                              GLuint numGroupsZ) override;
+    gl::Error dispatchCompute(GLuint numGroupsX, GLuint numGroupsY, GLuint numGroupsZ) override;
 
   private:
     gl::Caps mCaps;

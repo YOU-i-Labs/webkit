@@ -25,12 +25,12 @@
  */
 
 #include "config.h"
-#include <wtf/RandomDevice.h>
+#include "RandomDevice.h"
 
 #include <stdint.h>
 #include <stdlib.h>
 
-#if !OS(DARWIN) && !OS(FUCHSIA) && OS(UNIX)
+#if !OS(DARWIN) && OS(UNIX)
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -42,17 +42,12 @@
 #endif
 
 #if OS(DARWIN)
-#include <CommonCrypto/CommonCryptoError.h>
-#include <CommonCrypto/CommonRandom.h>
-#endif
-
-#if OS(FUCHSIA)
-#include <zircon/syscalls.h>
+#include "CommonCryptoSPI.h"
 #endif
 
 namespace WTF {
 
-#if !OS(DARWIN) && !OS(FUCHSIA) && OS(UNIX)
+#if !OS(DARWIN) && OS(UNIX)
 NEVER_INLINE NO_RETURN_DUE_TO_CRASH static void crashUnableToOpenURandom()
 {
     CRASH();
@@ -64,7 +59,7 @@ NEVER_INLINE NO_RETURN_DUE_TO_CRASH static void crashUnableToReadFromURandom()
 }
 #endif
 
-#if !OS(DARWIN) && !OS(FUCHSIA) && !OS(WINDOWS)
+#if !OS(DARWIN) && !OS(WINDOWS)
 RandomDevice::RandomDevice()
 {
     int ret = 0;
@@ -77,7 +72,7 @@ RandomDevice::RandomDevice()
 }
 #endif
 
-#if !OS(DARWIN) && !OS(FUCHSIA) && !OS(WINDOWS)
+#if !OS(DARWIN) && !OS(WINDOWS)
 RandomDevice::~RandomDevice()
 {
     close(m_fd);
@@ -89,9 +84,7 @@ RandomDevice::~RandomDevice()
 void RandomDevice::cryptographicallyRandomValues(unsigned char* buffer, size_t length)
 {
 #if OS(DARWIN)
-    RELEASE_ASSERT(!CCRandomGenerateBytes(buffer, length));
-#elif OS(FUCHSIA)
-    zx_cprng_draw(buffer, length);
+    RELEASE_ASSERT(!CCRandomCopyBytes(kCCRandomDefault, buffer, length));
 #elif OS(UNIX)
     ssize_t amountRead = 0;
     while (static_cast<size_t>(amountRead) < length) {

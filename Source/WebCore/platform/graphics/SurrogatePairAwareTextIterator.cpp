@@ -69,9 +69,6 @@ bool SurrogatePairAwareTextIterator::consumeSlowCase(UChar32& character, unsigne
     return true;
 }
 
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-// NOTE: ICU's unorm_normalize function is deprecated.
-
 UChar32 SurrogatePairAwareTextIterator::normalizeVoicingMarks()
 {
     // According to http://www.unicode.org/Public/UNIDATA/UCD.html#Canonical_Combining_Class_Values
@@ -91,7 +88,5 @@ UChar32 SurrogatePairAwareTextIterator::normalizeVoicingMarks()
 
     return 0;
 }
-
-ALLOW_DEPRECATED_DECLARATIONS_END
 
 }

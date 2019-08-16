@@ -25,8 +25,8 @@
 
 .sidebar > .panel.dom-node-details .details-section.dom-node-event-listeners > .header > .filter {
     position: relative;
-    width: 13px;
-    height: 13px;
+    width: 14px;
+    height: 14px;
 }
 
 body[dir=ltr] .sidebar > .panel.dom-node-details .details-section.dom-node-event-listeners > .header > .filter {
@@ -59,10 +59,4 @@ body[dir=rtl] .sidebar > .panel.dom-node-details .details-section.dom-node-event
     border-radius: 50%;
     opacity: 0;
     -webkit-appearance: none;
-}
-
-@media (prefers-color-scheme: dark) {
-    .sidebar > .panel.dom-node-details .details-section.dom-node-event-listeners > .header > .filter:hover {
-        filter: brightness(1.25);
-    }
 }

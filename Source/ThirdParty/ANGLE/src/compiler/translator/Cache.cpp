@@ -57,10 +57,6 @@ TCache::TypeKey::TypeKey(TBasicType basicType,
 
 TCache *TCache::sCache = nullptr;
 
-TCache::TCache()
-{
-}
-
 void TCache::initialize()
 {
     if (sCache == nullptr)

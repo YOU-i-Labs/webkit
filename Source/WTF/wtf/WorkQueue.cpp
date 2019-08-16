@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2010 Apple Inc. All rights reserved.
- * Copyright (C) 2017 Sony Interactive Entertainment Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +24,7 @@
  */
 
 #include "config.h"
-#include <wtf/WorkQueue.h>
+#include "WorkQueue.h"
 
 #include <mutex>
 #include <wtf/Condition.h>
@@ -37,6 +36,7 @@
 #include <wtf/Ref.h>
 #include <wtf/Threading.h>
 #include <wtf/text/WTFString.h>
+#include <wtf/threads/BinarySemaphore.h>
 
 namespace WTF {
 
@@ -75,7 +75,7 @@ void WorkQueue::concurrentApply(size_t iterations, WTF::Function<void (size_t in
 
             m_workers.reserveInitialCapacity(threadCount);
             for (unsigned i = 0; i < threadCount; ++i) {
-                m_workers.append(Thread::create("ThreadPool Worker", [this] {
+                m_workers.append(Thread::create(String::format("ThreadPool Worker %u", i).utf8().data(), [this] {
                     threadBody();
                 }));
             }
@@ -115,7 +115,7 @@ void WorkQueue::concurrentApply(size_t iterations, WTF::Function<void (size_t in
         Condition m_condition;
         Deque<const WTF::Function<void ()>*> m_queue;
 
-        Vector<Ref<Thread>> m_workers;
+        Vector<RefPtr<Thread>> m_workers;
     };
 
     static LazyNeverDestroyed<ThreadPool> threadPool;

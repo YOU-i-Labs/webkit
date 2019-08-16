@@ -23,20 +23,20 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.HeapSnapshotClusterContentView = class HeapSnapshotClusterContentView extends WI.ClusterContentView
+WebInspector.HeapSnapshotClusterContentView = class HeapSnapshotClusterContentView extends WebInspector.ClusterContentView
 {
     constructor(heapSnapshot)
     {
         super(heapSnapshot);
 
-        console.assert(heapSnapshot instanceof WI.HeapSnapshotProxy || heapSnapshot instanceof WI.HeapSnapshotDiffProxy);
+        console.assert(heapSnapshot instanceof WebInspector.HeapSnapshotProxy || heapSnapshot instanceof WebInspector.HeapSnapshotDiffProxy);
 
         this._heapSnapshot = heapSnapshot;
 
         function createPathComponent(displayName, className, identifier)
         {
-            let pathComponent = new WI.HierarchicalPathComponent(displayName, className, identifier, false, true);
-            pathComponent.addEventListener(WI.HierarchicalPathComponent.Event.SiblingWasSelected, this._pathComponentSelected, this);
+            let pathComponent = new WebInspector.HierarchicalPathComponent(displayName, className, identifier, false, true);
+            pathComponent.addEventListener(WebInspector.HierarchicalPathComponent.Event.SiblingWasSelected, this._pathComponentSelected, this);
             pathComponent.comparisonData = heapSnapshot;
             return pathComponent;
         }
@@ -45,15 +45,15 @@ WI.HeapSnapshotClusterContentView = class HeapSnapshotClusterContentView extends
         this._instancesContentView = null;
         this._objectGraphContentView = null;
 
-        this._instancesPathComponent = createPathComponent.call(this, WI.UIString("Instances"), "heap-snapshot-instances-icon", WI.HeapSnapshotClusterContentView.InstancesIdentifier);
-        this._objectGraphPathComponent = createPathComponent.call(this, WI.UIString("Object Graph"), "heap-snapshot-object-graph-icon", WI.HeapSnapshotClusterContentView.ObjectGraphIdentifier);
+        this._instancesPathComponent = createPathComponent.call(this, WebInspector.UIString("Instances"), "heap-snapshot-instances-icon", WebInspector.HeapSnapshotClusterContentView.InstancesIdentifier);
+        this._objectGraphPathComponent = createPathComponent.call(this, WebInspector.UIString("Object Graph"), "heap-snapshot-object-graph-icon", WebInspector.HeapSnapshotClusterContentView.ObjectGraphIdentifier);
 
         if (this._supportsObjectGraph()) {
             this._instancesPathComponent.nextSibling = this._objectGraphPathComponent;
             this._objectGraphPathComponent.previousSibling = this._instancesPathComponent;
         }
 
-        this._currentContentViewSetting = new WI.Setting("heap-snapshot-cluster-current-view", WI.HeapSnapshotClusterContentView.InstancesIdentifier);
+        this._currentContentViewSetting = new WebInspector.Setting("heap-snapshot-cluster-current-view", WebInspector.HeapSnapshotClusterContentView.InstancesIdentifier);
     }
 
     // Static
@@ -110,7 +110,7 @@ WI.HeapSnapshotClusterContentView = class HeapSnapshotClusterContentView extends
     get instancesContentView()
     {
         if (!this._instancesContentView)
-            this._instancesContentView = new WI.HeapSnapshotInstancesContentView(this._heapSnapshot);
+            this._instancesContentView = new WebInspector.HeapSnapshotInstancesContentView(this._heapSnapshot);
         return this._instancesContentView;
     }
 
@@ -120,7 +120,7 @@ WI.HeapSnapshotClusterContentView = class HeapSnapshotClusterContentView extends
             return null;
 
         if (!this._objectGraphContentView)
-            this._objectGraphContentView = new WI.HeapSnapshotObjectGraphContentView(this._heapSnapshot);
+            this._objectGraphContentView = new WebInspector.HeapSnapshotObjectGraphContentView(this._heapSnapshot);
         return this._objectGraphContentView;
     }
 
@@ -153,31 +153,31 @@ WI.HeapSnapshotClusterContentView = class HeapSnapshotClusterContentView extends
 
     saveToCookie(cookie)
     {
-        cookie[WI.HeapSnapshotClusterContentView.ContentViewIdentifierCookieKey] = this._currentContentViewSetting.value;
+        cookie[WebInspector.HeapSnapshotClusterContentView.ContentViewIdentifierCookieKey] = this._currentContentViewSetting.value;
     }
 
     restoreFromCookie(cookie)
     {
-        this._showContentViewForIdentifier(cookie[WI.HeapSnapshotClusterContentView.ContentViewIdentifierCookieKey]);
+        this._showContentViewForIdentifier(cookie[WebInspector.HeapSnapshotClusterContentView.ContentViewIdentifierCookieKey]);
     }
 
     showInstances()
     {
         this._shownInitialContent = true;
-        return this._showContentViewForIdentifier(WI.HeapSnapshotClusterContentView.InstancesIdentifier);
+        return this._showContentViewForIdentifier(WebInspector.HeapSnapshotClusterContentView.InstancesIdentifier);
     }
 
     showObjectGraph()
     {
         this._shownInitialContent = true;
-        return this._showContentViewForIdentifier(WI.HeapSnapshotClusterContentView.ObjectGraphIdentifier);
+        return this._showContentViewForIdentifier(WebInspector.HeapSnapshotClusterContentView.ObjectGraphIdentifier);
     }
 
     // Private
 
     _supportsObjectGraph()
     {
-        return this._heapSnapshot instanceof WI.HeapSnapshotProxy;
+        return this._heapSnapshot instanceof WebInspector.HeapSnapshotProxy;
     }
 
     _pathComponentForContentView(contentView)
@@ -199,9 +199,9 @@ WI.HeapSnapshotClusterContentView = class HeapSnapshotClusterContentView extends
         if (!contentView)
             return null;
         if (contentView === this._instancesContentView)
-            return WI.HeapSnapshotClusterContentView.InstancesIdentifier;
+            return WebInspector.HeapSnapshotClusterContentView.InstancesIdentifier;
         if (contentView === this._objectGraphContentView)
-            return WI.HeapSnapshotClusterContentView.ObjectGraphIdentifier;
+            return WebInspector.HeapSnapshotClusterContentView.ObjectGraphIdentifier;
         console.error("Unknown contentView.");
         return null;
     }
@@ -211,10 +211,10 @@ WI.HeapSnapshotClusterContentView = class HeapSnapshotClusterContentView extends
         let contentViewToShow = null;
 
         switch (identifier) {
-        case WI.HeapSnapshotClusterContentView.InstancesIdentifier:
+        case WebInspector.HeapSnapshotClusterContentView.InstancesIdentifier:
             contentViewToShow = this.instancesContentView;
             break;
-        case WI.HeapSnapshotClusterContentView.ObjectGraphIdentifier:
+        case WebInspector.HeapSnapshotClusterContentView.ObjectGraphIdentifier:
             contentViewToShow = this.objectGraphContentView;
             break;
         }
@@ -237,7 +237,7 @@ WI.HeapSnapshotClusterContentView = class HeapSnapshotClusterContentView extends
     }
 };
 
-WI.HeapSnapshotClusterContentView.ContentViewIdentifierCookieKey = "heap-snapshot-cluster-content-view-identifier";
+WebInspector.HeapSnapshotClusterContentView.ContentViewIdentifierCookieKey = "heap-snapshot-cluster-content-view-identifier";
 
-WI.HeapSnapshotClusterContentView.InstancesIdentifier = "instances";
-WI.HeapSnapshotClusterContentView.ObjectGraphIdentifier = "object-graph";
+WebInspector.HeapSnapshotClusterContentView.InstancesIdentifier = "instances";
+WebInspector.HeapSnapshotClusterContentView.ObjectGraphIdentifier = "object-graph";

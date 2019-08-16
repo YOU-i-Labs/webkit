@@ -23,18 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ScriptContentView = class ScriptContentView extends WI.ContentView
+WebInspector.ScriptContentView = class ScriptContentView extends WebInspector.ContentView
 {
     constructor(script)
     {
-        console.assert(script instanceof WI.Script, script);
+        console.assert(script instanceof WebInspector.Script, script);
 
         super(script);
 
         this.element.classList.add("script");
 
         // Append a spinner while waiting for _contentWillPopulate.
-        var spinner = new WI.IndeterminateProgressSpinner;
+        var spinner = new WebInspector.IndeterminateProgressSpinner;
         this.element.appendChild(spinner.element);
 
         this._script = script;
@@ -45,38 +45,32 @@ WI.ScriptContentView = class ScriptContentView extends WI.ContentView
         console.assert(script.range.startLine === 0);
         console.assert(script.range.startColumn === 0);
 
-        var toolTip = WI.UIString("Pretty print");
-        var activatedToolTip = WI.UIString("Original formatting");
-        this._prettyPrintButtonNavigationItem = new WI.ActivateButtonNavigationItem("pretty-print", toolTip, activatedToolTip, "Images/NavigationItemCurleyBraces.svg", 13, 13);
-        this._prettyPrintButtonNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._togglePrettyPrint, this);
+        this._textEditor = new WebInspector.SourceCodeTextEditor(script);
+        this._textEditor.addEventListener(WebInspector.TextEditor.Event.ExecutionLineNumberDidChange, this._executionLineNumberDidChange, this);
+        this._textEditor.addEventListener(WebInspector.TextEditor.Event.NumberOfSearchResultsDidChange, this._numberOfSearchResultsDidChange, this);
+        this._textEditor.addEventListener(WebInspector.TextEditor.Event.FormattingDidChange, this._textEditorFormattingDidChange, this);
+        this._textEditor.addEventListener(WebInspector.SourceCodeTextEditor.Event.ContentWillPopulate, this._contentWillPopulate, this);
+        this._textEditor.addEventListener(WebInspector.SourceCodeTextEditor.Event.ContentDidPopulate, this._contentDidPopulate, this);
+
+        var toolTip = WebInspector.UIString("Pretty print");
+        var activatedToolTip = WebInspector.UIString("Original formatting");
+        this._prettyPrintButtonNavigationItem = new WebInspector.ActivateButtonNavigationItem("pretty-print", toolTip, activatedToolTip, "Images/NavigationItemCurleyBraces.svg", 13, 13);
+        this._prettyPrintButtonNavigationItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._togglePrettyPrint, this);
         this._prettyPrintButtonNavigationItem.enabled = false; // Enabled when the text editor is populated with content.
-        this._prettyPrintButtonNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
 
-        var toolTipTypes = WI.UIString("Show type information");
-        var activatedToolTipTypes = WI.UIString("Hide type information");
-        this._showTypesButtonNavigationItem = new WI.ActivateButtonNavigationItem("show-types", toolTipTypes, activatedToolTipTypes, "Images/NavigationItemTypes.svg", 13, 14);
-        this._showTypesButtonNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._toggleTypeAnnotations, this);
+        var toolTipTypes = WebInspector.UIString("Show type information");
+        var activatedToolTipTypes = WebInspector.UIString("Hide type information");
+        this._showTypesButtonNavigationItem = new WebInspector.ActivateButtonNavigationItem("show-types", toolTipTypes, activatedToolTipTypes, "Images/NavigationItemTypes.svg", 13, 14);
+        this._showTypesButtonNavigationItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._toggleTypeAnnotations, this);
         this._showTypesButtonNavigationItem.enabled = false;
-        this._showTypesButtonNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
+        WebInspector.showJavaScriptTypeInformationSetting.addEventListener(WebInspector.Setting.Event.Changed, this._showJavaScriptTypeInformationSettingChanged, this);
 
-        WI.settings.showJavaScriptTypeInformation.addEventListener(WI.Setting.Event.Changed, this._showJavaScriptTypeInformationSettingChanged, this);
-
-        let toolTipCodeCoverage = WI.UIString("Fade unexecuted code");
-        let activatedToolTipCodeCoverage = WI.UIString("Do not fade unexecuted code");
-        this._codeCoverageButtonNavigationItem = new WI.ActivateButtonNavigationItem("code-coverage", toolTipCodeCoverage, activatedToolTipCodeCoverage, "Images/NavigationItemCodeCoverage.svg", 13, 14);
-        this._codeCoverageButtonNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._toggleUnexecutedCodeHighlights, this);
+        let toolTipCodeCoverage = WebInspector.UIString("Fade unexecuted code");
+        let activatedToolTipCodeCoverage = WebInspector.UIString("Do not fade unexecuted code");
+        this._codeCoverageButtonNavigationItem = new WebInspector.ActivateButtonNavigationItem("code-coverage", toolTipCodeCoverage, activatedToolTipCodeCoverage, "Images/NavigationItemCodeCoverage.svg", 13, 14);
+        this._codeCoverageButtonNavigationItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._toggleUnexecutedCodeHighlights, this);
         this._codeCoverageButtonNavigationItem.enabled = false;
-        this._codeCoverageButtonNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
-
-        WI.settings.enableControlFlowProfiler.addEventListener(WI.Setting.Event.Changed, this._enableControlFlowProfilerSettingChanged, this);
-
-        this._textEditor = new WI.SourceCodeTextEditor(script);
-        this._textEditor.addEventListener(WI.TextEditor.Event.ExecutionLineNumberDidChange, this._executionLineNumberDidChange, this);
-        this._textEditor.addEventListener(WI.TextEditor.Event.NumberOfSearchResultsDidChange, this._numberOfSearchResultsDidChange, this);
-        this._textEditor.addEventListener(WI.TextEditor.Event.FormattingDidChange, this._textEditorFormattingDidChange, this);
-        this._textEditor.addEventListener(WI.TextEditor.Event.MIMETypeChanged, this._handleTextEditorMIMETypeChanged, this);
-        this._textEditor.addEventListener(WI.SourceCodeTextEditor.Event.ContentWillPopulate, this._contentWillPopulate, this);
-        this._textEditor.addEventListener(WI.SourceCodeTextEditor.Event.ContentDidPopulate, this._contentDidPopulate, this);
+        WebInspector.enableControlFlowProfilerSetting.addEventListener(WebInspector.Setting.Event.Changed, this._enableControlFlowProfilerSettingChanged, this);
     }
 
     // Public
@@ -103,7 +97,7 @@ WI.ScriptContentView = class ScriptContentView extends WI.ContentView
 
         // If the SourceCodeTextEditor has an executionLineNumber, we can assume
         // it is always the active call frame.
-        return [WI.debuggerManager.activeCallFrame];
+        return [WebInspector.debuggerManager.activeCallFrame];
     }
 
     revealPosition(position, textRangeToSelect, forceUnformatted)
@@ -129,22 +123,22 @@ WI.ScriptContentView = class ScriptContentView extends WI.ContentView
     {
         super.closed();
 
-        WI.settings.showJavaScriptTypeInformation.removeEventListener(null, null, this);
-        WI.settings.enableControlFlowProfiler.removeEventListener(null, null, this);
+        WebInspector.showJavaScriptTypeInformationSetting.removeEventListener(null, null, this);
+        WebInspector.enableControlFlowProfilerSetting.removeEventListener(null, null, this);
 
         this._textEditor.close();
     }
 
     saveToCookie(cookie)
     {
-        cookie.type = WI.ContentViewCookieType.Resource;
+        cookie.type = WebInspector.ContentViewCookieType.Resource;
         cookie.url = this.representedObject.url;
     }
 
     restoreFromCookie(cookie)
     {
         if ("lineNumber" in cookie && "columnNumber" in cookie)
-            this.revealPosition(new WI.SourceCodePosition(cookie.lineNumber, cookie.columnNumber));
+            this.revealPosition(new WebInspector.SourceCodePosition(cookie.lineNumber, cookie.columnNumber));
     }
 
     get supportsSave()
@@ -223,10 +217,10 @@ WI.ScriptContentView = class ScriptContentView extends WI.ContentView
         this._prettyPrintButtonNavigationItem.enabled = this._textEditor.canBeFormatted();
 
         this._showTypesButtonNavigationItem.enabled = this._textEditor.canShowTypeAnnotations();
-        this._showTypesButtonNavigationItem.activated = WI.settings.showJavaScriptTypeInformation.value;
+        this._showTypesButtonNavigationItem.activated = WebInspector.showJavaScriptTypeInformationSetting.value;
 
         this._codeCoverageButtonNavigationItem.enabled = this._textEditor.canShowCoverageHints();
-        this._codeCoverageButtonNavigationItem.activated = WI.settings.enableControlFlowProfiler.value;
+        this._codeCoverageButtonNavigationItem.activated = WebInspector.enableControlFlowProfilerSetting.value;
     }
 
     _togglePrettyPrint(event)
@@ -253,12 +247,12 @@ WI.ScriptContentView = class ScriptContentView extends WI.ContentView
 
     _showJavaScriptTypeInformationSettingChanged(event)
     {
-        this._showTypesButtonNavigationItem.activated = WI.settings.showJavaScriptTypeInformation.value;
+        this._showTypesButtonNavigationItem.activated = WebInspector.showJavaScriptTypeInformationSetting.value;
     }
 
     _enableControlFlowProfilerSettingChanged(event)
     {
-        this._codeCoverageButtonNavigationItem.activated = WI.settings.enableControlFlowProfiler.value;
+        this._codeCoverageButtonNavigationItem.activated = WebInspector.enableControlFlowProfilerSetting.value;
     }
 
     _textEditorFormattingDidChange(event)
@@ -266,18 +260,13 @@ WI.ScriptContentView = class ScriptContentView extends WI.ContentView
         this._prettyPrintButtonNavigationItem.activated = this._textEditor.formatted;
     }
 
-    _handleTextEditorMIMETypeChanged(event)
-    {
-        this._prettyPrintButtonNavigationItem.enabled = this._textEditor.canBeFormatted();
-    }
-
     _executionLineNumberDidChange(event)
     {
-        this.dispatchEventToListeners(WI.ContentView.Event.SupplementalRepresentedObjectsDidChange);
+        this.dispatchEventToListeners(WebInspector.ContentView.Event.SupplementalRepresentedObjectsDidChange);
     }
 
     _numberOfSearchResultsDidChange(event)
     {
-        this.dispatchEventToListeners(WI.ContentView.Event.NumberOfSearchResultsDidChange);
+        this.dispatchEventToListeners(WebInspector.ContentView.Event.NumberOfSearchResultsDidChange);
     }
 };

@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2011 Google Inc. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -34,21 +33,16 @@
 #include "MutationObserver.h"
 
 #include "Document.h"
-#include "GCReachableRef.h"
+#include "ExceptionCode.h"
 #include "HTMLSlotElement.h"
-#include "InspectorInstrumentation.h"
 #include "Microtasks.h"
 #include "MutationCallback.h"
 #include "MutationObserverRegistration.h"
 #include "MutationRecord.h"
 #include <algorithm>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/MainThread.h>
-#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(MutationObserver);
 
 static unsigned s_observerPriority = 0;
 
@@ -85,9 +79,9 @@ ExceptionOr<void> MutationObserver::observe(Node& node, const Init& init)
         options |= ChildList;
     if (init.subtree)
         options |= Subtree;
-    if (init.attributeOldValue.valueOr(false))
+    if (init.attributeOldValue.value_or(false))
         options |= AttributeOldValue;
-    if (init.characterDataOldValue.valueOr(false))
+    if (init.characterDataOldValue.value_or(false))
         options |= CharacterDataOldValue;
 
     HashSet<AtomicString> attributeFilter;
@@ -111,14 +105,15 @@ ExceptionOr<void> MutationObserver::observe(Node& node, const Init& init)
     return { };
 }
 
-auto MutationObserver::takeRecords() -> TakenRecords
+Vector<Ref<MutationRecord>> MutationObserver::takeRecords()
 {
-    return { WTFMove(m_records), WTFMove(m_pendingTargets) };
+    Vector<Ref<MutationRecord>> records;
+    records.swap(m_records);
+    return records;
 }
 
 void MutationObserver::disconnect()
 {
-    m_pendingTargets.clear();
     m_records.clear();
     HashSet<MutationObserverRegistration*> registrations(m_registrations);
     for (auto* registration : registrations)
@@ -152,9 +147,9 @@ static MutationObserverSet& suspendedMutationObservers()
 }
 
 // https://dom.spec.whatwg.org/#signal-slot-list
-static Vector<GCReachableRef<HTMLSlotElement>>& signalSlotList()
+static Vector<RefPtr<HTMLSlotElement>>& signalSlotList()
 {
-    static NeverDestroyed<Vector<GCReachableRef<HTMLSlotElement>>> list;
+    static NeverDestroyed<Vector<RefPtr<HTMLSlotElement>>> list;
     return list;
 }
 
@@ -181,8 +176,6 @@ static void queueMutationObserverCompoundMicrotask()
 void MutationObserver::enqueueMutationRecord(Ref<MutationRecord>&& mutation)
 {
     ASSERT(isMainThread());
-    ASSERT(mutation->target());
-    m_pendingTargets.add(*mutation->target());
     m_records.append(WTFMove(mutation));
     activeMutationObservers().add(this);
 
@@ -192,8 +185,8 @@ void MutationObserver::enqueueMutationRecord(Ref<MutationRecord>&& mutation)
 void MutationObserver::enqueueSlotChangeEvent(HTMLSlotElement& slot)
 {
     ASSERT(isMainThread());
-    ASSERT(signalSlotList().findMatching([&slot](auto& entry) { return entry.ptr() == &slot; }) == notFound);
-    signalSlotList().append(slot);
+    ASSERT(!signalSlotList().contains(&slot));
+    signalSlotList().append(&slot);
 
     queueMutationObserverCompoundMicrotask();
 }
@@ -223,37 +216,23 @@ void MutationObserver::deliver()
 {
     ASSERT(canDeliver());
 
-    // Calling takeTransientRegistrations() can modify m_registrations, so it's necessary
+    // Calling clearTransientRegistrations() can modify m_registrations, so it's necessary
     // to make a copy of the transient registrations before operating on them.
     Vector<MutationObserverRegistration*, 1> transientRegistrations;
-    Vector<std::unique_ptr<HashSet<GCReachableRef<Node>>>, 1> nodesToKeepAlive;
-    HashSet<GCReachableRef<Node>> pendingTargets;
-    pendingTargets.swap(m_pendingTargets);
     for (auto* registration : m_registrations) {
         if (registration->hasTransientRegistrations())
             transientRegistrations.append(registration);
     }
     for (auto& registration : transientRegistrations)
-        nodesToKeepAlive.append(registration->takeTransientRegistrations());
+        registration->clearTransientRegistrations();
 
-    if (m_records.isEmpty()) {
-        ASSERT(m_pendingTargets.isEmpty());
+    if (m_records.isEmpty())
         return;
-    }
 
     Vector<Ref<MutationRecord>> records;
     records.swap(m_records);
 
-    // FIXME: Keep mutation observer callback as long as its observed nodes are alive. See https://webkit.org/b/179224.
-    if (m_callback->hasCallback()) {
-        auto* context = m_callback->scriptExecutionContext();
-        if (!context)
-            return;
-
-        InspectorInstrumentationCookie cookie = InspectorInstrumentation::willFireObserverCallback(*context, "MutationObserver"_s);
-        m_callback->handleEvent(*this, records, *this);
-        InspectorInstrumentation::didFireObserverCallback(cookie);
-    }
+    m_callback->call(records, this);
 }
 
 void MutationObserver::notifyMutationObservers()
@@ -269,7 +248,9 @@ void MutationObserver::notifyMutationObservers()
     deliveryInProgress = true;
 
     if (!suspendedMutationObservers().isEmpty()) {
-        for (auto& observer : copyToVector(suspendedMutationObservers())) {
+        Vector<RefPtr<MutationObserver>> suspended;
+        copyToVector(suspendedMutationObservers(), suspended);
+        for (auto& observer : suspended) {
             if (!observer->canDeliver())
                 continue;
 
@@ -280,7 +261,8 @@ void MutationObserver::notifyMutationObservers()
 
     while (!activeMutationObservers().isEmpty() || !signalSlotList().isEmpty()) {
         // 2. Let notify list be a copy of unit of related similar-origin browsing contexts' list of MutationObserver objects.
-        auto notifyList = copyToVector(activeMutationObservers());
+        Vector<RefPtr<MutationObserver>> notifyList;
+        copyToVector(activeMutationObservers(), notifyList);
         activeMutationObservers().clear();
         std::sort(notifyList.begin(), notifyList.end(), [](auto& lhs, auto& rhs) {
             return lhs->m_priority < rhs->m_priority;
@@ -288,7 +270,7 @@ void MutationObserver::notifyMutationObservers()
 
         // 3. Let signalList be a copy of unit of related similar-origin browsing contexts' signal slot list.
         // 4. Empty unit of related similar-origin browsing contexts' signal slot list.
-        Vector<GCReachableRef<HTMLSlotElement>> slotList;
+        Vector<RefPtr<HTMLSlotElement>> slotList;
         if (!signalSlotList().isEmpty()) {
             slotList.swap(signalSlotList());
             for (auto& slot : slotList)

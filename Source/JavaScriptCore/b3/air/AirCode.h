@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,29 +38,25 @@
 #include "RegisterAtOffsetList.h"
 #include "StackAlignment.h"
 #include <wtf/IndexMap.h>
-#include <wtf/WeakRandom.h>
 
 namespace JSC { namespace B3 {
 
 class Procedure;
 
-#if ASSERT_DISABLED
-IGNORE_RETURN_TYPE_WARNINGS_BEGIN
-#endif
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreturn-type"
+#endif // COMPILER(GCC) && ASSERT_DISABLED
 
 namespace Air {
 
 class BlockInsertionSet;
 class CCallSpecial;
 class CFG;
-class Code;
 class Disassembler;
 
 typedef void WasmBoundsCheckGeneratorFunction(CCallHelpers&, GPRReg);
 typedef SharedTask<WasmBoundsCheckGeneratorFunction> WasmBoundsCheckGenerator;
-
-typedef void PrologueGeneratorFunction(CCallHelpers&, Code&);
-typedef SharedTask<PrologueGeneratorFunction> PrologueGenerator;
 
 // This is an IR that is very close to the bare metal. It requires about 40x more bytes than the
 // generated machine code - for example if you're generating 1MB of machine code, you need about
@@ -169,28 +165,12 @@ public:
     const Vector<FrequentedBlock>& entrypoints() const { return m_entrypoints; }
     const FrequentedBlock& entrypoint(unsigned index) const { return m_entrypoints[index]; }
     bool isEntrypoint(BasicBlock*) const;
-    // Note: It is only valid to call this function after LowerEntrySwitch.
-    Optional<unsigned> entrypointIndex(BasicBlock*) const;
-
-    // Note: We allow this to be called even before we set m_entrypoints just for convenience to users of this API.
-    // However, if you call this before setNumEntrypoints, setNumEntrypoints will overwrite this value.
-    void setPrologueForEntrypoint(unsigned entrypointIndex, Ref<PrologueGenerator>&& generator)
-    {
-        m_prologueGenerators[entrypointIndex] = WTFMove(generator);
-    }
-    const Ref<PrologueGenerator>& prologueGeneratorForEntrypoint(unsigned entrypointIndex)
-    {
-        return m_prologueGenerators[entrypointIndex];
-    }
-
-    void setNumEntrypoints(unsigned);
-
+    
     // This is used by lowerEntrySwitch().
     template<typename Vector>
     void setEntrypoints(Vector&& vector)
     {
         m_entrypoints = std::forward<Vector>(vector);
-        RELEASE_ASSERT(m_entrypoints.size() == m_prologueGenerators.size());
     }
     
     CCallHelpers::Label entrypointLabel(unsigned index) const
@@ -203,7 +183,6 @@ public:
     void setEntrypointLabels(Vector&& vector)
     {
         m_entrypointLabels = std::forward<Vector>(vector);
-        RELEASE_ASSERT(m_entrypointLabels.size() == m_prologueGenerators.size());
     }
     
     void setStackIsAllocated(bool value)
@@ -333,9 +312,7 @@ public:
     RegisterSet mutableGPRs();
     RegisterSet mutableFPRs();
     RegisterSet pinnedRegisters() const { return m_pinnedRegs; }
-    
-    WeakRandom& weakRandom() { return m_weakRandom; }
-    
+
 private:
     friend class ::JSC::B3::Procedure;
     friend class BlockInsertionSet;
@@ -355,7 +332,6 @@ private:
         ASSERT_NOT_REACHED();
     }
 
-    WeakRandom m_weakRandom;
     Procedure& m_proc; // Some meta-data, like byproducts, is stored in the Procedure.
     Vector<Reg> m_gpRegsInPriorityOrder;
     Vector<Reg> m_fpRegsInPriorityOrder;
@@ -377,18 +353,16 @@ private:
     StackSlot* m_calleeSaveStackSlot { nullptr };
     Vector<FrequentedBlock> m_entrypoints; // This is empty until after lowerEntrySwitch().
     Vector<CCallHelpers::Label> m_entrypointLabels; // This is empty until code generation.
-    Vector<Ref<PrologueGenerator>, 1> m_prologueGenerators;
     RefPtr<WasmBoundsCheckGenerator> m_wasmBoundsCheckGenerator;
     const char* m_lastPhaseName;
     std::unique_ptr<Disassembler> m_disassembler;
     unsigned m_optLevel { defaultOptLevel() };
-    Ref<PrologueGenerator> m_defaultPrologueGenerator;
 };
 
 } } } // namespace JSC::B3::Air
 
-#if ASSERT_DISABLED
-IGNORE_RETURN_TYPE_WARNINGS_END
-#endif
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic pop
+#endif // COMPILER(GCC) && ASSERT_DISABLED
 
 #endif // ENABLE(B3_JIT)

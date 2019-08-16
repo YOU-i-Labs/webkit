@@ -23,14 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.DatabaseTreeElement = class DatabaseTreeElement extends WI.GeneralTreeElement
+WebInspector.DatabaseTreeElement = class DatabaseTreeElement extends WebInspector.GeneralTreeElement
 {
     constructor(representedObject)
     {
-        console.assert(representedObject instanceof WI.DatabaseObject);
+        console.assert(representedObject instanceof WebInspector.DatabaseObject);
 
-        const subtitle = null;
-        super("database-icon", representedObject.name, subtitle, representedObject, {hasChildren: true});
+        super("database-icon", representedObject.name, null, representedObject, true);
 
         this.hasChildren = false;
 
@@ -58,8 +57,8 @@ WI.DatabaseTreeElement = class DatabaseTreeElement extends WI.GeneralTreeElement
         function tableNamesCallback(tableNames)
         {
             for (var i = 0; i < tableNames.length; ++i) {
-                var databaseTable = new WI.DatabaseTableObject(tableNames[i], this.representedObject);
-                this.appendChild(new WI.DatabaseTableTreeElement(databaseTable));
+                var databaseTable = new WebInspector.DatabaseTableObject(tableNames[i], this.representedObject);
+                this.appendChild(new WebInspector.DatabaseTableTreeElement(databaseTable));
             }
 
             this.hasChildren = tableNames.length;

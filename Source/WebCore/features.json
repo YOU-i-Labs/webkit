@@ -1,17 +1,6 @@
 {
     "specification": [
     {
-        "name": "Application Cache",
-        "status": {
-            "status": "Deprecated"
-        },
-        "url": "https://html.spec.whatwg.org/multipage/offline.html",
-        "webkit-url": "https://webkit.org/b/181764",
-        "keywords": ["appcache", "application cache"],
-        "category": "webapps",
-        "description": "Resources are saved for offline use using a manifest."
-    },
-    {
         "name": "Battery Status API",
         "status": {
             "status": "Removed"
@@ -25,7 +14,8 @@
     {
         "name": "Beacon API",
         "status": {
-            "status": "Supported In Preview"
+            "status": "Under Consideration",
+            "enabled-by-default": false
         },
         "url": "https://www.w3.org/TR/beacon/",
         "webkit-url": "https://webkit.org/b/147885",
@@ -33,19 +23,10 @@
         "category": "webapps",
         "description": "Schedules asynchronous and non-blocking data delivery while the current page is unloading to mitigate resource contention for other time-critical requests.",
         "contact": {
-            "name": "Chris Dumez",
-            "email": "cdumez@apple.com",
-            "twitter": "@chris_dumez"
+            "name": "Jonathan Davis",
+            "email": "web-evangelist@apple.com",
+            "twitter": "@jonathandavis"
         }
-    },
-    {
-        "name": "CSS Animation Worklet API",
-        "status": {
-            "status": "Under Consideration"
-        },
-        "url": "https://drafts.css-houdini.org/css-animationworklet/",
-        "keywords": ["css", "houdini", "animation", "worklet"],
-        "category": "css"
     },
     {
         "name": "CSS Color Level 4",
@@ -61,10 +42,10 @@
     {
         "name": "CSS Font Display",
         "status": {
-            "status": "In Development",
+            "status": "Under Consideration",
             "enabled-by-default": false
         },
-        "url": "https://drafts.csswg.org/css-fonts-4/#font-display-desc",
+        "url": "https://tabatkins.github.io/specs/css-font-display/",
         "keywords": ["css font display", "font display", "font-display", "css font rendering controls", "font rendering controls"],
         "category": "css",
         "description": "Allows content to specify what is shown during font loading.",
@@ -117,15 +98,6 @@
         "category": "css"
     },
     {
-        "name": "CSS Layout API Level 1",
-        "status": {
-            "status": "Under Consideration"
-        },
-        "url": "https://drafts.css-houdini.org/css-layout-api/",
-        "keywords": ["css", "houdini", "layout", "worklet"],
-        "category": "css"
-    },
-    {
         "name": "CSS Media Queries Level 4",
         "url": "http://dev.w3.org/csswg/mediaqueries-4/",
         "keywords": ["css media queries", "media queries"],
@@ -134,11 +106,10 @@
     {
         "name": "CSS Painting API Level 1",
         "status": {
-            "status": "In Development"
+            "status": "Under Consideration"
         },
-        "url": "https://drafts.css-houdini.org/css-paint-api-1/",
-        "keywords": ["css", "houdini", "worklet"],
-        "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=190217",
+        "url": "https://drafts.css-houdini.org/css-paint-api/",
+        "keywords": ["css", "houdini"],
         "category": "css"
     },
     {
@@ -150,12 +121,10 @@
     {
         "name": "CSS Properties and Values API Level 1",
         "status": {
-            "status": "In Development"
+            "status": "Under Consideration"
         },
         "url": "https://drafts.css-houdini.org/css-properties-values-api/",
-        "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=189692",
-        "keywords": ["css", "houdini", "custom properties"],
-        "description": "An API for registering new CSS properties. Properties registered using this API are provided with a parse syntax that defines a type, inheritance behaviour, and an initial value.",
+        "keywords": ["css", "houdini"],
         "category": "css"
     },
     {
@@ -215,16 +184,6 @@
             "twitter": "@Litherum",
             "email": "mmaxfield@apple.com"
         }
-    },
-    {
-        "name": "CSS Typed OM Level 1",
-        "status": {
-            "status": "Under Development"
-        },
-        "url": "https://drafts.css-houdini.org/css-typed-om/",
-        "keywords": ["css", "houdini"],
-        "category": "css",
-        "description": "Exposes CSS values as typed JavaScript objects to facilitate their performant manipulation."
     },
     {
         "name": "CSS Variables",
@@ -414,17 +373,17 @@
     {
         "name": "Intersection Observer",
         "status": {
-            "status": "Supported in Preview"
+            "status": "In Development"
         },
         "url": "https://wicg.github.io/IntersectionObserver/",
         "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=159475",
-        "keywords": ["intersection", "intersection observer", "intersectionobserver"],
+        "keywords": ["intersection", "intersection observer"],
         "description": "An API that can be used to understand the visibility and position of DOM elements relative to a containing element or to the top-level viewport."
     },
     {
         "name": "Media Capture and Streams",
         "status": {
-            "status": "Supported"
+            "status": "Supported In Preview"
         },
         "url": "https://w3c.github.io/mediacapture-main/",
         "keywords": ["mediastream", "getusermedia"],
@@ -457,28 +416,17 @@
     {
         "name": "Performance Observer",
         "status": {
-            "status": "Supported",
+            "status": "Supported In Preview",
             "enabled-by-default": true
         },
         "url": "https://w3c.github.io/performance-timeline/",
-        "keywords": ["performance", "performance observer", "performanceobserver", "performance timeline"],
+        "keywords": ["performance", "performance observer", "performance timeline"],
         "description": "An API to observe performance timeline entries at idle times.",
         "contact": {
             "name": "Joseph Pecoraro",
             "email": "joepeck@webkit.org",
             "twitter": "@JosephPecoraro"
         }
-    },
-    {
-        "name": "Pointer Events Level 2",
-        "status": {
-            "status": "In Development",
-            "enabled-by-default": false
-        },
-        "url": "https://www.w3.org/TR/pointerevents/",
-        "keywords": ["dom", "events", "touch", "mouse", "stylus"],
-        "category": "html",
-        "description": "Pointer Events describes events and related interfaces for handling hardware agnostic pointer input from devices including a mouse, pen, touchscreen, etc."
     },
     {
         "name": "Pointer Lock",
@@ -508,7 +456,7 @@
     {
         "name": "Resource Timing Level 2",
         "status": {
-            "status": "Supported",
+            "status": "Supported In Preview",
             "enabled-by-default": true
         },
         "url": "https://w3c.github.io/resource-timing/",
@@ -539,17 +487,16 @@
     {
         "name": "Service Workers",
         "status": {
-            "status": "Supported"
+            "status": "Under Consideration"
         },
-        "url": "https://w3c.github.io/ServiceWorker/",
-        "webkit-url": "https://webkit.org/b/174541",
+        "url": "http://www.w3.org/TR/2015/WD-service-workers-20150625/",
         "keywords": ["service workers"],
         "category": "webapps",
         "description": "A method for browsers to run JavaScript in the background to handle network requests and manage cached responses. Service Workers offers a replacement for Application Cache.",
         "contact": {
-            "name": "Brady Eidson",
-            "twitter": "@bradeeoh",
-            "email": "beidson@apple.com"
+            "name": "Jon Davis",
+            "twitter": "@jonathandavis",
+            "email": "web-evangelist@apple.com"
         }
     },
     {
@@ -561,7 +508,7 @@
     {
         "name": "User Timing Level 2",
         "status": {
-            "status": "Supported",
+            "status": "Supported in Preview",
             "enabled-by-default": true
         },
         "url": "https://w3c.github.io/user-timing/",
@@ -591,7 +538,7 @@
     {
         "name": "Web Animations",
         "status": {
-            "status": "Supported In Preview"
+            "status": "Under Consideration"
         },
         "url": "https://www.w3.org/TR/web-animations-1/",
         "keywords": ["web animations"],
@@ -605,7 +552,7 @@
     {
         "name": "Web App Manifest",
         "status": {
-            "status": "In Development",
+            "status": "Under Consideration",
             "enabled-by-default": false
         },
         "url": "https://www.w3.org/TR/appmanifest/",
@@ -633,7 +580,7 @@
     {
         "name": "Web Cryptography API",
         "status": {
-            "status": "Supported",
+            "status": "Supported In Preview",
             "enabled-by-default": true
         },
         "url": "http://www.w3.org/TR/WebCryptoAPI/",
@@ -641,10 +588,10 @@
         "keywords": ["webcrypto", "web cryptography api", "crypto"],
         "category": "webapps",
         "description": "A JavaScript API for web applications to perform cryptographic operations.",
+        "comment": "The prefixed ‘webkitSubtle’ attribute which gave access to the SubtleCrypto API is now deprecated in preference to the official “subtle” property.",
         "contact": {
             "name": "Jiewen Tan",
-            "email": "jiewen_tan@apple.com",
-            "twitter": "@alanwaketan"
+            "email": "jiewen_tan@apple.com"
         }
     },
     {
@@ -670,7 +617,7 @@
     {
         "name": "WebRTC",
         "status": {
-            "status": "Supported"
+            "status": "Supported In Preview"
         },
         "url": "http://www.w3.org/TR/webrtc/",
         "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=124288",
@@ -682,31 +629,6 @@
             "twitter": "@jonathandavis",
             "email": "web-evangelist@apple.com"
         }
-    },
-    {
-        "name": "WebVR",
-        "status": {
-            "status": "In Development",
-            "enabled-by-default": false
-        },
-        "url": "https://w3c.github.io/webvr/spec/1.1/",
-        "keywords": ["WebVR, VR"],
-        "category": "html",
-        "description": "A JavaScript API providing access to VR devices to allow developers to build comfortable VR experiences.",
-        "contact": {
-            "name": "Sergio Villar Senin",
-            "twitter": "@svillarsenin",
-            "email": "svillar@igalia.com"
-        }
-    },
-    {
-        "name": "Worklets Level 1",
-        "status": {
-            "status": "Under Consideration"
-        },
-        "url": "https://drafts.css-houdini.org/worklets/",
-        "keywords": ["houdini", "worklet"],
-        "description": "An API for running scripts in stages of the rendering pipeline independent of the main javascript execution environment"
     }
     ],
 
@@ -845,7 +767,7 @@
     {
         "name": "Conic Gradients",
         "status": {
-            "status": "Supported in Preview"
+            "status": "Under Consideration"
         },
         "url": "https://www.w3.org/TR/css4-images/#conic-gradients",
         "specification": "CSS Image Values and Replaced Content Module Level 4",
@@ -871,22 +793,6 @@
         }
     },
     {
-        "name": "Datalist Element",
-        "status": {
-            "status": "Supported in Preview"
-        },
-        "url": "https://html.spec.whatwg.org/multipage/form-elements.html#the-datalist-element",
-        "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=27247",
-        "specification": "HTML5",
-        "category": "html",
-        "description": "The datalist element represents a set of option elements that represent predefined options for other controls.",
-        "contact": {
-            "name": "Jon Davis",
-            "twitter": "@jonathandavis",
-            "email": "web-evangelist@apple.com"
-        }
-    },
-    {
         "name": "Download Attribute",
         "status": {
             "status": "Supported"
@@ -894,7 +800,6 @@
         "url": "https://html.spec.whatwg.org/multipage/semantics.html#downloading-resources",
         "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=156056",
         "specification": "HTML5",
-        "category": "html",
         "description": "An attribute to an anchor or area element to indicate that a resource is intended to be downloaded for use later rather than immediately.",
         "contact": {
             "name": "Brent Fulgham",
@@ -920,20 +825,6 @@
         }
     },
     {
-        "name": "File and Directory Entries API",
-        "status": {
-            "status": "In Development"
-        },
-        "url": "https://wicg.github.io/entries-api/",
-        "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=175976",
-        "description": "An API to support file and directory upload by drag-and-drop operations.",
-        "contact": {
-            "name": "Chris Dumez",
-            "email": "cdumez@apple.com",
-            "twitter": "@chris_dumez"
-        }
-    },
-    {
         "name": "Filter Effects backdrop-filter property",
         "status": {
             "status": "Supported",
@@ -942,15 +833,6 @@
         "url": "http://dev.w3.org/fxtf/filters-2/#propdef-backdrop-filter",
         "specification": "Filter Effects Module Level 2",
         "description": "This property specifies styling for filters applied to the backdrop of an element."
-    },
-    {
-        "name": "Font Palettes",
-        "status": {
-            "status": "In Development"
-        },
-        "url": "https://drafts.csswg.org/css-fonts-4/#propdef-font-palette",
-        "specification": "CSS Fonts Level 4",
-        "description": "Allows setting colors in color fonts from CSS"
     },
     {
         "name": "Force Click Events",
@@ -1039,15 +921,6 @@
         "description": "The \"pointer\" media defines how percise the pointing device is. The \"hover\" media defines the ability of the poiting device to hover elements."
     },
     {
-        "name": "MediaStream Recording API",
-        "status": {
-            "status": "Under Consideration"
-        },
-        "url": "https://w3c.github.io/mediacapture-record",
-        "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=85851",
-        "comment": "Allows recording of audio and/or video MediaStream."
-    },
-    {
         "name": "MicroData",
         "status": {
             "status": "Removed"
@@ -1058,14 +931,14 @@
         "comment": "WebKit used to support MicroData. The feature never gained any traction and was eventually removed to clean up the codebase."
     },
     {
-        "name": "Payment Request",
+        "name": "Navigator.hardwareConcurrency",
         "status": {
-            "status": "Supported"
+            "status": "Supported",
+            "enabled-by-default": true
         },
-        "url": "https://www.w3.org/TR/payment-request/",
-        "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=174796",
-        "keywords": ["web payments", "payment request", "apple pay"],
-        "description": "An API for merchants to request payments from users."
+        "url": "https://wiki.whatwg.org/wiki/Navigator_HW_Concurrency",
+        "webkit-url": "http://trac.webkit.org/changeset/169017",
+        "description": "Navigator.hardwareConcurrency provides the total number of logical processors available to the user agent."
     },
     {
         "name": "Picture element",
@@ -1076,7 +949,6 @@
         "url": "https://html.spec.whatwg.org/multipage/embedded-content.html#the-picture-element",
         "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=116963",
         "specification": "HTML5",
-        "category": "html",
         "description": "Enable handling the art-direction responsive images use-case by defining multiple image sources in markup",
         "contact": {
             "name": "Yoav Weiss",
@@ -1231,7 +1103,7 @@
     {
         "name": "Variation Fonts",
         "status": {
-            "status": "Supported",
+            "status": "In Development",
             "enabled-by-default": false
         },
         "url": "https://drafts.csswg.org/css-fonts-4/",
@@ -1251,11 +1123,11 @@
         "description": "An API that provides access to the vibration mechanism of the hosting device."
     },
     {
-        "name": "Visual Viewport API",
+        "name": "ViewportAPI",
         "status": {
-            "status": "In Development"
+            "status": "Under Consideration"
         },
-        "url": "https://wicg.github.io/visual-viewport/",
+        "url": "https://github.com/WICG/ViewportAPI",
         "description": "A proposal to add explicit APIs to the Web for querying and setting the visual viewport.",
         "keywords": ["visual viewport", "viewport", "viewportapi"]
     },
@@ -1272,17 +1144,11 @@
     {
         "name": "Web Authentication",
         "status": {
-            "status": "In Development"
+            "status": "Under Consideration"
         },
         "url": "https://w3c.github.io/webauthn/",
-        "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=181943",
-        "keywords": ["authentication", "credentials", "webauthn"],
-        "description": "An API enabling the creation and use of strong, attested, cryptographic scoped credentials by web applications, for the purpose of strongly authenticating users.",
-        "contact": {
-            "name": "Jiewen Tan",
-            "email": "jiewen_tan@apple.com",
-            "twitter": "@alanwaketan"
-        }
+        "keywords": ["authentication", "credentials"],
+        "description": "An API enabling the creation and use of strong, attested, cryptographic scoped credentials by web applications, for the purpose of strongly authenticating users."
     },
     {
         "name": "Web Bluetooth",
@@ -1305,7 +1171,7 @@
     {
         "name": "Web Share",
         "status": {
-            "status": "Supported in Preview"
+            "status": "Under Consideration"
         },
         "url": "https://github.com/WICG/web-share/blob/master/docs/interface.md",
         "webkit-url": "https://bugs.webkit.org/show_bug.cgi?id=171100",

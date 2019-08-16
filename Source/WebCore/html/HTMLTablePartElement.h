@@ -32,7 +32,6 @@ namespace WebCore {
 class HTMLTableElement;
 
 class HTMLTablePartElement : public HTMLElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLTablePartElement);
 protected:
     HTMLTablePartElement(const QualifiedName& tagName, Document& document)
         : HTMLElement(tagName, document)
@@ -42,7 +41,7 @@ protected:
     bool isPresentationAttribute(const QualifiedName&) const override;
     void collectStyleForPresentationAttribute(const QualifiedName&, const AtomicString&, MutableStyleProperties&) override;
 
-    RefPtr<HTMLTableElement> findParentTable() const;
+    HTMLTableElement* findParentTable() const;
 };
 
 } // namespace WebCore

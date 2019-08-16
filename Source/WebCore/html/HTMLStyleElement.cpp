@@ -31,18 +31,13 @@
 #include "EventSender.h"
 #include "HTMLNames.h"
 #include "MediaList.h"
-#include "MediaQueryParser.h"
 #include "RuntimeEnabledFeatures.h"
 #include "ScriptableDocumentParser.h"
 #include "ShadowRoot.h"
 #include "StyleScope.h"
 #include "StyleSheetContents.h"
-#include <wtf/IsoMallocInlines.h>
-#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLStyleElement);
 
 using namespace HTMLNames;
 
@@ -78,12 +73,12 @@ Ref<HTMLStyleElement> HTMLStyleElement::create(Document& document)
 
 void HTMLStyleElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    if (name == titleAttr && sheet() && !isInShadowTree())
+    if (name == titleAttr && sheet())
         sheet()->setTitle(value);
     else if (name == mediaAttr) {
         m_styleSheetOwner.setMedia(value);
         if (sheet()) {
-            sheet()->setMediaQueries(MediaQuerySet::create(value, MediaQueryParserContext(document())));
+            sheet()->setMediaQueries(MediaQuerySet::create(value));
             if (auto* scope = m_styleSheetOwner.styleScope())
                 scope->didChangeStyleSheetContents();
         } else
@@ -100,18 +95,19 @@ void HTMLStyleElement::finishParsingChildren()
     HTMLElement::finishParsingChildren();
 }
 
-Node::InsertedIntoAncestorResult HTMLStyleElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
+Node::InsertionNotificationRequest HTMLStyleElement::insertedInto(ContainerNode& insertionPoint)
 {
-    auto result = HTMLElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
-    if (insertionType.connectedToDocument)
+    bool wasInDocument = isConnected();
+    auto result = HTMLElement::insertedInto(insertionPoint);
+    if (insertionPoint.isConnected() && !wasInDocument)
         m_styleSheetOwner.insertedIntoDocument(*this);
     return result;
 }
 
-void HTMLStyleElement::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
+void HTMLStyleElement::removedFrom(ContainerNode& insertionPoint)
 {
-    HTMLElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
-    if (removalType.disconnectedFromDocument)
+    HTMLElement::removedFrom(insertionPoint);
+    if (insertionPoint.isConnected() && !isConnected())
         m_styleSheetOwner.removedFromDocument(*this);
 }
 
@@ -130,9 +126,9 @@ void HTMLStyleElement::dispatchPendingEvent(StyleEventSender* eventSender)
 {
     ASSERT_UNUSED(eventSender, eventSender == &styleLoadEventSender());
     if (m_loadedSheet)
-        dispatchEvent(Event::create(eventNames().loadEvent, Event::CanBubble::No, Event::IsCancelable::No));
+        dispatchEvent(Event::create(eventNames().loadEvent, false, false));
     else
-        dispatchEvent(Event::create(eventNames().errorEvent, Event::CanBubble::No, Event::IsCancelable::No));
+        dispatchEvent(Event::create(eventNames().errorEvent, false, false));
 }
 
 void HTMLStyleElement::notifyLoadedSheetAndAllCriticalSubresources(bool errorOccurred)
@@ -148,7 +144,7 @@ void HTMLStyleElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) const
 {    
     HTMLElement::addSubresourceAttributeURLs(urls);
 
-    if (auto styleSheet = makeRefPtr(this->sheet())) {
+    if (auto* styleSheet = this->sheet()) {
         styleSheet->contents().traverseSubresources([&] (auto& resource) {
             urls.add(resource.url());
             return false;

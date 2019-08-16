@@ -1,1 +1,1 @@
-ERROR: Malformed domain specification: availability is not an array
+ERROR: Malformed domain specification: availability is an unsupported string. Was: "webb", Allowed values: web

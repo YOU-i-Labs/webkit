@@ -59,7 +59,7 @@ using namespace HTMLNames;
 
 static int toIdentifier(RefPtr<CSSValue>&& value)
 {
-    return is<CSSPrimitiveValue>(value) ? downcast<CSSPrimitiveValue>(*value).valueID() : 0;
+    return is<CSSPrimitiveValue>(value.get()) ? downcast<CSSPrimitiveValue>(*value).valueID() : 0;
 }
 
 static String& styleSpanClassString()
@@ -250,10 +250,10 @@ void ApplyStyleCommand::applyBlockStyle(EditingStyle& style)
     if (!scope)
         return;
 
-    auto startRange = Range::create(document(), firstPositionInNode(scope), visibleStart.deepEquivalent().parentAnchoredEquivalent());
-    auto endRange = Range::create(document(), firstPositionInNode(scope), visibleEnd.deepEquivalent().parentAnchoredEquivalent());
-    int startIndex = TextIterator::rangeLength(startRange.ptr(), true);
-    int endIndex = TextIterator::rangeLength(endRange.ptr(), true);
+    RefPtr<Range> startRange = Range::create(document(), firstPositionInNode(scope), visibleStart.deepEquivalent().parentAnchoredEquivalent());
+    RefPtr<Range> endRange = Range::create(document(), firstPositionInNode(scope), visibleEnd.deepEquivalent().parentAnchoredEquivalent());
+    int startIndex = TextIterator::rangeLength(startRange.get(), true);
+    int endIndex = TextIterator::rangeLength(endRange.get(), true);
 
     VisiblePosition paragraphStart(startOfParagraph(visibleStart));
     VisiblePosition nextParagraphStart(endOfParagraph(paragraphStart).next());
@@ -270,7 +270,7 @@ void ApplyStyleCommand::applyBlockStyle(EditingStyle& style)
                     block = newBlock;
             }
             ASSERT(!block || is<HTMLElement>(*block));
-            if (is<HTMLElement>(block)) {
+            if (is<HTMLElement>(block.get())) {
                 removeCSSStyle(style, downcast<HTMLElement>(*block));
                 if (!m_removeOnly)
                     addBlockStyle(styleChange, downcast<HTMLElement>(*block));
@@ -284,12 +284,10 @@ void ApplyStyleCommand::applyBlockStyle(EditingStyle& style)
         nextParagraphStart = endOfParagraph(paragraphStart).next();
     }
     
-    {
-        auto startRange = TextIterator::rangeFromLocationAndLength(scope, startIndex, 0, true);
-        auto endRange = TextIterator::rangeFromLocationAndLength(scope, endIndex, 0, true);
-        if (startRange && endRange)
-            updateStartEnd(startRange->startPosition(), endRange->startPosition());
-    }
+    startRange = TextIterator::rangeFromLocationAndLength(scope, startIndex, 0, true);
+    endRange = TextIterator::rangeFromLocationAndLength(scope, endIndex, 0, true);
+    if (startRange && endRange)
+        updateStartEnd(startRange->startPosition(), endRange->startPosition());
 }
 
 static Ref<MutableStyleProperties> copyStyleOrCreateEmpty(const StyleProperties* style)
@@ -486,7 +484,7 @@ HTMLElement* ApplyStyleCommand::splitAncestorsWithUnicodeBidi(Node* node, bool b
     HTMLElement* unsplitAncestor = nullptr;
 
     WritingDirection highestAncestorDirection;
-    if (allowedDirection != WritingDirection::Natural
+    if (allowedDirection != NaturalWritingDirection
         && highestAncestorUnicodeBidi != CSSValueBidiOverride
         && is<HTMLElement>(*highestAncestorWithUnicodeBidi)
         && EditingStyle::create(highestAncestorWithUnicodeBidi, EditingStyle::AllProperties)->textDirection(highestAncestorDirection)
@@ -616,7 +614,7 @@ void ApplyStyleCommand::applyInlineStyle(EditingStyle& style)
     // and prevent us from adding redundant ones, as described in:
     // <rdar://problem/3724344> Bolding and unbolding creates extraneous tags
     Position removeStart = start.upstream();
-    WritingDirection textDirection = WritingDirection::Natural;
+    WritingDirection textDirection = NaturalWritingDirection;
     bool hasTextDirection = style.textDirection(textDirection);
     RefPtr<EditingStyle> styleWithoutEmbedding;
     RefPtr<EditingStyle> embeddingStyle;
@@ -860,7 +858,7 @@ bool ApplyStyleCommand::shouldApplyInlineStyleToRun(EditingStyle& style, Node* r
         if (node->hasChildNodes())
             continue;
         // We don't consider m_isInlineElementToRemoveFunction here because we never apply style when m_isInlineElementToRemoveFunction is specified
-        if (!style.styleIsPresentInComputedStyleOfNode(*node))
+        if (!style.styleIsPresentInComputedStyleOfNode(node))
             return true;
         if (m_styledInlineElement && !enclosingElementWithTag(positionBeforeNode(node), m_styledInlineElement->tagQName()))
             return true;
@@ -905,7 +903,7 @@ bool ApplyStyleCommand::removeInlineStyleFromElement(EditingStyle& style, HTMLEl
         if (mode == RemoveNone)
             return true;
         if (extractedStyle)
-            extractedStyle->mergeInlineStyleOfElement(element, EditingStyle::OverrideValues);
+            extractedStyle->mergeInlineStyleOfElement(&element, EditingStyle::OverrideValues);
         removeNodePreservingChildren(element);
         return true;
     }
@@ -939,19 +937,21 @@ bool ApplyStyleCommand::removeImplicitlyStyledElement(EditingStyle& style, HTMLE
 {
     if (mode == RemoveNone) {
         ASSERT(!extractedStyle);
-        return style.conflictsWithImplicitStyleOfElement(element) || style.conflictsWithImplicitStyleOfAttributes(element);
+        return style.conflictsWithImplicitStyleOfElement(&element) || style.conflictsWithImplicitStyleOfAttributes(&element);
     }
 
     ASSERT(mode == RemoveIfNeeded || mode == RemoveAlways);
-    if (style.conflictsWithImplicitStyleOfElement(element, extractedStyle, mode == RemoveAlways ? EditingStyle::ExtractMatchingStyle : EditingStyle::DoNotExtractMatchingStyle)) {
+    if (style.conflictsWithImplicitStyleOfElement(&element, extractedStyle, mode == RemoveAlways ? EditingStyle::ExtractMatchingStyle : EditingStyle::DoNotExtractMatchingStyle)) {
         replaceWithSpanOrRemoveIfWithoutAttributes(element);
         return true;
     }
 
     // unicode-bidi and direction are pushed down separately so don't push down with other styles
     Vector<QualifiedName> attributes;
-    if (!style.extractConflictingImplicitStyleOfAttributes(element, extractedStyle ? EditingStyle::PreserveWritingDirection : EditingStyle::DoNotPreserveWritingDirection, extractedStyle, attributes, mode == RemoveAlways ? EditingStyle::ExtractMatchingStyle : EditingStyle::DoNotExtractMatchingStyle))
+    if (!style.extractConflictingImplicitStyleOfAttributes(&element, extractedStyle ? EditingStyle::PreserveWritingDirection : EditingStyle::DoNotPreserveWritingDirection,
+        extractedStyle, attributes, mode == RemoveAlways ? EditingStyle::ExtractMatchingStyle : EditingStyle::DoNotExtractMatchingStyle)) {
         return false;
+    }
 
     for (auto& attribute : attributes)
         removeNodeAttribute(element, attribute);
@@ -965,10 +965,10 @@ bool ApplyStyleCommand::removeImplicitlyStyledElement(EditingStyle& style, HTMLE
 bool ApplyStyleCommand::removeCSSStyle(EditingStyle& style, HTMLElement& element, InlineStyleRemovalMode mode, EditingStyle* extractedStyle)
 {
     if (mode == RemoveNone)
-        return style.conflictsWithInlineStyleOfElement(element);
+        return style.conflictsWithInlineStyleOfElement(&element);
 
     RefPtr<MutableStyleProperties> newInlineStyle;
-    if (!style.conflictsWithInlineStyleOfElement(element, newInlineStyle, extractedStyle))
+    if (!style.conflictsWithInlineStyleOfElement(&element, newInlineStyle, extractedStyle))
         return false;
 
     if (newInlineStyle->isEmpty())
@@ -1012,7 +1012,7 @@ void ApplyStyleCommand::applyInlineStyleToPushDown(Node& node, EditingStyle* sty
     RefPtr<EditingStyle> newInlineStyle = style;
     if (is<HTMLElement>(node) && downcast<HTMLElement>(node).inlineStyle()) {
         newInlineStyle = style->copy();
-        newInlineStyle->mergeInlineStyleOfElement(downcast<HTMLElement>(node), EditingStyle::OverrideValues);
+        newInlineStyle->mergeInlineStyleOfElement(&downcast<HTMLElement>(node), EditingStyle::OverrideValues);
     }
 
     // Since addInlineStyleIfNeeded can't add styles to block-flow render objects, add style attribute instead.
@@ -1045,7 +1045,8 @@ void ApplyStyleCommand::pushDownInlineStyleAroundNode(EditingStyle& style, Node*
     // Each child of the removed element, exclusing ancestors of targetNode, is then wrapped by clones of elements in elementsToPushDown.
     Vector<Ref<Element>> elementsToPushDown;
     while (current && current != targetNode && current->contains(targetNode)) {
-        auto currentChildren = collectChildNodes(*current);
+        NodeVector currentChildren;
+        getChildNodes(*current.get(), currentChildren);
 
         RefPtr<StyledElement> styledElement;
         if (is<StyledElement>(*current) && isStyledInlineElementToRemove(downcast<Element>(current.get()))) {
@@ -1053,9 +1054,9 @@ void ApplyStyleCommand::pushDownInlineStyleAroundNode(EditingStyle& style, Node*
             elementsToPushDown.append(*styledElement);
         }
 
-        auto styleToPushDown = EditingStyle::create();
+        RefPtr<EditingStyle> styleToPushDown = EditingStyle::create();
         if (is<HTMLElement>(*current))
-            removeInlineStyleFromElement(style, downcast<HTMLElement>(*current), RemoveIfNeeded, styleToPushDown.ptr());
+            removeInlineStyleFromElement(style, downcast<HTMLElement>(*current), RemoveIfNeeded, styleToPushDown.get());
 
         // The inner loop will go through children on each level
         // FIXME: we should aggregate inline child elements together so that we don't wrap each child separately.
@@ -1074,7 +1075,7 @@ void ApplyStyleCommand::pushDownInlineStyleAroundNode(EditingStyle& style, Node*
             // Apply style to all nodes containing targetNode and their siblings but NOT to targetNode
             // But if we've removed styledElement then always apply the style.
             if (&child != targetNode || styledElement)
-                applyInlineStyleToPushDown(child, styleToPushDown.ptr());
+                applyInlineStyleToPushDown(child, styleToPushDown.get());
 
             // We found the next node for the outer loop (contains targetNode)
             // When reached targetNode, stop the outer loop upon the completion of the current inner loop
@@ -1356,7 +1357,7 @@ void ApplyStyleCommand::surroundNodeRangeWithElement(Node& startNode, Node& endN
     if (nextSibling && nextSibling->hasEditableStyle() && areIdenticalElements(element, *nextSibling))
         mergeIdenticalElements(element, downcast<Element>(*nextSibling));
 
-    if (is<Element>(previousSibling) && previousSibling->hasEditableStyle()) {
+    if (is<Element>(previousSibling.get()) && previousSibling->hasEditableStyle()) {
         auto* mergedElement = previousSibling->nextSibling();
         ASSERT(mergedElement);
         if (mergedElement->hasEditableStyle() && areIdenticalElements(*previousSibling, *mergedElement))
@@ -1462,7 +1463,7 @@ void ApplyStyleCommand::applyInlineStyleChange(Node& passedStart, Node& passedEn
         if (styleContainer) {
             if (auto existingStyle = styleContainer->inlineStyle()) {
                 auto inlineStyle = EditingStyle::create(existingStyle);
-                inlineStyle->overrideWithStyle(*styleToMerge);
+                inlineStyle->overrideWithStyle(styleToMerge);
                 setNodeAttribute(*styleContainer, styleAttr, inlineStyle->style()->asText());
             } else
                 setNodeAttribute(*styleContainer, styleAttr, styleToMerge->asText());

@@ -25,7 +25,6 @@
 namespace WebCore {
 
 class SVGTextElement final : public SVGTextPositioningElement {
-    WTF_MAKE_ISO_ALLOCATED(SVGTextElement);
 public:
     static Ref<SVGTextElement> create(const QualifiedName&, Document&);
 

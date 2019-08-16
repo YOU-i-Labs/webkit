@@ -23,17 +23,14 @@
 #include "Document.h"
 #include "Frame.h"
 #include "FrameView.h"
-#include "Logging.h"
 #include "MediaList.h"
 #include "MediaQueryEvaluator.h"
 #include "MediaQueryList.h"
 #include "MediaQueryListListener.h"
-#include "MediaQueryParserContext.h"
 #include "NodeRenderStyle.h"
 #include "RenderElement.h"
 #include "StyleResolver.h"
 #include "StyleScope.h"
-#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
@@ -42,7 +39,9 @@ MediaQueryMatcher::MediaQueryMatcher(Document& document)
 {
 }
 
-MediaQueryMatcher::~MediaQueryMatcher() = default;
+MediaQueryMatcher::~MediaQueryMatcher()
+{
+}
 
 void MediaQueryMatcher::documentDestroyed()
 {
@@ -67,7 +66,7 @@ std::unique_ptr<RenderStyle> MediaQueryMatcher::documentElementUserAgentStyle() 
     if (!documentElement)
         return nullptr;
 
-    return m_document->styleScope().resolver().styleForElement(*documentElement, m_document->renderStyle(), nullptr, RuleMatchingBehavior::MatchOnlyUserAgentRules).renderStyle;
+    return m_document->styleScope().resolver().styleForElement(*documentElement, m_document->renderStyle(), nullptr, MatchOnlyUserAgentRules).renderStyle;
 }
 
 bool MediaQueryMatcher::evaluate(const MediaQuerySet& media)
@@ -83,7 +82,7 @@ RefPtr<MediaQueryList> MediaQueryMatcher::matchMedia(const String& query)
     if (!m_document)
         return nullptr;
 
-    auto media = MediaQuerySet::create(query, MediaQueryParserContext(*m_document));
+    auto media = MediaQuerySet::create(query);
     reportMediaQueryWarningIfNeeded(m_document, media.ptr());
     bool result = evaluate(media.get());
     return MediaQueryList::create(*this, WTFMove(media), result);
@@ -118,8 +117,6 @@ void MediaQueryMatcher::styleResolverChanged()
     auto style = documentElementUserAgentStyle();
     if (!style)
         return;
-
-    LOG_WITH_STREAM(MediaQueries, stream << "MediaQueryMatcher::styleResolverChanged " << m_document->url());
 
     MediaQueryEvaluator evaluator { mediaType(), *m_document, style.get() };
     Vector<Listener> listeners;

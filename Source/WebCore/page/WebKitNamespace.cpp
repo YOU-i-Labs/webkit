@@ -33,14 +33,15 @@
 
 namespace WebCore {
 
-WebKitNamespace::WebKitNamespace(DOMWindow& window, UserContentProvider& userContentProvider)
-    : DOMWindowProperty(&window)
-    , m_messageHandlerNamespace(UserMessageHandlersNamespace::create(*window.frame(), userContentProvider))
+WebKitNamespace::WebKitNamespace(Frame& frame, UserContentProvider& userContentProvider)
+    : DOMWindowProperty(&frame)
+    , m_messageHandlerNamespace(UserMessageHandlersNamespace::create(frame, userContentProvider))
 {
-    ASSERT(window.frame());
 }
 
-WebKitNamespace::~WebKitNamespace() = default;
+WebKitNamespace::~WebKitNamespace()
+{
+}
 
 UserMessageHandlersNamespace* WebKitNamespace::messageHandlers()
 {

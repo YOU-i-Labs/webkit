@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "ParserModes.h"
 #include "ParserTokens.h"
 #include <wtf/Vector.h>
 #include <wtf/text/UniquedStringImpl.h>

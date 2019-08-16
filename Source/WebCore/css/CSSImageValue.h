@@ -22,8 +22,6 @@
 
 #include "CSSValue.h"
 #include "CachedResourceHandle.h"
-#include "ResourceLoaderOptions.h"
-#include <wtf/Function.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {
@@ -31,12 +29,12 @@ namespace WebCore {
 class CachedImage;
 class CachedResourceLoader;
 class DeprecatedCSSOMValue;
-class CSSStyleDeclaration;
 class RenderElement;
+struct ResourceLoaderOptions;
 
 class CSSImageValue final : public CSSValue {
 public:
-    static Ref<CSSImageValue> create(URL&& url, LoadedFromOpaqueSource loadedFromOpaqueSource) { return adoptRef(*new CSSImageValue(WTFMove(url), loadedFromOpaqueSource)); }
+    static Ref<CSSImageValue> create(URL&& url) { return adoptRef(*new CSSImageValue(WTFMove(url))); }
     static Ref<CSSImageValue> create(CachedImage& image) { return adoptRef(*new CSSImageValue(image)); }
     ~CSSImageValue();
 
@@ -48,25 +46,24 @@ public:
 
     String customCSSText() const;
 
-    Ref<DeprecatedCSSOMValue> createDeprecatedCSSOMWrapper(CSSStyleDeclaration&) const;
+    Ref<DeprecatedCSSOMValue> createDeprecatedCSSOMWrapper() const;
 
-    bool traverseSubresources(const WTF::Function<bool (const CachedResource&)>& handler) const;
+    bool traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const;
 
     bool equals(const CSSImageValue&) const;
 
-    bool knownToBeOpaque(const RenderElement&) const;
+    bool knownToBeOpaque(const RenderElement*) const;
 
     void setInitiator(const AtomicString& name) { m_initiatorName = name; }
 
 private:
-    CSSImageValue(URL&&, LoadedFromOpaqueSource);
+    explicit CSSImageValue(URL&&);
     explicit CSSImageValue(CachedImage&);
 
     URL m_url;
     CachedResourceHandle<CachedImage> m_cachedImage;
     bool m_accessedImage;
     AtomicString m_initiatorName;
-    LoadedFromOpaqueSource m_loadedFromOpaqueSource { LoadedFromOpaqueSource::No };
 };
 
 } // namespace WebCore

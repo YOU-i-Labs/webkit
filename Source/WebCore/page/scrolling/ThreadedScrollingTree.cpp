@@ -31,8 +31,10 @@
 #include "AsyncScrollingCoordinator.h"
 #include "PlatformWheelEvent.h"
 #include "ScrollingThread.h"
+#include "ScrollingTreeFixedNode.h"
 #include "ScrollingTreeNode.h"
 #include "ScrollingTreeScrollingNode.h"
+#include "ScrollingTreeStickyNode.h"
 #include <wtf/RunLoop.h>
 
 namespace WebCore {
@@ -90,7 +92,7 @@ void ThreadedScrollingTree::commitTreeState(std::unique_ptr<ScrollingStateTree> 
     ScrollingTree::commitTreeState(WTFMove(scrollingStateTree));
 }
 
-void ThreadedScrollingTree::scrollingTreeNodeDidScroll(ScrollingNodeID nodeID, const FloatPoint& scrollPosition, const Optional<FloatPoint>& layoutViewportOrigin, ScrollingLayerPositionAction scrollingLayerPositionAction)
+void ThreadedScrollingTree::scrollingTreeNodeDidScroll(ScrollingNodeID nodeID, const FloatPoint& scrollPosition, const std::optional<FloatPoint>& layoutViewportOrigin, ScrollingLayerPositionAction scrollingLayerPositionAction)
 {
     if (!m_scrollingCoordinator)
         return;
@@ -117,7 +119,6 @@ void ThreadedScrollingTree::reportExposedUnfilledArea(MonotonicTime timestamp, u
     });
 }
 
-#if PLATFORM(COCOA)
 void ThreadedScrollingTree::currentSnapPointIndicesDidChange(ScrollingNodeID nodeID, unsigned horizontal, unsigned vertical)
 {
     if (!m_scrollingCoordinator)
@@ -127,7 +128,6 @@ void ThreadedScrollingTree::currentSnapPointIndicesDidChange(ScrollingNodeID nod
         scrollingCoordinator->setActiveScrollSnapIndices(nodeID, horizontal, vertical);
     });
 }
-#endif
 
 #if PLATFORM(MAC)
 void ThreadedScrollingTree::handleWheelEventPhase(PlatformWheelEventPhase phase)

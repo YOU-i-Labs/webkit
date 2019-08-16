@@ -34,7 +34,7 @@ class Element;
 
 class ValidationMessageClient {
 public:
-    virtual ~ValidationMessageClient() = default;
+    virtual ~ValidationMessageClient() { }
 
     // Show validation message for the specified anchor element. An
     // implementation of this function may hide the message automatically after

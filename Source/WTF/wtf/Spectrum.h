@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef Spectrum_h
+#define Spectrum_h
 
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
@@ -121,3 +122,5 @@ private:
 } // namespace WTF
 
 using WTF::Spectrum;
+
+#endif // Spectrum_h

@@ -35,6 +35,8 @@
 
 namespace WebCore {
 
+class URL;
+
 class AbstractWorker : public RefCounted<AbstractWorker>, public EventTargetWithInlineData {
 public:
     using RefCounted::ref;

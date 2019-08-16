@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <wtf/MediaTime.h>
+#include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
 namespace WTF {

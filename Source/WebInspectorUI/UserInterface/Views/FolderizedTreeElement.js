@@ -23,11 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.FolderizedTreeElement = class FolderizedTreeElement extends WI.GeneralTreeElement
+WebInspector.FolderizedTreeElement = class FolderizedTreeElement extends WebInspector.GeneralTreeElement
 {
-    constructor(classNames, title, subtitle, representedObject)
+    constructor(classNames, title, subtitle, representedObject, hasChildren)
     {
-        super(classNames, title, subtitle, representedObject);
+        super(classNames, title, subtitle, representedObject, hasChildren);
 
         this.shouldRefreshChildren = true;
 
@@ -116,7 +116,7 @@ WI.FolderizedTreeElement = class FolderizedTreeElement extends WI.GeneralTreeEle
 
         this._newChildQueue.push(representedObject);
         if (!this._newChildQueueTimeoutIdentifier)
-            this._newChildQueueTimeoutIdentifier = setTimeout(this._populateFromNewChildQueue.bind(this), WI.FolderizedTreeElement.NewChildQueueUpdateInterval);
+            this._newChildQueueTimeoutIdentifier = setTimeout(this._populateFromNewChildQueue.bind(this), WebInspector.FolderizedTreeElement.NewChildQueueUpdateInterval);
     }
 
     removeChildForRepresentedObject(representedObject)
@@ -148,7 +148,7 @@ WI.FolderizedTreeElement = class FolderizedTreeElement extends WI.GeneralTreeEle
     {
         let hasChildren = false;
         for (let settings of this._folderizeSettingsMap.values()) {
-            if (settings.representedObject.size) {
+            if (settings.representedObject.items.size) {
                 hasChildren = true;
                 break;
             }
@@ -223,21 +223,21 @@ WI.FolderizedTreeElement = class FolderizedTreeElement extends WI.GeneralTreeEle
         this._insertChildTreeElement(parentTreeElement, childTreeElement);
 
         if (wasSelected)
-            childTreeElement.revealAndSelect(true, false, true);
+            childTreeElement.revealAndSelect(true, false, true, true);
     }
 
     _compareTreeElementsByMainTitle(a, b)
     {
         // Folders before anything.
-        let aIsFolder = a instanceof WI.FolderTreeElement;
-        let bIsFolder = b instanceof WI.FolderTreeElement;
+        let aIsFolder = a instanceof WebInspector.FolderTreeElement;
+        let bIsFolder = b instanceof WebInspector.FolderTreeElement;
         if (aIsFolder && !bIsFolder)
             return -1;
         if (bIsFolder && !aIsFolder)
             return 1;
 
         // Then sort by title.
-        return a.mainTitle.extendedLocaleCompare(b.mainTitle);
+        return a.mainTitle.localeCompare(b.mainTitle);
     }
 
     _insertFolderTreeElement(folderTreeElement)
@@ -264,8 +264,8 @@ WI.FolderizedTreeElement = class FolderizedTreeElement extends WI.GeneralTreeEle
         if (oldParent === this)
             return;
 
-        console.assert(oldParent instanceof WI.FolderTreeElement);
-        if (!(oldParent instanceof WI.FolderTreeElement))
+        console.assert(oldParent instanceof WebInspector.FolderTreeElement);
+        if (!(oldParent instanceof WebInspector.FolderTreeElement))
             return;
 
         // Remove the old parent folder if it is now empty.
@@ -282,8 +282,8 @@ WI.FolderizedTreeElement = class FolderizedTreeElement extends WI.GeneralTreeEle
 
         function createFolderTreeElement(settings)
         {
-            let folderTreeElement = new WI.FolderTreeElement(settings.displayName, settings.representedObject);
-            let folderExpandedSetting = new WI.Setting(settings.type + "-folder-expanded-" + this._folderSettingsKey, false);
+            let folderTreeElement = new WebInspector.FolderTreeElement(settings.displayName, settings.representedObject);
+            let folderExpandedSetting = new WebInspector.Setting(settings.type + "-folder-expanded-" + this._folderSettingsKey, false);
             this._folderExpandedSettingMap.set(folderTreeElement, folderExpandedSetting);
 
             if (folderExpandedSetting.value)
@@ -325,7 +325,7 @@ WI.FolderizedTreeElement = class FolderizedTreeElement extends WI.GeneralTreeEle
     _settingsForRepresentedObject(representedObject)
     {
         for (let settings of this._folderizeSettingsMap.values()) {
-            if (settings.representedObject.objectIsRequiredType(representedObject))
+            if (settings.representedObject.typeVerifier(representedObject))
                 return settings;
         }
         return null;
@@ -358,7 +358,7 @@ WI.FolderizedTreeElement = class FolderizedTreeElement extends WI.GeneralTreeEle
                 return true;
 
             // If there are lots of this resource type, then count it as a large category.
-            if (childCount >= WI.FolderizedTreeElement.LargeChildCountThreshold) {
+            if (childCount >= WebInspector.FolderizedTreeElement.LargeChildCountThreshold) {
                 // If we already have other resources in other small or medium categories, make folders.
                 if (numberOfSmallCategories || numberOfMediumCategories)
                     return true;
@@ -368,9 +368,9 @@ WI.FolderizedTreeElement = class FolderizedTreeElement extends WI.GeneralTreeEle
             }
 
             // Check if this is a medium category.
-            if (childCount >= WI.FolderizedTreeElement.MediumChildCountThreshold) {
+            if (childCount >= WebInspector.FolderizedTreeElement.MediumChildCountThreshold) {
                 // If this is the medium category that puts us over the maximum allowed, make folders.
-                return ++numberOfMediumCategories >= WI.FolderizedTreeElement.NumberOfMediumCategoriesThreshold;
+                return ++numberOfMediumCategories >= WebInspector.FolderizedTreeElement.NumberOfMediumCategoriesThreshold;
             }
 
             // This is a small category.
@@ -380,14 +380,14 @@ WI.FolderizedTreeElement = class FolderizedTreeElement extends WI.GeneralTreeEle
 
         // Iterate over all the available child object types.
         for (var settings of this._folderizeSettingsMap.values()) {
-            if (pushCategory(settings.representedObject.size))
+            if (pushCategory(settings.representedObject.items.size))
                 return true;
         }
         return false;
     }
 };
 
-WI.FolderizedTreeElement.MediumChildCountThreshold = 5;
-WI.FolderizedTreeElement.LargeChildCountThreshold = 15;
-WI.FolderizedTreeElement.NumberOfMediumCategoriesThreshold = 2;
-WI.FolderizedTreeElement.NewChildQueueUpdateInterval = 500;
+WebInspector.FolderizedTreeElement.MediumChildCountThreshold = 5;
+WebInspector.FolderizedTreeElement.LargeChildCountThreshold = 15;
+WebInspector.FolderizedTreeElement.NumberOfMediumCategoriesThreshold = 2;
+WebInspector.FolderizedTreeElement.NewChildQueueUpdateInterval = 500;

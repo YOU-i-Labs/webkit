@@ -22,29 +22,16 @@
 #include "config.h"
 #include "FontCache.h"
 
-#include "CairoUniquePtr.h"
 #include "CairoUtilities.h"
 #include "FcUniquePtr.h"
-#include "FloatConversion.h"
 #include "Font.h"
-#include "FontDescription.h"
-#include "FontCacheFreeType.h"
 #include "RefPtrCairo.h"
-#include "RefPtrFontconfig.h"
 #include "UTF16UChar32Iterator.h"
 #include <cairo-ft.h>
 #include <cairo.h>
 #include <fontconfig/fcfreetype.h>
 #include <wtf/Assertions.h>
 #include <wtf/text/CString.h>
-
-#if PLATFORM(GTK)
-#include "GtkUtilities.h"
-#endif
-
-#if ENABLE(VARIATION_FONTS)
-#include FT_MULTIPLE_MASTERS_H
-#endif
 
 namespace WebCore {
 
@@ -55,103 +42,53 @@ void FontCache::platformInit()
         ASSERT_NOT_REACHED();
 }
 
-static int fontWeightToFontconfigWeight(FontSelectionValue weight)
+static RefPtr<FcPattern> createFontConfigPatternForCharacters(const UChar* characters, int bufferLength)
 {
-    if (weight < FontSelectionValue(150))
-        return FC_WEIGHT_THIN;
-    if (weight < FontSelectionValue(250))
-        return FC_WEIGHT_ULTRALIGHT;
-    if (weight < FontSelectionValue(350))
-        return FC_WEIGHT_LIGHT;
-    if (weight < FontSelectionValue(450))
-        return FC_WEIGHT_REGULAR;
-    if (weight < FontSelectionValue(550))
-        return FC_WEIGHT_MEDIUM;
-    if (weight < FontSelectionValue(650))
-        return FC_WEIGHT_SEMIBOLD;
-    if (weight < FontSelectionValue(750))
-        return FC_WEIGHT_BOLD;
-    if (weight < FontSelectionValue(850))
-        return FC_WEIGHT_EXTRABOLD;
-    return FC_WEIGHT_ULTRABLACK;
-}
-
-static bool configurePatternForFontDescription(FcPattern* pattern, const FontDescription& fontDescription)
-{
-    if (!FcPatternAddInteger(pattern, FC_SLANT, fontDescription.italic() ? FC_SLANT_ITALIC : FC_SLANT_ROMAN))
-        return false;
-    if (!FcPatternAddInteger(pattern, FC_WEIGHT, fontWeightToFontconfigWeight(fontDescription.weight())))
-        return false;
-    if (!FcPatternAddDouble(pattern, FC_PIXEL_SIZE, fontDescription.computedPixelSize()))
-        return false;
-    return true;
-}
-
-static void getFontPropertiesFromPattern(FcPattern* pattern, const FontDescription& fontDescription, bool& fixedWidth, bool& syntheticBold, bool& syntheticOblique)
-{
-    fixedWidth = false;
-    int spacing;
-    if (FcPatternGetInteger(pattern, FC_SPACING, 0, &spacing) == FcResultMatch && spacing == FC_MONO)
-        fixedWidth = true;
-
-    syntheticBold = false;
-    bool descriptionAllowsSyntheticBold = fontDescription.fontSynthesis() & FontSynthesisWeight;
-    if (descriptionAllowsSyntheticBold && isFontWeightBold(fontDescription.weight())) {
-        // The FC_EMBOLDEN property instructs us to fake the boldness of the font.
-        FcBool fontConfigEmbolden = FcFalse;
-        if (FcPatternGetBool(pattern, FC_EMBOLDEN, 0, &fontConfigEmbolden) == FcResultMatch)
-            syntheticBold = fontConfigEmbolden;
-
-        // Fallback fonts may not have FC_EMBOLDEN activated even though it's necessary.
-        int weight = 0;
-        if (!syntheticBold && FcPatternGetInteger(pattern, FC_WEIGHT, 0, &weight) == FcResultMatch)
-            syntheticBold = syntheticBold || weight < FC_WEIGHT_DEMIBOLD;
-    }
-
-    // We requested an italic font, but Fontconfig gave us one that was neither oblique nor italic.
-    syntheticOblique = false;
-    int actualFontSlant;
-    bool descriptionAllowsSyntheticOblique = fontDescription.fontSynthesis() & FontSynthesisStyle;
-    if (descriptionAllowsSyntheticOblique && fontDescription.italic()
-        && FcPatternGetInteger(pattern, FC_SLANT, 0, &actualFontSlant) == FcResultMatch) {
-        syntheticOblique = actualFontSlant == FC_SLANT_ROMAN;
-    }
-}
-
-RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& description, const Font*, IsForPlatformFont, PreferColoredFont preferColoredFont, const UChar* characters, unsigned length)
-{
+    RefPtr<FcPattern> pattern = adoptRef(FcPatternCreate());
     FcUniquePtr<FcCharSet> fontConfigCharSet(FcCharSetCreate());
-    UTF16UChar32Iterator iterator(characters, length);
+
+    UTF16UChar32Iterator iterator(characters, bufferLength);
     UChar32 character = iterator.next();
     while (character != iterator.end()) {
         FcCharSetAddChar(fontConfigCharSet.get(), character);
         character = iterator.next();
     }
 
-    RefPtr<FcPattern> pattern = adoptRef(FcPatternCreate());
     FcPatternAddCharSet(pattern.get(), FC_CHARSET, fontConfigCharSet.get());
 
     FcPatternAddBool(pattern.get(), FC_SCALABLE, FcTrue);
-    if (preferColoredFont == PreferColoredFont::Yes)
-        FcPatternAddBool(pattern.get(), FC_COLOR, FcTrue);
-
-    if (!configurePatternForFontDescription(pattern.get(), description))
-        return nullptr;
-
     FcConfigSubstitute(nullptr, pattern.get(), FcMatchPattern);
     cairo_ft_font_options_substitute(getDefaultCairoFontOptions(), pattern.get());
     FcDefaultSubstitute(pattern.get());
+    return pattern;
+}
+
+static RefPtr<FcPattern> findBestFontGivenFallbacks(const FontPlatformData& fontData, FcPattern* pattern)
+{
+    FcFontSet* fallbacks = fontData.fallbacks();
+    if (!fallbacks)
+        return nullptr;
+
+    FcResult fontConfigResult;
+    return FcFontSetMatch(nullptr, &fallbacks, 1, pattern, &fontConfigResult);
+}
+
+RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& description, const Font* originalFontData, bool, const UChar* characters, unsigned length)
+{
+    RefPtr<FcPattern> pattern = createFontConfigPatternForCharacters(characters, length);
+    const FontPlatformData& fontData = originalFontData->platformData();
+
+    RefPtr<FcPattern> fallbackPattern = findBestFontGivenFallbacks(fontData, pattern.get());
+    if (fallbackPattern) {
+        FontPlatformData alternateFontData(fallbackPattern.get(), description);
+        return fontForPlatformData(alternateFontData);
+    }
 
     FcResult fontConfigResult;
     RefPtr<FcPattern> resultPattern = adoptRef(FcFontMatch(nullptr, pattern.get(), &fontConfigResult));
     if (!resultPattern)
         return nullptr;
-
-    bool fixedWidth, syntheticBold, syntheticOblique;
-    getFontPropertiesFromPattern(resultPattern.get(), description, fixedWidth, syntheticBold, syntheticOblique);
-
-    RefPtr<cairo_font_face_t> fontFace = adoptRef(cairo_ft_font_face_create_for_pattern(resultPattern.get()));
-    FontPlatformData alternateFontData(fontFace.get(), resultPattern.get(), description.computedPixelSize(), fixedWidth, syntheticBold, syntheticOblique, description.orientation());
+    FontPlatformData alternateFontData(resultPattern.get(), description);
     return fontForPlatformData(alternateFontData);
 }
 
@@ -161,7 +98,9 @@ static Vector<String> patternToFamilies(FcPattern& pattern)
     String patternString = String::fromUTF8(patternChars);
     free(patternChars);
 
-    return patternString.split(',');
+    Vector<String> results;
+    patternString.split(',', results);
+    return results;
 }
 
 Vector<String> FontCache::systemFontFamilies()
@@ -196,7 +135,7 @@ Ref<Font> FontCache::lastResortFallbackFont(const FontDescription& fontDescripti
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-Vector<FontSelectionCapabilities> FontCache::getFontSelectionCapabilitiesInFamily(const AtomicString&, AllowUserInstalledFonts)
+Vector<FontSelectionCapabilities> FontCache::getFontSelectionCapabilitiesInFamily(const AtomicString&)
 {
     return { };
 }
@@ -218,13 +157,28 @@ static String getFamilyNameStringFromFamily(const AtomicString& family)
         return "cursive";
     if (family == fantasyFamily)
         return "fantasy";
-
-#if PLATFORM(GTK)
-    if (family == systemUiFamily || family == "-webkit-system-font")
-        return defaultGtkSystemFont();
-#endif
-
     return "";
+}
+
+static int fontWeightToFontconfigWeight(FontSelectionValue weight)
+{
+    if (weight < FontSelectionValue(150))
+        return FC_WEIGHT_THIN;
+    if (weight < FontSelectionValue(250))
+        return FC_WEIGHT_ULTRALIGHT;
+    if (weight < FontSelectionValue(350))
+        return FC_WEIGHT_LIGHT;
+    if (weight < FontSelectionValue(450))
+        return FC_WEIGHT_REGULAR;
+    if (weight < FontSelectionValue(550))
+        return FC_WEIGHT_MEDIUM;
+    if (weight < FontSelectionValue(650))
+        return FC_WEIGHT_SEMIBOLD;
+    if (weight < FontSelectionValue(750))
+        return FC_WEIGHT_BOLD;
+    if (weight < FontSelectionValue(850))
+        return FC_WEIGHT_EXTRABOLD;
+    return FC_WEIGHT_ULTRABLACK;
 }
 
 // This is based on Chromium BSD code from Skia (src/ports/SkFontMgr_fontconfig.cpp). It is a
@@ -362,10 +316,6 @@ static inline bool isCommonlyUsedGenericFamily(const String& familyNameString)
         || equalLettersIgnoringASCIICase(familyNameString, "serif")
         || equalLettersIgnoringASCIICase(familyNameString, "monospace")
         || equalLettersIgnoringASCIICase(familyNameString, "fantasy")
-#if PLATFORM(GTK)
-        || equalLettersIgnoringASCIICase(familyNameString, "-webkit-system-font")
-        || equalLettersIgnoringASCIICase(familyNameString, "-webkit-system-ui")
-#endif
         || equalLettersIgnoringASCIICase(familyNameString, "cursive");
 }
 
@@ -377,14 +327,16 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
     RefPtr<FcPattern> pattern = adoptRef(FcPatternCreate());
     // Never choose unscalable fonts, as they pixelate when displayed at different sizes.
     FcPatternAddBool(pattern.get(), FC_SCALABLE, FcTrue);
-#if ENABLE(VARIATION_FONTS)
-    FcPatternAddBool(pattern.get(), FC_VARIABLE, FcDontCare);
-#endif
     String familyNameString(getFamilyNameStringFromFamily(family));
     if (!FcPatternAddString(pattern.get(), FC_FAMILY, reinterpret_cast<const FcChar8*>(familyNameString.utf8().data())))
         return nullptr;
 
-    if (!configurePatternForFontDescription(pattern.get(), fontDescription))
+    bool italic = fontDescription.italic();
+    if (!FcPatternAddInteger(pattern.get(), FC_SLANT, italic ? FC_SLANT_ITALIC : FC_SLANT_ROMAN))
+        return nullptr;
+    if (!FcPatternAddInteger(pattern.get(), FC_WEIGHT, fontWeightToFontconfigWeight(fontDescription.weight())))
+        return nullptr;
+    if (!FcPatternAddDouble(pattern.get(), FC_PIXEL_SIZE, fontDescription.computedPixelSize()))
         return nullptr;
 
     // The strategy is originally from Skia (src/ports/SkFontHost_fontconfig.cpp):
@@ -412,46 +364,21 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
     if (!resultPattern) // No match.
         return nullptr;
 
-    // Loop through each font family of the result to see if it fits the one we requested.
-    bool matchedFontFamily = false;
     FcChar8* fontConfigFamilyNameAfterMatching;
-    for (int i = 0; FcPatternGetString(resultPattern.get(), FC_FAMILY, i, &fontConfigFamilyNameAfterMatching) == FcResultMatch; ++i) {
-        // If Fontconfig gave us a different font family than the one we requested, we should ignore it
-        // and allow WebCore to give us the next font on the CSS fallback list. The exceptions are if
-        // this family name is a commonly-used generic family, or if the families are strongly-aliased.
-        // Checking for a strong alias comes last, since it is slow.
-        String familyNameAfterMatching = String::fromUTF8(reinterpret_cast<char*>(fontConfigFamilyNameAfterMatching));
-        if (equalIgnoringASCIICase(familyNameAfterConfiguration, familyNameAfterMatching) || isCommonlyUsedGenericFamily(familyNameString) || areStronglyAliased(familyNameAfterConfiguration, familyNameAfterMatching)) {
-            matchedFontFamily = true;
-            break;
-        }
-    }
+    FcPatternGetString(resultPattern.get(), FC_FAMILY, 0, &fontConfigFamilyNameAfterMatching);
+    String familyNameAfterMatching = String::fromUTF8(reinterpret_cast<char*>(fontConfigFamilyNameAfterMatching));
 
-    if (!matchedFontFamily)
+    // If Fontconfig gave us a different font family than the one we requested, we should ignore it
+    // and allow WebCore to give us the next font on the CSS fallback list. The exceptions are if
+    // this family name is a commonly-used generic family, or if the families are strongly-aliased.
+    // Checking for a strong alias comes last, since it is slow.
+    if (!equalIgnoringASCIICase(familyNameAfterConfiguration, familyNameAfterMatching) && !isCommonlyUsedGenericFamily(familyNameString) && !areStronglyAliased(familyNameAfterConfiguration, familyNameAfterMatching))
         return nullptr;
 
-    bool fixedWidth, syntheticBold, syntheticOblique;
-    getFontPropertiesFromPattern(resultPattern.get(), fontDescription, fixedWidth, syntheticBold, syntheticOblique);
-
-    RefPtr<cairo_font_face_t> fontFace = adoptRef(cairo_ft_font_face_create_for_pattern(resultPattern.get()));
-#if ENABLE(VARIATION_FONTS)
-    // Cairo doesn't have API to get the FT_Face of an unscaled font, so we need to
-    // create a temporary scaled font to get the FT_Face.
-    CairoUniquePtr<cairo_font_options_t> options(cairo_font_options_copy(getDefaultCairoFontOptions()));
-    cairo_matrix_t matrix;
-    cairo_matrix_init_identity(&matrix);
-    RefPtr<cairo_scaled_font_t> scaledFont = adoptRef(cairo_scaled_font_create(fontFace.get(), &matrix, &matrix, options.get()));
-    CairoFtFaceLocker cairoFtFaceLocker(scaledFont.get());
-    if (FT_Face freeTypeFace = cairoFtFaceLocker.ftFace()) {
-        auto variants = buildVariationSettings(freeTypeFace, fontDescription);
-        if (!variants.isEmpty())
-            FcPatternAddString(resultPattern.get(), FC_FONT_VARIATIONS, reinterpret_cast<const FcChar8*>(variants.utf8().data()));
-    }
-#endif
-    auto platformData = std::make_unique<FontPlatformData>(fontFace.get(), resultPattern.get(), fontDescription.computedPixelSize(), fixedWidth, syntheticBold, syntheticOblique, fontDescription.orientation());
     // Verify that this font has an encoding compatible with Fontconfig. Fontconfig currently
     // supports three encodings in FcFreeTypeCharIndex: Unicode, Symbol and AppleRoman.
     // If this font doesn't have one of these three encodings, don't select it.
+    auto platformData = std::make_unique<FontPlatformData>(resultPattern.get(), fontDescription);
     if (!platformData->hasCompatibleCharmap())
         return nullptr;
 
@@ -460,70 +387,7 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
 
 const AtomicString& FontCache::platformAlternateFamilyName(const AtomicString&)
 {
-    return nullAtom();
+    return nullAtom;
 }
-
-#if ENABLE(VARIATION_FONTS)
-struct VariationDefaults {
-    float defaultValue;
-    float minimumValue;
-    float maximumValue;
-};
-
-typedef HashMap<FontTag, VariationDefaults, FourCharacterTagHash, FourCharacterTagHashTraits> VariationDefaultsMap;
-typedef HashMap<FontTag, float, FourCharacterTagHash, FourCharacterTagHashTraits> VariationsMap;
-
-static VariationDefaultsMap defaultVariationValues(FT_Face face)
-{
-    VariationDefaultsMap result;
-    FT_MM_Var* ftMMVar;
-    if (FT_Get_MM_Var(face, &ftMMVar))
-        return result;
-
-    for (unsigned i = 0; i < ftMMVar->num_axis; ++i) {
-        auto tag = ftMMVar->axis[i].tag;
-        auto b1 = 0xFF & (tag >> 24);
-        auto b2 = 0xFF & (tag >> 16);
-        auto b3 = 0xFF & (tag >> 8);
-        auto b4 = 0xFF & (tag >> 0);
-        FontTag resultKey = {{ static_cast<char>(b1), static_cast<char>(b2), static_cast<char>(b3), static_cast<char>(b4) }};
-        VariationDefaults resultValues = { narrowPrecisionToFloat(ftMMVar->axis[i].def / 65536.), narrowPrecisionToFloat(ftMMVar->axis[i].minimum / 65536.), narrowPrecisionToFloat(ftMMVar->axis[i].maximum / 65536.) };
-        result.set(resultKey, resultValues);
-    }
-    FT_Done_MM_Var(face->glyph->library, ftMMVar);
-    return result;
-}
-
-String buildVariationSettings(FT_Face face, const FontDescription& fontDescription)
-{
-    auto defaultValues = defaultVariationValues(face);
-    const auto& variations = fontDescription.variationSettings();
-
-    VariationsMap variationsToBeApplied;
-    auto applyVariation = [&](const FontTag& tag, float value) {
-        auto iterator = defaultValues.find(tag);
-        if (iterator == defaultValues.end())
-            return;
-        float valueToApply = clampTo(value, iterator->value.minimumValue, iterator->value.maximumValue);
-        variationsToBeApplied.set(tag, valueToApply);
-    };
-
-    for (auto& variation : variations)
-        applyVariation(variation.tag(), variation.value());
-
-    StringBuilder builder;
-    for (auto& variation : variationsToBeApplied) {
-        if (!builder.isEmpty())
-            builder.append(',');
-        builder.append(variation.key[0]);
-        builder.append(variation.key[1]);
-        builder.append(variation.key[2]);
-        builder.append(variation.key[3]);
-        builder.append('=');
-        builder.appendNumber(variation.value);
-    }
-    return builder.toString();
-}
-#endif // ENABLE(VARIATION_FONTS)
 
 }

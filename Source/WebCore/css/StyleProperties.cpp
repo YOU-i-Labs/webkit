@@ -28,12 +28,9 @@
 #include "CSSDeferredParser.h"
 #include "CSSParser.h"
 #include "CSSPendingSubstitutionValue.h"
-#include "CSSPropertyParser.h"
-#include "CSSTokenizer.h"
 #include "CSSValueKeywords.h"
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
-#include "Color.h"
 #include "Document.h"
 #include "PropertySetCSSStyleDeclaration.h"
 #include "StylePropertyShorthand.h"
@@ -44,6 +41,7 @@
 
 #ifndef NDEBUG
 #include <stdio.h>
+#include <wtf/ASCIICType.h>
 #include <wtf/text/CString.h>
 #endif
 
@@ -86,7 +84,9 @@ MutableStyleProperties::MutableStyleProperties(const CSSProperty* properties, un
         m_propertyVector.uncheckedAppend(properties[i]);
 }
 
-MutableStyleProperties::~MutableStyleProperties() = default;
+MutableStyleProperties::~MutableStyleProperties()
+{
+}
 
 ImmutableStyleProperties::ImmutableStyleProperties(const CSSProperty* properties, unsigned length, CSSParserMode cssParserMode)
     : StyleProperties(cssParserMode, length)
@@ -150,7 +150,7 @@ String StyleProperties::getPropertyValue(CSSPropertyID propertyID) const
     case CSSPropertyBackground:
         return getLayeredShorthandValue(backgroundShorthand());
     case CSSPropertyBorder:
-        return borderPropertyValue();
+        return borderPropertyValue(OmitUncommonValues);
     case CSSPropertyBorderTop:
         return getShorthandValue(borderTopShorthand());
     case CSSPropertyBorderRight:
@@ -159,14 +159,6 @@ String StyleProperties::getPropertyValue(CSSPropertyID propertyID) const
         return getShorthandValue(borderBottomShorthand());
     case CSSPropertyBorderLeft:
         return getShorthandValue(borderLeftShorthand());
-    case CSSPropertyBorderBlockStart:
-        return getShorthandValue(borderBlockStartShorthand());
-    case CSSPropertyBorderBlockEnd:
-        return getShorthandValue(borderBlockEndShorthand());
-    case CSSPropertyBorderInlineStart:
-        return getShorthandValue(borderInlineStartShorthand());
-    case CSSPropertyBorderInlineEnd:
-        return getShorthandValue(borderInlineEndShorthand());
     case CSSPropertyOutline:
         return getShorthandValue(outlineShorthand());
     case CSSPropertyBorderColor:
@@ -246,22 +238,6 @@ String StyleProperties::getPropertyValue(CSSPropertyID propertyID) const
     default:
         return String();
     }
-}
-
-Optional<Color> StyleProperties::propertyAsColor(CSSPropertyID property) const
-{
-    auto colorValue = getPropertyCSSValue(property);
-    if (!is<CSSPrimitiveValue>(colorValue))
-        return WTF::nullopt;
-
-    auto& primitiveColor = downcast<CSSPrimitiveValue>(*colorValue);
-    return primitiveColor.isRGBColor() ? primitiveColor.color() : CSSParser::parseColor(colorValue->cssText());
-}
-
-CSSValueID StyleProperties::propertyAsValueID(CSSPropertyID property) const
-{
-    auto cssValue = getPropertyCSSValue(property);
-    return is<CSSPrimitiveValue>(cssValue) ? downcast<CSSPrimitiveValue>(*cssValue).valueID() : CSSValueInvalid;
 }
 
 String StyleProperties::getCustomPropertyValue(const String& propertyName) const
@@ -376,10 +352,6 @@ String StyleProperties::get4Values(const StylePropertyShorthand& shorthand) cons
     if (!top.value() || !right.value() || !bottom.value() || !left.value())
         return String();
 
-    // Important flags must be the same
-    if (top.isImportant() != right.isImportant() || right.isImportant() != bottom.isImportant() || bottom.isImportant() != left.isImportant())
-        return String();
-
     if (top.isInherited() && right.isInherited() && bottom.isInherited() && left.isInherited())
         return getValueName(CSSValueInherit);
 
@@ -390,6 +362,8 @@ String StyleProperties::get4Values(const StylePropertyShorthand& shorthand) cons
         }
         return String();
     }
+    if (top.isImportant() != right.isImportant() || right.isImportant() != bottom.isImportant() || bottom.isImportant() != left.isImportant())
+        return String();
 
     bool showLeft = !right.value()->equals(*left.value());
     bool showBottom = !top.value()->equals(*bottom.value()) || showLeft;
@@ -621,18 +595,22 @@ String StyleProperties::getAlignmentShorthandValue(const StylePropertyShorthand&
     return value;
 }
 
-String StyleProperties::borderPropertyValue() const
+String StyleProperties::borderPropertyValue(CommonValueMode valueMode) const
 {
     const StylePropertyShorthand properties[3] = { borderWidthShorthand(), borderStyleShorthand(), borderColorShorthand() };
     String commonValue;
     StringBuilder result;
     for (size_t i = 0; i < WTF_ARRAY_LENGTH(properties); ++i) {
         String value = getCommonValue(properties[i]);
-        if (value.isNull())
-            return String();
+        if (value.isNull()) {
+            if (valueMode == ReturnNullOnUncommonValues)
+                return String();
+            ASSERT(valueMode == OmitUncommonValues);
+            continue;
+        }
         if (!i)
             commonValue = value;
-        else if (commonValue != value)
+        else if (!commonValue.isNull() && commonValue != value)
             commonValue = String();
         if (value == "initial")
             continue;
@@ -642,7 +620,7 @@ String StyleProperties::borderPropertyValue() const
     }
     if (isInitialOrInherit(commonValue))
         return commonValue;
-    return result.toString();
+    return result.isEmpty() ? String() : result.toString();
 }
 
 RefPtr<CSSValue> StyleProperties::getPropertyCSSValue(CSSPropertyID propertyID) const
@@ -781,7 +759,7 @@ bool MutableStyleProperties::setProperty(CSSPropertyID propertyID, const String&
     return setProperty(propertyID, value, important, parserContext);
 }
 
-bool MutableStyleProperties::setCustomProperty(const Document* document, const String& propertyName, const String& value, bool important, CSSParserContext parserContext)
+bool MutableStyleProperties::setCustomProperty(const String& propertyName, const String& value, bool important, CSSParserContext parserContext)
 {
     // Setting the value to an empty string just removes the property in both IE and Gecko.
     // Setting it to null seems to produce less consistent results, but we treat it just the same.
@@ -789,17 +767,6 @@ bool MutableStyleProperties::setCustomProperty(const Document* document, const S
         return removeCustomProperty(propertyName);
 
     parserContext.mode = cssParserMode();
-
-    String syntax = "*";
-    auto* registered = document ? document->getCSSRegisteredCustomPropertySet().get(propertyName) : nullptr;
-
-    if (registered)
-        syntax = registered->syntax;
-
-    CSSTokenizer tokenizer(value);
-    if (!CSSPropertyParser::canParseTypedCustomPropertyValue(syntax, tokenizer.tokenRange(), parserContext))
-        return false;
-
     // When replacing an existing property value, this moves the property to the end of the list.
     // Firefox preserves the position, and MSIE moves the property to the beginning.
     return CSSParser::parseCustomPropertyValue(*this, propertyName, value, important, parserContext) == CSSParser::ParseResult::Changed;
@@ -963,7 +930,7 @@ String StyleProperties::asText() const
                 // FIXME: Deal with cases where only some of border-(top|right|bottom|left) are specified.
                 ASSERT(CSSPropertyBorder - firstCSSProperty < shorthandPropertyAppeared.size());
                 if (!shorthandPropertyAppeared[CSSPropertyBorder - firstCSSProperty]) {
-                    value = borderPropertyValue();
+                    value = borderPropertyValue(ReturnNullOnUncommonValues);
                     if (value.isNull())
                         shorthandPropertyAppeared.set(CSSPropertyBorder - firstCSSProperty);
                     else
@@ -1180,7 +1147,7 @@ void MutableStyleProperties::mergeAndOverrideOnConflict(const StyleProperties& o
         addParsedProperty(other.propertyAt(i).toCSSProperty());
 }
 
-bool StyleProperties::traverseSubresources(const WTF::Function<bool (const CachedResource&)>& handler) const
+bool StyleProperties::traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const
 {
     unsigned size = propertyCount();
     for (unsigned i = 0; i < size; ++i) {
@@ -1198,7 +1165,6 @@ static const CSSPropertyID blockProperties[] = {
     CSSPropertyWebkitAspectRatio,
     CSSPropertyColumnCount,
     CSSPropertyColumnGap,
-    CSSPropertyRowGap,
     CSSPropertyColumnRuleColor,
     CSSPropertyColumnRuleStyle,
     CSSPropertyColumnRuleWidth,
@@ -1209,6 +1175,11 @@ static const CSSPropertyID blockProperties[] = {
     CSSPropertyPageBreakAfter,
     CSSPropertyPageBreakBefore,
     CSSPropertyPageBreakInside,
+#if ENABLE(CSS_REGIONS)
+    CSSPropertyWebkitRegionBreakAfter,
+    CSSPropertyWebkitRegionBreakBefore,
+    CSSPropertyWebkitRegionBreakInside,
+#endif
     CSSPropertyTextAlign,
 #if ENABLE(CSS3_TEXT)
     CSSPropertyWebkitTextAlignLast,
@@ -1246,7 +1217,8 @@ bool MutableStyleProperties::removePropertiesInSet(const CSSPropertyID* set, uns
         toRemove.add(set[i]);
 
     return m_propertyVector.removeAllMatching([&toRemove] (const CSSProperty& property) {
-        return toRemove.contains(property.id());
+        // Not quite sure if the isImportant test is needed but it matches the existing behavior.
+        return !property.isImportant() && toRemove.contains(property.id());
     }) > 0;
 }
 
@@ -1391,7 +1363,7 @@ COMPILE_ASSERT(sizeof(StyleProperties) == sizeof(SameSizeAsStyleProperties), sty
 #ifndef NDEBUG
 void StyleProperties::showStyle()
 {
-    fprintf(stderr, "%s\n", asText().ascii().data());
+    WTFLogAlways("%s\n", asText().ascii().data());
 }
 #endif
 
@@ -1438,7 +1410,9 @@ DeferredStyleProperties::DeferredStyleProperties(const CSSParserTokenRange& rang
     m_tokens.append(range.begin(), length);
 }
     
-DeferredStyleProperties::~DeferredStyleProperties() = default;
+DeferredStyleProperties::~DeferredStyleProperties()
+{
+}
 
 Ref<ImmutableStyleProperties> DeferredStyleProperties::parseDeferredProperties()
 {

@@ -33,44 +33,21 @@ class MuteButton extends Button
             iconName: Icons.Volume,
             layoutDelegate
         });
-
-        this._muted = false;
-        this._usesRTLIconVariant = false;
     }
 
     // Public
 
     get muted()
     {
-        return this._muted;
+        return this.iconName === Icons.VolumeMuted;
     }
 
     set muted(flag)
     {
-        if (this._muted === flag)
+        if (this.muted === flag)
             return;
 
-        this._muted = flag;
-        this.needsLayout = true;
-    }
-
-    set usesRTLIconVariant(flag)
-    {
-        if (this._usesRTLIconVariant === flag)
-            return;
-
-        this._usesRTLIconVariant = flag;
-        this.needsLayout = true;
-    }
-
-    // Protected
-
-    layout()
-    {
-        if (this._usesRTLIconVariant)
-            this.iconName = this._muted ? Icons.VolumeMutedRTL : Icons.VolumeRTL;
-        else
-            this.iconName = this._muted ? Icons.VolumeMuted : Icons.Volume;
+        this.iconName = flag ? Icons.VolumeMuted : Icons.Volume;
     }
 
 }

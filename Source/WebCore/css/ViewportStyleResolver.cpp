@@ -35,6 +35,8 @@
 #include "CSSValueKeywords.h"
 #include "Document.h"
 #include "NodeRenderStyle.h"
+#include "Page.h"
+#include "RenderView.h"
 #include "StyleProperties.h"
 #include "StyleRule.h"
 #include "ViewportArguments.h"
@@ -47,7 +49,9 @@ ViewportStyleResolver::ViewportStyleResolver(Document* document)
     ASSERT(m_document);
 }
 
-ViewportStyleResolver::~ViewportStyleResolver() = default;
+ViewportStyleResolver::~ViewportStyleResolver()
+{
+}
 
 void ViewportStyleResolver::addViewportRule(StyleRuleViewport* viewportRule)
 {
@@ -104,7 +108,7 @@ float ViewportStyleResolver::getViewportArgumentValue(CSSPropertyID id) const
         defaultValue = 1;
 
     RefPtr<CSSValue> value = m_propertySet->getPropertyCSSValue(id);
-    if (!is<CSSPrimitiveValue>(value))
+    if (!is<CSSPrimitiveValue>(value.get()))
         return defaultValue;
 
     CSSPrimitiveValue& primitiveValue = downcast<CSSPrimitiveValue>(*value);

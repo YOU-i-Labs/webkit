@@ -116,10 +116,10 @@ void FEBlend::platformApplySoftware()
         return;
 
     IntRect effectADrawingRect = requestedRegionOfInputImageData(in->absolutePaintRect());
-    auto srcPixelArrayA = in->premultipliedResult(effectADrawingRect);
+    RefPtr<Uint8ClampedArray> srcPixelArrayA = in->asPremultipliedImage(effectADrawingRect);
 
     IntRect effectBDrawingRect = requestedRegionOfInputImageData(in2->absolutePaintRect());
-    auto srcPixelArrayB = in2->premultipliedResult(effectBDrawingRect);
+    RefPtr<Uint8ClampedArray> srcPixelArrayB = in2->asPremultipliedImage(effectBDrawingRect);
 
     unsigned pixelArrayLength = srcPixelArrayA->length();
     ASSERT(pixelArrayLength == srcPixelArrayB->length());
@@ -163,19 +163,19 @@ void FEBlend::platformApplyNEON(unsigned char* srcPixelArrayA, unsigned char* sr
 
         uint16x8_t result;
         switch (m_mode) {
-        case BlendMode::Normal:
+        case BlendModeNormal:
             result = FEBlendUtilitiesNEON::normal(doubblePixelA, doubblePixelB, alphaA, alphaB, sixteenConst255, sixteenConstOne);
             break;
-        case BlendMode::Multiply:
+        case BlendModeMultiply:
             result = FEBlendUtilitiesNEON::multiply(doubblePixelA, doubblePixelB, alphaA, alphaB, sixteenConst255, sixteenConstOne);
             break;
-        case BlendMode::Screen:
+        case BlendModeScreen:
             result = FEBlendUtilitiesNEON::screen(doubblePixelA, doubblePixelB, alphaA, alphaB, sixteenConst255, sixteenConstOne);
             break;
-        case BlendMode::Darken:
+        case BlendModeDarken:
             result = FEBlendUtilitiesNEON::darken(doubblePixelA, doubblePixelB, alphaA, alphaB, sixteenConst255, sixteenConstOne);
             break;
-        case BlendMode::Lighten:
+        case BlendModeLighten:
             result = FEBlendUtilitiesNEON::lighten(doubblePixelA, doubblePixelB, alphaA, alphaB, sixteenConst255, sixteenConstOne);
             break;
         default:

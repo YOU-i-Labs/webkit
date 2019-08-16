@@ -104,6 +104,9 @@ bool exitKindMayJettison(ExitKind kind)
     default:
         return true;
     }
+
+    RELEASE_ASSERT_NOT_REACHED();
+    return false;
 }
 
 } // namespace JSC

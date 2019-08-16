@@ -32,7 +32,7 @@ class PendingScript;
 
 class HTMLScriptRunnerHost {
 public:
-    virtual ~HTMLScriptRunnerHost() = default;
+    virtual ~HTMLScriptRunnerHost() { }
 
     // Implementors should call cachedResource->addClient() here or soon after.
     virtual void watchForLoad(PendingScript&) = 0;

@@ -25,17 +25,30 @@
 
 #pragma once
 
-#if ENABLE(VIDEO) && PLATFORM(WIN) && USE(CG)
+#if ENABLE(VIDEO)
+
+#include "MediaControlElements.h"
 
 namespace WebCore {
 
+struct PaintInfo;
+
+class HTMLMediaElement;
+class IntRect;
+class IntSize;
+class RenderBox;
+class RenderObject;
 class RenderStyle;
 
 class RenderMediaControls {
 public:
+
+#if PLATFORM(WIN)
+    static bool paintMediaControlsPart(MediaControlElementType, const RenderObject&, const PaintInfo&, const IntRect&);
     static void adjustMediaSliderThumbSize(RenderStyle&);
+#endif
 };
 
 } // namespace WebCore
 
-#endif // ENABLE(VIDEO) && PLATFORM(WIN) && USE(CG)
+#endif // ENABLE(VIDEO)

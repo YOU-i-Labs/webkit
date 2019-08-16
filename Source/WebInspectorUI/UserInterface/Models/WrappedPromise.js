@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.WrappedPromise = class WrappedPromise
+WebInspector.WrappedPromise = class WrappedPromise
 {
     constructor(work)
     {

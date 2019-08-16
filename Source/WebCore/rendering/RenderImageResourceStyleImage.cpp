@@ -31,44 +31,50 @@
 #include "CachedImage.h"
 #include "RenderElement.h"
 #include "StyleCachedImage.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderImageResourceStyleImage);
 
 RenderImageResourceStyleImage::RenderImageResourceStyleImage(StyleImage& styleImage)
     : m_styleImage(styleImage)
 {
 }
 
-void RenderImageResourceStyleImage::initialize(RenderElement& renderer)
+RenderImageResourceStyleImage::~RenderImageResourceStyleImage()
 {
-    RenderImageResource::initialize(renderer, m_styleImage->isCachedImage() ? m_styleImage.get().cachedImage() : nullptr);
-    m_styleImage->addClient(this->renderer());
+}
+
+void RenderImageResourceStyleImage::initialize(RenderElement* renderer)
+{
+    RenderImageResource::initialize(renderer);
+
+    if (m_styleImage->isCachedImage())
+        m_cachedImage = m_styleImage.get().cachedImage();
+
+    m_styleImage->addClient(m_renderer);
 }
 
 void RenderImageResourceStyleImage::shutdown()
 {
-    RenderImageResource::shutdown();
-    if (renderer())
-        m_styleImage->removeClient(renderer());
+    ASSERT(m_renderer);
+    m_styleImage->removeClient(m_renderer);
+    if (m_cachedImage) {
+        image()->stopAnimation();
+        m_cachedImage = nullptr;
+    }
 }
 
 RefPtr<Image> RenderImageResourceStyleImage::image(const IntSize& size) const
 {
     // Generated content may trigger calls to image() while we're still pending, don't assert but gracefully exit.
     if (m_styleImage->isPending())
-        return &Image::nullImage();
-    if (auto image = m_styleImage->image(renderer(), size))
-        return image;
-    return &Image::nullImage();
+        return nullptr;
+    return m_styleImage->image(m_renderer, size);
 }
 
-void RenderImageResourceStyleImage::setContainerContext(const IntSize& size, const URL&)
+void RenderImageResourceStyleImage::setContainerSizeForRenderer(const IntSize& size)
 {
-    ASSERT(renderer());
-    m_styleImage->setContainerContextForRenderer(*renderer(), size, renderer()->style().effectiveZoom());
+    ASSERT(m_renderer);
+    m_styleImage->setContainerSizeForRenderer(m_renderer, size, m_renderer->style().effectiveZoom());
 }
 
 } // namespace WebCore

@@ -26,7 +26,8 @@
 // THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+//
+// Author: wan@google.com (Zhanyong Wan)
 
 // This sample teaches how to reuse a test fixture in multiple test
 // cases by deriving sub-fixtures from it.
@@ -45,10 +46,10 @@
 
 #include <limits.h>
 #include <time.h>
-#include "gtest/gtest.h"
-#include "sample1.h"
 #include "sample3-inl.h"
-namespace {
+#include <gtest/gtest.h>
+#include "sample1.h"
+
 // In this sample, we want to ensure that every test finishes within
 // ~5 seconds.  If a test takes longer to run, we consider it a
 // failure.
@@ -100,7 +101,7 @@ TEST_F(IntegerFunctionTest, Factorial) {
   // Tests factorial of negative numbers.
   EXPECT_EQ(1, Factorial(-5));
   EXPECT_EQ(1, Factorial(-1));
-  EXPECT_GT(Factorial(-10), 0);
+  EXPECT_TRUE(Factorial(-10) > 0);
 
   // Tests factorial of 0.
   EXPECT_EQ(1, Factorial(0));
@@ -116,20 +117,20 @@ TEST_F(IntegerFunctionTest, Factorial) {
 // Tests IsPrime()
 TEST_F(IntegerFunctionTest, IsPrime) {
   // Tests negative input.
-  EXPECT_FALSE(IsPrime(-1));
-  EXPECT_FALSE(IsPrime(-2));
-  EXPECT_FALSE(IsPrime(INT_MIN));
+  EXPECT_TRUE(!IsPrime(-1));
+  EXPECT_TRUE(!IsPrime(-2));
+  EXPECT_TRUE(!IsPrime(INT_MIN));
 
   // Tests some trivial cases.
-  EXPECT_FALSE(IsPrime(0));
-  EXPECT_FALSE(IsPrime(1));
+  EXPECT_TRUE(!IsPrime(0));
+  EXPECT_TRUE(!IsPrime(1));
   EXPECT_TRUE(IsPrime(2));
   EXPECT_TRUE(IsPrime(3));
 
   // Tests positive input.
-  EXPECT_FALSE(IsPrime(4));
+  EXPECT_TRUE(!IsPrime(4));
   EXPECT_TRUE(IsPrime(5));
-  EXPECT_FALSE(IsPrime(6));
+  EXPECT_TRUE(!IsPrime(6));
   EXPECT_TRUE(IsPrime(23));
 }
 
@@ -190,7 +191,7 @@ TEST_F(QueueTest, Dequeue) {
   EXPECT_EQ(1u, q2_.Size());
   delete n;
 }
-}  // namespace
+
 // If necessary, you can derive further test fixtures from a derived
 // fixture itself.  For example, you can derive another fixture from
 // QueueTest.  Google Test imposes no limit on how deep the hierarchy

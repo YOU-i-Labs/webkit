@@ -41,7 +41,6 @@ void NumberObject::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     ASSERT(inherits(vm, info()));
-    ASSERT(type() == NumberObjectType);
 }
 
 NumberObject* constructNumber(ExecState* exec, JSGlobalObject* globalObject, JSValue number)

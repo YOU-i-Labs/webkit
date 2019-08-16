@@ -27,10 +27,13 @@
 #include "CSSSegmentedFontFace.h"
 
 #include "CSSFontFace.h"
+#include "CSSFontFaceSource.h"
+#include "CSSFontSelector.h"
+#include "Document.h"
 #include "Font.h"
 #include "FontCache.h"
 #include "FontDescription.h"
-#include "FontSelector.h"
+#include "RuntimeEnabledFeatures.h"
 
 namespace WebCore {
 
@@ -88,7 +91,7 @@ private:
         return m_result && m_result.value() && m_result.value()->isInterstitial();
     }
 
-    mutable Optional<RefPtr<Font>> m_result; // Caches nullptr too
+    mutable std::optional<RefPtr<Font>> m_result; // Caches nullptr too
     mutable Ref<CSSFontFace> m_fontFace;
     FontDescription m_fontDescription;
     bool m_syntheticBold;
@@ -115,7 +118,7 @@ FontRanges CSSSegmentedFontFace::fontRanges(const FontDescription& fontDescripti
 
     if (addResult.isNewEntry) {
         for (auto& face : m_fontFaces) {
-            if (face->computeFailureState())
+            if (face->allSourcesFailed())
                 continue;
 
             auto selectionCapabilities = face->fontSelectionCapabilities();

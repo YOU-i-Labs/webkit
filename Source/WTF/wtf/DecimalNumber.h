@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef DecimalNumber_h
+#define DecimalNumber_h
 
 #include <math.h>
 #include <wtf/dtoa.h>
@@ -103,3 +104,5 @@ private:
 using WTF::DecimalNumber;
 using WTF::RoundingSignificantFigures;
 using WTF::RoundingDecimalPlaces;
+
+#endif // DecimalNumber_h

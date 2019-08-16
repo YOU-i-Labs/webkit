@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ActivateButtonNavigationItem = class ActivateButtonNavigationItem extends WI.ButtonNavigationItem
+WebInspector.ActivateButtonNavigationItem = class ActivateButtonNavigationItem extends WebInspector.ButtonNavigationItem
 {
     constructor(identifier, defaultToolTip, activatedToolTip, image, imageWidth, imageHeight, role)
     {
@@ -48,19 +48,19 @@ WI.ActivateButtonNavigationItem = class ActivateButtonNavigationItem extends WI.
 
     get activated()
     {
-        return this.element.classList.contains(WI.ActivateButtonNavigationItem.ActivatedStyleClassName);
+        return this.element.classList.contains(WebInspector.ActivateButtonNavigationItem.ActivatedStyleClassName);
     }
 
     set activated(flag)
     {
-        this.element.classList.toggle(WI.ActivateButtonNavigationItem.ActivatedStyleClassName, flag);
+        this.element.classList.toggle(WebInspector.ActivateButtonNavigationItem.ActivatedStyleClassName, flag);
 
         if (flag) {
-            this.tooltip = this._activatedToolTip;
+            this.toolTip = this._activatedToolTip;
             if (this._role === "tab")
                 this.element.setAttribute("aria-selected", "true");
         } else {
-            this.tooltip = this._defaultToolTip;
+            this.toolTip = this._defaultToolTip;
             if (this._role === "tab")
                 this.element.removeAttribute("aria-selected");
         }
@@ -74,4 +74,4 @@ WI.ActivateButtonNavigationItem = class ActivateButtonNavigationItem extends WI.
     }
 };
 
-WI.ActivateButtonNavigationItem.ActivatedStyleClassName = "activated";
+WebInspector.ActivateButtonNavigationItem.ActivatedStyleClassName = "activated";

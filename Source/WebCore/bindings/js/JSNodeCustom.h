@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2007, 2009, 2010 Apple Inc. All rights reserved.
- * Copyright (C) 2018 Yusuke Suzuki <utatane.tea@gmail.com>.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,21 +27,7 @@
 
 #include "JSDOMBinding.h"
 #include "JSNode.h"
-
-namespace JSC {
-namespace JSCastingHelpers {
-
-template<>
-struct InheritsTraits<WebCore::JSNode> {
-    template<typename From>
-    static inline bool inherits(VM&, From* from)
-    {
-        return from->type() >= WebCore::JSNodeType;
-    }
-};
-
-} // namespace JSCastingHelpers
-} // namespace JSC
+#include "ShadowRoot.h"
 
 namespace WebCore {
 
@@ -86,6 +71,12 @@ inline void* root(Node* node)
 inline void* root(Node& node)
 {
     return root(&node);
+}
+
+template<typename From>
+ALWAYS_INLINE JSDynamicCastResult<JSNode, From> jsNodeCast(From* value)
+{
+    return value->type() >= JSNodeType ? JSC::jsCast<JSDynamicCastResult<JSNode, From>>(value) : nullptr;
 }
 
 ALWAYS_INLINE JSC::JSValue JSNode::nodeType(JSC::ExecState&) const

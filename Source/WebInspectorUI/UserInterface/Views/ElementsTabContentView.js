@@ -23,27 +23,28 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ElementsTabContentView = class ElementsTabContentView extends WI.ContentBrowserTabContentView
+WebInspector.ElementsTabContentView = class ElementsTabContentView extends WebInspector.ContentBrowserTabContentView
 {
     constructor(identifier)
     {
-        let tabBarItem = WI.GeneralTabBarItem.fromTabInfo(WI.ElementsTabContentView.tabInfo());
-        let detailsSidebarPanelConstructors = [WI.RulesStyleDetailsSidebarPanel, WI.ComputedStyleDetailsSidebarPanel, WI.DOMNodeDetailsSidebarPanel];
+        let {image, title} = WebInspector.ElementsTabContentView.tabInfo();
+        let tabBarItem = new WebInspector.GeneralTabBarItem(image, title);
+        let detailsSidebarPanelConstructors = [WebInspector.DOMNodeDetailsSidebarPanel, WebInspector.CSSStyleDetailsSidebarPanel];
 
         if (window.LayerTreeAgent)
-            detailsSidebarPanelConstructors.push(WI.LayerTreeDetailsSidebarPanel);
+            detailsSidebarPanelConstructors.push(WebInspector.LayerTreeDetailsSidebarPanel);
 
         super(identifier || "elements", "elements", tabBarItem, null, detailsSidebarPanelConstructors, true);
 
-        WI.networkManager.addEventListener(WI.NetworkManager.Event.MainFrameDidChange, this._mainFrameDidChange, this);
-        WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
+        WebInspector.frameResourceManager.addEventListener(WebInspector.FrameResourceManager.Event.MainFrameDidChange, this._mainFrameDidChange, this);
+        WebInspector.Frame.addEventListener(WebInspector.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
     }
 
     static tabInfo()
     {
         return {
             image: "Images/Elements.svg",
-            title: WI.UIString("Elements"),
+            title: WebInspector.UIString("Elements"),
         };
     }
 
@@ -56,7 +57,7 @@ WI.ElementsTabContentView = class ElementsTabContentView extends WI.ContentBrows
 
     get type()
     {
-        return WI.ElementsTabContentView.Type;
+        return WebInspector.ElementsTabContentView.Type;
     }
 
     get supportsSplitContentBrowser()
@@ -66,7 +67,7 @@ WI.ElementsTabContentView = class ElementsTabContentView extends WI.ContentBrows
 
     canShowRepresentedObject(representedObject)
     {
-        return representedObject instanceof WI.DOMTree;
+        return representedObject instanceof WebInspector.DOMTree;
     }
 
     showRepresentedObject(representedObject, cookie)
@@ -78,7 +79,7 @@ WI.ElementsTabContentView = class ElementsTabContentView extends WI.ContentBrows
             return;
 
         let domTreeContentView = this.contentBrowser.currentContentView;
-        console.assert(domTreeContentView instanceof WI.DOMTreeContentView, "Unexpected DOMTreeContentView representedObject.", domTreeContentView);
+        console.assert(domTreeContentView instanceof WebInspector.DOMTreeContentView, "Unexpected DOMTreeContentView representedObject.", domTreeContentView);
 
         domTreeContentView.selectAndRevealDOMNode(cookie.nodeToSelect);
 
@@ -99,8 +100,8 @@ WI.ElementsTabContentView = class ElementsTabContentView extends WI.ContentBrows
     {
         super.closed();
 
-        WI.networkManager.removeEventListener(null, null, this);
-        WI.Frame.removeEventListener(null, null, this);
+        WebInspector.frameResourceManager.removeEventListener(null, null, this);
+        WebInspector.Frame.removeEventListener(null, null, this);
     }
 
     // Private
@@ -109,7 +110,7 @@ WI.ElementsTabContentView = class ElementsTabContentView extends WI.ContentBrows
     {
         this.contentBrowser.contentViewContainer.closeAllContentViews();
 
-        var mainFrame = WI.networkManager.mainFrame;
+        var mainFrame = WebInspector.frameResourceManager.mainFrame;
         if (mainFrame)
             this.contentBrowser.showContentViewForRepresentedObject(mainFrame.domTree);
     }
@@ -128,4 +129,4 @@ WI.ElementsTabContentView = class ElementsTabContentView extends WI.ContentBrows
     }
 };
 
-WI.ElementsTabContentView.Type = "elements";
+WebInspector.ElementsTabContentView.Type = "elements";

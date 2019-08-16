@@ -61,7 +61,7 @@ void MoveSelectionCommand::doApply()
     }
 
     {
-        auto deleteSelection = DeleteSelectionCommand::create(document(), m_smartDelete, true, false, true, true, EditAction::DeleteByDrag);
+        auto deleteSelection = DeleteSelectionCommand::create(document(), m_smartDelete, true, false, true, true, EditActionDeleteByDrag);
         deleteSelection->setParent(this);
         deleteSelection->apply();
         m_commands.append(WTFMove(deleteSelection));
@@ -82,12 +82,12 @@ void MoveSelectionCommand::doApply()
         // Document was modified out from under us.
         return;
     }
-    OptionSet<ReplaceSelectionCommand::CommandOption> options { ReplaceSelectionCommand::SelectReplacement, ReplaceSelectionCommand::PreventNesting };
+    ReplaceSelectionCommand::CommandOptions options = ReplaceSelectionCommand::SelectReplacement | ReplaceSelectionCommand::PreventNesting;
     if (m_smartInsert)
-        options.add(ReplaceSelectionCommand::SmartReplace);
+        options |= ReplaceSelectionCommand::SmartReplace;
 
     {
-        auto replaceSelection = ReplaceSelectionCommand::create(document(), WTFMove(m_fragment), options, EditAction::InsertFromDrop);
+        auto replaceSelection = ReplaceSelectionCommand::create(document(), WTFMove(m_fragment), options, EditActionInsertFromDrop);
         replaceSelection->setParent(this);
         replaceSelection->apply();
         m_commands.append(WTFMove(replaceSelection));
@@ -96,7 +96,7 @@ void MoveSelectionCommand::doApply()
 
 EditAction MoveSelectionCommand::editingAction() const
 {
-    return EditAction::DeleteByDrag;
+    return EditActionDeleteByDrag;
 }
 
 } // namespace WebCore

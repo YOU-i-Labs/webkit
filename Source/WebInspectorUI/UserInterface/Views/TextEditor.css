@@ -75,7 +75,7 @@
 }
 
 .text-editor > .CodeMirror .has-breakpoint.multiple-breakpoints .CodeMirror-linenumber::before {
-    content: "\2022\2022\2022"; /* &middot;&middot;&middot; */
+    content: "•••";
     color: white;
     line-height: 6px;
     text-align: center;
@@ -107,8 +107,7 @@
     border-bottom: 1px dotted hsl(78, 18%, 58%);
 }
 
-.text-editor > .CodeMirror .execution-range-highlight:not(.CodeMirror-selectedtext),
-.text-editor > .CodeMirror .execution-range-highlight:not(.CodeMirror-selectedtext) + .CodeMirror-widget {
+.text-editor > .CodeMirror .execution-range-highlight:not(.CodeMirror-selectedtext) {
     background-color: hsl(90, 30%, 82%);
 }
 
@@ -128,19 +127,4 @@
 @keyframes text-editor-hovered-expression-highlight-fadeout {
     from { background-color: highlight; }
     to { background-color: hsla(0, 0%, 0%, 0.1); }
-}
-
-@media (prefers-color-scheme: dark) {
-    .text-editor > .CodeMirror .execution-line {
-        background-color: hsla(89, 100%, 51%, 0.25) !important;
-    }
-
-    .text-editor > .CodeMirror .execution-range-highlight:not(.CodeMirror-selectedtext),
-    .text-editor > .CodeMirror .execution-range-highlight:not(.CodeMirror-selectedtext) + .CodeMirror-widget {
-        background-color: hsl(99, 85%, 30%);
-    }
-
-    .text-editor > .CodeMirror .execution-line.primary .CodeMirror-linenumber::after {
-        filter: brightness(0.9) saturate(2.8);
-    }
 }

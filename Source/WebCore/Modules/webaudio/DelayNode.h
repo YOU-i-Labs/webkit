@@ -28,7 +28,7 @@
 
 namespace WebCore {
 
-class DelayNode final : public AudioBasicProcessorNode {
+class DelayNode : public AudioBasicProcessorNode {
 public:
     static ExceptionOr<Ref<DelayNode>> create(AudioContext&, float sampleRate, double maxDelayTime);
 

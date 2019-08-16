@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef SmallPtrSet_h
+#define SmallPtrSet_h
 
 #include <wtf/Assertions.h>
 #include <wtf/FastMalloc.h>
@@ -248,3 +249,5 @@ private:
 } // namespace WTF
 
 using WTF::SmallPtrSet;
+
+#endif // SmallPtrSet_h

@@ -23,11 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SourceMapResourceTreeElement = class SourceMapResourceTreeElement extends WI.ResourceTreeElement
+WebInspector.SourceMapResourceTreeElement = class SourceMapResourceTreeElement extends WebInspector.ResourceTreeElement
 {
-    constructor(sourceMapResource)
+    constructor(sourceMapResource, representedObject)
     {
-        console.assert(sourceMapResource instanceof WI.SourceMapResource);
+        console.assert(sourceMapResource instanceof WebInspector.SourceMapResource);
 
         super(sourceMapResource);
 
@@ -46,7 +46,7 @@ WI.SourceMapResourceTreeElement = class SourceMapResourceTreeElement extends WI.
         // Show the host as the subtitle if it is different from the originalSourceCode's host.
         var sourceMapHost = this.resource.urlComponents.host;
         var originalHost = this.resource.sourceMap.originalSourceCode.urlComponents.host;
-        var subtitle = sourceMapHost !== originalHost ? WI.displayNameForHost(sourceMapHost) : null;
+        var subtitle = sourceMapHost !== originalHost ? WebInspector.displayNameForHost(sourceMapHost) : null;
         this.subtitle = this.mainTitle !== subtitle ? subtitle : null;
 
         if (oldMainTitle !== this.mainTitle)

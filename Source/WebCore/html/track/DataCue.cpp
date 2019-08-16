@@ -32,11 +32,12 @@
 #include "Logging.h"
 #include "TextTrack.h"
 #include "TextTrackCueList.h"
-#include <JavaScriptCore/JSCInlines.h>
-#include <JavaScriptCore/Protect.h>
+#include <runtime/JSCInlines.h>
+#include <runtime/Protect.h>
+
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 
 DataCue::DataCue(ScriptExecutionContext& context, const MediaTime& start, const MediaTime& end, ArrayBuffer& data, const String& type)
     : TextTrackCue(context, start, end)
@@ -185,18 +186,6 @@ JSValue DataCue::valueOrNull() const
         return m_value;
 
     return jsNull();
-}
-
-String DataCue::toJSONString() const
-{
-    auto object = JSON::Object::create();
-
-    TextTrackCue::toJSON(object.get());
-
-    if (!m_type.isEmpty())
-        object->setString("type"_s, m_type);
-
-    return object->toJSONString();
 }
 
 } // namespace WebCore

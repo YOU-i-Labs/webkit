@@ -25,8 +25,9 @@
 
 #pragma once
 
-#if ENABLE(C_LOOP)
+#if !ENABLE(JIT)
 
+#include "CallFrame.h"
 #include "JSCJSValue.h"
 #include "Opcode.h"
 #include "ProtoCallFrame.h"
@@ -44,4 +45,4 @@ public:
 
 using JSC::LLInt::CLoop;
 
-#endif // ENABLE(C_LOOP)
+#endif // !ENABLE(JIT)

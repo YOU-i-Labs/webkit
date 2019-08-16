@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,14 +29,15 @@
 
 #include "X86Assembler.h"
 #include "AbstractMacroAssembler.h"
-#include <array>
 #include <wtf/Optional.h>
+
+#if COMPILER(MSVC)
+#include <intrin.h>
+#endif
 
 namespace JSC {
 
-using Assembler = TARGET_ASSEMBLER;
-
-class MacroAssemblerX86Common : public AbstractMacroAssembler<Assembler> {
+class MacroAssemblerX86Common : public AbstractMacroAssembler<X86Assembler, MacroAssemblerX86Common> {
 public:
 #if CPU(X86_64)
     // Use this directly only if you're not generating code with it.
@@ -290,16 +291,6 @@ public:
         m_assembler.andl_mr(src.offset, src.base, src.index, src.scale, dest);
     }
 
-    void and16(Address src, RegisterID dest)
-    {
-        m_assembler.andw_mr(src.offset, src.base, dest);
-    }
-
-    void and16(BaseIndex src, RegisterID dest)
-    {
-        m_assembler.andw_mr(src.offset, src.base, src.index, src.scale, dest);
-    }
-
     void and32(TrustedImm32 imm, Address address)
     {
         m_assembler.andl_im(imm.m_value, address.offset, address.base);
@@ -395,36 +386,6 @@ public:
         m_assembler.bsf_rr(src, dst);
         ctzAfterBsf<32>(dst);
     }
-
-    void countPopulation32(Address src, RegisterID dst)
-    {
-        ASSERT(supportsCountPopulation());
-        m_assembler.popcnt_mr(src.offset, src.base, dst);
-    }
-
-    void countPopulation32(RegisterID src, RegisterID dst)
-    {
-        ASSERT(supportsCountPopulation());
-        m_assembler.popcnt_rr(src, dst);
-    }
-
-    void byteSwap32(RegisterID dst)
-    {
-        m_assembler.bswapl_r(dst);
-    }
-
-    void byteSwap16(RegisterID dst)
-    {
-        m_assembler.rolw_i8r(8, dst);
-        zeroExtend16To32(dst, dst);
-    }
-
-#if CPU(X86_64)
-    void byteSwap64(RegisterID dst)
-    {
-        m_assembler.bswapq_r(dst);
-    }
-#endif
 
     // Only used for testing purposes.
     void illegalInstruction()
@@ -548,12 +509,6 @@ public:
     void neg32(RegisterID srcDest)
     {
         m_assembler.negl_r(srcDest);
-    }
-
-    void neg32(RegisterID src, RegisterID dest)
-    {
-        move32IfNeeded(src, dest);
-        m_assembler.negl_r(dest);
     }
 
     void neg32(Address srcDest)
@@ -1208,11 +1163,6 @@ public:
         load32(address, dest);
     }
 
-    void load16Unaligned(ImplicitAddress address, RegisterID dest)
-    {
-        load16(address, dest);
-    }
-
     void load16Unaligned(BaseIndex address, RegisterID dest)
     {
         load16(address, dest);
@@ -1231,9 +1181,8 @@ public:
         m_assembler.movl_mr_disp8(address.offset, address.base, dest);
         return DataLabelCompact(this);
     }
-
-    template<PtrTag tag>
-    static void repatchCompact(CodeLocationDataLabelCompact<tag> dataLabelCompact, int32_t value)
+    
+    static void repatchCompact(CodeLocationDataLabelCompact dataLabelCompact, int32_t value)
     {
         ASSERT(isCompactPtrAlignedAddressOffset(value));
         AssemblerType_T::repatchCompact(dataLabelCompact.dataLocation(), value);
@@ -1276,11 +1225,6 @@ public:
         m_assembler.movsbl_rr(src, dest);
     }
     
-    void load16(ImplicitAddress address, RegisterID dest)
-    {
-        m_assembler.movzwl_mr(address.offset, address.base, dest);
-    }
-
     void load16(BaseIndex address, RegisterID dest)
     {
         m_assembler.movzwl_mr(address.offset, address.base, address.index, address.scale, dest);
@@ -1454,7 +1398,7 @@ public:
     {
 #if CPU(X86)
         ASSERT(isSSE2Present());
-        m_assembler.movsd_mr(address.asPtr(), dest);
+        m_assembler.movsd_mr(address.m_value, dest);
 #else
         move(address, scratchRegister());
         loadDouble(scratchRegister(), dest);
@@ -1471,17 +1415,6 @@ public:
     {
         ASSERT(isSSE2Present());
         m_assembler.movsd_mr(address.offset, address.base, address.index, address.scale, dest);
-    }
-
-    void loadFloat(TrustedImmPtr address, FPRegisterID dest)
-    {
-#if CPU(X86)
-        ASSERT(isSSE2Present());
-        m_assembler.movss_mr(address.asPtr(), dest);
-#else
-        move(address, scratchRegister());
-        loadFloat(scratchRegister(), dest);
-#endif
     }
 
     void loadFloat(ImplicitAddress address, FPRegisterID dest)
@@ -2043,22 +1976,6 @@ public:
         return jumpAfterFloatingPointCompare(cond, left, right);
     }
 
-    void compareDouble(DoubleCondition cond, FPRegisterID left, FPRegisterID right, RegisterID dest)
-    {
-        ASSERT(isSSE2Present());
-        floatingPointCompare(cond, left, right, dest, [this] (FPRegisterID arg1, FPRegisterID arg2) {
-            m_assembler.ucomisd_rr(arg1, arg2);
-        });
-    }
-
-    void compareFloat(DoubleCondition cond, FPRegisterID left, FPRegisterID right, RegisterID dest)
-    {
-        ASSERT(isSSE2Present());
-        floatingPointCompare(cond, left, right, dest, [this] (FPRegisterID arg1, FPRegisterID arg2) {
-            m_assembler.ucomiss_rr(arg1, arg2);
-        });
-    }
-
     // Truncates 'src' to an integer, and places the resulting 'dest'.
     // If the result is not representable as a 32 bit value, branch.
     // May also branch for some values that are representable in 32 bits
@@ -2189,17 +2106,6 @@ public:
         m_assembler.push_i32(imm.m_value);
     }
 
-    void popPair(RegisterID dest1, RegisterID dest2)
-    {
-        pop(dest2);
-        pop(dest1);
-    }
-
-    void pushPair(RegisterID src1, RegisterID src2)
-    {
-        push(src1);
-        push(src2);
-    }
 
     // Register move operations:
     //
@@ -2316,19 +2222,6 @@ public:
             m_assembler.xchgq_rr(reg1, reg2);
     }
 
-    void swap(FPRegisterID reg1, FPRegisterID reg2)
-    {
-        if (reg1 == reg2)
-            return;
-
-        // FIXME: This is kinda a hack since we don't use xmm7 as a temp.
-        ASSERT(reg1 != FPRegisterID::xmm7);
-        ASSERT(reg2 != FPRegisterID::xmm7);
-        moveDouble(reg1, FPRegisterID::xmm7);
-        moveDouble(reg2, reg1);
-        moveDouble(FPRegisterID::xmm7, reg2);
-    }
-
     void signExtend32ToPtr(TrustedImm32 imm, RegisterID dest)
     {
         if (!imm.m_value)
@@ -2364,12 +2257,6 @@ public:
             m_assembler.xorl_rr(dest, dest);
         else
             m_assembler.movl_i32r(imm.asIntptr(), dest);
-    }
-
-    // Only here for templates!
-    void move(TrustedImm64, RegisterID)
-    {
-        UNREACHABLE_FOR_PLATFORM();
     }
 
     void moveConditionallyDouble(DoubleCondition cond, FPRegisterID left, FPRegisterID right, RegisterID src, RegisterID dest)
@@ -2412,19 +2299,6 @@ public:
     {
         if (reg1 != reg2)
             m_assembler.xchgl_rr(reg1, reg2);
-    }
-
-    void swap(FPRegisterID reg1, FPRegisterID reg2)
-    {
-        if (reg1 == reg2)
-            return;
-
-        // FIXME: This is kinda a hack since we don't use xmm7 as a temp.
-        ASSERT(reg1 != FPRegisterID::xmm7);
-        ASSERT(reg2 != FPRegisterID::xmm7);
-        moveDouble(reg1, FPRegisterID::xmm7);
-        moveDouble(reg2, reg1);
-        moveDouble(FPRegisterID::xmm7, reg2);
     }
 
     void signExtend32ToPtr(RegisterID src, RegisterID dest)
@@ -2772,26 +2646,23 @@ public:
         return Jump(m_assembler.jmp());
     }
 
-    void jump(RegisterID target, PtrTag)
+    void jump(RegisterID target)
     {
         m_assembler.jmp_r(target);
     }
 
     // Address is a memory location containing the address to jump to
-    void jump(Address address, PtrTag)
+    void jump(Address address)
     {
         m_assembler.jmp_m(address.offset, address.base);
     }
 
     // Address is a memory location containing the address to jump to
-    void jump(BaseIndex address, PtrTag)
+    void jump(BaseIndex address)
     {
         m_assembler.jmp_m(address.offset, address.base, address.index, address.scale);
     }
 
-    ALWAYS_INLINE void jump(RegisterID target, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), jump(target, NoPtrTag); }
-    ALWAYS_INLINE void jump(Address address, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), jump(address, NoPtrTag); }
-    ALWAYS_INLINE void jump(BaseIndex address, RegisterID jumpTag) { UNUSED_PARAM(jumpTag), jump(address, NoPtrTag); }
 
     // Arithmetic control flow operations:
     //
@@ -2973,18 +2844,15 @@ public:
         return Call(m_assembler.call(), Call::LinkableNear);
     }
 
-    Call call(RegisterID target, PtrTag)
+    Call call(RegisterID target)
     {
         return Call(m_assembler.call(target), Call::None);
     }
 
-    void call(Address address, PtrTag)
+    void call(Address address)
     {
         m_assembler.call_m(address.offset, address.base);
     }
-
-    ALWAYS_INLINE Call call(RegisterID target, RegisterID callTag) { return UNUSED_PARAM(callTag), call(target, NoPtrTag); }
-    ALWAYS_INLINE void call(Address address, RegisterID callTag) { UNUSED_PARAM(callTag), call(address, NoPtrTag); }
 
     void ret()
     {
@@ -3123,7 +2991,7 @@ public:
         }
     }
 
-    static Optional<ResultCondition> commuteCompareToZeroIntoTest(RelationalCondition cond)
+    static std::optional<ResultCondition> commuteCompareToZeroIntoTest(RelationalCondition cond)
     {
         switch (cond) {
         case Equal:
@@ -3136,7 +3004,7 @@ public:
             return PositiveOrZero;
             break;
         default:
-            return WTF::nullopt;
+            return std::nullopt;
         }
     }
 
@@ -3935,14 +3803,12 @@ public:
     }
 #endif
 
-    template<PtrTag tag>
-    static void replaceWithVMHalt(CodeLocationLabel<tag> instructionStart)
+    static void replaceWithBreakpoint(CodeLocationLabel instructionStart)
     {
-        X86Assembler::replaceWithHlt(instructionStart.executableAddress());
+        X86Assembler::replaceWithInt3(instructionStart.executableAddress());
     }
 
-    template<PtrTag startTag, PtrTag destTag>
-    static void replaceWithJump(CodeLocationLabel<startTag> instructionStart, CodeLocationLabel<destTag> destination)
+    static void replaceWithJump(CodeLocationLabel instructionStart, CodeLocationLabel destination)
     {
         X86Assembler::replaceWithJump(instructionStart.executableAddress(), destination.executableAddress());
     }
@@ -3960,15 +3826,8 @@ public:
     static bool supportsFloatingPointRounding()
     {
         if (s_sse4_1CheckState == CPUIDCheckState::NotChecked)
-            collectCPUFeatures();
+            updateEax1EcxFlags();
         return s_sse4_1CheckState == CPUIDCheckState::Set;
-    }
-
-    static bool supportsCountPopulation()
-    {
-        if (s_popcntCheckState == CPUIDCheckState::NotChecked)
-            collectCPUFeatures();
-        return s_popcntCheckState == CPUIDCheckState::Set;
     }
 
     static bool supportsAVX()
@@ -3977,35 +3836,43 @@ public:
         return false;
     }
 
-    void lfence()
+    static void updateEax1EcxFlags()
     {
-        m_assembler.lfence();
+        int flags = 0;
+#if COMPILER(MSVC)
+        int cpuInfo[4];
+        __cpuid(cpuInfo, 0x1);
+        flags = cpuInfo[2];
+#elif COMPILER(GCC_OR_CLANG)
+#if CPU(X86_64)
+        asm (
+            "movl $0x1, %%eax;"
+            "cpuid;"
+            "movl %%ecx, %0;"
+            : "=g" (flags)
+            :
+            : "%eax", "%ebx", "%ecx", "%edx"
+            );
+#else
+        asm (
+            "movl $0x1, %%eax;"
+            "pushl %%ebx;"
+            "cpuid;"
+            "popl %%ebx;"
+            "movl %%ecx, %0;"
+            : "=g" (flags)
+            :
+            : "%eax", "%ecx", "%edx"
+            );
+#endif
+#endif // COMPILER(GCC_OR_CLANG)
+        s_sse4_1CheckState = (flags & (1 << 19)) ? CPUIDCheckState::Set : CPUIDCheckState::Clear;
+        s_avxCheckState = (flags & (1 << 28)) ? CPUIDCheckState::Set : CPUIDCheckState::Clear;
     }
 
-    void mfence()
-    {
-        m_assembler.mfence();
-    }
-
-    void sfence()
-    {
-        m_assembler.sfence();
-    }
-
-    void rdtsc()
-    {
-        m_assembler.rdtsc();
-    }
-
-    void pause()
-    {
-        m_assembler.pause();
-    }
-
-    void cpuid()
-    {
-        m_assembler.cpuid();
-    }
+#if ENABLE(MASM_PROBE)
+    void probe(ProbeFunction, void* arg);
+#endif // ENABLE(MASM_PROBE)
 
 protected:
     X86Assembler::Condition x86Condition(RelationalCondition cond)
@@ -4058,15 +3925,62 @@ protected:
 
     static bool supportsLZCNT()
     {
-        if (s_lzcntCheckState == CPUIDCheckState::NotChecked)
-            collectCPUFeatures();
+        if (s_lzcntCheckState == CPUIDCheckState::NotChecked) {
+            int flags = 0;
+#if COMPILER(MSVC)
+            int cpuInfo[4];
+            __cpuid(cpuInfo, 0x80000001);
+            flags = cpuInfo[2];
+#elif COMPILER(GCC_OR_CLANG)
+#if CPU(X86_64)
+            asm (
+                "movl $0x80000001, %%eax;"
+                "cpuid;"
+                "movl %%ecx, %0;"
+                : "=g" (flags)
+                :
+                : "%eax", "%ebx", "%ecx", "%edx"
+                );
+#else
+            asm (
+                "movl $0x80000001, %%eax;"
+                "pushl %%ebx;"
+                "cpuid;"
+                "popl %%ebx;"
+                "movl %%ecx, %0;"
+                : "=g" (flags)
+                :
+                : "%eax", "%ecx", "%edx"
+                );
+#endif
+#endif // COMPILER(GCC_OR_CLANG)
+            s_lzcntCheckState = (flags & 0x20) ? CPUIDCheckState::Set : CPUIDCheckState::Clear;
+        }
         return s_lzcntCheckState == CPUIDCheckState::Set;
     }
 
     static bool supportsBMI1()
     {
-        if (s_bmi1CheckState == CPUIDCheckState::NotChecked)
-            collectCPUFeatures();
+        if (s_bmi1CheckState == CPUIDCheckState::NotChecked) {
+            int flags = 0;
+#if COMPILER(MSVC)
+            int cpuInfo[4];
+            __cpuid(cpuInfo, 0x80000001);
+            flags = cpuInfo[2];
+#elif COMPILER(GCC_OR_CLANG)
+            asm (
+                 "movl $0x7, %%eax;"
+                 "movl $0x0, %%ecx;"
+                 "cpuid;"
+                 "movl %%ebx, %0;"
+                 : "=g" (flags)
+                 :
+                 : "%eax", "%ebx", "%ecx", "%edx"
+                 );
+#endif // COMPILER(GCC_OR_CLANG)
+            static int BMI1FeatureBit = 1 << 3;
+            s_bmi1CheckState = (flags & BMI1FeatureBit) ? CPUIDCheckState::Set : CPUIDCheckState::Clear;
+        }
         return s_bmi1CheckState == CPUIDCheckState::Set;
     }
 
@@ -4144,51 +4058,6 @@ private:
         skipNonZeroCase.link(this);
     }
 
-    template<typename Function>
-    void floatingPointCompare(DoubleCondition cond, FPRegisterID left, FPRegisterID right, RegisterID dest, Function compare)
-    {
-        if (cond & DoubleConditionBitSpecial) {
-            ASSERT(!(cond & DoubleConditionBitInvert));
-            if (cond == DoubleEqual) {
-                if (left == right) {
-                    compare(right, left);
-                    set32(X86Assembler::ConditionNP, dest);
-                    return;
-                }
-
-                move(TrustedImm32(0), dest);
-                compare(right, left);
-                Jump isUnordered = m_assembler.jp();
-                set32(X86Assembler::ConditionE, dest);
-                isUnordered.link(this);
-                return;
-            }
-            if (cond == DoubleNotEqualOrUnordered) {
-                if (left == right) {
-                    compare(right, left);
-                    set32(X86Assembler::ConditionP, dest);
-                    return;
-                }
-
-                move(TrustedImm32(1), dest);
-                compare(right, left);
-                Jump isUnordered = m_assembler.jp();
-                set32(X86Assembler::ConditionNE, dest);
-                isUnordered.link(this);
-                return;
-            }
-
-            RELEASE_ASSERT_NOT_REACHED();
-            return;
-        }
-
-        if (cond & DoubleConditionBitInvert)
-            compare(left, right);
-        else
-            compare(right, left);
-        set32(static_cast<X86Assembler::Condition>(cond & ~DoubleConditionBits), dest);
-    }
-
     Jump jumpAfterFloatingPointCompare(DoubleCondition cond, FPRegisterID left, FPRegisterID right)
     {
         if (cond == DoubleEqual) {
@@ -4264,12 +4133,47 @@ private:
     }
 
 #else // OS(MAC_OS_X)
+
+    enum SSE2CheckState {
+        NotCheckedSSE2,
+        HasSSE2,
+        NoSSE2
+    };
+
     static bool isSSE2Present()
     {
-        if (s_sse2CheckState == CPUIDCheckState::NotChecked)
-            collectCPUFeatures();
-        return s_sse2CheckState == CPUIDCheckState::Set;
+        if (s_sse2CheckState == NotCheckedSSE2) {
+            // Default the flags value to zero; if the compiler is
+            // not MSVC or GCC we will read this as SSE2 not present.
+            int flags = 0;
+#if COMPILER(MSVC)
+            _asm {
+                mov eax, 1 // cpuid function 1 gives us the standard feature set
+                cpuid;
+                mov flags, edx;
+            }
+#elif COMPILER(GCC_OR_CLANG)
+            asm (
+                 "movl $0x1, %%eax;"
+                 "pushl %%ebx;"
+                 "cpuid;"
+                 "popl %%ebx;"
+                 "movl %%edx, %0;"
+                 : "=g" (flags)
+                 :
+                 : "%eax", "%ecx", "%edx"
+                 );
+#endif
+            static const int SSE2FeatureBit = 1 << 26;
+            s_sse2CheckState = (flags & SSE2FeatureBit) ? HasSSE2 : NoSSE2;
+        }
+        // Only check once.
+        ASSERT(s_sse2CheckState != NotCheckedSSE2);
+
+        return s_sse2CheckState == HasSSE2;
     }
+    
+    JS_EXPORTDATA static SSE2CheckState s_sse2CheckState;
 
 #endif // OS(MAC_OS_X)
 #elif !defined(NDEBUG) // CPU(X86)
@@ -4283,18 +4187,15 @@ private:
 
 #endif
 
-    using CPUID = std::array<unsigned, 4>;
-    static CPUID getCPUID(unsigned level);
-    static CPUID getCPUIDEx(unsigned level, unsigned count);
-    JS_EXPORT_PRIVATE static void collectCPUFeatures();
-
-    JS_EXPORT_PRIVATE static CPUIDCheckState s_sse2CheckState;
+    enum class CPUIDCheckState {
+        NotChecked,
+        Clear,
+        Set
+    };
     JS_EXPORT_PRIVATE static CPUIDCheckState s_sse4_1CheckState;
-    JS_EXPORT_PRIVATE static CPUIDCheckState s_sse4_2CheckState;
     JS_EXPORT_PRIVATE static CPUIDCheckState s_avxCheckState;
-    JS_EXPORT_PRIVATE static CPUIDCheckState s_lzcntCheckState;
-    JS_EXPORT_PRIVATE static CPUIDCheckState s_bmi1CheckState;
-    JS_EXPORT_PRIVATE static CPUIDCheckState s_popcntCheckState;
+    static CPUIDCheckState s_bmi1CheckState;
+    static CPUIDCheckState s_lzcntCheckState;
 };
 
 } // namespace JSC

@@ -26,15 +26,13 @@
 #include "Attribute.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
+#include "ExceptionCode.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "RenderLayer.h"
 #include "RenderMarquee.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLMarqueeElement);
 
 using namespace HTMLNames;
 
@@ -154,7 +152,7 @@ int HTMLMarqueeElement::loop() const
 ExceptionOr<void> HTMLMarqueeElement::setLoop(int loop)
 {
     if (loop <= 0 && loop != -1)
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
     setIntegralAttribute(loopAttr, loop);
     return { };
 }

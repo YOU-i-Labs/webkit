@@ -134,7 +134,7 @@ void MemoryBackingStoreTransaction::objectStoreDeleted(Ref<MemoryObjectStore>&& 
         addResult.iterator->value = WTFMove(objectStore);
 }
 
-void MemoryBackingStoreTransaction::objectStoreCleared(MemoryObjectStore& objectStore, std::unique_ptr<KeyValueMap>&& keyValueMap, std::unique_ptr<IDBKeyDataSet>&& orderedKeys)
+void MemoryBackingStoreTransaction::objectStoreCleared(MemoryObjectStore& objectStore, std::unique_ptr<KeyValueMap>&& keyValueMap, std::unique_ptr<std::set<IDBKeyData>>&& orderedKeys)
 {
     ASSERT(m_objectStores.contains(&objectStore));
 
@@ -213,15 +213,15 @@ void MemoryBackingStoreTransaction::abort()
 
     SetForScope<bool> change(m_isAborting, true);
 
-    for (const auto& iterator : m_originalIndexNames)
+    for (auto iterator : m_originalIndexNames)
         iterator.key->rename(iterator.value);
     m_originalIndexNames.clear();
 
-    for (const auto& iterator : m_originalObjectStoreNames)
+    for (auto iterator : m_originalObjectStoreNames)
         iterator.key->rename(iterator.value);
     m_originalObjectStoreNames.clear();
 
-    for (const auto& objectStore : m_versionChangeAddedObjectStores)
+    for (auto objectStore : m_versionChangeAddedObjectStores)
         m_backingStore.removeObjectStoreForVersionChangeAbort(*objectStore);
     m_versionChangeAddedObjectStores.clear();
 
@@ -257,7 +257,7 @@ void MemoryBackingStoreTransaction::abort()
         if (!keyValueMap)
             continue;
 
-        for (const auto& entry : *keyValueMap) {
+        for (auto entry : *keyValueMap) {
             objectStore->deleteRecord(entry.key);
             objectStore->addRecord(*this, entry.key, { entry.value });
         }

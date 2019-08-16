@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.BranchManager = class BranchManager extends WI.Object
+WebInspector.BranchManager = class BranchManager extends WebInspector.Object
 {
     constructor()
     {
         super();
 
-        WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
+        WebInspector.Frame.addEventListener(WebInspector.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
 
         this.initialize();
     }
@@ -38,8 +38,8 @@ WI.BranchManager = class BranchManager extends WI.Object
 
     initialize()
     {
-        this._originalBranch = new WI.Branch(WI.UIString("Original"), null, true);
-        this._currentBranch = this._originalBranch.fork(WI.UIString("Working Copy"));
+        this._originalBranch = new WebInspector.Branch(WebInspector.UIString("Original"), null, true);
+        this._currentBranch = this._originalBranch.fork(WebInspector.UIString("Working Copy"));
         this._branches = [this._originalBranch, this._currentBranch];
     }
 
@@ -55,8 +55,8 @@ WI.BranchManager = class BranchManager extends WI.Object
 
     set currentBranch(branch)
     {
-        console.assert(branch instanceof WI.Branch);
-        if (!(branch instanceof WI.Branch))
+        console.assert(branch instanceof WebInspector.Branch);
+        if (!(branch instanceof WebInspector.Branch))
             return;
 
         this._currentBranch.revert();
@@ -71,8 +71,8 @@ WI.BranchManager = class BranchManager extends WI.Object
         if (!fromBranch)
             fromBranch = this._originalBranch;
 
-        console.assert(fromBranch instanceof WI.Branch);
-        if (!(fromBranch instanceof WI.Branch))
+        console.assert(fromBranch instanceof WebInspector.Branch);
+        if (!(fromBranch instanceof WebInspector.Branch))
             return null;
 
         var newBranch = fromBranch.fork(displayName);
@@ -82,8 +82,8 @@ WI.BranchManager = class BranchManager extends WI.Object
 
     deleteBranch(branch)
     {
-        console.assert(branch instanceof WI.Branch);
-        if (!(branch instanceof WI.Branch))
+        console.assert(branch instanceof WebInspector.Branch);
+        if (!(branch instanceof WebInspector.Branch))
             return;
 
         console.assert(branch !== this._originalBranch);
@@ -100,7 +100,7 @@ WI.BranchManager = class BranchManager extends WI.Object
 
     _mainResourceDidChange(event)
     {
-        console.assert(event.target instanceof WI.Frame);
+        console.assert(event.target instanceof WebInspector.Frame);
 
         if (!event.target.isMainFrame())
             return;

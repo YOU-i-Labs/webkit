@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.CodeMirrorDragToAdjustNumberController = class CodeMirrorDragToAdjustNumberController extends WI.Object
+WebInspector.CodeMirrorDragToAdjustNumberController = class CodeMirrorDragToAdjustNumberController extends WebInspector.Object
 {
     constructor(codeMirror)
     {
@@ -31,7 +31,7 @@ WI.CodeMirrorDragToAdjustNumberController = class CodeMirrorDragToAdjustNumberCo
 
         this._codeMirror = codeMirror;
 
-        this._dragToAdjustController = new WI.DragToAdjustController(this);
+        this._dragToAdjustController = new WebInspector.DragToAdjustController(this);
     }
 
     // Public
@@ -116,6 +116,6 @@ WI.CodeMirrorDragToAdjustNumberController = class CodeMirrorDragToAdjustNumberCo
 
 CodeMirror.defineOption("dragToAdjustNumbers", true, function(codeMirror, value, oldValue) {
     if (!codeMirror.dragToAdjustNumberController)
-        codeMirror.dragToAdjustNumberController = new WI.CodeMirrorDragToAdjustNumberController(codeMirror);
+        codeMirror.dragToAdjustNumberController = new WebInspector.CodeMirrorDragToAdjustNumberController(codeMirror);
     codeMirror.dragToAdjustNumberController.enabled = value;
 });

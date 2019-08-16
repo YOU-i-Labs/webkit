@@ -37,6 +37,7 @@ namespace WebCore {
 
 class DocumentLoader;
 class ResourceRequest;
+class URL;
 
 struct ResourceLoadInfo;
 
@@ -53,25 +54,22 @@ class ContentExtensionsBackend {
 public:
     // - Rule management interface. This can be used by upper layer.
 
-    // Set a list of rules for a given name. If there were existing rules for the name, they are overridden.
+    // Set a list of rules for a given name. If there were existing rules for the name, they are overriden.
     // The identifier cannot be empty.
-    WEBCORE_EXPORT void addContentExtension(const String& identifier, Ref<CompiledContentExtension>, ContentExtension::ShouldCompileCSS = ContentExtension::ShouldCompileCSS::Yes);
+    WEBCORE_EXPORT void addContentExtension(const String& identifier, RefPtr<CompiledContentExtension>);
     WEBCORE_EXPORT void removeContentExtension(const String& identifier);
     WEBCORE_EXPORT void removeAllContentExtensions();
 
     // - Internal WebCore Interface.
-    WEBCORE_EXPORT std::pair<Vector<Action>, Vector<String>> actionsForResourceLoad(const ResourceLoadInfo&) const;
+    WEBCORE_EXPORT Vector<Action> actionsForResourceLoad(const ResourceLoadInfo&) const;
     WEBCORE_EXPORT StyleSheetContents* globalDisplayNoneStyleSheet(const String& identifier) const;
 
     BlockedStatus processContentExtensionRulesForLoad(const URL&, ResourceType, DocumentLoader& initiatingDocumentLoader);
-    WEBCORE_EXPORT BlockedStatus processContentExtensionRulesForPingLoad(const URL&, const URL& mainDocumentURL);
 
     static const String& displayNoneCSSRule();
 
-    void forEach(const WTF::Function<void(const String&, ContentExtension&)>&);
-
 private:
-    HashMap<String, Ref<ContentExtension>> m_contentExtensions;
+    HashMap<String, RefPtr<ContentExtension>> m_contentExtensions;
 };
 
 } // namespace ContentExtensions

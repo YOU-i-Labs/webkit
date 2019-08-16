@@ -31,7 +31,7 @@ class LoadableScript;
 
 class LoadableScriptClient {
 public:
-    virtual ~LoadableScriptClient() = default;
+    virtual ~LoadableScriptClient() { }
 
     virtual void notifyFinished(LoadableScript&) = 0;
 };

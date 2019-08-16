@@ -31,7 +31,6 @@ namespace JSC {
 
 enum class TypeofType {
     Undefined,
-    BigInt,
     Boolean,
     Number,
     String,

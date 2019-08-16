@@ -31,38 +31,38 @@
 
 #include "Document.h"
 #include "JSDOMBinding.h"
-#include "JSExecState.h"
-#include "JSExecStateInstrumentation.h"
-#include <JavaScriptCore/Exception.h>
+#include "JSMainThreadExecState.h"
+#include "JSMainThreadExecStateInstrumentation.h"
+#include <runtime/Exception.h>
 
-namespace WebCore {
 using namespace JSC;
+    
+namespace WebCore {
 
-JSValue JSCallbackData::invokeCallback(JSDOMGlobalObject& globalObject, JSObject* callback, JSValue thisValue, MarkedArgumentBuffer& args, CallbackType method, PropertyName functionName, NakedPtr<JSC::Exception>& returnedException)
+JSValue JSCallbackData::invokeCallback(JSDOMGlobalObject& globalObject, JSObject* callback, MarkedArgumentBuffer& args, CallbackType method, PropertyName functionName, NakedPtr<JSC::Exception>& returnedException)
 {
     ASSERT(callback);
 
     ExecState* exec = globalObject.globalExec();
-    VM& vm = exec->vm();
     JSValue function;
     CallData callData;
     CallType callType = CallType::None;
 
     if (method != CallbackType::Object) {
         function = callback;
-        callType = callback->methodTable(vm)->getCallData(callback, callData);
+        callType = callback->methodTable()->getCallData(callback, callData);
     }
     if (callType == CallType::None) {
         if (method == CallbackType::Function) {
-            returnedException = JSC::Exception::create(vm, createTypeError(exec));
+            returnedException = JSC::Exception::create(exec->vm(), createTypeError(exec));
             return JSValue();
         }
 
         ASSERT(!functionName.isNull());
         function = callback->get(exec, functionName);
-        callType = getCallData(vm, function, callData);
+        callType = getCallData(function, callData);
         if (callType == CallType::None) {
-            returnedException = JSC::Exception::create(vm, createTypeError(exec));
+            returnedException = JSC::Exception::create(exec->vm(), createTypeError(exec));
             return JSValue();
         }
     }
@@ -75,25 +75,20 @@ JSValue JSCallbackData::invokeCallback(JSDOMGlobalObject& globalObject, JSObject
     if (!context)
         return JSValue();
 
-    InspectorInstrumentationCookie cookie = JSExecState::instrumentFunctionCall(context, callType, callData);
+    InspectorInstrumentationCookie cookie = JSMainThreadExecState::instrumentFunctionCall(context, callType, callData);
 
     returnedException = nullptr;
-    JSValue result = JSExecState::profiledCall(exec, JSC::ProfilingReason::Other, function, callType, callData, thisValue, args, returnedException);
+    JSValue result = context->isDocument()
+        ? JSMainThreadExecState::profiledCall(exec, JSC::ProfilingReason::Other, function, callType, callData, callback, args, returnedException)
+        : JSC::profiledCall(exec, JSC::ProfilingReason::Other, function, callType, callData, callback, args, returnedException);
 
     InspectorInstrumentation::didCallFunction(cookie, context);
 
     return result;
 }
 
-void JSCallbackDataWeak::visitJSFunction(JSC::SlotVisitor& vistor)
+bool JSCallbackDataWeak::WeakOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, SlotVisitor& visitor)
 {
-    vistor.append(m_callback);
-}
-
-bool JSCallbackDataWeak::WeakOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown>, void* context, SlotVisitor& visitor, const char** reason)
-{
-    if (UNLIKELY(reason))
-        *reason = "Context is opaque root"; // FIXME: what is the context.
     return visitor.containsOpaqueRoot(context);
 }
 

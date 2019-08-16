@@ -36,13 +36,12 @@ namespace WebCore {
 
 class DOMTokenList;
 class HTMLLinkElement;
-struct MediaQueryParserContext;
+class URL;
 
 template<typename T> class EventSender;
 typedef EventSender<HTMLLinkElement> LinkEventSender;
 
 class HTMLLinkElement final : public HTMLElement, public CachedStyleSheetClient, public LinkLoaderClient {
-    WTF_MAKE_ISO_ALLOCATED(HTMLLinkElement);
 public:
     static Ref<HTMLLinkElement> create(const QualifiedName&, Document&, bool createdByParser);
     virtual ~HTMLLinkElement();
@@ -54,7 +53,7 @@ public:
 
     const AtomicString& type() const;
 
-    Optional<LinkIconType> iconType() const;
+    std::optional<LinkIconType> iconType() const;
 
     CSSStyleSheet* sheet() const { return m_sheet.get(); }
 
@@ -74,10 +73,6 @@ public:
 
     WEBCORE_EXPORT DOMTokenList& relList();
 
-#if ENABLE(APPLICATION_MANIFEST)
-    bool isApplicationManifest() const { return m_relAttribute.isApplicationManifest; }
-#endif
-
 private:
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
 
@@ -86,11 +81,11 @@ private:
     static void processCallback(Node*);
     void clearSheet();
 
-    InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) final;
-    void didFinishInsertingNode() final;
-    void removedFromAncestor(RemovalType, ContainerNode&) final;
+    InsertionNotificationRequest insertedInto(ContainerNode&) final;
+    void finishedInsertingSubtree() final;
+    void removedFrom(ContainerNode&) final;
 
-    void initializeStyleSheet(Ref<StyleSheetContents>&&, const CachedCSSStyleSheet&, MediaQueryParserContext);
+    void initializeStyleSheet(Ref<StyleSheetContents>&&, const CachedCSSStyleSheet&);
 
     // from CachedResourceClient
     void setCSSStyleSheet(const String& href, const URL& baseURL, const String& charset, const CachedCSSStyleSheet*) final;

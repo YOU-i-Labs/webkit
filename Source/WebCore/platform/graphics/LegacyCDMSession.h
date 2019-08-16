@@ -27,14 +27,14 @@
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
 
-#include <JavaScriptCore/Uint8Array.h>
+#include <runtime/Uint8Array.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {
 
-class LegacyCDMSessionClient {
+class CDMSessionClient {
 public:
-    virtual ~LegacyCDMSessionClient() = default;
+    virtual ~CDMSessionClient() { }
     virtual void sendMessage(Uint8Array*, String destinationURL) = 0;
 
     enum {
@@ -51,7 +51,7 @@ public:
     virtual String mediaKeysStorageDirectory() const = 0;
 };
 
-enum LegacyCDMSessionType {
+enum CDMSessionType {
     CDMSessionTypeUnknown,
     CDMSessionTypeClearKey,
     CDMSessionTypeAVFoundationObjC,
@@ -59,12 +59,12 @@ enum LegacyCDMSessionType {
     CDMSessionTypeAVContentKeySession,
 };
 
-class LegacyCDMSession {
+class CDMSession {
 public:
-    virtual ~LegacyCDMSession() = default;
+    virtual ~CDMSession() { }
 
-    virtual LegacyCDMSessionType type() { return CDMSessionTypeUnknown; }
-    virtual void setClient(LegacyCDMSessionClient*) = 0;
+    virtual CDMSessionType type() { return CDMSessionTypeUnknown; }
+    virtual void setClient(CDMSessionClient*) = 0;
     virtual const String& sessionId() const = 0;
     virtual RefPtr<Uint8Array> generateKeyRequest(const String& mimeType, Uint8Array* initData, String& destinationURL, unsigned short& errorCode, uint32_t& systemCode) = 0;
     virtual void releaseKeys() = 0;

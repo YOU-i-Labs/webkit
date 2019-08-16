@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,16 +29,14 @@
 
 namespace WebCore {
 
-class SVGSymbolElement final : public SVGElement, public SVGExternalResourcesRequired, public SVGFitToViewBox {
-    WTF_MAKE_ISO_ALLOCATED(SVGSymbolElement);
+class SVGSymbolElement final : public SVGElement,
+                               public SVGExternalResourcesRequired,
+                               public SVGFitToViewBox {
 public:
     static Ref<SVGSymbolElement> create(const QualifiedName&, Document&);
 
 private:
     SVGSymbolElement(const QualifiedName&, Document&);
-
-    using AttributeOwnerProxy = SVGAttributeOwnerProxyImpl<SVGSymbolElement, SVGElement, SVGExternalResourcesRequired, SVGFitToViewBox>;
-    const SVGAttributeOwnerProxy& attributeOwnerProxy() const final { return m_attributeOwnerProxy; }
 
     void parseAttribute(const QualifiedName&, const AtomicString&) override;
     void svgAttributeChanged(const QualifiedName&) override;
@@ -47,7 +44,11 @@ private:
 
     bool selfHasRelativeLengths() const override;
 
-    AttributeOwnerProxy m_attributeOwnerProxy { *this };
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGSymbolElement)
+        DECLARE_ANIMATED_BOOLEAN_OVERRIDE(ExternalResourcesRequired, externalResourcesRequired)
+        DECLARE_ANIMATED_RECT(ViewBox, viewBox)
+        DECLARE_ANIMATED_PRESERVEASPECTRATIO(PreserveAspectRatio, preserveAspectRatio) 
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

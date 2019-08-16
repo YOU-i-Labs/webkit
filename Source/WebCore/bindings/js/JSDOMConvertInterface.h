@@ -27,33 +27,11 @@
 
 #include "IDLTypes.h"
 #include "JSDOMConvertBase.h"
-#include <JavaScriptCore/Error.h>
+#include "JSDOMExceptionHandling.h"
 
 namespace WebCore {
 
 template<typename ImplementationClass> struct JSDOMWrapperConverterTraits;
-
-template<typename T, typename Enable = void>
-struct JSToWrappedOverloader {
-    using ReturnType = typename JSDOMWrapperConverterTraits<T>::ToWrappedReturnType;
-    using WrapperType = typename JSDOMWrapperConverterTraits<T>::WrapperClass;
-
-    static ReturnType toWrapped(JSC::ExecState& state, JSC::JSValue value)
-    {
-        return WrapperType::toWrapped(state.vm(), value);
-    }
-};
-
-template<typename T>
-struct JSToWrappedOverloader<T, typename std::enable_if<JSDOMWrapperConverterTraits<T>::needsState>::type> {
-    using ReturnType = typename JSDOMWrapperConverterTraits<T>::ToWrappedReturnType;
-    using WrapperType = typename JSDOMWrapperConverterTraits<T>::WrapperClass;
-
-    static ReturnType toWrapped(JSC::ExecState& state, JSC::JSValue value)
-    {
-        return WrapperType::toWrapped(state, value);
-    }
-};
 
 template<typename T> struct Converter<IDLInterface<T>> : DefaultConverter<IDLInterface<T>> {
     using ReturnType = typename JSDOMWrapperConverterTraits<T>::ToWrappedReturnType;
@@ -64,7 +42,7 @@ template<typename T> struct Converter<IDLInterface<T>> : DefaultConverter<IDLInt
     {
         auto& vm = state.vm();
         auto scope = DECLARE_THROW_SCOPE(vm);
-        ReturnType object = JSToWrappedOverloader<T>::toWrapped(state, value);
+        ReturnType object = WrapperType::toWrapped(vm, value);
         if (UNLIKELY(!object))
             exceptionThrower(state, scope);
         return object;
@@ -88,16 +66,5 @@ template<typename T> struct JSConverter<IDLInterface<T>> {
     }
 };
 
-template<typename T> struct VariadicConverter<IDLInterface<T>> {
-    using Item = std::reference_wrapper<T>;
-
-    static Optional<Item> convert(JSC::ExecState& state, JSC::JSValue value)
-    {
-        auto* result = Converter<IDLInterface<T>>::convert(state, value);
-        if (!result)
-            return WTF::nullopt;
-        return Optional<Item> { *result };
-    }
-};
 
 } // namespace WebCore

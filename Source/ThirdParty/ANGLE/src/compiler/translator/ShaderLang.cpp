@@ -45,20 +45,7 @@ const std::vector<Uniform> *GetVariableList(const TCompiler *compiler)
 template <>
 const std::vector<Varying> *GetVariableList(const TCompiler *compiler)
 {
-    switch (compiler->getShaderType())
-    {
-        case GL_VERTEX_SHADER:
-            return &compiler->getOutputVaryings();
-        case GL_FRAGMENT_SHADER:
-            return &compiler->getInputVaryings();
-        case GL_COMPUTE_SHADER:
-            ASSERT(compiler->getOutputVaryings().empty() && compiler->getInputVaryings().empty());
-            return &compiler->getOutputVaryings();
-        // Since geometry shaders have both input and output varyings, we shouldn't call GetVaryings
-        // on a geometry shader.
-        default:
-            return nullptr;
-    }
+    return &compiler->getVaryings();
 }
 
 template <>
@@ -79,67 +66,41 @@ const std::vector<InterfaceBlock> *GetVariableList(const TCompiler *compiler)
     return &compiler->getInterfaceBlocks();
 }
 
-TCompiler *GetCompilerFromHandle(ShHandle handle)
-{
-    if (!handle)
-    {
-        return nullptr;
-    }
-
-    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
-    return base->getAsCompiler();
-}
-
 template <typename VarT>
 const std::vector<VarT> *GetShaderVariables(const ShHandle handle)
 {
-    TCompiler *compiler = GetCompilerFromHandle(handle);
+    if (!handle)
+    {
+        return NULL;
+    }
+
+    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
+    TCompiler *compiler = base->getAsCompiler();
     if (!compiler)
     {
-        return nullptr;
+        return NULL;
     }
 
     return GetVariableList<VarT>(compiler);
+}
+
+TCompiler *GetCompilerFromHandle(ShHandle handle)
+{
+    if (!handle)
+        return NULL;
+    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
+    return base->getAsCompiler();
 }
 
 #ifdef ANGLE_ENABLE_HLSL
 TranslatorHLSL *GetTranslatorHLSLFromHandle(ShHandle handle)
 {
     if (!handle)
-        return nullptr;
+        return NULL;
     TShHandleBase *base = static_cast<TShHandleBase *>(handle);
     return base->getAsTranslatorHLSL();
 }
 #endif  // ANGLE_ENABLE_HLSL
-
-GLenum GetGeometryShaderPrimitiveTypeEnum(sh::TLayoutPrimitiveType primitiveType)
-{
-    switch (primitiveType)
-    {
-        case EptPoints:
-            return GL_POINTS;
-        case EptLines:
-            return GL_LINES;
-        case EptLinesAdjacency:
-            return GL_LINES_ADJACENCY_EXT;
-        case EptTriangles:
-            return GL_TRIANGLES;
-        case EptTrianglesAdjacency:
-            return GL_TRIANGLES_ADJACENCY_EXT;
-
-        case EptLineStrip:
-            return GL_LINE_STRIP;
-        case EptTriangleStrip:
-            return GL_TRIANGLE_STRIP;
-
-        case EptUndefined:
-            return GL_INVALID_VALUE;
-
-        default:
-            UNREACHABLE();
-            return GL_INVALID_VALUE;
-    }
-}
 
 }  // anonymous namespace
 
@@ -203,7 +164,6 @@ void InitBuiltInResources(ShBuiltInResources *resources)
     resources->ARM_shader_framebuffer_fetch    = 0;
     resources->OVR_multiview                   = 0;
     resources->EXT_YUV_target                  = 0;
-    resources->OES_geometry_shader             = 0;
 
     resources->NV_draw_buffers = 0;
 
@@ -219,10 +179,10 @@ void InitBuiltInResources(ShBuiltInResources *resources)
     // Extensions constants.
     resources->MaxDualSourceDrawBuffers = 0;
 
-    resources->MaxViewsOVR = 4;
+    resources->MaxViewsOVR = 2;
 
     // Disable name hashing by default.
-    resources->HashFunction = nullptr;
+    resources->HashFunction = NULL;
 
     resources->ArrayIndexClampingStrategy = SH_CLAMP_WITH_CLAMP_INTRINSIC;
 
@@ -231,14 +191,6 @@ void InitBuiltInResources(ShBuiltInResources *resources)
     resources->MaxFunctionParameters   = 1024;
 
     // ES 3.1 Revision 4, 7.2 Built-in Constants
-
-    // ES 3.1, Revision 4, 8.13 Texture minification
-    // "The value of MIN_PROGRAM_TEXTURE_GATHER_OFFSET must be less than or equal to the value of
-    // MIN_PROGRAM_TEXEL_OFFSET. The value of MAX_PROGRAM_TEXTURE_GATHER_OFFSET must be greater than
-    // or equal to the value of MAX_PROGRAM_TEXEL_OFFSET"
-    resources->MinProgramTextureGatherOffset = -8;
-    resources->MaxProgramTextureGatherOffset = 7;
-
     resources->MaxImageUnits            = 4;
     resources->MaxVertexImageUniforms   = 0;
     resources->MaxFragmentImageUniforms = 0;
@@ -270,22 +222,6 @@ void InitBuiltInResources(ShBuiltInResources *resources)
     resources->MaxFragmentAtomicCounterBuffers = 0;
     resources->MaxCombinedAtomicCounterBuffers = 1;
     resources->MaxAtomicCounterBufferSize      = 32;
-
-    resources->MaxUniformBufferBindings = 32;
-    resources->MaxShaderStorageBufferBindings = 4;
-
-    resources->MaxGeometryUniformComponents     = 1024;
-    resources->MaxGeometryUniformBlocks         = 12;
-    resources->MaxGeometryInputComponents       = 64;
-    resources->MaxGeometryOutputComponents      = 64;
-    resources->MaxGeometryOutputVertices        = 256;
-    resources->MaxGeometryTotalOutputComponents = 1024;
-    resources->MaxGeometryTextureImageUnits     = 16;
-    resources->MaxGeometryAtomicCounterBuffers  = 0;
-    resources->MaxGeometryAtomicCounters        = 0;
-    resources->MaxGeometryShaderStorageBlocks   = 0;
-    resources->MaxGeometryShaderInvocations     = 32;
-    resources->MaxGeometryImageUniforms         = 0;
 }
 
 //
@@ -411,26 +347,6 @@ const std::vector<Uniform> *GetUniforms(const ShHandle handle)
     return GetShaderVariables<Uniform>(handle);
 }
 
-const std::vector<Varying> *GetInputVaryings(const ShHandle handle)
-{
-    TCompiler *compiler = GetCompilerFromHandle(handle);
-    if (compiler == nullptr)
-    {
-        return nullptr;
-    }
-    return &compiler->getInputVaryings();
-}
-
-const std::vector<Varying> *GetOutputVaryings(const ShHandle handle)
-{
-    TCompiler *compiler = GetCompilerFromHandle(handle);
-    if (compiler == nullptr)
-    {
-        return nullptr;
-    }
-    return &compiler->getOutputVaryings();
-}
-
 const std::vector<Varying> *GetVaryings(const ShHandle handle)
 {
     return GetShaderVariables<Varying>(handle);
@@ -449,26 +365,6 @@ const std::vector<OutputVariable> *GetOutputVariables(const ShHandle handle)
 const std::vector<InterfaceBlock> *GetInterfaceBlocks(const ShHandle handle)
 {
     return GetShaderVariables<InterfaceBlock>(handle);
-}
-
-const std::vector<InterfaceBlock> *GetUniformBlocks(const ShHandle handle)
-{
-    ASSERT(handle);
-    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
-    TCompiler *compiler = base->getAsCompiler();
-    ASSERT(compiler);
-
-    return &compiler->getUniformBlocks();
-}
-
-const std::vector<InterfaceBlock> *GetShaderStorageBlocks(const ShHandle handle)
-{
-    ASSERT(handle);
-    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
-    TCompiler *compiler = base->getAsCompiler();
-    ASSERT(compiler);
-
-    return &compiler->getShaderStorageBlocks();
 }
 
 WorkGroupSize GetComputeShaderLocalGroupSize(const ShHandle handle)
@@ -494,12 +390,13 @@ int GetVertexShaderNumViews(const ShHandle handle)
 
 bool CheckVariablesWithinPackingLimits(int maxVectors, const std::vector<ShaderVariable> &variables)
 {
-    return CheckVariablesInPackingLimits(maxVectors, variables);
+    VariablePacker packer;
+    return packer.CheckVariablesWithinPackingLimits(maxVectors, variables);
 }
 
-bool GetUniformBlockRegister(const ShHandle handle,
-                             const std::string &uniformBlockName,
-                             unsigned int *indexOut)
+bool GetInterfaceBlockRegister(const ShHandle handle,
+                               const std::string &interfaceBlockName,
+                               unsigned int *indexOut)
 {
 #ifdef ANGLE_ENABLE_HLSL
     ASSERT(indexOut);
@@ -507,12 +404,12 @@ bool GetUniformBlockRegister(const ShHandle handle,
     TranslatorHLSL *translator = GetTranslatorHLSLFromHandle(handle);
     ASSERT(translator);
 
-    if (!translator->hasUniformBlock(uniformBlockName))
+    if (!translator->hasInterfaceBlock(interfaceBlockName))
     {
         return false;
     }
 
-    *indexOut = translator->getUniformBlockRegister(uniformBlockName);
+    *indexOut = translator->getInterfaceBlockRegister(interfaceBlockName);
     return true;
 #else
     return false;
@@ -529,50 +426,6 @@ const std::map<std::string, unsigned int> *GetUniformRegisterMap(const ShHandle 
 #else
     return nullptr;
 #endif  // ANGLE_ENABLE_HLSL
-}
-
-GLenum GetGeometryShaderInputPrimitiveType(const ShHandle handle)
-{
-    ASSERT(handle);
-
-    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
-    TCompiler *compiler = base->getAsCompiler();
-    ASSERT(compiler);
-
-    return GetGeometryShaderPrimitiveTypeEnum(compiler->getGeometryShaderInputPrimitiveType());
-}
-
-GLenum GetGeometryShaderOutputPrimitiveType(const ShHandle handle)
-{
-    ASSERT(handle);
-
-    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
-    TCompiler *compiler = base->getAsCompiler();
-    ASSERT(compiler);
-
-    return GetGeometryShaderPrimitiveTypeEnum(compiler->getGeometryShaderOutputPrimitiveType());
-}
-
-int GetGeometryShaderInvocations(const ShHandle handle)
-{
-    ASSERT(handle);
-
-    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
-    TCompiler *compiler = base->getAsCompiler();
-    ASSERT(compiler);
-
-    return compiler->getGeometryShaderInvocations();
-}
-
-int GetGeometryShaderMaxVertices(const ShHandle handle)
-{
-    ASSERT(handle);
-
-    TShHandleBase *base = static_cast<TShHandleBase *>(handle);
-    TCompiler *compiler = base->getAsCompiler();
-    ASSERT(compiler);
-
-    return compiler->getGeometryShaderMaxVertices();
 }
 
 }  // namespace sh

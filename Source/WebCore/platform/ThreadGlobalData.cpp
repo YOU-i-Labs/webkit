@@ -35,9 +35,19 @@
 #include <wtf/MainThread.h>
 #include <wtf/ThreadSpecific.h>
 #include <wtf/Threading.h>
+#include <wtf/WTFThreadData.h>
 #include <wtf/text/StringImpl.h>
 
+#if PLATFORM(MAC)
+#include "TextCodecMac.h"
+#endif
+
 namespace WebCore {
+
+ThreadSpecific<ThreadGlobalData>* ThreadGlobalData::staticData;
+#if USE(WEB_THREAD)
+ThreadGlobalData* ThreadGlobalData::sharedMainThreadStaticData;
+#endif
 
 ThreadGlobalData::ThreadGlobalData()
     : m_cachedResourceRequestInitiators(std::make_unique<CachedResourceRequestInitiators>())
@@ -48,18 +58,28 @@ ThreadGlobalData::ThreadGlobalData()
     , m_isMainThread(isMainThread())
 #endif
     , m_cachedConverterICU(std::make_unique<ICUConverterWrapper>())
+#if PLATFORM(MAC)
+    , m_cachedConverterTEC(std::make_unique<TECConverterWrapper>())
+#endif
 {
     // This constructor will have been called on the main thread before being called on
     // any other thread, and is only called once per thread - this makes this a convenient
     // point to call methods that internally perform a one-time initialization that is not
     // threadsafe.
-    Thread::current();
+    wtfThreadData();
+    StringImpl::empty();
 }
 
-ThreadGlobalData::~ThreadGlobalData() = default;
+ThreadGlobalData::~ThreadGlobalData()
+{
+}
 
 void ThreadGlobalData::destroy()
 {
+#if PLATFORM(MAC)
+    m_cachedConverterTEC = nullptr;
+#endif
+
     m_cachedConverterICU = nullptr;
 
     m_eventNames = nullptr;
@@ -68,53 +88,34 @@ void ThreadGlobalData::destroy()
 }
 
 #if USE(WEB_THREAD)
-static ThreadSpecific<RefPtr<ThreadGlobalData>>* staticData { nullptr };
-static ThreadGlobalData* sharedMainThreadStaticData { nullptr };
-
 void ThreadGlobalData::setWebCoreThreadData()
 {
     ASSERT(isWebThread());
-    ASSERT(&threadGlobalData() != sharedMainThreadStaticData);
+    ASSERT(&threadGlobalData() != ThreadGlobalData::sharedMainThreadStaticData);
 
     // Set WebThread's ThreadGlobalData object to be the same as the main UI thread.
-    **staticData = adoptRef(sharedMainThreadStaticData);
+    ThreadGlobalData::staticData->replace(ThreadGlobalData::sharedMainThreadStaticData);
 
-    ASSERT(&threadGlobalData() == sharedMainThreadStaticData);
+    ASSERT(&threadGlobalData() == ThreadGlobalData::sharedMainThreadStaticData);
 }
+#endif
 
-ThreadGlobalData& threadGlobalData()
+ThreadGlobalData& threadGlobalData() 
 {
-    if (UNLIKELY(!staticData)) {
-        staticData = new ThreadSpecific<RefPtr<ThreadGlobalData>>;
-        auto& result = **staticData;
-        ASSERT(!result);
-        result = adoptRef(new ThreadGlobalData);
+#if USE(WEB_THREAD)
+    if (UNLIKELY(!ThreadGlobalData::staticData)) {
+        ThreadGlobalData::staticData = new ThreadSpecific<ThreadGlobalData>;
         // WebThread and main UI thread need to share the same object. Save it in a static
         // here, the WebThread will pick it up in setWebCoreThreadData().
-        if (pthread_main_np()) {
-            sharedMainThreadStaticData = result.get();
-            result->ref();
-        }
-        return *result;
+        if (pthread_main_np())
+            ThreadGlobalData::sharedMainThreadStaticData = *ThreadGlobalData::staticData;
     }
-
-    auto& result = **staticData;
-    if (!result)
-        result = adoptRef(new ThreadGlobalData);
-    return *result;
-}
-
+    return **ThreadGlobalData::staticData;
 #else
-
-static ThreadSpecific<ThreadGlobalData>* staticData { nullptr };
-
-ThreadGlobalData& threadGlobalData()
-{
-    if (UNLIKELY(!staticData))
-        staticData = new ThreadSpecific<ThreadGlobalData>;
-    return **staticData;
-}
-
+    if (!ThreadGlobalData::staticData)
+        ThreadGlobalData::staticData = new ThreadSpecific<ThreadGlobalData>;
+    return **ThreadGlobalData::staticData;
 #endif
+}
 
 } // namespace WebCore

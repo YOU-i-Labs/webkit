@@ -23,6 +23,19 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.LogObject = class LogObject
+WebInspector.LogObject = class LogObject extends WebInspector.Object
 {
+    constructor()
+    {
+        super();
+
+        this._startDate = new Date;
+    }
+
+    // Public
+
+    get startDate()
+    {
+        return this._startDate;
+    }
 };

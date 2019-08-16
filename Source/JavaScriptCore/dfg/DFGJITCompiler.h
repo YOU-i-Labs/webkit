@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2013-2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,8 @@
 #include "DFGInlineCacheWrapper.h"
 #include "DFGJITCode.h"
 #include "DFGOSRExitCompilationInfo.h"
+#include "DFGRegisterBank.h"
+#include "FPRInfo.h"
 #include "GPRInfo.h"
 #include "HandlerInfo.h"
 #include "JITCode.h"
@@ -41,6 +43,7 @@
 #include "LinkBuffer.h"
 #include "MacroAssembler.h"
 #include "PCToCodeOriginMap.h"
+#include "TempRegisterSet.h"
 
 namespace JSC {
 
@@ -66,14 +69,31 @@ struct OSRExit;
 // Every CallLinkRecord contains a reference to the call instruction & the function
 // that it needs to be linked to.
 struct CallLinkRecord {
-    CallLinkRecord(MacroAssembler::Call call, FunctionPtr<OperationPtrTag> function)
+    CallLinkRecord(MacroAssembler::Call call, FunctionPtr function)
         : m_call(call)
         , m_function(function)
     {
     }
 
     MacroAssembler::Call m_call;
-    FunctionPtr<OperationPtrTag> m_function;
+    FunctionPtr m_function;
+};
+
+struct InRecord {
+    InRecord(
+        MacroAssembler::PatchableJump jump, MacroAssembler::Label done,
+        SlowPathGenerator* slowPathGenerator, StructureStubInfo* stubInfo)
+        : m_jump(jump)
+        , m_done(done)
+        , m_slowPathGenerator(slowPathGenerator)
+        , m_stubInfo(stubInfo)
+    {
+    }
+    
+    MacroAssembler::PatchableJump m_jump;
+    MacroAssembler::Label m_done;
+    SlowPathGenerator* m_slowPathGenerator;
+    StructureStubInfo* m_stubInfo;
 };
 
 // === JITCompiler ===
@@ -139,10 +159,10 @@ public:
     }
 
     // Add a call out from JIT code, without an exception check.
-    Call appendCall(const FunctionPtr<CFunctionPtrTag> function)
+    Call appendCall(const FunctionPtr& function)
     {
-        Call functionCall = call(OperationPtrTag);
-        m_calls.append(CallLinkRecord(functionCall, function.retagged<OperationPtrTag>()));
+        Call functionCall = call();
+        m_calls.append(CallLinkRecord(functionCall, function));
         return functionCall;
     }
     
@@ -186,17 +206,12 @@ public:
     {
         m_putByIds.append(InlineCacheWrapper<JITPutByIdGenerator>(gen, slowPath));
     }
+
+    void addIn(const InRecord& record)
+    {
+        m_ins.append(record);
+    }
     
-    void addInstanceOf(const JITInstanceOfGenerator& gen, SlowPathGenerator* slowPath)
-    {
-        m_instanceOfs.append(InlineCacheWrapper<JITInstanceOfGenerator>(gen, slowPath));
-    }
-
-    void addInById(const JITInByIdGenerator& gen, SlowPathGenerator* slowPath)
-    {
-        m_inByIds.append(InlineCacheWrapper<JITInByIdGenerator>(gen, slowPath));
-    }
-
     void addJSCall(Call fastCall, Call slowCall, DataLabelPtr targetToCheck, CallLinkInfo* info)
     {
         m_jsCalls.append(JSCallRecord(fastCall, slowCall, targetToCheck, info));
@@ -214,7 +229,7 @@ public:
     
     void addWeakReference(JSCell* target)
     {
-        m_graph.m_plan.weakReferences().addLazily(target);
+        m_graph.m_plan.weakReferences.addLazily(target);
     }
     
     void addWeakReferences(const StructureSet& structureSet)
@@ -244,7 +259,6 @@ public:
     }
 
     void noticeOSREntry(BasicBlock&, JITCompiler::Label blockHead, LinkBuffer&);
-    void noticeCatchEntrypoint(BasicBlock&, JITCompiler::Label blockHead, LinkBuffer&, Vector<FlushFormat>&& argumentFormats);
     
     RefPtr<JITCode> jitCode() { return m_jitCode; }
     
@@ -273,8 +287,6 @@ private:
 
     void appendExceptionHandlingOSRExit(ExitKind, unsigned eventStreamIndex, CodeOrigin, HandlerInfo* exceptionHandler, CallSiteIndex, MacroAssembler::JumpList jumpsToFail = MacroAssembler::JumpList());
 
-    void makeCatchOSREntryBuffer();
-
     // The dataflow graph currently being generated.
     Graph& m_graph;
 
@@ -298,8 +310,6 @@ private:
             , targetToCheck(targetToCheck)
             , info(info)
         {
-            ASSERT(fastCall.isFlagSet(Call::Near));
-            ASSERT(slowCall.isFlagSet(Call::Near));
         }
         
         Call fastCall;
@@ -314,7 +324,6 @@ private:
             , slowPath(slowPath)
             , info(info)
         {
-            ASSERT(call.isFlagSet(Call::Near));
         }
         
         Call call;
@@ -329,7 +338,6 @@ private:
             , slowPath(slowPath)
             , info(info)
         {
-            ASSERT(call.isFlagSet(Call::Near) && call.isFlagSet(Call::Tail));
         }
         
         PatchableJump patchableJump;
@@ -342,8 +350,7 @@ private:
     Vector<InlineCacheWrapper<JITGetByIdGenerator>, 4> m_getByIds;
     Vector<InlineCacheWrapper<JITGetByIdWithThisGenerator>, 4> m_getByIdsWithThis;
     Vector<InlineCacheWrapper<JITPutByIdGenerator>, 4> m_putByIds;
-    Vector<InlineCacheWrapper<JITInByIdGenerator>, 4> m_inByIds;
-    Vector<InlineCacheWrapper<JITInstanceOfGenerator>, 4> m_instanceOfs;
+    Vector<InRecord, 4> m_ins;
     Vector<JSCallRecord, 4> m_jsCalls;
     Vector<JSDirectCallRecord, 4> m_jsDirectCalls;
     Vector<JSDirectTailCallRecord, 4> m_jsDirectTailCalls;
@@ -357,6 +364,8 @@ private:
     };
     Vector<ExceptionHandlingOSRExitInfo> m_exceptionHandlerOSRExitCallSites;
     
+    Call m_callArityFixup;
+    Label m_arityCheck;
     std::unique_ptr<SpeculativeJIT> m_speculative;
     PCToCodeOriginMapBuilder m_pcToCodeOriginMapBuilder;
 };

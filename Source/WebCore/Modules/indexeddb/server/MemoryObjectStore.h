@@ -32,6 +32,7 @@
 #include "MemoryIndex.h"
 #include "MemoryObjectStoreCursor.h"
 #include "ThreadSafeDataBuffer.h"
+#include <set>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 
@@ -80,7 +81,7 @@ public:
     void setKeyGeneratorValue(uint64_t value) { m_keyGeneratorValue = value; }
 
     void clear();
-    void replaceKeyValueStore(std::unique_ptr<KeyValueMap>&&, std::unique_ptr<IDBKeyDataSet>&&);
+    void replaceKeyValueStore(std::unique_ptr<KeyValueMap>&&, std::unique_ptr<std::set<IDBKeyData>>&&);
 
     ThreadSafeDataBuffer valueForKey(const IDBKeyData&) const;
     ThreadSafeDataBuffer valueForKeyRange(const IDBKeyRangeData&) const;
@@ -88,13 +89,13 @@ public:
     IDBGetResult indexValueForKeyRange(uint64_t indexIdentifier, IndexedDB::IndexRecordType, const IDBKeyRangeData&) const;
     uint64_t countForKeyRange(uint64_t indexIdentifier, const IDBKeyRangeData&) const;
 
-    void getAllRecords(const IDBKeyRangeData&, Optional<uint32_t> count, IndexedDB::GetAllType, IDBGetAllResult&) const;
+    void getAllRecords(const IDBKeyRangeData&, std::optional<uint32_t> count, IndexedDB::GetAllType, IDBGetAllResult&) const;
 
     const IDBObjectStoreInfo& info() const { return m_info; }
 
     MemoryObjectStoreCursor* maybeOpenCursor(const IDBCursorInfo&);
 
-    IDBKeyDataSet* orderedKeys() { return m_orderedKeys.get(); }
+    std::set<IDBKeyData>* orderedKeys() { return m_orderedKeys.get(); }
 
     MemoryIndex* indexForIdentifier(uint64_t);
 
@@ -106,12 +107,12 @@ public:
 private:
     MemoryObjectStore(const IDBObjectStoreInfo&);
 
-    IDBKeyDataSet::iterator lowestIteratorInRange(const IDBKeyRangeData&, bool reverse) const;
+    std::set<IDBKeyData>::iterator lowestIteratorInRange(const IDBKeyRangeData&, bool reverse) const;
 
     IDBError populateIndexWithExistingRecords(MemoryIndex&);
     IDBError updateIndexesForPutRecord(const IDBKeyData&, const ThreadSafeDataBuffer& value);
     void updateIndexesForDeleteRecord(const IDBKeyData& value);
-    void updateCursorsForPutRecord(IDBKeyDataSet::iterator);
+    void updateCursorsForPutRecord(std::set<IDBKeyData>::iterator);
     void updateCursorsForDeleteRecord(const IDBKeyData&);
 
     RefPtr<MemoryIndex> takeIndexByIdentifier(uint64_t indexIdentifier);
@@ -122,7 +123,7 @@ private:
     uint64_t m_keyGeneratorValue { 1 };
 
     std::unique_ptr<KeyValueMap> m_keyValueStore;
-    std::unique_ptr<IDBKeyDataSet> m_orderedKeys;
+    std::unique_ptr<std::set<IDBKeyData>> m_orderedKeys;
 
     void unregisterIndex(MemoryIndex&);
     HashMap<uint64_t, RefPtr<MemoryIndex>> m_indexesByIdentifier;

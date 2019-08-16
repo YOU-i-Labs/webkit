@@ -27,6 +27,7 @@
 #include "CSSContentDistributionValue.h"
 
 #include "CSSValueList.h"
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -38,7 +39,9 @@ CSSContentDistributionValue::CSSContentDistributionValue(CSSValueID distribution
 {
 }
 
-CSSContentDistributionValue::~CSSContentDistributionValue() = default;
+CSSContentDistributionValue::~CSSContentDistributionValue()
+{
+}
 
 String CSSContentDistributionValue::customCSSText() const
 {
@@ -51,12 +54,11 @@ String CSSContentDistributionValue::customCSSText() const
             CSSValueID preference = m_position == CSSValueFirstBaseline ? CSSValueFirst : CSSValueLast;
             list->append(cssValuePool.createIdentifierValue(preference));
             list->append(cssValuePool.createIdentifierValue(CSSValueBaseline));
-        } else {
-            if (m_overflow != CSSValueInvalid)
-                list->append(overflow());
+        } else
             list->append(position());
-        }
     }
+    if (m_overflow != CSSValueInvalid)
+        list->append(overflow());
     return list->customCSSText();
 }
 

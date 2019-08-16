@@ -60,7 +60,9 @@ std::unique_ptr<Locale> Locale::create(const AtomicString&)
     return std::make_unique<LocaleNone>();
 }
 
-LocaleNone::~LocaleNone() = default;
+LocaleNone::~LocaleNone()
+{
+}
 
 void LocaleNone::initializeLocaleData()
 {
@@ -79,37 +81,37 @@ const Vector<String>& LocaleNone::monthLabels()
 
 String LocaleNone::dateFormat()
 {
-    return "yyyy-MM-dd"_s;
+    return ASCIILiteral("yyyy-MM-dd");
 }
 
 String LocaleNone::monthFormat()
 {
-    return "yyyy-MM"_s;
+    return ASCIILiteral("yyyy-MM");
 }
 
 String LocaleNone::shortMonthFormat()
 {
-    return "yyyy-MM"_s;
+    return ASCIILiteral("yyyy-MM");
 }
 
 String LocaleNone::timeFormat()
 {
-    return "HH:mm:ss"_s;
+    return ASCIILiteral("HH:mm:ss");
 }
 
 String LocaleNone::shortTimeFormat()
 {
-    return "HH:mm"_s;
+    return ASCIILiteral("HH:mm");
 }
 
 String LocaleNone::dateTimeFormatWithSeconds()
 {
-    return "yyyy-MM-dd'T'HH:mm:ss"_s;
+    return ASCIILiteral("yyyy-MM-dd'T'HH:mm:ss");
 }
 
 String LocaleNone::dateTimeFormatWithoutSeconds()
 {
-    return "yyyy-MM-dd'T'HH:mm"_s;
+    return ASCIILiteral("yyyy-MM-dd'T'HH:mm");
 }
 
 const Vector<String>& LocaleNone::shortMonthLabels()

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -78,22 +78,12 @@ private:
 #endif // USE(OS_LOG)
 
 struct SignalContext {
-private:
-    SignalContext(PlatformRegisters& registers, MacroAssemblerCodePtr<PlatformRegistersPCPtrTag> machinePC)
+    SignalContext(PlatformRegisters& registers)
         : registers(registers)
-        , machinePC(machinePC)
+        , machinePC(MachineContext::instructionPointer(registers))
         , stackPointer(MachineContext::stackPointer(registers))
         , framePointer(MachineContext::framePointer(registers))
     { }
-
-public:
-    static Optional<SignalContext> tryCreate(PlatformRegisters& registers)
-    {
-        auto instructionPointer = MachineContext::instructionPointer(registers);
-        if (!instructionPointer)
-            return WTF::nullopt;
-        return SignalContext(registers, *instructionPointer);
-    }
 
     void dump()
     {
@@ -126,7 +116,7 @@ public:
         FOR_EACH_REGISTER(DUMP_REGISTER)
 #undef FOR_EACH_REGISTER
 
-#elif CPU(ARM64) && defined(__LP64__)
+#elif CPU(ARM64)
         int i;
         for (i = 0; i < 28; i += 4) {
             log("x%d: %016llx x%d: %016llx x%d: %016llx x%d: %016llx",
@@ -137,18 +127,14 @@ public:
         }
         ASSERT(i < 29);
         log("x%d: %016llx fp: %016llx lr: %016llx",
-            i, registers.__x[i],
-            MachineContext::framePointer<uint64_t>(registers),
-            MachineContext::linkRegister(registers).untaggedExecutableAddress<uint64_t>());
+            i, registers.__x[i], registers.__fp, registers.__lr);
         log("sp: %016llx pc: %016llx cpsr: %08x",
-            MachineContext::stackPointer<uint64_t>(registers),
-            machinePC.untaggedExecutableAddress<uint64_t>(),
-            registers.__cpsr);
+            registers.__sp, registers.__pc, registers.__cpsr);
 #endif
     }
 
     PlatformRegisters& registers;
-    MacroAssemblerCodePtr<PlatformRegistersPCPtrTag> machinePC;
+    void* machinePC;
     void* stackPointer;
     void* framePointer;
 };
@@ -157,16 +143,13 @@ static void installCrashHandler()
 {
 #if CPU(X86_64) || CPU(ARM64)
     installSignalHandler(Signal::Ill, [] (Signal, SigInfo&, PlatformRegisters& registers) {
-        auto signalContext = SignalContext::tryCreate(registers);
-        if (!signalContext)
-            return SignalAction::NotHandled;
-            
-        void* machinePC = signalContext->machinePC.untaggedExecutableAddress();
-        if (!isJITPC(machinePC))
+        SignalContext context(registers);
+
+        if (!isJITPC(context.machinePC))
             return SignalAction::NotHandled;
 
         SigillCrashAnalyzer& analyzer = SigillCrashAnalyzer::instance();
-        analyzer.analyze(*signalContext);
+        analyzer.analyze(context);
         return SignalAction::NotHandled;
     });
 #endif
@@ -181,7 +164,7 @@ struct SignalContext {
 
     void dump() { }
 
-    MacroAssemblerCodePtr<PlatformRegistersPCPtrTag> machinePC;
+    void* machinePC;
     void* stackPointer;
     void* framePointer;
 };
@@ -233,7 +216,7 @@ auto SigillCrashAnalyzer::analyze(SignalContext& context) -> CrashSource
         }
         auto& locker = expectedLocker.value();
 
-        void* pc = context.machinePC.untaggedExecutableAddress();
+        void* pc = context.machinePC;
         auto isInJITMemory = inspector.isValidExecutableMemory(locker, pc);
         if (!isInJITMemory) {
             log("ERROR: Timed out: not able to determine if pc %p is in valid JIT executable memory", pc);
@@ -321,10 +304,10 @@ void SigillCrashAnalyzer::dumpCodeBlock(CodeBlock* codeBlock, void* machinePC)
     while (byteCount) {
         char pcString[24];
         if (currentPC == machinePC) {
-            snprintf(pcString, sizeof(pcString), "* 0x%lx", reinterpret_cast<uintptr_t>(currentPC));
+            snprintf(pcString, sizeof(pcString), "* 0x%lx", reinterpret_cast<unsigned long>(currentPC));
             log("%20s: %s    <=========================", pcString, m_arm64Opcode.disassemble(currentPC));
         } else {
-            snprintf(pcString, sizeof(pcString), "0x%lx", reinterpret_cast<uintptr_t>(currentPC));
+            snprintf(pcString, sizeof(pcString), "0x%lx", reinterpret_cast<unsigned long>(currentPC));
             log("%20s: %s", pcString, m_arm64Opcode.disassemble(currentPC));
         }
         currentPC++;

@@ -28,6 +28,7 @@
 #include <wtf/DataLog.h>
 #include <wtf/HashMap.h>
 #include <wtf/LoggingHashID.h>
+#include <wtf/LoggingHashTraits.h>
 
 namespace WTF {
 
@@ -100,9 +101,6 @@ public:
     iterator end() { return m_map.end(); }
     const_iterator begin() const { return m_map.begin(); }
     const_iterator end() const { return m_map.end(); }
-
-    iterator random() { return m_map.random(); }
-    const_iterator random() const { return m_map.random(); }
     
     auto keys() { return m_map.keys(); }
     const auto keys() const { return m_map.keys(); }
@@ -154,10 +152,10 @@ public:
         return m_map.get(key);
     }
     
-    MappedPeekType inlineGet(const KeyType& key) const
+    MappedPeekType fastGet(const KeyType& key) const
     {
         find(key);
-        return m_map.inlineGet(key);
+        return m_map.fastGet(key);
     }
     
     template<typename PassedType>

@@ -29,6 +29,7 @@
 #if ENABLE(INDEXED_DATABASE)
 
 #include "Document.h"
+#include "ExceptionCode.h"
 #include "IDBBindingUtilities.h"
 #include "IDBConnectionProxy.h"
 #include "IDBDatabaseIdentifier.h"
@@ -39,9 +40,9 @@
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
 
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 
 static bool shouldThrowSecurityException(ScriptExecutionContext& context)
 {
@@ -70,30 +71,32 @@ IDBFactory::IDBFactory(IDBClient::IDBConnectionProxy& connectionProxy)
 {
 }
 
-IDBFactory::~IDBFactory() = default;
+IDBFactory::~IDBFactory()
+{
+}
 
-ExceptionOr<Ref<IDBOpenDBRequest>> IDBFactory::open(ScriptExecutionContext& context, const String& name, Optional<uint64_t> version)
+ExceptionOr<Ref<IDBOpenDBRequest>> IDBFactory::open(ScriptExecutionContext& context, const String& name, std::optional<uint64_t> version)
 {
     LOG(IndexedDB, "IDBFactory::open");
     
     if (version && !version.value())
-        return Exception { TypeError, "IDBFactory.open() called with a version of 0"_s };
+        return Exception { TypeError, ASCIILiteral("IDBFactory.open() called with a version of 0") };
 
-    return openInternal(context, name, version.valueOr(0));
+    return openInternal(context, name, version.value_or(0));
 }
 
 ExceptionOr<Ref<IDBOpenDBRequest>> IDBFactory::openInternal(ScriptExecutionContext& context, const String& name, uint64_t version)
 {
     if (name.isNull())
-        return Exception { TypeError, "IDBFactory.open() called without a database name"_s };
+        return Exception { TypeError, ASCIILiteral("IDBFactory.open() called without a database name") };
 
     if (shouldThrowSecurityException(context))
-        return Exception { SecurityError, "IDBFactory.open() called in an invalid security context"_s };
+        return Exception { SECURITY_ERR, ASCIILiteral("IDBFactory.open() called in an invalid security context") };
 
     ASSERT(context.securityOrigin());
-    IDBDatabaseIdentifier databaseIdentifier(name, context.sessionID(), SecurityOriginData { context.securityOrigin()->data() }, SecurityOriginData { context.topOrigin().data() });
+    IDBDatabaseIdentifier databaseIdentifier(name, *context.securityOrigin(), context.topOrigin());
     if (!databaseIdentifier.isValid())
-        return Exception { TypeError, "IDBFactory.open() called with an invalid security origin"_s };
+        return Exception { TypeError, ASCIILiteral("IDBFactory.open() called with an invalid security origin") };
 
     LOG(IndexedDBOperations, "IDB opening database: %s %" PRIu64, name.utf8().data(), version);
 
@@ -105,15 +108,15 @@ ExceptionOr<Ref<IDBOpenDBRequest>> IDBFactory::deleteDatabase(ScriptExecutionCon
     LOG(IndexedDB, "IDBFactory::deleteDatabase - %s", name.utf8().data());
 
     if (name.isNull())
-        return Exception { TypeError, "IDBFactory.deleteDatabase() called without a database name"_s };
+        return Exception { TypeError, ASCIILiteral("IDBFactory.deleteDatabase() called without a database name") };
 
     if (shouldThrowSecurityException(context))
-        return Exception { SecurityError, "IDBFactory.deleteDatabase() called in an invalid security context"_s };
+        return Exception { SECURITY_ERR, ASCIILiteral("IDBFactory.deleteDatabase() called in an invalid security context") };
 
     ASSERT(context.securityOrigin());
-    IDBDatabaseIdentifier databaseIdentifier(name, context.sessionID(), SecurityOriginData { context.securityOrigin()->data() }, SecurityOriginData { context.topOrigin().data() });
+    IDBDatabaseIdentifier databaseIdentifier(name, *context.securityOrigin(), context.topOrigin());
     if (!databaseIdentifier.isValid())
-        return Exception { TypeError, "IDBFactory.deleteDatabase() called with an invalid security origin"_s };
+        return Exception { TypeError, ASCIILiteral("IDBFactory.deleteDatabase() called with an invalid security origin") };
 
     LOG(IndexedDBOperations, "IDB deleting database: %s", name.utf8().data());
 
@@ -126,7 +129,7 @@ ExceptionOr<short> IDBFactory::cmp(ExecState& execState, JSValue firstValue, JSV
     auto second = scriptValueToIDBKey(execState, secondValue);
 
     if (!first->isValid() || !second->isValid())
-        return Exception { DataError, "Failed to execute 'cmp' on 'IDBFactory': The parameter is not a valid key."_s };
+        return Exception { IDBDatabaseException::DataError, ASCIILiteral("Failed to execute 'cmp' on 'IDBFactory': The parameter is not a valid key.") };
 
     return first->compare(second.get());
 }

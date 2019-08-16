@@ -40,9 +40,7 @@ class Identifier;
 #define JSC_COMMON_BYTECODE_INTRINSIC_FUNCTIONS_EACH_NAME(macro) \
     macro(argument) \
     macro(argumentCount) \
-    macro(getByIdDirect) \
-    macro(getByIdDirectPrivate) \
-    macro(idWithProfile) \
+    macro(assert) \
     macro(isObject) \
     macro(isJSArray) \
     macro(isProxyObject) \
@@ -50,20 +48,15 @@ class Identifier;
     macro(isRegExpObject) \
     macro(isMap) \
     macro(isSet) \
-    macro(isUndefinedOrNull) \
     macro(tailCallForwardArguments) \
     macro(throwTypeError) \
     macro(throwRangeError) \
     macro(throwOutOfMemoryError) \
     macro(tryGetById) \
-    macro(putByIdDirect) \
-    macro(putByIdDirectPrivate) \
     macro(putByValDirect) \
     macro(toNumber) \
     macro(toString) \
-    macro(toObject) \
     macro(newArrayWithSize) \
-    macro(defineEnumerableWritableConfigurableDataProperty) \
 
 #define JSC_COMMON_BYTECODE_INTRINSIC_CONSTANTS_EACH_NAME(macro) \
     macro(undefined) \
@@ -85,24 +78,14 @@ class Identifier;
     macro(promiseStatePending) \
     macro(promiseStateFulfilled) \
     macro(promiseStateRejected) \
-    macro(sentinelMapBucket) \
-    macro(sentinelSetBucket) \
     macro(GeneratorResumeModeNormal) \
     macro(GeneratorResumeModeThrow) \
     macro(GeneratorResumeModeReturn) \
     macro(GeneratorStateCompleted) \
     macro(GeneratorStateExecuting) \
-    macro(AsyncGeneratorStateCompleted) \
-    macro(AsyncGeneratorStateExecuting) \
-    macro(AsyncGeneratorStateAwaitingReturn) \
-    macro(AsyncGeneratorStateSuspendedStart) \
-    macro(AsyncGeneratorStateSuspendedYield) \
-    macro(AsyncGeneratorSuspendReasonYield) \
-    macro(AsyncGeneratorSuspendReasonAwait) \
-    macro(AsyncGeneratorSuspendReasonNone) \
+
 
 class BytecodeIntrinsicRegistry {
-    WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(BytecodeIntrinsicRegistry);
 public:
     explicit BytecodeIntrinsicRegistry(VM&);

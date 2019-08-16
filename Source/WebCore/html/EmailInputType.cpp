@@ -3,7 +3,6 @@
  *
  * Copyright (C) 2009 Michelangelo De Simone <micdesim@gmail.com>
  * Copyright (C) 2010 Google Inc. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -29,9 +28,9 @@
 #include "HTMLParserIdioms.h"
 #include "InputTypeNames.h"
 #include "LocalizedStrings.h"
-#include <JavaScriptCore/RegularExpression.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/StringBuilder.h>
+#include <yarr/RegularExpression.h>
 
 namespace WebCore {
 
@@ -44,7 +43,7 @@ static bool isValidEmailAddress(const String& address)
     if (!addressLength)
         return false;
 
-    static NeverDestroyed<const JSC::Yarr::RegularExpression> regExp(emailPattern, JSC::Yarr::TextCaseInsensitive);
+    static NeverDestroyed<const JSC::Yarr::RegularExpression> regExp(emailPattern, TextCaseInsensitive);
 
     int matchLength;
     int matchOffset = regExp.get().match(address, 0, &matchLength);
@@ -59,12 +58,13 @@ const AtomicString& EmailInputType::formControlType() const
 
 bool EmailInputType::typeMismatchFor(const String& value) const
 {
-    ASSERT(element());
     if (value.isEmpty())
         return false;
-    if (!element()->multiple())
+    if (!element().multiple())
         return !isValidEmailAddress(value);
-    for (auto& address : value.splitAllowingEmptyEntries(',')) {
+    Vector<String> addresses;
+    value.split(',', true, addresses);
+    for (auto& address : addresses) {
         if (!isValidEmailAddress(stripLeadingAndTrailingHTMLSpaces(address)))
             return true;
     }
@@ -73,14 +73,12 @@ bool EmailInputType::typeMismatchFor(const String& value) const
 
 bool EmailInputType::typeMismatch() const
 {
-    ASSERT(element());
-    return typeMismatchFor(element()->value());
+    return typeMismatchFor(element().value());
 }
 
 String EmailInputType::typeMismatchText() const
 {
-    ASSERT(element());
-    return element()->multiple() ? validationMessageTypeMismatchForMultipleEmailText() : validationMessageTypeMismatchForEmailText();
+    return element().multiple() ? validationMessageTypeMismatchForMultipleEmailText() : validationMessageTypeMismatchForEmailText();
 }
 
 bool EmailInputType::isEmailField() const
@@ -96,10 +94,10 @@ bool EmailInputType::supportsSelectionAPI() const
 String EmailInputType::sanitizeValue(const String& proposedValue) const
 {
     String noLineBreakValue = proposedValue.removeCharacters(isHTMLLineBreak);
-    ASSERT(element());
-    if (!element()->multiple())
+    if (!element().multiple())
         return stripLeadingAndTrailingHTMLSpaces(noLineBreakValue);
-    Vector<String> addresses = noLineBreakValue.splitAllowingEmptyEntries(',');
+    Vector<String> addresses;
+    noLineBreakValue.split(',', true, addresses);
     StringBuilder strippedValue;
     for (unsigned i = 0; i < addresses.size(); ++i) {
         if (i > 0)

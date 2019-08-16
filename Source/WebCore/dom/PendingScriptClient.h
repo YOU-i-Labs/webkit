@@ -31,7 +31,7 @@ class PendingScript;
 
 class PendingScriptClient {
 public:
-    virtual ~PendingScriptClient() = default;
+    virtual ~PendingScriptClient() { }
 
     virtual void notifyFinished(PendingScript&) = 0;
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,13 +42,11 @@ enum ProcessingUserGestureState {
     NotProcessingUserGesture
 };
 
-enum class UserGestureType { EscapeKey, Other };
-
 class UserGestureToken : public RefCounted<UserGestureToken> {
 public:
-    static Ref<UserGestureToken> create(ProcessingUserGestureState state, UserGestureType gestureType)
+    static RefPtr<UserGestureToken> create(ProcessingUserGestureState state)
     {
-        return adoptRef(*new UserGestureToken(state, gestureType));
+        return adoptRef(new UserGestureToken(state));
     }
 
     WEBCORE_EXPORT ~UserGestureToken();
@@ -56,7 +54,6 @@ public:
     ProcessingUserGestureState state() const { return m_state; }
     bool processingUserGesture() const { return m_state == ProcessingUserGesture; }
     bool processingUserGestureForMedia() const { return m_state == ProcessingUserGesture || m_state == ProcessingPotentialUserGesture; }
-    UserGestureType gestureType() const { return m_gestureType; }
 
     void addDestructionObserver(WTF::Function<void (UserGestureToken&)>&& observer)
     {
@@ -64,15 +61,13 @@ public:
     }
 
 private:
-    UserGestureToken(ProcessingUserGestureState state, UserGestureType gestureType)
+    UserGestureToken(ProcessingUserGestureState state)
         : m_state(state)
-        , m_gestureType(gestureType)
     {
     }
 
     ProcessingUserGestureState m_state = NotProcessingUserGesture;
     Vector<WTF::Function<void (UserGestureToken&)>> m_destructionObservers;
-    UserGestureType m_gestureType;
 };
 
 class UserGestureIndicator {
@@ -84,8 +79,7 @@ public:
     WEBCORE_EXPORT static bool processingUserGestureForMedia();
 
     // If a document is provided, its last known user gesture timestamp is updated.
-    enum class ProcessInteractionStyle { Immediate, Delayed };
-    WEBCORE_EXPORT explicit UserGestureIndicator(Optional<ProcessingUserGestureState>, Document* = nullptr, UserGestureType = UserGestureType::Other, ProcessInteractionStyle = ProcessInteractionStyle::Immediate);
+    WEBCORE_EXPORT explicit UserGestureIndicator(std::optional<ProcessingUserGestureState>, Document* = nullptr);
     WEBCORE_EXPORT explicit UserGestureIndicator(RefPtr<UserGestureToken>);
     WEBCORE_EXPORT ~UserGestureIndicator();
 

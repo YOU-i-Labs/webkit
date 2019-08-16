@@ -28,45 +28,37 @@
 
 #pragma once
 
-#include "ScalableImageDecoder.h"
+#include "ImageDecoder.h"
 
 #if USE(WEBP)
 
 #include "webp/decode.h"
-#include "webp/demux.h"
 
 namespace WebCore {
 
-class WEBPImageDecoder final : public ScalableImageDecoder {
+class WEBPImageDecoder final : public ImageDecoder {
 public:
-    static Ref<ScalableImageDecoder> create(AlphaOption alphaOption, GammaAndColorProfileOption gammaAndColorProfileOption)
+    static Ref<ImageDecoder> create(AlphaOption alphaOption, GammaAndColorProfileOption gammaAndColorProfileOption)
     {
         return adoptRef(*new WEBPImageDecoder(alphaOption, gammaAndColorProfileOption));
     }
 
     virtual ~WEBPImageDecoder();
 
-    String filenameExtension() const override { return "webp"_s; }
-    void setData(SharedBuffer&, bool) final;
-    ScalableImageDecoderFrame* frameBufferAtIndex(size_t index) override;
-    RepetitionCount repetitionCount() const override;
-    size_t frameCount() const override { return m_frameCount; }
-    void clearFrameBufferCache(size_t) override;
+    String filenameExtension() const override { return ASCIILiteral("webp"); }
+    ImageFrame* frameBufferAtIndex(size_t index) override;
 
 private:
     WEBPImageDecoder(AlphaOption, GammaAndColorProfileOption);
-    void tryDecodeSize(bool) override { parseHeader(); }
-    void decode(size_t, bool);
-    void decodeFrame(size_t, WebPDemuxer*);
-    void parseHeader();
-    bool initFrameBuffer(size_t, const WebPIterator*);
-    void applyPostProcessing(size_t, WebPIDecoder*, WebPDecBuffer&, bool);
-    size_t findFirstRequiredFrameToDecode(size_t, WebPDemuxer*);
+    void tryDecodeSize(bool allDataReceived) override { decode(true, allDataReceived); }
 
-    int m_repetitionCount { 0 };
-    size_t m_frameCount { 0 };
-    int m_formatFlags { 0 };
-    bool m_headerParsed { false };
+    bool decode(bool onlySize, bool allDataReceived);
+
+    WebPIDecoder* m_decoder;
+    bool m_hasAlpha;
+
+    void applyColorProfile(const uint8_t*, size_t, ImageFrame&) { };
+    void clear();
 };
 
 } // namespace WebCore

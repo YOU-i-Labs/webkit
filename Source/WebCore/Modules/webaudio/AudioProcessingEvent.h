@@ -32,7 +32,7 @@ namespace WebCore {
 
 class AudioBuffer;
     
-class AudioProcessingEvent final : public Event {
+class AudioProcessingEvent : public Event {
 public:
     static Ref<AudioProcessingEvent> create(RefPtr<AudioBuffer>&& inputBuffer, RefPtr<AudioBuffer>&& outputBuffer, double playbackTime)
     {

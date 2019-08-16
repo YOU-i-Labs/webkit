@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <wtf/Ref.h>
 #include <wtf/ScopedLambda.h>
 #include <wtf/Threading.h>
 

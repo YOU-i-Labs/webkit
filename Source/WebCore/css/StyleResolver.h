@@ -28,12 +28,15 @@
 #include "InspectorCSSOMWrappers.h"
 #include "MediaQueryEvaluator.h"
 #include "RenderStyle.h"
+#include "RuleFeature.h"
 #include "RuleSet.h"
 #include "SelectorChecker.h"
+#include "StylePendingResources.h"
+#include "StyleScope.h"
 #include <bitset>
 #include <memory>
-#include <wtf/Bitmap.h>
 #include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/text/AtomicStringHash.h>
@@ -58,10 +61,12 @@ class Document;
 class Element;
 class Frame;
 class FrameView;
+class URL;
 class KeyframeList;
 class KeyframeValue;
 class MediaQueryEvaluator;
 class Node;
+class RenderRegion;
 class RenderScrollbar;
 class RuleData;
 class RuleSet;
@@ -75,6 +80,7 @@ class StyleProperties;
 class StyleRule;
 class StyleRuleKeyframes;
 class StyleRulePage;
+class StyleRuleRegion;
 class StyleSheet;
 class StyleSheetList;
 class StyledElement;
@@ -86,13 +92,13 @@ struct ResourceLoaderOptions;
 // are interpreted according to the document root element style, and styled only
 // from the User Agent Stylesheet rules.
 
-enum class RuleMatchingBehavior: uint8_t {
+enum RuleMatchingBehavior {
     MatchAllRules,
     MatchAllRulesExcludingSMIL,
     MatchOnlyUserAgentRules,
 };
 
-enum class CascadeLevel: uint8_t {
+enum CascadeLevel {
     UserAgentLevel,
     AuthorLevel,
     UserLevel
@@ -129,11 +135,11 @@ public:
     StyleResolver(Document&);
     ~StyleResolver();
 
-    ElementStyle styleForElement(const Element&, const RenderStyle* parentStyle, const RenderStyle* parentBoxStyle = nullptr, RuleMatchingBehavior = RuleMatchingBehavior::MatchAllRules, const SelectorFilter* = nullptr);
+    ElementStyle styleForElement(const Element&, const RenderStyle* parentStyle, const RenderStyle* parentBoxStyle = nullptr, RuleMatchingBehavior = MatchAllRules, const RenderRegion* regionForStyling = nullptr, const SelectorFilter* = nullptr);
 
     void keyframeStylesForAnimation(const Element&, const RenderStyle*, KeyframeList&);
 
-    std::unique_ptr<RenderStyle> pseudoStyleForElement(const Element&, const PseudoStyleRequest&, const RenderStyle& parentStyle, const SelectorFilter* = nullptr);
+    std::unique_ptr<RenderStyle> pseudoStyleForElement(const Element&, const PseudoStyleRequest&, const RenderStyle& parentStyle);
 
     std::unique_ptr<RenderStyle> styleForPage(int pageIndex);
     std::unique_ptr<RenderStyle> defaultStyleForElement();
@@ -153,15 +159,10 @@ public:
 
     const MediaQueryEvaluator& mediaQueryEvaluator() const { return m_mediaQueryEvaluator; }
 
-    RenderStyle* overrideDocumentElementStyle() const { return m_overrideDocumentElementStyle; }
     void setOverrideDocumentElementStyle(RenderStyle* style) { m_overrideDocumentElementStyle = style; }
 
-    void addCurrentSVGFontFaceRules();
-    static void adjustSVGElementStyle(const SVGElement&, RenderStyle&);
-
-    void setNewStateWithElement(const Element&);
+private:
     std::unique_ptr<RenderStyle> styleForKeyframe(const RenderStyle*, const StyleRuleKeyframe*, KeyframeValue&);
-    bool isAnimationNameValid(const String&);
 
 public:
     // These methods will give back the set of rules that matched for a given element (or a pseudo-element).
@@ -169,7 +170,8 @@ public:
         UAAndUserCSSRules   = 1 << 1,
         AuthorCSSRules      = 1 << 2,
         EmptyCSSRules       = 1 << 3,
-        AllButEmptyCSSRules = UAAndUserCSSRules | AuthorCSSRules,
+        CrossOriginCSSRules = 1 << 4,
+        AllButEmptyCSSRules = UAAndUserCSSRules | AuthorCSSRules | CrossOriginCSSRules,
         AllCSSRules         = AllButEmptyCSSRules | EmptyCSSRules,
     };
     Vector<RefPtr<StyleRule>> styleRulesForElement(const Element*, unsigned rulesToInclude = AllButEmptyCSSRules);
@@ -187,13 +189,14 @@ public:
     void setFontSize(FontCascadeDescription&, float size);
 
 public:
-    bool useSVGZoomRules() const;
-    bool useSVGZoomRulesForLength() const;
+    bool useSVGZoomRules();
+    bool useSVGZoomRulesForLength();
 
     static bool colorFromPrimitiveValueIsDerivedFromElement(const CSSPrimitiveValue&);
     Color colorFromPrimitiveValue(const CSSPrimitiveValue&, bool forVisitedLink = false) const;
 
     bool hasSelectorForId(const AtomicString&) const;
+    bool hasSelectorForClass(const AtomicString&) const;
     bool hasSelectorForAttribute(const Element&, const AtomicString&) const;
 
 #if ENABLE(CSS_DEVICE_ADAPTATION)
@@ -208,11 +211,9 @@ public:
     bool hasAccessibilitySettingsDependentMediaQueries() const { return !m_accessibilitySettingsDependentMediaQueryResults.isEmpty(); }
     bool hasMediaQueriesAffectedByAccessibilitySettingsChange() const;
 
-    void addAppearanceDependentMediaQueryResult(const MediaQueryExpression&, bool result);
-    bool hasAppearanceDependentMediaQueries() const { return !m_appearanceDependentMediaQueryResults.isEmpty(); }
-    bool hasMediaQueriesAffectedByAppearanceChange() const;
-
     void addKeyframeStyle(Ref<StyleRuleKeyframes>&&);
+
+    bool checkRegionStyle(const Element* regionElement);
 
     bool usesFirstLineRules() const { return m_ruleSets.features().usesFirstLineRules; }
     bool usesFirstLetterRules() const { return m_ruleSets.features().usesFirstLetterRules; }
@@ -271,7 +272,7 @@ public:
         CascadedProperties(TextDirection, WritingMode);
 
         struct Property {
-            void apply(StyleResolver&, ApplyCascadedPropertyState&);
+            void apply(StyleResolver&, const MatchResult*);
 
             CSSPropertyID id;
             CascadeLevel level;
@@ -285,7 +286,7 @@ public:
         void addNormalMatches(const MatchResult&, int startIndex, int endIndex, bool inheritedOnly = false);
         void addImportantMatches(const MatchResult&, int startIndex, int endIndex, bool inheritedOnly = false);
 
-        void applyDeferredProperties(StyleResolver&, ApplyCascadedPropertyState&);
+        void applyDeferredProperties(StyleResolver&, const MatchResult*);
 
         HashMap<AtomicString, Property>& customProperties() { return m_customProperties; }
         bool hasCustomProperty(const String&) const;
@@ -307,9 +308,10 @@ public:
         WritingMode m_writingMode;
     };
 
-    void applyCascadedProperties(int firstProperty, int lastProperty, ApplyCascadedPropertyState&);
-    void applyCascadedCustomProperty(const String& name, ApplyCascadedPropertyState&);
-
+    // FIXME: Should make a StyleAdjuster class (like Blink has) that handles all RenderStyle
+    // adjustments. For now put this function on StyleResolver, since adjustRenderStyle is here.
+    static void adjustStyleForAlignment(RenderStyle&, const RenderStyle& parentStyle);
+    
 private:
     // This function fixes up the default font size if it detects that the current generic font family has changed. -dwh
     void checkForGenericFamilyChange(RenderStyle*, const RenderStyle* parentStyle);
@@ -328,12 +330,13 @@ private:
     enum ShouldUseMatchedPropertiesCache { DoNotUseMatchedPropertiesCache = 0, UseMatchedPropertiesCache };
     void applyMatchedProperties(const MatchResult&, const Element&, ShouldUseMatchedPropertiesCache = UseMatchedPropertiesCache);
 
-    enum CustomPropertyCycleTracking { Enabled = 0, Disabled };
-    template<CustomPropertyCycleTracking>
-    inline void applyCascadedPropertiesImpl(int firstProperty, int lastProperty, ApplyCascadedPropertyState&);
-
+    void applyCascadedProperties(CascadedProperties&, int firstProperty, int lastProperty, const MatchResult*);
     void cascadeMatches(CascadedProperties&, const MatchResult&, bool important, int startIndex, int endIndex, bool inheritedOnly);
 
+    static bool isValidRegionStyleProperty(CSSPropertyID);
+#if ENABLE(VIDEO_TRACK)
+    static bool isValidCueStyleProperty(CSSPropertyID);
+#endif
     void matchPageRules(MatchResult&, RuleSet*, bool isLeftPage, bool isFirstPage, const String& pageName);
     void matchPageRulesForList(Vector<StyleRulePage*>& matchedRules, const Vector<StyleRulePage*>&, bool isLeftPage, bool isFirstPage, const String& pageName);
 
@@ -353,11 +356,12 @@ public:
     class State {
     public:
         State() { }
-        State(const Element&, const RenderStyle* parentStyle, const RenderStyle* documentElementStyle = nullptr, const SelectorFilter* = nullptr);
+        State(const Element&, const RenderStyle* parentStyle, const RenderStyle* documentElementStyle = nullptr, const RenderRegion* regionForStyling = nullptr, const SelectorFilter* = nullptr);
 
     public:
         void clear();
 
+        Document& document() const { return m_element->document(); }
         const Element* element() const { return m_element; }
 
         void setStyle(std::unique_ptr<RenderStyle>);
@@ -368,7 +372,8 @@ public:
         const RenderStyle* parentStyle() const { return m_parentStyle; }
         const RenderStyle* rootElementStyle() const { return m_rootElementStyle; }
 
-        InsideLink elementLinkState() const { return m_elementLinkState; }
+        const RenderRegion* regionForStyling() const { return m_regionForStyling; }
+        EInsideLink elementLinkState() const { return m_elementLinkState; }
 
         void setApplyPropertyToRegularStyle(bool isApply) { m_applyPropertyToRegularStyle = isApply; }
         void setApplyPropertyToVisitedLinkStyle(bool isApply) { m_applyPropertyToVisitedLinkStyle = isApply; }
@@ -388,7 +393,7 @@ public:
 
         const FontCascadeDescription& fontDescription() { return m_style->fontDescription(); }
         const FontCascadeDescription& parentFontDescription() { return m_parentStyle->fontDescription(); }
-        void setFontDescription(FontCascadeDescription&& fontDescription) { m_fontDirty |= m_style->setFontDescription(WTFMove(fontDescription)); }
+        void setFontDescription(const FontCascadeDescription& fontDescription) { m_fontDirty |= m_style->setFontDescription(fontDescription); }
         void setZoom(float f) { m_fontDirty |= m_style->setZoom(f); }
         void setEffectiveZoom(float f) { m_fontDirty |= m_style->setEffectiveZoom(f); }
         void setWritingMode(WritingMode writingMode) { m_fontDirty |= m_style->setWritingMode(writingMode); }
@@ -419,27 +424,29 @@ public:
         const RenderStyle* m_parentStyle { nullptr };
         std::unique_ptr<RenderStyle> m_ownedParentStyle;
         const RenderStyle* m_rootElementStyle { nullptr };
-        std::unique_ptr<CascadedProperties> m_authorRollback;
-        std::unique_ptr<CascadedProperties> m_userRollback;
 
-        const SelectorFilter* m_selectorFilter { nullptr };
-
-        BorderData m_borderData;
-        FillLayer m_backgroundData { FillLayerType::Background };
-        Color m_backgroundColor;
-
-        CSSToLengthConversionData m_cssToLengthConversionData;
-
-        Style::ScopeOrdinal m_styleScopeOrdinal { Style::ScopeOrdinal::Element };
-
-        InsideLink m_elementLinkState { InsideLink::NotInside };
-        CascadeLevel m_cascadeLevel { CascadeLevel::UserAgentLevel };
+        const RenderRegion* m_regionForStyling { nullptr };
+        
+        EInsideLink m_elementLinkState { NotInsideLink };
 
         bool m_applyPropertyToRegularStyle { true };
         bool m_applyPropertyToVisitedLinkStyle { false };
         bool m_fontDirty { false };
         bool m_fontSizeHasViewportUnits { false };
         bool m_hasUAAppearance { false };
+
+        BorderData m_borderData;
+        FillLayer m_backgroundData { BackgroundFillLayer };
+        Color m_backgroundColor;
+
+        CSSToLengthConversionData m_cssToLengthConversionData;
+        
+        CascadeLevel m_cascadeLevel { UserAgentLevel };
+        Style::ScopeOrdinal m_styleScopeOrdinal { Style::ScopeOrdinal::Element };
+        std::unique_ptr<CascadedProperties> m_authorRollback;
+        std::unique_ptr<CascadedProperties> m_userRollback;
+
+        const SelectorFilter* m_selectorFilter { nullptr };
     };
 
     State& state() { return m_state; }
@@ -459,18 +466,17 @@ public:
     InspectorCSSOMWrappers& inspectorCSSOMWrappers() { return m_inspectorCSSOMWrappers; }
     const FontCascadeDescription& fontDescription() { return m_state.fontDescription(); }
     const FontCascadeDescription& parentFontDescription() { return m_state.parentFontDescription(); }
-    void setFontDescription(FontCascadeDescription&& fontDescription) { m_state.setFontDescription(WTFMove(fontDescription)); }
+    void setFontDescription(const FontCascadeDescription& fontDescription) { m_state.setFontDescription(fontDescription); }
     void setZoom(float f) { m_state.setZoom(f); }
     void setEffectiveZoom(float f) { m_state.setEffectiveZoom(f); }
     void setWritingMode(WritingMode writingMode) { m_state.setWritingMode(writingMode); }
     void setTextOrientation(TextOrientation textOrientation) { m_state.setTextOrientation(textOrientation); }
 
-    RefPtr<CSSValue> resolvedVariableValue(CSSPropertyID, const CSSValue&, ApplyCascadedPropertyState&) const;
-
 private:
     void cacheBorderAndBackground();
 
-    void applyProperty(CSSPropertyID, CSSValue*, ApplyCascadedPropertyState&, SelectorChecker::LinkMatchMask = SelectorChecker::MatchDefault);
+    void applyProperty(CSSPropertyID, CSSValue*, SelectorChecker::LinkMatchMask = SelectorChecker::MatchDefault, const MatchResult* = nullptr);
+    RefPtr<CSSValue> resolvedVariableValue(CSSPropertyID, const CSSValue&);
 
     void applySVGProperty(CSSPropertyID, CSSValue*);
 
@@ -480,16 +486,6 @@ private:
         MatchRanges ranges;
         std::unique_ptr<RenderStyle> renderStyle;
         std::unique_ptr<RenderStyle> parentRenderStyle;
-        
-        MatchedPropertiesCacheItem(const MatchResult& matchResult, const RenderStyle* style, const RenderStyle* parentStyle)
-            : ranges(matchResult.ranges)
-            , renderStyle(RenderStyle::clonePtr(*style))
-            , parentRenderStyle(RenderStyle::clonePtr(*parentStyle))
-        {
-            // Assign rather than copy-construct so we only allocate as much vector capacity as needed.
-            matchedProperties = matchResult.matchedProperties();
-        }
-        MatchedPropertiesCacheItem() = default;
     };
     const MatchedPropertiesCacheItem* findFromMatchedPropertiesCache(unsigned hash, const MatchResult&);
     void addToMatchedPropertiesCache(const RenderStyle*, const RenderStyle* parentStyle, unsigned hash, const MatchResult&);
@@ -497,6 +493,8 @@ private:
     // Every N additions to the matched declaration cache trigger a sweep where entries holding
     // the last reference to a style declaration are garbage collected.
     void sweepMatchedPropertiesCache();
+
+    unsigned m_matchedPropertiesCacheAdditionsSinceLastSweep;
 
     typedef HashMap<unsigned, MatchedPropertiesCacheItem> MatchedPropertiesCache;
     MatchedPropertiesCache m_matchedPropertiesCache;
@@ -508,11 +506,12 @@ private:
 
     Document& m_document;
 
+    bool m_matchAuthorAndUserStyles;
+
     RenderStyle* m_overrideDocumentElementStyle { nullptr };
 
     Vector<MediaQueryResult> m_viewportDependentMediaQueryResults;
     Vector<MediaQueryResult> m_accessibilitySettingsDependentMediaQueryResults;
-    Vector<MediaQueryResult> m_appearanceDependentMediaQueryResults;
 
 #if ENABLE(CSS_DEVICE_ADAPTATION)
     RefPtr<ViewportStyleResolver> m_viewportStyleResolver;
@@ -523,9 +522,6 @@ private:
 
     State m_state;
 
-    unsigned m_matchedPropertiesCacheAdditionsSinceLastSweep { 0 };
-
-    bool m_matchAuthorAndUserStyles { true };
     // See if we still have crashes where StyleResolver gets deleted early.
     bool m_isDeleted { false };
 
@@ -535,19 +531,6 @@ private:
     friend bool operator!=(const MatchRanges&, const MatchRanges&);
 };
 
-// State to use when applying properties, to keep track of which custom and high-priority
-// properties have been resolved.
-struct ApplyCascadedPropertyState {
-    StyleResolver* styleResolver;
-    StyleResolver::CascadedProperties* cascade;
-    const StyleResolver::MatchResult* matchResult;
-    Bitmap<numCSSProperties> appliedProperties = { };
-    HashSet<String> appliedCustomProperties = { };
-    Bitmap<numCSSProperties> inProgressProperties = { };
-    HashSet<String> inProgressPropertiesCustom = { };
-};
-
-
 inline bool StyleResolver::hasSelectorForAttribute(const Element& element, const AtomicString &attributeName) const
 {
     ASSERT(!attributeName.isEmpty());
@@ -556,10 +539,31 @@ inline bool StyleResolver::hasSelectorForAttribute(const Element& element, const
     return m_ruleSets.features().attributeLocalNamesInRules.contains(attributeName);
 }
 
+inline bool StyleResolver::hasSelectorForClass(const AtomicString& classValue) const
+{
+    ASSERT(!classValue.isEmpty());
+    return m_ruleSets.features().classesInRules.contains(classValue);
+}
+
 inline bool StyleResolver::hasSelectorForId(const AtomicString& idValue) const
 {
     ASSERT(!idValue.isEmpty());
     return m_ruleSets.features().idsInRules.contains(idValue);
+}
+
+inline bool checkRegionSelector(const CSSSelector* regionSelector, const Element* regionElement)
+{
+    if (!regionSelector || !regionElement)
+        return false;
+
+    SelectorChecker selectorChecker(regionElement->document());
+    for (const CSSSelector* s = regionSelector; s; s = CSSSelectorList::next(s)) {
+        SelectorChecker::CheckingContext selectorCheckingContext(SelectorChecker::Mode::QueryingRules);
+        unsigned ignoredSpecificity;
+        if (selectorChecker.match(*s, *regionElement, selectorCheckingContext, ignoredSpecificity))
+            return true;
+    }
+    return false;
 }
 
 } // namespace WebCore

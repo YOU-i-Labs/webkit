@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.InputPopover = class InputPopover extends WI.Popover
+WebInspector.InputPopover = class InputPopover extends WebInspector.Popover
 {
     constructor(message, delegate)
     {
@@ -31,7 +31,7 @@ WI.InputPopover = class InputPopover extends WI.Popover
 
         this._message = message;
         this._value = null;
-        this._result = WI.InputPopover.Result.None;
+        this._result = WebInspector.InputPopover.Result.None;
 
         this._targetElement = null;
         this._preferredEdges = null;
@@ -64,7 +64,7 @@ WI.InputPopover = class InputPopover extends WI.Popover
             if (!isEnterKey(event))
                 return;
 
-            this._result = WI.InputPopover.Result.Committed;
+            this._result = WebInspector.InputPopover.Result.Committed;
             this._value = event.target.value;
 
             this.dismiss();
@@ -83,14 +83,14 @@ WI.InputPopover = class InputPopover extends WI.Popover
         if (!this._targetElement)
             return;
 
-        let targetFrame = WI.Rect.rectFromClientRect(this._targetElement.getBoundingClientRect());
+        let targetFrame = WebInspector.Rect.rectFromClientRect(this._targetElement.getBoundingClientRect());
         this.present(targetFrame, this._preferredEdges);
 
         this._inputElement.select();
     }
 };
 
-WI.InputPopover.Result = {
+WebInspector.InputPopover.Result = {
     None: Symbol("result-none"),
     Cancelled: Symbol("result-cancelled"),
     Committed: Symbol("result-committed"),

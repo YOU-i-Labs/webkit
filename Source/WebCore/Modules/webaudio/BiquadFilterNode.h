@@ -31,7 +31,7 @@ namespace WebCore {
 
 class AudioParam;
 
-class BiquadFilterNode final : public AudioBasicProcessorNode {
+class BiquadFilterNode : public AudioBasicProcessorNode {
 public:
     static Ref<BiquadFilterNode> create(AudioContext& context, float sampleRate)
     {

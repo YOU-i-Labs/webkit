@@ -34,6 +34,7 @@
 #include "DatabaseContext.h"
 #include "DatabaseThread.h"
 #include "DatabaseTracker.h"
+#include "ExceptionCode.h"
 #include "Logging.h"
 #include "OriginLock.h"
 #include "SQLError.h"
@@ -68,12 +69,14 @@ SQLTransaction::SQLTransaction(Ref<Database>&& database, RefPtr<SQLTransactionCa
 {
 }
 
-SQLTransaction::~SQLTransaction() = default;
+SQLTransaction::~SQLTransaction()
+{
+}
 
-ExceptionOr<void> SQLTransaction::executeSql(const String& sqlStatement, Optional<Vector<SQLValue>>&& arguments, RefPtr<SQLStatementCallback>&& callback, RefPtr<SQLStatementErrorCallback>&& callbackError)
+ExceptionOr<void> SQLTransaction::executeSql(const String& sqlStatement, std::optional<Vector<SQLValue>>&& arguments, RefPtr<SQLStatementCallback>&& callback, RefPtr<SQLStatementErrorCallback>&& callbackError)
 {
     if (!m_executeSqlAllowed || !m_database->opened())
-        return Exception { InvalidStateError };
+        return Exception { INVALID_STATE_ERR };
 
     int permissions = DatabaseAuthorizer::ReadWriteMask;
     if (!m_database->databaseContext().allowDatabaseAccess())
@@ -81,7 +84,7 @@ ExceptionOr<void> SQLTransaction::executeSql(const String& sqlStatement, Optiona
     else if (m_readOnly)
         permissions |= DatabaseAuthorizer::ReadOnlyMask;
 
-    auto statement = std::make_unique<SQLStatement>(m_database, sqlStatement, arguments.valueOr(Vector<SQLValue> { }), WTFMove(callback), WTFMove(callbackError), permissions);
+    auto statement = std::make_unique<SQLStatement>(m_database, sqlStatement, arguments.value_or(Vector<SQLValue> { }), WTFMove(callback), WTFMove(callbackError), permissions);
 
     if (m_database->deleted())
         statement->setDatabaseDeletedError();
@@ -184,7 +187,7 @@ void SQLTransaction::checkAndHandleClosedDatabase()
     m_errorCallbackWrapper.clear();
 
     // The next steps should be executed only if we're on the DB thread.
-    if (m_database->databaseThread().getThread() != &Thread::current())
+    if (currentThread() != m_database->databaseThread().getThreadID())
         return;
 
     // The current SQLite transaction should be stopped, as well

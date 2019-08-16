@@ -27,13 +27,17 @@
 #include "config.h"
 #include "CSSFilterImageValue.h"
 
-#include "CSSFilter.h"
+#include "CSSImageValue.h"
 #include "CachedImage.h"
 #include "CachedResourceLoader.h"
+#include "CachedSVGDocumentReference.h"
+#include "CrossfadeGeneratedImage.h"
+#include "FilterEffectRenderer.h"
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
 #include "RenderElement.h"
 #include "StyleCachedImage.h"
+#include "StyleGeneratedImage.h"
 #include "StyleResolver.h"
 #include <wtf/text/StringBuilder.h>
 
@@ -76,7 +80,7 @@ bool CSSFilterImageValue::isPending() const
     return CSSImageGeneratorValue::subimageIsPending(m_imageValue);
 }
 
-bool CSSFilterImageValue::knownToBeOpaque(const RenderElement&) const
+bool CSSFilterImageValue::knownToBeOpaque(const RenderElement*) const
 {
     return false;
 }
@@ -95,7 +99,7 @@ void CSSFilterImageValue::loadSubimages(CachedResourceLoader& cachedResourceLoad
     }
 
     for (auto& filterOperation : m_filterOperations.operations()) {
-        if (!is<ReferenceFilterOperation>(filterOperation))
+        if (!is<ReferenceFilterOperation>(filterOperation.get()))
             continue;
         auto& referenceFilterOperation = downcast<ReferenceFilterOperation>(*filterOperation);
         referenceFilterOperation.loadExternalDocumentIfNeeded(cachedResourceLoader, options);
@@ -131,15 +135,15 @@ RefPtr<Image> CSSFilterImageValue::image(RenderElement* renderer, const FloatSiz
     auto imageRect = FloatRect { { }, size };
     texture->context().drawImage(*image, imageRect);
 
-    auto cssFilter = CSSFilter::create();
-    cssFilter->setSourceImage(WTFMove(texture));
-    cssFilter->setSourceImageRect(imageRect);
-    cssFilter->setFilterRegion(imageRect);
-    if (!cssFilter->build(*renderer, m_filterOperations, FilterConsumer::FilterFunction))
+    auto filterRenderer = FilterEffectRenderer::create();
+    filterRenderer->setSourceImage(WTFMove(texture));
+    filterRenderer->setSourceImageRect(imageRect);
+    filterRenderer->setFilterRegion(imageRect);
+    if (!filterRenderer->build(*renderer, m_filterOperations, FilterFunction))
         return &Image::nullImage();
-    cssFilter->apply();
+    filterRenderer->apply();
 
-    return cssFilter->output()->copyImage();
+    return filterRenderer->output()->copyImage();
 }
 
 void CSSFilterImageValue::filterImageChanged(const IntRect&)
@@ -160,7 +164,7 @@ void CSSFilterImageValue::FilterSubimageObserverProxy::imageChanged(CachedImage*
         m_ownerValue->filterImageChanged(*rect);
 }
 
-bool CSSFilterImageValue::traverseSubresources(const WTF::Function<bool (const CachedResource&)>& handler) const
+bool CSSFilterImageValue::traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const
 {
     if (!m_cachedImage)
         return false;

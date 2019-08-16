@@ -16,12 +16,9 @@ namespace angle
 {
 namespace
 {
-
-using IntensityModifier = const int[4];
-
 // Table 3.17.2 sorted according to table 3.17.3
 // clang-format off
-static IntensityModifier intensityModifierDefault[] =
+static const int intensityModifierDefault[][4] =
 {
     {  2,   8,  -2,   -8 },
     {  5,  17,  -5,  -17 },
@@ -36,7 +33,7 @@ static IntensityModifier intensityModifierDefault[] =
 
 // Table C.12, intensity modifier for non opaque punchthrough alpha
 // clang-format off
-static IntensityModifier intensityModifierNonOpaque[] =
+static const int intensityModifierNonOpaque[][4] =
 {
     { 0,   8, 0,   -8 },
     { 0,  17, 0,  -17 },
@@ -403,7 +400,7 @@ struct ETC2Block
                                              const uint8_t alphaValues[4][4],
                                              bool nonOpaquePunchThroughAlpha) const
     {
-        const IntensityModifier *intensityModifier =
+        const auto intensityModifier =
             nonOpaquePunchThroughAlpha ? intensityModifierNonOpaque : intensityModifierDefault;
 
         R8G8B8A8 subblockColors0[4];
@@ -1081,7 +1078,7 @@ struct ETC2Block
 
         static const size_t kNumColors = 8;
 
-        const IntensityModifier *intensityModifier =
+        const auto intensityModifier =
             nonOpaquePunchThroughAlpha ? intensityModifierNonOpaque : intensityModifierDefault;
 
         // Compute the colors that pixels can have in each subblock both for

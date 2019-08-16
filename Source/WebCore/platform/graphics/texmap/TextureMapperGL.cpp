@@ -28,8 +28,6 @@
 #include "BitmapTexturePool.h"
 #include "Extensions3D.h"
 #include "FilterOperations.h"
-#include "FloatQuad.h"
-#include "GLContext.h"
 #include "GraphicsContext.h"
 #include "Image.h"
 #include "LengthFunctions.h"
@@ -54,38 +52,36 @@ namespace WebCore {
 class TextureMapperGLData {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    explicit TextureMapperGLData(void*);
+    explicit TextureMapperGLData(GraphicsContext3D&);
     ~TextureMapperGLData();
 
     void initializeStencil();
-    GLuint getStaticVBO(GLenum target, GLsizeiptr, const void* data);
-    GLuint getVAO();
+    Platform3DObject getStaticVBO(GC3Denum target, GC3Dsizeiptr, const void* data);
     Ref<TextureMapperShaderProgram> getShaderProgram(TextureMapperShaderProgram::Options);
 
     TransformationMatrix projectionMatrix;
     TextureMapper::PaintFlags PaintFlags { 0 };
-    GLint previousProgram { 0 };
-    GLint previousVAO { 0 };
-    GLint targetFrameBuffer { 0 };
+    GC3Dint previousProgram { 0 };
+    GC3Dint targetFrameBuffer { 0 };
     bool didModifyStencil { false };
-    GLint previousScissorState { 0 };
-    GLint previousDepthState { 0 };
-    GLint viewport[4] { 0, };
-    GLint previousScissor[4] { 0, };
+    GC3Dint previousScissorState { 0 };
+    GC3Dint previousDepthState { 0 };
+    GC3Dint viewport[4] { 0, };
+    GC3Dint previousScissor[4] { 0, };
     RefPtr<BitmapTexture> currentSurface;
     const BitmapTextureGL::FilterInfo* filterInfo { nullptr };
 
 private:
     class SharedGLData : public RefCounted<SharedGLData> {
     public:
-        static Ref<SharedGLData> currentSharedGLData(void* platformContext)
+        static Ref<SharedGLData> currentSharedGLData(GraphicsContext3D& context)
         {
-            auto it = contextDataMap().find(platformContext);
+            auto it = contextDataMap().find(context.platformGraphicsContext3D());
             if (it != contextDataMap().end())
                 return *it->value;
 
-            Ref<SharedGLData> data = adoptRef(*new SharedGLData);
-            contextDataMap().add(platformContext, data.ptr());
+            Ref<SharedGLData> data = adoptRef(*new SharedGLData(context));
+            contextDataMap().add(context.platformGraphicsContext3D(), data.ptr());
             return data;
         }
 
@@ -99,37 +95,36 @@ private:
     private:
         friend class TextureMapperGLData;
 
-        using GLContextDataMap = HashMap<void*, SharedGLData*>;
+        using GLContextDataMap = HashMap<PlatformGraphicsContext3D, SharedGLData*>;
         static GLContextDataMap& contextDataMap()
         {
             static NeverDestroyed<GLContextDataMap> map;
             return map;
         }
 
-        SharedGLData() = default;
+        explicit SharedGLData(GraphicsContext3D& context)
+        {
+            contextDataMap().add(context.platformGraphicsContext3D(), this);
+        }
 
         HashMap<TextureMapperShaderProgram::Options, RefPtr<TextureMapperShaderProgram>> m_programs;
     };
 
+    GraphicsContext3D& m_context;
     Ref<SharedGLData> m_sharedGLData;
-    HashMap<const void*, GLuint> m_vbos;
-    GLuint m_vao { 0 };
+    HashMap<const void*, Platform3DObject> m_vbos;
 };
 
-TextureMapperGLData::TextureMapperGLData(void* platformContext)
-    : m_sharedGLData(SharedGLData::currentSharedGLData(platformContext))
+TextureMapperGLData::TextureMapperGLData(GraphicsContext3D& context)
+    : m_context(context)
+    , m_sharedGLData(SharedGLData::currentSharedGLData(m_context))
 {
 }
 
 TextureMapperGLData::~TextureMapperGLData()
 {
     for (auto& entry : m_vbos)
-        glDeleteBuffers(1, &entry.value);
-
-#if !USE(OPENGL_ES)
-    if (GLContext::current()->version() >= 320 && m_vao)
-        glDeleteVertexArrays(1, &m_vao);
-#endif
+        m_context.deleteBuffer(entry.value);
 }
 
 void TextureMapperGLData::initializeStencil()
@@ -142,51 +137,39 @@ void TextureMapperGLData::initializeStencil()
     if (didModifyStencil)
         return;
 
-    glClearStencil(0);
-    glClear(GL_STENCIL_BUFFER_BIT);
+    m_context.clearStencil(0);
+    m_context.clear(GraphicsContext3D::STENCIL_BUFFER_BIT);
     didModifyStencil = true;
 }
 
-GLuint TextureMapperGLData::getStaticVBO(GLenum target, GLsizeiptr size, const void* data)
+Platform3DObject TextureMapperGLData::getStaticVBO(GC3Denum target, GC3Dsizeiptr size, const void* data)
 {
     auto addResult = m_vbos.ensure(data,
         [this, target, size, data] {
-            GLuint vbo = 0;
-            glGenBuffers(1, &vbo);
-            glBindBuffer(target, vbo);
-            glBufferData(target, size, data, GL_STATIC_DRAW);
+            Platform3DObject vbo = m_context.createBuffer();
+            m_context.bindBuffer(target, vbo);
+            m_context.bufferData(target, size, data, GraphicsContext3D::STATIC_DRAW);
             return vbo;
         });
     return addResult.iterator->value;
 }
 
-GLuint TextureMapperGLData::getVAO()
-{
-#if !USE(OPENGL_ES)
-    if (GLContext::current()->version() >= 320 && !m_vao)
-        glGenVertexArrays(1, &m_vao);
-#endif
-
-    return m_vao;
-}
-
 Ref<TextureMapperShaderProgram> TextureMapperGLData::getShaderProgram(TextureMapperShaderProgram::Options options)
 {
     auto addResult = m_sharedGLData->m_programs.ensure(options,
-        [options] { return TextureMapperShaderProgram::create(options); });
+        [this, options] { return TextureMapperShaderProgram::create(Ref<GraphicsContext3D>(m_context), options); });
     return *addResult.iterator->value;
 }
 
 TextureMapperGL::TextureMapperGL()
-    : m_contextAttributes(TextureMapperContextAttributes::get())
-    , m_enableEdgeDistanceAntialiasing(false)
+    : m_enableEdgeDistanceAntialiasing(false)
 {
-    void* platformContext = GLContext::current()->platformContext();
-    ASSERT(platformContext);
+    m_context3D = GraphicsContext3D::createForCurrentGLContext();
+    ASSERT(m_context3D);
 
-    m_data = new TextureMapperGLData(platformContext);
+    m_data = new TextureMapperGLData(*m_context3D);
 #if USE(TEXTURE_MAPPER_GL)
-    m_texturePool = std::make_unique<BitmapTexturePool>(m_contextAttributes);
+    m_texturePool = std::make_unique<BitmapTexturePool>(m_context3D.copyRef());
 #endif
 }
 
@@ -197,52 +180,40 @@ ClipStack& TextureMapperGL::clipStack()
 
 void TextureMapperGL::beginPainting(PaintFlags flags)
 {
-    glGetIntegerv(GL_CURRENT_PROGRAM, &data().previousProgram);
-    data().previousScissorState = glIsEnabled(GL_SCISSOR_TEST);
-    data().previousDepthState = glIsEnabled(GL_DEPTH_TEST);
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_SCISSOR_TEST);
+    m_context3D->getIntegerv(GraphicsContext3D::CURRENT_PROGRAM, &data().previousProgram);
+    data().previousScissorState = m_context3D->isEnabled(GraphicsContext3D::SCISSOR_TEST);
+    data().previousDepthState = m_context3D->isEnabled(GraphicsContext3D::DEPTH_TEST);
+    m_context3D->disable(GraphicsContext3D::DEPTH_TEST);
+    m_context3D->enable(GraphicsContext3D::SCISSOR_TEST);
     data().didModifyStencil = false;
-    glDepthMask(0);
-    glGetIntegerv(GL_VIEWPORT, data().viewport);
-    glGetIntegerv(GL_SCISSOR_BOX, data().previousScissor);
+    m_context3D->depthMask(0);
+    m_context3D->getIntegerv(GraphicsContext3D::VIEWPORT, data().viewport);
+    m_context3D->getIntegerv(GraphicsContext3D::SCISSOR_BOX, data().previousScissor);
     m_clipStack.reset(IntRect(0, 0, data().viewport[2], data().viewport[3]), flags & PaintingMirrored ? ClipStack::YAxisMode::Default : ClipStack::YAxisMode::Inverted);
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &data().targetFrameBuffer);
+    m_context3D->getIntegerv(GraphicsContext3D::FRAMEBUFFER_BINDING, &data().targetFrameBuffer);
     data().PaintFlags = flags;
     bindSurface(0);
-
-#if !USE(OPENGL_ES)
-    if (GLContext::current()->version() >= 320) {
-        glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &data().previousVAO);
-        glBindVertexArray(data().getVAO());
-    }
-#endif
 }
 
 void TextureMapperGL::endPainting()
 {
     if (data().didModifyStencil) {
-        glClearStencil(1);
-        glClear(GL_STENCIL_BUFFER_BIT);
+        m_context3D->clearStencil(1);
+        m_context3D->clear(GraphicsContext3D::STENCIL_BUFFER_BIT);
     }
 
-    glUseProgram(data().previousProgram);
+    m_context3D->useProgram(data().previousProgram);
 
-    glScissor(data().previousScissor[0], data().previousScissor[1], data().previousScissor[2], data().previousScissor[3]);
+    m_context3D->scissor(data().previousScissor[0], data().previousScissor[1], data().previousScissor[2], data().previousScissor[3]);
     if (data().previousScissorState)
-        glEnable(GL_SCISSOR_TEST);
+        m_context3D->enable(GraphicsContext3D::SCISSOR_TEST);
     else
-        glDisable(GL_SCISSOR_TEST);
+        m_context3D->disable(GraphicsContext3D::SCISSOR_TEST);
 
     if (data().previousDepthState)
-        glEnable(GL_DEPTH_TEST);
+        m_context3D->enable(GraphicsContext3D::DEPTH_TEST);
     else
-        glDisable(GL_DEPTH_TEST);
-
-#if !USE(OPENGL_ES)
-    if (GLContext::current()->version() >= 320)
-        glBindVertexArray(data().previousVAO);
-#endif
+        m_context3D->disable(GraphicsContext3D::DEPTH_TEST);
 }
 
 void TextureMapperGL::drawBorder(const Color& color, float width, const FloatRect& targetRect, const TransformationMatrix& modelViewMatrix)
@@ -251,14 +222,14 @@ void TextureMapperGL::drawBorder(const Color& color, float width, const FloatRec
         return;
 
     Ref<TextureMapperShaderProgram> program = data().getShaderProgram(TextureMapperShaderProgram::SolidColor);
-    glUseProgram(program->programID());
+    m_context3D->useProgram(program->programID());
 
     float r, g, b, a;
     Color(premultipliedARGBFromColor(color)).getRGBA(r, g, b, a);
-    glUniform4f(program->colorLocation(), r, g, b, a);
-    glLineWidth(width);
+    m_context3D->uniform4f(program->colorLocation(), r, g, b, a);
+    m_context3D->lineWidth(width);
 
-    draw(targetRect, modelViewMatrix, program.get(), GL_LINE_LOOP, !color.isOpaque() ? ShouldBlend : 0);
+    draw(targetRect, modelViewMatrix, program.get(), GraphicsContext3D::LINE_LOOP, !color.isOpaque() ? ShouldBlend : 0);
 }
 
 // FIXME: drawNumber() should save a number texture-atlas and re-use whenever possible.
@@ -300,7 +271,7 @@ void TextureMapperGL::drawNumber(int number, const Color& color, const FloatPoin
     RefPtr<BitmapTexture> texture = acquireTextureFromPool(size);
     const unsigned char* bits = cairo_image_surface_get_data(surface);
     int stride = cairo_image_surface_get_stride(surface);
-    static_cast<BitmapTextureGL*>(texture.get())->updateContents(bits, sourceRect, IntPoint::zero(), stride);
+    static_cast<BitmapTextureGL*>(texture.get())->updateContentsNoSwizzle(bits, sourceRect, IntPoint::zero(), stride);
     drawTexture(*texture, targetRect, modelViewMatrix, 1.0f, AllEdges);
 
     cairo_surface_destroy(surface);
@@ -378,22 +349,23 @@ static float* gaussianKernel()
     return kernel;
 }
 
-static void prepareFilterProgram(TextureMapperShaderProgram& program, const FilterOperation& operation, unsigned pass, const IntSize& size, GLuint contentTexture)
+static void prepareFilterProgram(TextureMapperShaderProgram& program, const FilterOperation& operation, unsigned pass, const IntSize& size, GC3Duint contentTexture)
 {
-    glUseProgram(program.programID());
+    Ref<GraphicsContext3D> context = program.context();
+    context->useProgram(program.programID());
 
     switch (operation.type()) {
     case FilterOperation::GRAYSCALE:
     case FilterOperation::SEPIA:
     case FilterOperation::SATURATE:
     case FilterOperation::HUE_ROTATE:
-        glUniform1f(program.filterAmountLocation(), static_cast<const BasicColorMatrixFilterOperation&>(operation).amount());
+        context->uniform1f(program.filterAmountLocation(), static_cast<const BasicColorMatrixFilterOperation&>(operation).amount());
         break;
     case FilterOperation::INVERT:
     case FilterOperation::BRIGHTNESS:
     case FilterOperation::CONTRAST:
     case FilterOperation::OPACITY:
-        glUniform1f(program.filterAmountLocation(), static_cast<const BasicComponentTransferFilterOperation&>(operation).amount());
+        context->uniform1f(program.filterAmountLocation(), static_cast<const BasicComponentTransferFilterOperation&>(operation).amount());
         break;
     case FilterOperation::BLUR: {
         const BlurFilterOperation& blur = static_cast<const BlurFilterOperation&>(operation);
@@ -405,29 +377,29 @@ static void prepareFilterProgram(TextureMapperShaderProgram& program, const Filt
         else
             radius.setWidth(floatValueForLength(blur.stdDeviation(), size.width()) / size.width());
 
-        glUniform2f(program.blurRadiusLocation(), radius.width(), radius.height());
-        glUniform1fv(program.gaussianKernelLocation(), GaussianKernelHalfWidth, gaussianKernel());
+        context->uniform2f(program.blurRadiusLocation(), radius.width(), radius.height());
+        context->uniform1fv(program.gaussianKernelLocation(), GaussianKernelHalfWidth, gaussianKernel());
         break;
     }
     case FilterOperation::DROP_SHADOW: {
         const DropShadowFilterOperation& shadow = static_cast<const DropShadowFilterOperation&>(operation);
-        glUniform1fv(program.gaussianKernelLocation(), GaussianKernelHalfWidth, gaussianKernel());
+        context->uniform1fv(program.gaussianKernelLocation(), GaussianKernelHalfWidth, gaussianKernel());
         switch (pass) {
         case 0:
             // First pass: horizontal alpha blur.
-            glUniform2f(program.blurRadiusLocation(), shadow.stdDeviation() / float(size.width()), 0);
-            glUniform2f(program.shadowOffsetLocation(), float(shadow.location().x()) / float(size.width()), float(shadow.location().y()) / float(size.height()));
+            context->uniform2f(program.blurRadiusLocation(), shadow.stdDeviation() / float(size.width()), 0);
+            context->uniform2f(program.shadowOffsetLocation(), float(shadow.location().x()) / float(size.width()), float(shadow.location().y()) / float(size.height()));
             break;
         case 1:
             // Second pass: we need the shadow color and the content texture for compositing.
             float r, g, b, a;
             Color(premultipliedARGBFromColor(shadow.color())).getRGBA(r, g, b, a);
-            glUniform4f(program.colorLocation(), r, g, b, a);
-            glUniform2f(program.blurRadiusLocation(), 0, shadow.stdDeviation() / float(size.height()));
-            glUniform2f(program.shadowOffsetLocation(), 0, 0);
-            glActiveTexture(GL_TEXTURE1);
-            glBindTexture(GL_TEXTURE_2D, contentTexture);
-            glUniform1i(program.contentTextureLocation(), 1);
+            context->uniform4f(program.colorLocation(), r, g, b, a);
+            context->uniform2f(program.blurRadiusLocation(), 0, shadow.stdDeviation() / float(size.height()));
+            context->uniform2f(program.shadowOffsetLocation(), 0, 0);
+            context->activeTexture(GraphicsContext3D::TEXTURE1);
+            context->bindTexture(GraphicsContext3D::TEXTURE_2D, contentTexture);
+            context->uniform1i(program.contentTextureLocation(), 1);
             break;
         }
         break;
@@ -460,10 +432,20 @@ void TextureMapperGL::drawTexture(const BitmapTexture& texture, const FloatRect&
     const BitmapTextureGL& textureGL = static_cast<const BitmapTextureGL&>(texture);
     SetForScope<const BitmapTextureGL::FilterInfo*> filterInfo(data().filterInfo, textureGL.filterInfo());
 
-    drawTexture(textureGL.id(), textureGL.colorConvertFlags() | (textureGL.isOpaque() ? 0 : ShouldBlend), textureGL.size(), targetRect, matrix, opacity, exposedEdges);
+    drawTexture(textureGL.id(), textureGL.isOpaque() ? 0 : ShouldBlend, textureGL.size(), targetRect, matrix, opacity, exposedEdges);
 }
 
-void TextureMapperGL::drawTexture(GLuint texture, Flags flags, const IntSize& textureSize, const FloatRect& targetRect, const TransformationMatrix& modelViewMatrix, float opacity, unsigned exposedEdges)
+static bool driverSupportsNPOTTextures(GraphicsContext3D& context)
+{
+    if (context.isGLES2Compliant()) {
+        static bool supportsNPOTTextures = context.getExtensions().supports("GL_OES_texture_npot");
+        return supportsNPOTTextures;
+    }
+
+    return true;
+}
+
+void TextureMapperGL::drawTexture(Platform3DObject texture, Flags flags, const IntSize& textureSize, const FloatRect& targetRect, const TransformationMatrix& modelViewMatrix, float opacity, unsigned exposedEdges)
 {
     bool useRect = flags & ShouldUseARBTextureRect;
     bool useAntialiasing = m_enableEdgeDistanceAntialiasing
@@ -479,11 +461,11 @@ void TextureMapperGL::drawTexture(GLuint texture, Flags flags, const IntSize& te
         options |= TextureMapperShaderProgram::Antialiasing;
         flags |= ShouldAntialias;
     }
-    if (wrapMode() == RepeatWrap && !m_contextAttributes.supportsNPOTTextures)
+    if (wrapMode() == RepeatWrap && !driverSupportsNPOTTextures(*m_context3D))
         options |= TextureMapperShaderProgram::ManualRepeat;
 
     RefPtr<FilterOperation> filter = data().filterInfo ? data().filterInfo->filter: 0;
-    GLuint filterContentTextureID = 0;
+    GC3Duint filterContentTextureID = 0;
 
     if (filter) {
         if (data().filterInfo->contentTexture)
@@ -514,30 +496,24 @@ void TextureMapperGL::drawSolidColor(const FloatRect& rect, const Transformation
     }
 
     Ref<TextureMapperShaderProgram> program = data().getShaderProgram(options);
-    glUseProgram(program->programID());
+    m_context3D->useProgram(program->programID());
 
     float r, g, b, a;
     Color(premultipliedARGBFromColor(color)).getRGBA(r, g, b, a);
-    glUniform4f(program->colorLocation(), r, g, b, a);
+    m_context3D->uniform4f(program->colorLocation(), r, g, b, a);
     if (a < 1)
         flags |= ShouldBlend;
 
-    draw(rect, matrix, program.get(), GL_TRIANGLE_FAN, flags);
-}
-
-void TextureMapperGL::clearColor(const Color& color)
-{
-    glClearColor(color.red() / 255.0f, color.green() / 255.0f, color.blue() / 255.0f, color.alpha() / 255.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    draw(rect, matrix, program.get(), GraphicsContext3D::TRIANGLE_FAN, flags);
 }
 
 void TextureMapperGL::drawEdgeTriangles(TextureMapperShaderProgram& program)
 {
-    const GLfloat left = 0;
-    const GLfloat top = 0;
-    const GLfloat right = 1;
-    const GLfloat bottom = 1;
-    const GLfloat center = 0.5;
+    const GC3Dfloat left = 0;
+    const GC3Dfloat top = 0;
+    const GC3Dfloat right = 1;
+    const GC3Dfloat bottom = 1;
+    const GC3Dfloat center = 0.5;
 
 // Each 4d triangle consists of a center point and two edge points, where the zw coordinates
 // of each vertex equals the nearest point to the vertex on the edge.
@@ -546,7 +522,7 @@ void TextureMapperGL::drawEdgeTriangles(TextureMapperShaderProgram& program)
     x2, y2, x2, y2, \
     center, center, (x1 + x2) / 2, (y1 + y2) / 2
 
-    static const GLfloat unitRectSideTriangles[] = {
+    static const GC3Dfloat unitRectSideTriangles[] = {
         SIDE_TRIANGLE_DATA(left, top, right, top),
         SIDE_TRIANGLE_DATA(left, top, left, bottom),
         SIDE_TRIANGLE_DATA(right, top, right, bottom),
@@ -554,41 +530,41 @@ void TextureMapperGL::drawEdgeTriangles(TextureMapperShaderProgram& program)
     };
 #undef SIDE_TRIANGLE_DATA
 
-    GLuint vbo = data().getStaticVBO(GL_ARRAY_BUFFER, sizeof(GC3Dfloat) * 48, unitRectSideTriangles);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glVertexAttribPointer(program.vertexLocation(), 4, GL_FLOAT, false, 0, 0);
-    glDrawArrays(GL_TRIANGLES, 0, 12);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    Platform3DObject vbo = data().getStaticVBO(GraphicsContext3D::ARRAY_BUFFER, sizeof(GC3Dfloat) * 48, unitRectSideTriangles);
+    m_context3D->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, vbo);
+    m_context3D->vertexAttribPointer(program.vertexLocation(), 4, GraphicsContext3D::FLOAT, false, 0, 0);
+    m_context3D->drawArrays(GraphicsContext3D::TRIANGLES, 0, 12);
+    m_context3D->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, 0);
 }
 
-void TextureMapperGL::drawUnitRect(TextureMapperShaderProgram& program, GLenum drawingMode)
+void TextureMapperGL::drawUnitRect(TextureMapperShaderProgram& program, GC3Denum drawingMode)
 {
-    static const GLfloat unitRect[] = { 0, 0, 1, 0, 1, 1, 0, 1 };
-    GLuint vbo = data().getStaticVBO(GL_ARRAY_BUFFER, sizeof(GLfloat) * 8, unitRect);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glVertexAttribPointer(program.vertexLocation(), 2, GL_FLOAT, false, 0, 0);
-    glDrawArrays(drawingMode, 0, 4);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    static const GC3Dfloat unitRect[] = { 0, 0, 1, 0, 1, 1, 0, 1 };
+    Platform3DObject vbo = data().getStaticVBO(GraphicsContext3D::ARRAY_BUFFER, sizeof(GC3Dfloat) * 8, unitRect);
+    m_context3D->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, vbo);
+    m_context3D->vertexAttribPointer(program.vertexLocation(), 2, GraphicsContext3D::FLOAT, false, 0, 0);
+    m_context3D->drawArrays(drawingMode, 0, 4);
+    m_context3D->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, 0);
 }
 
-void TextureMapperGL::draw(const FloatRect& rect, const TransformationMatrix& modelViewMatrix, TextureMapperShaderProgram& program, GLenum drawingMode, Flags flags)
+void TextureMapperGL::draw(const FloatRect& rect, const TransformationMatrix& modelViewMatrix, TextureMapperShaderProgram& program, GC3Denum drawingMode, Flags flags)
 {
     TransformationMatrix matrix(modelViewMatrix);
     matrix.multiply(TransformationMatrix::rectToRect(FloatRect(0, 0, 1, 1), rect));
 
-    glEnableVertexAttribArray(program.vertexLocation());
+    m_context3D->enableVertexAttribArray(program.vertexLocation());
     program.setMatrix(program.modelViewMatrixLocation(), matrix);
     program.setMatrix(program.projectionMatrixLocation(), data().projectionMatrix);
 
     if (isInMaskMode()) {
-        glBlendFunc(GL_ZERO, GL_SRC_ALPHA);
-        glEnable(GL_BLEND);
+        m_context3D->blendFunc(GraphicsContext3D::ZERO, GraphicsContext3D::SRC_ALPHA);
+        m_context3D->enable(GraphicsContext3D::BLEND);
     } else {
         if (flags & ShouldBlend) {
-            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-            glEnable(GL_BLEND);
+            m_context3D->blendFunc(GraphicsContext3D::ONE, GraphicsContext3D::ONE_MINUS_SRC_ALPHA);
+            m_context3D->enable(GraphicsContext3D::BLEND);
         } else
-            glDisable(GL_BLEND);
+            m_context3D->disable(GraphicsContext3D::BLEND);
     }
 
     if (flags & ShouldAntialias)
@@ -596,21 +572,21 @@ void TextureMapperGL::draw(const FloatRect& rect, const TransformationMatrix& mo
     else
         drawUnitRect(program, drawingMode);
 
-    glDisableVertexAttribArray(program.vertexLocation());
-    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_BLEND);
+    m_context3D->disableVertexAttribArray(program.vertexLocation());
+    m_context3D->blendFunc(GraphicsContext3D::ONE, GraphicsContext3D::ONE_MINUS_SRC_ALPHA);
+    m_context3D->enable(GraphicsContext3D::BLEND);
 }
 
 void TextureMapperGL::drawTexturedQuadWithProgram(TextureMapperShaderProgram& program, uint32_t texture, Flags flags, const IntSize& size, const FloatRect& rect, const TransformationMatrix& modelViewMatrix, float opacity)
 {
-    glUseProgram(program.programID());
-    glActiveTexture(GL_TEXTURE0);
-    GLenum target = flags & ShouldUseARBTextureRect ? GLenum(GL_TEXTURE_RECTANGLE_ARB) : GLenum(GL_TEXTURE_2D);
-    glBindTexture(target, texture);
-    glUniform1i(program.samplerLocation(), 0);
-    if (wrapMode() == RepeatWrap && m_contextAttributes.supportsNPOTTextures) {
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    m_context3D->useProgram(program.programID());
+    m_context3D->activeTexture(GraphicsContext3D::TEXTURE0);
+    GC3Denum target = flags & ShouldUseARBTextureRect ? GC3Denum(Extensions3D::TEXTURE_RECTANGLE_ARB) : GC3Denum(GraphicsContext3D::TEXTURE_2D);
+    m_context3D->bindTexture(target, texture);
+    m_context3D->uniform1i(program.samplerLocation(), 0);
+    if (wrapMode() == RepeatWrap && driverSupportsNPOTTextures(*m_context3D)) {
+        m_context3D->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::REPEAT);
+        m_context3D->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_T, GraphicsContext3D::REPEAT);
     }
 
     TransformationMatrix patternTransform = this->patternTransform();
@@ -635,14 +611,14 @@ void TextureMapperGL::drawTexturedQuadWithProgram(TextureMapperShaderProgram& pr
 
     program.setMatrix(program.textureSpaceMatrixLocation(), patternTransform);
     program.setMatrix(program.textureColorSpaceMatrixLocation(), colorSpaceMatrixForFlags(flags));
-    glUniform1f(program.opacityLocation(), opacity);
+    m_context3D->uniform1f(program.opacityLocation(), opacity);
 
     if (opacity < 1)
         flags |= ShouldBlend;
 
-    draw(rect, modelViewMatrix, program, GL_TRIANGLE_FAN, flags);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    draw(rect, modelViewMatrix, program, GraphicsContext3D::TRIANGLE_FAN, flags);
+    m_context3D->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::CLAMP_TO_EDGE);
+    m_context3D->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_T, GraphicsContext3D::CLAMP_TO_EDGE);
 }
 
 void TextureMapperGL::drawFiltered(const BitmapTexture& sampler, const BitmapTexture* contentTexture, const FilterOperation& filter, int pass)
@@ -674,11 +650,11 @@ TextureMapperGL::~TextureMapperGL()
 
 void TextureMapperGL::bindDefaultSurface()
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, data().targetFrameBuffer);
+    m_context3D->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, data().targetFrameBuffer);
     auto& viewport = data().viewport;
     data().projectionMatrix = createProjectionMatrix(IntSize(viewport[2], viewport[3]), data().PaintFlags & PaintingMirrored);
-    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-    m_clipStack.apply();
+    m_context3D->viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    m_clipStack.apply(*m_context3D);
     data().currentSurface = nullptr;
 }
 
@@ -689,7 +665,7 @@ void TextureMapperGL::bindSurface(BitmapTexture *surface)
         return;
     }
 
-    static_cast<BitmapTextureGL*>(surface)->bindAsSurface();
+    static_cast<BitmapTextureGL*>(surface)->bindAsSurface(m_context3D.get());
     data().projectionMatrix = createProjectionMatrix(surface->size(), true /* mirrored */);
     data().currentSurface = surface;
 }
@@ -714,7 +690,7 @@ bool TextureMapperGL::beginScissorClip(const TransformationMatrix& modelViewMatr
         return false;
 
     clipStack().intersect(rect);
-    clipStack().applyIfNeeded();
+    clipStack().applyIfNeeded(*m_context3D);
     return true;
 }
 
@@ -728,12 +704,12 @@ void TextureMapperGL::beginClip(const TransformationMatrix& modelViewMatrix, con
 
     Ref<TextureMapperShaderProgram> program = data().getShaderProgram(TextureMapperShaderProgram::SolidColor);
 
-    glUseProgram(program->programID());
-    glEnableVertexAttribArray(program->vertexLocation());
-    const GLfloat unitRect[] = {0, 0, 1, 0, 1, 1, 0, 1};
-    GLuint vbo = data().getStaticVBO(GL_ARRAY_BUFFER, sizeof(GLfloat) * 8, unitRect);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glVertexAttribPointer(program->vertexLocation(), 2, GL_FLOAT, false, 0, 0);
+    m_context3D->useProgram(program->programID());
+    m_context3D->enableVertexAttribArray(program->vertexLocation());
+    const GC3Dfloat unitRect[] = {0, 0, 1, 0, 1, 1, 0, 1};
+    Platform3DObject vbo = data().getStaticVBO(GraphicsContext3D::ARRAY_BUFFER, sizeof(GC3Dfloat) * 8, unitRect);
+    m_context3D->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, vbo);
+    m_context3D->vertexAttribPointer(program->vertexLocation(), 2, GraphicsContext3D::FLOAT, false, 0, 0);
 
     TransformationMatrix matrix(modelViewMatrix);
     matrix.multiply(TransformationMatrix::rectToRect(FloatRect(0, 0, 1, 1), targetRect));
@@ -742,40 +718,40 @@ void TextureMapperGL::beginClip(const TransformationMatrix& modelViewMatrix, con
 
     int stencilIndex = clipStack().getStencilIndex();
 
-    glEnable(GL_STENCIL_TEST);
+    m_context3D->enable(GraphicsContext3D::STENCIL_TEST);
 
     // Make sure we don't do any actual drawing.
-    glStencilFunc(GL_NEVER, stencilIndex, stencilIndex);
+    m_context3D->stencilFunc(GraphicsContext3D::NEVER, stencilIndex, stencilIndex);
 
     // Operate only on the stencilIndex and above.
-    glStencilMask(0xff & ~(stencilIndex - 1));
+    m_context3D->stencilMask(0xff & ~(stencilIndex - 1));
 
     // First clear the entire buffer at the current index.
     program->setMatrix(program->projectionMatrixLocation(), fullProjectionMatrix);
     program->setMatrix(program->modelViewMatrixLocation(), TransformationMatrix());
-    glStencilOp(GL_ZERO, GL_ZERO, GL_ZERO);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    m_context3D->stencilOp(GraphicsContext3D::ZERO, GraphicsContext3D::ZERO, GraphicsContext3D::ZERO);
+    m_context3D->drawArrays(GraphicsContext3D::TRIANGLE_FAN, 0, 4);
 
     // Now apply the current index to the new quad.
-    glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+    m_context3D->stencilOp(GraphicsContext3D::REPLACE, GraphicsContext3D::REPLACE, GraphicsContext3D::REPLACE);
     program->setMatrix(program->projectionMatrixLocation(), data().projectionMatrix);
     program->setMatrix(program->modelViewMatrixLocation(), matrix);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    m_context3D->drawArrays(GraphicsContext3D::TRIANGLE_FAN, 0, 4);
 
     // Clear the state.
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glDisableVertexAttribArray(program->vertexLocation());
-    glStencilMask(0);
+    m_context3D->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, 0);
+    m_context3D->disableVertexAttribArray(program->vertexLocation());
+    m_context3D->stencilMask(0);
 
     // Increase stencilIndex and apply stencil testing.
     clipStack().setStencilIndex(stencilIndex * 2);
-    clipStack().applyIfNeeded();
+    clipStack().applyIfNeeded(*m_context3D);
 }
 
 void TextureMapperGL::endClip()
 {
     clipStack().pop();
-    clipStack().applyIfNeeded();
+    clipStack().applyIfNeeded(*m_context3D);
 }
 
 IntRect TextureMapperGL::clipBounds()
@@ -783,9 +759,9 @@ IntRect TextureMapperGL::clipBounds()
     return clipStack().current().scissorBox;
 }
 
-Ref<BitmapTexture> TextureMapperGL::createTexture(GLint internalFormat)
+Ref<BitmapTexture> TextureMapperGL::createTexture(GC3Dint internalFormat)
 {
-    return BitmapTextureGL::create(m_contextAttributes, internalFormat);
+    return BitmapTextureGL::create(*m_context3D, internalFormat);
 }
 
 std::unique_ptr<TextureMapper> TextureMapper::platformCreateAccelerated()

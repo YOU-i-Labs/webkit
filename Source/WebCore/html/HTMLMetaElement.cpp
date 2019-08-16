@@ -27,12 +27,8 @@
 #include "Document.h"
 #include "HTMLHeadElement.h"
 #include "HTMLNames.h"
-#include "RuntimeEnabledFeatures.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLMetaElement);
 
 using namespace HTMLNames;
 
@@ -64,17 +60,12 @@ void HTMLMetaElement::parseAttribute(const QualifiedName& name, const AtomicStri
         HTMLElement::parseAttribute(name, value);
 }
 
-Node::InsertedIntoAncestorResult HTMLMetaElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
+Node::InsertionNotificationRequest HTMLMetaElement::insertedInto(ContainerNode& insertionPoint)
 {
-    HTMLElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
-    if (insertionType.connectedToDocument)
-        return InsertedIntoAncestorResult::NeedsPostInsertionCallback;
-    return InsertedIntoAncestorResult::Done;
-}
-
-void HTMLMetaElement::didFinishInsertingNode()
-{
-    process();
+    HTMLElement::insertedInto(insertionPoint);
+    if (insertionPoint.isConnected())
+        process();
+    return InsertionDone;
 }
 
 void HTMLMetaElement::process()
@@ -89,20 +80,14 @@ void HTMLMetaElement::process()
 
     if (equalLettersIgnoringASCIICase(name(), "viewport"))
         document().processViewport(contentValue, ViewportArguments::ViewportMeta);
-    else if (RuntimeEnabledFeatures::sharedFeatures().disabledAdaptationsMetaTagEnabled() && equalLettersIgnoringASCIICase(name(), "disabled-adaptations"))
-        document().processDisabledAdaptations(contentValue);
-#if ENABLE(DARK_MODE_CSS)
-    else if (RuntimeEnabledFeatures::sharedFeatures().darkModeCSSEnabled() && equalLettersIgnoringASCIICase(name(), "supported-color-schemes"))
-        document().processSupportedColorSchemes(contentValue);
-#endif
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     else if (equalLettersIgnoringASCIICase(name(), "format-detection"))
         document().processFormatDetection(contentValue);
     else if (equalLettersIgnoringASCIICase(name(), "apple-mobile-web-app-orientations"))
         document().processWebAppOrientations();
 #endif
     else if (equalLettersIgnoringASCIICase(name(), "referrer"))
-        document().processReferrerPolicy(contentValue, ReferrerPolicySource::MetaTag);
+        document().processReferrerPolicy(contentValue);
 
     const AtomicString& httpEquivValue = attributeWithoutSynchronization(http_equivAttr);
     if (!httpEquivValue.isNull())

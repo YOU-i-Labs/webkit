@@ -27,13 +27,12 @@
 namespace WebCore {
 
 class HTMLEmbedElement final : public HTMLPlugInImageElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLEmbedElement);
 public:
     static Ref<HTMLEmbedElement> create(Document&);
-    static Ref<HTMLEmbedElement> create(const QualifiedName&, Document&);
+    static Ref<HTMLEmbedElement> create(const QualifiedName&, Document&, bool createdByParser);
 
 private:
-    HTMLEmbedElement(const QualifiedName&, Document&);
+    HTMLEmbedElement(const QualifiedName&, Document&, bool createdByParser);
 
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
     bool isPresentationAttribute(const QualifiedName&) const final;

@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef WTF_OSRandomSource_h
+#define WTF_OSRandomSource_h
 
 namespace WTF {
 
@@ -33,3 +34,5 @@ namespace WTF {
 // calling cryptographicallyRandomNumber or cryptographicallyRandomValues.
 void cryptographicallyRandomValuesFromOS(unsigned char* buffer, size_t length);
 }
+
+#endif

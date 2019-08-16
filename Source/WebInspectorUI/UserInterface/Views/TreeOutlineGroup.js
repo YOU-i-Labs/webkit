@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017, 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,18 +23,25 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TreeOutlineGroup = class TreeOutlineGroup extends WI.Collection
+WebInspector.TreeOutlineGroup = class TreeOutlineGroup extends WebInspector.Collection
 {
-    // Public
-
-    objectIsRequiredType(object)
+    constructor()
     {
-        return object instanceof WI.TreeOutline;
+        super((object) => object instanceof WebInspector.TreeOutline);
     }
+
+    // Static
+
+    static groupForTreeOutline(treeOutline)
+    {
+        return treeOutline[WebInspector.TreeOutlineGroup.GroupForTreeOutlineSymbol] || null;
+    }
+
+    // Public
 
     get selectedTreeElement()
     {
-        for (let treeOutline of this) {
+        for (let treeOutline of this.items) {
             if (treeOutline.selectedTreeElement)
                 return treeOutline.selectedTreeElement;
         }
@@ -46,35 +53,44 @@ WI.TreeOutlineGroup = class TreeOutlineGroup extends WI.Collection
 
     itemAdded(treeOutline)
     {
-        if (treeOutline.selectedTreeElement)
-            this._removeConflictingTreeSelections(treeOutline);
+        console.assert(!treeOutline[WebInspector.TreeOutlineGroup.GroupForTreeOutlineSymbol]);
+        treeOutline[WebInspector.TreeOutlineGroup.GroupForTreeOutlineSymbol] = this;
 
-        treeOutline.addEventListener(WI.TreeOutline.Event.SelectionDidChange, this._treeOutlineSelectionDidChange, this);
+        if (treeOutline.selectedTreeElement)
+            this._removeConflictingTreeSelections(treeOutline.selectedTreeElement);
     }
 
     itemRemoved(treeOutline)
     {
-        treeOutline.removeEventListener(null, null, this);
+        console.assert(treeOutline[WebInspector.TreeOutlineGroup.GroupForTreeOutlineSymbol] === this);
+        treeOutline[WebInspector.TreeOutlineGroup.GroupForTreeOutlineSymbol] = null;
+    }
+
+    didSelectTreeElement(treeElement)
+    {
+        // Called by TreeOutline.
+
+        if (!treeElement)
+            return;
+
+        this._removeConflictingTreeSelections(treeElement);
     }
 
     // Private
 
-    _removeConflictingTreeSelections(selectedTreeOutline)
+    _removeConflictingTreeSelections(treeElement)
     {
-        for (let treeOutline of this) {
+        let selectedTreeOutline = treeElement.treeOutline;
+        console.assert(selectedTreeOutline, "Should have a parent tree outline.");
+
+        for (let treeOutline of this.items) {
             if (selectedTreeOutline === treeOutline)
                 continue;
 
-            treeOutline.selectedTreeElement = null;
+            if (treeOutline.selectedTreeElement)
+                treeOutline.selectedTreeElement.deselect();
         }
     }
-
-    _treeOutlineSelectionDidChange(event)
-    {
-        let treeOutline = event.target;
-        if (!treeOutline.selectedTreeElement)
-            return;
-
-        this._removeConflictingTreeSelections(treeOutline);
-    }
 };
+
+WebInspector.TreeOutlineGroup.GroupForTreeOutlineSymbol = Symbol("group-for-tree-outline");

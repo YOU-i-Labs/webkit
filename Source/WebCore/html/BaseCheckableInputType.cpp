@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,12 +32,11 @@
 #include "config.h"
 #include "BaseCheckableInputType.h"
 
-#include "DOMFormData.h"
 #include "FormController.h"
+#include "FormDataList.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "KeyboardEvent.h"
-#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -45,22 +44,19 @@ using namespace HTMLNames;
 
 FormControlState BaseCheckableInputType::saveFormControlState() const
 {
-    ASSERT(element());
-    return { element()->checked() ? "on"_s : "off"_s };
+    return FormControlState(element().checked() ? ASCIILiteral("on") : ASCIILiteral("off"));
 }
 
 void BaseCheckableInputType::restoreFormControlState(const FormControlState& state)
 {
-    ASSERT(element());
-    element()->setChecked(state[0] == "on");
+    element().setChecked(state[0] == "on");
 }
 
-bool BaseCheckableInputType::appendFormData(DOMFormData& formData, bool) const
+bool BaseCheckableInputType::appendFormData(FormDataList& encoding, bool) const
 {
-    ASSERT(element());
-    if (!element()->checked())
+    if (!element().checked())
         return false;
-    formData.append(element()->name(), element()->value());
+    encoding.appendData(element().name(), element().value());
     return true;
 }
 
@@ -68,8 +64,7 @@ void BaseCheckableInputType::handleKeydownEvent(KeyboardEvent& event)
 {
     const String& key = event.keyIdentifier();
     if (key == "U+0020") {
-        ASSERT(element());
-        element()->setActive(true, true);
+        element().setActive(true, true);
         // No setDefaultHandled(), because IE dispatches a keypress in this case
         // and the caller will only dispatch a keypress if we don't call setDefaultHandled().
     }
@@ -93,8 +88,7 @@ void BaseCheckableInputType::accessKeyAction(bool sendMouseEvents)
 {
     InputType::accessKeyAction(sendMouseEvents);
 
-    ASSERT(element());
-    element()->dispatchSimulatedClick(0, sendMouseEvents ? SendMouseUpDownEvents : SendNoEvents);
+    element().dispatchSimulatedClick(0, sendMouseEvents ? SendMouseUpDownEvents : SendNoEvents);
 }
 
 String BaseCheckableInputType::fallbackValue() const
@@ -110,28 +104,12 @@ bool BaseCheckableInputType::storesValueSeparateFromAttribute()
 
 void BaseCheckableInputType::setValue(const String& sanitizedValue, bool, TextFieldEventBehavior)
 {
-    ASSERT(element());
-    element()->setAttributeWithoutSynchronization(valueAttr, sanitizedValue);
+    element().setAttributeWithoutSynchronization(valueAttr, sanitizedValue);
 }
 
 bool BaseCheckableInputType::isCheckable()
 {
     return true;
-}
-
-void BaseCheckableInputType::fireInputAndChangeEvents()
-{
-    if (!element()->isConnected())
-        return;
-
-    if (!shouldSendChangeEventAfterCheckedChanged())
-        return;
-
-    auto protectedThis = makeRef(*this);
-    element()->setTextAsOfLastFormControlChangeEvent(String());
-    element()->dispatchInputEvent();
-    if (auto* element = this->element())
-        element->dispatchFormControlChangeEvent();
 }
 
 } // namespace WebCore

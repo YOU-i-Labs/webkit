@@ -28,8 +28,6 @@
 
 #if ENABLE(CONTENT_EXTENSIONS)
 
-#include "Chrome.h"
-#include "ChromeClient.h"
 #include "CompiledContentExtension.h"
 #include "ContentExtension.h"
 #include "ContentExtensionsDebugging.h"
@@ -39,9 +37,9 @@
 #include "ExtensionStyleSheets.h"
 #include "Frame.h"
 #include "FrameLoaderClient.h"
-#include "Page.h"
+#include "MainFrame.h"
 #include "ResourceLoadInfo.h"
-#include <wtf/URL.h>
+#include "URL.h"
 #include "UserContentController.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
@@ -50,14 +48,19 @@ namespace WebCore {
 
 namespace ContentExtensions {
     
-void ContentExtensionsBackend::addContentExtension(const String& identifier, Ref<CompiledContentExtension> compiledContentExtension, ContentExtension::ShouldCompileCSS shouldCompileCSS)
+void ContentExtensionsBackend::addContentExtension(const String& identifier, RefPtr<CompiledContentExtension> compiledContentExtension)
 {
     ASSERT(!identifier.isEmpty());
     if (identifier.isEmpty())
         return;
-    
-    auto contentExtension = ContentExtension::create(identifier, WTFMove(compiledContentExtension), shouldCompileCSS);
-    m_contentExtensions.set(identifier, WTFMove(contentExtension));
+
+    if (!compiledContentExtension) {
+        removeContentExtension(identifier);
+        return;
+    }
+
+    RefPtr<ContentExtension> extension = ContentExtension::create(identifier, adoptRef(*compiledContentExtension.leakRef()));
+    m_contentExtensions.set(identifier, WTFMove(extension));
 }
 
 void ContentExtensionsBackend::removeContentExtension(const String& identifier)
@@ -70,24 +73,22 @@ void ContentExtensionsBackend::removeAllContentExtensions()
     m_contentExtensions.clear();
 }
 
-std::pair<Vector<Action>, Vector<String>> ContentExtensionsBackend::actionsForResourceLoad(const ResourceLoadInfo& resourceLoadInfo) const
+Vector<Action> ContentExtensionsBackend::actionsForResourceLoad(const ResourceLoadInfo& resourceLoadInfo) const
 {
 #if CONTENT_EXTENSIONS_PERFORMANCE_REPORTING
-    MonotonicTime addedTimeStart = MonotonicTime::now();
+    double addedTimeStart = monotonicallyIncreasingTime();
 #endif
-    if (m_contentExtensions.isEmpty()
-        || !resourceLoadInfo.resourceURL.isValid()
-        || resourceLoadInfo.resourceURL.protocolIsData())
-        return { };
+    if (resourceLoadInfo.resourceURL.protocolIsData())
+        return Vector<Action>();
 
     const String& urlString = resourceLoadInfo.resourceURL.string();
-    ASSERT_WITH_MESSAGE(urlString.isAllASCII(), "A decoded URL should only contain ASCII characters. The matching algorithm assumes the input is ASCII.");
-    const auto urlCString = urlString.utf8();
+    ASSERT_WITH_MESSAGE(urlString.containsOnlyASCII(), "A decoded URL should only contain ASCII characters. The matching algorithm assumes the input is ASCII.");
+    const CString& urlCString = urlString.utf8();
 
     Vector<Action> finalActions;
-    Vector<String> stylesheetIdentifiers;
     ResourceFlags flags = resourceLoadInfo.getResourceFlags();
     for (auto& contentExtension : m_contentExtensions.values()) {
+        RELEASE_ASSERT(contentExtension);
         const CompiledContentExtension& compiledExtension = contentExtension->compiledExtension();
         
         DFABytecodeInterpreter withoutConditionsInterpreter(compiledExtension.filtersWithoutConditionsBytecode(), compiledExtension.filtersWithoutConditionsBytecodeLength());
@@ -127,20 +128,16 @@ std::pair<Vector<Action>, Vector<String>> ContentExtensionsBackend::actionsForRe
                 finalActions.append(action);
             }
         }
-        if (!sawIgnorePreviousRules)
-            stylesheetIdentifiers.append(contentExtension->identifier());
+        if (!sawIgnorePreviousRules) {
+            finalActions.append(Action(ActionType::CSSDisplayNoneStyleSheet, contentExtension->identifier()));
+            finalActions.last().setExtensionIdentifier(contentExtension->identifier());
+        }
     }
 #if CONTENT_EXTENSIONS_PERFORMANCE_REPORTING
-    MonotonicTime addedTimeEnd = MonotonicTime::now();
-    dataLogF("Time added: %f microseconds %s \n", (addedTimeEnd - addedTimeStart).microseconds(), resourceLoadInfo.resourceURL.string().utf8().data());
+    double addedTimeEnd = monotonicallyIncreasingTime();
+    dataLogF("Time added: %f microseconds %s \n", (addedTimeEnd - addedTimeStart) * 1.0e6, resourceLoadInfo.resourceURL.string().utf8().data());
 #endif
-    return { WTFMove(finalActions), WTFMove(stylesheetIdentifiers) };
-}
-
-void ContentExtensionsBackend::forEach(const WTF::Function<void(const String&, ContentExtension&)>& apply)
-{
-    for (auto& pair : m_contentExtensions)
-        apply(pair.key, pair.value);
+    return finalActions;
 }
 
 StyleSheetContents* ContentExtensionsBackend::globalDisplayNoneStyleSheet(const String& identifier) const
@@ -169,13 +166,12 @@ BlockedStatus ContentExtensionsBackend::processContentExtensionRulesForLoad(cons
     }
 
     ResourceLoadInfo resourceLoadInfo = { url, mainDocumentURL, resourceType };
-    auto actions = actionsForResourceLoad(resourceLoadInfo);
+    Vector<ContentExtensions::Action> actions = actionsForResourceLoad(resourceLoadInfo);
 
     bool willBlockLoad = false;
     bool willBlockCookies = false;
     bool willMakeHTTPS = false;
-    HashSet<std::pair<String, String>> notifications;
-    for (const auto& action : actions.first) {
+    for (const auto& action : actions) {
         switch (action.type()) {
         case ContentExtensions::ActionType::BlockLoad:
             willBlockLoad = true;
@@ -189,73 +185,38 @@ BlockedStatus ContentExtensionsBackend::processContentExtensionRulesForLoad(cons
             else if (currentDocument)
                 currentDocument->extensionStyleSheets().addDisplayNoneSelector(action.extensionIdentifier(), action.stringArgument(), action.actionID());
             break;
-        case ContentExtensions::ActionType::Notify:
-            notifications.add(std::make_pair(action.extensionIdentifier(), action.stringArgument()));
+        case ContentExtensions::ActionType::CSSDisplayNoneStyleSheet: {
+            StyleSheetContents* styleSheetContents = globalDisplayNoneStyleSheet(action.stringArgument());
+            if (styleSheetContents) {
+                if (resourceType == ResourceType::Document)
+                    initiatingDocumentLoader.addPendingContentExtensionSheet(action.stringArgument(), *styleSheetContents);
+                else if (currentDocument)
+                    currentDocument->extensionStyleSheets().maybeAddContentExtensionSheet(action.stringArgument(), *styleSheetContents);
+            }
             break;
+        }
         case ContentExtensions::ActionType::MakeHTTPS: {
             if ((url.protocolIs("http") || url.protocolIs("ws"))
-                && (!url.port() || WTF::isDefaultPortForProtocol(url.port().value(), url.protocol())))
+                && (!url.port() || isDefaultPortForProtocol(url.port().value(), url.protocol())))
                 willMakeHTTPS = true;
             break;
         }
         case ContentExtensions::ActionType::IgnorePreviousRules:
+        case ContentExtensions::ActionType::InvalidAction:
             RELEASE_ASSERT_NOT_REACHED();
-        }
-    }
-
-    for (const auto& identifier : actions.second) {
-        if (auto* styleSheetContents = globalDisplayNoneStyleSheet(identifier)) {
-            if (resourceType == ResourceType::Document)
-                initiatingDocumentLoader.addPendingContentExtensionSheet(identifier, *styleSheetContents);
-            else if (currentDocument)
-                currentDocument->extensionStyleSheets().maybeAddContentExtensionSheet(identifier, *styleSheetContents);
         }
     }
 
     if (currentDocument) {
         if (willMakeHTTPS) {
             ASSERT(url.protocolIs("http") || url.protocolIs("ws"));
-            String newProtocol = url.protocolIs("http") ? "https"_s : "wss"_s;
+            String newProtocol = url.protocolIs("http") ? ASCIILiteral("https") : ASCIILiteral("wss");
             currentDocument->addConsoleMessage(MessageSource::ContentBlocker, MessageLevel::Info, makeString("Content blocker promoted URL from ", url.string(), " to ", newProtocol));
         }
         if (willBlockLoad)
             currentDocument->addConsoleMessage(MessageSource::ContentBlocker, MessageLevel::Info, makeString("Content blocker prevented frame displaying ", mainDocumentURL.string(), " from loading a resource from ", url.string()));
     }
-    return { willBlockLoad, willBlockCookies, willMakeHTTPS, WTFMove(notifications) };
-}
-
-BlockedStatus ContentExtensionsBackend::processContentExtensionRulesForPingLoad(const URL& url, const URL& mainDocumentURL)
-{
-    if (m_contentExtensions.isEmpty())
-        return { };
-
-    ResourceLoadInfo resourceLoadInfo = { url, mainDocumentURL, ResourceType::Raw };
-    auto actions = actionsForResourceLoad(resourceLoadInfo);
-
-    bool willBlockLoad = false;
-    bool willBlockCookies = false;
-    bool willMakeHTTPS = false;
-    for (const auto& action : actions.first) {
-        switch (action.type()) {
-        case ContentExtensions::ActionType::BlockLoad:
-            willBlockLoad = true;
-            break;
-        case ContentExtensions::ActionType::BlockCookies:
-            willBlockCookies = true;
-            break;
-        case ContentExtensions::ActionType::MakeHTTPS:
-            if ((url.protocolIs("http") || url.protocolIs("ws")) && (!url.port() || WTF::isDefaultPortForProtocol(url.port().value(), url.protocol())))
-                willMakeHTTPS = true;
-            break;
-        case ContentExtensions::ActionType::CSSDisplayNoneSelector:
-        case ContentExtensions::ActionType::Notify:
-            break;
-        case ContentExtensions::ActionType::IgnorePreviousRules:
-            RELEASE_ASSERT_NOT_REACHED();
-        }
-    }
-
-    return { willBlockLoad, willBlockCookies, willMakeHTTPS, { } };
+    return { willBlockLoad, willBlockCookies, willMakeHTTPS };
 }
 
 const String& ContentExtensionsBackend::displayNoneCSSRule()
@@ -264,23 +225,20 @@ const String& ContentExtensionsBackend::displayNoneCSSRule()
     return rule;
 }
 
-void applyBlockedStatusToRequest(const BlockedStatus& status, Page* page, ResourceRequest& request)
+void applyBlockedStatusToRequest(const BlockedStatus& status, ResourceRequest& request)
 {
-    if (page && !status.notifications.isEmpty())
-        page->chrome().client().contentRuleListNotification(request.url(), status.notifications);
-
     if (status.blockedCookies)
         request.setAllowCookies(false);
 
     if (status.madeHTTPS) {
         const URL& originalURL = request.url();
         ASSERT(originalURL.protocolIs("http"));
-        ASSERT(!originalURL.port() || WTF::isDefaultPortForProtocol(originalURL.port().value(), originalURL.protocol()));
+        ASSERT(!originalURL.port() || isDefaultPortForProtocol(originalURL.port().value(), originalURL.protocol()));
 
         URL newURL = originalURL;
         newURL.setProtocol("https");
         if (originalURL.port())
-            newURL.setPort(WTF::defaultPortForProtocol("https").value());
+            newURL.setPort(defaultPortForProtocol("https").value());
         request.setURL(newURL);
     }
 }

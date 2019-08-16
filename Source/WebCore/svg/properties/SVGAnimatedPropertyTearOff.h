@@ -41,24 +41,32 @@ public:
     Ref<PropertyTearOff> baseVal()
     {
         if (m_baseVal)
-            return *static_cast<PropertyTearOff*>(m_baseVal.get());
+            return *m_baseVal;
 
         auto property = PropertyTearOff::create(*this, BaseValRole, m_property);
-        m_baseVal = makeWeakPtr(property.get());
+        m_baseVal = property.ptr();
         return property;
     }
 
     Ref<PropertyTearOff> animVal()
     {
         if (m_animVal)
-            return *static_cast<PropertyTearOff*>(m_animVal.get());
+            return *m_animVal;
 
         auto property = PropertyTearOff::create(*this, AnimValRole, m_property);
-        m_animVal = makeWeakPtr(property.get());
+        m_animVal = property.ptr();
         return property;
     }
 
     bool isAnimating() const final { return m_animatedProperty; }
+
+    void propertyWillBeDeleted(const SVGProperty& property) final
+    {
+        if (&property == m_baseVal)
+            m_baseVal = nullptr;
+        else if (&property == m_animVal)
+            m_animVal = nullptr;
+    }
 
     PropertyType& currentAnimatedValue()
     {
@@ -98,11 +106,6 @@ public:
         ASSERT(isAnimating());
     }
 
-    void synchronizeWrappersIfNeeded()
-    {
-        // no-op
-    }
-
 private:
     SVGAnimatedPropertyTearOff(SVGElement* contextElement, const QualifiedName& attributeName, AnimatedPropertyType animatedPropertyType, PropertyType& property)
         : SVGAnimatedProperty(contextElement, attributeName, animatedPropertyType)
@@ -111,8 +114,8 @@ private:
     }
 
     PropertyType& m_property;
-    WeakPtr<SVGPropertyTearOff<PropertyType>> m_baseVal;
-    WeakPtr<SVGPropertyTearOff<PropertyType>> m_animVal;
+    PropertyTearOff* m_baseVal { nullptr };
+    PropertyTearOff* m_animVal { nullptr };
 
     RefPtr<PropertyTearOff> m_animatedProperty;
 };

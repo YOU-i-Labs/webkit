@@ -46,7 +46,7 @@ public:
         Box
     };
 
-    virtual ~ClipPathOperation() = default;
+    virtual ~ClipPathOperation() { }
 
     virtual bool operator==(const ClipPathOperation&) const = 0;
     bool operator!=(const ClipPathOperation& o) const { return !(*this == o); }
@@ -120,7 +120,7 @@ private:
     explicit ShapeClipPathOperation(Ref<BasicShape>&& shape)
         : ClipPathOperation(Shape)
         , m_shape(WTFMove(shape))
-        , m_referenceBox(CSSBoxType::BoxMissing)
+        , m_referenceBox(BoxMissing)
     {
     }
 

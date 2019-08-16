@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Andy VanWagoner (andy@vanwagoner.family)
+ * Copyright (C) 2015 Andy VanWagoner (thetalecrafter@gmail.com)
  * Copyright (C) 2016 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,23 +66,19 @@ IntlDateTimeFormatConstructor* IntlDateTimeFormatConstructor::create(VM& vm, Str
 
 Structure* IntlDateTimeFormatConstructor::createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
 {
-    return Structure::create(vm, globalObject, prototype, TypeInfo(InternalFunctionType, StructureFlags), info());
+    return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
 }
 
-static EncodedJSValue JSC_HOST_CALL callIntlDateTimeFormat(ExecState*);
-static EncodedJSValue JSC_HOST_CALL constructIntlDateTimeFormat(ExecState*);
-
 IntlDateTimeFormatConstructor::IntlDateTimeFormatConstructor(VM& vm, Structure* structure)
-    : InternalFunction(vm, structure, callIntlDateTimeFormat, constructIntlDateTimeFormat)
+    : InternalFunction(vm, structure)
 {
 }
 
 void IntlDateTimeFormatConstructor::finishCreation(VM& vm, IntlDateTimeFormatPrototype* dateTimeFormatPrototype, Structure* dateTimeFormatStructure)
 {
-    Base::finishCreation(vm, "DateTimeFormat"_s);
-    putDirectWithoutTransition(vm, vm.propertyNames->prototype, dateTimeFormatPrototype, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
-    putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(0), PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum);
-    dateTimeFormatPrototype->putDirectWithoutTransition(vm, vm.propertyNames->constructor, this, static_cast<unsigned>(PropertyAttribute::DontEnum));
+    Base::finishCreation(vm, ASCIILiteral("DateTimeFormat"));
+    putDirectWithoutTransition(vm, vm.propertyNames->prototype, dateTimeFormatPrototype, DontEnum | DontDelete | ReadOnly);
+    putDirectWithoutTransition(vm, vm.propertyNames->length, jsNumber(0), ReadOnly | DontEnum | DontDelete);
     m_dateTimeFormatStructure.set(vm, this, dateTimeFormatStructure);
 }
 
@@ -127,6 +123,18 @@ static EncodedJSValue JSC_HOST_CALL callIntlDateTimeFormat(ExecState* state)
     }));
 }
 
+ConstructType IntlDateTimeFormatConstructor::getConstructData(JSCell*, ConstructData& constructData)
+{
+    constructData.native.function = constructIntlDateTimeFormat;
+    return ConstructType::Host;
+}
+
+CallType IntlDateTimeFormatConstructor::getCallData(JSCell*, CallData& callData)
+{
+    callData.native.function = callIntlDateTimeFormat;
+    return CallType::Host;
+}
+
 EncodedJSValue JSC_HOST_CALL IntlDateTimeFormatConstructorFuncSupportedLocalesOf(ExecState* state)
 {
     VM& vm = state->vm();
@@ -134,7 +142,7 @@ EncodedJSValue JSC_HOST_CALL IntlDateTimeFormatConstructorFuncSupportedLocalesOf
     // 12.2.2 Intl.DateTimeFormat.supportedLocalesOf(locales [, options]) (ECMA-402 2.0)
 
     // 1. Let availableLocales be %DateTimeFormat%.[[availableLocales]].
-    JSGlobalObject* globalObject = state->jsCallee()->globalObject(vm);
+    JSGlobalObject* globalObject = state->jsCallee()->globalObject();
     const HashSet<String> availableLocales = globalObject->intlDateTimeFormatAvailableLocales();
 
     // 2. Let requestedLocales be CanonicalizeLocaleList(locales).
@@ -142,7 +150,8 @@ EncodedJSValue JSC_HOST_CALL IntlDateTimeFormatConstructorFuncSupportedLocalesOf
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
     // 3. Return SupportedLocales(availableLocales, requestedLocales, options).
-    RELEASE_AND_RETURN(scope, JSValue::encode(supportedLocales(*state, availableLocales, requestedLocales, state->argument(1))));
+    scope.release();
+    return JSValue::encode(supportedLocales(*state, availableLocales, requestedLocales, state->argument(1)));
 }
 
 void IntlDateTimeFormatConstructor::visitChildren(JSCell* cell, SlotVisitor& visitor)

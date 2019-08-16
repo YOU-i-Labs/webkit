@@ -23,14 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.HeapAllocationsTimelineRecord = class HeapAllocationsTimelineRecord extends WI.TimelineRecord
+WebInspector.HeapAllocationsTimelineRecord = class HeapAllocationsTimelineRecord extends WebInspector.TimelineRecord
 {
     constructor(timestamp, heapSnapshot)
     {
-        super(WI.TimelineRecord.Type.HeapAllocations, timestamp, timestamp);
+        super(WebInspector.TimelineRecord.Type.HeapAllocations, timestamp, timestamp);
 
         console.assert(typeof timestamp === "number");
-        console.assert(heapSnapshot instanceof WI.HeapSnapshotProxy);
+        console.assert(heapSnapshot instanceof WebInspector.HeapSnapshotProxy);
 
         this._timestamp = timestamp;
         this._heapSnapshot = heapSnapshot;

@@ -68,6 +68,7 @@ private:
     void handleNode()
     {
         switch (m_node->op()) {
+        case GetByVal:
         case AtomicsAdd:
         case AtomicsAnd:
         case AtomicsCompareExchange:
@@ -80,11 +81,6 @@ private:
         case HasIndexedProperty:
             lowerBoundsCheck(m_graph.child(m_node, 0), m_graph.child(m_node, 1), m_graph.child(m_node, 2));
             break;
-
-        case GetByVal: {
-            lowerBoundsCheck(m_graph.varArgChild(m_node, 0), m_graph.varArgChild(m_node, 1), m_graph.varArgChild(m_node, 2));
-            break;
-        }
             
         case PutByVal:
         case PutByValDirect: {

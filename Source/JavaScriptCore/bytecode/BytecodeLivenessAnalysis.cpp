@@ -40,33 +40,52 @@ namespace JSC {
 BytecodeLivenessAnalysis::BytecodeLivenessAnalysis(CodeBlock* codeBlock)
     : m_graph(codeBlock, codeBlock->instructions())
 {
-    runLivenessFixpoint(codeBlock, codeBlock->instructions(), m_graph);
-
-    if (Options::dumpBytecodeLivenessResults())
-        dumpResults(codeBlock);
+    compute();
 }
 
-void BytecodeLivenessAnalysis::getLivenessInfoAtBytecodeOffset(CodeBlock* codeBlock, unsigned bytecodeOffset, FastBitVector& result)
+template<typename Functor>
+void BytecodeLivenessAnalysis::computeDefsForBytecodeOffset(CodeBlock* codeBlock, OpcodeID opcodeID, Instruction* instruction, FastBitVector&, const Functor& functor)
+{
+    JSC::computeDefsForBytecodeOffset(codeBlock, opcodeID, instruction, functor);
+}
+
+template<typename Functor>
+void BytecodeLivenessAnalysis::computeUsesForBytecodeOffset(CodeBlock* codeBlock, OpcodeID opcodeID, Instruction* instruction, FastBitVector&, const Functor& functor)
+{
+    JSC::computeUsesForBytecodeOffset(codeBlock, opcodeID, instruction, functor);
+}
+
+void BytecodeLivenessAnalysis::getLivenessInfoAtBytecodeOffset(unsigned bytecodeOffset, FastBitVector& result)
 {
     BytecodeBasicBlock* block = m_graph.findBasicBlockForBytecodeOffset(bytecodeOffset);
     ASSERT(block);
     ASSERT(!block->isEntryBlock());
     ASSERT(!block->isExitBlock());
     result.resize(block->out().numBits());
-    computeLocalLivenessForBytecodeOffset(codeBlock, codeBlock->instructions(), m_graph, block, bytecodeOffset, result);
+    computeLocalLivenessForBytecodeOffset(m_graph, block, bytecodeOffset, result);
 }
 
-FastBitVector BytecodeLivenessAnalysis::getLivenessInfoAtBytecodeOffset(CodeBlock* codeBlock, unsigned bytecodeOffset)
+bool BytecodeLivenessAnalysis::operandIsLiveAtBytecodeOffset(int operand, unsigned bytecodeOffset)
+{
+    if (operandIsAlwaysLive(operand))
+        return true;
+    FastBitVector result;
+    getLivenessInfoAtBytecodeOffset(bytecodeOffset, result);
+    return operandThatIsNotAlwaysLiveIsLive(result, operand);
+}
+
+FastBitVector BytecodeLivenessAnalysis::getLivenessInfoAtBytecodeOffset(unsigned bytecodeOffset)
 {
     FastBitVector out;
-    getLivenessInfoAtBytecodeOffset(codeBlock, bytecodeOffset, out);
+    getLivenessInfoAtBytecodeOffset(bytecodeOffset, out);
     return out;
 }
 
-void BytecodeLivenessAnalysis::computeFullLiveness(CodeBlock* codeBlock, FullBytecodeLiveness& result)
+void BytecodeLivenessAnalysis::computeFullLiveness(FullBytecodeLiveness& result)
 {
     FastBitVector out;
-
+    CodeBlock* codeBlock = m_graph.codeBlock();
+    
     result.m_map.resize(codeBlock->instructions().size());
     
     for (std::unique_ptr<BytecodeBasicBlock>& block : m_graph.basicBlocksInReverseOrder()) {
@@ -77,19 +96,19 @@ void BytecodeLivenessAnalysis::computeFullLiveness(CodeBlock* codeBlock, FullByt
         
         for (unsigned i = block->offsets().size(); i--;) {
             unsigned bytecodeOffset = block->offsets()[i];
-            stepOverInstruction(codeBlock, codeBlock->instructions(), m_graph, bytecodeOffset, out);
+            stepOverInstruction(m_graph, bytecodeOffset, out);
             result.m_map[bytecodeOffset] = out;
         }
     }
 }
 
-void BytecodeLivenessAnalysis::computeKills(CodeBlock* codeBlock, BytecodeKills& result)
+void BytecodeLivenessAnalysis::computeKills(BytecodeKills& result)
 {
-    UNUSED_PARAM(result);
     FastBitVector out;
-
+    
+    CodeBlock* codeBlock = m_graph.codeBlock();
     result.m_codeBlock = codeBlock;
-    result.m_killSets = makeUniqueArray<BytecodeKills::KillSet>(codeBlock->instructions().size());
+    result.m_killSets = std::make_unique<BytecodeKills::KillSet[]>(codeBlock->instructions().size());
     
     for (std::unique_ptr<BytecodeBasicBlock>& block : m_graph.basicBlocksInReverseOrder()) {
         if (block->isEntryBlock() || block->isExitBlock())
@@ -100,7 +119,7 @@ void BytecodeLivenessAnalysis::computeKills(CodeBlock* codeBlock, BytecodeKills&
         for (unsigned i = block->offsets().size(); i--;) {
             unsigned bytecodeOffset = block->offsets()[i];
             stepOverInstruction(
-                codeBlock, codeBlock->instructions(), m_graph, bytecodeOffset,
+                m_graph, bytecodeOffset, out,
                 [&] (unsigned index) {
                     // This is for uses.
                     if (out[index])
@@ -116,10 +135,11 @@ void BytecodeLivenessAnalysis::computeKills(CodeBlock* codeBlock, BytecodeKills&
     }
 }
 
-void BytecodeLivenessAnalysis::dumpResults(CodeBlock* codeBlock)
+void BytecodeLivenessAnalysis::dumpResults()
 {
+    CodeBlock* codeBlock = m_graph.codeBlock();
     dataLog("\nDumping bytecode liveness for ", *codeBlock, ":\n");
-    const auto& instructions = codeBlock->instructions();
+    Instruction* instructionsBegin = codeBlock->instructions().begin();
     unsigned i = 0;
 
     unsigned numberOfBlocks = m_graph.size();
@@ -167,15 +187,17 @@ void BytecodeLivenessAnalysis::dumpResults(CodeBlock* codeBlock)
             continue;
         }
         for (unsigned bytecodeOffset = block->leaderOffset(); bytecodeOffset < block->leaderOffset() + block->totalLength();) {
-            const auto currentInstruction = instructions.at(bytecodeOffset);
+            const Instruction* currentInstruction = &instructionsBegin[bytecodeOffset];
 
             dataLogF("Live variables:");
-            FastBitVector liveBefore = getLivenessInfoAtBytecodeOffset(codeBlock, bytecodeOffset);
+            FastBitVector liveBefore = getLivenessInfoAtBytecodeOffset(bytecodeOffset);
             dumpBitVector(liveBefore);
             dataLogF("\n");
-            codeBlock->dumpBytecode(WTF::dataFile(), currentInstruction);
+            codeBlock->dumpBytecode(WTF::dataFile(), instructionsBegin, currentInstruction);
 
-            bytecodeOffset += currentInstruction->size();
+            OpcodeID opcodeID = Interpreter::getOpcodeID(instructionsBegin[bytecodeOffset].u.opcode);
+            unsigned opcodeLength = opcodeLengths[opcodeID];
+            bytecodeOffset += opcodeLength;
         }
 
         dataLogF("Live variables:");
@@ -183,6 +205,14 @@ void BytecodeLivenessAnalysis::dumpResults(CodeBlock* codeBlock)
         dumpBitVector(liveAfter);
         dataLogF("\n");
     }
+}
+
+void BytecodeLivenessAnalysis::compute()
+{
+    runLivenessFixpoint(m_graph);
+
+    if (Options::dumpBytecodeLivenessResults())
+        dumpResults();
 }
 
 } // namespace JSC

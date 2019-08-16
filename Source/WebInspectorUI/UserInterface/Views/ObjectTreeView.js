@@ -23,20 +23,20 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ObjectTreeView = class ObjectTreeView extends WI.Object
+WebInspector.ObjectTreeView = class ObjectTreeView extends WebInspector.Object
 {
     constructor(object, mode, propertyPath, forceExpanding)
     {
         super();
 
-        console.assert(object instanceof WI.RemoteObject);
-        console.assert(!propertyPath || propertyPath instanceof WI.PropertyPath);
+        console.assert(object instanceof WebInspector.RemoteObject);
+        console.assert(!propertyPath || propertyPath instanceof WebInspector.PropertyPath);
 
-        var providedPropertyPath = propertyPath instanceof WI.PropertyPath;
+        var providedPropertyPath = propertyPath instanceof WebInspector.PropertyPath;
 
         this._object = object;
-        this._mode = mode || WI.ObjectTreeView.defaultModeForObject(object);
-        this._propertyPath = propertyPath || new WI.PropertyPath(this._object, "this");
+        this._mode = mode || WebInspector.ObjectTreeView.defaultModeForObject(object);
+        this._propertyPath = propertyPath || new WebInspector.PropertyPath(this._object, "this");
         this._expanded = false;
         this._hasLosslessPreview = false;
         this._includeProtoProperty = true;
@@ -54,7 +54,7 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
         this._element.className = "object-tree";
 
         if (this._object.preview) {
-            this._previewView = new WI.ObjectPreviewView(this._object.preview);
+            this._previewView = new WebInspector.ObjectPreviewView(this._object.preview);
             this._previewView.setOriginatingObjectInfo(this._object, providedPropertyPath ? propertyPath : null);
             this._previewView.element.addEventListener("click", this._handlePreviewOrTitleElementClick.bind(this));
             this._element.appendChild(this._previewView.element);
@@ -66,12 +66,12 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
         } else {
             this._titleElement = document.createElement("span");
             this._titleElement.className = "title";
-            this._titleElement.appendChild(WI.FormattedValue.createElementForRemoteObject(this._object));
+            this._titleElement.appendChild(WebInspector.FormattedValue.createElementForRemoteObject(this._object));
             this._titleElement.addEventListener("click", this._handlePreviewOrTitleElementClick.bind(this));
             this._element.appendChild(this._titleElement);
         }
 
-        this._outline = new WI.TreeOutline;
+        this._outline = new WebInspector.TreeOutline;
         this._outline.compact = true;
         this._outline.customIndent = true;
         this._outline.element.classList.add("object");
@@ -85,9 +85,9 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
     static defaultModeForObject(object)
     {
         if (object.subtype === "class")
-            return WI.ObjectTreeView.Mode.ClassAPI;
+            return WebInspector.ObjectTreeView.Mode.ClassAPI;
 
-        return WI.ObjectTreeView.Mode.Properties;
+        return WebInspector.ObjectTreeView.Mode.Properties;
     }
 
     static createEmptyMessageElement(message)
@@ -150,7 +150,7 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
                         return chunkb.length - chunka.length;
                 }
             } else if (chunka !== chunkb)
-                return chunka < chunkb ? -1 : 1;
+                return (chunka < chunkb) ? -1 : 1;
             a = a.substring(chunka.length);
             b = b.substring(chunkb.length);
         }
@@ -246,17 +246,12 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
 
     update()
     {
-        const options = {
-            ownProperties: true,
-            generatePreview: true,
-        };
-
-        if (this._object.isCollectionType() && this._mode === WI.ObjectTreeView.Mode.Properties)
+        if (this._object.isCollectionType() && this._mode === WebInspector.ObjectTreeView.Mode.Properties)
             this._object.getCollectionEntries(0, 100, this._updateChildren.bind(this, this._updateEntries));
         else if (this._object.isClass())
             this._object.classPrototype.getDisplayablePropertyDescriptors(this._updateChildren.bind(this, this._updateProperties));
-        else if (this._mode === WI.ObjectTreeView.Mode.PureAPI)
-            this._object.getPropertyDescriptors(this._updateChildren.bind(this, this._updateProperties), options);
+        else if (this._mode === WebInspector.ObjectTreeView.Mode.PureAPI)
+            this._object.getOwnPropertyDescriptors(this._updateChildren.bind(this, this._updateProperties));
         else
             this._object.getDisplayablePropertyDescriptors(this._updateChildren.bind(this, this._updateProperties));
     }
@@ -268,35 +263,35 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
         this._outline.removeChildren();
 
         if (!list) {
-            var errorMessageElement = WI.ObjectTreeView.createEmptyMessageElement(WI.UIString("Could not fetch properties. Object may no longer exist."));
-            this._outline.appendChild(new WI.TreeElement(errorMessageElement, null, false));
+            var errorMessageElement = WebInspector.ObjectTreeView.createEmptyMessageElement(WebInspector.UIString("Could not fetch properties. Object may no longer exist."));
+            this._outline.appendChild(new WebInspector.TreeElement(errorMessageElement, null, false));
             return;
         }
 
         handler.call(this, list, this._propertyPath);
 
-        this.dispatchEventToListeners(WI.ObjectTreeView.Event.Updated);
+        this.dispatchEventToListeners(WebInspector.ObjectTreeView.Event.Updated);
     }
 
     _updateEntries(entries, propertyPath)
     {
         for (var entry of entries) {
             if (entry.key) {
-                this._outline.appendChild(new WI.ObjectTreeMapKeyTreeElement(entry.key, propertyPath));
-                this._outline.appendChild(new WI.ObjectTreeMapValueTreeElement(entry.value, propertyPath, entry.key));
+                this._outline.appendChild(new WebInspector.ObjectTreeMapKeyTreeElement(entry.key, propertyPath));
+                this._outline.appendChild(new WebInspector.ObjectTreeMapValueTreeElement(entry.value, propertyPath, entry.key));
             } else
-                this._outline.appendChild(new WI.ObjectTreeSetIndexTreeElement(entry.value, propertyPath));
+                this._outline.appendChild(new WebInspector.ObjectTreeSetIndexTreeElement(entry.value, propertyPath));
         }
 
         if (!this._outline.children.length) {
-            var emptyMessageElement = WI.ObjectTreeView.createEmptyMessageElement(WI.UIString("No Entries"));
-            this._outline.appendChild(new WI.TreeElement(emptyMessageElement, null, false));
+            var emptyMessageElement = WebInspector.ObjectTreeView.createEmptyMessageElement(WebInspector.UIString("No Entries"));
+            this._outline.appendChild(new WebInspector.TreeElement(emptyMessageElement, null, false));
         }
 
         // Show the prototype so users can see the API.
         this._object.getOwnPropertyDescriptor("__proto__", (propertyDescriptor) => {
             if (propertyDescriptor)
-                this._outline.appendChild(new WI.ObjectTreePropertyTreeElement(propertyDescriptor, propertyPath, this._mode));
+                this._outline.appendChild(new WebInspector.ObjectTreePropertyTreeElement(propertyDescriptor, propertyPath, this._mode));
         });
     }
 
@@ -305,10 +300,10 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
         if (this._extraProperties)
             properties = properties.concat(this._extraProperties);
 
-        properties.sort(WI.ObjectTreeView.comparePropertyDescriptors);
+        properties.sort(WebInspector.ObjectTreeView.comparePropertyDescriptors);
 
         var isArray = this._object.isArray();
-        var isPropertyMode = this._mode === WI.ObjectTreeView.Mode.Properties;
+        var isPropertyMode = this._mode === WebInspector.ObjectTreeView.Mode.Properties;
 
         var hadProto = false;
         for (var propertyDescriptor of properties) {
@@ -324,16 +319,16 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
 
             if (isArray && isPropertyMode) {
                 if (propertyDescriptor.isIndexProperty())
-                    this._outline.appendChild(new WI.ObjectTreeArrayIndexTreeElement(propertyDescriptor, propertyPath));
+                    this._outline.appendChild(new WebInspector.ObjectTreeArrayIndexTreeElement(propertyDescriptor, propertyPath));
                 else if (propertyDescriptor.name === "__proto__")
-                    this._outline.appendChild(new WI.ObjectTreePropertyTreeElement(propertyDescriptor, propertyPath, this._mode, this._prototypeNameOverride));
+                    this._outline.appendChild(new WebInspector.ObjectTreePropertyTreeElement(propertyDescriptor, propertyPath, this._mode, this._prototypeNameOverride));
             } else
-                this._outline.appendChild(new WI.ObjectTreePropertyTreeElement(propertyDescriptor, propertyPath, this._mode, this._prototypeNameOverride));
+                this._outline.appendChild(new WebInspector.ObjectTreePropertyTreeElement(propertyDescriptor, propertyPath, this._mode, this._prototypeNameOverride));
         }
 
         if (!this._outline.children.length || (hadProto && this._outline.children.length === 1)) {
-            var emptyMessageElement = WI.ObjectTreeView.createEmptyMessageElement(WI.UIString("No Properties"));
-            this._outline.insertChild(new WI.TreeElement(emptyMessageElement, null, false), 0);
+            var emptyMessageElement = WebInspector.ObjectTreeView.createEmptyMessageElement(WebInspector.UIString("No Properties"));
+            this._outline.insertChild(new WebInspector.TreeElement(emptyMessageElement, null, false), 0);
         }
     }
 
@@ -361,8 +356,8 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
         this._trackingEntries = true;
 
         if (this._inConsole) {
-            WI.consoleManager.addEventListener(WI.ConsoleManager.Event.Cleared, this._untrackWeakEntries, this);
-            WI.consoleManager.addEventListener(WI.ConsoleManager.Event.SessionStarted, this._untrackWeakEntries, this);
+            WebInspector.logManager.addEventListener(WebInspector.LogManager.Event.Cleared, this._untrackWeakEntries, this);
+            WebInspector.logManager.addEventListener(WebInspector.LogManager.Event.SessionStarted, this._untrackWeakEntries, this);
         }
     }
 
@@ -379,8 +374,8 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
         this._object.releaseWeakCollectionEntries();
 
         if (this._inConsole) {
-            WI.consoleManager.removeEventListener(WI.ConsoleManager.Event.Cleared, this._untrackWeakEntries, this);
-            WI.consoleManager.removeEventListener(WI.ConsoleManager.Event.SessionStarted, this._untrackWeakEntries, this);
+            WebInspector.logManager.removeEventListener(WebInspector.LogManager.Event.Cleared, this._untrackWeakEntries, this);
+            WebInspector.logManager.removeEventListener(WebInspector.LogManager.Event.SessionStarted, this._untrackWeakEntries, this);
         }
 
         // FIXME: This only tries to release weak entries if this object was a WeakMap.
@@ -389,13 +384,13 @@ WI.ObjectTreeView = class ObjectTreeView extends WI.Object
     }
 };
 
-WI.ObjectTreeView.Mode = {
+WebInspector.ObjectTreeView.Mode = {
     Properties: Symbol("object-tree-properties"),      // Properties
     PrototypeAPI: Symbol("object-tree-prototype-api"), // API view on a live object instance, so getters can be invoked.
     ClassAPI: Symbol("object-tree-class-api"),         // API view without an object instance, can not invoke getters.
     PureAPI: Symbol("object-tree-pure-api"),           // API view without special displayable property handling, just own properties. Getters can be invoked if the property path has a non-prototype object.
 };
 
-WI.ObjectTreeView.Event = {
+WebInspector.ObjectTreeView.Event = {
     Updated: "object-tree-updated",
 };

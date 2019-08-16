@@ -28,12 +28,12 @@
  */
 
 #include "config.h"
-#include <wtf/CryptographicallyRandomNumber.h>
+#include "CryptographicallyRandomNumber.h"
 
+#include "NeverDestroyed.h"
+#include "OSRandomSource.h"
 #include <mutex>
 #include <wtf/Lock.h>
-#include <wtf/NeverDestroyed.h>
-#include <wtf/OSRandomSource.h>
 
 namespace WTF {
 
@@ -159,13 +159,7 @@ void ARC4RandomNumberGenerator::randomValues(void* buffer, size_t length)
 
 ARC4RandomNumberGenerator& sharedRandomNumberGenerator()
 {
-    static LazyNeverDestroyed<ARC4RandomNumberGenerator> randomNumberGenerator;
-    static std::once_flag onceFlag;
-    std::call_once(
-        onceFlag,
-        [] {
-            randomNumberGenerator.construct();
-        });
+    static NeverDestroyed<ARC4RandomNumberGenerator> randomNumberGenerator;
 
     return randomNumberGenerator;
 }

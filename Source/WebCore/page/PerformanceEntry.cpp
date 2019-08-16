@@ -31,6 +31,8 @@
 #include "config.h"
 #include "PerformanceEntry.h"
 
+#if ENABLE(WEB_TIMING)
+
 #include "RuntimeEnabledFeatures.h"
 
 namespace WebCore {
@@ -44,26 +46,30 @@ PerformanceEntry::PerformanceEntry(Type type, const String& name, const String& 
 {
 }
 
-PerformanceEntry::~PerformanceEntry() = default;
+PerformanceEntry::~PerformanceEntry()
+{
+}
 
-Optional<PerformanceEntry::Type> PerformanceEntry::parseEntryTypeString(const String& entryType)
+std::optional<PerformanceEntry::Type> PerformanceEntry::parseEntryTypeString(const String& entryType)
 {
     if (entryType == "navigation")
-        return Optional<Type>(Type::Navigation);
+        return std::optional<Type>(Type::Navigation);
 
     if (RuntimeEnabledFeatures::sharedFeatures().userTimingEnabled()) {
         if (entryType == "mark")
-            return Optional<Type>(Type::Mark);
+            return std::optional<Type>(Type::Mark);
         if (entryType == "measure")
-            return Optional<Type>(Type::Measure);
+            return std::optional<Type>(Type::Measure);
     }
 
     if (RuntimeEnabledFeatures::sharedFeatures().resourceTimingEnabled()) {
         if (entryType == "resource")
-            return Optional<Type>(Type::Resource);
+            return std::optional<Type>(Type::Resource);
     }
 
-    return WTF::nullopt;
+    return std::nullopt;
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_TIMING)

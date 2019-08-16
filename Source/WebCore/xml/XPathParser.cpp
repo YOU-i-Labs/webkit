@@ -28,7 +28,9 @@
 #include "config.h"
 #include "XPathParser.h"
 
+#include "ExceptionCode.h"
 #include "XPathEvaluator.h"
+#include "XPathException.h"
 #include "XPathNSResolver.h"
 #include "XPathPath.h"
 #include "XPathStep.h"
@@ -36,7 +38,10 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringHash.h>
 
-extern int xpathyyparse(WebCore::XPath::Parser&);
+using namespace WebCore;
+using namespace XPath;
+
+extern int xpathyyparse(Parser&);
 
 #include "XPathGrammar.h"
 
@@ -74,7 +79,7 @@ static XMLCat charCat(UChar character)
     return NotPartOfName;
 }
 
-static HashMap<String, Step::Axis> createAxisNamesMap()
+static void populateAxisNamesMap(HashMap<String, Step::Axis>& axisNames)
 {
     struct AxisName {
         const char* name;
@@ -95,15 +100,16 @@ static HashMap<String, Step::Axis> createAxisNamesMap()
         { "preceding-sibling", Step::PrecedingSiblingAxis },
         { "self", Step::SelfAxis }
     };
-    HashMap<String, Step::Axis> map;
     for (auto& axisName : axisNameList)
-        map.add(axisName.name, axisName.axis);
-    return map;
+        axisNames.add(axisName.name, axisName.axis);
 }
 
 static bool parseAxisName(const String& name, Step::Axis& type)
 {
-    static const auto axisNames = makeNeverDestroyed(createAxisNamesMap());
+    static NeverDestroyed<HashMap<String, Step::Axis>> axisNames;
+    if (axisNames.get().isEmpty())
+        populateAxisNamesMap(axisNames);
+
     auto it = axisNames.get().find(name);
     if (it == axisNames.get().end())
         return false;
@@ -454,10 +460,10 @@ ExceptionOr<std::unique_ptr<Expression>> Parser::parseStatement(const String& st
     int parseError = xpathyyparse(parser);
 
     if (parser.m_sawNamespaceError)
-        return Exception { NamespaceError };
+        return Exception { NAMESPACE_ERR };
 
     if (parseError)
-        return Exception { SyntaxError };
+        return Exception { XPathException::INVALID_EXPRESSION_ERR };
 
     return WTFMove(parser.m_result);
 }

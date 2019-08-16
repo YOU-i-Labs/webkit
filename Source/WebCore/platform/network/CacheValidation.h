@@ -25,11 +25,11 @@
 
 #pragma once
 
-#include <pal/SessionID.h>
-#include <wtf/Markable.h>
+#include "PlatformExportMacros.h"
+#include "SessionID.h"
+#include <chrono>
 #include <wtf/Optional.h>
 #include <wtf/Vector.h>
-#include <wtf/WallTime.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -39,21 +39,21 @@ class ResourceRequest;
 class ResourceResponse;
 
 struct RedirectChainCacheStatus {
-    enum class Status : uint8_t {
+    enum Status {
         NoRedirection,
         NotCachedRedirection,
         CachedRedirection
     };
     RedirectChainCacheStatus()
-        : endOfValidity(WallTime::infinity())
-        , status(Status::NoRedirection)
+        : status(NoRedirection)
+        , endOfValidity(std::chrono::system_clock::time_point::max())
     { }
-    WallTime endOfValidity;
     Status status;
+    std::chrono::system_clock::time_point endOfValidity;
 };
 
-WEBCORE_EXPORT Seconds computeCurrentAge(const ResourceResponse&, WallTime responseTimestamp);
-WEBCORE_EXPORT Seconds computeFreshnessLifetimeForHTTPFamily(const ResourceResponse&, WallTime responseTimestamp);
+WEBCORE_EXPORT std::chrono::microseconds computeCurrentAge(const ResourceResponse&, std::chrono::system_clock::time_point responseTimestamp);
+WEBCORE_EXPORT std::chrono::microseconds computeFreshnessLifetimeForHTTPFamily(const ResourceResponse&, std::chrono::system_clock::time_point responseTimestamp);
 WEBCORE_EXPORT void updateResponseHeadersAfterRevalidation(ResourceResponse&, const ResourceResponse& validatingResponse);
 WEBCORE_EXPORT void updateRedirectChainStatus(RedirectChainCacheStatus&, const ResourceResponse&);
 
@@ -61,24 +61,17 @@ enum ReuseExpiredRedirectionOrNot { DoNotReuseExpiredRedirection, ReuseExpiredRe
 WEBCORE_EXPORT bool redirectChainAllowsReuse(RedirectChainCacheStatus, ReuseExpiredRedirectionOrNot);
 
 struct CacheControlDirectives {
-    constexpr CacheControlDirectives()
-        : noCache(false)
-        , noStore(false)
-        , mustRevalidate(false)
-        , immutable(false)
-        { }
-
-    Markable<Seconds, Seconds::MarkableTraits> maxAge;
-    Markable<Seconds, Seconds::MarkableTraits> maxStale;
-    bool noCache : 1;
-    bool noStore : 1;
-    bool mustRevalidate : 1;
-    bool immutable : 1;
+    std::optional<std::chrono::microseconds> maxAge;
+    std::optional<std::chrono::microseconds> maxStale;
+    bool noCache { false };
+    bool noStore { false };
+    bool mustRevalidate { false };
+    bool immutable { false };
 };
 WEBCORE_EXPORT CacheControlDirectives parseCacheControlDirectives(const HTTPHeaderMap&);
 
-WEBCORE_EXPORT Vector<std::pair<String, String>> collectVaryingRequestHeaders(const ResourceRequest&, const ResourceResponse&, PAL::SessionID = PAL::SessionID::defaultSessionID());
-WEBCORE_EXPORT bool verifyVaryingRequestHeaders(const Vector<std::pair<String, String>>& varyingRequestHeaders, const ResourceRequest&, PAL::SessionID = PAL::SessionID::defaultSessionID());
+WEBCORE_EXPORT Vector<std::pair<String, String>> collectVaryingRequestHeaders(const ResourceRequest&, const ResourceResponse&, SessionID = SessionID::defaultSessionID());
+WEBCORE_EXPORT bool verifyVaryingRequestHeaders(const Vector<std::pair<String, String>>& varyingRequestHeaders, const ResourceRequest&, SessionID = SessionID::defaultSessionID());
 
 WEBCORE_EXPORT bool isStatusCodeCacheableByDefault(int statusCode);
 WEBCORE_EXPORT bool isStatusCodePotentiallyCacheable(int statusCode);

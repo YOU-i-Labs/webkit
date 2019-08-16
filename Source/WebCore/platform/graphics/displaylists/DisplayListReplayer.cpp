@@ -29,7 +29,7 @@
 #include "DisplayListItems.h"
 #include "GraphicsContext.h"
 #include "Logging.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 namespace DisplayList {
@@ -40,7 +40,9 @@ Replayer::Replayer(GraphicsContext& context, const DisplayList& displayList)
 {
 }
 
-Replayer::~Replayer() = default;
+Replayer::~Replayer()
+{
+}
 
 std::unique_ptr<DisplayList> Replayer::replay(const FloatRect& initialClip, bool trackReplayList)
 {
@@ -55,7 +57,7 @@ std::unique_ptr<DisplayList> Replayer::replay(const FloatRect& initialClip, bool
     for (size_t i = 0; i < numItems; ++i) {
         auto& item = m_displayList.list()[i].get();
 
-        if (!initialClip.isZero() && is<DrawingItem>(item)) {
+        if (is<DrawingItem>(item)) {
             const DrawingItem& drawingItem = downcast<DrawingItem>(item);
             if (drawingItem.extentKnown() && !drawingItem.extent().intersects(initialClip)) {
                 LOG_WITH_STREAM(DisplayLists, stream << "skipping " << i << " " << item);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,15 +35,24 @@ namespace WebCore {
 
 struct ApplePayPayment;
 
-class WEBCORE_EXPORT Payment {
+class Payment {
 public:
-    Payment();
-    explicit Payment(RetainPtr<PKPayment>&&);
-    virtual ~Payment();
+    Payment()
+    {
+    }
 
-    virtual ApplePayPayment toApplePayPayment(unsigned version) const;
+    explicit Payment(PKPayment *pkPayment)
+        : m_pkPayment(pkPayment)
+    {
+    }
 
-    PKPayment *pkPayment() const;
+    ~Payment()
+    {
+    }
+
+    ApplePayPayment toApplePayPayment() const;
+
+    PKPayment *pkPayment() const { return m_pkPayment.get(); }
 
 private:
     RetainPtr<PKPayment> m_pkPayment;

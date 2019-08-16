@@ -29,7 +29,6 @@
 #include "config.h"
 #include "DebuggerCallFrame.h"
 
-#include "CatchScope.h"
 #include "CodeBlock.h"
 #include "DebuggerEvalEnabler.h"
 #include "DebuggerScope.h"
@@ -57,8 +56,8 @@ public:
     unsigned column() const { return m_column; }
 
 private:
-    mutable unsigned m_line { 0 };
-    mutable unsigned m_column { 0 };
+    mutable unsigned m_line;
+    mutable unsigned m_column;
 };
 
 Ref<DebuggerCallFrame> DebuggerCallFrame::create(VM& vm, CallFrame* callFrame)
@@ -118,8 +117,7 @@ JSC::JSGlobalObject* DebuggerCallFrame::vmEntryGlobalObject() const
     ASSERT(isValid());
     if (!isValid())
         return nullptr;
-    VM& vm = m_validMachineFrame->vm();
-    return vm.vmEntryGlobalObject(m_validMachineFrame);
+    return m_validMachineFrame->vmEntryGlobalObject();
 }
 
 SourceID DebuggerCallFrame::sourceID() const
@@ -232,7 +230,7 @@ JSValue DebuggerCallFrame::evaluateWithScopeExtension(const String& script, JSOb
     if (!codeBlock)
         return jsUndefined();
     
-    DebuggerEvalEnabler evalEnabler(callFrame, DebuggerEvalEnabler::Mode::EvalOnCallFrameAtDebuggerEntry);
+    DebuggerEvalEnabler evalEnabler(callFrame);
 
     EvalContextType evalContextType;
     
@@ -253,10 +251,10 @@ JSValue DebuggerCallFrame::evaluateWithScopeExtension(const String& script, JSOb
         return jsUndefined();
     }
 
-    JSGlobalObject* globalObject = vm.vmEntryGlobalObject(callFrame);
+    JSGlobalObject* globalObject = callFrame->vmEntryGlobalObject();
     if (scopeExtensionObject) {
         JSScope* ignoredPreviousScope = globalObject->globalScope();
-        globalObject->setGlobalScopeExtension(JSWithScope::create(vm, globalObject, ignoredPreviousScope, scopeExtensionObject));
+        globalObject->setGlobalScopeExtension(JSWithScope::create(vm, globalObject, scopeExtensionObject, ignoredPreviousScope));
     }
 
     JSValue thisValue = this->thisValue();
@@ -293,7 +291,7 @@ TextPosition DebuggerCallFrame::currentPosition(VM& vm)
 
     if (isTailDeleted()) {
         CodeBlock* codeBlock = m_shadowChickenFrame.codeBlock;
-        if (Optional<unsigned> bytecodeOffset = codeBlock->bytecodeOffsetFromCallSiteIndex(m_shadowChickenFrame.callSiteIndex)) {
+        if (std::optional<unsigned> bytecodeOffset = codeBlock->bytecodeOffsetFromCallSiteIndex(m_shadowChickenFrame.callSiteIndex)) {
             return TextPosition(OrdinalNumber::fromOneBasedInt(codeBlock->lineNumberForBytecodeOffset(*bytecodeOffset)),
                 OrdinalNumber::fromOneBasedInt(codeBlock->columnNumberForBytecodeOffset(*bytecodeOffset)));
         }

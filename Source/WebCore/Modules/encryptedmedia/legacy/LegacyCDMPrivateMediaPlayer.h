@@ -31,26 +31,26 @@
 
 namespace WebCore {
 
-class LegacyCDM;
+class CDM;
 
 class CDMPrivateMediaPlayer : public CDMPrivateInterface {
 public:
-    explicit CDMPrivateMediaPlayer(LegacyCDM* cdm)
+    explicit CDMPrivateMediaPlayer(CDM* cdm)
         : m_cdm(cdm)
     { }
 
     static bool supportsKeySystem(const String&);
     static bool supportsKeySystemAndMimeType(const String& keySystem, const String& mimeType);
 
-    virtual ~CDMPrivateMediaPlayer() = default;
+    virtual ~CDMPrivateMediaPlayer() { }
 
     bool supportsMIMEType(const String& mimeType) override;
-    std::unique_ptr<LegacyCDMSession> createSession(LegacyCDMSessionClient*) override;
+    std::unique_ptr<CDMSession> createSession(CDMSessionClient*) override;
 
-    LegacyCDM* cdm() const { return m_cdm; }
+    CDM* cdm() const { return m_cdm; }
 
 protected:
-    LegacyCDM* m_cdm;
+    CDM* m_cdm;
 };
 
 } // namespace WebCore

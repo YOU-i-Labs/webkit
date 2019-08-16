@@ -36,7 +36,9 @@ OESStandardDerivatives::OESStandardDerivatives(WebGLRenderingContextBase& contex
 {
 }
 
-OESStandardDerivatives::~OESStandardDerivatives() = default;
+OESStandardDerivatives::~OESStandardDerivatives()
+{
+}
 
 WebGLExtension::ExtensionName OESStandardDerivatives::getName() const
 {

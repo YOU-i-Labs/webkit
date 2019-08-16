@@ -26,7 +26,7 @@
 #pragma once
 
 #include "SegmentedString.h"
-#include <wtf/text/OrdinalNumber.h>
+#include <wtf/text/TextPosition.h>
 
 namespace WebCore {
 

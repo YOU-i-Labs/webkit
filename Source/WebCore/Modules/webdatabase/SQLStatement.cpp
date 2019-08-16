@@ -83,7 +83,9 @@ SQLStatement::SQLStatement(Database& database, const String& statement, Vector<S
 {
 }
 
-SQLStatement::~SQLStatement() = default;
+SQLStatement::~SQLStatement()
+{
+}
 
 SQLError* SQLStatement::sqlError() const
 {
@@ -145,7 +147,7 @@ bool SQLStatement::execute(Database& db)
         }
     }
 
-    auto resultSet = SQLResultSet::create();
+    RefPtr<SQLResultSet> resultSet = SQLResultSet::create();
 
     // Step so we can fetch the column names.
     result = statement.step();
@@ -193,7 +195,7 @@ bool SQLStatement::execute(Database& db)
     // For now, this seems sufficient
     resultSet->setRowsAffected(database.lastChanges());
 
-    m_resultSet = WTFMove(resultSet);
+    m_resultSet = resultSet;
     return true;
 }
 

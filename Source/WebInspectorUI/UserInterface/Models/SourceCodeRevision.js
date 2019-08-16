@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SourceCodeRevision = class SourceCodeRevision extends WI.Revision
+WebInspector.SourceCodeRevision = class SourceCodeRevision extends WebInspector.Revision
 {
     constructor(sourceCode, content)
     {
         super();
 
-        console.assert(sourceCode instanceof WI.SourceCode);
+        console.assert(sourceCode instanceof WebInspector.SourceCode);
 
         this._sourceCode = sourceCode;
         this._content = content || "";
@@ -71,6 +71,6 @@ WI.SourceCodeRevision = class SourceCodeRevision extends WI.Revision
 
     copy()
     {
-        return new WI.SourceCodeRevision(this._sourceCode, this._content);
+        return new WebInspector.SourceCodeRevision(this._sourceCode, this._content);
     }
 };

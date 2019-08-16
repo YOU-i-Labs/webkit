@@ -26,7 +26,6 @@ namespace WebCore {
 
 // SVGAnimateElement implements superset of the functionality.
 class SVGSetElement final : public SVGAnimateElementBase {
-    WTF_MAKE_ISO_ALLOCATED(SVGSetElement);
 public:
     static Ref<SVGSetElement> create(const QualifiedName&, Document&);
 

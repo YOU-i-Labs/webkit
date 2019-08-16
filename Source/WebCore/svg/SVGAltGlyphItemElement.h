@@ -22,12 +22,11 @@
 #if ENABLE(SVG_FONTS)
 
 #include "SVGElement.h"
-#include <wtf/Forward.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
 class SVGAltGlyphItemElement final : public SVGElement {
-    WTF_MAKE_ISO_ALLOCATED(SVGAltGlyphItemElement);
 public:
     static Ref<SVGAltGlyphItemElement> create(const QualifiedName&, Document&);
 

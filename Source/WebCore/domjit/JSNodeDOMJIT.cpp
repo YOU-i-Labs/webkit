@@ -33,12 +33,13 @@
 #include "DOMJITHelpers.h"
 #include "JSDOMWrapper.h"
 #include "Node.h"
-#include <JavaScriptCore/FrameTracers.h>
-#include <JavaScriptCore/Snippet.h>
-#include <JavaScriptCore/SnippetParams.h>
+#include <interpreter/FrameTracers.h>
+#include <jit/Snippet.h>
+#include <jit/SnippetParams.h>
+
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 
 Ref<JSC::Snippet> checkSubClassSnippetForJSNode()
 {
@@ -80,42 +81,42 @@ static Ref<JSC::DOMJIT::CallDOMGetterSnippet> createCallDOMGetterForOffsetAccess
     return snippet;
 }
 
-Ref<JSC::DOMJIT::CallDOMGetterSnippet> compileNodeFirstChildAttribute()
+Ref<JSC::DOMJIT::CallDOMGetterSnippet> NodeFirstChildDOMJIT::callDOMGetter()
 {
     auto snippet = createCallDOMGetterForOffsetAccess<Node>(CAST_OFFSET(Node*, ContainerNode*) + ContainerNode::firstChildMemoryOffset(), IsContainerGuardRequirement::Required);
     snippet->effect = JSC::DOMJIT::Effect::forDef(DOMJIT::AbstractHeapRepository::Node_firstChild);
     return snippet;
 }
 
-Ref<JSC::DOMJIT::CallDOMGetterSnippet> compileNodeLastChildAttribute()
+Ref<JSC::DOMJIT::CallDOMGetterSnippet> NodeLastChildDOMJIT::callDOMGetter()
 {
     auto snippet = createCallDOMGetterForOffsetAccess<Node>(CAST_OFFSET(Node*, ContainerNode*) + ContainerNode::lastChildMemoryOffset(), IsContainerGuardRequirement::Required);
     snippet->effect = JSC::DOMJIT::Effect::forDef(DOMJIT::AbstractHeapRepository::Node_lastChild);
     return snippet;
 }
 
-Ref<JSC::DOMJIT::CallDOMGetterSnippet> compileNodeNextSiblingAttribute()
+Ref<JSC::DOMJIT::CallDOMGetterSnippet> NodeNextSiblingDOMJIT::callDOMGetter()
 {
     auto snippet = createCallDOMGetterForOffsetAccess<Node>(Node::nextSiblingMemoryOffset(), IsContainerGuardRequirement::NotRequired);
     snippet->effect = JSC::DOMJIT::Effect::forDef(DOMJIT::AbstractHeapRepository::Node_nextSibling);
     return snippet;
 }
 
-Ref<JSC::DOMJIT::CallDOMGetterSnippet> compileNodePreviousSiblingAttribute()
+Ref<JSC::DOMJIT::CallDOMGetterSnippet> NodePreviousSiblingDOMJIT::callDOMGetter()
 {
     auto snippet = createCallDOMGetterForOffsetAccess<Node>(Node::previousSiblingMemoryOffset(), IsContainerGuardRequirement::NotRequired);
     snippet->effect = JSC::DOMJIT::Effect::forDef(DOMJIT::AbstractHeapRepository::Node_previousSibling);
     return snippet;
 }
 
-Ref<JSC::DOMJIT::CallDOMGetterSnippet> compileNodeParentNodeAttribute()
+Ref<JSC::DOMJIT::CallDOMGetterSnippet> NodeParentNodeDOMJIT::callDOMGetter()
 {
     auto snippet = createCallDOMGetterForOffsetAccess<ContainerNode>(Node::parentNodeMemoryOffset(), IsContainerGuardRequirement::NotRequired);
     snippet->effect = JSC::DOMJIT::Effect::forDef(DOMJIT::AbstractHeapRepository::Node_parentNode);
     return snippet;
 }
 
-Ref<JSC::DOMJIT::CallDOMGetterSnippet> compileNodeNodeTypeAttribute()
+Ref<JSC::DOMJIT::CallDOMGetterSnippet> NodeNodeTypeDOMJIT::callDOMGetter()
 {
     Ref<JSC::DOMJIT::CallDOMGetterSnippet> snippet = JSC::DOMJIT::CallDOMGetterSnippet::create();
     snippet->effect = JSC::DOMJIT::Effect::forPure();
@@ -131,7 +132,7 @@ Ref<JSC::DOMJIT::CallDOMGetterSnippet> compileNodeNodeTypeAttribute()
     return snippet;
 }
 
-Ref<JSC::DOMJIT::CallDOMGetterSnippet> compileNodeOwnerDocumentAttribute()
+Ref<JSC::DOMJIT::CallDOMGetterSnippet> NodeOwnerDocumentDOMJIT::callDOMGetter()
 {
     Ref<JSC::DOMJIT::CallDOMGetterSnippet> snippet = JSC::DOMJIT::CallDOMGetterSnippet::create();
     snippet->numGPScratchRegisters = 2;

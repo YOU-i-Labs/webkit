@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,9 +31,7 @@
 #include "WasmOps.h"
 #include <cstdint>
 #include <cstring>
-#include <wtf/CheckedArithmetic.h>
 #include <wtf/HashMap.h>
-#include <wtf/HashSet.h>
 #include <wtf/HashTraits.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -45,10 +43,12 @@ class PrintStream;
 
 namespace JSC {
 
+class VM;
+
 namespace Wasm {
 
 using SignatureArgCount = uint32_t;
-using SignatureIndex = uint64_t;
+using SignatureIndex = uint32_t;
 
 class Signature : public ThreadSafeRefCounted<Signature> {
     WTF_MAKE_FAST_ALLOCATED;
@@ -66,9 +66,9 @@ class Signature : public ThreadSafeRefCounted<Signature> {
         return i + reinterpret_cast<Type*>(reinterpret_cast<char*>(this) + sizeof(Signature));
     }
     Type* storage(SignatureArgCount i) const { return const_cast<Signature*>(this)->storage(i); }
-    static size_t allocatedSize(Checked<SignatureArgCount> argCount)
+    static size_t allocatedSize(SignatureArgCount argCount)
     {
-        return (sizeof(Signature) + (s_retCount + argCount) * sizeof(Type)).unsafeGet();
+        return sizeof(Signature) + (s_retCount + argCount) * sizeof(Type);
     }
 
 public:
@@ -82,7 +82,6 @@ public:
         return *storage(returnCount() + i);
     }
     Type argument(SignatureArgCount i) const { return const_cast<Signature*>(this)->argument(i); }
-    SignatureIndex index() const { return bitwise_cast<SignatureIndex>(this); }
 
     WTF::String toString() const;
     void dump(WTF::PrintStream& out) const;
@@ -104,6 +103,7 @@ public:
 
     // Signatures are uniqued and, for call_indirect, validated at runtime. Tables can create invalid SignatureIndex values which cause call_indirect to fail. We use 0 as the invalidIndex so that the codegen can easily test for it and trap, and we add a token invalid entry in SignatureInformation.
     static const constexpr SignatureIndex invalidIndex = 0;
+    static const constexpr SignatureIndex firstValidIndex = invalidIndex + 1;
 
 private:
     friend class SignatureInformation;
@@ -112,21 +112,28 @@ private:
 };
 
 struct SignatureHash {
-    RefPtr<Signature> key { nullptr };
-    SignatureHash() = default;
-    explicit SignatureHash(Ref<Signature>&& key)
-        : key(WTFMove(key))
+    const Signature* key;
+    static const Signature* empty() { return nullptr; }
+    static const Signature* deleted() { return reinterpret_cast<const Signature*>(1); }
+    SignatureHash()
+        : key(empty())
     {
     }
+    explicit SignatureHash(const Signature* key)
+        : key(key)
+    {
+        ASSERT(key != empty());
+        ASSERT(key != deleted());
+    }
     explicit SignatureHash(WTF::HashTableDeletedValueType)
-        : key(WTF::HashTableDeletedValue)
+        : key(deleted())
     {
     }
     bool operator==(const SignatureHash& rhs) const { return equal(*this, rhs); }
     static bool equal(const SignatureHash& lhs, const SignatureHash& rhs) { return lhs.key == rhs.key || (lhs.key && rhs.key && *lhs.key == *rhs.key); }
-    static unsigned hash(const SignatureHash& signature) { return signature.key ? signature.key->hash() : 0; }
+    static unsigned hash(const SignatureHash& signature) { return signature.key->hash(); }
     static const bool safeToCompareToEmptyOrDeleted = false;
-    bool isHashTableDeletedValue() const { return key.isHashTableDeletedValue(); }
+    bool isHashTableDeletedValue() const { return key == deleted(); }
 };
 
 } } // namespace JSC::Wasm
@@ -149,7 +156,7 @@ template<> struct HashTraits<JSC::Wasm::SignatureHash> : SimpleClassHashTraits<J
 
 namespace JSC { namespace Wasm {
 
-// Signature information is held globally and shared by the entire process to allow all signatures to be unique. This is required when wasm calls another wasm instance, and must work when modules are shared between multiple VMs.
+// Signature information is held globally and shared by VMs to allow all signatures to be unique. This is required when wasm calls another wasm instance, and must work when modules are shared between multiple VMs.
 // Note: signatures are never removed because that would require accounting for all WebAssembly.Module and which signatures they use. The maximum number of signatures is bounded, and isn't worth the counting overhead. We could clear everything when we reach zero outstanding WebAssembly.Module. https://bugs.webkit.org/show_bug.cgi?id=166037
 class SignatureInformation {
     WTF_MAKE_NONCOPYABLE(SignatureInformation);
@@ -159,17 +166,16 @@ class SignatureInformation {
 public:
     static SignatureInformation& singleton();
 
-    static Ref<Signature> WARN_UNUSED_RETURN adopt(Ref<Signature>&&);
+    static std::pair<SignatureIndex, Ref<Signature>> WARN_UNUSED_RETURN adopt(Ref<Signature>&&);
     static const Signature& WARN_UNUSED_RETURN get(SignatureIndex);
     static SignatureIndex WARN_UNUSED_RETURN get(const Signature&);
     static void tryCleanup();
 
 private:
-    HashSet<Wasm::SignatureHash> m_signatureSet;
+    HashMap<Wasm::SignatureHash, Wasm::SignatureIndex> m_signatureMap;
+    HashMap<Wasm::SignatureIndex, Ref<Signature>> m_indexMap;
+    SignatureIndex m_nextIndex { Signature::firstValidIndex };
     Lock m_lock;
-
-    JS_EXPORT_PRIVATE static SignatureInformation* theOne;
-    JS_EXPORT_PRIVATE static std::once_flag signatureInformationFlag;
 };
 
 } } // namespace JSC::Wasm

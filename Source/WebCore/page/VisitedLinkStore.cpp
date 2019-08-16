@@ -59,7 +59,7 @@ void VisitedLinkStore::invalidateStylesForAllLinks()
         page->invalidateStylesForAllLinks();
 }
 
-void VisitedLinkStore::invalidateStylesForLink(SharedStringHash linkHash)
+void VisitedLinkStore::invalidateStylesForLink(LinkHash linkHash)
 {
     for (auto& page : m_pages)
         page->invalidateStylesForLink(linkHash);

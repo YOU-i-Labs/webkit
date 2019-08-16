@@ -29,19 +29,8 @@
 
 namespace WebCore {
 
-Ref<ApplicationCacheResource> ApplicationCacheResource::create(const URL& url, const ResourceResponse& response, unsigned type, RefPtr<SharedBuffer>&& buffer, const String& path)
-{
-    ASSERT(!url.hasFragmentIdentifier());
-    if (!buffer)
-        buffer = SharedBuffer::create();
-    auto resourceResponse = response;
-    resourceResponse.setSource(ResourceResponse::Source::ApplicationCache);
-
-    return adoptRef(*new ApplicationCacheResource(URL { url }, WTFMove(resourceResponse), type, buffer.releaseNonNull(), path));
-}
-
-ApplicationCacheResource::ApplicationCacheResource(URL&& url, ResourceResponse&& response, unsigned type, Ref<SharedBuffer>&& data, const String& path)
-    : SubstituteResource(WTFMove(url), WTFMove(response), WTFMove(data))
+ApplicationCacheResource::ApplicationCacheResource(const URL& url, const ResourceResponse& response, unsigned type, Ref<SharedBuffer>&& data, const String& path)
+    : SubstituteResource(url, response, WTFMove(data))
     , m_type(type)
     , m_storageID(0)
     , m_estimatedSizeInStorage(0)

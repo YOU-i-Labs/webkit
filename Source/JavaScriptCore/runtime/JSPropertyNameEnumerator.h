@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "JSCast.h"
+#include "JSCell.h"
 #include "Operations.h"
 #include "PropertyNameArray.h"
 #include "Structure.h"
@@ -108,12 +108,12 @@ inline JSPropertyNameEnumerator* propertyNameEnumerator(ExecState* exec, JSObjec
     Structure* structure = base->structure(vm);
     if (!indexedLength
         && (enumerator = structure->cachedPropertyNameEnumerator())
-        && enumerator->cachedPrototypeChain() == structure->prototypeChain(exec, base))
+        && enumerator->cachedPrototypeChain() == structure->prototypeChain(exec))
         return enumerator;
 
     uint32_t numberStructureProperties = 0;
 
-    PropertyNameArray propertyNames(&vm, PropertyNameMode::Strings, PrivateSymbolMode::Exclude);
+    PropertyNameArray propertyNames(exec, PropertyNameMode::Strings);
 
     if (structure->canAccessPropertiesQuicklyForEnumeration() && indexedLength == base->getArrayLength()) {
         base->methodTable(vm)->getStructurePropertyNames(base, exec, propertyNames, EnumerationMode());
@@ -122,26 +122,23 @@ inline JSPropertyNameEnumerator* propertyNameEnumerator(ExecState* exec, JSObjec
         numberStructureProperties = propertyNames.size();
 
         base->methodTable(vm)->getGenericPropertyNames(base, exec, propertyNames, EnumerationMode());
+        scope.assertNoException();
     } else {
         // Generic property names vector contains all indexed property names.
         // So disable indexed property enumeration phase by setting |indexedLength| to 0.
         indexedLength = 0;
         base->methodTable(vm)->getPropertyNames(base, exec, propertyNames, EnumerationMode());
+        RETURN_IF_EXCEPTION(scope, nullptr);
     }
-    RETURN_IF_EXCEPTION(scope, nullptr);
 
     ASSERT(propertyNames.size() < UINT32_MAX);
 
-    bool sawPolyProto;
-    bool successfullyNormalizedChain = normalizePrototypeChain(exec, base, sawPolyProto) != InvalidPrototypeChain;
+    normalizePrototypeChain(exec, structure);
 
-    Structure* structureAfterGettingPropertyNames = base->structure(vm);
-    enumerator = JSPropertyNameEnumerator::create(vm, structureAfterGettingPropertyNames, indexedLength, numberStructureProperties, WTFMove(propertyNames));
-    if (!indexedLength && successfullyNormalizedChain && structureAfterGettingPropertyNames == structure) {
-        enumerator->setCachedPrototypeChain(vm, structure->prototypeChain(exec, base));
-        if (structure->canCachePropertyNameEnumerator())
-            structure->setCachedPropertyNameEnumerator(vm, enumerator);
-    }
+    enumerator = JSPropertyNameEnumerator::create(vm, structure, indexedLength, numberStructureProperties, WTFMove(propertyNames));
+    enumerator->setCachedPrototypeChain(vm, structure->prototypeChain(exec));
+    if (!indexedLength && structure->canCachePropertyNameEnumerator())
+        structure->setCachedPropertyNameEnumerator(vm, enumerator);
     return enumerator;
 }
 

@@ -24,9 +24,11 @@
 
 #pragma once
 
+#include "BasicShapes.h"
 #include "CSSPropertyNames.h"
 #include "ClipPathOperation.h"
 #include "CounterDirectives.h"
+#include "CursorData.h"
 #include "DataRef.h"
 #include "FillLayer.h"
 #include "LengthPoint.h"
@@ -91,6 +93,8 @@ public:
 #endif
 
     bool hasOpacity() const { return opacity < 1; }
+
+    bool hasAnimationsOrTransitions() const { return animations || transitions; }
 
     float opacity;
 
@@ -164,6 +168,9 @@ public:
 
     int order;
 
+    AtomicString flowThread;
+    AtomicString regionThread;
+
     StyleContentAlignmentData alignContent;
     StyleSelfAlignmentData alignItems;
     StyleSelfAlignmentData alignSelf;
@@ -171,23 +178,23 @@ public:
     StyleSelfAlignmentData justifyItems;
     StyleSelfAlignmentData justifySelf;
 
-    DataRef<StyleCustomPropertyData> customProperties;
-    std::unique_ptr<HashSet<String>> customPaintWatchedProperties;
-
 #if ENABLE(TOUCH_EVENTS)
     unsigned touchAction : 1; // TouchAction
 #endif
 
-    unsigned pageSizeType : 2; // PageSizeType
-    unsigned transformStyle3D : 1; // TransformStyle3D
-    unsigned backfaceVisibility : 1; // BackfaceVisibility
+    unsigned regionFragment : 1; // RegionFragment
 
-    unsigned userDrag : 2; // UserDrag
+    unsigned pageSizeType : 2; // PageSizeType
+    unsigned transformStyle3D : 1; // ETransformStyle3D
+    unsigned backfaceVisibility : 1; // EBackfaceVisibility
+
+
+    unsigned userDrag : 2; // EUserDrag
     unsigned textOverflow : 1; // Whether or not lines that spill out should be truncated with "..."
-    unsigned marginBeforeCollapse : 2; // MarginCollapse
-    unsigned marginAfterCollapse : 2; // MarginCollapse
+    unsigned marginBeforeCollapse : 2; // EMarginCollapse
+    unsigned marginAfterCollapse : 2; // EMarginCollapse
     unsigned appearance : 6; // EAppearance
-    unsigned borderFit : 1; // BorderFit
+    unsigned borderFit : 1; // EBorderFit
     unsigned textCombine : 1; // CSS3 text-combine properties
 
     unsigned textDecorationStyle : 3; // TextDecorationStyle
@@ -209,14 +216,11 @@ public:
     unsigned breakBefore : 4; // BreakBetween
     unsigned breakAfter : 4;
     unsigned breakInside : 3; // BreakInside
-    unsigned resize : 2; // Resize
+    unsigned resize : 2; // EResize
 
     unsigned hasAttrContent : 1;
 
     unsigned isNotFinal : 1;
-
-    GapLength columnGap;
-    GapLength rowGap;
 
 private:
     StyleRareNonInheritedData();

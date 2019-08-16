@@ -28,15 +28,18 @@
 
 namespace WebCore {
 
-class ResourceResponse;
+    class ResourceResponse;
 
-class WorkerScriptLoaderClient {
-public:
-    virtual void didReceiveResponse(unsigned long identifier, const ResourceResponse&) = 0;
-    virtual void notifyFinished() = 0;
+    class WorkerScriptLoaderClient {
+    public:
+        virtual void didReceiveResponse(unsigned long /*identifier*/, const ResourceResponse&) { }
 
-protected:
-    virtual ~WorkerScriptLoaderClient() = default;
-};
+        // FIXME: notifyFinished() is not currently guaranteed to be invoked if used from worker context and the worker shuts down in the middle of an operation.
+        // This will cause leaks when we support nested workers.
+        virtual void notifyFinished() { }
+
+    protected:
+        virtual ~WorkerScriptLoaderClient() { }
+    };
 
 } // namespace WebCore

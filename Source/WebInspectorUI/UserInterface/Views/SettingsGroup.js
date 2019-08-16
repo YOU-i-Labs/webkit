@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SettingsGroup = class SettingsGroup extends WI.Object
+WebInspector.SettingsGroup = class SettingsGroup extends WebInspector.Object
 {
     constructor(title)
     {
@@ -46,7 +46,7 @@ WI.SettingsGroup = class SettingsGroup extends WI.Object
 
     addSetting(setting, label, options)
     {
-        let editor = WI.SettingEditor.createForSetting(setting, label, options);
+        let editor = WebInspector.SettingEditor.createForSetting(setting, label, options);
         console.assert(editor, "Could not create default editor for setting. Use addCustomSetting instead.", setting);
         if (!editor)
             return null;
@@ -57,7 +57,7 @@ WI.SettingsGroup = class SettingsGroup extends WI.Object
 
     addCustomSetting(editorType, options)
     {
-        let editor = new WI.SettingEditor(editorType, options.label, options);
+        let editor = new WebInspector.SettingEditor(editorType, options.label, options);
         if (!editor)
             return null;
 

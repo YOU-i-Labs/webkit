@@ -26,6 +26,7 @@
 #pragma once
 
 #include "JSDOMBinding.h"
+#include "JSNodeList.h"
 
 namespace WebCore {
 

@@ -27,6 +27,7 @@
 
 #if ENABLE(DFG_JIT)
 
+#include "DFGCommon.h"
 #include "DFGSlowPathGenerator.h"
 #include "DFGSpeculativeJIT.h"
 #include <wtf/Vector.h>
@@ -68,7 +69,7 @@ private:
     GPRReg m_resultGPR;
     GPRReg m_storageGPR;
     RegisteredStructure m_structure;
-    int m_size;
+    size_t m_size;
     Vector<SilentRegisterSavePlan, 2> m_plans;
 };
 

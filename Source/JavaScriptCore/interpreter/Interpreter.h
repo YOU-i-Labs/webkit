@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
  * Copyright (C) 2012 Research In Motion Limited. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,13 +30,16 @@
 #pragma once
 
 #include "ArgList.h"
+#include "CatchScope.h"
+#include "FrameTracers.h"
 #include "JSCJSValue.h"
+#include "JSCell.h"
 #include "JSObject.h"
 #include "Opcode.h"
 #include "StackAlignment.h"
 #include <wtf/HashMap.h>
 
-#if ENABLE(C_LOOP)
+#if !ENABLE(JIT)
 #include "CLoopStack.h"
 #endif
 
@@ -56,12 +59,14 @@ namespace JSC {
     class ModuleProgramExecutable;
     class Register;
     class JSScope;
-    class SourceCode;
     class StackFrame;
     struct CallFrameClosure;
     struct HandlerInfo;
     struct Instruction;
     struct ProtoCallFrame;
+    struct UnlinkedInstruction;
+
+    enum UnwindStart : uint8_t { UnwindFromCurrentFrame, UnwindFromCallerFrame };
 
     enum DebugHookType {
         WillExecuteProgram,
@@ -92,13 +97,15 @@ namespace JSC {
         Interpreter(VM &);
         ~Interpreter();
         
-#if ENABLE(C_LOOP)
+#if !ENABLE(JIT)
         CLoopStack& cloopStack() { return m_cloopStack; }
 #endif
         
         static inline Opcode getOpcode(OpcodeID);
 
         static inline OpcodeID getOpcodeID(Opcode);
+        static inline OpcodeID getOpcodeID(const Instruction&);
+        static inline OpcodeID getOpcodeID(const UnlinkedInstruction&);
 
 #if !ASSERT_DISABLED
         static bool isOpcode(Opcode);
@@ -111,40 +118,34 @@ namespace JSC {
         JSValue execute(EvalExecutable*, CallFrame*, JSValue thisValue, JSScope*);
 
         void getArgumentsData(CallFrame*, JSFunction*&, ptrdiff_t& firstParameterIndex, Register*& argv, int& argc);
-
-        NEVER_INLINE HandlerInfo* unwind(VM&, CallFrame*&, Exception*);
+        
+        NEVER_INLINE HandlerInfo* unwind(VM&, CallFrame*&, Exception*, UnwindStart);
         void notifyDebuggerOfExceptionToBeThrown(VM&, CallFrame*, Exception*);
         NEVER_INLINE void debug(CallFrame*, DebugHookType);
-        static String stackTraceAsString(VM&, const Vector<StackFrame>&);
+        static JSString* stackTraceAsString(VM&, const Vector<StackFrame>&);
 
         static EncodedJSValue JSC_HOST_CALL constructWithErrorConstructor(ExecState*);
         static EncodedJSValue JSC_HOST_CALL callErrorConstructor(ExecState*);
         static EncodedJSValue JSC_HOST_CALL constructWithNativeErrorConstructor(ExecState*);
         static EncodedJSValue JSC_HOST_CALL callNativeErrorConstructor(ExecState*);
 
-        void getStackTrace(JSCell* owner, Vector<StackFrame>& results, size_t framesToSkip = 0, size_t maxStackSize = std::numeric_limits<size_t>::max());
+        JS_EXPORT_PRIVATE void dumpCallFrame(CallFrame*);
+
+        void getStackTrace(Vector<StackFrame>& results, size_t framesToSkip = 0, size_t maxStackSize = std::numeric_limits<size_t>::max());
 
     private:
         enum ExecutionFlag { Normal, InitializeAndReturn };
-        
-        static JSValue checkedReturn(JSValue returnValue)
-        {
-            ASSERT(returnValue);
-            return returnValue;
-        }
-        
-        static JSObject* checkedReturn(JSObject* returnValue)
-        {
-            ASSERT(returnValue);
-            return returnValue;
-        }
 
         CallFrameClosure prepareForRepeatCall(FunctionExecutable*, CallFrame*, ProtoCallFrame*, JSFunction*, int argumentCountIncludingThis, JSScope*, const ArgList&);
 
         JSValue execute(CallFrameClosure&);
 
+
+
+        void dumpRegisters(CallFrame*);
+        
         VM& m_vm;
-#if ENABLE(C_LOOP)
+#if !ENABLE(JIT)
         CLoopStack m_cloopStack;
 #endif
         
@@ -183,11 +184,3 @@ namespace JSC {
     void setupForwardArgumentsFrameAndSetThis(CallFrame* execCaller, CallFrame* execCallee, JSValue thisValue, uint32_t length);
     
 } // namespace JSC
-
-namespace WTF {
-
-class PrintStream;
-
-void printInternal(PrintStream&, JSC::DebugHookType);
-
-} // namespace WTF

@@ -29,6 +29,8 @@
 #if ENABLE(JIT)
 
 #include "CCallHelpers.h"
+#include "JITOperations.h"
+#include "RegisterSet.h"
 #include "SnippetReg.h"
 #include "SnippetSlowPathCalls.h"
 

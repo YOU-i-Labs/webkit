@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.QuickConsoleNavigationBar = class QuickConsoleNavigationBar extends WI.NavigationBar
+WebInspector.QuickConsoleNavigationBar = class QuickConsoleNavigationBar extends WebInspector.NavigationBar
 {
     get sizesToFit()
     {

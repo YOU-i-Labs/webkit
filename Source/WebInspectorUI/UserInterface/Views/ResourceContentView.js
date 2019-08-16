@@ -23,11 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ResourceContentView = class ResourceContentView extends WI.ContentView
+WebInspector.ResourceContentView = class ResourceContentView extends WebInspector.ContentView
 {
     constructor(resource, styleClassName)
     {
-        console.assert(resource instanceof WI.Resource || resource instanceof WI.CSSStyleSheet, resource);
+        console.assert(resource instanceof WebInspector.Resource || resource instanceof WebInspector.CSSStyleSheet, resource);
         console.assert(typeof styleClassName === "string");
 
         super(resource);
@@ -36,14 +36,10 @@ WI.ResourceContentView = class ResourceContentView extends WI.ContentView
 
         this.element.classList.add(styleClassName, "resource");
 
-        this._spinnerTimeout = setTimeout(() => {
-            // Append a spinner while waiting for contentAvailable. Subclasses are responsible for
-            // removing the spinner before showing the resource content by calling removeLoadingIndicator.
-            let spinner = new WI.IndeterminateProgressSpinner;
-            this.element.appendChild(spinner.element);
-
-            this._spinnerTimeout = undefined;
-        }, 100);
+        // Append a spinner while waiting for contentAvailable. The subclasses are responsible for removing
+        // the spinner before showing the resource content.
+        var spinner = new WebInspector.IndeterminateProgressSpinner;
+        this.element.appendChild(spinner.element);
 
         this.element.addEventListener("click", this._mouseWasClicked.bind(this), false);
 
@@ -51,9 +47,9 @@ WI.ResourceContentView = class ResourceContentView extends WI.ContentView
         resource.requestContent().then(this._contentAvailable.bind(this)).catch(this.showGenericErrorMessage.bind(this));
 
         if (!this.managesOwnIssues) {
-            WI.consoleManager.addEventListener(WI.ConsoleManager.Event.IssueAdded, this._issueWasAdded, this);
+            WebInspector.issueManager.addEventListener(WebInspector.IssueManager.Event.IssueWasAdded, this._issueWasAdded, this);
 
-            var issues = WI.consoleManager.issuesForSourceCode(resource);
+            var issues = WebInspector.issueManager.issuesForSourceCode(resource);
             for (var i = 0; i < issues.length; ++i)
                 this.addIssue(issues[i]);
         }
@@ -78,32 +74,19 @@ WI.ResourceContentView = class ResourceContentView extends WI.ContentView
 
     contentAvailable(content, base64Encoded)
     {
-        throw WI.NotImplementedError.subclassMustOverride();
-    }
-
-    showGenericNoContentMessage()
-    {
-        this.showMessage(WI.UIString("Resource has no content"));
-
-        this.dispatchEventToListeners(WI.ResourceContentView.Event.ContentError);
+        // Implemented by subclasses.
     }
 
     showGenericErrorMessage()
     {
-        this._contentError(WI.UIString("An error occurred trying to load the resource."));
-    }
-
-    showMessage(message)
-    {
-        this.element.removeChildren();
-        this.element.appendChild(WI.createMessageTextView(message));
+        this._contentError(WebInspector.UIString("An error occurred trying to load the resource."));
     }
 
     addIssue(issue)
     {
         // This generically shows only the last issue, subclasses can override for better handling.
         this.element.removeChildren();
-        this.element.appendChild(WI.createMessageTextView(issue.text, issue.level === WI.IssueMessage.Level.Error));
+        this.element.appendChild(WebInspector.createMessageTextView(issue.text, issue.level === WebInspector.IssueMessage.Level.Error));
     }
 
     closed()
@@ -111,19 +94,7 @@ WI.ResourceContentView = class ResourceContentView extends WI.ContentView
         super.closed();
 
         if (!this.managesOwnIssues)
-            WI.consoleManager.removeEventListener(null, null, this);
-    }
-
-    // Protected
-
-    removeLoadingIndicator()
-    {
-        if (this._spinnerTimeout) {
-            clearTimeout(this._spinnerTimeout);
-            this._spinnerTimeout = undefined;
-        }
-
-        this.element.removeChildren();
+            WebInspector.issueManager.removeEventListener(null, null, this);
     }
 
     // Private
@@ -146,16 +117,15 @@ WI.ResourceContentView = class ResourceContentView extends WI.ContentView
         if (this._hasContent())
             return;
 
-        this.removeLoadingIndicator();
+        this.element.removeChildren();
+        this.element.appendChild(WebInspector.createMessageTextView(error, true));
 
-        this.element.appendChild(WI.createMessageTextView(error, true));
-
-        this.dispatchEventToListeners(WI.ResourceContentView.Event.ContentError);
+        this.dispatchEventToListeners(WebInspector.ResourceContentView.Event.ContentError);
     }
 
     _hasContent()
     {
-        return this.element.hasChildNodes() && !this.element.querySelector(".indeterminate-progress-spinner");
+        return !this.element.querySelector(".indeterminate-progress-spinner");
     }
 
     _issueWasAdded(event)
@@ -163,7 +133,7 @@ WI.ResourceContentView = class ResourceContentView extends WI.ContentView
         console.assert(!this.managesOwnIssues);
 
         var issue = event.data.issue;
-        if (!WI.ConsoleManager.issueMatchSourceCode(issue, this.resource))
+        if (!WebInspector.IssueManager.issueMatchSourceCode(issue, this.resource))
             return;
 
         this.addIssue(issue);
@@ -171,10 +141,10 @@ WI.ResourceContentView = class ResourceContentView extends WI.ContentView
 
     _mouseWasClicked(event)
     {
-        WI.handlePossibleLinkClick(event, this.resource.parentFrame);
+        WebInspector.handlePossibleLinkClick(event, this.resource.parentFrame);
     }
 };
 
-WI.ResourceContentView.Event = {
+WebInspector.ResourceContentView.Event = {
     ContentError: "resource-content-view-content-error",
 };

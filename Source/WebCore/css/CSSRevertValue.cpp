@@ -32,7 +32,7 @@ namespace WebCore {
 
 String CSSRevertValue::customCSSText() const
 {
-    return "Revert"_s;
+    return ASCIILiteral("Revert");
 }
 
 } // namespace WebCore

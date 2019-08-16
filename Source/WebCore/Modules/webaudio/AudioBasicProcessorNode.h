@@ -26,6 +26,8 @@
 
 #include "AudioNode.h"
 #include <memory>
+#include <wtf/RefCounted.h>
+#include <wtf/Threading.h>
 
 namespace WebCore {
 

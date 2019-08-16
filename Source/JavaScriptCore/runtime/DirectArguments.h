@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,10 +25,9 @@
 
 #pragma once
 
-#include "CagedBarrierPtr.h"
+#include "AuxiliaryBarrier.h"
 #include "DirectArgumentsOffset.h"
 #include "GenericArguments.h"
-#include <wtf/CagedPtr.h>
 
 namespace JSC {
 
@@ -41,18 +40,11 @@ namespace JSC {
 //
 // To speed allocation, this object will hold all of the arguments in-place. The arguments as well
 // as a table of flags saying which arguments were overridden.
-class DirectArguments final : public GenericArguments<DirectArguments> {
+class DirectArguments : public GenericArguments<DirectArguments> {
 private:
     DirectArguments(VM&, Structure*, unsigned length, unsigned capacity);
     
 public:
-    template<typename CellType>
-    static CompleteSubspace* subspaceFor(VM& vm)
-    {
-        RELEASE_ASSERT(!CellType::needsDestruction);
-        return &vm.jsValueGigacageCellSpace;
-    }
-
     // Creates an arguments object but leaves it uninitialized. This is dangerous if we GC right
     // after allocation.
     static DirectArguments* createUninitialized(VM&, Structure*, unsigned length, unsigned capacity);
@@ -64,7 +56,7 @@ public:
     // Creates an arguments object by copying the argumnets from the stack.
     static DirectArguments* createByCopying(ExecState*);
 
-    static size_t estimatedSize(JSCell*, VM&);
+    static size_t estimatedSize(JSCell*);
     static void visitChildren(JSCell*, SlotVisitor&);
     
     uint32_t internalLength() const
@@ -74,19 +66,14 @@ public:
     
     uint32_t length(ExecState* exec) const
     {
-        if (UNLIKELY(m_mappedArguments)) {
-            VM& vm = exec->vm();
-            auto scope = DECLARE_THROW_SCOPE(vm);
-            JSValue value = get(exec, vm.propertyNames->length);
-            RETURN_IF_EXCEPTION(scope, 0);
-            RELEASE_AND_RETURN(scope, value.toUInt32(exec));
-        }
+        if (UNLIKELY(m_mappedArguments))
+            return get(exec, exec->propertyNames().length).toUInt32(exec);
         return m_length;
     }
     
     bool isMappedArgument(uint32_t i) const
     {
-        return i < m_length && (!m_mappedArguments || !m_mappedArguments[i]);
+        return i < m_length && (!m_mappedArguments || !m_mappedArguments.get()[i]);
     }
 
     bool isMappedArgumentInDFG(uint32_t i) const
@@ -106,14 +93,9 @@ public:
         storage()[i].set(vm, this, value);
     }
     
-    JSFunction* callee()
+    WriteBarrier<JSFunction>& callee()
     {
-        return m_callee.get();
-    }
-    
-    void setCallee(VM& vm, JSFunction* function)
-    {
-        m_callee.set(vm, this, function);
+        return m_callee;
     }
     
     WriteBarrier<Unknown>& argument(DirectArgumentsOffset offset)
@@ -182,7 +164,7 @@ private:
     WriteBarrier<JSFunction> m_callee;
     uint32_t m_length; // Always the actual length of captured arguments and never what was stored into the length property.
     uint32_t m_minCapacity; // The max of this and length determines the capacity of this object. It may be the actual capacity, or maybe something smaller. We arrange it this way to be kind to the JITs.
-    CagedBarrierPtr<Gigacage::Primitive, bool> m_mappedArguments; // If non-null, it means that length, callee, and caller are fully materialized properties.
+    AuxiliaryBarrier<bool*> m_mappedArguments; // If non-null, it means that length, callee, and caller are fully materialized properties.
 };
 
 } // namespace JSC

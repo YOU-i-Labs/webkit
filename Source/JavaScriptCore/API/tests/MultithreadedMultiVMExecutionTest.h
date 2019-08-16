@@ -29,10 +29,10 @@
 extern "C" {
 #endif
 
-extern void startMultithreadedMultiVMExecutionTest(void);
+extern void startMultithreadedMultiVMExecutionTest();
 
 /* Returns 1 if failures were encountered.  Else, returns 0. */
-extern int finalizeMultithreadedMultiVMExecutionTest(void);
+extern int finalizeMultithreadedMultiVMExecutionTest();
 
 #ifdef __cplusplus
 } /* extern "C" */

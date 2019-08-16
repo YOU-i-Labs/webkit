@@ -23,11 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ApplicationCacheFrameContentView = class ApplicationCacheFrameContentView extends WI.ContentView
+WebInspector.ApplicationCacheFrameContentView = class ApplicationCacheFrameContentView extends WebInspector.ContentView
 {
     constructor(representedObject)
     {
-        console.assert(representedObject instanceof WI.ApplicationCacheFrame);
+        console.assert(representedObject instanceof WebInspector.ApplicationCacheFrame);
 
         super(representedObject);
 
@@ -35,7 +35,7 @@ WI.ApplicationCacheFrameContentView = class ApplicationCacheFrameContentView ext
 
         this._frame = representedObject.frame;
 
-        this._emptyView = WI.createMessageTextView(WI.UIString("No Application Cache information available"), false);
+        this._emptyView = WebInspector.createMessageTextView(WebInspector.UIString("No Application Cache information available"), false);
         this._emptyView.classList.add("hidden");
         this.element.appendChild(this._emptyView);
 
@@ -44,7 +44,7 @@ WI.ApplicationCacheFrameContentView = class ApplicationCacheFrameContentView ext
         var status = representedObject.status;
         this.updateStatus(status);
 
-        WI.applicationCacheManager.addEventListener(WI.ApplicationCacheManager.Event.FrameManifestStatusChanged, this._updateStatus, this);
+        WebInspector.applicationCacheManager.addEventListener(WebInspector.ApplicationCacheManager.Event.FrameManifestStatusChanged, this._updateStatus, this);
     }
 
     shown()
@@ -56,14 +56,14 @@ WI.ApplicationCacheFrameContentView = class ApplicationCacheFrameContentView ext
 
     closed()
     {
-        WI.applicationCacheManager.removeEventListener(null, null, this);
+        WebInspector.applicationCacheManager.removeEventListener(null, null, this);
 
         super.closed();
     }
 
     saveToCookie(cookie)
     {
-        cookie.type = WI.ContentViewCookieType.ApplicationCache;
+        cookie.type = WebInspector.ContentViewCookieType.ApplicationCache;
         cookie.frame = this.representedObject.frame.url;
         cookie.manifest = this.representedObject.manifest.manifestURL;
     }
@@ -95,7 +95,7 @@ WI.ApplicationCacheFrameContentView = class ApplicationCacheFrameContentView ext
         if (frameManifest !== this.representedObject)
             return;
 
-        console.assert(frameManifest instanceof WI.ApplicationCacheFrame);
+        console.assert(frameManifest instanceof WebInspector.ApplicationCacheFrame);
 
         this.updateStatus(frameManifest.status);
     }
@@ -105,7 +105,7 @@ WI.ApplicationCacheFrameContentView = class ApplicationCacheFrameContentView ext
         var oldStatus = this._status;
         this._status = status;
 
-        if (this.visible && this._status === WI.ApplicationCacheManager.Status.Idle && (oldStatus === WI.ApplicationCacheManager.Status.UpdateReady || !this._resources))
+        if (this.visible && this._status === WebInspector.ApplicationCacheManager.Status.Idle && (oldStatus === WebInspector.ApplicationCacheManager.Status.UpdateReady || !this._resources))
             this._markDirty();
 
         this._maybeUpdate();
@@ -113,7 +113,7 @@ WI.ApplicationCacheFrameContentView = class ApplicationCacheFrameContentView ext
 
     _update()
     {
-        WI.applicationCacheManager.requestApplicationCache(this._frame, this._updateCallback.bind(this));
+        WebInspector.applicationCacheManager.requestApplicationCache(this._frame, this._updateCallback.bind(this));
     }
 
     _updateCallback(applicationCache)
@@ -153,21 +153,21 @@ WI.ApplicationCacheFrameContentView = class ApplicationCacheFrameContentView ext
     {
         var columns = {url: {}, type: {}, size: {}};
 
-        columns.url.title = WI.UIString("Resource");
+        columns.url.title = WebInspector.UIString("Resource");
         columns.url.sortable = true;
 
-        columns.type.title = WI.UIString("Type");
+        columns.type.title = WebInspector.UIString("Type");
         columns.type.sortable = true;
 
-        columns.size.title = WI.UIString("Size");
+        columns.size.title = WebInspector.UIString("Size");
         columns.size.aligned = "right";
         columns.size.sortable = true;
 
-        this._dataGrid = new WI.DataGrid(columns);
-        this._dataGrid.addEventListener(WI.DataGrid.Event.SortChanged, this._sortDataGrid, this);
+        this._dataGrid = new WebInspector.DataGrid(columns);
+        this._dataGrid.addEventListener(WebInspector.DataGrid.Event.SortChanged, this._sortDataGrid, this);
 
         this._dataGrid.sortColumnIdentifier = "url";
-        this._dataGrid.sortOrder = WI.DataGrid.SortOrder.Ascending;
+        this._dataGrid.sortOrder = WebInspector.DataGrid.SortOrder.Ascending;
         this._dataGrid.createSettings("application-cache-frame-content-view");
 
         this.addSubview(this._dataGrid);
@@ -182,13 +182,13 @@ WI.ApplicationCacheFrameContentView = class ApplicationCacheFrameContentView ext
         }
         function localeCompare(columnIdentifier, nodeA, nodeB)
         {
-             return (nodeA.data[columnIdentifier] + "").extendedLocaleCompare(nodeB.data[columnIdentifier] + "");
+             return (nodeA.data[columnIdentifier] + "").localeCompare(nodeB.data[columnIdentifier] + "");
         }
 
         var comparator;
         switch (this._dataGrid.sortColumnIdentifier) {
             case "type": comparator = localeCompare.bind(this, "type"); break;
-            case "size": comparator = numberCompare.bind(this, "sizeNumber"); break;
+            case "size": comparator = numberCompare.bind(this, "size"); break;
             case "url":
             default: comparator = localeCompare.bind(this, "url"); break;
         }
@@ -204,10 +204,9 @@ WI.ApplicationCacheFrameContentView = class ApplicationCacheFrameContentView ext
             var data = {
                 url: resource.url,
                 type: resource.type,
-                size: Number.bytesToString(resource.size),
-                sizeNumber: resource.size,
+                size: Number.bytesToString(resource.size)
             };
-            var node = new WI.DataGridNode(data);
+            var node = new WebInspector.DataGridNode(data);
             this._dataGrid.appendChild(node);
         }
     }

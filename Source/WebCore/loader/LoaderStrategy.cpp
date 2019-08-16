@@ -26,25 +26,14 @@
 #include "config.h"
 #include "LoaderStrategy.h"
 
-#include "NetworkLoadInformation.h"
+#include "PlatformStrategies.h"
 
 namespace WebCore {
 
-LoaderStrategy::~LoaderStrategy() = default;
-
-ResourceResponse LoaderStrategy::responseFromResourceLoadIdentifier(uint64_t /* resourceLoadIdentifier */)
+LoaderStrategy::~LoaderStrategy()
 {
-    return { };
-}
-
-NetworkLoadMetrics LoaderStrategy::networkMetricsFromResourceLoadIdentifier(uint64_t /* resourceLoadIdentifier */)
-{
-    return { };
-}
-
-Vector<NetworkTransactionInformation> LoaderStrategy::intermediateLoadInformationFromResourceLoadIdentifier(uint64_t /* resourceLoadIdentifier */)
-{
-    return { };
 }
 
 } // namespace WebCore
+
+

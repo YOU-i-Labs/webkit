@@ -29,8 +29,8 @@
 
 #pragma once
 
-#include "Debugger.h"
-#include "SourceProvider.h"
+#include "debugger/Debugger.h"
+#include "parser/SourceProvider.h"
 #include <wtf/text/WTFString.h>
 
 namespace Inspector {

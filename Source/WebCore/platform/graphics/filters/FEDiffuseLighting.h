@@ -19,7 +19,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#pragma once
+#ifndef FEDiffuseLighting_h
+#define FEDiffuseLighting_h
 
 #include "FELighting.h"
 
@@ -32,10 +33,26 @@ public:
     static Ref<FEDiffuseLighting> create(Filter&, const Color&, float, float, float, float, Ref<LightSource>&&);
     virtual ~FEDiffuseLighting();
 
-    float diffuseConstant() const { return m_diffuseConstant; }
+    const Color& lightingColor() const;
+    bool setLightingColor(const Color&);
+
+    float surfaceScale() const;
+    bool setSurfaceScale(float);
+
+    float diffuseConstant() const;
     bool setDiffuseConstant(float);
 
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const override;
+    float kernelUnitLengthX() const;
+    bool setKernelUnitLengthX(float);
+
+    float kernelUnitLengthY() const;
+    bool setKernelUnitLengthY(float);
+
+    const LightSource& lightSource() const;
+
+    void dump() override;
+
+    TextStream& externalRepresentation(TextStream&, int indention) const override;
 
 private:
     FEDiffuseLighting(Filter&, const Color&, float, float, float, float, Ref<LightSource>&&);
@@ -43,3 +60,4 @@ private:
 
 } // namespace WebCore
 
+#endif // FEDiffuseLighting_h

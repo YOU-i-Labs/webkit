@@ -120,7 +120,7 @@ public:
     ConcurrentJSLocker(NoLockingNecessaryTag)
         : ConcurrentJSLockerBase(NoLockingNecessary)
 #if ENABLE(CONCURRENT_JS) && !defined(NDEBUG)
-        , m_disallowGC(WTF::nullopt)
+        , m_disallowGC(std::nullopt)
 #endif
     {
     }
@@ -129,7 +129,7 @@ public:
 
 #if ENABLE(CONCURRENT_JS) && !defined(NDEBUG)
 private:
-    Optional<DisallowGC> m_disallowGC;
+    std::optional<DisallowGC> m_disallowGC;
 #endif
 };
 

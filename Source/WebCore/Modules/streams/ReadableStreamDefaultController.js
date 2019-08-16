@@ -25,16 +25,6 @@
 
 // @conditional=ENABLE(STREAMS_API)
 
-function initializeReadableStreamDefaultController(stream, underlyingSource, size, highWaterMark)
-{
-    "use strict";
-
-    if (arguments.length !== 5 && arguments[4] !== @isReadableStream)
-        @throwTypeError("ReadableStreamDefaultController constructor should not be called directly");
-
-    return @privateInitializeReadableStreamDefaultController.@call(this, stream, underlyingSource, size, highWaterMark);
-}
-
 function enqueue(chunk)
 {
     "use strict";
@@ -42,8 +32,11 @@ function enqueue(chunk)
     if (!@isReadableStreamDefaultController(this))
         throw @makeThisTypeError("ReadableStreamDefaultController", "enqueue");
 
-    if (!@readableStreamDefaultControllerCanCloseOrEnqueue(this))
-        @throwTypeError("ReadableStreamDefaultController is not in a state where chunk can be enqueued");
+    if (this.@closeRequested)
+        @throwTypeError("ReadableStreamDefaultController is requested to close");
+
+    if (this.@controlledReadableStream.@state !== @streamReadable)
+        @throwTypeError("ReadableStream is not readable");
 
     return @readableStreamDefaultControllerEnqueue(this, chunk);
 }
@@ -55,6 +48,9 @@ function error(error)
     if (!@isReadableStreamDefaultController(this))
         throw @makeThisTypeError("ReadableStreamDefaultController", "error");
 
+    if (this.@controlledReadableStream.@state !== @streamReadable)
+        @throwTypeError("ReadableStream is not readable");
+
     @readableStreamDefaultControllerError(this, error);
 }
 
@@ -65,13 +61,15 @@ function close()
     if (!@isReadableStreamDefaultController(this))
         throw @makeThisTypeError("ReadableStreamDefaultController", "close");
 
-    if (!@readableStreamDefaultControllerCanCloseOrEnqueue(this))
-        @throwTypeError("ReadableStreamDefaultController is not in a state where it can be closed");
+    if (this.@closeRequested)
+        @throwTypeError("ReadableStreamDefaultController is already requested to close");
+
+    if (this.@controlledReadableStream.@state !== @streamReadable)
+        @throwTypeError("ReadableStream is not readable");
 
     @readableStreamDefaultControllerClose(this);
 }
 
-@getter
 function desiredSize()
 {
     "use strict";

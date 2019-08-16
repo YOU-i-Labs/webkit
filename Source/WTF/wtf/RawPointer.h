@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef RawPointer_h
+#define RawPointer_h
 
 namespace WTF {
 
@@ -53,3 +54,5 @@ private:
 } // namespace WTF
 
 using WTF::RawPointer;
+
+#endif // RawPointer_h

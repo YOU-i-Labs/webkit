@@ -27,7 +27,6 @@
 namespace WebCore {
 
 class HTMLBaseElement final : public HTMLElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLBaseElement);
 public:
     static Ref<HTMLBaseElement> create(const QualifiedName&, Document&);
 
@@ -40,8 +39,8 @@ private:
     String target() const final;
     bool isURLAttribute(const Attribute&) const final;
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
-    InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) final;
-    void removedFromAncestor(RemovalType, ContainerNode&) final;
+    InsertionNotificationRequest insertedInto(ContainerNode&) final;
+    void removedFrom(ContainerNode&) final;
 };
 
 } // namespace

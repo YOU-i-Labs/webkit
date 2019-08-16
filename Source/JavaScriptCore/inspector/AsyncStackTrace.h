@@ -42,7 +42,7 @@ public:
         Canceled,
     };
 
-    static Ref<AsyncStackTrace> create(Ref<ScriptCallStack>&&, bool singleShot, RefPtr<AsyncStackTrace> parent);
+    static RefPtr<AsyncStackTrace> create(Ref<ScriptCallStack>&&, bool singleShot, RefPtr<AsyncStackTrace> parent);
 
     bool isPending() const;
     bool isLocked() const;
@@ -51,7 +51,7 @@ public:
     void didDispatchAsyncCall();
     void didCancelAsyncCall();
 
-    RefPtr<Protocol::Console::StackTrace> buildInspectorObject() const;
+    RefPtr<Inspector::Protocol::Console::StackTrace> buildInspectorObject() const;
 
     ~AsyncStackTrace();
 

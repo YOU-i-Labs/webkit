@@ -32,7 +32,7 @@ function of(/* items... */)
 {
     "use strict";
     let len = arguments.length;
-    let constructFunction = @getByIdDirectPrivate(this, "allocateTypedArray");
+    let constructFunction = this.@allocateTypedArray;
     if (constructFunction === @undefined)
         @throwTypeError("TypedArray.of requires its this argument to subclass a TypedArray constructor");
 
@@ -59,7 +59,8 @@ function from(items /* [ , mapfn [ , thisArg ] ] */)
         thisArg = @argument(2);
     }
 
-    let arrayLike = @toObject(items, "TypedArray.from requires an array-like object - not null or undefined");
+    if (items == null)
+        @throwTypeError("TypedArray.from requires an array-like object - not null or undefined");
 
     let iteratorMethod = items.@iteratorSymbol;
     if (iteratorMethod != null) {
@@ -85,7 +86,7 @@ function from(items /* [ , mapfn [ , thisArg ] ] */)
             k++;
         }
 
-        let constructFunction = @getByIdDirectPrivate(this, "allocateTypedArray");
+        let constructFunction = this.@allocateTypedArray;
         if (constructFunction === @undefined)
             @throwTypeError("TypedArray.from requires its this argument subclass a TypedArray constructor");
 
@@ -98,9 +99,10 @@ function from(items /* [ , mapfn [ , thisArg ] ] */)
         return result;
     }
 
+    let arrayLike = @Object(items);
     let arrayLikeLength = @toLength(arrayLike.length);
 
-    let constructFunction = @getByIdDirectPrivate(this, "allocateTypedArray");
+    let constructFunction = this.@allocateTypedArray;
     if (constructFunction === @undefined)
         @throwTypeError("this does not subclass a TypedArray constructor");
 

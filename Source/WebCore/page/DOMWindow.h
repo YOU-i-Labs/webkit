@@ -26,18 +26,13 @@
 
 #pragma once
 
-#include "AbstractDOMWindow.h"
 #include "Base64Utilities.h"
 #include "ContextDestructionObserver.h"
+#include "EventTarget.h"
 #include "ExceptionOr.h"
-#include "Frame.h"
 #include "FrameDestructionObserver.h"
-#include "ImageBitmap.h"
 #include "ScrollToOptions.h"
-#include "ScrollTypes.h"
 #include "Supplementable.h"
-#include <JavaScriptCore/HandleTypes.h>
-#include <wtf/Function.h>
 #include <wtf/HashSet.h>
 #include <wtf/WeakPtr.h>
 
@@ -78,21 +73,19 @@ class ScheduledAction;
 class Screen;
 class Storage;
 class StyleMedia;
-class VisualViewport;
 class WebKitNamespace;
 class WebKitPoint;
 
-struct ImageBitmapOptions;
 struct WindowFeatures;
 
 enum SetLocationLocking { LockHistoryBasedOnGestureState, LockHistoryAndBackForwardList };
-enum class IncludeTargetOrigin { No, Yes };
 
-// FIXME: Rename DOMWindow to LocalWindow and AbstractDOMWindow to DOMWindow.
+// FIXME: DOMWindow shouldn't subclass FrameDestructionObserver and instead should get to Frame via its Document.
 class DOMWindow final
-    : public AbstractDOMWindow
-    , public CanMakeWeakPtr<DOMWindow>
+    : public RefCounted<DOMWindow>
+    , public EventTargetWithInlineData
     , public ContextDestructionObserver
+    , public FrameDestructionObserver
     , public Base64Utilities
     , public Supplementable<DOMWindow> {
 public:
@@ -112,10 +105,8 @@ public:
     void unregisterProperty(DOMWindowProperty&);
 
     void resetUnlessSuspendedForDocumentSuspension();
-    void suspendForPageCache();
-    void resumeFromPageCache();
-
-    WEBCORE_EXPORT Frame* frame() const final;
+    void suspendForDocumentSuspension();
+    void resumeFromDocumentSuspension();
 
     RefPtr<MediaQueryList> matchMedia(const String&);
 
@@ -131,21 +122,20 @@ public:
     static bool canShowModalDialog(const Frame&);
     WEBCORE_EXPORT void setCanShowModalDialogOverride(bool);
 
-    Screen& screen();
-    History& history();
-    Crypto& crypto() const;
-    BarProp& locationbar();
-    BarProp& menubar();
-    BarProp& personalbar();
-    BarProp& scrollbars();
-    BarProp& statusbar();
-    BarProp& toolbar();
-    Navigator& navigator();
-    Navigator* optionalNavigator() const { return m_navigator.get(); }
-    Navigator& clientInformation() { return navigator(); }
+    Screen* screen() const;
+    History* history() const;
+    Crypto* crypto() const;
+    BarProp* locationbar() const;
+    BarProp* menubar() const;
+    BarProp* personalbar() const;
+    BarProp* scrollbars() const;
+    BarProp* statusbar() const;
+    BarProp* toolbar() const;
+    Navigator* navigator() const;
+    Navigator* clientInformation() const { return navigator(); }
 
-    Location& location();
-    void setLocation(DOMWindow& activeWindow, const URL& completedURL, SetLocationLocking = LockHistoryBasedOnGestureState);
+    Location* location() const;
+    void setLocation(DOMWindow& activeWindow, DOMWindow& firstWindow, const String& location, SetLocationLocking = LockHistoryBasedOnGestureState);
 
     DOMSelection* getSelection();
 
@@ -159,9 +149,9 @@ public:
     void print();
     void stop();
 
-    WEBCORE_EXPORT ExceptionOr<RefPtr<WindowProxy>> open(DOMWindow& activeWindow, DOMWindow& firstWindow, const String& urlString, const AtomicString& frameName, const String& windowFeaturesString);
+    WEBCORE_EXPORT RefPtr<DOMWindow> open(DOMWindow& activeWindow, DOMWindow& firstWindow, const String& urlString, const AtomicString& frameName, const String& windowFeaturesString);
 
-    void showModalDialog(const String& urlString, const String& dialogFeaturesString, DOMWindow& activeWindow, DOMWindow& firstWindow, const WTF::Function<void(DOMWindow&)>& prepareDialogFunction);
+    void showModalDialog(const String& urlString, const String& dialogFeaturesString, DOMWindow& activeWindow, DOMWindow& firstWindow, std::function<void(DOMWindow&)> prepareDialogFunction);
 
     void alert(const String& message = emptyString());
     bool confirm(const String& message);
@@ -194,12 +184,15 @@ public:
     String defaultStatus() const;
     void setDefaultStatus(const String&);
 
-    WindowProxy* self() const;
+    // Self-referential attributes
 
-    WindowProxy* opener() const;
-    void disownOpener();
-    WindowProxy* parent() const;
-    WindowProxy* top() const;
+    DOMWindow* self() const;
+    DOMWindow* window() const { return self(); }
+    DOMWindow* frames() const { return self(); }
+
+    DOMWindow* opener() const;
+    DOMWindow* parent() const;
+    DOMWindow* top() const;
 
     String origin() const;
 
@@ -209,7 +202,7 @@ public:
 
     // CSSOM View Module
 
-    StyleMedia& styleMedia();
+    RefPtr<StyleMedia> styleMedia() const;
 
     // DOM Level 2 Style Interface
 
@@ -226,8 +219,7 @@ public:
     PageConsoleClient* console() const;
 
     void printErrorMessage(const String&);
-
-    String crossDomainAccessErrorMessage(const DOMWindow& activeWindow, IncludeTargetOrigin);
+    String crossDomainAccessErrorMessage(const DOMWindow& activeWindow);
 
     ExceptionOr<void> postMessage(JSC::ExecState&, DOMWindow& incumbentWindow, JSC::JSValue message, const String& targetOrigin, Vector<JSC::Strong<JSC::JSObject>>&&);
     void postMessageTimerFired(PostMessageTimer&);
@@ -236,8 +228,8 @@ public:
 
     void scrollBy(const ScrollToOptions&) const;
     void scrollBy(double x, double y) const;
-    void scrollTo(const ScrollToOptions&, ScrollClamping = ScrollClamping::Clamped) const;
-    void scrollTo(double x, double y, ScrollClamping = ScrollClamping::Clamped) const;
+    void scrollTo(const ScrollToOptions&) const;
+    void scrollTo(double x, double y) const;
 
     void moveBy(float x, float y) const;
     void moveTo(float x, float y) const;
@@ -245,21 +237,15 @@ public:
     void resizeBy(float x, float y) const;
     void resizeTo(float width, float height) const;
 
-    VisualViewport& visualViewport();
-
     // Timers
-    ExceptionOr<int> setTimeout(JSC::ExecState&, std::unique_ptr<ScheduledAction>, int timeout, Vector<JSC::Strong<JSC::Unknown>>&& arguments);
+    ExceptionOr<int> setTimeout(std::unique_ptr<ScheduledAction>, int timeout);
     void clearTimeout(int timeoutId);
-    ExceptionOr<int> setInterval(JSC::ExecState&, std::unique_ptr<ScheduledAction>, int timeout, Vector<JSC::Strong<JSC::Unknown>>&& arguments);
+    ExceptionOr<int> setInterval(std::unique_ptr<ScheduledAction>, int timeout);
     void clearInterval(int timeoutId);
 
     int requestAnimationFrame(Ref<RequestAnimationFrameCallback>&&);
     int webkitRequestAnimationFrame(Ref<RequestAnimationFrameCallback>&&);
     void cancelAnimationFrame(int id);
-
-    // ImageBitmap
-    void createImageBitmap(ImageBitmap::Source&&, ImageBitmapOptions&&, ImageBitmap::Promise&&);
-    void createImageBitmap(ImageBitmap::Source&&, int sx, int sy, int sw, int sh, ImageBitmapOptions&&, ImageBitmap::Promise&&);
 
     // Secure Contexts
     bool isSecureContext() const;
@@ -271,7 +257,7 @@ public:
     void removeAllEventListeners() final;
 
     using EventTarget::dispatchEvent;
-    void dispatchEvent(Event&, EventTarget*);
+    bool dispatchEvent(Event&, EventTarget*);
 
     void dispatchLoadEvent();
 
@@ -280,13 +266,16 @@ public:
 
     void finishedLoading();
 
+    using RefCounted::ref;
+    using RefCounted::deref;
+
     // HTML 5 key/value storage
-    ExceptionOr<Storage*> sessionStorage();
-    ExceptionOr<Storage*> localStorage();
+    ExceptionOr<Storage*> sessionStorage() const;
+    ExceptionOr<Storage*> localStorage() const;
     Storage* optionalSessionStorage() const { return m_sessionStorage.get(); }
     Storage* optionalLocalStorage() const { return m_localStorage.get(); }
 
-    DOMApplicationCache& applicationCache();
+    DOMApplicationCache* applicationCache() const;
     DOMApplicationCache* optionalApplicationCache() const { return m_applicationCache.get(); }
 
     CustomElementRegistry* customElementRegistry() { return m_customElementRegistry.get(); }
@@ -302,10 +291,13 @@ public:
     int orientation() const;
 #endif
 
-    Performance& performance() const;
-    WEBCORE_EXPORT double nowTimestamp() const;
+#if ENABLE(WEB_TIMING)
+    Performance* performance() const;
+#endif
 
-#if PLATFORM(IOS_FAMILY)
+    double nowTimestamp() const;
+
+#if PLATFORM(IOS)
     void incrementScrollEventListenersCount();
     void decrementScrollEventListenersCount();
     unsigned scrollEventListenerCount() const { return m_scrollEventListenerCount; }
@@ -319,7 +311,7 @@ public:
 
 #if ENABLE(USER_MESSAGE_HANDLERS)
     bool shouldHaveWebKitNamespaceForWorld(DOMWrapperWorld&);
-    WebKitNamespace* webkitNamespace();
+    WebKitNamespace* webkitNamespace() const;
 #endif
 
     // FIXME: When this DOMWindow is no longer the active DOMWindow (i.e.,
@@ -334,24 +326,32 @@ public:
     void enableSuddenTermination();
     void disableSuddenTermination();
 
-    void willDestroyDocumentInFrame();
-    void frameDestroyed();
+    WeakPtr<DOMWindow> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(); }
 
 private:
     explicit DOMWindow(Document&);
 
+    EventTargetInterface eventTargetInterface() const final { return DOMWindowEventTargetInterfaceType; }
     ScriptExecutionContext* scriptExecutionContext() const final { return ContextDestructionObserver::scriptExecutionContext(); }
 
-    bool isLocalDOMWindow() const final { return true; }
-    bool isRemoteDOMWindow() const final { return false; }
+    DOMWindow* toDOMWindow() final;
 
     Page* page();
     bool allowedToChangeWindowGeometry() const;
 
-    static ExceptionOr<RefPtr<Frame>> createWindow(const String& urlString, const AtomicString& frameName, const WindowFeatures&, DOMWindow& activeWindow, Frame& firstFrame, Frame& openerFrame, const WTF::Function<void(DOMWindow&)>& prepareDialogFunction = nullptr);
+    void frameDestroyed() final;
+    void willDetachPage() final;
+
+    void refEventTarget() final { ref(); }
+    void derefEventTarget() final { deref(); }
+
+    static RefPtr<Frame> createWindow(const String& urlString, const AtomicString& frameName, const WindowFeatures&, DOMWindow& activeWindow, Frame& firstFrame, Frame& openerFrame, std::function<void(DOMWindow&)> prepareDialogFunction = nullptr);
     bool isInsecureScriptAccess(DOMWindow& activeWindow, const String& urlString);
 
     void resetDOMWindowProperties();
+    void disconnectDOMWindowProperties();
+    void reconnectDOMWindowProperties();
+    void willDestroyDocumentInFrame();
 
     bool isSameSecurityOriginAsMainFrame() const;
 
@@ -362,7 +362,7 @@ private:
 
     bool m_shouldPrintWhenFinishedLoading { false };
     bool m_suspendedForDocumentSuspension { false };
-    Optional<bool> m_canShowModalDialogOverride;
+    std::optional<bool> m_canShowModalDialogOverride;
 
     HashSet<DOMWindowProperty*> m_properties;
 
@@ -379,7 +379,6 @@ private:
     mutable RefPtr<BarProp> m_statusbar;
     mutable RefPtr<BarProp> m_toolbar;
     mutable RefPtr<Location> m_location;
-    mutable RefPtr<VisualViewport> m_visualViewport;
 
     String m_status;
     String m_defaultStatus;
@@ -387,7 +386,9 @@ private:
     enum class PageStatus { None, Shown, Hidden };
     PageStatus m_lastPageStatus { PageStatus::None };
 
-#if PLATFORM(IOS_FAMILY)
+    WeakPtrFactory<DOMWindow> m_weakPtrFactory;
+
+#if PLATFORM(IOS)
     unsigned m_scrollEventListenerCount { 0 };
 #endif
 
@@ -405,7 +406,9 @@ private:
 
     RefPtr<CustomElementRegistry> m_customElementRegistry;
 
+#if ENABLE(WEB_TIMING)
     mutable RefPtr<Performance> m_performance;
+#endif
 
 #if ENABLE(USER_MESSAGE_HANDLERS)
     mutable RefPtr<WebKitNamespace> m_webkitNamespace;
@@ -423,8 +426,3 @@ inline String DOMWindow::defaultStatus() const
 }
 
 } // namespace WebCore
-
-SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::DOMWindow)
-    static bool isType(const WebCore::AbstractDOMWindow& window) { return window.isLocalDOMWindow(); }
-    static bool isType(const WebCore::EventTarget& target) { return target.eventTargetInterface() == WebCore::DOMWindowEventTargetInterfaceType; }
-SPECIALIZE_TYPE_TRAITS_END()

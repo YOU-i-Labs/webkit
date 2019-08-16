@@ -1,4 +1,4 @@
-#!/usr/bin/env ruby
+#!/usr/bin/ruby
 
 require 'fileutils'
 require 'tmpdir'
@@ -28,7 +28,8 @@ class Task
     puts "#{display_input} -> #{display_output}"
 
     Dir.mktmpdir do |tmpdir|
-      cmd = "#{$code_generator_path} --force --outputDir '#{tmpdir}' --framework WebInspectorUI '#{@input_json_path}'"
+      dependency = @dependency_json_path ? "'#{@dependency_json_path}'" : ""
+      cmd = "#{$code_generator_path} --force --outputDir '#{tmpdir}' --framework JavaScriptCore '#{@input_json_path}' #{dependency}"
       %x{ #{cmd} }
       if $?.exitstatus != 0
         puts "ERROR: Error Code (#{$?.exitstatus}) Evaluating: #{cmd}"

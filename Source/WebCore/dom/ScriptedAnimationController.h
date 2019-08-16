@@ -25,11 +25,20 @@
 
 #pragma once
 
+#include "DOMTimeStamp.h"
+#include "PlatformScreen.h"
 #include "Timer.h"
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
+#include <wtf/text/AtomicString.h>
+
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+#include "Chrome.h"
+#include "ChromeClient.h"
+#include "DisplayRefreshMonitorClient.h"
+#endif
 
 namespace WebCore {
 
@@ -38,11 +47,14 @@ class Page;
 class RequestAnimationFrameCallback;
 
 class ScriptedAnimationController : public RefCounted<ScriptedAnimationController>
+#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+    , public DisplayRefreshMonitorClient
+#endif
 {
 public:
-    static Ref<ScriptedAnimationController> create(Document& document)
+    static Ref<ScriptedAnimationController> create(Document& document, PlatformDisplayID displayID)
     {
-        return adoptRef(*new ScriptedAnimationController(document));
+        return adoptRef(*new ScriptedAnimationController(document, displayID));
     }
     ~ScriptedAnimationController();
     void clearDocumentPointer() { m_document = nullptr; }
@@ -65,19 +77,13 @@ public:
     };
     void addThrottlingReason(ThrottlingReason);
     void removeThrottlingReason(ThrottlingReason);
-
     WEBCORE_EXPORT bool isThrottled() const;
     WEBCORE_EXPORT Seconds interval() const;
 
-#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
-    void documentAnimationSchedulerDidFire();
-#endif
+    void windowScreenDidChange(PlatformDisplayID);
 
 private:
-    ScriptedAnimationController(Document&);
-
-    void scheduleAnimation();
-    void animationTimerFired();
+    ScriptedAnimationController(Document&, PlatformDisplayID);
 
     Page* page() const;
 
@@ -87,13 +93,21 @@ private:
     Document* m_document;
     CallbackId m_nextCallbackId { 0 };
     int m_suspendCount { 0 };
+    void logSuspendCount();
 
+    void scheduleAnimation();
+    void animationTimerFired();
     Timer m_animationTimer;
     double m_lastAnimationFrameTimestamp { 0 };
 
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
-    OptionSet<ThrottlingReason> m_throttlingReasons;
+    // Override for DisplayRefreshMonitorClient
+    void displayRefreshFired() override;
+    RefPtr<DisplayRefreshMonitor> createDisplayRefreshMonitor(PlatformDisplayID) const override;
+
     bool m_isUsingTimer { false };
+
+    OptionSet<ThrottlingReason> m_throttlingReasons;
 #endif
 };
 

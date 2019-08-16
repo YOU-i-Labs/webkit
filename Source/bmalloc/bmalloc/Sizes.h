@@ -71,9 +71,11 @@ namespace Sizes {
     static const size_t scavengerBytesPerMemoryPressureCheck = 16 * MB;
     static const double memoryPressureThreshold = 0.75;
     
+    static const std::chrono::milliseconds asyncTaskSleepDuration = std::chrono::milliseconds(2000);
+    
     static const size_t maskSizeClassCount = maskSizeClassMax / alignment;
 
-    constexpr size_t maskSizeClass(size_t size)
+    inline constexpr size_t maskSizeClass(size_t size)
     {
         // We mask to accommodate zero.
         return mask((size - 1) / alignment, maskSizeClassCount - 1);

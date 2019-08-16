@@ -30,7 +30,7 @@ namespace WebCore {
 
 class SQLiteDatabaseTrackerClient {
 public:
-    virtual ~SQLiteDatabaseTrackerClient() = default;
+    virtual ~SQLiteDatabaseTrackerClient() { }
 
     virtual void willBeginFirstTransaction() = 0;
     virtual void didFinishLastTransaction() = 0;

@@ -20,15 +20,10 @@
 
 #pragma once
 
-#include "AffineTransform.h"
-#include "FloatRect.h"
-#include "GraphicsTypes.h"
+#include "FloatSize.h"
 #include "ImageBuffer.h"
-#include <wtf/RefCounted.h>
 
 namespace WebCore {
-
-class FilterEffect;
 
 class Filter : public RefCounted<Filter> {
 public:
@@ -36,9 +31,9 @@ public:
         : m_absoluteTransform(absoluteTransform)
         , m_filterScale(filterScale)
     { }
-    virtual ~Filter() = default;
+    virtual ~Filter() { }
 
-    void setSourceImage(std::unique_ptr<ImageBuffer>&& sourceImage) { m_sourceImage = WTFMove(sourceImage); }
+    void setSourceImage(std::unique_ptr<ImageBuffer> sourceImage) { m_sourceImage = WTFMove(sourceImage); }
     ImageBuffer* sourceImage() { return m_sourceImage.get(); }
 
     FloatSize filterResolution() const { return m_filterResolution; }
@@ -48,18 +43,18 @@ public:
     void setFilterScale(float scale) { m_filterScale = scale; }
 
     const AffineTransform& absoluteTransform() const { return m_absoluteTransform; }
+    FloatPoint mapAbsolutePointToLocalPoint(const FloatPoint& point) const { return m_absoluteTransform.inverse().value_or(AffineTransform()).mapPoint(point); }
 
     RenderingMode renderingMode() const { return m_renderingMode; }
     void setRenderingMode(RenderingMode renderingMode) { m_renderingMode = renderingMode; }
 
     virtual bool isSVGFilter() const { return false; }
-    virtual bool isCSSFilter() const { return false; }
 
-    virtual FloatSize scaledByFilterResolution(FloatSize size) const { return size * m_filterResolution; }
+    virtual float applyHorizontalScale(float value) const { return value * m_filterResolution.width(); }
+    virtual float applyVerticalScale(float value) const { return value * m_filterResolution.height(); }
     
     virtual FloatRect sourceImageRect() const = 0;
     virtual FloatRect filterRegion() const = 0;
-    virtual FloatRect filterRegionInUserSpace() const = 0;
 
 protected:
     explicit Filter(const FloatSize& filterResolution)

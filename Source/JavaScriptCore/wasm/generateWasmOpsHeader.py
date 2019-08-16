@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/python
 
 # Copyright (C) 2016-2017 Apple Inc. All rights reserved.
 #

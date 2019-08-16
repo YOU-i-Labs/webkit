@@ -27,8 +27,7 @@
 
 #if ENABLE(INDEXED_DATABASE)
 
-#include <wtf/Forward.h>
-#include <wtf/WeakPtr.h>
+#include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -41,9 +40,9 @@ namespace IDBServer {
 
 class UniqueIDBDatabaseConnection;
 
-class IDBConnectionToClientDelegate : public CanMakeWeakPtr<IDBConnectionToClientDelegate> {
+class IDBConnectionToClientDelegate {
 public:
-    virtual ~IDBConnectionToClientDelegate() = default;
+    virtual ~IDBConnectionToClientDelegate() { }
     
     virtual uint64_t identifier() const = 0;
 

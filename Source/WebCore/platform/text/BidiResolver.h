@@ -86,10 +86,10 @@ struct BidiStatus {
     // Creates a BidiStatus representing a new paragraph root with a default direction.
     // Uses TextDirection as it only has two possibilities instead of UCharDirection which has at least 19.
     BidiStatus(TextDirection direction, bool isOverride)
-        : eor(direction == TextDirection::LTR ? U_LEFT_TO_RIGHT : U_RIGHT_TO_LEFT)
+        : eor(direction == LTR ? U_LEFT_TO_RIGHT : U_RIGHT_TO_LEFT)
         , lastStrong(eor)
         , last(eor)
-        , context(BidiContext::create(direction == TextDirection::LTR ? 0 : 1, eor, isOverride))
+        , context(BidiContext::create(direction == LTR ? 0 : 1, eor, isOverride))
     {
     }
 
@@ -245,7 +245,6 @@ protected:
     // FIXME: Instead of InlineBidiResolvers subclassing this method, we should
     // pass in some sort of Traits object which knows how to create runs for appending.
     void appendRun() { static_cast<DerivedClass&>(*this).appendRunInternal(); }
-    bool needsContinuePastEnd() const { return static_cast<const DerivedClass&>(*this).needsContinuePastEndInternal(); }
 
     Iterator m_current;
     // sor and eor are "start of run" and "end of run" respectively and correpond
@@ -278,7 +277,6 @@ private:
     void reorderRunsFromLevels();
     void incrementInternal() { m_current.increment(); }
     void appendRunInternal();
-    bool needsContinuePastEndInternal() const { return true; }
 
     Vector<BidiEmbedding, 8> m_currentExplicitEmbeddingSequence;
 };
@@ -294,7 +292,6 @@ public:
 
     void incrementInternal();
     void appendRunInternal();
-    bool needsContinuePastEndInternal() const;
     Vector<IsolateRun>& isolatedRuns() { return m_isolatedRuns; }
 
 private:
@@ -883,7 +880,7 @@ void BidiResolverBase<Iterator, Run, DerivedClass>::createBidiRunsForLine(const 
             break;
         }
 
-        if (pastEnd && (m_eor == m_current || !needsContinuePastEnd())) {
+        if (pastEnd && m_eor == m_current) {
             if (!m_reachedEndOfLine) {
                 m_eor = endOfLine;
                 switch (m_status.eor) {

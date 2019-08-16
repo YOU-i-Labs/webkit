@@ -49,7 +49,7 @@ private:
     String m_lockFileName;
     Lock m_mutex;
 #if USE(FILE_LOCK)
-    FileSystem::PlatformFileHandle m_lockHandle;
+    PlatformFileHandle m_lockHandle;
 #endif
 };
 

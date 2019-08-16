@@ -26,10 +26,10 @@
 #pragma once
 
 #include "CryptoAlgorithmParameters.h"
-#include <JavaScriptCore/Uint8Array.h>
+#include <runtime/Uint8Array.h>
 #include <wtf/Vector.h>
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 namespace WebCore {
 
@@ -56,4 +56,4 @@ private:
 
 SPECIALIZE_TYPE_TRAITS_CRYPTO_ALGORITHM_PARAMETERS(RsaKeyGenParams)
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

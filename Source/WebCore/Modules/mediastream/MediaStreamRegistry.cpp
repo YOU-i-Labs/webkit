@@ -29,9 +29,9 @@
 #if ENABLE(MEDIA_STREAM)
 
 #include "MediaStream.h"
+#include "URL.h"
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/URL.h>
 
 namespace WebCore {
 
@@ -86,7 +86,7 @@ void MediaStreamRegistry::unregisterStream(MediaStream& stream)
         allStreams.remove(pos);
 }
 
-void MediaStreamRegistry::forEach(const WTF::Function<void(MediaStream&)>& callback) const
+void MediaStreamRegistry::forEach(std::function<void(MediaStream&)> callback) const
 {
     for (auto& stream : mediaStreams())
         callback(*stream);

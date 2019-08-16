@@ -27,9 +27,8 @@
 #include "config.h"
 #include "FileSystem.h"
 
-#include "FileMetadata.h"
+#include "ScopeGuard.h"
 #include <wtf/HexNumber.h>
-#include <wtf/Scope.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -41,8 +40,6 @@
 #endif
 
 namespace WebCore {
-
-namespace FileSystem {
 
 // The following lower-ASCII characters need escaping to be used in a filename
 // across all systems, including Windows:
@@ -207,7 +204,7 @@ String lastComponentOfPathIgnoringTrailingSlash(const String& path)
 
 bool appendFileContentsToFileHandle(const String& path, PlatformFileHandle& target)
 {
-    auto source = openFile(path, FileOpenMode::Read);
+    auto source = openFile(path, OpenForRead);
 
     if (!isHandleValid(source))
         return false;
@@ -215,7 +212,7 @@ bool appendFileContentsToFileHandle(const String& path, PlatformFileHandle& targ
     static int bufferSize = 1 << 19;
     Vector<char> buffer(bufferSize);
 
-    auto fileCloser = WTF::makeScopeExit([source]() {
+    ScopeGuard fileCloser([source]() {
         PlatformFileHandle handle = source;
         closeFile(handle);
     });
@@ -258,7 +255,7 @@ bool filesHaveSameVolume(const String& fileA, const String& fileB)
 
 #if !PLATFORM(MAC)
 
-void setMetadataURL(const String&, const String&, const String&)
+void setMetadataURL(const String&, const String&)
 {
 }
 
@@ -330,38 +327,4 @@ MappedFileData::MappedFileData(const String& filePath, bool& success)
 #endif
 }
 
-PlatformFileHandle openAndLockFile(const String& path, FileOpenMode openMode, OptionSet<FileLockMode> lockMode)
-{
-    auto handle = openFile(path, openMode);
-    if (handle == invalidPlatformFileHandle)
-        return invalidPlatformFileHandle;
-
-#if USE(FILE_LOCK)
-    bool locked = lockFile(handle, lockMode);
-    ASSERT_UNUSED(locked, locked);
-#else
-    UNUSED_PARAM(lockMode);
-#endif
-
-    return handle;
-}
-
-void unlockAndCloseFile(PlatformFileHandle handle)
-{
-#if USE(FILE_LOCK)
-    bool unlocked = unlockFile(handle);
-    ASSERT_UNUSED(unlocked, unlocked);
-#endif
-    closeFile(handle);
-}
-
-bool fileIsDirectory(const String& path, ShouldFollowSymbolicLinks shouldFollowSymbolicLinks)
-{
-    auto metadata = shouldFollowSymbolicLinks == ShouldFollowSymbolicLinks::Yes ? fileMetadataFollowingSymlinks(path) : fileMetadata(path);
-    if (!metadata)
-        return false;
-    return metadata.value().type == FileMetadata::Type::Directory;
-}
-
-} // namespace FileSystem
 } // namespace WebCore

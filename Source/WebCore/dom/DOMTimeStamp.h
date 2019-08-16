@@ -30,8 +30,6 @@
 
 #pragma once
 
-#include <wtf/Seconds.h>
-
 namespace WebCore {
 
 typedef unsigned long long DOMTimeStamp;
@@ -39,11 +37,6 @@ typedef unsigned long long DOMTimeStamp;
 inline DOMTimeStamp convertSecondsToDOMTimeStamp(double seconds)
 {
     return static_cast<DOMTimeStamp>(seconds * 1000.0);
-}
-
-inline DOMTimeStamp convertSecondsToDOMTimeStamp(Seconds seconds)
-{
-    return static_cast<DOMTimeStamp>(seconds.milliseconds());
 }
 
 inline double convertDOMTimeStampToSeconds(DOMTimeStamp milliseconds)

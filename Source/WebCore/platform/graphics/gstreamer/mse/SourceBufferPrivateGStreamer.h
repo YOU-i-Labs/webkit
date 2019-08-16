@@ -2,8 +2,8 @@
  * Copyright (C) 2013 Google Inc. All rights reserved.
  * Copyright (C) 2013 Orange
  * Copyright (C) 2014 Sebastian Dröge <sebastian@centricular.com>
- * Copyright (C) 2015, 2016, 2017 Metrological Group B.V.
- * Copyright (C) 2015, 2016, 2017 Igalia, S.L
+ * Copyright (C) 2015, 2016 Metrological Group B.V.
+ * Copyright (C) 2015, 2016 Igalia, S.L
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -55,7 +55,7 @@ public:
     void clearMediaSource() { m_mediaSource = nullptr; }
 
     void setClient(SourceBufferPrivateClient*) final;
-    void append(Vector<unsigned char>&&) final;
+    void append(const unsigned char*, unsigned) final;
     void abort() final;
     void resetParserState() final;
     void removedFromMediaSource() final;
@@ -64,9 +64,9 @@ public:
 
     void flush(const AtomicString&) final;
     void enqueueSample(Ref<MediaSample>&&, const AtomicString&) final;
-    void allSamplesInTrackEnqueued(const AtomicString&) final;
     bool isReadyForMoreSamples(const AtomicString&) final;
     void setActive(bool) final;
+    void stopAskingForMoreSamples(const AtomicString&) final;
     void notifyClientWhenReadyForMoreSamples(const AtomicString&) final;
 
     void setReadyForMoreSamples(bool);
@@ -75,9 +75,6 @@ public:
     void didReceiveInitializationSegment(const SourceBufferPrivateClient::InitializationSegment&);
     void didReceiveSample(MediaSample&);
     void didReceiveAllPendingSamples();
-    void appendParsingFailed();
-
-    ContentType type() const { return m_type; }
 
 private:
     SourceBufferPrivateGStreamer(MediaSourceGStreamer*, Ref<MediaSourceClientGStreamerMSE>, const ContentType&);
@@ -86,7 +83,7 @@ private:
     MediaSourceGStreamer* m_mediaSource;
     ContentType m_type;
     Ref<MediaSourceClientGStreamerMSE> m_client;
-    SourceBufferPrivateClient* m_sourceBufferPrivateClient { nullptr };
+    SourceBufferPrivateClient* m_sourceBufferPrivateClient;
     bool m_isReadyForMoreSamples = true;
     bool m_notifyWhenReadyForMoreSamples = false;
     AtomicString m_trackId;

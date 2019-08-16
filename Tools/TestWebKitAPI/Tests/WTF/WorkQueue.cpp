@@ -231,7 +231,7 @@ TEST(WTF_WorkQueue, DestroyOnSelf)
         dispatchAfterTestCompleted.wait(lock, [&] {
             return completed;
         });
-        WTF::sleep(100_ms);
+        WTF::sleep(0.1);
     }
 }
 

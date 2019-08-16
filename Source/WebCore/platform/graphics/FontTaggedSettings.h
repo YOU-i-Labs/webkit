@@ -27,14 +27,12 @@
 #pragma once
 
 #include <array>
-#include <wtf/HashTraits.h>
 #include <wtf/Vector.h>
-
-namespace WTF {
-class TextStream;
-}
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
+
+class TextStream;
 
 typedef std::array<char, 4> FontTag;
 
@@ -139,14 +137,10 @@ void FontTaggedSettings<T>::insert(FontTaggedSetting<T>&& feature)
 typedef FontTaggedSetting<int> FontFeature;
 typedef FontTaggedSettings<int> FontFeatureSettings;
 
-template <> unsigned FontFeatureSettings::hash() const;
-
 #if ENABLE(VARIATION_FONTS)
 
 typedef FontTaggedSettings<float> FontVariationSettings;
-WTF::TextStream& operator<<(WTF::TextStream&, const FontVariationSettings&);
-
-template <> unsigned FontVariationSettings::hash() const;
+TextStream& operator<<(TextStream&, const FontVariationSettings&);
 
 #else
 

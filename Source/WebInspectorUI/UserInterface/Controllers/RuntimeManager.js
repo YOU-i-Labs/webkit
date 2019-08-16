@@ -23,38 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.RuntimeManager = class RuntimeManager extends WI.Object
+WebInspector.RuntimeManager = class RuntimeManager extends WebInspector.Object
 {
     constructor()
     {
         super();
 
-        this._activeExecutionContext = null;
+        // Enable the RuntimeAgent to receive notification of execution contexts.
+        RuntimeAgent.enable();
 
-        WI.Frame.addEventListener(WI.Frame.Event.ExecutionContextsCleared, this._frameExecutionContextsCleared, this);
-    }
+        this._activeExecutionContext = WebInspector.mainTarget.executionContext;
 
-    // Static
-
-    static supportsAwaitPromise()
-    {
-        // COMPATIBILITY (iOS 12): Runtime.awaitPromise did not exist
-        return !!InspectorBackend.domains.Runtime.awaitPromise;
-    }
-
-    // Target
-
-    initializeTarget(target)
-    {
-        target.RuntimeAgent.enable();
-
-        // COMPATIBILITY (iOS 8): Runtime.enableTypeProfiler did not exist.
-        if (target.RuntimeAgent.enableTypeProfiler && WI.settings.showJavaScriptTypeInformation.value)
-            target.RuntimeAgent.enableTypeProfiler();
-
-        // COMPATIBILITY (iOS 10): Runtime.enableControlFlowProfiler did not exist
-        if (target.RuntimeAgent.enableControlFlowProfiler && WI.settings.enableControlFlowProfiler.value)
-            target.RuntimeAgent.enableControlFlowProfiler();
+        WebInspector.Frame.addEventListener(WebInspector.Frame.Event.ExecutionContextsCleared, this._frameExecutionContextsCleared, this);
     }
 
     // Public
@@ -71,16 +51,11 @@ WI.RuntimeManager = class RuntimeManager extends WI.Object
 
         this._activeExecutionContext = executionContext;
 
-        this.dispatchEventToListeners(WI.RuntimeManager.Event.ActiveExecutionContextChanged);
+        this.dispatchEventToListeners(WebInspector.RuntimeManager.Event.ActiveExecutionContextChanged);
     }
 
     evaluateInInspectedWindow(expression, options, callback)
     {
-        if (!this._activeExecutionContext) {
-            callback(null, false);
-            return;
-        }
-
         let {objectGroup, includeCommandLineAPI, doNotPauseOnExceptionsAndMuteConsole, returnByValue, generatePreview, saveResult, sourceURLAppender} = options;
 
         includeCommandLineAPI = includeCommandLineAPI || false;
@@ -109,14 +84,14 @@ WI.RuntimeManager = class RuntimeManager extends WI.Object
         let target = this._activeExecutionContext.target;
         let executionContextId = this._activeExecutionContext.id;
 
-        if (WI.debuggerManager.activeCallFrame) {
-            target = WI.debuggerManager.activeCallFrame.target;
+        if (WebInspector.debuggerManager.activeCallFrame) {
+            target = WebInspector.debuggerManager.activeCallFrame.target;
             executionContextId = target.executionContext.id;
         }
 
         function evalCallback(error, result, wasThrown, savedResultIndex)
         {
-            this.dispatchEventToListeners(WI.RuntimeManager.Event.DidEvaluate, {objectGroup});
+            this.dispatchEventToListeners(WebInspector.RuntimeManager.Event.DidEvaluate, {objectGroup});
 
             if (error) {
                 console.error(error);
@@ -127,12 +102,12 @@ WI.RuntimeManager = class RuntimeManager extends WI.Object
             if (returnByValue)
                 callback(null, wasThrown, wasThrown ? null : result, savedResultIndex);
             else
-                callback(WI.RemoteObject.fromPayload(result, target), wasThrown, savedResultIndex);
+                callback(WebInspector.RemoteObject.fromPayload(result, target), wasThrown, savedResultIndex);
         }
 
-        if (WI.debuggerManager.activeCallFrame) {
+        if (WebInspector.debuggerManager.activeCallFrame) {
             // COMPATIBILITY (iOS 8): "saveResult" did not exist.
-            target.DebuggerAgent.evaluateOnCallFrame.invoke({callFrameId: WI.debuggerManager.activeCallFrame.id, expression, objectGroup, includeCommandLineAPI, doNotPauseOnExceptionsAndMuteConsole, returnByValue, generatePreview, saveResult}, evalCallback.bind(this), target.DebuggerAgent);
+            target.DebuggerAgent.evaluateOnCallFrame.invoke({callFrameId: WebInspector.debuggerManager.activeCallFrame.id, expression, objectGroup, includeCommandLineAPI, doNotPauseOnExceptionsAndMuteConsole, returnByValue, generatePreview, saveResult}, evalCallback.bind(this), target.DebuggerAgent);
             return;
         }
 
@@ -142,13 +117,10 @@ WI.RuntimeManager = class RuntimeManager extends WI.Object
 
     saveResult(remoteObject, callback)
     {
-        console.assert(remoteObject instanceof WI.RemoteObject);
-
-        let target = this._activeExecutionContext.target;
-        let executionContextId = this._activeExecutionContext.id;
+        console.assert(remoteObject instanceof WebInspector.RemoteObject);
 
         // COMPATIBILITY (iOS 8): Runtime.saveResult did not exist.
-        if (!target.RuntimeAgent.saveResult) {
+        if (!RuntimeAgent.saveResult) {
             callback(undefined);
             return;
         }
@@ -157,6 +129,9 @@ WI.RuntimeManager = class RuntimeManager extends WI.Object
         {
             callback(savedResultIndex);
         }
+
+        let target = this._activeExecutionContext.target;
+        let executionContextId = this._activeExecutionContext.id;
 
         if (remoteObject.objectId)
             target.RuntimeAgent.saveResult(remoteObject.asCallArgument(), mycallback);
@@ -188,7 +163,7 @@ WI.RuntimeManager = class RuntimeManager extends WI.Object
 
         let currentContextWasDestroyed = contexts.some((context) => context.id === this._activeExecutionContext.id);
         if (currentContextWasDestroyed)
-            this.activeExecutionContext = WI.mainTarget.executionContext;
+            this.activeExecutionContext = WebInspector.mainTarget.executionContext;
     }
 
     _tryApplyAwaitConvenience(originalExpression)
@@ -199,12 +174,12 @@ WI.RuntimeManager = class RuntimeManager extends WI.Object
         try {
             esprima.parse(originalExpression);
             return originalExpression;
-        } catch { }
+        } catch (error) { }
 
         // Do not transform if the async function version does not parse.
         try {
             esprimaSyntaxTree = esprima.parse("(async function(){" + originalExpression + "})");
-        } catch {
+        } catch (error) {
             return originalExpression;
         }
 
@@ -277,10 +252,10 @@ undefined;`;
     }
 };
 
-WI.RuntimeManager.ConsoleObjectGroup = "console";
-WI.RuntimeManager.TopLevelExecutionContextIdentifier = undefined;
+WebInspector.RuntimeManager.ConsoleObjectGroup = "console";
+WebInspector.RuntimeManager.TopLevelExecutionContextIdentifier = undefined;
 
-WI.RuntimeManager.Event = {
+WebInspector.RuntimeManager.Event = {
     DidEvaluate: Symbol("runtime-manager-did-evaluate"),
     DefaultExecutionContextChanged: Symbol("runtime-manager-default-execution-context-changed"),
     ActiveExecutionContextChanged: Symbol("runtime-manager-active-execution-context-changed"),

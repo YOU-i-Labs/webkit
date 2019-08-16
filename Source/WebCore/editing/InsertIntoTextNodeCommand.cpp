@@ -32,7 +32,7 @@
 #include "Settings.h"
 #include "Text.h"
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #include "RenderText.h"
 #endif
 
@@ -65,7 +65,7 @@ void InsertIntoTextNodeCommand::doApply()
     m_node->insertData(m_offset, m_text);
 }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 
 // FIXME: Why would reapply be iOS-specific?
 void InsertIntoTextNodeCommand::doReapply()

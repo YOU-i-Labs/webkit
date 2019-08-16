@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,16 +33,12 @@
 #include "HTMLPictureElement.h"
 #include "Logging.h"
 #include "MediaList.h"
-#include "MediaQueryParser.h"
-#include <wtf/IsoMallocInlines.h>
 
 #if ENABLE(VIDEO)
 #include "HTMLMediaElement.h"
 #endif
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLSourceElement);
 
 using namespace HTMLNames;
 
@@ -67,11 +63,10 @@ Ref<HTMLSourceElement> HTMLSourceElement::create(Document& document)
     return create(sourceTag, document);
 }
 
-Node::InsertedIntoAncestorResult HTMLSourceElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
+Node::InsertionNotificationRequest HTMLSourceElement::insertedInto(ContainerNode& insertionPoint)
 {
-    HTMLElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
-    RefPtr<Element> parent = parentElement();
-    if (parent == &parentOfInsertedTree) {
+    HTMLElement::insertedInto(insertionPoint);
+    if (auto* parent = parentElement()) {
 #if ENABLE(VIDEO)
         if (is<HTMLMediaElement>(*parent))
             downcast<HTMLMediaElement>(*parent).sourceWasAdded(*this);
@@ -80,21 +75,24 @@ Node::InsertedIntoAncestorResult HTMLSourceElement::insertedIntoAncestor(Inserti
         if (is<HTMLPictureElement>(*parent))
             downcast<HTMLPictureElement>(*parent).sourcesChanged();
     }
-    return InsertedIntoAncestorResult::Done;
+    return InsertionDone;
 }
 
-void HTMLSourceElement::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
-{        
-    HTMLElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
-    if (!parentNode() && is<Element>(oldParentOfRemovedTree)) {
+void HTMLSourceElement::removedFrom(ContainerNode& removalRoot)
+{
+    Element* parent = parentElement();
+    if (!parent && is<Element>(removalRoot))
+        parent = &downcast<Element>(removalRoot);
+    if (parent) {
 #if ENABLE(VIDEO)
-        if (is<HTMLMediaElement>(oldParentOfRemovedTree))
-            downcast<HTMLMediaElement>(oldParentOfRemovedTree).sourceWasRemoved(*this);
+        if (is<HTMLMediaElement>(*parent))
+            downcast<HTMLMediaElement>(*parent).sourceWasRemoved(*this);
         else
 #endif
-        if (is<HTMLPictureElement>(oldParentOfRemovedTree))
-            downcast<HTMLPictureElement>(oldParentOfRemovedTree).sourcesChanged();
+        if (is<HTMLPictureElement>(*parent))
+            downcast<HTMLPictureElement>(*parent).sourcesChanged();
     }
+    HTMLElement::removedFrom(removalRoot);
 }
 
 void HTMLSourceElement::scheduleErrorEvent()
@@ -115,7 +113,7 @@ void HTMLSourceElement::cancelPendingErrorEvent()
 void HTMLSourceElement::errorEventTimerFired()
 {
     LOG(Media, "HTMLSourceElement::errorEventTimerFired - %p", this);
-    dispatchEvent(Event::create(eventNames().errorEvent, Event::CanBubble::No, Event::IsCancelable::Yes));
+    dispatchEvent(Event::create(eventNames().errorEvent, false, true));
 }
 
 bool HTMLSourceElement::isURLAttribute(const Attribute& attribute) const
@@ -133,10 +131,9 @@ bool HTMLSourceElement::canSuspendForDocumentSuspension() const
     return true;
 }
 
-void HTMLSourceElement::suspend(ReasonForSuspension reason)
+void HTMLSourceElement::suspend(ReasonForSuspension why)
 {
-    // FIXME: Shouldn't this also stop the timer for PageWillBeSuspended?
-    if (reason == ReasonForSuspension::PageCache) {
+    if (why == PageCache) {
         m_shouldRescheduleErrorEventOnResume = m_errorEventTimer.isActive();
         m_errorEventTimer.stop();
     }
@@ -160,20 +157,20 @@ void HTMLSourceElement::parseAttribute(const QualifiedName& name, const AtomicSt
     HTMLElement::parseAttribute(name, value);
     if (name == srcsetAttr || name == sizesAttr || name == mediaAttr || name == typeAttr) {
         if (name == mediaAttr)
-            m_cachedParsedMediaAttribute = WTF::nullopt;
-        auto parent = makeRefPtr(parentNode());
+            m_cachedParsedMediaAttribute = std::nullopt;
+        auto* parent = parentNode();
         if (is<HTMLPictureElement>(parent))
             downcast<HTMLPictureElement>(*parent).sourcesChanged();
     }
 }
 
-const MediaQuerySet* HTMLSourceElement::parsedMediaAttribute(Document& document) const
+const MediaQuerySet* HTMLSourceElement::parsedMediaAttribute() const
 {
     if (!m_cachedParsedMediaAttribute) {
         RefPtr<const MediaQuerySet> parsedAttribute;
         auto& value = attributeWithoutSynchronization(mediaAttr);
         if (!value.isNull())
-            parsedAttribute = MediaQuerySet::create(value, MediaQueryParserContext(document));
+            parsedAttribute = MediaQuerySet::create(value);
         m_cachedParsedMediaAttribute = WTFMove(parsedAttribute);
     }
     return m_cachedParsedMediaAttribute.value().get();

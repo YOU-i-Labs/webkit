@@ -20,9 +20,11 @@
 
 #pragma once
 
+#include "CSSParserMode.h"
 #include "ExceptionOr.h"
 #include "StyleSheet.h"
 #include <memory>
+#include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/TypeCasts.h>
 #include <wtf/text/AtomicStringHash.h>
@@ -49,7 +51,7 @@ class Scope;
 class CSSStyleSheet final : public StyleSheet {
 public:
     static Ref<CSSStyleSheet> create(Ref<StyleSheetContents>&&, CSSImportRule* ownerRule = 0);
-    static Ref<CSSStyleSheet> create(Ref<StyleSheetContents>&&, Node& ownerNode, const Optional<bool>& isOriginClean = WTF::nullopt);
+    static Ref<CSSStyleSheet> create(Ref<StyleSheetContents>&&, Node& ownerNode, const std::optional<bool>& isOriginClean = std::nullopt);
     static Ref<CSSStyleSheet> createInline(Ref<StyleSheetContents>&&, Element& owner, const TextPosition& startPosition);
 
     virtual ~CSSStyleSheet();
@@ -67,7 +69,7 @@ public:
     WEBCORE_EXPORT ExceptionOr<void> deleteRule(unsigned index);
     
     WEBCORE_EXPORT RefPtr<CSSRuleList> rules();
-    WEBCORE_EXPORT ExceptionOr<int> addRule(const String& selector, const String& style, Optional<unsigned> index);
+    WEBCORE_EXPORT ExceptionOr<int> addRule(const String& selector, const String& style, std::optional<unsigned> index);
     ExceptionOr<void> removeRule(unsigned index) { return deleteRule(index); }
     
     // For CSSRuleList.
@@ -125,21 +127,21 @@ public:
 
     void detachFromDocument() { m_ownerNode = nullptr; }
 
-    bool canAccessRules() const;
-
 private:
     CSSStyleSheet(Ref<StyleSheetContents>&&, CSSImportRule* ownerRule);
     CSSStyleSheet(Ref<StyleSheetContents>&&, Node* ownerNode, const TextPosition& startPosition, bool isInlineStylesheet);
-    CSSStyleSheet(Ref<StyleSheetContents>&&, Node& ownerNode, const TextPosition& startPosition, bool isInlineStylesheet, const Optional<bool>&);
+    CSSStyleSheet(Ref<StyleSheetContents>&&, Node& ownerNode, const TextPosition& startPosition, bool isInlineStylesheet, const std::optional<bool>&);
 
     bool isCSSStyleSheet() const final { return true; }
-    String type() const final { return "text/css"_s; }
+    String type() const final { return ASCIILiteral("text/css"); }
+
+    bool canAccessRules() const;
 
     Ref<StyleSheetContents> m_contents;
     bool m_isInlineStylesheet;
     bool m_isDisabled;
     bool m_mutatedRules;
-    Optional<bool> m_isOriginClean;
+    std::optional<bool> m_isOriginClean;
     String m_title;
     RefPtr<MediaQuerySet> m_mediaQueries;
 

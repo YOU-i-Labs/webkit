@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -73,13 +73,22 @@ public:
 
     constexpr OptionSet() = default;
 
+#if ASSERT_DISABLED
     constexpr OptionSet(T t)
         : m_storage(static_cast<StorageType>(t))
     {
-        ASSERT_WITH_MESSAGE(!m_storage || hasOneBitSet(m_storage), "Enumerator is not a zero or a positive power of two.");
     }
+#else
+    OptionSet(T t)
+        : m_storage(static_cast<StorageType>(t))
+    {
+        ASSERT_WITH_MESSAGE(hasOneBitSet(static_cast<StorageType>(t)), "Enumerator is not a positive power of two.");
+    }
+#endif
 
-    constexpr OptionSet(std::initializer_list<T> initializerList)
+    // FIXME: Make this constexpr once we adopt C++14 as C++11 does not support for-loops
+    // in a constexpr function.
+    OptionSet(std::initializer_list<T> initializerList)
     {
         for (auto& option : initializerList) {
             ASSERT_WITH_MESSAGE(hasOneBitSet(static_cast<StorageType>(option)), "Enumerator is not a positive power of two.");
@@ -94,31 +103,9 @@ public:
     constexpr iterator begin() const { return m_storage; }
     constexpr iterator end() const { return 0; }
 
-    constexpr explicit operator bool() { return !isEmpty(); }
-
-    constexpr bool contains(T option) const
+    constexpr bool contains(OptionSet optionSet) const
     {
-        return containsAny(option);
-    }
-
-    constexpr bool containsAny(OptionSet optionSet) const
-    {
-        return !!(*this & optionSet);
-    }
-
-    constexpr bool containsAll(OptionSet optionSet) const
-    {
-        return (*this & optionSet) == optionSet;
-    }
-
-    constexpr void add(OptionSet optionSet)
-    {
-        m_storage |= optionSet.m_storage;
-    }
-
-    constexpr void remove(OptionSet optionSet)
-    {
-        m_storage &= ~optionSet.m_storage;
+        return m_storage & optionSet.m_storage;
     }
 
     constexpr friend bool operator==(OptionSet lhs, OptionSet rhs)
@@ -131,24 +118,23 @@ public:
         return lhs.m_storage != rhs.m_storage;
     }
 
-    constexpr friend OptionSet operator|(OptionSet lhs, OptionSet rhs)
+    friend OptionSet& operator|=(OptionSet& lhs, OptionSet rhs)
     {
-        return fromRaw(lhs.m_storage | rhs.m_storage);
+        lhs.m_storage |= rhs.m_storage;
+
+        return lhs;
     }
 
-    constexpr friend OptionSet operator&(OptionSet lhs, OptionSet rhs)
+    friend OptionSet& operator-=(OptionSet& lhs, OptionSet rhs)
     {
-        return fromRaw(lhs.m_storage & rhs.m_storage);
+        lhs.m_storage &= ~rhs.m_storage;
+
+        return lhs;
     }
 
     constexpr friend OptionSet operator-(OptionSet lhs, OptionSet rhs)
     {
-        return fromRaw(lhs.m_storage & ~rhs.m_storage);
-    }
-
-    constexpr friend OptionSet operator^(OptionSet lhs, OptionSet rhs)
-    {
-        return fromRaw(lhs.m_storage ^ rhs.m_storage);
+        return OptionSet::fromRaw(lhs.m_storage & ~rhs.m_storage);
     }
 
 private:

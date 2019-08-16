@@ -34,7 +34,6 @@
 namespace WebCore {
 
 class HTMLUnknownElement final : public HTMLElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLUnknownElement);
 public:
     static Ref<HTMLUnknownElement> create(const QualifiedName& tagName, Document& document)
     {

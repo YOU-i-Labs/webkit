@@ -23,22 +23,28 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SearchBar = class SearchBar extends WI.NavigationItem
+WebInspector.SearchBar = class SearchBar extends WebInspector.NavigationItem
 {
-    constructor(identifier, placeholder, incremental)
+    constructor(identifier, placeholder, delegate, suppressIncremental)
     {
         super(identifier);
 
+        this.delegate = delegate;
+
         this._element.classList.add("search-bar");
+
+        this._keyboardShortcutEsc = new WebInspector.KeyboardShortcut(null, WebInspector.KeyboardShortcut.Key.Escape);
+        this._keyboardShortcutEnter = new WebInspector.KeyboardShortcut(null, WebInspector.KeyboardShortcut.Key.Enter);
 
         this._searchInput = this._element.appendChild(document.createElement("input"));
         this._searchInput.type = "search";
         this._searchInput.spellcheck = false;
-        this._searchInput.incremental = incremental;
+        this._searchInput.incremental = !suppressIncremental;
         this._searchInput.setAttribute("results", 5);
         this._searchInput.setAttribute("autosave", identifier + "-autosave");
         this._searchInput.setAttribute("placeholder", placeholder);
         this._searchInput.addEventListener("search", this._handleSearchEvent.bind(this));
+        this._searchInput.addEventListener("keydown", this._handleKeydownEvent.bind(this));
     }
 
     // Public
@@ -66,10 +72,27 @@ WI.SearchBar = class SearchBar extends WI.NavigationItem
 
     _handleSearchEvent(event)
     {
-        this.dispatchEventToListeners(WI.SearchBar.Event.TextChanged);
+        this.dispatchEventToListeners(WebInspector.SearchBar.Event.TextChanged);
+    }
+
+    _handleKeydownEvent(event)
+    {
+        if (this._keyboardShortcutEsc.matchesEvent(event)) {
+            if (this.delegate && typeof this.delegate.searchBarWantsToLoseFocus === "function") {
+                this.delegate.searchBarWantsToLoseFocus(this);
+                event.stopPropagation();
+                event.preventDefault();
+            }
+        } else if (this._keyboardShortcutEnter.matchesEvent(event)) {
+            if (this.delegate && typeof this.delegate.searchBarDidActivate === "function") {
+                this.delegate.searchBarDidActivate(this);
+                event.stopPropagation();
+                event.preventDefault();
+            }
+        }
     }
 };
 
-WI.SearchBar.Event = {
+WebInspector.SearchBar.Event = {
     TextChanged: "searchbar-text-did-change"
 };

@@ -23,7 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef GraphicsLayerFactory_h
+#define GraphicsLayerFactory_h
 
 #include "GraphicsLayer.h"
 #include <wtf/Forward.h>
@@ -32,9 +33,11 @@ namespace WebCore {
 
 class GraphicsLayerFactory {
 public:
-    virtual ~GraphicsLayerFactory() = default;
+    virtual ~GraphicsLayerFactory() { }
 
-    virtual Ref<GraphicsLayer> createGraphicsLayer(GraphicsLayer::Type, GraphicsLayerClient&) = 0;
+    virtual std::unique_ptr<GraphicsLayer> createGraphicsLayer(GraphicsLayer::Type, GraphicsLayerClient&) = 0;
 };
 
 } // namespace WebCore
+
+#endif // GraphicsLayerFactory_h

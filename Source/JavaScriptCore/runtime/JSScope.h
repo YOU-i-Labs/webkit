@@ -37,10 +37,8 @@ class WatchpointSet;
 
 class JSScope : public JSNonFinalObject {
 public:
-    using Base = JSNonFinalObject;
-    static const unsigned StructureFlags = Base::StructureFlags | OverridesToThis;
-
-    DECLARE_EXPORT_INFO;
+    typedef JSNonFinalObject Base;
+    static const unsigned StructureFlags = Base::StructureFlags;
 
     friend class LLIntOffsetsExtractor;
     static size_t offsetOfNext();
@@ -70,11 +68,11 @@ public:
     ScopeChainIterator end();
     JSScope* next();
 
+    JSGlobalObject* globalObject();
+    JSGlobalObject* globalObject(VM&);
     JSObject* globalThis();
 
     SymbolTable* symbolTable(VM&);
-
-    JS_EXPORT_PRIVATE static JSValue toThis(JSCell*, ExecState*, ECMAMode);
 
 protected:
     JSScope(VM&, Structure*, JSScope* next);
@@ -127,6 +125,16 @@ inline ScopeChainIterator JSScope::end()
 inline JSScope* JSScope::next()
 { 
     return m_next.get();
+}
+
+inline JSGlobalObject* JSScope::globalObject()
+{ 
+    return structure()->globalObject();
+}
+
+inline JSGlobalObject* JSScope::globalObject(VM& vm)
+{ 
+    return structure(vm)->globalObject();
 }
 
 inline Register& Register::operator=(JSScope* scope)

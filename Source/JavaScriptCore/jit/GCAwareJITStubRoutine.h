@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2014, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 
 #include "JITStubRoutine.h"
 #include "JSObject.h"
+#include "JSString.h"
 #include "WriteBarrier.h"
 #include <wtf/Vector.h>
 
@@ -49,7 +50,7 @@ class JITStubRoutineSet;
 // list which does not get reclaimed all at once).
 class GCAwareJITStubRoutine : public JITStubRoutine {
 public:
-    GCAwareJITStubRoutine(const MacroAssemblerCodeRef<JITStubRoutinePtrTag>&, VM&);
+    GCAwareJITStubRoutine(const MacroAssemblerCodeRef&, VM&);
     virtual ~GCAwareJITStubRoutine();
     
     void markRequiredObjects(SlotVisitor& visitor)
@@ -76,7 +77,7 @@ private:
 class MarkingGCAwareJITStubRoutine : public GCAwareJITStubRoutine {
 public:
     MarkingGCAwareJITStubRoutine(
-        const MacroAssemblerCodeRef<JITStubRoutinePtrTag>&, VM&, const JSCell* owner, const Vector<JSCell*>&);
+        const MacroAssemblerCodeRef&, VM&, const JSCell* owner, const Vector<JSCell*>&);
     virtual ~MarkingGCAwareJITStubRoutine();
     
 protected:
@@ -94,7 +95,7 @@ class GCAwareJITStubRoutineWithExceptionHandler : public MarkingGCAwareJITStubRo
 public:
     typedef GCAwareJITStubRoutine Base;
 
-    GCAwareJITStubRoutineWithExceptionHandler(const MacroAssemblerCodeRef<JITStubRoutinePtrTag>&, VM&, const JSCell* owner, const Vector<JSCell*>&, CodeBlock*, CallSiteIndex);
+    GCAwareJITStubRoutineWithExceptionHandler(const MacroAssemblerCodeRef&, VM&, const JSCell* owner, const Vector<JSCell*>&, CodeBlock*, CallSiteIndex);
 
     void aboutToDie() override;
     void observeZeroRefCount() override;
@@ -111,7 +112,7 @@ private:
 // after the first call to C++ or JS.
 // 
 // Ref<JITStubRoutine> createJITStubRoutine(
-//    const MacroAssemblerCodeRef<JITStubRoutinePtrTag>& code,
+//    const MacroAssemblerCodeRef& code,
 //    VM& vm,
 //    const JSCell* owner,
 //    bool makesCalls,
@@ -124,7 +125,7 @@ private:
 // way.
 
 Ref<JITStubRoutine> createJITStubRoutine(
-    const MacroAssemblerCodeRef<JITStubRoutinePtrTag>&, VM&, const JSCell* owner, bool makesCalls,
+    const MacroAssemblerCodeRef&, VM&, const JSCell* owner, bool makesCalls,
     const Vector<JSCell*>& = { }, 
     CodeBlock* codeBlockForExceptionHandlers = nullptr, CallSiteIndex exceptionHandlingCallSiteIndex = CallSiteIndex(std::numeric_limits<unsigned>::max()));
 

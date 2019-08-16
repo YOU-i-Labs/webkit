@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2014 Apple Inc. All rights reserved.
  * Copyright (c) 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,29 +32,41 @@
 #include "config.h"
 #include "ScriptArguments.h"
 
-#include "CatchScope.h"
 #include "JSCInlines.h"
 #include "ProxyObject.h"
+#include "ScriptValue.h"
 
 namespace Inspector {
 
-Ref<ScriptArguments> ScriptArguments::create(JSC::ExecState& state, Vector<JSC::Strong<JSC::Unknown>>&& arguments)
+Ref<ScriptArguments> ScriptArguments::create(JSC::ExecState* scriptState, Vector<Deprecated::ScriptValue>& arguments)
 {
-    return adoptRef(*new ScriptArguments(state, WTFMove(arguments)));
+    return adoptRef(*new ScriptArguments(scriptState, arguments));
 }
 
-ScriptArguments::ScriptArguments(JSC::ExecState& state, Vector<JSC::Strong<JSC::Unknown>>&& arguments)
-    : m_globalObject(state.vm(), state.lexicalGlobalObject())
-    , m_arguments(WTFMove(arguments))
+Ref<ScriptArguments> ScriptArguments::createEmpty(JSC::ExecState* scriptState)
+{
+    return adoptRef(*new ScriptArguments(scriptState));
+}
+
+ScriptArguments::ScriptArguments(JSC::ExecState* execState)
+    : m_globalObject(execState->vm(), execState->lexicalGlobalObject())
 {
 }
 
-ScriptArguments::~ScriptArguments() = default;
+ScriptArguments::ScriptArguments(JSC::ExecState* execState, Vector<Deprecated::ScriptValue>& arguments)
+    : m_globalObject(execState->vm(), execState->lexicalGlobalObject())
+{
+    m_arguments.swap(arguments);
+}
 
-JSC::JSValue ScriptArguments::argumentAt(size_t index) const
+ScriptArguments::~ScriptArguments()
+{
+}
+
+const Deprecated::ScriptValue& ScriptArguments::argumentAt(size_t index) const
 {
     ASSERT(m_arguments.size() > index);
-    return m_arguments[index].get();
+    return m_arguments[index];
 }
 
 JSC::ExecState* ScriptArguments::globalState() const
@@ -70,51 +82,34 @@ bool ScriptArguments::getFirstArgumentAsString(String& result)
     if (!argumentCount())
         return false;
 
-    auto* state = globalState();
-    if (!state) {
+    if (!globalState()) {
         ASSERT_NOT_REACHED();
         return false;
     }
 
-    auto value = argumentAt(0);
-    if (JSC::jsDynamicCast<JSC::ProxyObject*>(state->vm(), value)) {
-        result = "[object Proxy]"_s;
+    JSC::JSValue value = argumentAt(0).jsValue();
+    if (JSC::jsDynamicCast<JSC::ProxyObject*>(globalState()->vm(), value)) {
+        result = ASCIILiteral("[object Proxy]");
         return true;
     }
 
-    auto scope = DECLARE_CATCH_SCOPE(state->vm());
-    result = value.toWTFString(state);
-    scope.clearException();
+    result = argumentAt(0).toString(globalState());
     return true;
 }
 
-bool ScriptArguments::isEqual(const ScriptArguments& other) const
+bool ScriptArguments::isEqual(ScriptArguments* other) const
 {
-    auto size = m_arguments.size();
-
-    if (size != other.m_arguments.size())
+    if (!other)
         return false;
 
-    if (!size)
-        return true;
-
-    auto* state = globalState();
-    if (!state)
+    if (m_arguments.size() != other->m_arguments.size())
+        return false;
+    if (!globalState() && m_arguments.size())
         return false;
 
-    for (size_t i = 0; i < size; ++i) {
-        auto a = m_arguments[i].get();
-        auto b = other.m_arguments[i].get();
-        if (!a || !b) {
-            if (a != b)
-                return false;
-        } else {
-            auto scope = DECLARE_CATCH_SCOPE(state->vm());
-            bool result = JSValue::strictEqual(state, a, b);
-            scope.clearException();
-            if (!result)
-                return false;
-        }
+    for (size_t i = 0; i < m_arguments.size(); ++i) {
+        if (!m_arguments[i].isEqual(other->globalState(), other->m_arguments[i]))
+            return false;
     }
 
     return true;

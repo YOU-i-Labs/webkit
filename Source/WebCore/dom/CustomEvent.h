@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,8 +26,8 @@
 #pragma once
 
 #include "Event.h"
-#include "JSValueInWrappedObject.h"
 #include "SerializedScriptValue.h"
+#include <bindings/ScriptValue.h>
 
 namespace WebCore {
 
@@ -36,27 +35,35 @@ class CustomEvent final : public Event {
 public:
     virtual ~CustomEvent();
 
-    static Ref<CustomEvent> create(IsTrusted = IsTrusted::No);
+    static Ref<CustomEvent> create(IsTrusted isTrusted = IsTrusted::No)
+    {
+        return adoptRef(*new CustomEvent(isTrusted));
+    }
 
     struct Init : EventInit {
         JSC::JSValue detail;
     };
 
-    static Ref<CustomEvent> create(const AtomicString& type, const Init&, IsTrusted = IsTrusted::No);
+    static Ref<CustomEvent> create(JSC::ExecState& state, const AtomicString& type, const Init& initializer, IsTrusted isTrusted = IsTrusted::No)
+    {
+        return adoptRef(*new CustomEvent(state, type, initializer, isTrusted));
+    }
 
-    void initCustomEvent(const AtomicString& type, bool canBubble, bool cancelable, JSC::JSValue detail = JSC::JSValue::JSUndefined);
+    void initCustomEvent(JSC::ExecState&, const AtomicString& type, bool canBubble, bool cancelable, JSC::JSValue detail = JSC::JSValue::JSUndefined);
 
-    const JSValueInWrappedObject& detail() const { return m_detail; }
-    JSValueInWrappedObject& cachedDetail() { return m_cachedDetail; }
+    EventInterface eventInterface() const override;
+
+    JSC::JSValue detail() const { return m_detail.jsValue(); }
+    
+    RefPtr<SerializedScriptValue> trySerializeDetail(JSC::ExecState&);
 
 private:
     CustomEvent(IsTrusted);
-    CustomEvent(const AtomicString& type, const Init& initializer, IsTrusted);
+    CustomEvent(JSC::ExecState&, const AtomicString& type, const Init& initializer, IsTrusted);
 
-    EventInterface eventInterface() const final;
-
-    JSValueInWrappedObject m_detail;
-    JSValueInWrappedObject m_cachedDetail;
+    Deprecated::ScriptValue m_detail; // FIXME: Why is it OK to use a strong reference here? What prevents a reference cycle?
+    RefPtr<SerializedScriptValue> m_serializedDetail;
+    bool m_triedToSerialize { false };
 };
 
 } // namespace WebCore

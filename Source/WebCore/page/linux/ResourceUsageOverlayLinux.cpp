@@ -35,7 +35,7 @@
 #include "Page.h"
 #include "RenderTheme.h"
 #include "ResourceUsageThread.h"
-#include <JavaScriptCore/VM.h>
+#include <runtime/VM.h>
 
 namespace WebCore {
 
@@ -44,7 +44,7 @@ static ResourceUsageData gData;
 static String cpuUsageString(float cpuUsage)
 {
     if (cpuUsage < 0)
-        return "<unknown>"_s;
+        return ASCIILiteral("<unknown>");
     return String::format("%.1f%%", cpuUsage);
 }
 
@@ -62,7 +62,7 @@ static String formatByteNumber(size_t number)
 static String gcTimerString(MonotonicTime timerFireDate, MonotonicTime now)
 {
     if (std::isnan(timerFireDate))
-        return "[not scheduled]"_s;
+        return ASCIILiteral("[not scheduled]");
     return String::format("%g", (timerFireDate - now).seconds());
 }
 
@@ -76,14 +76,16 @@ public:
         FontCascadeDescription fontDescription;
         RenderTheme::singleton().systemFont(CSSValueMessageBox, fontDescription);
         fontDescription.setComputedSize(gFontSize);
-        m_textFont = FontCascade(WTFMove(fontDescription), 0, 0);
+        m_textFont = FontCascade(fontDescription, 0, 0);
         m_textFont.update(nullptr);
     }
 
-    ~ResourceUsageOverlayPainter() = default;
+    ~ResourceUsageOverlayPainter()
+    {
+    }
 
 private:
-    void paintContents(const GraphicsLayer*, GraphicsContext& context, GraphicsLayerPaintingPhase, const FloatRect& clip, GraphicsLayerPaintBehavior) override
+    void paintContents(const GraphicsLayer*, GraphicsContext& context, GraphicsLayerPaintingPhase, const FloatRect& clip, GraphicsLayerPaintFlags) override
     {
         GraphicsContextStateSaver stateSaver(context);
         context.fillRect(clip, Color(0.0f, 0.0f, 0.0f, 0.8f));
@@ -137,7 +139,7 @@ void ResourceUsageOverlay::platformInitialize()
     m_paintLayer->setSize({ normalWidth, normalHeight });
     m_paintLayer->setBackgroundColor(Color(0.0f, 0.0f, 0.0f, 0.8f));
     m_paintLayer->setDrawsContent(true);
-    overlay().layer().addChild(*m_paintLayer);
+    overlay().layer().addChild(m_paintLayer.get());
 
     ResourceUsageThread::addObserver(this, [this] (const ResourceUsageData& data) {
         gData = data;

@@ -34,7 +34,7 @@
 namespace WebCore {
 
 PrintContext::PrintContext(Frame* frame)
-    : FrameDestructionObserver(frame)
+    : m_frame(frame)
 {
 }
 
@@ -46,14 +46,10 @@ PrintContext::~PrintContext()
 
 void PrintContext::computePageRects(const FloatRect& printRect, float headerHeight, float footerHeight, float userScaleFactor, float& outPageHeight, bool allowHorizontalTiling)
 {
-    if (!frame())
-        return;
-
-    auto& frame = *this->frame();
     m_pageRects.clear();
     outPageHeight = 0;
 
-    if (!frame.document() || !frame.view() || !frame.document()->renderView())
+    if (!m_frame->document() || !m_frame->view() || !m_frame->document()->renderView())
         return;
 
     if (userScaleFactor <= 0) {
@@ -61,9 +57,9 @@ void PrintContext::computePageRects(const FloatRect& printRect, float headerHeig
         return;
     }
 
-    RenderView* view = frame.document()->renderView();
+    RenderView* view = m_frame->document()->renderView();
     const IntRect& documentRect = view->documentRect();
-    FloatSize pageSize = frame.resizePageRectsKeepingRatio(FloatSize(printRect.width(), printRect.height()), FloatSize(documentRect.width(), documentRect.height()));
+    FloatSize pageSize = m_frame->resizePageRectsKeepingRatio(FloatSize(printRect.width(), printRect.height()), FloatSize(documentRect.width(), documentRect.height()));
     float pageWidth = pageSize.width();
     float pageHeight = pageSize.height();
 
@@ -86,14 +82,10 @@ void PrintContext::computePageRectsWithPageSize(const FloatSize& pageSizeInPixel
 
 void PrintContext::computePageRectsWithPageSizeInternal(const FloatSize& pageSizeInPixels, bool allowInlineDirectionTiling)
 {
-    if (!frame())
+    if (!m_frame->document() || !m_frame->view() || !m_frame->document()->renderView())
         return;
 
-    auto& frame = *this->frame();
-    if (!frame.document() || !frame.view() || !frame.document()->renderView())
-        return;
-
-    RenderView* view = frame.document()->renderView();
+    RenderView* view = m_frame->document()->renderView();
 
     IntRect docRect = view->documentRect();
 
@@ -159,34 +151,26 @@ void PrintContext::computePageRectsWithPageSizeInternal(const FloatSize& pageSiz
 
 void PrintContext::begin(float width, float height)
 {
-    if (!frame())
-        return;
-
-    auto& frame = *this->frame();
     // This function can be called multiple times to adjust printing parameters without going back to screen mode.
     m_isPrinting = true;
 
     FloatSize originalPageSize = FloatSize(width, height);
-    FloatSize minLayoutSize = frame.resizePageRectsKeepingRatio(originalPageSize, FloatSize(width * minimumShrinkFactor(), height * minimumShrinkFactor()));
+    FloatSize minLayoutSize = m_frame->resizePageRectsKeepingRatio(originalPageSize, FloatSize(width * minimumShrinkFactor(), height * minimumShrinkFactor()));
 
     // This changes layout, so callers need to make sure that they don't paint to screen while in printing mode.
-    frame.setPrinting(true, minLayoutSize, originalPageSize, maximumShrinkFactor() / minimumShrinkFactor(), AdjustViewSize);
+    m_frame->setPrinting(true, minLayoutSize, originalPageSize, maximumShrinkFactor() / minimumShrinkFactor(), AdjustViewSize);
 }
 
 float PrintContext::computeAutomaticScaleFactor(const FloatSize& availablePaperSize)
 {
-    if (!frame())
-        return 1;
-
-    auto& frame = *this->frame();
-    if (!frame.view())
+    if (!m_frame->view())
         return 1;
 
     bool useViewWidth = true;
-    if (frame.document() && frame.document()->renderView())
-        useViewWidth = frame.document()->renderView()->style().isHorizontalWritingMode();
+    if (m_frame->document() && m_frame->document()->renderView())
+        useViewWidth = m_frame->document()->renderView()->style().isHorizontalWritingMode();
 
-    float viewLogicalWidth = useViewWidth ? frame.view()->contentsWidth() : frame.view()->contentsHeight();
+    float viewLogicalWidth = useViewWidth ? m_frame->view()->contentsWidth() : m_frame->view()->contentsHeight();
     if (viewLogicalWidth < 1)
         return 1;
 
@@ -197,10 +181,6 @@ float PrintContext::computeAutomaticScaleFactor(const FloatSize& availablePaperS
 
 void PrintContext::spoolPage(GraphicsContext& ctx, int pageNumber, float width)
 {
-    if (!frame())
-        return;
-
-    auto& frame = *this->frame();
     // FIXME: Not correct for vertical text.
     IntRect pageRect = m_pageRects[pageNumber];
     float scale = width / pageRect.width();
@@ -209,35 +189,27 @@ void PrintContext::spoolPage(GraphicsContext& ctx, int pageNumber, float width)
     ctx.scale(scale);
     ctx.translate(-pageRect.x(), -pageRect.y());
     ctx.clip(pageRect);
-    frame.view()->paintContents(ctx, pageRect);
-    outputLinkedDestinations(ctx, *frame.document(), pageRect);
+    m_frame->view()->paintContents(ctx, pageRect);
+    outputLinkedDestinations(ctx, *m_frame->document(), pageRect);
     ctx.restore();
 }
 
 void PrintContext::spoolRect(GraphicsContext& ctx, const IntRect& rect)
 {
-    if (!frame())
-        return;
-
-    auto& frame = *this->frame();
     // FIXME: Not correct for vertical text.
     ctx.save();
     ctx.translate(-rect.x(), -rect.y());
     ctx.clip(rect);
-    frame.view()->paintContents(ctx, rect);
-    outputLinkedDestinations(ctx, *frame.document(), rect);
+    m_frame->view()->paintContents(ctx, rect);
+    outputLinkedDestinations(ctx, *m_frame->document(), rect);
     ctx.restore();
 }
 
 void PrintContext::end()
 {
-    if (!frame())
-        return;
-
-    auto& frame = *this->frame();
     ASSERT(m_isPrinting);
     m_isPrinting = false;
-    frame.setPrinting(false, FloatSize(), FloatSize(), 0, AdjustViewSize);
+    m_frame->setPrinting(false, FloatSize(), FloatSize(), 0, AdjustViewSize);
     m_linkedDestinations = nullptr;
 }
 
@@ -325,7 +297,7 @@ String PrintContext::pageProperty(Frame* frame, const char* propertyName, int pa
     // Implement formatters for properties we care about.
     if (!strcmp(propertyName, "margin-left")) {
         if (style->marginLeft().isAuto())
-            return "auto"_s;
+            return ASCIILiteral { "auto" };
         return String::number(style->marginLeft().value());
     }
     if (!strcmp(propertyName, "line-height"))

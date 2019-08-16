@@ -42,9 +42,13 @@ namespace WebCore {
     
 using namespace HTMLNames;
 
-AccessibilityTableColumn::AccessibilityTableColumn() = default;
+AccessibilityTableColumn::AccessibilityTableColumn()
+{
+}
 
-AccessibilityTableColumn::~AccessibilityTableColumn() = default;
+AccessibilityTableColumn::~AccessibilityTableColumn()
+{
+}    
 
 Ref<AccessibilityTableColumn> AccessibilityTableColumn::create()
 {
@@ -87,7 +91,7 @@ AccessibilityObject* AccessibilityTableColumn::headerObject()
     
     if (parentTable.isAriaTable()) {
         for (const auto& cell : children()) {
-            if (cell->ariaRoleAttribute() == AccessibilityRole::ColumnHeader)
+            if (cell->ariaRoleAttribute() == ColumnHeaderRole)
                 return cell.get();
         }
         
@@ -176,7 +180,7 @@ bool AccessibilityTableColumn::computeAccessibilityIsIgnored() const
     if (!m_parent)
         return true;
     
-#if PLATFORM(IOS_FAMILY) || PLATFORM(GTK)
+#if PLATFORM(IOS) || PLATFORM(GTK)
     return true;
 #endif
     

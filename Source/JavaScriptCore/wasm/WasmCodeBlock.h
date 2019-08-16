@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,6 @@
 #if ENABLE(WEBASSEMBLY)
 
 #include "MacroAssemblerCodeRef.h"
-#include "WasmEmbedder.h"
 #include "WasmTierUpCount.h"
 #include <wtf/Lock.h>
 #include <wtf/RefPtr.h>
@@ -38,28 +37,34 @@
 
 namespace JSC {
 
+class VM;
+
 namespace Wasm {
 
 class Callee;
-struct Context;
 class BBQPlan;
 class OMGPlan;
 struct ModuleInformation;
 struct UnlinkedWasmToWasmCall;
+typedef void** WasmEntrypointLoadLocation;
 enum class MemoryMode : uint8_t;
     
 class CodeBlock : public ThreadSafeRefCounted<CodeBlock> {
 public:
-    typedef void CallbackType(Ref<CodeBlock>&&);
+    typedef void CallbackType(VM&, Ref<CodeBlock>&&);
     using AsyncCompilationCallback = RefPtr<WTF::SharedTask<CallbackType>>;
-    static Ref<CodeBlock> create(Context*, MemoryMode, ModuleInformation&, CreateEmbedderWrapper&&, ThrowWasmException);
+    static Ref<CodeBlock> create(MemoryMode mode, ModuleInformation& moduleInformation)
+    {
+        return adoptRef(*new CodeBlock(mode, moduleInformation));
+    }
 
     void waitUntilFinished();
-    void compileAsync(Context*, AsyncCompilationCallback&&);
+    void compileAsync(VM&, AsyncCompilationCallback&&);
 
     bool compilationFinished()
     {
-        return m_compilationFinished.load();
+        auto locker = holdLock(m_lock);
+        return !m_plan;
     }
     bool runnable() { return compilationFinished() && !m_errorMessage; }
 
@@ -74,21 +79,17 @@ public:
 
     unsigned functionImportCount() const { return m_wasmToWasmExitStubs.size(); }
 
-    // These two callee getters are only valid once the callees have been populated.
-
-    Callee& embedderEntrypointCalleeFromFunctionIndexSpace(unsigned functionIndexSpace)
+    Callee& jsEntrypointCalleeFromFunctionIndexSpace(unsigned functionIndexSpace)
     {
-        ASSERT(runnable());
         RELEASE_ASSERT(functionIndexSpace >= functionImportCount());
         unsigned calleeIndex = functionIndexSpace - functionImportCount();
 
-        auto callee = m_embedderCallees.get(calleeIndex);
+        auto callee = m_jsCallees.get(calleeIndex);
         RELEASE_ASSERT(callee);
         return *callee;
     }
     Callee& wasmEntrypointCalleeFromFunctionIndexSpace(unsigned functionIndexSpace)
     {
-        ASSERT(runnable());
         RELEASE_ASSERT(functionIndexSpace >= functionImportCount());
         unsigned calleeIndex = functionIndexSpace - functionImportCount();
         if (m_optimizedCallees[calleeIndex])
@@ -96,7 +97,7 @@ public:
         return *m_callees[calleeIndex].get();
     }
 
-    MacroAssemblerCodePtr<WasmEntryPtrTag>* entrypointLoadLocationFromFunctionIndexSpace(unsigned functionIndexSpace)
+    WasmEntrypointLoadLocation wasmEntrypointLoadLocationFromFunctionIndexSpace(unsigned functionIndexSpace)
     {
         RELEASE_ASSERT(functionIndexSpace >= functionImportCount());
         unsigned calleeIndex = functionIndexSpace - functionImportCount();
@@ -116,19 +117,17 @@ public:
 private:
     friend class OMGPlan;
 
-    CodeBlock(Context*, MemoryMode, ModuleInformation&, CreateEmbedderWrapper&&, ThrowWasmException);
-    void setCompilationFinished();
+    CodeBlock(MemoryMode, ModuleInformation&);
     unsigned m_calleeCount;
     MemoryMode m_mode;
     Vector<RefPtr<Callee>> m_callees;
     Vector<RefPtr<Callee>> m_optimizedCallees;
-    HashMap<uint32_t, RefPtr<Callee>, typename DefaultHash<uint32_t>::Hash, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_embedderCallees;
-    Vector<MacroAssemblerCodePtr<WasmEntryPtrTag>> m_wasmIndirectCallEntryPoints;
+    HashMap<uint32_t, RefPtr<Callee>, typename DefaultHash<uint32_t>::Hash, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_jsCallees;
+    Vector<void*> m_wasmIndirectCallEntryPoints;
     Vector<TierUpCount> m_tierUpCounts;
     Vector<Vector<UnlinkedWasmToWasmCall>> m_wasmToWasmCallsites;
-    Vector<MacroAssemblerCodeRef<WasmEntryPtrTag>> m_wasmToWasmExitStubs;
+    Vector<MacroAssemblerCodeRef> m_wasmToWasmExitStubs;
     RefPtr<BBQPlan> m_plan;
-    std::atomic<bool> m_compilationFinished { false };
     String m_errorMessage;
     Lock m_lock;
 };

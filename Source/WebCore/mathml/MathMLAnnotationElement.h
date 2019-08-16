@@ -32,7 +32,6 @@
 namespace WebCore {
 
 class MathMLAnnotationElement final : public MathMLPresentationElement {
-    WTF_MAKE_ISO_ALLOCATED(MathMLAnnotationElement);
 public:
     static Ref<MathMLAnnotationElement> create(const QualifiedName& tagName, Document&);
 private:

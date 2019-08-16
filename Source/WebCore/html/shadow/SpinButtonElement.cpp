@@ -38,12 +38,9 @@
 #include "RenderTheme.h"
 #include "ScrollbarTheme.h"
 #include "WheelEvent.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(SpinButtonElement);
 
 using namespace HTMLNames;
 
@@ -118,7 +115,7 @@ void SpinButtonElement::defaultEventHandler(Event& event)
     else if (mouseEvent.type() == eventNames().mousemoveEvent) {
         if (box->borderBoxRect().contains(local)) {
             if (!m_capturing) {
-                if (RefPtr<Frame> frame = document().frame()) {
+                if (Frame* frame = document().frame()) {
                     frame->eventHandler().setCapturingMouseEventsElement(this);
                     m_capturing = true;
                     if (Page* page = document().page())
@@ -204,7 +201,7 @@ void SpinButtonElement::releaseCapture()
 {
     stopRepeatingTimer();
     if (m_capturing) {
-        if (RefPtr<Frame> frame = document().frame()) {
+        if (Frame* frame = document().frame()) {
             frame->eventHandler().setCapturingMouseEventsElement(nullptr);
             m_capturing = false;
             if (Page* page = document().page())

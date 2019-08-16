@@ -25,8 +25,9 @@
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/Vector.h>
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #include "NativeImage.h"
 #include <CoreGraphics/CoreGraphics.h>
 #elif PLATFORM(MAC)
@@ -51,11 +52,11 @@ public:
     void paint(GraphicsContext&, const FloatRect&);
 
 #if PLATFORM(WIN)
-    static Ref<Icon> create(HICON hIcon) { return adoptRef(*new Icon(hIcon)); }
+    static RefPtr<Icon> create(HICON hIcon) { return adoptRef(new Icon(hIcon)); }
 #endif
 
-#if PLATFORM(IOS_FAMILY)
-    // FIXME: Make this work for non-iOS ports and remove the PLATFORM(IOS_FAMILY)-guard.
+#if PLATFORM(IOS)
+    // FIXME: Make this work for non-iOS ports and remove the PLATFORM(IOS)-guard.
     WEBCORE_EXPORT static RefPtr<Icon> createIconForImage(const NativeImagePtr&);
 #endif
 
@@ -65,7 +66,7 @@ public:
 #endif
 
 private:
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     Icon(const RetainPtr<CGImageRef>&);
     RetainPtr<CGImageRef> m_cgImage;
 #elif PLATFORM(MAC)

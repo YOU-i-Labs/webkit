@@ -23,18 +23,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef PlatformLayer_h
+#define PlatformLayer_h
 
 #if PLATFORM(COCOA)
 OBJC_CLASS CALayer;
 typedef CALayer PlatformLayer;
 #elif PLATFORM(WIN) && USE(CA)
 typedef struct _CACFLayer PlatformLayer;
-#elif USE(NICOSIA)
-namespace Nicosia {
-class PlatformLayer;
-}
-typedef Nicosia::PlatformLayer PlatformLayer;
 #elif USE(COORDINATED_GRAPHICS_THREADED)
 namespace WebCore {
 class TextureMapperPlatformLayerProxyProvider;
@@ -49,3 +45,4 @@ typedef TextureMapperPlatformLayer PlatformLayer;
 typedef void* PlatformLayer;
 #endif
 
+#endif // PlatformLayer_h

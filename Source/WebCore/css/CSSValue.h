@@ -20,18 +20,18 @@
 
 #pragma once
 
-#include "CSSPropertyNames.h"
-#include <wtf/Function.h>
+#include "ExceptionOr.h"
+#include "URLHash.h"
+#include <functional>
 #include <wtf/HashMap.h>
+#include <wtf/ListHashSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/TypeCasts.h>
-#include <wtf/URLHash.h>
 
 namespace WebCore {
 
 class CSSCustomPropertyValue;
-class CSSStyleDeclaration;
 class CachedResource;
 class DeprecatedCSSOMValue;
 class StyleSheetContents;
@@ -82,8 +82,8 @@ public:
     bool isFontValue() const { return m_classType == FontClass; }
     bool isFontStyleValue() const { return m_classType == FontStyleClass; }
     bool isFontStyleRangeValue() const { return m_classType == FontStyleRangeClass; }
-    bool isImageGeneratorValue() const { return m_classType >= CanvasClass && m_classType <= ConicGradientClass; }
-    bool isGradientValue() const { return m_classType >= LinearGradientClass && m_classType <= ConicGradientClass; }
+    bool isImageGeneratorValue() const { return m_classType >= CanvasClass && m_classType <= RadialGradientClass; }
+    bool isGradientValue() const { return m_classType >= LinearGradientClass && m_classType <= RadialGradientClass; }
     bool isNamedImageValue() const { return m_classType == NamedImageClass; }
     bool isImageSetValue() const { return m_classType == ImageSetClass; }
     bool isImageValue() const { return m_classType == ImageClass; }
@@ -92,12 +92,10 @@ public:
     bool isInitialValue() const { return m_classType == InitialClass; }
     bool isUnsetValue() const { return m_classType == UnsetClass; }
     bool isRevertValue() const { return m_classType == RevertClass; }
-    bool isGlobalKeyword() const { return isInheritedValue() || isInitialValue() || isUnsetValue() || isRevertValue(); }
     bool treatAsInitialValue(CSSPropertyID) const;
     bool treatAsInheritedValue(CSSPropertyID) const;
     bool isLinearGradientValue() const { return m_classType == LinearGradientClass; }
     bool isRadialGradientValue() const { return m_classType == RadialGradientClass; }
-    bool isConicGradientValue() const { return m_classType == ConicGradientClass; }
     bool isReflectValue() const { return m_classType == ReflectClass; }
     bool isShadowValue() const { return m_classType == ShadowClass; }
     bool isCubicBezierTimingFunctionValue() const { return m_classType == CubicBezierTimingFunctionClass; }
@@ -106,14 +104,15 @@ public:
     bool isLineBoxContainValue() const { return m_classType == LineBoxContainClass; }
     bool isCalcValue() const {return m_classType == CalculationClass; }
     bool isFilterImageValue() const { return m_classType == FilterImageClass; }
-#if ENABLE(CSS_PAINTING_API)
-    bool isPaintImageValue() const { return m_classType == PaintImageClass; }
-#endif
     bool isContentDistributionValue() const { return m_classType == CSSContentDistributionClass; }
     bool isGridAutoRepeatValue() const { return m_classType == GridAutoRepeatClass; }
     bool isGridTemplateAreasValue() const { return m_classType == GridTemplateAreasClass; }
     bool isGridLineNamesValue() const { return m_classType == GridLineNamesClass; }
     bool isUnicodeRangeValue() const { return m_classType == UnicodeRangeClass; }
+
+#if ENABLE(CSS_ANIMATIONS_LEVEL_2)
+    bool isAnimationTriggerScrollValue() const { return m_classType == AnimationTriggerScrollClass; }
+#endif
 
     bool isCustomIdentValue() const { return m_classType == CustomIdentClass; }
     bool isVariableReferenceValue() const { return m_classType == VariableReferenceClass; }
@@ -121,14 +120,9 @@ public:
     
     bool hasVariableReferences() const { return isVariableReferenceValue() || isPendingSubstitutionValue(); }
 
-    Ref<DeprecatedCSSOMValue> createDeprecatedCSSOMWrapper(CSSStyleDeclaration&) const;
+    Ref<DeprecatedCSSOMValue> createDeprecatedCSSOMWrapper() const;
 
-    bool traverseSubresources(const WTF::Function<bool (const CachedResource&)>& handler) const;
-
-    // What properties does this value rely on (eg, font-size for em units)
-    void collectDirectComputationalDependencies(HashSet<CSSPropertyID>&) const;
-    // What properties in the root element does this value rely on (eg. font-size for rem units)
-    void collectDirectRootComputationalDependencies(HashSet<CSSPropertyID>&) const;
+    bool traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const;
 
     bool equals(const CSSValue&) const;
     bool operator==(const CSSValue& other) const { return equals(other); }
@@ -145,15 +139,11 @@ protected:
 
         // Image generator classes.
         CanvasClass,
-#if ENABLE(CSS_PAINTING_API)
-        PaintImageClass,
-#endif
         NamedImageClass,
         CrossfadeClass,
         FilterImageClass,
         LinearGradientClass,
         RadialGradientClass,
-        ConicGradientClass,
 
         // Timing function classes.
         CubicBezierTimingFunctionClass,
@@ -184,9 +174,12 @@ protected:
         LineBoxContainClass,
         CalculationClass,
         GridTemplateAreasClass,
+#if ENABLE(CSS_ANIMATIONS_LEVEL_2)
+        AnimationTriggerScrollClass,
+#endif
 
         CSSContentDistributionClass,
-
+        
         CustomIdentClass,
 
         CustomPropertyClass,
@@ -226,7 +219,7 @@ protected:
     // NOTE: This class is non-virtual for memory and performance reasons.
     // Don't go making it virtual again unless you know exactly what you're doing!
 
-    ~CSSValue() = default;
+    ~CSSValue() { }
 
 private:
     WEBCORE_EXPORT void destroy();

@@ -31,28 +31,29 @@
 
 #pragma once
 
+#include <functional>
 #include <wtf/Forward.h>
 #include <wtf/Function.h>
-#include <wtf/WallTime.h>
 
 namespace WebCore {
 
 class FileStreamClient;
 class FileStream;
+class URL;
 
 class WEBCORE_EXPORT AsyncFileStream {
 public:
     explicit AsyncFileStream(FileStreamClient&);
     ~AsyncFileStream();
 
-    void getSize(const String& path, Optional<WallTime> expectedModificationTime);
+    void getSize(const String& path, double expectedModificationTime);
     void openForRead(const String& path, long long offset, long long length);
     void close();
     void read(char* buffer, int length);
 
 private:
     void start();
-    void perform(WTF::Function<WTF::Function<void(FileStreamClient&)>(FileStream&)>&&);
+    void perform(Function<std::function<void(FileStreamClient&)>(FileStream&)>&&);
 
     struct Internals;
     std::unique_ptr<Internals> m_internals;

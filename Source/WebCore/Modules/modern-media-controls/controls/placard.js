@@ -41,7 +41,6 @@ class Placard extends LayoutItem
         if (iconName) {
             this._icon = new Button(this);
             this._icon.iconName = iconName;
-            this._icon.element.disabled = true;
         }
 
         if (!!title)
@@ -74,12 +73,6 @@ class Placard extends LayoutItem
             children.push(this._descriptionNode);
 
         this._container.children = children;
-    }
-    
-    set description(description)
-    {
-        this._descriptionNode = !!description ? new LayoutNode(`<div class="description">${description}</div>`) : null;
-        this.needsLayout = true;
     }
 
 }

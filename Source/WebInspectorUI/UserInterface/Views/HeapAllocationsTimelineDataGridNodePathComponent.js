@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.HeapAllocationsTimelineDataGridNodePathComponent = class HeapAllocationsTimelineDataGridNodePathComponent extends WI.TimelineDataGridNodePathComponent
+WebInspector.HeapAllocationsTimelineDataGridNodePathComponent = class HeapAllocationsTimelineDataGridNodePathComponent extends WebInspector.TimelineDataGridNodePathComponent
 {
     // Protected
 
@@ -36,7 +36,7 @@ WI.HeapAllocationsTimelineDataGridNodePathComponent = class HeapAllocationsTimel
         if (!previousSibling)
             return null;
 
-        return new WI.HeapAllocationsTimelineDataGridNodePathComponent(previousSibling);
+        return new WebInspector.HeapAllocationsTimelineDataGridNodePathComponent(previousSibling);
     }
 
     get nextSibling()
@@ -48,6 +48,6 @@ WI.HeapAllocationsTimelineDataGridNodePathComponent = class HeapAllocationsTimel
         if (!nextSibling)
             return null;
 
-        return new WI.HeapAllocationsTimelineDataGridNodePathComponent(nextSibling);
+        return new WebInspector.HeapAllocationsTimelineDataGridNodePathComponent(nextSibling);
     }
 };

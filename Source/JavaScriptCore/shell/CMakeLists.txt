@@ -28,14 +28,13 @@ set(TESTAPI_SOURCES
     ../API/tests/PingPongStackOverflowTest.cpp
     ../API/tests/TypedArrayCTest.cpp
     ../API/tests/testapi.c
-    ../API/tests/testapi.cpp
 )
 
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
 
 WEBKIT_WRAP_SOURCELIST(${JSC_SOURCES})
 WEBKIT_WRAP_SOURCELIST(${TESTAPI_SOURCES})
-include_directories(./ ${JavaScriptCore_INCLUDE_DIRECTORIES} ${JavaScriptCore_PRIVATE_INCLUDE_DIRECTORIES})
+include_directories(./ ${JavaScriptCore_INCLUDE_DIRECTORIES})
 include_directories(SYSTEM ${JavaScriptCore_SYSTEM_INCLUDE_DIRECTORIES})
 add_executable(jsc ${JSC_SOURCES})
 target_link_libraries(jsc ${JSC_LIBRARIES})
@@ -45,7 +44,7 @@ if (JSC_OUTPUT_NAME)
 endif ()
 
 if (JSC_LINK_FLAGS)
-    WEBKIT_ADD_TARGET_PROPERTIES(jsc LINK_FLAGS "${JSC_LINK_FLAGS}")
+    ADD_TARGET_PROPERTIES(jsc LINK_FLAGS "${JSC_LINK_FLAGS}")
 endif ()
 
 if (SHOULD_INSTALL_JS_SHELL)
@@ -56,21 +55,14 @@ if (TARGET jscLib)
     add_dependencies(jsc jscLib)
 endif ()
 
-set(TESTMASM_SOURCES
-    ../assembler/testmasm.cpp
-)
+if (NOT WIN32)
+    set(TESTB3_SOURCES
+        ../b3/testb3.cpp
+    )
 
-set(TESTB3_SOURCES
-    ../b3/testb3.cpp
-)
-
-set(TESTAIR_SOURCES
-    ../b3/air/testair.cpp
-)
-
-if (DEVELOPER_MODE AND NOT WIN32)
-    add_executable(testmasm ${TESTMASM_SOURCES})
-    target_link_libraries(testmasm ${JSC_LIBRARIES})
+    set(TESTAIR_SOURCES
+        ../b3/air/testair.cpp
+    )
 
     add_executable(testb3 ${TESTB3_SOURCES})
     target_link_libraries(testb3 ${JSC_LIBRARIES})

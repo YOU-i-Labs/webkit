@@ -23,47 +23,49 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
+WebInspector.NavigationSidebarPanel = class NavigationSidebarPanel extends WebInspector.SidebarPanel
 {
-    constructor(identifier, displayName, shouldAutoPruneStaleTopLevelResourceTreeElements, wantsTopOverflowShadow)
+    constructor(identifier, displayName, shouldAutoPruneStaleTopLevelResourceTreeElements, wantsTopOverflowShadow, element, role, label)
     {
-        super(identifier, displayName);
+        super(identifier, displayName, element, role, label || displayName);
 
         this.element.classList.add("navigation");
 
         this.contentView.element.addEventListener("scroll", this.soon._updateContentOverflowShadowVisibility);
 
-        this._contentTreeOutlineGroup = new WI.TreeOutlineGroup;
+        this._contentTreeOutlineGroup = new WebInspector.TreeOutlineGroup;
         this._contentTreeOutline = this.createContentTreeOutline();
 
-        this._filterBar = new WI.FilterBar;
-        this._filterBar.addEventListener(WI.FilterBar.Event.FilterDidChange, this._filterDidChange, this);
+        this._filterBar = new WebInspector.FilterBar;
+        this._filterBar.addEventListener(WebInspector.FilterBar.Event.FilterDidChange, this._filterDidChange, this);
         this.element.appendChild(this._filterBar.element);
 
         this._bottomOverflowShadowElement = document.createElement("div");
-        this._bottomOverflowShadowElement.className = WI.NavigationSidebarPanel.OverflowShadowElementStyleClassName;
+        this._bottomOverflowShadowElement.className = WebInspector.NavigationSidebarPanel.OverflowShadowElementStyleClassName;
         this.element.appendChild(this._bottomOverflowShadowElement);
 
         if (wantsTopOverflowShadow) {
-            this._topOverflowShadowElement = this.element.appendChild(document.createElement("div"));
-            this._topOverflowShadowElement.classList.add(WI.NavigationSidebarPanel.OverflowShadowElementStyleClassName, "top");
+            this._topOverflowShadowElement = document.createElement("div");
+            this._topOverflowShadowElement.classList.add(WebInspector.NavigationSidebarPanel.OverflowShadowElementStyleClassName);
+            this._topOverflowShadowElement.classList.add(WebInspector.NavigationSidebarPanel.TopOverflowShadowElementStyleClassName);
+            this.element.appendChild(this._topOverflowShadowElement);
         }
 
         this._boundUpdateContentOverflowShadowVisibility = this.soon._updateContentOverflowShadowVisibility;
         window.addEventListener("resize", this._boundUpdateContentOverflowShadowVisibility);
 
-        this._filtersSetting = new WI.Setting(identifier + "-navigation-sidebar-filters", {});
+        this._filtersSetting = new WebInspector.Setting(identifier + "-navigation-sidebar-filters", {});
         this._filterBar.filters = this._filtersSetting.value;
 
         this._emptyContentPlaceholderElements = new Map;
-        this._emptyFilterResults = new Set;
+        this._emptyFilterResults = new Map;
 
         this._shouldAutoPruneStaleTopLevelResourceTreeElements = shouldAutoPruneStaleTopLevelResourceTreeElements || false;
 
         if (this._shouldAutoPruneStaleTopLevelResourceTreeElements) {
-            WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._checkForStaleResources, this);
-            WI.Frame.addEventListener(WI.Frame.Event.ChildFrameWasRemoved, this._checkForStaleResources, this);
-            WI.Frame.addEventListener(WI.Frame.Event.ResourceWasRemoved, this._checkForStaleResources, this);
+            WebInspector.Frame.addEventListener(WebInspector.Frame.Event.MainResourceDidChange, this._checkForStaleResources, this);
+            WebInspector.Frame.addEventListener(WebInspector.Frame.Event.ChildFrameWasRemoved, this._checkForStaleResources, this);
+            WebInspector.Frame.addEventListener(WebInspector.Frame.Event.ResourceWasRemoved, this._checkForStaleResources, this);
         }
 
         this._pendingViewStateCookie = null;
@@ -72,13 +74,10 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
 
     // Public
 
-    get filterBar() { return this._filterBar; }
-    get hasActiveFilters() { return this._filterBar.hasActiveFilters(); }
-
     closed()
     {
         window.removeEventListener("resize", this._boundUpdateContentOverflowShadowVisibility);
-        WI.Frame.removeEventListener(null, null, this);
+        WebInspector.Frame.removeEventListener(null, null, this);
     }
 
     get contentBrowser()
@@ -98,7 +97,7 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
 
     get contentTreeOutlines()
     {
-        return Array.from(this._contentTreeOutlineGroup);
+        return this._contentTreeOutlineGroup.items;
     }
 
     get currentRepresentedObject()
@@ -107,6 +106,11 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
             return null;
 
         return this._contentBrowser.currentRepresentedObjects[0] || null;
+    }
+
+    get filterBar()
+    {
+        return this._filterBar;
     }
 
     get restoringState()
@@ -125,21 +129,21 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
 
     createContentTreeOutline(suppressFiltering)
     {
-        let contentTreeOutline = new WI.TreeOutline;
+        let contentTreeOutline = new WebInspector.TreeOutline;
         contentTreeOutline.allowsRepeatSelection = true;
-        contentTreeOutline.element.classList.add(WI.NavigationSidebarPanel.ContentTreeOutlineElementStyleClassName);
+        contentTreeOutline.element.classList.add(WebInspector.NavigationSidebarPanel.ContentTreeOutlineElementStyleClassName);
 
         this._contentTreeOutlineGroup.add(contentTreeOutline);
 
         this.contentView.element.appendChild(contentTreeOutline.element);
 
         if (!suppressFiltering) {
-            contentTreeOutline.addEventListener(WI.TreeOutline.Event.ElementAdded, this._treeElementAddedOrChanged, this);
-            contentTreeOutline.addEventListener(WI.TreeOutline.Event.ElementDidChange, this._treeElementAddedOrChanged, this);
-            contentTreeOutline.addEventListener(WI.TreeOutline.Event.ElementDisclosureDidChanged, this._treeElementDisclosureDidChange, this);
+            contentTreeOutline.addEventListener(WebInspector.TreeOutline.Event.ElementAdded, this._treeElementAddedOrChanged, this);
+            contentTreeOutline.addEventListener(WebInspector.TreeOutline.Event.ElementDidChange, this._treeElementAddedOrChanged, this);
+            contentTreeOutline.addEventListener(WebInspector.TreeOutline.Event.ElementDisclosureDidChanged, this._treeElementDisclosureDidChange, this);
         }
 
-        contentTreeOutline[WI.NavigationSidebarPanel.SuppressFilteringSymbol] = suppressFiltering;
+        contentTreeOutline[WebInspector.NavigationSidebarPanel.SuppressFilteringSymbol] = suppressFiltering;
 
         return contentTreeOutline;
     }
@@ -149,9 +153,9 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
         console.assert(Array.isArray(treeElements), "TreeElements should be an array.");
 
         for (let treeElement of treeElements)
-            treeElement[WI.NavigationSidebarPanel.SuppressFilteringSymbol] = true;
+            treeElement[WebInspector.NavigationSidebarPanel.SuppressFilteringSymbol] = true;
 
-        this.updateFilter();
+        this._updateFilter();
     }
 
     treeElementForRepresentedObject(representedObject)
@@ -186,7 +190,7 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
                 return false;
 
             // contentView.parentContainer may be null. Check for selected tab, too.
-            let selectedTabContentView = WI.tabBrowser.selectedTabContentView;
+            let selectedTabContentView = WebInspector.tabBrowser.selectedTabContentView;
             if (selectedTabContentView && selectedTabContentView.contentBrowser !== this.contentBrowser)
                 return false;
         }
@@ -195,15 +199,8 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
         if (!contentView)
             return false;
 
-        treeElement.revealAndSelect(true, false, true);
+        treeElement.revealAndSelect(true, false, true, true);
         return true;
-    }
-
-    canShowRepresentedObject(representedObject)
-    {
-        let selectedTabContentView = WI.tabBrowser.selectedTabContentView;
-        console.assert(selectedTabContentView instanceof WI.TabContentView, "Missing TabContentView for NavigationSidebarPanel.");
-        return selectedTabContentView && selectedTabContentView.canShowRepresentedObject(representedObject);
     }
 
     saveStateToCookie(cookie)
@@ -217,7 +214,7 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
         if (!representedObject)
             return;
 
-        cookie[WI.TypeIdentifierCookieKey] = representedObject.constructor.TypeIdentifier;
+        cookie[WebInspector.TypeIdentifierCookieKey] = representedObject.constructor.TypeIdentifier;
 
         if (representedObject.saveIdentityToCookie) {
             representedObject.saveIdentityToCookie(cookie);
@@ -263,19 +260,16 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
 
         treeOutline = treeOutline || this._contentTreeOutline;
 
-        let emptyContentPlaceholderElement = this._emptyContentPlaceholderElements.get(treeOutline);
-        if (emptyContentPlaceholderElement)
-            emptyContentPlaceholderElement.remove();
+        let emptyContentPlaceholderElement = this._createEmptyContentPlaceholderIfNeeded(treeOutline);
+        if (emptyContentPlaceholderElement.parentNode && emptyContentPlaceholderElement.children[0].textContent === message)
+            return;
 
-        emptyContentPlaceholderElement = message instanceof Node ? message : WI.createMessageTextView(message);
-        this._emptyContentPlaceholderElements.set(treeOutline, emptyContentPlaceholderElement);
+        emptyContentPlaceholderElement.children[0].textContent = message;
 
         let emptyContentPlaceholderParentElement = treeOutline.element.parentNode;
         emptyContentPlaceholderParentElement.appendChild(emptyContentPlaceholderElement);
 
         this._updateContentOverflowShadowVisibility();
-
-        return emptyContentPlaceholderElement;
     }
 
     hideEmptyContentPlaceholder(treeOutline)
@@ -287,7 +281,6 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
             return;
 
         emptyContentPlaceholderElement.remove();
-        this._emptyContentPlaceholderElements.delete(treeOutline);
 
         this._updateContentOverflowShadowVisibility();
     }
@@ -299,7 +292,7 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
         if (!treeOutline.children.length) {
             // No tree elements, so no results.
             this.showEmptyContentPlaceholder(message, treeOutline);
-        } else if (!this._emptyFilterResults.has(treeOutline)) {
+        } else if (!this._emptyFilterResults.get(treeOutline)) {
             // There are tree elements, and not all of them are hidden by the filter.
             this.hideEmptyContentPlaceholder(treeOutline);
         }
@@ -307,55 +300,12 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
 
     updateFilter()
     {
-        let selectedTreeElement;
-        for (let treeOutline of this.contentTreeOutlines) {
-            if (treeOutline.hidden || treeOutline[WI.NavigationSidebarPanel.SuppressFilteringSymbol])
-                continue;
-
-            selectedTreeElement = treeOutline.selectedTreeElement;
-            if (selectedTreeElement)
-                break;
-        }
-
-        let filters = this._filterBar.filters;
-        this._textFilterRegex = simpleGlobStringToRegExp(filters.text, "i");
-        this._filtersSetting.value = filters;
-        this._filterFunctions = filters.functions;
-
-        // Don't populate if we don't have any active filters.
-        // We only need to populate when a filter needs to reveal.
-        let dontPopulate = !this._filterBar.hasActiveFilters() && !this.shouldFilterPopulate();
-
-        // Update all trees that allow filtering.
-        for (let treeOutline of this.contentTreeOutlines) {
-            if (treeOutline.hidden || treeOutline[WI.NavigationSidebarPanel.SuppressFilteringSymbol])
-                continue;
-
-            let currentTreeElement = treeOutline.children[0];
-            while (currentTreeElement && !currentTreeElement.root) {
-                if (!currentTreeElement[WI.NavigationSidebarPanel.SuppressFilteringSymbol]) {
-                    const currentTreeElementWasHidden = currentTreeElement.hidden;
-                    this.applyFiltersToTreeElement(currentTreeElement);
-                    if (currentTreeElementWasHidden !== currentTreeElement.hidden)
-                        this._treeElementWasFiltered(currentTreeElement);
-                }
-
-                currentTreeElement = currentTreeElement.traverseNextTreeElement(false, null, dontPopulate);
-            }
-        }
-
-        this._checkForEmptyFilterResults();
-        this._updateContentOverflowShadowVisibility();
-    }
-
-    resetFilter()
-    {
-        this._filterBar.clear();
+        this._updateFilter();
     }
 
     shouldFilterPopulate()
     {
-        // Overridden by subclasses if needed.
+        // Overriden by subclasses if needed.
         return this.hasCustomFilters();
     }
 
@@ -391,8 +341,8 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
             treeElement.hidden = false;
 
             // If this tree element was expanded during filtering, collapse it again.
-            if (treeElement.expanded && treeElement[WI.NavigationSidebarPanel.WasExpandedDuringFilteringSymbol]) {
-                treeElement[WI.NavigationSidebarPanel.WasExpandedDuringFilteringSymbol] = false;
+            if (treeElement.expanded && treeElement[WebInspector.NavigationSidebarPanel.WasExpandedDuringFilteringSymbol]) {
+                treeElement[WebInspector.NavigationSidebarPanel.WasExpandedDuringFilteringSymbol] = false;
                 treeElement.collapse();
             }
 
@@ -445,15 +395,15 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
             }
         }
 
-        let suppressFiltering = treeElement[WI.NavigationSidebarPanel.SuppressFilteringSymbol];
+        let suppressFiltering = treeElement[WebInspector.NavigationSidebarPanel.SuppressFilteringSymbol];
 
         if (suppressFiltering || (matchTextFilter(filterableData.text) && this.matchTreeElementAgainstFilterFunctions(treeElement, flags) && this.matchTreeElementAgainstCustomFilters(treeElement, flags))) {
             // Make this element visible since it matches.
             makeVisible();
 
             // If this tree element didn't match a built-in filter and was expanded earlier during filtering, collapse it again.
-            if (!flags.expandTreeElement && treeElement.expanded && treeElement[WI.NavigationSidebarPanel.WasExpandedDuringFilteringSymbol]) {
-                treeElement[WI.NavigationSidebarPanel.WasExpandedDuringFilteringSymbol] = false;
+            if (!flags.expandTreeElement && treeElement.expanded && treeElement[WebInspector.NavigationSidebarPanel.WasExpandedDuringFilteringSymbol]) {
+                treeElement[WebInspector.NavigationSidebarPanel.WasExpandedDuringFilteringSymbol] = false;
                 treeElement.collapse();
             }
 
@@ -486,7 +436,7 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
             // we should remove the issues for that resource.
             for (var i = contentTreeOutline.children.length - 1; i >= 0; --i) {
                 var treeElement = contentTreeOutline.children[i];
-                if (!(treeElement instanceof WI.ResourceTreeElement))
+                if (!(treeElement instanceof WebInspector.ResourceTreeElement))
                     continue;
 
                 var resource = treeElement.resource;
@@ -494,6 +444,11 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
                     contentTreeOutline.removeChildAtIndex(i, true, true);
             }
         }
+    }
+
+    treeElementAddedOrChanged(treeElement)
+    {
+        // Implemented by subclasses if needed.
     }
 
     // Private
@@ -539,7 +494,7 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
             let unfilteredTreeElementFound = false;
             let currentTreeElement = treeOutline.children[0];
             while (currentTreeElement) {
-                let suppressFilteringForTreeElement = currentTreeElement[WI.NavigationSidebarPanel.SuppressFilteringSymbol];
+                let suppressFilteringForTreeElement = currentTreeElement[WebInspector.NavigationSidebarPanel.SuppressFilteringSymbol];
                 if (!suppressFilteringForTreeElement) {
                     filterableTreeElementFound = true;
 
@@ -554,25 +509,17 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
 
             if (unfilteredTreeElementFound || !filterableTreeElementFound) {
                 this.hideEmptyContentPlaceholder(treeOutline);
-                this._emptyFilterResults.delete(treeOutline);
+                this._emptyFilterResults.set(treeOutline, false);
                 return;
             }
 
-            let message = WI.createMessageTextView(WI.UIString("No Filter Results"));
-
-            let buttonElement = message.appendChild(document.createElement("button"));
-            buttonElement.textContent = WI.UIString("Clear Filters");
-            buttonElement.addEventListener("click", () => {
-                this.resetFilter();
-            });
-
             // All top level tree elements are hidden, so filtering hid everything. Show a message.
-            this.showEmptyContentPlaceholder(message, treeOutline);
-            this._emptyFilterResults.add(treeOutline);
+            this.showEmptyContentPlaceholder(WebInspector.UIString("No Filter Results"), treeOutline);
+            this._emptyFilterResults.set(treeOutline, true);
         }
 
         for (let treeOutline of this.contentTreeOutlines) {
-            if (treeOutline[WI.NavigationSidebarPanel.SuppressFilteringSymbol])
+            if (treeOutline[WebInspector.NavigationSidebarPanel.SuppressFilteringSymbol])
                 continue;
 
             checkTreeOutlineForEmptyFilterResults.call(this, treeOutline);
@@ -581,7 +528,50 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
 
     _filterDidChange()
     {
-        this.updateFilter();
+        this._updateFilter();
+    }
+
+    _updateFilter()
+    {
+        let selectedTreeElement;
+        for (let treeOutline of this.contentTreeOutlines) {
+            if (treeOutline.hidden || treeOutline[WebInspector.NavigationSidebarPanel.SuppressFilteringSymbol])
+                continue;
+
+            selectedTreeElement = treeOutline.selectedTreeElement;
+            if (selectedTreeElement)
+                break;
+        }
+
+        let filters = this._filterBar.filters;
+        this._textFilterRegex = simpleGlobStringToRegExp(filters.text, "i");
+        this._filtersSetting.value = filters;
+        this._filterFunctions = filters.functions;
+
+        // Don't populate if we don't have any active filters.
+        // We only need to populate when a filter needs to reveal.
+        let dontPopulate = !this._filterBar.hasActiveFilters() && !this.shouldFilterPopulate();
+
+        // Update all trees that allow filtering.
+        for (let treeOutline of this.contentTreeOutlines) {
+            if (treeOutline.hidden || treeOutline[WebInspector.NavigationSidebarPanel.SuppressFilteringSymbol])
+                continue;
+
+            let currentTreeElement = treeOutline.children[0];
+            while (currentTreeElement && !currentTreeElement.root) {
+                if (!currentTreeElement[WebInspector.NavigationSidebarPanel.SuppressFilteringSymbol]) {
+                    const currentTreeElementWasHidden = currentTreeElement.hidden;
+                    this.applyFiltersToTreeElement(currentTreeElement);
+                    if (currentTreeElementWasHidden !== currentTreeElement.hidden)
+                        this._treeElementWasFiltered(currentTreeElement);
+                }
+
+                currentTreeElement = currentTreeElement.traverseNextTreeElement(false, null, dontPopulate);
+            }
+        }
+
+        this._checkForEmptyFilterResults();
+        this._updateContentOverflowShadowVisibility();
     }
 
     _treeElementAddedOrChanged(event)
@@ -594,7 +584,7 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
         let treeElement = event.data.element;
         let currentTreeElement = treeElement;
         while (currentTreeElement && !currentTreeElement.root) {
-            if (!currentTreeElement[WI.NavigationSidebarPanel.SuppressFilteringSymbol]) {
+            if (!currentTreeElement[WebInspector.NavigationSidebarPanel.SuppressFilteringSymbol]) {
                 const currentTreeElementWasHidden = currentTreeElement.hidden;
                 this.applyFiltersToTreeElement(currentTreeElement);
                 if (currentTreeElementWasHidden !== currentTreeElement.hidden)
@@ -611,6 +601,8 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
 
         if (this.selected)
             this._checkElementsForPendingViewStateCookie([treeElement]);
+
+        this.treeElementAddedOrChanged(treeElement);
     }
 
     _treeElementDisclosureDidChange(event)
@@ -638,16 +630,15 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
 
     _isTreeElementWithoutRepresentedObject(treeElement)
     {
-        return treeElement instanceof WI.FolderTreeElement
-            || treeElement instanceof WI.DatabaseHostTreeElement
-            || treeElement instanceof WI.IndexedDatabaseHostTreeElement
-            || treeElement instanceof WI.ApplicationCacheManifestTreeElement
-            || treeElement instanceof WI.ThreadTreeElement
-            || treeElement instanceof WI.IdleTreeElement
-            || treeElement instanceof WI.DOMBreakpointTreeElement
-            || treeElement instanceof WI.EventBreakpointTreeElement
-            || treeElement instanceof WI.URLBreakpointTreeElement
-            || treeElement instanceof WI.CSSStyleSheetTreeElement
+        return treeElement instanceof WebInspector.FolderTreeElement
+            || treeElement instanceof WebInspector.DatabaseHostTreeElement
+            || treeElement instanceof WebInspector.IndexedDatabaseHostTreeElement
+            || treeElement instanceof WebInspector.ApplicationCacheManifestTreeElement
+            || treeElement instanceof WebInspector.ThreadTreeElement
+            || treeElement instanceof WebInspector.IdleTreeElement
+            || treeElement instanceof WebInspector.DOMBreakpointTreeElement
+            || treeElement instanceof WebInspector.XHRBreakpointTreeElement
+            || treeElement instanceof WebInspector.CSSStyleSheetTreeElement
             || typeof treeElement.representedObject === "string"
             || treeElement.representedObject instanceof String;
     }
@@ -687,7 +678,7 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
             if (!representedObject)
                 return false;
 
-            var typeIdentifier = cookie[WI.TypeIdentifierCookieKey];
+            var typeIdentifier = cookie[WebInspector.TypeIdentifierCookieKey];
             if (typeIdentifier !== representedObject.constructor.TypeIdentifier)
                 return false;
 
@@ -731,6 +722,23 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
         }
     }
 
+    _createEmptyContentPlaceholderIfNeeded(treeOutline)
+    {
+        let emptyContentPlaceholderElement = this._emptyContentPlaceholderElements.get(treeOutline);
+        if (emptyContentPlaceholderElement)
+            return emptyContentPlaceholderElement;
+
+        emptyContentPlaceholderElement = document.createElement("div");
+        emptyContentPlaceholderElement.classList.add(WebInspector.NavigationSidebarPanel.EmptyContentPlaceholderElementStyleClassName);
+        this._emptyContentPlaceholderElements.set(treeOutline, emptyContentPlaceholderElement);
+
+        let emptyContentPlaceholderMessageElement = document.createElement("div");
+        emptyContentPlaceholderMessageElement.className = WebInspector.NavigationSidebarPanel.EmptyContentPlaceholderMessageElementStyleClassName;
+        emptyContentPlaceholderElement.appendChild(emptyContentPlaceholderMessageElement);
+
+        return emptyContentPlaceholderElement;
+    }
+
     _treeElementWasFiltered(treeElement)
     {
         if (treeElement.selected || treeElement.hidden)
@@ -742,13 +750,17 @@ WI.NavigationSidebarPanel = class NavigationSidebarPanel extends WI.SidebarPanel
 
         const omitFocus = true;
         const selectedByUser = false;
-        const suppressNotification = true;
-        treeElement.revealAndSelect(omitFocus, selectedByUser, suppressNotification);
+        const suppressOnSelect = true;
+        const suppressOnDeselect = true;
+        treeElement.revealAndSelect(omitFocus, selectedByUser, suppressOnSelect, suppressOnDeselect);
     }
 };
 
-WI.NavigationSidebarPanel.SuppressFilteringSymbol = Symbol("suppress-filtering");
-WI.NavigationSidebarPanel.WasExpandedDuringFilteringSymbol = Symbol("was-expanded-during-filtering");
+WebInspector.NavigationSidebarPanel.SuppressFilteringSymbol = Symbol("suppress-filtering");
+WebInspector.NavigationSidebarPanel.WasExpandedDuringFilteringSymbol = Symbol("was-expanded-during-filtering");
 
-WI.NavigationSidebarPanel.OverflowShadowElementStyleClassName = "overflow-shadow";
-WI.NavigationSidebarPanel.ContentTreeOutlineElementStyleClassName = "navigation-sidebar-panel-content-tree-outline";
+WebInspector.NavigationSidebarPanel.OverflowShadowElementStyleClassName = "overflow-shadow";
+WebInspector.NavigationSidebarPanel.TopOverflowShadowElementStyleClassName = "top";
+WebInspector.NavigationSidebarPanel.ContentTreeOutlineElementStyleClassName = "navigation-sidebar-panel-content-tree-outline";
+WebInspector.NavigationSidebarPanel.EmptyContentPlaceholderElementStyleClassName = "empty-content-placeholder";
+WebInspector.NavigationSidebarPanel.EmptyContentPlaceholderMessageElementStyleClassName = "message";

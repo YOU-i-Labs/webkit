@@ -52,7 +52,6 @@ class MacroExpander : public Lexer
     struct MacroContext
     {
         MacroContext();
-        ~MacroContext();
         bool empty() const;
         const Token &get();
         void unget();

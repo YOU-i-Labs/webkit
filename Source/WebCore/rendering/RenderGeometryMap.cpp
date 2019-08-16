@@ -26,7 +26,7 @@
 #include "config.h"
 #include "RenderGeometryMap.h"
 
-#include "RenderFragmentedFlow.h"
+#include "RenderFlowThread.h"
 #include "RenderLayer.h"
 #include "RenderView.h"
 #include "TransformState.h"
@@ -43,7 +43,9 @@ RenderGeometryMap::RenderGeometryMap(MapCoordinatesFlags flags)
 {
 }
 
-RenderGeometryMap::~RenderGeometryMap() = default;
+RenderGeometryMap::~RenderGeometryMap()
+{
+}
 
 void RenderGeometryMap::mapToContainer(TransformState& transformState, const RenderLayerModelObject* container) const
 {
@@ -151,13 +153,13 @@ static bool canMapBetweenRenderersViaLayers(const RenderLayerModelObject& render
 {
     for (const RenderElement* current = &renderer; ; current = current->parent()) {
         const RenderStyle& style = current->style();
-        if (current->isFixedPositioned() || style.isFlippedBlocksWritingMode())
+        if (style.position() == FixedPosition || style.isFlippedBlocksWritingMode())
             return false;
 
         if (current->hasTransformRelatedProperty() && (current->style().hasTransform() || current->style().hasPerspective()))
             return false;
         
-        if (current->isRenderFragmentedFlow())
+        if (current->isRenderFlowThread())
             return false;
 
         if (current->isSVGRoot())
@@ -240,9 +242,9 @@ void RenderGeometryMap::pushView(const RenderView* view, const LayoutSize& scrol
     stepInserted(step);
 }
 
-void RenderGeometryMap::pushRenderFragmentedFlow(const RenderFragmentedFlow* fragmentedFlow)
+void RenderGeometryMap::pushRenderFlowThread(const RenderFlowThread* flowThread)
 {
-    m_mapping.append(RenderGeometryMapStep(fragmentedFlow, false, false, false, false));
+    m_mapping.append(RenderGeometryMapStep(flowThread, false, false, false, false));
     stepInserted(m_mapping.last());
 }
 

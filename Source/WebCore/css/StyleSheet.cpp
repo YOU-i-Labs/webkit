@@ -22,6 +22,8 @@
 
 namespace WebCore {
 
-StyleSheet::~StyleSheet() = default;
+StyleSheet::~StyleSheet()
+{
+}
 
 }

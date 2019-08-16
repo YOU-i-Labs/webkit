@@ -46,12 +46,9 @@
 #include "SVGURIReference.h"
 #include "TransformState.h"
 #include "VisiblePosition.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGText);
 
 RenderSVGText::RenderSVGText(SVGTextElement& element, RenderStyle&& style)
     : RenderSVGBlock(element, WTFMove(style))
@@ -92,17 +89,14 @@ LayoutRect RenderSVGText::clippedOverflowRectForRepaint(const RenderLayerModelOb
     return SVGRenderSupport::clippedOverflowRectForRepaint(*this, repaintContainer);
 }
 
-Optional<LayoutRect> RenderSVGText::computeVisibleRectInContainer(const LayoutRect& rect, const RenderLayerModelObject* container, VisibleRectContext context) const
+LayoutRect RenderSVGText::computeRectForRepaint(const LayoutRect& rect, const RenderLayerModelObject* repaintContainer, RepaintContext context) const
 {
-    Optional<FloatRect> adjustedRect = computeFloatVisibleRectInContainer(rect, container, context);
-    if (adjustedRect)
-        return enclosingLayoutRect(*adjustedRect);
-    return WTF::nullopt;
+    return enclosingLayoutRect(computeFloatRectForRepaint(rect, repaintContainer, context.m_hasPositionFixedDescendant));
 }
 
-Optional<FloatRect> RenderSVGText::computeFloatVisibleRectInContainer(const FloatRect& rect, const RenderLayerModelObject* container, VisibleRectContext context) const
+FloatRect RenderSVGText::computeFloatRectForRepaint(const FloatRect& repaintRect, const RenderLayerModelObject* repaintContainer, bool fixed) const
 {
-    return SVGRenderSupport::computeFloatVisibleRectInContainer(*this, rect, container, context);
+    return SVGRenderSupport::computeFloatRectForRepaint(*this, repaintRect, repaintContainer, fixed);
 }
 
 void RenderSVGText::mapLocalToContainer(const RenderLayerModelObject* repaintContainer, TransformState& transformState, MapCoordinatesFlags, bool* wasFixed) const
@@ -391,7 +385,7 @@ void RenderSVGText::layout()
     ASSERT(!simplifiedLayout());
     ASSERT(!scrollsOverflow());
     ASSERT(!hasControlClip());
-    ASSERT(!multiColumnFlow());
+    ASSERT(!multiColumnFlowThread());
     ASSERT(!positionedObjects());
     ASSERT(!m_overflow);
     ASSERT(!isAnonymousBlock());
@@ -402,8 +396,8 @@ void RenderSVGText::layout()
     // FIXME: We need to find a way to only layout the child boxes, if needed.
     FloatRect oldBoundaries = objectBoundingBox();
     ASSERT(childrenInline());
-    LayoutUnit repaintLogicalTop;
-    LayoutUnit repaintLogicalBottom;
+    LayoutUnit repaintLogicalTop = 0;
+    LayoutUnit repaintLogicalBottom = 0;
     rebuildFloatingObjectSetFromIntrudingFloats();
     layoutInlineChildren(true, repaintLogicalTop, repaintLogicalBottom);
 
@@ -435,11 +429,11 @@ std::unique_ptr<RootInlineBox> RenderSVGText::createRootInlineBox()
 bool RenderSVGText::nodeAtFloatPoint(const HitTestRequest& request, HitTestResult& result, const FloatPoint& pointInParent, HitTestAction hitTestAction)
 {
     PointerEventsHitRules hitRules(PointerEventsHitRules::SVG_TEXT_HITTESTING, request, style().pointerEvents());
-    bool isVisible = (style().visibility() == Visibility::Visible);
+    bool isVisible = (style().visibility() == VISIBLE);
     if (isVisible || !hitRules.requireVisible) {
         if ((hitRules.canHitStroke && (style().svgStyle().hasStroke() || !hitRules.requireStroke))
             || (hitRules.canHitFill && (style().svgStyle().hasFill() || !hitRules.requireFill))) {
-            FloatPoint localPoint = localToParentTransform().inverse().valueOr(AffineTransform()).mapPoint(pointInParent);
+            FloatPoint localPoint = localToParentTransform().inverse().value_or(AffineTransform()).mapPoint(pointInParent);
 
             if (!SVGRenderSupport::pointInClippingArea(*this, localPoint))
                 return false;       
@@ -458,7 +452,7 @@ bool RenderSVGText::nodeAtPoint(const HitTestRequest&, HitTestResult&, const Hit
     return false;
 }
 
-VisiblePosition RenderSVGText::positionForPoint(const LayoutPoint& pointInContents, const RenderFragmentContainer* fragment)
+VisiblePosition RenderSVGText::positionForPoint(const LayoutPoint& pointInContents, const RenderRegion* region)
 {
     RootInlineBox* rootBox = firstRootBox();
     if (!rootBox)
@@ -471,7 +465,7 @@ VisiblePosition RenderSVGText::positionForPoint(const LayoutPoint& pointInConten
     if (!closestBox)
         return createVisiblePosition(0, DOWNSTREAM);
 
-    return closestBox->renderer().positionForPoint(LayoutPoint(pointInContents.x(), closestBox->y()), fragment);
+    return closestBox->renderer().positionForPoint(LayoutPoint(pointInContents.x(), closestBox->y()), region);
 }
 
 void RenderSVGText::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) const
@@ -484,7 +478,8 @@ void RenderSVGText::paint(PaintInfo& paintInfo, const LayoutPoint&)
     if (paintInfo.context().paintingDisabled())
         return;
 
-    if (paintInfo.phase != PaintPhase::Foreground && paintInfo.phase != PaintPhase::Selection)
+    if (paintInfo.phase != PaintPhaseForeground
+     && paintInfo.phase != PaintPhaseSelection)
          return;
 
     PaintInfo blockInfo(paintInfo);
@@ -493,8 +488,8 @@ void RenderSVGText::paint(PaintInfo& paintInfo, const LayoutPoint&)
     RenderBlock::paint(blockInfo, LayoutPoint());
 
     // Paint the outlines, if any
-    if (paintInfo.phase == PaintPhase::Foreground) {
-        blockInfo.phase = PaintPhase::SelfOutline;
+    if (paintInfo.phase == PaintPhaseForeground) {
+        blockInfo.phase = PaintPhaseSelfOutline;
         RenderBlock::paint(blockInfo, LayoutPoint());
     }
 }
@@ -522,11 +517,35 @@ FloatRect RenderSVGText::repaintRectInLocalCoordinates() const
     return repaintRect;
 }
 
+void RenderSVGText::addChild(RenderObject* child, RenderObject* beforeChild)
+{
+    RenderSVGBlock::addChild(child, beforeChild);
+
+    SVGResourcesCache::clientWasAddedToTree(*child);
+    subtreeChildWasAdded(child);
+}
+
+void RenderSVGText::removeChild(RenderObject& child)
+{
+    SVGResourcesCache::clientWillBeRemovedFromTree(child);
+
+    Vector<SVGTextLayoutAttributes*, 2> affectedAttributes;
+    subtreeChildWillBeRemoved(&child, affectedAttributes);
+    RenderSVGBlock::removeChild(child);
+    subtreeChildWasRemoved(affectedAttributes);
+}
+
 // Fix for <rdar://problem/8048875>. We should not render :first-line CSS Style
 // in a SVG text element context.
 RenderBlock* RenderSVGText::firstLineBlock() const
 {
     return 0;
+}
+
+// Fix for <rdar://problem/8048875>. We should not render :first-letter CSS Style
+// in a SVG text element context.
+void RenderSVGText::updateFirstLetter(RenderTreeMutationIsAllowed)
+{
 }
 
 }

@@ -89,19 +89,6 @@ TextStream& operator<<(TextStream& ts, TextStreamSeparator& sep)
     return ts;
 }
 
-static TextStream& operator<<(TextStream& ts, const DashArray& a)
-{
-    ts << "{";
-    DashArray::const_iterator end = a.end();
-    for (DashArray::const_iterator it = a.begin(); it != end; ++it) {
-        if (it != a.begin())
-            ts << ", ";
-        ts << *it;
-    }
-    ts << "}";
-    return ts;
-}
-
 template<typename ValueType>
 static void writeNameValuePair(TextStream& ts, const char* name, ValueType value)
 {
@@ -136,6 +123,20 @@ static TextStream& operator<<(TextStream& ts, const SVGUnitTypes::SVGUnitType& u
 static TextStream& operator<<(TextStream& ts, const SVGMarkerUnitsType& markerUnit)
 {
     ts << SVGPropertyTraits<SVGMarkerUnitsType>::toString(markerUnit);
+    return ts;
+}
+
+// FIXME: Maybe this should be in KCanvasRenderingStyle.cpp
+static TextStream& operator<<(TextStream& ts, const DashArray& a)
+{
+    ts << "{";
+    DashArray::const_iterator end = a.end();
+    for (DashArray::const_iterator it = a.begin(); it != end; ++it) {
+        if (it != a.begin())
+            ts << ", ";
+        ts << *it;
+    }
+    ts << "}";
     return ts;
 }
 
@@ -211,10 +212,10 @@ static void writeStyle(TextStream& ts, const RenderElement& renderer)
             writeSVGPaintingResource(ts, fillPaintingResource);
 
             writeIfNotDefault(ts, "opacity", svgStyle.fillOpacity(), 1.0f);
-            writeIfNotDefault(ts, "fill rule", svgStyle.fillRule(), WindRule::NonZero);
+            writeIfNotDefault(ts, "fill rule", svgStyle.fillRule(), RULE_NONZERO);
             ts << "}]";
         }
-        writeIfNotDefault(ts, "clip rule", svgStyle.clipRule(), WindRule::NonZero);
+        writeIfNotDefault(ts, "clip rule", svgStyle.clipRule(), RULE_NONZERO);
     }
 
     writeIfNotEmpty(ts, "start marker", svgStyle.markerStartResource());
@@ -298,7 +299,7 @@ static void writeRenderSVGTextBox(TextStream& ts, const RenderSVGText& text)
         writeNameValuePair(ts, "color", text.style().visitedDependentColor(CSSPropertyColor).nameForRenderTreeAsText());
 }
 
-static inline void writeSVGInlineTextBox(TextStream& ts, SVGInlineTextBox* textBox)
+static inline void writeSVGInlineTextBox(TextStream& ts, SVGInlineTextBox* textBox, int indent)
 {
     Vector<SVGTextFragment>& fragments = textBox->textFragments();
     if (fragments.isEmpty())
@@ -307,26 +308,24 @@ static inline void writeSVGInlineTextBox(TextStream& ts, SVGInlineTextBox* textB
     const SVGRenderStyle& svgStyle = textBox->renderer().style().svgStyle();
     String text = textBox->renderer().text();
 
-    TextStream::IndentScope indentScope(ts);
-
     unsigned fragmentsSize = fragments.size();
     for (unsigned i = 0; i < fragmentsSize; ++i) {
         SVGTextFragment& fragment = fragments.at(i);
-        ts << indent;
+        writeIndent(ts, indent + 1);
 
         unsigned startOffset = fragment.characterOffset;
         unsigned endOffset = fragment.characterOffset + fragment.length;
 
         // FIXME: Remove this hack, once the new text layout engine is completly landed. We want to preserve the old layout test results for now.
         ts << "chunk 1 ";
-        TextAnchor anchor = svgStyle.textAnchor();
+        ETextAnchor anchor = svgStyle.textAnchor();
         bool isVerticalText = textBox->renderer().style().isVerticalWritingMode();
-        if (anchor == TextAnchor::Middle) {
+        if (anchor == TA_MIDDLE) {
             ts << "(middle anchor";
             if (isVerticalText)
                 ts << ", vertical";
             ts << ") ";
-        } else if (anchor == TextAnchor::End) {
+        } else if (anchor == TA_END) {
             ts << "(end anchor";
             if (isVerticalText)
                 ts << ", vertical";
@@ -354,26 +353,19 @@ static inline void writeSVGInlineTextBox(TextStream& ts, SVGInlineTextBox* textB
     }
 }
 
-static inline void writeSVGInlineTextBoxes(TextStream& ts, const RenderText& text)
+static inline void writeSVGInlineTextBoxes(TextStream& ts, const RenderText& text, int indent)
 {
     for (InlineTextBox* box = text.firstTextBox(); box; box = box->nextTextBox()) {
         if (!is<SVGInlineTextBox>(*box))
             continue;
 
-        writeSVGInlineTextBox(ts, downcast<SVGInlineTextBox>(box));
+        writeSVGInlineTextBox(ts, downcast<SVGInlineTextBox>(box), indent);
     }
 }
 
-enum class WriteIndentOrNot {
-    No,
-    Yes
-};
-
-static void writeStandardPrefix(TextStream& ts, const RenderObject& object, RenderAsTextBehavior behavior, WriteIndentOrNot writeIndent = WriteIndentOrNot::Yes)
+static void writeStandardPrefix(TextStream& ts, const RenderObject& object, int indent, RenderAsTextBehavior behavior)
 {
-    if (writeIndent == WriteIndentOrNot::Yes)
-        ts << indent;
-
+    writeIndent(ts, indent);
     ts << object.renderName();
 
     if (behavior & RenderAsTextShowAddresses)
@@ -385,12 +377,10 @@ static void writeStandardPrefix(TextStream& ts, const RenderObject& object, Rend
     writeDebugInfo(ts, object, behavior);
 }
 
-static void writeChildren(TextStream& ts, const RenderElement& parent, RenderAsTextBehavior behavior)
+static void writeChildren(TextStream& ts, const RenderElement& parent, int indent, RenderAsTextBehavior behavior)
 {
-    TextStream::IndentScope indentScope(ts);
-
     for (const auto& child : childrenOfType<RenderObject>(parent))
-        write(ts, child, behavior);
+        write(ts, child, indent + 1, behavior);
 }
 
 static inline void writeCommonGradientProperties(TextStream& ts, SVGSpreadMethodType spreadMethod, const AffineTransform& gradientTransform, SVGUnitTypes::SVGUnitType gradientUnits)
@@ -404,9 +394,9 @@ static inline void writeCommonGradientProperties(TextStream& ts, SVGSpreadMethod
         ts << " [gradientTransform=" << gradientTransform << "]";
 }
 
-void writeSVGResourceContainer(TextStream& ts, const RenderSVGResourceContainer& resource, RenderAsTextBehavior behavior)
+void writeSVGResourceContainer(TextStream& ts, const RenderSVGResourceContainer& resource, int indent, RenderAsTextBehavior behavior)
 {
-    writeStandardPrefix(ts, resource, behavior);
+    writeStandardPrefix(ts, resource, indent, behavior);
 
     const AtomicString& id = resource.element().getIdAttribute();
     writeNameAndQuotedValue(ts, "id", id);    
@@ -423,12 +413,10 @@ void writeSVGResourceContainer(TextStream& ts, const RenderSVGResourceContainer&
         ts << "\n";
         // Creating a placeholder filter which is passed to the builder.
         FloatRect dummyRect;
-        auto dummyFilter = SVGFilter::create(AffineTransform(), dummyRect, dummyRect, dummyRect, true);
-        if (auto builder = filter.buildPrimitives(dummyFilter.get())) {
-            TextStream::IndentScope indentScope(ts);
-
+        RefPtr<SVGFilter> dummyFilter = SVGFilter::create(AffineTransform(), dummyRect, dummyRect, dummyRect, true);
+        if (auto builder = filter.buildPrimitives(*dummyFilter)) {
             if (FilterEffect* lastEffect = builder->lastEffect())
-                lastEffect->externalRepresentation(ts);
+                lastEffect->externalRepresentation(ts, indent + 1);
         }
     } else if (resource.resourceType() == ClipperResourceType) {
         const auto& clipper = static_cast<const RenderSVGResourceClipper&>(resource);
@@ -485,69 +473,69 @@ void writeSVGResourceContainer(TextStream& ts, const RenderSVGResourceContainer&
         ts << " [center=" << centerPoint << "] [focal=" << focalPoint << "] [radius=" << radius << "] [focalRadius=" << focalRadius << "]\n";
     } else
         ts << "\n";
-    writeChildren(ts, resource, behavior);
+    writeChildren(ts, resource, indent, behavior);
 }
 
-void writeSVGContainer(TextStream& ts, const RenderSVGContainer& container, RenderAsTextBehavior behavior)
+void writeSVGContainer(TextStream& ts, const RenderSVGContainer& container, int indent, RenderAsTextBehavior behavior)
 {
     // Currently RenderSVGResourceFilterPrimitive has no meaningful output.
     if (container.isSVGResourceFilterPrimitive())
         return;
-    writeStandardPrefix(ts, container, behavior);
+    writeStandardPrefix(ts, container, indent, behavior);
     writePositionAndStyle(ts, container, behavior);
     ts << "\n";
-    writeResources(ts, container, behavior);
-    writeChildren(ts, container, behavior);
+    writeResources(ts, container, indent, behavior);
+    writeChildren(ts, container, indent, behavior);
 }
 
-void write(TextStream& ts, const RenderSVGRoot& root, RenderAsTextBehavior behavior)
+void write(TextStream& ts, const RenderSVGRoot& root, int indent, RenderAsTextBehavior behavior)
 {
-    writeStandardPrefix(ts, root, behavior);
+    writeStandardPrefix(ts, root, indent, behavior);
     writePositionAndStyle(ts, root, behavior);
     ts << "\n";
-    writeChildren(ts, root, behavior);
+    writeChildren(ts, root, indent, behavior);
 }
 
-void writeSVGText(TextStream& ts, const RenderSVGText& text, RenderAsTextBehavior behavior)
+void writeSVGText(TextStream& ts, const RenderSVGText& text, int indent, RenderAsTextBehavior behavior)
 {
-    writeStandardPrefix(ts, text, behavior);
+    writeStandardPrefix(ts, text, indent, behavior);
     writeRenderSVGTextBox(ts, text);
     ts << "\n";
-    writeResources(ts, text, behavior);
-    writeChildren(ts, text, behavior);
+    writeResources(ts, text, indent, behavior);
+    writeChildren(ts, text, indent, behavior);
 }
 
-void writeSVGInlineText(TextStream& ts, const RenderSVGInlineText& text, RenderAsTextBehavior behavior)
+void writeSVGInlineText(TextStream& ts, const RenderSVGInlineText& text, int indent, RenderAsTextBehavior behavior)
 {
-    writeStandardPrefix(ts, text, behavior);
+    writeStandardPrefix(ts, text, indent, behavior);
     ts << " " << enclosingIntRect(FloatRect(text.firstRunLocation(), text.floatLinesBoundingBox().size())) << "\n";
-    writeResources(ts, text, behavior);
-    writeSVGInlineTextBoxes(ts, text);
+    writeResources(ts, text, indent, behavior);
+    writeSVGInlineTextBoxes(ts, text, indent);
 }
 
-void writeSVGImage(TextStream& ts, const RenderSVGImage& image, RenderAsTextBehavior behavior)
+void writeSVGImage(TextStream& ts, const RenderSVGImage& image, int indent, RenderAsTextBehavior behavior)
 {
-    writeStandardPrefix(ts, image, behavior);
+    writeStandardPrefix(ts, image, indent, behavior);
     writePositionAndStyle(ts, image, behavior);
     ts << "\n";
-    writeResources(ts, image, behavior);
+    writeResources(ts, image, indent, behavior);
 }
 
-void write(TextStream& ts, const RenderSVGShape& shape, RenderAsTextBehavior behavior)
+void write(TextStream& ts, const RenderSVGShape& shape, int indent, RenderAsTextBehavior behavior)
 {
-    writeStandardPrefix(ts, shape, behavior);
+    writeStandardPrefix(ts, shape, indent, behavior);
     ts << shape << "\n";
-    writeResources(ts, shape, behavior);
+    writeResources(ts, shape, indent, behavior);
 }
 
-void writeSVGGradientStop(TextStream& ts, const RenderSVGGradientStop& stop, RenderAsTextBehavior behavior)
+void writeSVGGradientStop(TextStream& ts, const RenderSVGGradientStop& stop, int indent, RenderAsTextBehavior behavior)
 {
-    writeStandardPrefix(ts, stop, behavior);
+    writeStandardPrefix(ts, stop, indent, behavior);
 
     ts << " [offset=" << stop.element().offset() << "] [color=" << stop.element().stopColorIncludingOpacity() << "]\n";
 }
 
-void writeResources(TextStream& ts, const RenderObject& renderer, RenderAsTextBehavior behavior)
+void writeResources(TextStream& ts, const RenderObject& renderer, int indent, RenderAsTextBehavior behavior)
 {
     const RenderStyle& style = renderer.style();
     const SVGRenderStyle& svgStyle = style.svgStyle();
@@ -556,19 +544,21 @@ void writeResources(TextStream& ts, const RenderObject& renderer, RenderAsTextBe
     // For now leave the DRT output as is, but later on we should change this so cycles are properly ignored in the DRT output.
     if (!svgStyle.maskerResource().isEmpty()) {
         if (RenderSVGResourceMasker* masker = getRenderSVGResourceById<RenderSVGResourceMasker>(renderer.document(), svgStyle.maskerResource())) {
-            ts << indent << " ";
+            writeIndent(ts, indent);
+            ts << " ";
             writeNameAndQuotedValue(ts, "masker", svgStyle.maskerResource());
             ts << " ";
-            writeStandardPrefix(ts, *masker, behavior, WriteIndentOrNot::No);
+            writeStandardPrefix(ts, *masker, 0, behavior);
             ts << " " << masker->resourceBoundingBox(renderer) << "\n";
         }
     }
     if (!svgStyle.clipperResource().isEmpty()) {
         if (RenderSVGResourceClipper* clipper = getRenderSVGResourceById<RenderSVGResourceClipper>(renderer.document(), svgStyle.clipperResource())) {
-            ts << indent << " ";
+            writeIndent(ts, indent);
+            ts << " ";
             writeNameAndQuotedValue(ts, "clipPath", svgStyle.clipperResource());
             ts << " ";
-            writeStandardPrefix(ts, *clipper, behavior, WriteIndentOrNot::No);
+            writeStandardPrefix(ts, *clipper, 0, behavior);
             ts << " " << clipper->resourceBoundingBox(renderer) << "\n";
         }
     }
@@ -580,10 +570,11 @@ void writeResources(TextStream& ts, const RenderObject& renderer, RenderAsTextBe
                 const auto& referenceFilterOperation = downcast<ReferenceFilterOperation>(filterOperation);
                 AtomicString id = SVGURIReference::fragmentIdentifierFromIRIString(referenceFilterOperation.url(), renderer.document());
                 if (RenderSVGResourceFilter* filter = getRenderSVGResourceById<RenderSVGResourceFilter>(renderer.document(), id)) {
-                    ts << indent << " ";
+                    writeIndent(ts, indent);
+                    ts << " ";
                     writeNameAndQuotedValue(ts, "filter", id);
                     ts << " ";
-                    writeStandardPrefix(ts, *filter, behavior, WriteIndentOrNot::No);
+                    writeStandardPrefix(ts, *filter, 0, behavior);
                     ts << " " << filter->resourceBoundingBox(renderer) << "\n";
                 }
             }

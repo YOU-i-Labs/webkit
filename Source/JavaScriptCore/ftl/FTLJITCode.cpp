@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013, 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,6 @@
 #if ENABLE(FTL_JIT)
 
 #include "FTLState.h"
-#include "JSCPtrTag.h"
 
 namespace JSC { namespace FTL {
 
@@ -51,7 +50,7 @@ JITCode::~JITCode()
     }
 }
 
-void JITCode::initializeB3Code(CodeRef<JSEntryPtrTag> b3Code)
+void JITCode::initializeB3Code(CodeRef b3Code)
 {
     m_b3Code = b3Code;
 }
@@ -61,17 +60,17 @@ void JITCode::initializeB3Byproducts(std::unique_ptr<OpaqueByproducts> byproduct
     m_b3Byproducts = WTFMove(byproducts);
 }
 
-void JITCode::initializeAddressForCall(CodePtr<JSEntryPtrTag> address)
+void JITCode::initializeAddressForCall(CodePtr address)
 {
     m_addressForCall = address;
 }
 
-void JITCode::initializeArityCheckEntrypoint(CodeRef<JSEntryPtrTag> entrypoint)
+void JITCode::initializeArityCheckEntrypoint(CodeRef entrypoint)
 {
     m_arityCheckEntrypoint = entrypoint;
 }
 
-JITCode::CodePtr<JSEntryPtrTag> JITCode::addressForCall(ArityCheckMode arityCheck)
+JITCode::CodePtr JITCode::addressForCall(ArityCheckMode arityCheck)
 {
     switch (arityCheck) {
     case ArityCheckNotRequired:
@@ -80,16 +79,12 @@ JITCode::CodePtr<JSEntryPtrTag> JITCode::addressForCall(ArityCheckMode arityChec
         return m_arityCheckEntrypoint.code();
     }
     RELEASE_ASSERT_NOT_REACHED();
-    return CodePtr<JSEntryPtrTag>();
+    return CodePtr();
 }
 
 void* JITCode::executableAddressAtOffset(size_t offset)
 {
-    if (!offset)
-        return m_addressForCall.executableAddress();
-
-    char* executableAddress = m_addressForCall.untaggedExecutableAddress<char*>();
-    return tagCodePtr<JSEntryPtrTag>(executableAddress + offset);
+    return reinterpret_cast<char*>(m_addressForCall.executableAddress()) + offset;
 }
 
 void* JITCode::dataAddressAtOffset(size_t)
@@ -148,26 +143,26 @@ RegisterSet JITCode::liveRegistersToPreserveAtExceptionHandlingCallSite(CodeBloc
             return ValueRep::usedRegisters(exit.m_valueReps);
         }
     }
-    return { };
+    return RegisterSet();
 }
 
-Optional<CodeOrigin> JITCode::findPC(CodeBlock* codeBlock, void* pc)
+std::optional<CodeOrigin> JITCode::findPC(CodeBlock* codeBlock, void* pc)
 {
     for (OSRExit& exit : osrExit) {
         if (ExecutableMemoryHandle* handle = exit.m_code.executableMemory()) {
-            if (handle->start().untaggedPtr() <= pc && pc < handle->end().untaggedPtr())
-                return Optional<CodeOrigin>(exit.m_codeOriginForExitProfile);
+            if (handle->start() <= pc && pc < handle->end())
+                return std::optional<CodeOrigin>(exit.m_codeOriginForExitProfile);
         }
     }
 
     for (std::unique_ptr<LazySlowPath>& lazySlowPath : lazySlowPaths) {
         if (ExecutableMemoryHandle* handle = lazySlowPath->stub().executableMemory()) {
-            if (handle->start().untaggedPtr() <= pc && pc < handle->end().untaggedPtr())
-                return Optional<CodeOrigin>(codeBlock->codeOrigin(lazySlowPath->callSiteIndex()));
+            if (handle->start() <= pc && pc < handle->end())
+                return std::optional<CodeOrigin>(codeBlock->codeOrigin(lazySlowPath->callSiteIndex()));
         }
     }
 
-    return WTF::nullopt;
+    return std::nullopt;
 }
 
 } } // namespace JSC::FTL

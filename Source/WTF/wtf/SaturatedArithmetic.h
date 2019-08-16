@@ -29,12 +29,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef SaturatedArithmetic_h
+#define SaturatedArithmetic_h
 
+#include "Compiler.h"
 #include <limits>
 #include <stdint.h>
 #include <stdlib.h>
-#include <wtf/Compiler.h>
 
 inline bool signedAddOverflows(int32_t a, int32_t b, int32_t& result)
 {
@@ -99,3 +100,5 @@ inline int32_t saturatedSubtraction(int32_t a, int32_t b)
 #endif
     return result;
 }
+
+#endif // SaturatedArithmetic_h

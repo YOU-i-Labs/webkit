@@ -37,6 +37,7 @@
 #include "JSCInlines.h"
 #include "JSJavaScriptCallFrame.h"
 #include "JavaScriptCallFrame.h"
+#include "ScriptValue.h"
 #include "SourceProvider.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/SetForScope.h>
@@ -144,7 +145,9 @@ void ScriptDebugServer::dispatchBreakpointActionLog(ExecState* exec, const Strin
 
     SetForScope<bool> change(m_callingListeners, true);
 
-    for (auto* listener : copyToVector(m_listeners))
+    Vector<ScriptDebugListener*> listenersCopy;
+    copyToVector(m_listeners, listenersCopy);
+    for (auto* listener : listenersCopy)
         listener->breakpointActionLog(*exec, message);
 }
 
@@ -158,7 +161,9 @@ void ScriptDebugServer::dispatchBreakpointActionSound(ExecState*, int breakpoint
 
     SetForScope<bool> change(m_callingListeners, true);
 
-    for (auto* listener : copyToVector(m_listeners))
+    Vector<ScriptDebugListener*> listenersCopy;
+    copyToVector(m_listeners, listenersCopy);
+    for (auto* listener : listenersCopy)
         listener->breakpointActionSound(breakpointActionIdentifier);
 }
 
@@ -174,7 +179,9 @@ void ScriptDebugServer::dispatchBreakpointActionProbe(ExecState* exec, const Scr
 
     unsigned sampleId = m_nextProbeSampleId++;
 
-    for (auto* listener : copyToVector(m_listeners))
+    Vector<ScriptDebugListener*> listenersCopy;
+    copyToVector(m_listeners, listenersCopy);
+    for (auto* listener : listenersCopy)
         listener->breakpointActionProbe(*exec, action, m_currentProbeBatchId, sampleId, sampleValue);
 }
 
@@ -214,8 +221,10 @@ void ScriptDebugServer::dispatchDidParseSource(const ListenerSet& listeners, Sou
     else
         script.endColumn = sourceLength - lastLineStart;
 
-    for (auto* listener : copyToVector(listeners))
-        listener->didParseSource(sourceID, script);
+    Vector<ScriptDebugListener*> copy;
+    copyToVector(listeners, copy);
+    for (size_t i = 0; i < copy.size(); ++i)
+        copy[i]->didParseSource(sourceID, script);
 }
 
 void ScriptDebugServer::dispatchFailedToParseSource(const ListenerSet& listeners, SourceProvider* sourceProvider, int errorLine, const String& errorMessage)
@@ -224,8 +233,10 @@ void ScriptDebugServer::dispatchFailedToParseSource(const ListenerSet& listeners
     String data = sourceProvider->source().toString();
     int firstLine = sourceProvider->startPosition().m_line.oneBasedInt();
 
-    for (auto* listener : copyToVector(listeners))
-        listener->failedToParseSource(url, data, firstLine, errorLine, errorMessage);
+    Vector<ScriptDebugListener*> copy;
+    copyToVector(listeners, copy);
+    for (size_t i = 0; i < copy.size(); ++i)
+        copy[i]->failedToParseSource(url, data, firstLine, errorLine, errorMessage);
 }
 
 void ScriptDebugServer::sourceParsed(ExecState* exec, SourceProvider* sourceProvider, int errorLine, const String& errorMessage)
@@ -260,8 +271,10 @@ void ScriptDebugServer::dispatchFunctionToListeners(JavaScriptExecutionCallback 
 
 void ScriptDebugServer::dispatchFunctionToListeners(const ListenerSet& listeners, JavaScriptExecutionCallback callback)
 {
-    for (auto* listener : copyToVector(listeners))
-        (this->*callback)(listener);
+    Vector<ScriptDebugListener*> copy;
+    copyToVector(listeners, copy);
+    for (size_t i = 0; i < copy.size(); ++i)
+        (this->*callback)(copy[i]);
 }
 
 void ScriptDebugServer::notifyDoneProcessingDebuggerEvents()

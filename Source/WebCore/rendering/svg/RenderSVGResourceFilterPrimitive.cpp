@@ -34,11 +34,8 @@
 #include "SVGFESpecularLightingElement.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
 #include "SVGNames.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGResourceFilterPrimitive);
 
 RenderSVGResourceFilterPrimitive::RenderSVGResourceFilterPrimitive(SVGFilterPrimitiveStandardAttributes& filterPrimitiveElement, RenderStyle&& style)
     : RenderSVGHiddenContainer(filterPrimitiveElement, WTFMove(style))
@@ -58,7 +55,7 @@ void RenderSVGResourceFilterPrimitive::styleDidChange(StyleDifference diff, cons
     if (!filter)
         return;
 
-    if (diff == StyleDifference::Equal || !oldStyle)
+    if (diff == StyleDifferenceEqual || !oldStyle)
         return;
 
     const SVGRenderStyle& newStyle = style().svgStyle();
@@ -71,6 +68,48 @@ void RenderSVGResourceFilterPrimitive::styleDidChange(StyleDifference diff, cons
         if (newStyle.lightingColor() != oldStyle->svgStyle().lightingColor())
             downcast<RenderSVGResourceFilter>(*filter).primitiveAttributeChanged(this, SVGNames::lighting_colorAttr);
     }
+}
+
+FloatRect RenderSVGResourceFilterPrimitive::determineFilterPrimitiveSubregion(FilterEffect& effect)
+{
+    auto& filter = downcast<SVGFilter>(effect.filter());
+
+    // FETile, FETurbulence, FEFlood don't have input effects, take the filter region as unite rect.
+    FloatRect subregion;
+    if (unsigned numberOfInputEffects = effect.inputEffects().size()) {
+        subregion = determineFilterPrimitiveSubregion(*effect.inputEffect(0));
+        for (unsigned i = 1; i < numberOfInputEffects; ++i)
+            subregion.unite(determineFilterPrimitiveSubregion(*effect.inputEffect(i)));
+    } else
+        subregion = filter.filterRegionInUserSpace();
+
+    // After calling determineFilterPrimitiveSubregion on the target effect, reset the subregion again for <feTile>.
+    if (effect.filterEffectType() == FilterEffectTypeTile)
+        subregion = filter.filterRegionInUserSpace();
+
+    FloatRect effectBoundaries = effect.effectBoundaries();
+    if (effect.hasX())
+        subregion.setX(effectBoundaries.x());
+    if (effect.hasY())
+        subregion.setY(effectBoundaries.y());
+    if (effect.hasWidth())
+        subregion.setWidth(effectBoundaries.width());
+    if (effect.hasHeight())
+        subregion.setHeight(effectBoundaries.height());
+
+    effect.setFilterPrimitiveSubregion(subregion);
+
+    FloatRect absoluteSubregion = filter.absoluteTransform().mapRect(subregion);
+    FloatSize filterResolution = filter.filterResolution();
+    absoluteSubregion.scale(filterResolution.width(), filterResolution.height());
+
+    // Clip every filter effect to the filter region.
+    FloatRect absoluteScaledFilterRegion = filter.filterRegion();
+    absoluteScaledFilterRegion.scale(filterResolution.width(), filterResolution.height());
+    absoluteSubregion.intersect(absoluteScaledFilterRegion);
+
+    effect.setMaxEffectRect(absoluteSubregion);
+    return subregion;
 }
 
 } // namespace WebCore

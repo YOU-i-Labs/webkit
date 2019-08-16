@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SourceCodeTreeElement = class SourceCodeTreeElement extends WI.FolderizedTreeElement
+WebInspector.SourceCodeTreeElement = class SourceCodeTreeElement extends WebInspector.FolderizedTreeElement
 {
-    constructor(sourceCode, classNames, title, subtitle, representedObject)
+    constructor(sourceCode, classNames, title, subtitle, representedObject, hasChildren)
     {
-        console.assert(sourceCode instanceof WI.SourceCode);
+        console.assert(sourceCode instanceof WebInspector.SourceCode);
 
-        super(classNames, title, subtitle, representedObject || sourceCode);
+        super(classNames, title, subtitle, representedObject || sourceCode, hasChildren);
 
         this._updateSourceCode(sourceCode);
     }
@@ -80,7 +80,7 @@ WI.SourceCodeTreeElement = class SourceCodeTreeElement extends WI.FolderizedTree
             components.push(topFolder.mainTitle);
 
             var folderName = components.reverse().join("/");
-            var newFolder = new WI.FolderTreeElement(folderName);
+            var newFolder = new WebInspector.FolderTreeElement(folderName);
 
             var folderIndex = topFolder.parent.children.indexOf(topFolder);
             topFolder.parent.insertChild(newFolder, folderIndex);
@@ -94,7 +94,7 @@ WI.SourceCodeTreeElement = class SourceCodeTreeElement extends WI.FolderizedTree
 
         function findAndCombineFolderChains(treeElement, previousSingleTreeElement)
         {
-            if (!(treeElement instanceof WI.FolderTreeElement)) {
+            if (!(treeElement instanceof WebInspector.FolderTreeElement)) {
                 if (previousSingleTreeElement && previousSingleTreeElement !== treeElement.parent)
                     combineFolderChain(previousSingleTreeElement, treeElement.parent);
                 return;
@@ -119,8 +119,8 @@ WI.SourceCodeTreeElement = class SourceCodeTreeElement extends WI.FolderizedTree
                 var sourceMapResource = sourceMap.resources[j];
                 var relativeSubpath = sourceMapResource.sourceMapDisplaySubpath;
                 var folderTreeElement = this.createFoldersAsNeededForSubpath(relativeSubpath);
-                var sourceMapTreeElement = new WI.SourceMapResourceTreeElement(sourceMapResource);
-                folderTreeElement.insertChild(sourceMapTreeElement, insertionIndexForObjectInListSortedByFunction(sourceMapTreeElement, folderTreeElement.children, WI.ResourceTreeElement.compareFolderAndResourceTreeElements));
+                var sourceMapTreeElement = new WebInspector.SourceMapResourceTreeElement(sourceMapResource);
+                folderTreeElement.insertChild(sourceMapTreeElement, insertionIndexForObjectInListSortedByFunction(sourceMapTreeElement, folderTreeElement.children, WebInspector.ResourceTreeElement.compareFolderAndResourceTreeElements));
             }
         }
 
@@ -155,11 +155,11 @@ WI.SourceCodeTreeElement = class SourceCodeTreeElement extends WI.FolderizedTree
                 continue;
             }
 
-            var newFolder = new WI.FolderTreeElement(componentName);
+            var newFolder = new WebInspector.FolderTreeElement(componentName);
             newFolder.__path = currentPath;
             this._subpathFolderTreeElementMap[currentPath] = newFolder;
 
-            var index = insertionIndexForObjectInListSortedByFunction(newFolder, currentFolderTreeElement.children, WI.ResourceTreeElement.compareFolderAndResourceTreeElements);
+            var index = insertionIndexForObjectInListSortedByFunction(newFolder, currentFolderTreeElement.children, WebInspector.ResourceTreeElement.compareFolderAndResourceTreeElements);
             currentFolderTreeElement.insertChild(newFolder, index);
             currentFolderTreeElement = newFolder;
         }
@@ -179,28 +179,28 @@ WI.SourceCodeTreeElement = class SourceCodeTreeElement extends WI.FolderizedTree
         let wasSelected = childTreeElement.selected;
 
         parentTreeElement.removeChild(childTreeElement, true, true);
-        parentTreeElement.insertChild(childTreeElement, insertionIndexForObjectInListSortedByFunction(childTreeElement, parentTreeElement.children, WI.ResourceTreeElement.compareFolderAndResourceTreeElements));
+        parentTreeElement.insertChild(childTreeElement, insertionIndexForObjectInListSortedByFunction(childTreeElement, parentTreeElement.children, WebInspector.ResourceTreeElement.compareFolderAndResourceTreeElements));
 
         if (wasParentExpanded)
             parentTreeElement.expand();
         if (wasSelected)
-            childTreeElement.revealAndSelect(true, false, true);
+            childTreeElement.revealAndSelect(true, false, true, true);
     }
 
     // Protected (ResourceTreeElement calls this when its Resource changes dynamically for Frames)
 
     _updateSourceCode(sourceCode)
     {
-        console.assert(sourceCode instanceof WI.SourceCode);
+        console.assert(sourceCode instanceof WebInspector.SourceCode);
 
         if (this._sourceCode === sourceCode)
             return;
 
         if (this._sourceCode)
-            this._sourceCode.removeEventListener(WI.SourceCode.Event.SourceMapAdded, this.updateSourceMapResources, this);
+            this._sourceCode.removeEventListener(WebInspector.SourceCode.Event.SourceMapAdded, this.updateSourceMapResources, this);
 
         this._sourceCode = sourceCode;
-        this._sourceCode.addEventListener(WI.SourceCode.Event.SourceMapAdded, this.updateSourceMapResources, this);
+        this._sourceCode.addEventListener(WebInspector.SourceCode.Event.SourceMapAdded, this.updateSourceMapResources, this);
 
         this.updateSourceMapResources();
     }

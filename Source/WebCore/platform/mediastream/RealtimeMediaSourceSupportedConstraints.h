@@ -49,9 +49,7 @@ enum class MediaConstraintType {
     SampleSize,
     EchoCancellation,
     DeviceId,
-    GroupId,
-    DisplaySurface,
-    LogicalSurface,
+    GroupId
 };
 
 class RealtimeMediaSourceSupportedConstraints {
@@ -93,12 +91,6 @@ public:
     bool supportsGroupId() const { return m_supportsGroupId; }
     void setSupportsGroupId(bool value) { m_supportsGroupId = value; }
 
-    bool supportsDisplaySurface() const { return m_supportsDisplaySurface; }
-    void setSupportsDisplaySurface(bool value) { m_supportsDisplaySurface = value; }
-
-    bool supportsLogicalSurface() const { return m_supportsLogicalSurface; }
-    void setSupportsLogicalSurface(bool value) { m_supportsLogicalSurface = value; }
-
     bool supportsConstraint(MediaConstraintType) const;
 
     template<class Encoder> void encode(Encoder&) const;
@@ -116,8 +108,6 @@ private:
     bool m_supportsEchoCancellation { false };
     bool m_supportsDeviceId { false };
     bool m_supportsGroupId { false };
-    bool m_supportsDisplaySurface { false };
-    bool m_supportsLogicalSurface { false };
 };
 
 template<class Encoder>
@@ -133,9 +123,7 @@ void RealtimeMediaSourceSupportedConstraints::encode(Encoder& encoder) const
         << m_supportsSampleSize
         << m_supportsEchoCancellation
         << m_supportsDeviceId
-        << m_supportsGroupId
-        << m_supportsDisplaySurface
-        << m_supportsLogicalSurface;
+        << m_supportsGroupId;
 }
 
 template<class Decoder>
@@ -151,9 +139,7 @@ bool RealtimeMediaSourceSupportedConstraints::decode(Decoder& decoder, RealtimeM
         && decoder.decode(constraints.m_supportsSampleSize)
         && decoder.decode(constraints.m_supportsEchoCancellation)
         && decoder.decode(constraints.m_supportsDeviceId)
-        && decoder.decode(constraints.m_supportsGroupId)
-        && decoder.decode(constraints.m_supportsDisplaySurface)
-        && decoder.decode(constraints.m_supportsLogicalSurface);
+        && decoder.decode(constraints.m_supportsGroupId);
 }
 
 } // namespace WebCore

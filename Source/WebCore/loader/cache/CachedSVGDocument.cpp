@@ -27,13 +27,15 @@
 
 namespace WebCore {
 
-CachedSVGDocument::CachedSVGDocument(CachedResourceRequest&& request, PAL::SessionID sessionID)
-    : CachedResource(WTFMove(request), Type::SVGDocumentResource, sessionID)
+CachedSVGDocument::CachedSVGDocument(CachedResourceRequest&& request, SessionID sessionID)
+    : CachedResource(WTFMove(request), SVGDocumentResource, sessionID)
     , m_decoder(TextResourceDecoder::create("application/xml"))
 {
 }
 
-CachedSVGDocument::~CachedSVGDocument() = default;
+CachedSVGDocument::~CachedSVGDocument()
+{
+}
 
 void CachedSVGDocument::setEncoding(const String& chs)
 {

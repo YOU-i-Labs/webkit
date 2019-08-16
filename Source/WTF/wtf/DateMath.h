@@ -40,13 +40,15 @@
  *
  */
 
-#pragma once
+#ifndef DateMath_h
+#define DateMath_h
 
 #include <math.h>
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
-#include <wtf/WallTime.h>
+#include <wtf/CurrentTime.h>
+#include <wtf/Noncopyable.h>
 #include <wtf/text/WTFString.h>
 
 namespace WTF {
@@ -97,7 +99,7 @@ String makeRFC2822DateString(unsigned dayOfWeek, unsigned day, unsigned month, u
 inline double jsCurrentTime()
 {
     // JavaScript doesn't recognize fractions of a millisecond.
-    return floor(WallTime::now().secondsSinceEpoch().milliseconds());
+    return floor(WTF::currentTimeMS());
 }
 
 const char* const weekdayName[7] = { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
@@ -153,3 +155,5 @@ using WTF::parseDateFromNullTerminatedCharacters;
 using WTF::makeRFC2822DateString;
 using WTF::LocalTimeOffset;
 using WTF::calculateLocalTimeOffset;
+
+#endif // DateMath_h

@@ -43,13 +43,10 @@
 #include "RenderView.h"
 #include "StyleResolver.h"
 #include "TextControlInnerElements.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSearchField);
 
 RenderSearchField::RenderSearchField(HTMLInputElement& element, RenderStyle&& style)
     : RenderTextControlSingleLine(element, WTFMove(style))
@@ -100,7 +97,7 @@ void RenderSearchField::addSearchResult()
         return recentSearch.string == value;
     });
 
-    RecentSearch recentSearch = { value, WallTime::now() };
+    RecentSearch recentSearch = { value, std::chrono::system_clock::now() };
     m_recentSearches.insert(0, recentSearch);
     while (static_cast<int>(m_recentSearches.size()) > inputElement().maxResults())
         m_recentSearches.removeLast();
@@ -185,7 +182,7 @@ void RenderSearchField::updateCancelButtonVisibility() const
         return;
 
     const RenderStyle& curStyle = cancelButtonRenderer->style();
-    Visibility buttonVisibility = visibilityForCancelButton();
+    EVisibility buttonVisibility = visibilityForCancelButton();
     if (curStyle.visibility() == buttonVisibility)
         return;
 
@@ -194,9 +191,9 @@ void RenderSearchField::updateCancelButtonVisibility() const
     cancelButtonRenderer->setStyle(WTFMove(cancelButtonStyle));
 }
 
-Visibility RenderSearchField::visibilityForCancelButton() const
+EVisibility RenderSearchField::visibilityForCancelButton() const
 {
-    return (style().visibility() == Visibility::Hidden || inputElement().value().isEmpty()) ? Visibility::Hidden : Visibility::Visible;
+    return (style().visibility() == HIDDEN || inputElement().value().isEmpty()) ? HIDDEN : VISIBLE;
 }
 
 const AtomicString& RenderSearchField::autosaveName() const
@@ -228,7 +225,7 @@ void RenderSearchField::valueChanged(unsigned listIndex, bool fireEvents)
 
 String RenderSearchField::itemText(unsigned listIndex) const
 {
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
     int size = listSize();
     if (size == 1) {
         ASSERT(!listIndex);
@@ -239,7 +236,7 @@ String RenderSearchField::itemText(unsigned listIndex) const
 #endif
     if (itemIsSeparator(listIndex))
         return String();
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
     if (static_cast<int>(listIndex) == (size - 1))
         return searchMenuClearRecentSearchesText();
 #endif
@@ -270,8 +267,8 @@ PopupMenuStyle RenderSearchField::itemStyle(unsigned) const
 
 PopupMenuStyle RenderSearchField::menuStyle() const
 {
-    return PopupMenuStyle(style().visitedDependentColorWithColorFilter(CSSPropertyColor), style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor), style().fontCascade(), style().visibility() == Visibility::Visible,
-        style().display() == DisplayType::None, true, style().textIndent(), style().direction(), isOverride(style().unicodeBidi()), PopupMenuStyle::CustomBackgroundColor);
+    return PopupMenuStyle(style().visitedDependentColor(CSSPropertyColor), style().visitedDependentColor(CSSPropertyBackgroundColor), style().fontCascade(), style().visibility() == VISIBLE,
+        style().display() == NONE, true, style().textIndent(), style().direction(), isOverride(style().unicodeBidi()), PopupMenuStyle::CustomBackgroundColor);
 }
 
 int RenderSearchField::clientInsetLeft() const
@@ -359,7 +356,7 @@ HostWindow* RenderSearchField::hostWindow() const
 
 Ref<Scrollbar> RenderSearchField::createScrollbar(ScrollableArea& scrollableArea, ScrollbarOrientation orientation, ScrollbarControlSize controlSize)
 {
-    bool hasCustomScrollbarStyle = style().hasPseudoStyle(PseudoId::Scrollbar);
+    bool hasCustomScrollbarStyle = style().hasPseudoStyle(SCROLLBAR);
     if (hasCustomScrollbarStyle)
         return RenderScrollbar::createCustomScrollbar(scrollableArea, orientation, &inputElement());
     return Scrollbar::createNativeScrollbar(scrollableArea, orientation, controlSize);

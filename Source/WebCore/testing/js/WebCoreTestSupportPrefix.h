@@ -42,9 +42,17 @@
 #endif
 
 #if OS(WINDOWS)
+
+#if !USE(CURL)
+#ifndef _WINSOCKAPI_
+#define _WINSOCKAPI_ // Prevent inclusion of winsock.h in windows.h
+#endif
+#endif
+
 #undef WEBCORE_EXPORT
 #define WEBCORE_EXPORT WTF_IMPORT_DECLARATION
 #define WEBCORE_TESTSUPPORT_EXPORT WTF_EXPORT_DECLARATION
+
 #else
 
 #include <pthread.h>
@@ -87,11 +95,9 @@
 #include <sys/time.h>
 #endif
 
-#if USE(CF)
 #include <CoreFoundation/CoreFoundation.h>
-#endif
-
 #if PLATFORM(WIN_CAIRO)
+#include <ConditionalMacros.h>
 #include <windows.h>
 #else
 
@@ -113,19 +119,19 @@
 #endif
 #include <windows.h>
 #else
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
 #include <CoreServices/CoreServices.h>
-#endif // !PLATFORM(IOS_FAMILY)
+#endif // !PLATFORM(IOS)
 #endif // OS(WINDOWS)
 
 #endif
 
 #ifdef __OBJC__
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #import <Foundation/Foundation.h>
 #else
 #import <Cocoa/Cocoa.h>
-#endif // PLATFORM(IOS_FAMILY)
+#endif // PLATFORM(IOS)
 #endif
 
 #ifdef __cplusplus

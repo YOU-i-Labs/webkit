@@ -27,6 +27,8 @@
 
 namespace WebCore {
 
+class GraphicsContext3D;
+
 class ClipStack {
 public:
     struct State {
@@ -54,8 +56,8 @@ public:
     void setStencilIndex(int);
     int getStencilIndex() const { return clipState.stencilIndex; }
 
-    void apply();
-    void applyIfNeeded();
+    void apply(GraphicsContext3D&);
+    void applyIfNeeded(GraphicsContext3D&);
 
     bool isCurrentScissorBoxEmpty() const { return clipState.scissorBox.isEmpty(); }
 

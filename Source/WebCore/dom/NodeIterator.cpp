@@ -26,6 +26,7 @@
 #include "NodeIterator.h"
 
 #include "Document.h"
+#include "ExceptionCode.h"
 #include "NodeTraversal.h"
 
 namespace WebCore {
@@ -97,13 +98,13 @@ ExceptionOr<RefPtr<Node>> NodeIterator::nextNode()
         // of the rejected node. Hence, FILTER_REJECT is the same as FILTER_SKIP.
         RefPtr<Node> provisionalResult = m_candidateNode.node;
 
-        auto filterResult = acceptNode(*provisionalResult);
-        if (filterResult.hasException()) {
-            m_candidateNode.clear();
-            return filterResult.releaseException();
-        }
+        auto callbackResult = acceptNode(*provisionalResult);
+        if (callbackResult.type() == CallbackResultType::ExceptionThrown)
+            return Exception { ExistingExceptionError };
 
-        bool nodeWasAccepted = filterResult.returnValue() == NodeFilter::FILTER_ACCEPT;
+        ASSERT(callbackResult.type() == CallbackResultType::Success);
+
+        bool nodeWasAccepted = callbackResult.releaseReturnValue() == NodeFilter::FILTER_ACCEPT;
         if (nodeWasAccepted) {
             m_referenceNode = m_candidateNode;
             result = WTFMove(provisionalResult);
@@ -126,13 +127,13 @@ ExceptionOr<RefPtr<Node>> NodeIterator::previousNode()
         // of the rejected node. Hence, FILTER_REJECT is the same as FILTER_SKIP.
         RefPtr<Node> provisionalResult = m_candidateNode.node;
 
-        auto filterResult = acceptNode(*provisionalResult);
-        if (filterResult.hasException()) {
-            m_candidateNode.clear();
-            return filterResult.releaseException();
-        }
+        auto callbackResult = acceptNode(*provisionalResult);
+        if (callbackResult.type() == CallbackResultType::ExceptionThrown)
+            return Exception { ExistingExceptionError };
 
-        bool nodeWasAccepted = filterResult.returnValue() == NodeFilter::FILTER_ACCEPT;
+        ASSERT(callbackResult.type() == CallbackResultType::Success);
+
+        bool nodeWasAccepted = callbackResult.releaseReturnValue() == NodeFilter::FILTER_ACCEPT;
         if (nodeWasAccepted) {
             m_referenceNode = m_candidateNode;
             result = WTFMove(provisionalResult);

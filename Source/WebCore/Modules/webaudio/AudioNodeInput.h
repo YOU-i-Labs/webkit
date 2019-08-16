@@ -38,9 +38,7 @@ class AudioNodeOutput;
 // In the case of multiple connections, the input will act as a unity-gain summing junction, mixing all the outputs.
 // The number of channels of the input's bus is the maximum of the number of channels of all its connections.
 
-class AudioNodeInput final : public AudioSummingJunction {
-    WTF_MAKE_NONCOPYABLE(AudioNodeInput);
-    WTF_MAKE_FAST_ALLOCATED;
+class AudioNodeInput : public AudioSummingJunction {
 public:
     explicit AudioNodeInput(AudioNode*);
 

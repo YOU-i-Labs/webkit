@@ -89,7 +89,7 @@ double Symbol::toNumber(ExecState* exec) const
 {
     VM& vm = exec->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
-    throwTypeError(exec, scope, "Cannot convert a symbol to a number"_s);
+    throwTypeError(exec, scope, ASCIILiteral("Cannot convert a symbol to a number"));
     return 0.0;
 }
 
@@ -101,12 +101,6 @@ void Symbol::destroy(JSCell* cell)
 String Symbol::descriptiveString() const
 {
     return makeString("Symbol(", String(privateName().uid()), ')');
-}
-
-String Symbol::description() const
-{
-    auto& uid = privateName().uid();
-    return uid.isNullSymbol() ? String() : uid;
 }
 
 Symbol* Symbol::create(VM& vm)

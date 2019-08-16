@@ -22,15 +22,13 @@
 
 #pragma once
 
-#include "CSSParserContext.h"
-#include "CSSRegisteredCustomProperty.h"
+#include "CSSParserMode.h"
 #include "CSSValue.h"
 #include "WritingMode.h"
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-struct ApplyCascadedPropertyState;
 class CSSParserObserver;
 class CSSSelectorList;
 class Color;
@@ -40,7 +38,6 @@ class MutableStyleProperties;
 class StyleRuleBase;
 class StyleRuleKeyframe;
 class StyleSheetContents;
-class RenderStyle;
 
 class CSSParser {
 public:
@@ -74,14 +71,14 @@ public:
     static RefPtr<CSSValue> parseSingleValue(CSSPropertyID, const String&, const CSSParserContext& = strictCSSParserContext());
 
     WEBCORE_EXPORT bool parseDeclaration(MutableStyleProperties&, const String&);
-    static Ref<ImmutableStyleProperties> parseInlineStyleDeclaration(const String&, const Element*);
+    static Ref<ImmutableStyleProperties> parseInlineStyleDeclaration(const String&, Element*);
 
     void parseSelector(const String&, CSSSelectorList&);
 
-    RefPtr<CSSValue> parseValueWithVariableReferences(CSSPropertyID, const CSSValue&, ApplyCascadedPropertyState&);
+    RefPtr<CSSValue> parseValueWithVariableReferences(CSSPropertyID, const CSSValue&, const CustomPropertyValueMap& customProperties, TextDirection, WritingMode);
 
     static Color parseColor(const String&, bool strict = false);
-    static Color parseSystemColor(const String&, const CSSParserContext*);
+    static Color parseSystemColor(const String&);
 
 private:
     ParseResult parseValue(MutableStyleProperties&, CSSPropertyID, const String&, bool important);

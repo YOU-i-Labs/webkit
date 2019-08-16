@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef CredentialStorage_h
+#define CredentialStorage_h
 
 #include "Credential.h"
 #include "ProtectionSpaceHash.h"
@@ -34,6 +35,7 @@
 
 namespace WebCore {
 
+class URL;
 class ProtectionSpace;
 
 class CredentialStorage {
@@ -68,3 +70,5 @@ private:
 };
 
 } // namespace WebCore
+
+#endif // CredentialStorage_h

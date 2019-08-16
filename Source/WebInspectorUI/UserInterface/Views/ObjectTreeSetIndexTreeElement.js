@@ -23,11 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ObjectTreeSetIndexTreeElement = class ObjectTreeSetIndexTreeElement extends WI.ObjectTreeBaseTreeElement
+WebInspector.ObjectTreeSetIndexTreeElement = class ObjectTreeSetIndexTreeElement extends WebInspector.ObjectTreeBaseTreeElement
 {
     constructor(object, propertyPath)
     {
-        console.assert(object instanceof WI.RemoteObject);
+        console.assert(object instanceof WebInspector.RemoteObject);
 
         // Treat the same as an array-index just with different strings and widths.
         super(object, propertyPath);
@@ -69,7 +69,7 @@ WI.ObjectTreeSetIndexTreeElement = class ObjectTreeSetIndexTreeElement extends W
         var nameElement = container.appendChild(document.createElement("span"));
         nameElement.className = "index-name";
         nameElement.textContent = "\u2022";
-        nameElement.title = WI.UIString("Unable to determine path to property from root");
+        nameElement.title = WebInspector.UIString("Unable to determine path to property from root");
 
         // Space. For copy/paste to have space between the bullet and value.
         container.append(" ");
@@ -77,7 +77,7 @@ WI.ObjectTreeSetIndexTreeElement = class ObjectTreeSetIndexTreeElement extends W
         // Value.
         var valueElement = container.appendChild(document.createElement("span"));
         valueElement.className = "index-value";
-        valueElement.appendChild(WI.FormattedValue.createObjectTreeOrFormattedValueForRemoteObject(this._object, propertyPath));
+        valueElement.appendChild(WebInspector.FormattedValue.createObjectTreeOrFormattedValueForRemoteObject(this._object, propertyPath));
 
         return container;
     }

@@ -23,22 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.WebSocketResource = class WebSocketResource extends WI.Resource
+WebInspector.WebSocketResource = class WebSocketResource extends WebInspector.Resource
 {
-    constructor(url, {loaderIdentifier, requestIdentifier, requestHeaders, timestamp, walltime, requestSentTimestamp} = {})
+    constructor(url, loaderIdentifier, targetId, requestIdentifier, requestHeaders, requestData, timestamp, walltime, requestSentTimestamp, initiatorSourceCodeLocation)
     {
-        super(url, {
-            type: WI.Resource.Type.WebSocket,
-            loaderIdentifier,
-            requestIdentifier,
-            requestMethod: "GET",
-            requestHeaders,
-            requestSentTimestamp,
-        });
+        const type = WebInspector.Resource.Type.WebSocket;
+        const mimeType = null;
+        const requestMethod = "GET";
+        super(url, mimeType, type, loaderIdentifier, targetId, requestIdentifier, requestMethod, requestHeaders, requestData, requestSentTimestamp, initiatorSourceCodeLocation);
 
         this._timestamp = timestamp;
         this._walltime = walltime;
-        this._readyState = WI.WebSocketResource.ReadyState.Connecting;
+        this._readyState = WebInspector.WebSocketResource.ReadyState.Connecting;
         this._frames = [];
     }
 
@@ -60,7 +56,7 @@ WI.WebSocketResource = class WebSocketResource extends WI.Resource
         let previousState = this._readyState;
         this._readyState = state;
 
-        this.dispatchEventToListeners(WI.WebSocketResource.Event.ReadyStateChanged, {previousState, state});
+        this.dispatchEventToListeners(WebInspector.WebSocketResource.Event.ReadyStateChanged, {previousState, state});
     }
 
     addFrame(data, payloadLength, isOutgoing, opcode, timestamp, elapsedTime)
@@ -68,7 +64,7 @@ WI.WebSocketResource = class WebSocketResource extends WI.Resource
         let frameData;
 
         // Binary data is never shown in the UI, don't clog memory with it.
-        if (opcode === WI.WebSocketResource.OpCodes.BinaryFrame)
+        if (opcode === WebInspector.WebSocketResource.OpCodes.BinaryFrame)
             frameData = null;
         else
             frameData = data;
@@ -82,7 +78,7 @@ WI.WebSocketResource = class WebSocketResource extends WI.Resource
 
         this.increaseSize(payloadLength, elapsedTime);
 
-        this.dispatchEventToListeners(WI.WebSocketResource.Event.FrameAdded, frame);
+        this.dispatchEventToListeners(WebInspector.WebSocketResource.Event.FrameAdded, frame);
     }
 
     // Private
@@ -93,18 +89,18 @@ WI.WebSocketResource = class WebSocketResource extends WI.Resource
     }
 };
 
-WI.WebSocketResource.Event = {
+WebInspector.WebSocketResource.Event = {
     FrameAdded: Symbol("web-socket-frame-added"),
     ReadyStateChanged: Symbol("web-socket-resource-ready-state-changed"),
 };
 
-WI.WebSocketResource.ReadyState = {
+WebInspector.WebSocketResource.ReadyState = {
     Closed: Symbol("closed"),
     Connecting: Symbol("connecting"),
     Open: Symbol("open"),
 };
 
-WI.WebSocketResource.OpCodes = {
+WebInspector.WebSocketResource.OpCodes = {
     ContinuationFrame: 0,
     TextFrame: 1,
     BinaryFrame: 2,

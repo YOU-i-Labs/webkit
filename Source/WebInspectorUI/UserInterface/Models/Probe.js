@@ -24,11 +24,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ProbeSample = class ProbeSample
+WebInspector.ProbeSample = class ProbeSample extends WebInspector.Object
 {
     constructor(sampleId, batchId, elapsedTime, object)
     {
-        console.assert(object instanceof WI.RemoteObject);
+        super();
+
+        console.assert(object instanceof WebInspector.RemoteObject);
 
         this.sampleId = sampleId;
         this.batchId = batchId;
@@ -37,14 +39,14 @@ WI.ProbeSample = class ProbeSample
     }
 };
 
-WI.Probe = class Probe extends WI.Object
+WebInspector.Probe = class Probe extends WebInspector.Object
 {
     constructor(id, breakpoint, expression)
     {
         super();
 
         console.assert(id);
-        console.assert(breakpoint instanceof WI.Breakpoint);
+        console.assert(breakpoint instanceof WebInspector.Breakpoint);
 
         this._id = id;
         this._breakpoint = breakpoint;
@@ -77,7 +79,7 @@ WI.Probe = class Probe extends WI.Object
         var data = {oldValue: this._expression, newValue: value};
         this._expression = value;
         this.clearSamples();
-        this.dispatchEventToListeners(WI.Probe.Event.ExpressionChanged, data);
+        this.dispatchEventToListeners(WebInspector.Probe.Event.ExpressionChanged, data);
     }
 
     get samples()
@@ -88,18 +90,18 @@ WI.Probe = class Probe extends WI.Object
     clearSamples()
     {
         this._samples = [];
-        this.dispatchEventToListeners(WI.Probe.Event.SamplesCleared);
+        this.dispatchEventToListeners(WebInspector.Probe.Event.SamplesCleared);
     }
 
     addSample(sample)
     {
-        console.assert(sample instanceof WI.ProbeSample, "Wrong object type passed as probe sample: ", sample);
+        console.assert(sample instanceof WebInspector.ProbeSample, "Wrong object type passed as probe sample: ", sample);
         this._samples.push(sample);
-        this.dispatchEventToListeners(WI.Probe.Event.SampleAdded, sample);
+        this.dispatchEventToListeners(WebInspector.Probe.Event.SampleAdded, sample);
     }
 };
 
-WI.Probe.Event = {
+WebInspector.Probe.Event = {
     ExpressionChanged: "probe-object-expression-changed",
     SampleAdded: "probe-object-sample-added",
     SamplesCleared: "probe-object-samples-cleared"

@@ -29,7 +29,7 @@
 namespace WebCore {
 
 WebKitTransitionEvent::WebKitTransitionEvent(const AtomicString& type, const String& propertyName, double elapsedTime, const String& pseudoElement)
-    : Event(type, CanBubble::Yes, IsCancelable::Yes)
+    : Event(type, true, true)
     , m_propertyName(propertyName)
     , m_elapsedTime(elapsedTime)
     , m_pseudoElement(pseudoElement)
@@ -44,7 +44,9 @@ WebKitTransitionEvent::WebKitTransitionEvent(const AtomicString& type, const Ini
 {
 }
 
-WebKitTransitionEvent::~WebKitTransitionEvent() = default;
+WebKitTransitionEvent::~WebKitTransitionEvent()
+{
+}
 
 const String& WebKitTransitionEvent::propertyName() const
 {

@@ -26,7 +26,6 @@
 [
     ActiveDOMObject,
     Conditional=LEGACY_ENCRYPTED_MEDIA,
-    EnabledAtRuntime=LegacyEncryptedMediaAPI,
 ] interface WebKitMediaKeySession : EventTarget {
     readonly attribute WebKitMediaKeyError error;
 

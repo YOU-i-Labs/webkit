@@ -32,28 +32,24 @@
 #include "CommandLineAPIHost.h"
 
 #include "Database.h"
-#include "Document.h"
 #include "InspectorDOMAgent.h"
 #include "InspectorDOMStorageAgent.h"
 #include "InspectorDatabaseAgent.h"
 #include "JSCommandLineAPIHost.h"
 #include "JSDOMGlobalObject.h"
-#include "JSEventListener.h"
 #include "Pasteboard.h"
 #include "Storage.h"
-#include <JavaScriptCore/InspectorAgent.h>
-#include <JavaScriptCore/InspectorConsoleAgent.h>
-#include <JavaScriptCore/JSCInlines.h>
-#include <JavaScriptCore/JSLock.h>
-#include <JavaScriptCore/ScriptValue.h>
-#include <wtf/JSONValues.h>
+#include <inspector/InspectorValues.h>
+#include <inspector/agents/InspectorAgent.h>
+#include <inspector/agents/InspectorConsoleAgent.h>
+#include <runtime/JSCInlines.h>
 #include <wtf/RefPtr.h>
 #include <wtf/StdLibExtras.h>
 
-namespace WebCore {
-
 using namespace JSC;
 using namespace Inspector;
+
+namespace WebCore {
 
 Ref<CommandLineAPIHost> CommandLineAPIHost::create()
 {
@@ -65,7 +61,9 @@ CommandLineAPIHost::CommandLineAPIHost()
 {
 }
 
-CommandLineAPIHost::~CommandLineAPIHost() = default;
+CommandLineAPIHost::~CommandLineAPIHost()
+{
+}
 
 void CommandLineAPIHost::disconnect()
 {
@@ -76,67 +74,23 @@ void CommandLineAPIHost::disconnect()
     m_databaseAgent = nullptr;
 }
 
-void CommandLineAPIHost::inspect(JSC::ExecState& state, JSC::JSValue valueToInspect, JSC::JSValue hintsValue)
+void CommandLineAPIHost::inspectImpl(RefPtr<InspectorValue>&& object, RefPtr<InspectorValue>&& hints)
 {
     if (!m_inspectorAgent)
         return;
 
-    RefPtr<JSON::Object> hintsObject;
-    if (!Inspector::toInspectorValue(state, hintsValue)->asObject(hintsObject))
+    RefPtr<InspectorObject> hintsObject;
+    if (!hints->asObject(hintsObject))
         return;
 
-    auto remoteObject = BindingTraits<Inspector::Protocol::Runtime::RemoteObject>::runtimeCast(Inspector::toInspectorValue(state, valueToInspect));
+    auto remoteObject = BindingTraits<Inspector::Protocol::Runtime::RemoteObject>::runtimeCast(WTFMove(object));
     m_inspectorAgent->inspect(WTFMove(remoteObject), WTFMove(hintsObject));
 }
 
-static Vector<CommandLineAPIHost::ListenerEntry> listenerEntriesFromListenerInfo(ExecState& state, Document& document, const EventListenerInfo& listenerInfo)
+void CommandLineAPIHost::getEventListenersImpl(Node* node, Vector<EventListenerInfo>& listenersArray)
 {
-    VM& vm = state.vm();
-
-    Vector<CommandLineAPIHost::ListenerEntry> entries;
-    for (auto& eventListener : listenerInfo.eventListenerVector) {
-        if (!is<JSEventListener>(eventListener->callback())) {
-            ASSERT_NOT_REACHED();
-            continue;
-        }
-
-        auto& jsListener = downcast<JSEventListener>(eventListener->callback());
-
-        // Hide listeners from other contexts.
-        if (&jsListener.isolatedWorld() != &currentWorld(state))
-            continue;
-
-        auto function = jsListener.jsFunction(document);
-        if (!function)
-            continue;
-
-        entries.append({ JSC::Strong<JSC::JSObject>(vm, function), eventListener->useCapture(), eventListener->isPassive(), eventListener->isOnce() });
-    }
-
-    return entries;
-}
-
-auto CommandLineAPIHost::getEventListeners(JSC::ExecState& state, Node* node) -> EventListenersRecord
-{
-    if (!m_domAgent)
-        return { };
-
-    if (!node)
-        return { };
-
-    Vector<EventListenerInfo> listenerInfoArray;
-    m_domAgent->getEventListeners(node, listenerInfoArray, false);
-
-    EventListenersRecord result;
-
-    for (auto& listenerInfo : listenerInfoArray) {
-        auto entries = listenerEntriesFromListenerInfo(state, node->document(), listenerInfo);
-        if (entries.isEmpty())
-            continue;
-        result.append({ listenerInfo.eventType, WTFMove(entries) });
-    }
-
-    return result;
+    if (m_domAgent)
+        m_domAgent->getEventListeners(node, listenersArray, false);
 }
 
 void CommandLineAPIHost::clearConsoleMessages()
@@ -162,28 +116,23 @@ void CommandLineAPIHost::addInspectedObject(std::unique_ptr<CommandLineAPIHost::
     m_inspectedObject = WTFMove(object);
 }
 
-JSC::JSValue CommandLineAPIHost::inspectedObject(JSC::ExecState& state)
+CommandLineAPIHost::InspectableObject* CommandLineAPIHost::inspectedObject()
 {
-    if (!m_inspectedObject)
-        return jsUndefined();
-
-    JSC::JSLockHolder lock(&state);
-    auto scriptValue = m_inspectedObject->get(state);
-    return scriptValue ? scriptValue : jsUndefined();
+    return m_inspectedObject.get();
 }
 
-String CommandLineAPIHost::databaseId(Database& database)
+String CommandLineAPIHost::databaseIdImpl(Database* database)
 {
     if (m_databaseAgent)
         return m_databaseAgent->databaseId(database);
-    return { };
+    return String();
 }
 
-String CommandLineAPIHost::storageId(Storage& storage)
+String CommandLineAPIHost::storageIdImpl(Storage* storage)
 {
     if (m_domStorageAgent)
         return m_domStorageAgent->storageId(storage);
-    return { };
+    return String();
 }
 
 JSValue CommandLineAPIHost::wrapper(ExecState* exec, JSDOMGlobalObject* globalObject)

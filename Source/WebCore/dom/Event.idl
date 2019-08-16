@@ -18,7 +18,9 @@
  * Boston, MA 02110-1301, USA.
  */
 
-typedef double DOMHighResTimeStamp;
+// FIXME: This should be an implementation provided typedef
+// https://heycam.github.io/webidl/#DOMTimeStamp
+typedef unsigned long long DOMTimeStamp;
 
 [
     Constructor(DOMString type, optional EventInit eventInitDict),
@@ -50,11 +52,11 @@ typedef double DOMHighResTimeStamp;
     [EnabledAtRuntime=ShadowDOM] readonly attribute boolean composed;
 
     [Unforgeable] readonly attribute boolean isTrusted;
-    [CallWith=ScriptExecutionContext, ImplementedAs=timeStampForBindings] readonly attribute DOMHighResTimeStamp timeStamp;
+    readonly attribute DOMTimeStamp timeStamp;
 
     void initEvent(DOMString type, optional boolean bubbles = false, optional boolean cancelable = false); // Historical.
 
     // IE extensions that may get standardized (https://github.com/whatwg/dom/issues/334).
-    [ImplementedAs=target] readonly attribute EventTarget srcElement;
+    readonly attribute EventTarget srcElement;
     [ImplementedAs=legacyReturnValue] attribute boolean returnValue;
 };

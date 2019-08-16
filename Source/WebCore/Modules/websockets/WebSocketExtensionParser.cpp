@@ -30,6 +30,8 @@
 
 #include "config.h"
 
+#if ENABLE(WEB_SOCKETS)
+
 #include "WebSocketExtensionParser.h"
 
 #include <wtf/ASCIICType.h>
@@ -142,3 +144,5 @@ bool WebSocketExtensionParser::parseExtension(String& extensionToken, HashMap<St
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_SOCKETS)

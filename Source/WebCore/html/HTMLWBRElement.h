@@ -32,7 +32,6 @@ namespace WebCore {
 class RenderLineBreak;
 
 class HTMLWBRElement final : public HTMLElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLWBRElement);
 public:
     static Ref<HTMLWBRElement> create(const QualifiedName&, Document&);
 

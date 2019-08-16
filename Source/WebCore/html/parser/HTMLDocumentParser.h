@@ -121,9 +121,6 @@ private:
     bool inPumpSession() const;
     bool shouldDelayEnd() const;
 
-    void didBeginYieldingParser() final;
-    void didEndYieldingParser() final;
-
     HTMLParserOptions m_options;
     HTMLInputStream m_input;
 

@@ -47,16 +47,7 @@ public:
         HasMutedAudioCaptureDevice = 1 << 13,
         HasMutedVideoCaptureDevice = 1 << 14,
         HasInterruptedAudioCaptureDevice = 1 << 15,
-        HasInterruptedVideoCaptureDevice = 1 << 16,
-        HasUserInteractedWithMediaElement = 1 << 17,
-        HasActiveDisplayCaptureDevice = 1 << 18,
-        HasMutedDisplayCaptureDevice = 1 << 19,
-        HasInterruptedDisplayCaptureDevice = 1 << 20,
-
-        AudioCaptureMask = HasActiveAudioCaptureDevice | HasMutedAudioCaptureDevice | HasInterruptedAudioCaptureDevice,
-        VideoCaptureMask = HasActiveVideoCaptureDevice | HasMutedVideoCaptureDevice | HasInterruptedVideoCaptureDevice,
-        DisplayCaptureMask = HasActiveDisplayCaptureDevice | HasMutedDisplayCaptureDevice | HasInterruptedDisplayCaptureDevice,
-        MediaCaptureMask = AudioCaptureMask | VideoCaptureMask | DisplayCaptureMask,
+        HasInterruptedVideoCaptureDevice = 1 << 15,
     };
     typedef unsigned MediaStateFlags;
 
@@ -74,7 +65,7 @@ public:
     virtual void pageMutedStateDidChange() = 0;
 
 protected:
-    virtual ~MediaProducer() = default;
+    virtual ~MediaProducer() { }
 };
 
 } // namespace WebCore

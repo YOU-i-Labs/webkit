@@ -28,12 +28,14 @@
 
 #if ENABLE(GAMEPAD)
 
+#include <wtf/CurrentTime.h>
+
 namespace WebCore {
 
 MockGamepad::MockGamepad(unsigned index, const String& gamepadID, unsigned axisCount, unsigned buttonCount)
     : PlatformGamepad(index)
 {
-    m_connectTime = m_lastUpdateTime = MonotonicTime::now();
+    m_connectTime = m_lastUpdateTime = monotonicallyIncreasingTime();
     updateDetails(gamepadID, axisCount, buttonCount);
 }
 
@@ -42,7 +44,7 @@ void MockGamepad::updateDetails(const String& gamepadID, unsigned axisCount, uns
     m_id = gamepadID;
     m_axisValues = Vector<double>(axisCount, 0.0);
     m_buttonValues = Vector<double>(buttonCount, 0.0);
-    m_lastUpdateTime = MonotonicTime::now();
+    m_lastUpdateTime = monotonicallyIncreasingTime();
 }
 
 bool MockGamepad::setAxisValue(unsigned index, double value)
@@ -53,7 +55,7 @@ bool MockGamepad::setAxisValue(unsigned index, double value)
     }
 
     m_axisValues[index] = value;
-    m_lastUpdateTime = MonotonicTime::now();
+    m_lastUpdateTime = monotonicallyIncreasingTime();
     return true;
 }
 
@@ -65,7 +67,7 @@ bool MockGamepad::setButtonValue(unsigned index, double value)
     }
 
     m_buttonValues[index] = value;
-    m_lastUpdateTime = MonotonicTime::now();
+    m_lastUpdateTime = monotonicallyIncreasingTime();
     return true;
 }
 

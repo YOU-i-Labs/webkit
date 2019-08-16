@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2014 Apple Inc. All rights reserved.
- * Copyright (C) 2018 Yusuke Suzuki <utatane.tea@gmail.com>.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,17 +28,12 @@
 #include "JSDOMBinding.h"
 #include "JSElement.h"
 
-namespace JSC {
-namespace JSCastingHelpers {
+namespace WebCore {
 
-template<>
-struct InheritsTraits<WebCore::JSElement> {
-    template<typename From>
-    static inline bool inherits(VM&, From* from)
-    {
-        return from->type() >= WebCore::JSElementType;
-    }
-};
+template<typename From>
+ALWAYS_INLINE JSDynamicCastResult<JSElement, From> jsElementCast(From* value)
+{
+    return value->type() >= JSElementType ? JSC::jsCast<JSDynamicCastResult<JSElement, From>>(value) : nullptr;
+}
 
-} // namespace JSCastingHelpers
-} // namespace JSC
+} // namespace WebCore

@@ -25,12 +25,12 @@
 
 #pragma once
 
-#include "JSCast.h"
+#include "JSCell.h"
 #include "JSNativeStdFunction.h"
 
 namespace JSC {
 
-class NativeStdFunctionCell final : public JSCell {
+class NativeStdFunctionCell : public JSCell {
 public:
     typedef JSCell Base;
     static const unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;

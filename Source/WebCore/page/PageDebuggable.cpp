@@ -29,18 +29,19 @@
 #if ENABLE(REMOTE_INSPECTOR)
 
 #include "Document.h"
-#include "Frame.h"
 #include "InspectorController.h"
+#include "MainFrame.h"
 #include "Page.h"
 #include "Settings.h"
-#include <JavaScriptCore/InspectorAgentBase.h>
-
-namespace WebCore {
+#include <inspector/InspectorAgentBase.h>
 
 using namespace Inspector;
 
+namespace WebCore {
+
 PageDebuggable::PageDebuggable(Page& page)
     : m_page(page)
+    , m_forcedDeveloperExtrasEnabled(false)
 {
 }
 
@@ -61,7 +62,7 @@ String PageDebuggable::url() const
         return String();
 
     String url = m_page.mainFrame().document()->url().string();
-    return url.isEmpty() ? "about:blank"_s : url;
+    return url.isEmpty() ? ASCIILiteral("about:blank") : url;
 }
 
 bool PageDebuggable::hasLocalDebugger() const
@@ -69,14 +70,27 @@ bool PageDebuggable::hasLocalDebugger() const
     return m_page.inspectorController().hasLocalFrontend();
 }
 
-void PageDebuggable::connect(FrontendChannel& channel, bool isAutomaticConnection, bool immediatelyPause)
+void PageDebuggable::connect(Inspector::FrontendChannel* channel, bool isAutomaticConnection, bool immediatelyPause)
 {
-    m_page.inspectorController().connectFrontend(channel, isAutomaticConnection, immediatelyPause);
+    if (!m_page.settings().developerExtrasEnabled()) {
+        m_forcedDeveloperExtrasEnabled = true;
+        m_page.settings().setDeveloperExtrasEnabled(true);
+    } else
+        m_forcedDeveloperExtrasEnabled = false;
+
+    InspectorController& inspectorController = m_page.inspectorController();
+    inspectorController.connectFrontend(channel, isAutomaticConnection, immediatelyPause);
 }
 
-void PageDebuggable::disconnect(FrontendChannel& channel)
+void PageDebuggable::disconnect(Inspector::FrontendChannel* channel)
 {
-    m_page.inspectorController().disconnectFrontend(channel);
+    InspectorController& inspectorController = m_page.inspectorController();
+    inspectorController.disconnectFrontend(channel);
+
+    if (m_forcedDeveloperExtrasEnabled) {
+        m_forcedDeveloperExtrasEnabled = false;
+        m_page.settings().setDeveloperExtrasEnabled(false);
+    }
 }
 
 void PageDebuggable::dispatchMessageFromRemote(const String& message)

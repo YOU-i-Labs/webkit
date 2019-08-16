@@ -30,39 +30,70 @@
 
 namespace WebCore {
 
+namespace Detail {
+
 template<typename IDLType>
-struct VariadicConverter {
+struct VariadicConverterBase;
+
+template<typename IDLType> 
+struct VariadicConverterBase {
     using Item = typename IDLType::ImplementationType;
 
-    static Optional<Item> convert(JSC::ExecState& state, JSC::JSValue value)
+    static std::optional<Item> convert(JSC::ExecState& state, JSC::JSValue value)
     {
         auto& vm = state.vm();
         auto scope = DECLARE_THROW_SCOPE(vm);
 
         auto result = Converter<IDLType>::convert(state, value);
-        RETURN_IF_EXCEPTION(scope, WTF::nullopt);
+        RETURN_IF_EXCEPTION(scope, std::nullopt);
 
         return WTFMove(result);
     }
 };
 
-template<typename IDLType> Vector<typename VariadicConverter<IDLType>::Item> convertVariadicArguments(JSC::ExecState& state, size_t startIndex)
+template<typename T>
+struct VariadicConverterBase<IDLInterface<T>> {
+    using Item = std::reference_wrapper<T>;
+
+    static std::optional<Item> convert(JSC::ExecState& state, JSC::JSValue value)
+    {
+        auto* result = Converter<IDLInterface<T>>::convert(state, value);
+        if (!result)
+            return std::nullopt;
+        return std::optional<Item>(*result);
+    }
+};
+
+template<typename IDLType>
+struct VariadicConverter : VariadicConverterBase<IDLType> {
+    using Item = typename VariadicConverterBase<IDLType>::Item;
+    using Container = Vector<Item>;
+
+    struct Result {
+        size_t argumentIndex;
+        std::optional<Container> arguments;
+    };
+};
+
+}
+
+template<typename IDLType> typename Detail::VariadicConverter<IDLType>::Result convertVariadicArguments(JSC::ExecState& state, size_t startIndex)
 {
     size_t length = state.argumentCount();
-    if (startIndex >= length)
-        return { };
+    if (startIndex > length)
+        return { 0, std::nullopt };
 
-    Vector<typename VariadicConverter<IDLType>::Item> result;
+    typename Detail::VariadicConverter<IDLType>::Container result;
     result.reserveInitialCapacity(length - startIndex);
 
     for (size_t i = startIndex; i < length; ++i) {
-        auto value = VariadicConverter<IDLType>::convert(state, state.uncheckedArgument(i));
+        auto value = Detail::VariadicConverter<IDLType>::convert(state, state.uncheckedArgument(i));
         if (!value)
-            return { };
+            return { i, std::nullopt };
         result.uncheckedAppend(WTFMove(*value));
     }
 
-    return WTFMove(result);
+    return { length, WTFMove(result) };
 }
 
 } // namespace WebCore

@@ -33,20 +33,20 @@ class JS_EXPORT_PRIVATE FullGCActivityCallback : public GCActivityCallback {
 public:
     FullGCActivityCallback(Heap*);
 
-    void doCollection(VM&) override;
+    void doCollection() override;
 
     bool didGCRecently() const { return m_didGCRecently; }
     void setDidGCRecently() { m_didGCRecently = true; }
 
 protected:
-    Seconds lastGCLength(Heap&) override;
+    Seconds lastGCLength() override;
     double gcTimeSlice(size_t bytes) override;
-    double deathRate(Heap&) override;
+    double deathRate() override;
 
     bool m_didGCRecently { false };
 };
 
-inline RefPtr<FullGCActivityCallback> GCActivityCallback::tryCreateFullTimer(Heap* heap)
+inline RefPtr<FullGCActivityCallback> GCActivityCallback::createFullTimer(Heap* heap)
 {
     return s_shouldCreateGCTimer ? adoptRef(new FullGCActivityCallback(heap)) : nullptr;
 }

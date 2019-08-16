@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,8 +25,6 @@
 
 #pragma once
 
-#include "JSCPtrTag.h"
-
 namespace JSC {
 
 namespace LLInt {
@@ -40,13 +38,13 @@ extern "C" {
 ALWAYS_INLINE bool isLLIntPC(void* pc)
 {
     uintptr_t pcAsInt = bitwise_cast<uintptr_t>(pc);
-    uintptr_t llintStart = untagCodePtr<uintptr_t>(llintPCRangeStart, CFunctionPtrTag);
-    uintptr_t llintEnd = untagCodePtr<uintptr_t>(llintPCRangeEnd, CFunctionPtrTag);
+    uintptr_t llintStart = bitwise_cast<uintptr_t>(llintPCRangeStart);
+    uintptr_t llintEnd = bitwise_cast<uintptr_t>(llintPCRangeEnd);
     RELEASE_ASSERT(llintStart < llintEnd);
     return llintStart <= pcAsInt && pcAsInt <= llintEnd;
 }
 
-#if !ENABLE(C_LOOP)
+#if ENABLE(JIT)
 static const GPRReg LLIntPC = GPRInfo::regT4;
 #endif
 

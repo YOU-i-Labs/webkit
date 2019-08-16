@@ -32,32 +32,36 @@ namespace WebCore {
 
 String OriginLock::lockFileNameForPath(String originPath)
 {
-    return FileSystem::pathByAppendingComponent(originPath, ".lock"_s);
+    return pathByAppendingComponent(originPath, String(".lock"));
 }
 
 OriginLock::OriginLock(String originPath)
     : m_lockFileName(lockFileNameForPath(originPath).isolatedCopy())
 #if USE(FILE_LOCK)
-    , m_lockHandle(FileSystem::invalidPlatformFileHandle)
+    , m_lockHandle(invalidPlatformFileHandle)
 #endif
 {
 }
 
-OriginLock::~OriginLock() = default;
+OriginLock::~OriginLock()
+{
+}
 
 void OriginLock::lock()
 {
     m_mutex.lock();
 
 #if USE(FILE_LOCK)
-    m_lockHandle = FileSystem::openAndLockFile(m_lockFileName, FileSystem::FileOpenMode::Write);
-    if (m_lockHandle == FileSystem::invalidPlatformFileHandle) {
+    m_lockHandle = openFile(m_lockFileName, OpenForWrite);
+    if (m_lockHandle == invalidPlatformFileHandle) {
         // The only way we can get here is if the directory containing the lock
         // has been deleted or we were given a path to a non-existant directory.
         // In that case, there's nothing we can do but cleanup and return.
         m_mutex.unlock();
         return;
     }
+
+    lockFile(m_lockHandle, LockExclusive);
 #endif
 }
 
@@ -68,11 +72,13 @@ void OriginLock::unlock()
     // containing the lock has been deleted before we opened the lock file, or
     // we were given a path to a non-existant directory. Which, in turn, means
     // that there's nothing to unlock.
-    if (m_lockHandle == FileSystem::invalidPlatformFileHandle)
+    if (m_lockHandle == invalidPlatformFileHandle) 
         return;
 
-    FileSystem::unlockAndCloseFile(m_lockHandle);
-    m_lockHandle = FileSystem::invalidPlatformFileHandle;
+    unlockFile(m_lockHandle);
+
+    closeFile(m_lockHandle);
+    m_lockHandle = invalidPlatformFileHandle;
 #endif
 
     m_mutex.unlock();
@@ -83,7 +89,7 @@ void OriginLock::deleteLockFile(String originPath)
     UNUSED_PARAM(originPath);
 #if USE(FILE_LOCK)
     String lockFileName = OriginLock::lockFileNameForPath(originPath);
-    FileSystem::deleteFile(lockFileName);
+    deleteFile(lockFileName);
 #endif
 }
 

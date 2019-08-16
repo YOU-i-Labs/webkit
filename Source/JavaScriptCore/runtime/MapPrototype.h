@@ -29,11 +29,11 @@
 
 namespace JSC {
 
-class MapPrototype final : public JSNonFinalObject {
+class MapPrototype : public JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
 
-    static const unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;
+    static const unsigned StructureFlags = HasStaticPropertyTable | Base::StructureFlags;
 
     static MapPrototype* create(VM& vm, JSGlobalObject* globalObject, Structure* structure)
     {
@@ -56,5 +56,8 @@ private:
     }
     void finishCreation(VM&, JSGlobalObject*);
 };
+
+EncodedJSValue JSC_HOST_CALL privateFuncMapIterator(ExecState*);
+EncodedJSValue JSC_HOST_CALL privateFuncMapIteratorNext(ExecState*);
 
 } // namespace JSC

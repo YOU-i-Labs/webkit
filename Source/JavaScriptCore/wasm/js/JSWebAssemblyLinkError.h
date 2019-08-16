@@ -31,7 +31,7 @@
 
 namespace JSC {
 
-class JSWebAssemblyLinkError final : public ErrorInstance {
+class JSWebAssemblyLinkError : public ErrorInstance {
 public:
     typedef ErrorInstance Base;
 

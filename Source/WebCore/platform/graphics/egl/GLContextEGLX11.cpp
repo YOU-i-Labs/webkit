@@ -49,7 +49,13 @@ std::unique_ptr<GLContextEGL> GLContextEGL::createPixmapContext(PlatformDisplay&
     if (!getEGLConfig(display, &config, PixmapSurface))
         return nullptr;
 
-    EGLContext context = createContextForEGLVersion(platformDisplay, config, sharingContext);
+    static const EGLint contextAttributes[] = {
+#if USE(OPENGL_ES_2)
+        EGL_CONTEXT_CLIENT_VERSION, 2,
+#endif
+        EGL_NONE
+    };
+    EGLContext context = eglCreateContext(display, config, sharingContext, contextAttributes);
     if (context == EGL_NO_CONTEXT)
         return nullptr;
 

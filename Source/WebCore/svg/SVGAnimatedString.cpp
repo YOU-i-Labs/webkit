@@ -31,12 +31,14 @@ SVGAnimatedStringAnimator::SVGAnimatedStringAnimator(SVGAnimationElement* animat
 
 std::unique_ptr<SVGAnimatedType> SVGAnimatedStringAnimator::constructFromString(const String& string)
 {
-    return SVGAnimatedType::create(SVGPropertyTraits<String>::fromString(string));
+    auto animatedType = SVGAnimatedType::createString(std::make_unique<String>());
+    animatedType->string() = string;
+    return animatedType;
 }
 
 std::unique_ptr<SVGAnimatedType> SVGAnimatedStringAnimator::startAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
 {
-    return constructFromBaseValue<SVGAnimatedString>(animatedTypes);
+    return SVGAnimatedType::createString(constructFromBaseValue<SVGAnimatedString>(animatedTypes));
 }
 
 void SVGAnimatedStringAnimator::stopAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
@@ -46,7 +48,7 @@ void SVGAnimatedStringAnimator::stopAnimValAnimation(const SVGElementAnimatedPro
 
 void SVGAnimatedStringAnimator::resetAnimValToBaseVal(const SVGElementAnimatedPropertyList& animatedTypes, SVGAnimatedType& type)
 {
-    resetFromBaseValue<SVGAnimatedString>(animatedTypes, type);
+    resetFromBaseValue<SVGAnimatedString>(animatedTypes, type, &SVGAnimatedType::string);
 }
 
 void SVGAnimatedStringAnimator::animValWillChange(const SVGElementAnimatedPropertyList& animatedTypes)
@@ -74,9 +76,9 @@ void SVGAnimatedStringAnimator::calculateAnimatedValue(float percentage, unsigne
     ASSERT(m_animationElement);
     ASSERT(m_contextElement);
 
-    auto fromString = from->as<String>();
-    auto toString = to->as<String>();
-    auto& animatedString = animated->as<String>();
+    String fromString = from->string();
+    String toString = to->string();
+    String& animatedString = animated->string();
 
     // Apply CSS inheritance rules.
     m_animationElement->adjustForInheritance<String>(parseStringFromString, m_animationElement->fromPropertyValueType(), fromString, m_contextElement);

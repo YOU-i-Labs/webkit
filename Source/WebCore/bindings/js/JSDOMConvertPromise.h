@@ -32,7 +32,7 @@
 namespace WebCore {
 
 template<typename T> struct Converter<IDLPromise<T>> : DefaultConverter<IDLPromise<T>> {
-    using ReturnType = RefPtr<DOMPromise>;
+    using ReturnType = JSC::JSPromise*;
 
     // https://heycam.github.io/webidl/#es-promise
     template<typename ExceptionThrower = DefaultExceptionThrower>
@@ -40,7 +40,7 @@ template<typename T> struct Converter<IDLPromise<T>> : DefaultConverter<IDLPromi
     {
         JSC::VM& vm = state.vm();
         auto scope = DECLARE_THROW_SCOPE(vm);
-        auto* globalObject = JSC::jsDynamicCast<JSDOMGlobalObject*>(vm, state.lexicalGlobalObject());
+        auto* globalObject = jsDynamicDowncast<JSDOMGlobalObject*>(vm, state.lexicalGlobalObject());
         if (!globalObject)
             return nullptr;
 
@@ -54,23 +54,19 @@ template<typename T> struct Converter<IDLPromise<T>> : DefaultConverter<IDLPromi
         ASSERT(promise);
 
         // 3. Return the IDL promise type value that is a reference to the same object as promise.
-        return DOMPromise::create(*globalObject, *promise);
+        return promise;
     }
 };
 
 template<typename T> struct JSConverter<IDLPromise<T>> {
-    static constexpr bool needsState = true;
-    static constexpr bool needsGlobalObject = true;
+    static constexpr bool needsState = false;
+    static constexpr bool needsGlobalObject = false;
 
-    static JSC::JSValue convert(JSC::ExecState&, JSDOMGlobalObject&, DOMPromise& promise)
+    static JSC::JSValue convert(JSC::JSPromise& promise)
     {
-        return promise.promise();
-    }
-
-    template<template<typename> class U>
-    static JSC::JSValue convert(JSC::ExecState& state, JSDOMGlobalObject& globalObject, U<T>& promiseProxy)
-    {
-        return promiseProxy.promise(state, globalObject);
+        // The result of converting an IDL promise type value to an ECMAScript value is the Promise value
+        // that represents a reference to the same object that the IDL promise type represents.
+        return &promise;
     }
 };
 

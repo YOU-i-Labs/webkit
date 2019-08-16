@@ -22,6 +22,7 @@
 #include "config.h"
 #include "ShadowData.h"
 
+#include "LayoutRect.h"
 #include <wtf/PointerComparison.h>
 
 namespace WebCore {
@@ -35,13 +36,6 @@ ShadowData::ShadowData(const ShadowData& o)
     , m_isWebkitBoxShadow(o.m_isWebkitBoxShadow)
     , m_next(o.m_next ? std::make_unique<ShadowData>(*o.m_next) : nullptr)
 {
-}
-
-Optional<ShadowData> ShadowData::clone(const ShadowData* data)
-{
-    if (!data)
-        return WTF::nullopt;
-    return *data;
 }
 
 bool ShadowData::operator==(const ShadowData& o) const

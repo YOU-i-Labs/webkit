@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,32 +23,33 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef CookiesStrategy_h
+#define CookiesStrategy_h
 
-#include <pal/SessionID.h>
-#include <wtf/Forward.h>
+#include "SessionID.h"
+#include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
+class URL;
 class NetworkStorageSession;
-
 struct Cookie;
-struct SameSiteInfo;
-
-enum class IncludeSecureCookies : bool { No, Yes };
 
 class CookiesStrategy {
 public:
-    virtual std::pair<String, bool> cookiesForDOM(const PAL::SessionID&, const URL& firstParty, const SameSiteInfo&, const URL&, Optional<uint64_t> frameID, Optional<uint64_t> pageID, IncludeSecureCookies) = 0;
-    virtual void setCookiesFromDOM(const PAL::SessionID&, const URL& firstParty, const SameSiteInfo&, const URL&, Optional<uint64_t> frameID, Optional<uint64_t> pageID, const String& cookieString) = 0;
-    virtual bool cookiesEnabled(const PAL::SessionID&) = 0;
-    virtual std::pair<String, bool> cookieRequestHeaderFieldValue(const PAL::SessionID&, const URL& firstParty, const SameSiteInfo&, const URL&, Optional<uint64_t> frameID, Optional<uint64_t> pageID, IncludeSecureCookies) = 0;
-    virtual bool getRawCookies(const PAL::SessionID&, const URL& firstParty, const SameSiteInfo&, const URL&, Optional<uint64_t> frameID, Optional<uint64_t> pageID, Vector<Cookie>&) = 0;
-    virtual void deleteCookie(const PAL::SessionID&, const URL&, const String& cookieName) = 0;
+    virtual String cookiesForDOM(const NetworkStorageSession&, const URL& firstParty, const URL&) = 0;
+    virtual void setCookiesFromDOM(const NetworkStorageSession&, const URL& firstParty, const URL&, const String& cookieString) = 0;
+    virtual bool cookiesEnabled(const NetworkStorageSession&, const URL& firstParty, const URL&) = 0;
+    virtual String cookieRequestHeaderFieldValue(const NetworkStorageSession&, const URL& firstParty, const URL&) = 0;
+    virtual String cookieRequestHeaderFieldValue(SessionID, const URL& firstParty, const URL&) = 0;
+    virtual bool getRawCookies(const NetworkStorageSession&, const URL& firstParty, const URL&, Vector<Cookie>&) = 0;
+    virtual void deleteCookie(const NetworkStorageSession&, const URL&, const String& cookieName) = 0;
 
 protected:
-    virtual ~CookiesStrategy() = default;
+    virtual ~CookiesStrategy() { }
 };
 
 } // namespace WebCore
+
+#endif // CookiesStrategy_h

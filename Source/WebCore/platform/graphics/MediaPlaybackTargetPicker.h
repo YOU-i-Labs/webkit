@@ -40,7 +40,7 @@ class MediaPlaybackTargetPicker {
 public:
     class Client {
     protected:
-        virtual ~Client() = default;
+        virtual ~Client() { }
 
     public:
         virtual void setPlaybackTarget(Ref<MediaPlaybackTarget>&&) = 0;
@@ -51,7 +51,7 @@ public:
 
     virtual ~MediaPlaybackTargetPicker();
 
-    virtual void showPlaybackTargetPicker(const FloatRect&, bool checkActiveRoute, bool useDarkAppearance);
+    virtual void showPlaybackTargetPicker(const FloatRect&, bool checkActiveRoute);
     virtual void startingMonitoringPlaybackTargets();
     virtual void stopMonitoringPlaybackTargets();
     virtual void invalidatePlaybackTargets();

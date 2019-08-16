@@ -31,9 +31,10 @@
 #include "EventNames.h"
 #include "PlatformSpeechSynthesisVoice.h"
 #include "PlatformSpeechSynthesizer.h"
+#include "ScriptController.h"
 #include "SpeechSynthesisEvent.h"
 #include "SpeechSynthesisUtterance.h"
-#include "UserGestureIndicator.h"
+#include <wtf/CurrentTime.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -46,7 +47,7 @@ Ref<SpeechSynthesis> SpeechSynthesis::create()
 SpeechSynthesis::SpeechSynthesis()
     : m_currentSpeechUtterance(nullptr)
     , m_isPaused(false)
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     , m_restrictions(RequireUserGestureForSpeechStartRestriction)
 #endif
 {
@@ -103,7 +104,7 @@ bool SpeechSynthesis::paused() const
 void SpeechSynthesis::startSpeakingImmediately(SpeechSynthesisUtterance& utterance)
 {
     ASSERT(!m_currentSpeechUtterance);
-    utterance.setStartTime(MonotonicTime::now());
+    utterance.setStartTime(monotonicallyIncreasingTime());
     m_currentSpeechUtterance = &utterance;
     m_isPaused = false;
 
@@ -121,8 +122,8 @@ void SpeechSynthesis::startSpeakingImmediately(SpeechSynthesisUtterance& utteran
 void SpeechSynthesis::speak(SpeechSynthesisUtterance& utterance)
 {
     // Like Audio, we should require that the user interact to start a speech synthesis session.
-#if PLATFORM(IOS_FAMILY)
-    if (UserGestureIndicator::processingUserGesture())
+#if PLATFORM(IOS)
+    if (ScriptController::processingUserGesture())
         removeBehaviorRestriction(RequireUserGestureForSpeechStartRestriction);
     else if (userGestureRequiredForSpeechStart())
         return;
@@ -163,7 +164,7 @@ void SpeechSynthesis::resume()
 
 void SpeechSynthesis::fireEvent(const AtomicString& type, SpeechSynthesisUtterance& utterance, unsigned long charIndex, const String& name)
 {
-    utterance.dispatchEvent(SpeechSynthesisEvent::create(type, charIndex, (MonotonicTime::now() - utterance.startTime()).seconds(), name));
+    utterance.dispatchEvent(SpeechSynthesisEvent::create(type, charIndex, (monotonicallyIncreasingTime() - utterance.startTime()), name));
 }
 
 void SpeechSynthesis::handleSpeakingCompleted(SpeechSynthesisUtterance& utterance, bool errorOccurred)

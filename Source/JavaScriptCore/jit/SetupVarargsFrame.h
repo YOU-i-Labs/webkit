@@ -28,6 +28,7 @@
 #if ENABLE(JIT)
 
 #include "CCallHelpers.h"
+#include "VirtualRegister.h"
 
 namespace JSC {
 

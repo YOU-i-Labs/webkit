@@ -20,20 +20,23 @@
  */
 
 #include "config.h"
-#include <wtf/text/TextBreakIterator.h>
+#include "TextBreakIterator.h"
 
-#include <wtf/text/LineBreakIteratorPoolICU.h>
-#include <wtf/text/TextBreakIteratorInternalICU.h>
-#include <wtf/text/icu/UTextProviderLatin1.h>
-#include <wtf/text/icu/UTextProviderUTF16.h>
+#include "LineBreakIteratorPoolICU.h"
+#include "TextBreakIteratorInternalICU.h"
+#include "UTextProviderLatin1.h"
+#include "UTextProviderUTF16.h"
 #include <atomic>
 #include <mutex>
 #include <unicode/ubrk.h>
 #include <wtf/text/StringBuilder.h>
 
+// FIXME: This needs a better name
+#define ADDITIONAL_EMOJI_SUPPORT (PLATFORM(IOS) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101100))
+
 namespace WTF {
 
-#if !PLATFORM(MAC) && !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(MAC) && !PLATFORM(IOS)
 
 static Variant<TextBreakIteratorICU, TextBreakIteratorPlatform> mapModeToBackingIterator(StringView string, TextBreakIterator::Mode mode, const AtomicString& locale)
 {
@@ -284,7 +287,7 @@ unsigned numGraphemeClusters(StringView string)
     return numGraphemeClusters;
 }
 
-unsigned numCodeUnitsInGraphemeClusters(StringView string, unsigned numGraphemeClusters)
+unsigned numCharactersInGraphemeClusters(StringView string, unsigned numGraphemeClusters)
 {
     unsigned stringLength = string.length();
 

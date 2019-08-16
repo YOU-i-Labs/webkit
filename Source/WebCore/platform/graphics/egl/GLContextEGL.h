@@ -32,7 +32,7 @@
 struct wl_egl_window;
 #endif
 
-#if USE(LIBWPE)
+#if PLATFORM(WPE)
 struct wpe_renderer_backend_egl_offscreen_target;
 #endif
 
@@ -49,14 +49,9 @@ public:
     static std::unique_ptr<GLContextEGL> createContext(GLNativeWindowType, PlatformDisplay&);
     static std::unique_ptr<GLContextEGL> createSharingContext(PlatformDisplay&);
 
-    static const char* errorString(int statusCode);
-    static const char* lastErrorString();
-
     virtual ~GLContextEGL();
 
 private:
-    static EGLContext createContextForEGLVersion(PlatformDisplay&, EGLConfig, EGLContext);
-
     bool makeContextCurrent() override;
     void swapBuffers() override;
     void waitNative() override;
@@ -82,7 +77,7 @@ private:
     GLContextEGL(PlatformDisplay&, EGLContext, EGLSurface, WlUniquePtr<struct wl_surface>&&, struct wl_egl_window*);
     void destroyWaylandWindow();
 #endif
-#if USE(LIBWPE)
+#if PLATFORM(WPE)
     GLContextEGL(PlatformDisplay&, EGLContext, EGLSurface, struct wpe_renderer_backend_egl_offscreen_target*);
     void destroyWPETarget();
 #endif
@@ -98,7 +93,7 @@ private:
     static std::unique_ptr<GLContextEGL> createWaylandContext(PlatformDisplay&, EGLContext sharingContext = nullptr);
     static EGLSurface createWindowSurfaceWayland(EGLDisplay, EGLConfig, GLNativeWindowType);
 #endif
-#if USE(LIBWPE)
+#if PLATFORM(WPE)
     static std::unique_ptr<GLContextEGL> createWPEContext(PlatformDisplay&, EGLContext sharingContext = nullptr);
     static EGLSurface createWindowSurfaceWPE(EGLDisplay, EGLConfig, GLNativeWindowType);
 #endif
@@ -115,7 +110,7 @@ private:
     WlUniquePtr<struct wl_surface> m_wlSurface;
     struct wl_egl_window* m_wlWindow { nullptr };
 #endif
-#if USE(LIBWPE)
+#if PLATFORM(WPE)
     struct wpe_renderer_backend_egl_offscreen_target* m_wpeTarget { nullptr };
 #endif
 #if USE(CAIRO)

@@ -21,17 +21,10 @@ add_compile_options(/EHa- /EHc- /EHs- /fp:except-)
 add_compile_options(/analyze- /bigobj)
 
 # Use CRT security features
-add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-if (NOT COMPILER_IS_CLANG_CL)
-    add_definitions(-D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES=1)
-endif ()
+add_definitions(-D_CRT_SECURE_NO_WARNINGS -D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES=1)
 
-# Enable C++14
-# https://docs.microsoft.com/en-us/cpp/build/reference/std-specify-language-standard-version
-add_compile_options(/std:c++14)
-
-# Specify the source code encoding
-add_compile_options(/utf-8 /validate-charset)
+# Turn off certain link features
+add_compile_options(/Gy- /openmp- /GF-)
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /OPT:NOREF /OPT:NOICF")
@@ -53,20 +46,7 @@ if (NOT ${CMAKE_CXX_FLAGS} STREQUAL "")
     string(REGEX REPLACE "(/EH[a-z]+) " "\\1- " CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}) # Disable C++ exceptions
     string(REGEX REPLACE "/EHsc$" "/EHs- /EHc- " CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}) # Disable C++ exceptions
     string(REGEX REPLACE "/GR " "/GR- " CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}) # Disable RTTI
-    # More warnings. /W4 should be specified before -Wno-* options for clang-cl.
-    string(REGEX REPLACE "/W3" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
-    string(REGEX REPLACE "/W3" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
-    WEBKIT_PREPEND_GLOBAL_COMPILER_FLAGS(/W4)
-endif ()
-
-if (MSVC_STATIC_RUNTIME)
-    message(STATUS "Using multithreaded, static version of the run-time library")
-    set(MSVC_RUNTIME_COMPILE_FLAG "/MT")
-    set(MSVC_RUNTIME_LINKER_FLAGS "/NODEFAULTLIB:MSVCRT /NODEFAULTLIB:MSVCRTD")
-else ()
-    message(STATUS "Using multithreaded, dynamic version of the run-time library")
-    set(MSVC_RUNTIME_COMPILE_FLAG "/MD")
-    # No linker flags are required
+    string(REGEX REPLACE "/W3" "/W4" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}) # Warnings are important
 endif ()
 
 foreach (flag_var
@@ -75,11 +55,11 @@ foreach (flag_var
     CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
     CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
     # Use the multithreaded static runtime library instead of the default DLL runtime.
-    string(REGEX REPLACE "/MD" "${MSVC_RUNTIME_COMPILE_FLAG}" ${flag_var} "${${flag_var}}")
+    string(REGEX REPLACE "/MD" "/MT" ${flag_var} "${${flag_var}}")
 
     # No debug runtime, even in debug builds.
     if (NOT DEBUG_SUFFIX)
-        string(REGEX REPLACE "${MSVC_RUNTIME_COMPILE_FLAG}d" "${MSVC_RUNTIME_COMPILE_FLAG}" ${flag_var} "${${flag_var}}")
+        string(REGEX REPLACE "/MTd" "/MT" ${flag_var} "${${flag_var}}")
         string(REGEX REPLACE "/D_DEBUG" "" ${flag_var} "${${flag_var}}")
     endif ()
 endforeach ()
@@ -99,15 +79,3 @@ string(REPLACE "INCREMENTAL:YES" "INCREMENTAL:NO" replace_CMAKE_SHARED_LINKER_FL
 set(CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO "${replace_CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO} /INCREMENTAL:NO")
 string(REPLACE "INCREMENTAL:YES" "INCREMENTAL:NO" replace_CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO ${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO})
 set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${replace_CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /INCREMENTAL:NO")
-
-if (COMPILER_IS_CLANG_CL)
-    # FIXME: The clang-cl visual studio integration seemed to set
-    # this to 1900 explicitly even when building in VS2017 with the
-    # newest toolset option, but we want to be versioned to match
-    # VS2017.
-    add_compile_options(-fmsc-version=1911)
-
-    # FIXME: Building with clang-cl seemed to fail with 128 bit int support
-    set(HAVE_INT128_T OFF)
-    list(REMOVE_ITEM _WEBKIT_CONFIG_FILE_VARIABLES HAVE_INT128_T)
-endif ()

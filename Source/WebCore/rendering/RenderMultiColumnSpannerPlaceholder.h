@@ -33,28 +33,25 @@
 
 namespace WebCore {
 
-class RenderMultiColumnFlow;
+class RenderMultiColumnFlowThread;
 
 class RenderMultiColumnSpannerPlaceholder final : public RenderBox {
-    WTF_MAKE_ISO_ALLOCATED(RenderMultiColumnSpannerPlaceholder);
 public:
-    static RenderPtr<RenderMultiColumnSpannerPlaceholder> createAnonymous(RenderMultiColumnFlow&, RenderBox& spanner, const RenderStyle& parentStyle);
+    static RenderMultiColumnSpannerPlaceholder* createAnonymous(RenderMultiColumnFlowThread*, RenderBox& spanner, const RenderStyle* parentStyle);
 
-    RenderBox* spanner() const { return m_spanner.get(); }
-    RenderMultiColumnFlow* fragmentedFlow() const { return m_fragmentedFlow.get(); }
+    RenderBox* spanner() const { return m_spanner; }
+    RenderMultiColumnFlowThread* flowThread() const { return m_flowThread; }
 
 private:
-    template<class T, class... Args> friend RenderPtr<T> createRenderer(Args&&...);
-
-    RenderMultiColumnSpannerPlaceholder(RenderMultiColumnFlow&, RenderBox& spanner, RenderStyle&&);
+    RenderMultiColumnSpannerPlaceholder(RenderMultiColumnFlowThread*, RenderBox& spanner, RenderStyle&&);
     bool isRenderMultiColumnSpannerPlaceholder() const override { return true; }
 
     bool canHaveChildren() const override { return false; }
     void paint(PaintInfo&, const LayoutPoint&) override { }
     const char* renderName() const override;
 
-    WeakPtr<RenderBox> m_spanner;
-    WeakPtr<RenderMultiColumnFlow> m_fragmentedFlow;
+    RenderBox* m_spanner;
+    RenderMultiColumnFlowThread* m_flowThread;
 };
 
 } // namespace WebCore

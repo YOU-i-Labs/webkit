@@ -37,24 +37,24 @@ namespace WebCore {
 
 StyleFillData::StyleFillData()
     : opacity(SVGRenderStyle::initialFillOpacity())
-    , paintColor(SVGRenderStyle::initialFillPaintColor())
-    , visitedLinkPaintColor(SVGRenderStyle::initialFillPaintColor())
-    , paintUri(SVGRenderStyle::initialFillPaintUri())
-    , visitedLinkPaintUri(SVGRenderStyle::initialFillPaintUri())
     , paintType(SVGRenderStyle::initialFillPaintType())
+    , paintColor(SVGRenderStyle::initialFillPaintColor())
+    , paintUri(SVGRenderStyle::initialFillPaintUri())
     , visitedLinkPaintType(SVGRenderStyle::initialStrokePaintType())
+    , visitedLinkPaintColor(SVGRenderStyle::initialFillPaintColor())
+    , visitedLinkPaintUri(SVGRenderStyle::initialFillPaintUri())
 {
 }
 
 inline StyleFillData::StyleFillData(const StyleFillData& other)
     : RefCounted<StyleFillData>()
     , opacity(other.opacity)
-    , paintColor(other.paintColor)
-    , visitedLinkPaintColor(other.visitedLinkPaintColor)
-    , paintUri(other.paintUri)
-    , visitedLinkPaintUri(other.visitedLinkPaintUri)
     , paintType(other.paintType)
+    , paintColor(other.paintColor)
+    , paintUri(other.paintUri)
     , visitedLinkPaintType(other.visitedLinkPaintType)
+    , visitedLinkPaintColor(other.visitedLinkPaintColor)
+    , visitedLinkPaintUri(other.visitedLinkPaintUri)
 {
 }
 
@@ -65,40 +65,39 @@ Ref<StyleFillData> StyleFillData::copy() const
 
 bool StyleFillData::operator==(const StyleFillData& other) const
 {
-    return opacity == other.opacity
-        && paintColor == other.paintColor
-        && visitedLinkPaintColor == other.visitedLinkPaintColor
-        && paintUri == other.paintUri
-        && visitedLinkPaintUri == other.visitedLinkPaintUri
+    return opacity == other.opacity 
         && paintType == other.paintType
-        && visitedLinkPaintType == other.visitedLinkPaintType;
-    
+        && paintColor == other.paintColor
+        && paintUri == other.paintUri
+        && visitedLinkPaintType == other.visitedLinkPaintType
+        && visitedLinkPaintColor == other.visitedLinkPaintColor
+        && visitedLinkPaintUri == other.visitedLinkPaintUri;
 }
 
 StyleStrokeData::StyleStrokeData()
     : opacity(SVGRenderStyle::initialStrokeOpacity())
-    , paintColor(SVGRenderStyle::initialStrokePaintColor())
-    , visitedLinkPaintColor(SVGRenderStyle::initialStrokePaintColor())
-    , paintUri(SVGRenderStyle::initialStrokePaintUri())
-    , visitedLinkPaintUri(SVGRenderStyle::initialStrokePaintUri())
     , dashOffset(RenderStyle::initialZeroLength())
     , dashArray(SVGRenderStyle::initialStrokeDashArray())
     , paintType(SVGRenderStyle::initialStrokePaintType())
+    , paintColor(SVGRenderStyle::initialStrokePaintColor())
+    , paintUri(SVGRenderStyle::initialStrokePaintUri())
     , visitedLinkPaintType(SVGRenderStyle::initialStrokePaintType())
+    , visitedLinkPaintColor(SVGRenderStyle::initialStrokePaintColor())
+    , visitedLinkPaintUri(SVGRenderStyle::initialStrokePaintUri())
 {
 }
 
 inline StyleStrokeData::StyleStrokeData(const StyleStrokeData& other)
     : RefCounted<StyleStrokeData>()
     , opacity(other.opacity)
-    , paintColor(other.paintColor)
-    , visitedLinkPaintColor(other.visitedLinkPaintColor)
-    , paintUri(other.paintUri)
-    , visitedLinkPaintUri(other.visitedLinkPaintUri)
     , dashOffset(other.dashOffset)
     , dashArray(other.dashArray)
     , paintType(other.paintType)
+    , paintColor(other.paintColor)
+    , paintUri(other.paintUri)
     , visitedLinkPaintType(other.visitedLinkPaintType)
+    , visitedLinkPaintColor(other.visitedLinkPaintColor)
+    , visitedLinkPaintUri(other.visitedLinkPaintUri)
 {
 }
 
@@ -110,14 +109,14 @@ Ref<StyleStrokeData> StyleStrokeData::copy() const
 bool StyleStrokeData::operator==(const StyleStrokeData& other) const
 {
     return opacity == other.opacity
-        && paintColor == other.paintColor
-        && visitedLinkPaintColor == other.visitedLinkPaintColor
-        && paintUri == other.paintUri
-        && visitedLinkPaintUri == other.visitedLinkPaintUri
         && dashOffset == other.dashOffset
         && dashArray == other.dashArray
         && paintType == other.paintType
-        && visitedLinkPaintType == other.visitedLinkPaintType;
+        && paintColor == other.paintColor
+        && paintUri == other.paintUri
+        && visitedLinkPaintType == other.visitedLinkPaintType
+        && visitedLinkPaintColor == other.visitedLinkPaintColor
+        && visitedLinkPaintUri == other.visitedLinkPaintUri;
 }
 
 StyleStopData::StyleStopData()
@@ -140,8 +139,8 @@ Ref<StyleStopData> StyleStopData::copy() const
 
 bool StyleStopData::operator==(const StyleStopData& other) const
 {
-    return opacity == other.opacity
-        && color == other.color;
+    return color == other.color
+        && opacity == other.opacity;
 }
 
 StyleTextData::StyleTextData()
@@ -166,8 +165,8 @@ bool StyleTextData::operator==(const StyleTextData& other) const
 }
 
 StyleMiscData::StyleMiscData()
-    : floodOpacity(SVGRenderStyle::initialFloodOpacity())
-    , floodColor(SVGRenderStyle::initialFloodColor())
+    : floodColor(SVGRenderStyle::initialFloodColor())
+    , floodOpacity(SVGRenderStyle::initialFloodOpacity())
     , lightingColor(SVGRenderStyle::initialLightingColor())
     , baselineShiftValue(SVGRenderStyle::initialBaselineShiftValue())
 {
@@ -175,8 +174,8 @@ StyleMiscData::StyleMiscData()
 
 inline StyleMiscData::StyleMiscData(const StyleMiscData& other)
     : RefCounted<StyleMiscData>()
-    , floodOpacity(other.floodOpacity)
     , floodColor(other.floodColor)
+    , floodOpacity(other.floodOpacity)
     , lightingColor(other.lightingColor)
     , baselineShiftValue(other.baselineShiftValue)
 {

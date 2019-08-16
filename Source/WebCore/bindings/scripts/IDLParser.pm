@@ -91,7 +91,6 @@ struct( IDLOperation => {
     isStatic => '$',
     isIterable => '$',
     isSerializer => '$',
-    isStringifier => '$',
     isMapLike => '$',
     specials => '@',
     extendedAttributes => '%',
@@ -106,7 +105,6 @@ struct( IDLAttribute => {
     isMapLike => '$',
     isStringifier => '$',
     isReadOnly => '$',
-    isInherit => '$',
     extendedAttributes => '$',
 });
 
@@ -316,8 +314,6 @@ sub Parse
     $self->{DocumentContent} = join(' ', @lines);
     $self->{ExtendedAttributeMap} = $idlAttributes;
 
-    addBuiltinTypedefs();
-
     $self->getToken();
     eval {
         my $result = $self->parseDefinitions();
@@ -344,30 +340,6 @@ sub Parse
         }
     }
     return $document;
-}
-
-sub ParseType
-{
-    my ($self, $type, $idlAttributes) = @_;
-
-    $self->{Line} = $type;
-    $self->{DocumentContent} = $type;
-    $self->{ExtendedAttributeMap} = $idlAttributes;
-
-    addBuiltinTypedefs();
-
-    my $result;
-
-    $self->getToken();
-    eval {
-        $result = $self->parseType();
-
-        my $next = $self->nextToken();
-        $self->assertTokenType($next, EmptyToken);
-    };
-    assert $@ . " parsing type ${type}" if $@;
-
-    return $result;
 }
 
 sub nextToken
@@ -532,6 +504,13 @@ sub typeDescription
     return $type->name . ($type->isNullable ? "?" : "");
 }
 
+sub makeSimpleType
+{
+    my $typeName = shift;
+
+    return IDLType->new(name => $typeName);
+}
+
 sub cloneType
 {
     my $type = shift;
@@ -580,7 +559,6 @@ sub cloneOperation
     $clonedOperation->isStatic($operation->isStatic);
     $clonedOperation->isIterable($operation->isIterable);
     $clonedOperation->isSerializer($operation->isSerializer);
-    $clonedOperation->isStringifier($operation->isStringifier);
     $clonedOperation->isMapLike($operation->isMapLike);
     $clonedOperation->specials($operation->specials);
 
@@ -589,55 +567,29 @@ sub cloneOperation
     return $clonedOperation;
 }
 
-sub makeSimpleType
-{
-    my $typeName = shift;
-
-    return IDLType->new(name => $typeName);
-}
-
-sub addBuiltinTypedefs()
-{
-    # NOTE: This leaves out the ArrayBufferView definition as it is
-    # treated as its own type, and not a union, to allow us to utilize
-    # the shared base class all the members of the union have.
-
-    # typedef (ArrayBufferView or ArrayBuffer) BufferSource;
-
-    my $bufferSourceType = IDLType->new(name => "UNION", isUnion => 1);
-    push(@{$bufferSourceType->subtypes}, makeSimpleType("ArrayBufferView"));
-    push(@{$bufferSourceType->subtypes}, makeSimpleType("ArrayBuffer"));
-    $typedefs{"BufferSource"} = IDLTypedef->new(type => $bufferSourceType);
-
-    # typedef unsigned long long DOMTimeStamp;
-
-    my $DOMTimeStampType = IDLType->new(name => "unsigned long long");
-    $typedefs{"DOMTimeStamp"} = IDLTypedef->new(type => $DOMTimeStampType);
-}
-
 my $nextAttribute_1 = '^(attribute|inherit)$';
-my $nextAttribute_2 = '^(readonly|attribute)$';
 my $nextPrimitiveType_1 = '^(int|long|short|unsigned)$';
 my $nextPrimitiveType_2 = '^(double|float|unrestricted)$';
 my $nextArgumentList_1 = '^(\(|ByteString|DOMString|USVString|Date|\[|any|boolean|byte|double|float|in|long|object|octet|optional|sequence|short|unrestricted|unsigned)$';
 my $nextNonAnyType_1 = '^(boolean|byte|double|float|long|octet|short|unrestricted|unsigned)$';
 my $nextStringType_1 = '^(ByteString|DOMString|USVString)$';
-my $nextInterfaceMember_1 = '^(\(|ByteString|DOMString|USVString|Date|any|attribute|boolean|byte|deleter|double|float|getter|inherit|legacycaller|long|object|octet|readonly|sequence|setter|short|unrestricted|unsigned|void)$';
-my $nextOperation_1 = '^(\(|ByteString|DOMString|USVString|Date|any|boolean|byte|deleter|double|float|getter|legacycaller|long|object|octet|sequence|setter|short|unrestricted|unsigned|void)$';
+my $nextInterfaceMember_1 = '^(\(|ByteString|DOMString|USVString|Date|any|attribute|boolean|byte|creator|deleter|double|float|getter|inherit|legacycaller|long|object|octet|readonly|sequence|serializer|setter|short|static|stringifier|unrestricted|unsigned|void)$';
+my $nextAttributeOrOperation_1 = '^(static|stringifier)$';
+my $nextAttributeOrOperation_2 = '^(\(|ByteString|DOMString|USVString|Date|any|boolean|byte|creator|deleter|double|float|getter|legacycaller|long|object|octet|sequence|setter|short|unrestricted|unsigned|void)$';
 my $nextUnrestrictedFloatType_1 = '^(double|float)$';
 my $nextExtendedAttributeRest3_1 = '^(\,|\])$';
 my $nextExceptionField_1 = '^(\(|ByteString|DOMString|USVString|Date|any|boolean|byte|double|float|long|object|octet|sequence|short|unrestricted|unsigned)$';
 my $nextType_1 = '^(ByteString|DOMString|USVString|Date|any|boolean|byte|double|float|long|object|octet|sequence|short|unrestricted|unsigned)$';
-my $nextSpecials_1 = '^(deleter|getter|legacycaller|setter)$';
+my $nextSpecials_1 = '^(creator|deleter|getter|legacycaller|setter)$';
 my $nextDefinitions_1 = '^(callback|dictionary|enum|exception|interface|partial|typedef)$';
 my $nextExceptionMembers_1 = '^(\(|ByteString|DOMString|USVString|Date|\[|any|boolean|byte|const|double|float|long|object|octet|optional|sequence|short|unrestricted|unsigned)$';
-my $nextInterfaceMembers_1 = '^(\(|ByteString|DOMString|USVString|Date|any|attribute|boolean|byte|const|deleter|double|float|getter|inherit|legacycaller|long|object|octet|readonly|sequence|serializer|setter|short|static|stringifier|unrestricted|unsigned|void)$';
+my $nextInterfaceMembers_1 = '^(\(|ByteString|DOMString|USVString|Date|any|attribute|boolean|byte|const|creator|deleter|double|float|getter|inherit|legacycaller|long|object|octet|readonly|sequence|serializer|setter|short|static|stringifier|unrestricted|unsigned|void)$';
 my $nextSingleType_1 = '^(ByteString|DOMString|USVString|Date|boolean|byte|double|float|long|object|octet|sequence|short|unrestricted|unsigned)$';
-my $nextArgumentName_1 = '^(attribute|callback|const|deleter|dictionary|enum|exception|getter|implements|inherit|interface|legacycaller|partial|serializer|setter|static|stringifier|typedef|unrestricted)$';
+my $nextArgumentName_1 = '^(attribute|callback|const|creator|deleter|dictionary|enum|exception|getter|implements|inherit|interface|legacycaller|partial|serializer|setter|static|stringifier|typedef|unrestricted)$';
 my $nextConstValue_1 = '^(false|true)$';
 my $nextConstValue_2 = '^(-|Infinity|NaN)$';
 my $nextDefinition_1 = '^(callback|interface)$';
-my $nextOperationRest_1 = '^(\(|ByteString|DOMString|USVString|Date|any|boolean|byte|double|float|long|object|octet|sequence|short|unrestricted|unsigned|void)$';
+my $nextAttributeOrOperationRest_1 = '^(\(|ByteString|DOMString|USVString|Date|any|boolean|byte|double|float|long|object|octet|sequence|short|unrestricted|unsigned|void)$';
 my $nextUnsignedIntegerType_1 = '^(long|short)$';
 my $nextDefaultValue_1 = '^(-|Infinity|NaN|false|null|true)$';
 
@@ -673,6 +625,7 @@ sub applyTypedefs
         return;
     }
     
+    # FIXME: Add support for applying typedefs to IDLIterable.
     foreach my $definition (@$definitions) {
         if (ref($definition) eq "IDLInterface") {
             foreach my $constant (@{$definition->constants}) {
@@ -683,31 +636,6 @@ sub applyTypedefs
             }
             foreach my $operation (@{$definition->operations}, @{$definition->anonymousOperations}, @{$definition->constructors}, @{$definition->customConstructors}) {
                 $self->applyTypedefsToOperation($operation);
-            }
-            if ($definition->iterable) {
-                if ($definition->iterable->keyType) {
-                    $definition->iterable->keyType($self->typeByApplyingTypedefs($definition->iterable->keyType));
-                }
-                if ($definition->iterable->valueType) {
-                    $definition->iterable->valueType($self->typeByApplyingTypedefs($definition->iterable->valueType));
-                }
-                foreach my $operation (@{$definition->iterable->operations}) {
-                    $self->applyTypedefsToOperation($operation);
-                }
-            }
-            if ($definition->mapLike) {
-                if ($definition->mapLike->keyType) {
-                    $definition->mapLike->keyType($self->typeByApplyingTypedefs($definition->mapLike->keyType));
-                }
-                if ($definition->mapLike->valueType) {
-                    $definition->mapLike->valueType($self->typeByApplyingTypedefs($definition->mapLike->valueType));
-                }
-                foreach my $attribute (@{$definition->mapLike->attributes}) {
-                    $attribute->type($self->typeByApplyingTypedefs($attribute->type));
-                }
-                foreach my $operation (@{$definition->mapLike->operations}) {
-                    $self->applyTypedefsToOperation($operation);
-                }
             }
         } elsif (ref($definition) eq "IDLDictionary") {
             foreach my $member (@{$definition->members}) {
@@ -941,31 +869,9 @@ sub parseInterfaceMember
     if ($next->value() eq "const") {
         return $self->parseConst($extendedAttributeList);
     }
-
-    if ($next->value() eq "serializer") {
-        return $self->parseSerializer($extendedAttributeList);
-    }
-
-    if ($next->value() eq "stringifier") {
-        return $self->parseStringifier($extendedAttributeList);
-    }
-
-    if ($next->value() eq "static") {
-        return $self->parseStaticMember($extendedAttributeList);
-    }
-
-    if ($next->value() eq "iterable") {
-        return $self->parseIterableRest($extendedAttributeList);
-    }
-
-    if ($next->value() eq "readonly") {
-        return $self->parseReadOnlyMember($extendedAttributeList);
-    }
-
     if ($next->type() == IdentifierToken || $next->value() =~ /$nextInterfaceMember_1/) {
-        return $self->parseOperationOrReadWriteAttributeOrMaplike($extendedAttributeList);
+        return $self->parseAttributeOrOperationOrIterator($extendedAttributeList);
     }
-
     $self->assertUnexpectedToken($next->value(), __LINE__);
 }
 
@@ -1396,42 +1302,33 @@ sub parseFloatLiteral
     $self->assertUnexpectedToken($next->value(), __LINE__);
 }
 
-sub parseOperationOrReadWriteAttributeOrMaplike
+sub parseAttributeOrOperationOrIterator
 {
     my $self = shift;
     my $extendedAttributeList = shift;
 
     my $next = $self->nextToken();
+    if ($next->value() eq "serializer") {
+        return $self->parseSerializer($extendedAttributeList);
+    }
+
+    if ($next->value() =~ /$nextAttributeOrOperation_1/) {
+        my $qualifier = $self->parseQualifier();
+        my $isReadOnly = $self->parseReadOnly();
+        my $newDataNode = $self->parseAttributeOrOperationRest($extendedAttributeList, $isReadOnly);
+        if (defined($newDataNode)) {
+            $newDataNode->isStatic(1) if $qualifier eq "static";
+            $newDataNode->isStringifier(1) if $qualifier eq "stringifier";
+        }
+        return $newDataNode;
+    }
+    my $isReadOnly = $self->parseReadOnly();
+    $next = $self->nextToken();
     if ($next->value() =~ /$nextAttribute_1/) {
-        return $self->parseReadWriteAttribute($extendedAttributeList);
+        return $self->parseAttribute($extendedAttributeList, $isReadOnly);
     }
-    if ($next->value() eq "maplike") {
-        return $self->parseMapLikeRest($extendedAttributeList, 0);
-    }
-    if ($next->type() == IdentifierToken || $next->value() =~ /$nextOperation_1/) {
-        return $self->parseOperation($extendedAttributeList);
-    }
-    $self->assertUnexpectedToken($next->value(), __LINE__);
-}
-
-sub parseReadOnlyMember
-{
-    my $self = shift;
-    my $extendedAttributeList = shift;
-
-    my $next = $self->nextToken();
-    if ($next->value() eq "readonly") {
-        $self->assertTokenValue($self->getToken(), "readonly", __LINE__);
-
-        my $next = $self->nextToken();
-        if ($next->value() eq "attribute") {
-            my $attribute = $self->parseAttributeRest($extendedAttributeList);
-            $attribute->isReadOnly(1);
-            return $attribute;
-        }
-        if ($next->value() eq "maplike") {
-            return $self->parseMapLikeRest($extendedAttributeList, 1);
-        }
+    if ($next->type() == IdentifierToken || $next->value() =~ /$nextAttributeOrOperation_2/) {
+        return $self->parseOperationOrIterator($extendedAttributeList, $isReadOnly);
     }
     $self->assertUnexpectedToken($next->value(), __LINE__);
 }
@@ -1576,69 +1473,37 @@ sub parseIdentifiers
     return \@idents;
 }
 
-sub parseStringifier
+sub parseQualifier
 {
     my $self = shift;
-    my $extendedAttributeList = shift;
-
-    my $next = $self->nextToken();
-    if ($next->value() eq "stringifier") {
-        $self->assertTokenValue($self->getToken(), "stringifier", __LINE__);
-
-        $next = $self->nextToken();
-        if ($next->value() eq ";") {
-            $self->assertTokenValue($self->getToken(), ";", __LINE__);
-
-            my $operation = IDLOperation->new();
-            $operation->isStringifier(1);
-            $operation->name("");
-            $operation->type(makeSimpleType("DOMString"));
-            $operation->extendedAttributes($extendedAttributeList);
-
-            return $operation;
-        } else {
-            my $attributeOrOperation = $self->parseAttributeOrOperationForStringifierOrStatic($extendedAttributeList);
-            $attributeOrOperation->isStringifier(1);
-
-            return $attributeOrOperation;
-        }
-    }
-    $self->assertUnexpectedToken($next->value(), __LINE__);
-}
-
-sub parseStaticMember
-{
-    my $self = shift;
-    my $extendedAttributeList = shift;
 
     my $next = $self->nextToken();
     if ($next->value() eq "static") {
         $self->assertTokenValue($self->getToken(), "static", __LINE__);
-
-        my $attributeOrOperation = $self->parseAttributeOrOperationForStringifierOrStatic($extendedAttributeList);
-        $attributeOrOperation->isStatic(1);
-
-        return $attributeOrOperation;
+        return "static";
+    }
+    if ($next->value() eq "stringifier") {
+        $self->assertTokenValue($self->getToken(), "stringifier", __LINE__);
+        return "stringifier";
     }
     $self->assertUnexpectedToken($next->value(), __LINE__);
 }
 
-sub parseAttributeOrOperationForStringifierOrStatic
+sub parseAttributeOrOperationRest
 {
     my $self = shift;
     my $extendedAttributeList = shift;
+    my $isReadOnly = shift;
 
     my $next = $self->nextToken();
-    if ($next->value() =~ /$nextAttribute_2/) {
-        my $isReadOnly = $self->parseReadOnly();
-
-        my $attribute = $self->parseAttributeRest($extendedAttributeList);
-        $attribute->isReadOnly($isReadOnly);
-
-        return $attribute;
+    if ($next->value() eq "attribute") {
+        return $self->parseAttributeRest($extendedAttributeList, $isReadOnly);
     }
-
-    if ($next->type() == IdentifierToken || $next->value() =~ /$nextOperationRest_1/) {
+    if ($next->value() eq ";") {
+        $self->assertTokenValue($self->getToken(), ";", __LINE__);
+        return;
+    }
+    if ($next->type() == IdentifierToken || $next->value() =~ /$nextAttributeOrOperationRest_1/) {
         my $returnType = $self->parseReturnType();
 
         # NOTE: This is a non-standard addition. In WebIDL, there is no way to associate
@@ -1646,31 +1511,24 @@ sub parseAttributeOrOperationForStringifierOrStatic
         $self->moveExtendedAttributesApplicableToTypes($returnType, $extendedAttributeList);
 
         my $operation = $self->parseOperationRest($extendedAttributeList);
-        $operation->type($returnType);
-
+        if (defined ($operation)) {
+            $operation->type($returnType);
+        }
         return $operation;
     }
     $self->assertUnexpectedToken($next->value(), __LINE__);
 }
 
-sub parseReadWriteAttribute
+sub parseAttribute
 {
     my $self = shift;
     my $extendedAttributeList = shift;
+    my $isReadOnly = shift;
 
     my $next = $self->nextToken();
-    if ($next->value() eq "inherit") {
-        my $isInherit = $self->parseInherit();
-        my $isReadOnly = $self->parseReadOnly();
-
-        my $attribute = $self->parseAttributeRest($extendedAttributeList);
-
-        $attribute->isInherit($isInherit);
-        $attribute->isReadOnly($isReadOnly);
-
-        return $attribute;
-    } else {
-        return $self->parseAttributeRest($extendedAttributeList);
+    if ($next->value() =~ /$nextAttribute_1/) {
+        $self->parseInherit();
+        return $self->parseAttributeRest($extendedAttributeList, $isReadOnly);
     }
     $self->assertUnexpectedToken($next->value(), __LINE__);
 }
@@ -1679,6 +1537,7 @@ sub parseAttributeRest
 {
     my $self = shift;
     my $extendedAttributeList = shift;
+    my $isReadOnly = shift;
 
     my $next = $self->nextToken();
     if ($next->value() eq "attribute") {
@@ -1688,6 +1547,7 @@ sub parseAttributeRest
         
         $self->assertExtendedAttributesValidForContext($extendedAttributeList, "attribute");
         $attribute->extendedAttributes($extendedAttributeList);
+        $attribute->isReadOnly($isReadOnly);
 
         my $type = $self->parseTypeWithExtendedAttributes();
         $attribute->type($type);
@@ -1724,26 +1584,34 @@ sub parseReadOnly
     return 0;
 }
 
-sub parseOperation
+sub parseOperationOrIterator
 {
     my $self = shift;
     my $extendedAttributeList = shift;
+    my $isReadOnly = shift;
 
     my $next = $self->nextToken();
     if ($next->value() =~ /$nextSpecials_1/) {
         return $self->parseSpecialOperation($extendedAttributeList);
     }
-    if ($next->type() == IdentifierToken || $next->value() =~ /$nextOperationRest_1/) {
+    if ($next->value() eq "iterable") {
+        return $self->parseIterableRest($extendedAttributeList);
+    }
+    if ($next->value() eq "maplike") {
+        return $self->parseMapLikeRest($extendedAttributeList, $isReadOnly);
+    }
+    if ($next->type() == IdentifierToken || $next->value() =~ /$nextAttributeOrOperationRest_1/) {
         my $returnType = $self->parseReturnType();
-
         # NOTE: This is a non-standard addition. In WebIDL, there is no way to associate
         # extended attributes with a return type.
         $self->moveExtendedAttributesApplicableToTypes($returnType, $extendedAttributeList);
 
-        my $operation = $self->parseOperationRest($extendedAttributeList);
-        $operation->type($returnType);
-
-        return $operation;
+        my $next = $self->nextToken();
+        if ($next->type() == IdentifierToken || $next->value() eq "(") {
+            my $operation = $self->parseOperationRest($extendedAttributeList);
+            $operation->type($returnType);
+            return $operation;
+        }
     }
     $self->assertUnexpectedToken($next->value(), __LINE__);
 }
@@ -1764,9 +1632,10 @@ sub parseSpecialOperation
         $self->moveExtendedAttributesApplicableToTypes($returnType, $extendedAttributeList);
 
         my $operation = $self->parseOperationRest($extendedAttributeList);
-        $operation->type($returnType);
-        $operation->specials(\@specials);
-
+        if (defined ($operation)) {
+            $operation->type($returnType);
+            $operation->specials(\@specials);
+        }
         return $operation;
     }
     $self->assertUnexpectedToken($next->value(), __LINE__);
@@ -1799,6 +1668,10 @@ sub parseSpecial
     if ($next->value() eq "setter") {
         $self->assertTokenValue($self->getToken(), "setter", __LINE__);
         return "setter";
+    }
+    if ($next->value() eq "creator") {
+        $self->assertTokenValue($self->getToken(), "creator", __LINE__);
+        return "creator";
     }
     if ($next->value() eq "deleter") {
         $self->assertTokenValue($self->getToken(), "deleter", __LINE__);
@@ -1912,18 +1785,15 @@ sub parseMapLikeProperties
     my $extendedAttributeList = shift;
     my $isReadOnly = shift;
 
-    my $maplike = IDLMapLike->new();
-    $maplike->extendedAttributes($extendedAttributeList);
-    $maplike->isReadOnly($isReadOnly);
+    my $newDataNode = IDLMapLike->new();
+    $newDataNode->extendedAttributes($extendedAttributeList);
+    $newDataNode->isReadOnly($isReadOnly);
 
     $self->assertTokenValue($self->getToken(), "<", __LINE__);
-    $maplike->keyType($self->parseTypeWithExtendedAttributes());
+    $newDataNode->keyType($self->parseTypeWithExtendedAttributes());
     $self->assertTokenValue($self->getToken(), ",", __LINE__);
-    $maplike->valueType($self->parseTypeWithExtendedAttributes());
+    $newDataNode->valueType($self->parseTypeWithExtendedAttributes());
     $self->assertTokenValue($self->getToken(), ">", __LINE__);
-
-    # FIXME: Synthetic operations should not be added during parsing. Instead, the CodeGenerator
-    # should be responsible for them.
 
     my $notEnumerableExtendedAttributeList = $extendedAttributeList;
     $notEnumerableExtendedAttributeList->{NotEnumerable} = 1;
@@ -1934,14 +1804,14 @@ sub parseMapLikeProperties
     $sizeAttribute->extendedAttributes($extendedAttributeList);
     $sizeAttribute->isReadOnly(1);
     $sizeAttribute->type(makeSimpleType("any"));
-    push(@{$maplike->attributes}, $sizeAttribute);
+    push(@{$newDataNode->attributes}, $sizeAttribute);
 
     my $getOperation = IDLOperation->new();
     $getOperation->name("get");
     $getOperation->isMapLike(1);
     my $getArgument = IDLArgument->new();
     $getArgument->name("key");
-    $getArgument->type($maplike->keyType);
+    $getArgument->type($newDataNode->keyType);
     $getArgument->extendedAttributes($extendedAttributeList);
     push(@{$getOperation->arguments}, ($getArgument));
     $getOperation->extendedAttributes($notEnumerableExtendedAttributeList);
@@ -1952,7 +1822,7 @@ sub parseMapLikeProperties
     $hasOperation->isMapLike(1);
     my $hasArgument = IDLArgument->new();
     $hasArgument->name("key");
-    $hasArgument->type($maplike->keyType);
+    $hasArgument->type($newDataNode->keyType);
     $hasArgument->extendedAttributes($extendedAttributeList);
     push(@{$hasOperation->arguments}, ($hasArgument));
     $hasOperation->extendedAttributes($notEnumerableExtendedAttributeList);
@@ -1988,21 +1858,21 @@ sub parseMapLikeProperties
     $forEachArgument->extendedAttributes($extendedAttributeList);
     push(@{$forEachOperation->arguments}, ($forEachArgument));
 
-    push(@{$maplike->operations}, $getOperation);
-    push(@{$maplike->operations}, $hasOperation);
-    push(@{$maplike->operations}, $entriesOperation);
-    push(@{$maplike->operations}, $keysOperation);
-    push(@{$maplike->operations}, $valuesOperation);
-    push(@{$maplike->operations}, $forEachOperation);
+    push(@{$newDataNode->operations}, $getOperation);
+    push(@{$newDataNode->operations}, $hasOperation);
+    push(@{$newDataNode->operations}, $entriesOperation);
+    push(@{$newDataNode->operations}, $keysOperation);
+    push(@{$newDataNode->operations}, $valuesOperation);
+    push(@{$newDataNode->operations}, $forEachOperation);
 
-    return $maplike if $isReadOnly;
+    return $newDataNode if $isReadOnly;
 
     my $addOperation = IDLOperation->new();
     $addOperation->name("add");
     $addOperation->isMapLike(1);
     my $addArgument = IDLArgument->new();
     $addArgument->name("key");
-    $addArgument->type($maplike->keyType);
+    $addArgument->type($newDataNode->keyType);
     $addArgument->extendedAttributes($extendedAttributeList);
     push(@{$addOperation->arguments}, ($addArgument));
     $addOperation->extendedAttributes($notEnumerableExtendedAttributeList);
@@ -2019,17 +1889,17 @@ sub parseMapLikeProperties
     $deleteOperation->isMapLike(1);
     my $deleteArgument = IDLArgument->new();
     $deleteArgument->name("key");
-    $deleteArgument->type($maplike->keyType);
+    $deleteArgument->type($newDataNode->keyType);
     $deleteArgument->extendedAttributes($extendedAttributeList);
     push(@{$deleteOperation->arguments}, ($deleteArgument));
     $deleteOperation->extendedAttributes($notEnumerableExtendedAttributeList);
     $deleteOperation->type(makeSimpleType("any"));
 
-    push(@{$maplike->operations}, $addOperation);
-    push(@{$maplike->operations}, $clearOperation);
-    push(@{$maplike->operations}, $deleteOperation);
+    push(@{$newDataNode->operations}, $addOperation);
+    push(@{$newDataNode->operations}, $clearOperation);
+    push(@{$newDataNode->operations}, $deleteOperation);
 
-    return $maplike;
+    return $newDataNode;
 }
 
 sub parseOperationRest
@@ -2039,22 +1909,21 @@ sub parseOperationRest
 
     my $next = $self->nextToken();
     if ($next->type() == IdentifierToken || $next->value() eq "(") {
-        my $operation = IDLOperation->new();
+        my $newDataNode = IDLOperation->new();
 
         my $name = $self->parseOptionalIdentifier();
-        $operation->name(identifierRemoveNullablePrefix($name));
+        $newDataNode->name(identifierRemoveNullablePrefix($name));
 
         $self->assertTokenValue($self->getToken(), "(", $name, __LINE__);
 
-        push(@{$operation->arguments}, @{$self->parseArgumentList()});
+        push(@{$newDataNode->arguments}, @{$self->parseArgumentList()});
 
         $self->assertTokenValue($self->getToken(), ")", __LINE__);
         $self->assertTokenValue($self->getToken(), ";", __LINE__);
 
         $self->assertExtendedAttributesValidForContext($extendedAttributeList, "operation");
-        $operation->extendedAttributes($extendedAttributeList);
-
-        return $operation;
+        $newDataNode->extendedAttributes($extendedAttributeList);
+        return $newDataNode;
     }
     $self->assertUnexpectedToken($next->value(), __LINE__);
 }
@@ -2319,7 +2188,7 @@ sub parseExtendedAttributeRest2
         $self->assertTokenValue($self->getToken(), "(", __LINE__);
         my @arguments = $self->parseIdentifierList();
         $self->assertTokenValue($self->getToken(), ")", __LINE__);
-        return \@arguments;
+        return @arguments;
     }
     if ($next->type() == IdentifierToken) {
         my $name = $self->parseName();
@@ -2373,6 +2242,9 @@ sub parseArgumentNameKeyword
         return $self->getToken()->value();
     }
     if ($next->value() eq "const") {
+        return $self->getToken()->value();
+    }
+    if ($next->value() eq "creator") {
         return $self->getToken()->value();
     }
     if ($next->value() eq "deleter") {
@@ -2570,6 +2442,12 @@ sub parseNonAnyType
         $self->assertTokenValue($self->getToken(), "object", __LINE__);
 
         $type->name("object");
+        return $type;
+    }
+    if ($next->value() eq "RegExp") {
+        $self->assertTokenValue($self->getToken(), "RegExp", __LINE__);
+
+        $type->name("RegExp");
         return $type;
     }
     if ($next->value() eq "Error") {

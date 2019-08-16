@@ -25,25 +25,21 @@
 
 #pragma once
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
-#include "CryptoAesKeyAlgorithm.h"
 #include "CryptoAlgorithmIdentifier.h"
-#include "CryptoEcKeyAlgorithm.h"
-#include "CryptoHmacKeyAlgorithm.h"
-#include "CryptoKeyAlgorithm.h"
 #include "CryptoKeyType.h"
 #include "CryptoKeyUsage.h"
-#include "CryptoRsaHashedKeyAlgorithm.h"
-#include "CryptoRsaKeyAlgorithm.h"
 #include <wtf/Forward.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/TypeCasts.h>
-#include <wtf/Variant.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
+
+class CryptoAlgorithmDescriptionBuilder;
+class CryptoKeyData;
 
 enum class CryptoKeyClass {
     AES,
@@ -53,25 +49,56 @@ enum class CryptoKeyClass {
     Raw,
 };
 
+enum class KeyAlgorithmClass {
+    AES,
+    EC,
+    HMAC,
+    HRSA,
+    RSA,
+    Raw,
+};
+
+class KeyAlgorithm {
+public:
+    virtual ~KeyAlgorithm()
+    {
+    }
+
+    virtual KeyAlgorithmClass keyAlgorithmClass() const = 0;
+
+    const String& name() const { return m_name; }
+
+protected:
+    explicit KeyAlgorithm(const String& name)
+        : m_name(name)
+    {
+    }
+
+private:
+    String m_name;
+};
+
 class CryptoKey : public ThreadSafeRefCounted<CryptoKey> {
 public:
     using Type = CryptoKeyType;
-    using KeyAlgorithm = Variant<CryptoKeyAlgorithm, CryptoAesKeyAlgorithm, CryptoEcKeyAlgorithm, CryptoHmacKeyAlgorithm, CryptoRsaHashedKeyAlgorithm, CryptoRsaKeyAlgorithm>;
-
     CryptoKey(CryptoAlgorithmIdentifier, Type, bool extractable, CryptoKeyUsageBitmap);
     virtual ~CryptoKey();
 
+    virtual CryptoKeyClass keyClass() const = 0;
+
     Type type() const;
     bool extractable() const { return m_extractable; }
-    Vector<CryptoKeyUsage> usages() const;
-    virtual KeyAlgorithm algorithm() const = 0;
+    virtual std::unique_ptr<KeyAlgorithm> buildAlgorithm() const = 0;
 
-    virtual CryptoKeyClass keyClass() const = 0;
+    // Only for binding purpose.
+    Vector<CryptoKeyUsage> usages() const;
 
     CryptoAlgorithmIdentifier algorithmIdentifier() const { return m_algorithmIdentifier; }
     CryptoKeyUsageBitmap usagesBitmap() const { return m_usages; }
     void setUsagesBitmap(CryptoKeyUsageBitmap usage) { m_usages = usage; };
     bool allows(CryptoKeyUsageBitmap usage) const { return usage == (m_usages & usage); }
+
+    virtual std::unique_ptr<CryptoKeyData> exportData() const = 0;
 
     static Vector<uint8_t> randomData(size_t);
 
@@ -94,4 +121,9 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ToClassName) \
     static bool isType(const WebCore::CryptoKey& key) { return key.keyClass() == WebCore::KeyClass; } \
 SPECIALIZE_TYPE_TRAITS_END()
 
-#endif // ENABLE(WEB_CRYPTO)
+#define SPECIALIZE_TYPE_TRAITS_KEY_ALGORITHM(ToClassName, KeyAlgorithmClass) \
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ToClassName) \
+    static bool isType(const WebCore::KeyAlgorithm& algorithm) { return algorithm.keyAlgorithmClass() == WebCore::KeyAlgorithmClass; } \
+SPECIALIZE_TYPE_TRAITS_END()
+
+#endif // ENABLE(SUBTLE_CRYPTO)

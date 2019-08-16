@@ -27,10 +27,6 @@ HandleRangeAllocator::HandleRangeAllocator()
     mUsed.insert(std::make_pair(0u, 0u));
 }
 
-HandleRangeAllocator::~HandleRangeAllocator()
-{
-}
-
 GLuint HandleRangeAllocator::allocate()
 {
     return allocateRange(1u);

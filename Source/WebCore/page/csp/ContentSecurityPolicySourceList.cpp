@@ -30,10 +30,9 @@
 #include "ContentSecurityPolicy.h"
 #include "ContentSecurityPolicyDirectiveNames.h"
 #include "ParsingUtilities.h"
-#include "TextEncoding.h"
+#include "URL.h"
 #include <wtf/ASCIICType.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/URL.h>
 #include <wtf/text/Base64.h>
 
 namespace WebCore {
@@ -131,7 +130,7 @@ bool ContentSecurityPolicySourceList::isProtocolAllowedByStar(const URL& url) co
     return isAllowed;
 }
 
-bool ContentSecurityPolicySourceList::matches(const URL& url, bool didReceiveRedirectResponse) const
+bool ContentSecurityPolicySourceList::matches(const URL& url, bool didReceiveRedirectResponse)
 {
     if (m_allowStar && isProtocolAllowedByStar(url))
         return true;
@@ -173,7 +172,7 @@ void ContentSecurityPolicySourceList::parse(const UChar* begin, const UChar* end
         skipWhile<UChar, isSourceCharacter>(position, end);
 
         String scheme, host, path;
-        Optional<uint16_t> port;
+        std::optional<uint16_t> port;
         bool hostHasWildcard = false;
         bool portHasWildcard = false;
 
@@ -197,15 +196,13 @@ void ContentSecurityPolicySourceList::parse(const UChar* begin, const UChar* end
 
         ASSERT(position == end || isASCIISpace(*position));
     }
-    
-    m_list.shrinkToFit();
 }
 
 // source            = scheme ":"
 //                   / ( [ scheme "://" ] host [ port ] [ path ] )
 //                   / "'self'"
 //
-bool ContentSecurityPolicySourceList::parseSource(const UChar* begin, const UChar* end, String& scheme, String& host, Optional<uint16_t>& port, String& path, bool& hostHasWildcard, bool& portHasWildcard)
+bool ContentSecurityPolicySourceList::parseSource(const UChar* begin, const UChar* end, String& scheme, String& host, std::optional<uint16_t>& port, String& path, bool& hostHasWildcard, bool& portHasWildcard)
 {
     if (begin == end)
         return false;
@@ -294,7 +291,7 @@ bool ContentSecurityPolicySourceList::parseSource(const UChar* begin, const UCha
         return false;
 
     if (!beginPort)
-        port = WTF::nullopt;
+        port = std::nullopt;
     else {
         if (!parsePort(beginPort, beginPath, port, portHasWildcard))
             return false;
@@ -396,7 +393,7 @@ bool ContentSecurityPolicySourceList::parsePath(const UChar* begin, const UChar*
 
 // port              = ":" ( 1*DIGIT / "*" )
 //
-bool ContentSecurityPolicySourceList::parsePort(const UChar* begin, const UChar* end, Optional<uint16_t>& port, bool& portHasWildcard)
+bool ContentSecurityPolicySourceList::parsePort(const UChar* begin, const UChar* end, std::optional<uint16_t>& port, bool& portHasWildcard)
 {
     ASSERT(begin <= end);
     ASSERT(!port);
@@ -409,7 +406,7 @@ bool ContentSecurityPolicySourceList::parsePort(const UChar* begin, const UChar*
         return false;
     
     if (end - begin == 1 && *begin == '*') {
-        port = WTF::nullopt;
+        port = std::nullopt;
         portHasWildcard = true;
         return true;
     }
@@ -440,10 +437,10 @@ static bool isNonceCharacter(UChar c)
 // nonce-value     = base64-value
 bool ContentSecurityPolicySourceList::parseNonceSource(const UChar* begin, const UChar* end)
 {
-    const unsigned noncePrefixLength = 7;
-    if (!StringView(begin, end - begin).startsWithIgnoringASCIICase("'nonce-"))
+    static NeverDestroyed<String> noncePrefix("'nonce-", String::ConstructFromLiteral);
+    if (!StringView(begin, end - begin).startsWithIgnoringASCIICase(noncePrefix.get()))
         return false;
-    const UChar* position = begin + noncePrefixLength;
+    const UChar* position = begin + noncePrefix.get().length();
     const UChar* beginNonceValue = position;
     skipWhile<UChar, isNonceCharacter>(position, end);
     if (position >= end || position == beginNonceValue || *position != '\'')
@@ -474,7 +471,7 @@ bool ContentSecurityPolicySourceList::parseHashSource(const UChar* begin, const 
     if (digest->value.size() > ContentSecurityPolicyHash::maximumDigestLength)
         return false;
 
-    m_hashAlgorithmsUsed.add(digest->algorithm);
+    m_hashAlgorithmsUsed |= digest->algorithm;
     m_hashes.add(WTFMove(*digest));
     return true;
 }

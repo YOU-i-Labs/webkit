@@ -23,27 +23,25 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.DOMBreakpointTreeElement = class DOMBreakpointTreeElement extends WI.GeneralTreeElement
+WebInspector.DOMBreakpointTreeElement = class DOMBreakpointTreeElement extends WebInspector.GeneralTreeElement
 {
-    constructor(breakpoint, {className, title} = {})
+    constructor(breakpoint, className, title)
     {
-        console.assert(breakpoint instanceof WI.DOMBreakpoint);
+        console.assert(breakpoint instanceof WebInspector.DOMBreakpoint);
 
         if (!className)
-            className = WI.BreakpointTreeElement.GenericLineIconStyleClassName;
+            className = WebInspector.BreakpointTreeElement.GenericLineIconStyleClassName;
 
         if (!title)
-            title = WI.DOMBreakpointTreeElement.displayNameForType(breakpoint.type);
+            title = WebInspector.DOMBreakpointTreeElement.displayNameForType(breakpoint.type);
 
-        const subtitle = null;
-        super(["breakpoint", "dom", className], title, subtitle, breakpoint);
+        super(["breakpoint", className], title, null, breakpoint);
 
-        this.status = document.createElement("img");
-        this.status.classList.add("status-image", "resolved");
+        this._statusImageElement = document.createElement("img");
+        this._statusImageElement.classList.add("status-image", "resolved");
+        this.status = this._statusImageElement;
 
-        this.tooltipHandledSeparately = true;
-
-        breakpoint.addEventListener(WI.DOMBreakpoint.Event.DisabledStateDidChange, this._updateStatus, this);
+        breakpoint.addEventListener(WebInspector.DOMBreakpoint.Event.DisabledStateDidChange, this._updateStatus, this);
 
         this._updateStatus();
     }
@@ -53,12 +51,12 @@ WI.DOMBreakpointTreeElement = class DOMBreakpointTreeElement extends WI.GeneralT
     static displayNameForType(type)
     {
         switch (type) {
-        case WI.DOMBreakpoint.Type.SubtreeModified:
-            return WI.UIString("Subtree Modified");
-        case WI.DOMBreakpoint.Type.AttributeModified:
-            return WI.UIString("Attribute Modified");
-        case WI.DOMBreakpoint.Type.NodeRemoved:
-            return WI.UIString("Node Removed");
+        case WebInspector.DOMBreakpoint.Type.SubtreeModified:
+            return WebInspector.UIString("Subtree Modified");
+        case WebInspector.DOMBreakpoint.Type.AttributeModified:
+            return WebInspector.UIString("Attribute Modified");
+        case WebInspector.DOMBreakpoint.Type.NodeRemoved:
+            return WebInspector.UIString("Node Removed");
         default:
             console.error("Unexpected DOM breakpoint type: " + type);
             return null;
@@ -75,18 +73,18 @@ WI.DOMBreakpointTreeElement = class DOMBreakpointTreeElement extends WI.GeneralT
         this._boundStatusImageElementFocused = this._statusImageElementFocused.bind(this);
         this._boundStatusImageElementMouseDown = this._statusImageElementMouseDown.bind(this);
 
-        this.status.addEventListener("click", this._boundStatusImageElementClicked);
-        this.status.addEventListener("focus", this._boundStatusImageElementFocused);
-        this.status.addEventListener("mousedown", this._boundStatusImageElementMouseDown);
+        this._statusImageElement.addEventListener("click", this._boundStatusImageElementClicked);
+        this._statusImageElement.addEventListener("focus", this._boundStatusImageElementFocused);
+        this._statusImageElement.addEventListener("mousedown", this._boundStatusImageElementMouseDown);
     }
 
     ondetach()
     {
         super.ondetach();
 
-        this.status.removeEventListener("click", this._boundStatusImageElementClicked);
-        this.status.removeEventListener("focus", this._boundStatusImageElementFocused);
-        this.status.removeEventListener("mousedown", this._boundStatusImageElementMouseDown);
+        this._statusImageElement.removeEventListener("click", this._boundStatusImageElementClicked);
+        this._statusImageElement.removeEventListener("focus", this._boundStatusImageElementFocused);
+        this._statusImageElement.removeEventListener("mousedown", this._boundStatusImageElementMouseDown);
 
         this._boundStatusImageElementClicked = null;
         this._boundStatusImageElementFocused = null;
@@ -95,12 +93,7 @@ WI.DOMBreakpointTreeElement = class DOMBreakpointTreeElement extends WI.GeneralT
 
     ondelete()
     {
-        // We set this flag so that TreeOutlines that will remove this
-        // BreakpointTreeElement will know whether it was deleted from
-        // within the TreeOutline or from outside it (e.g. TextEditor).
-        this.__deletedViaDeleteKeyboardShortcut = true;
-
-        WI.domDebuggerManager.removeDOMBreakpoint(this.representedObject);
+        WebInspector.domDebuggerManager.removeDOMBreakpoint(this.representedObject);
         return true;
     }
 
@@ -119,12 +112,12 @@ WI.DOMBreakpointTreeElement = class DOMBreakpointTreeElement extends WI.GeneralT
     populateContextMenu(contextMenu, event)
     {
         let breakpoint = this.representedObject;
-        let label = breakpoint.disabled ? WI.UIString("Enable Breakpoint") : WI.UIString("Disable Breakpoint");
+        let label = breakpoint.disabled ? WebInspector.UIString("Enable Breakpoint") : WebInspector.UIString("Disable Breakpoint");
         contextMenu.appendItem(label, this._toggleBreakpoint.bind(this));
 
         contextMenu.appendSeparator();
-        contextMenu.appendItem(WI.UIString("Delete Breakpoint"), function() {
-            WI.domDebuggerManager.removeDOMBreakpoint(breakpoint);
+        contextMenu.appendItem(WebInspector.UIString("Delete Breakpoint"), function() {
+            WebInspector.domDebuggerManager.removeDOMBreakpoint(breakpoint);
         });
     }
 
@@ -154,6 +147,6 @@ WI.DOMBreakpointTreeElement = class DOMBreakpointTreeElement extends WI.GeneralT
 
     _updateStatus()
     {
-        this.status.classList.toggle("disabled", this.representedObject.disabled);
+        this._statusImageElement.classList.toggle("disabled", this.representedObject.disabled);
     }
 };

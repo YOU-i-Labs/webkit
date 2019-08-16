@@ -37,13 +37,10 @@
 #include "Page.h"
 #include "PaintInfo.h"
 #include "RenderView.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderHTMLCanvas);
 
 RenderHTMLCanvas::RenderHTMLCanvas(HTMLCanvasElement& element, RenderStyle&& style)
     : RenderReplaced(element, WTFMove(style), element.size())
@@ -74,7 +71,7 @@ void RenderHTMLCanvas::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& pa
 
     LayoutRect contentBoxRect = this->contentBoxRect();
     contentBoxRect.moveBy(paintOffset);
-    LayoutRect replacedContentRect = this->replacedContentRect();
+    LayoutRect replacedContentRect = this->replacedContentRect(intrinsicSize());
     replacedContentRect.moveBy(paintOffset);
 
     // Not allowed to overflow the content box.
@@ -83,7 +80,7 @@ void RenderHTMLCanvas::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& pa
     if (clip)
         paintInfo.context().clip(snappedIntRect(contentBoxRect));
 
-    if (paintInfo.phase == PaintPhase::Foreground)
+    if (paintInfo.phase == PaintPhaseForeground)
         page().addRelevantRepaintedObject(this, intersection(replacedContentRect, contentBoxRect));
 
     InterpolationQualityMaintainer interpolationMaintainer(context, ImageQualityController::interpolationQualityFromStyle(style()));

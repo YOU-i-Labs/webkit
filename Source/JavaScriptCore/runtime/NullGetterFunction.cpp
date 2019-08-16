@@ -33,16 +33,20 @@ namespace JSC {
 
 const ClassInfo NullGetterFunction::s_info = { "Function", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(NullGetterFunction) };
 
-namespace NullGetterFunctionInternal {
 static EncodedJSValue JSC_HOST_CALL callReturnUndefined(ExecState*)
 {
     return JSValue::encode(jsUndefined());
 }
+
+CallType NullGetterFunction::getCallData(JSCell*, CallData& callData)
+{
+    callData.native.function = callReturnUndefined;
+    return CallType::Host;
 }
 
-NullGetterFunction::NullGetterFunction(VM& vm, Structure* structure)
-    : Base(vm, structure, NullGetterFunctionInternal::callReturnUndefined, nullptr)
+ConstructType NullGetterFunction::getConstructData(JSCell*, ConstructData&)
 {
+    return ConstructType::None;
 }
 
 }

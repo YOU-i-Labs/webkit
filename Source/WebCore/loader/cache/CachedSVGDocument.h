@@ -23,6 +23,7 @@
 #pragma once
 
 #include "CachedResource.h"
+#include "CachedResourceHandle.h"
 #include "SVGDocument.h"
 #include "TextResourceDecoder.h"
 
@@ -30,7 +31,7 @@ namespace WebCore {
 
 class CachedSVGDocument final : public CachedResource {
 public:
-    explicit CachedSVGDocument(CachedResourceRequest&&, PAL::SessionID);
+    explicit CachedSVGDocument(CachedResourceRequest&&, SessionID);
     virtual ~CachedSVGDocument();
 
     SVGDocument* document() const { return m_document.get(); }
@@ -48,4 +49,4 @@ private:
 
 } // namespace WebCore
 
-SPECIALIZE_TYPE_TRAITS_CACHED_RESOURCE(CachedSVGDocument, CachedResource::Type::SVGDocumentResource)
+SPECIALIZE_TYPE_TRAITS_CACHED_RESOURCE(CachedSVGDocument, CachedResource::SVGDocumentResource)

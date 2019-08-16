@@ -21,12 +21,12 @@
 
 #pragma once
 
-#include "CSSParserContext.h"
+#include "CSSParserMode.h"
 #include "CSSParserTokenRange.h"
 #include "CSSProperty.h"
 #include "CSSValueKeywords.h"
 #include <memory>
-#include <wtf/Function.h>
+#include <wtf/ListHashSet.h>
 #include <wtf/TypeCasts.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
@@ -36,8 +36,8 @@ namespace WebCore {
 class CSSDeferredParser;
 class CSSStyleDeclaration;
 class CachedResource;
-class Color;
 class ImmutableStyleProperties;
+class URL;
 class MutableStyleProperties;
 class PropertySetCSSStyleDeclaration;
 class StyledElement;
@@ -112,10 +112,6 @@ public:
 
     WEBCORE_EXPORT RefPtr<CSSValue> getPropertyCSSValue(CSSPropertyID) const;
     WEBCORE_EXPORT String getPropertyValue(CSSPropertyID) const;
-
-    WEBCORE_EXPORT Optional<Color> propertyAsColor(CSSPropertyID) const;
-    WEBCORE_EXPORT CSSValueID propertyAsValueID(CSSPropertyID) const;
-
     bool propertyIsImportant(CSSPropertyID) const;
     String getPropertyShorthand(CSSPropertyID) const;
     bool isPropertyImplicit(CSSPropertyID) const;
@@ -136,7 +132,7 @@ public:
     bool hasCSSOMWrapper() const;
     bool isMutable() const { return type() == MutablePropertiesType; }
 
-    bool traverseSubresources(const WTF::Function<bool (const CachedResource&)>& handler) const;
+    bool traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const;
 
     static unsigned averageSizeInBytes();
 
@@ -162,7 +158,8 @@ private:
     String getShorthandValue(const StylePropertyShorthand&) const;
     String getCommonValue(const StylePropertyShorthand&) const;
     String getAlignmentShorthandValue(const StylePropertyShorthand&) const;
-    String borderPropertyValue() const;
+    enum CommonValueMode { OmitUncommonValues, ReturnNullOnUncommonValues };
+    String borderPropertyValue(CommonValueMode) const;
     String getLayeredShorthandValue(const StylePropertyShorthand&) const;
     String get4Values(const StylePropertyShorthand&) const;
     String borderSpacingValue(const StylePropertyShorthand&) const;
@@ -248,7 +245,7 @@ public:
     Vector<CSSProperty, 4> m_propertyVector;
 
     // Methods for querying and altering CSS custom properties.
-    bool setCustomProperty(const Document*, const String& propertyName, const String& value, bool important, CSSParserContext);
+    bool setCustomProperty(const String& propertyName, const String& value, bool important, CSSParserContext);
     bool removeCustomProperty(const String& propertyName, String* returnText = nullptr);
 
 private:

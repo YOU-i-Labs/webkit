@@ -23,247 +23,70 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// FIXME: CanvasManager lacks advanced multi-target support. (Canvases per-target)
-
-WI.CanvasManager = class CanvasManager extends WI.Object
+WebInspector.CanvasManager = class CanvasManager extends WebInspector.Object
 {
     constructor()
     {
         super();
 
-        WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
+        WebInspector.Frame.addEventListener(WebInspector.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
 
         this._canvasIdentifierMap = new Map;
-        this._shaderProgramIdentifierMap = new Map;
-        this._importedRecordings = new Set;
-    }
 
-    // Target
-
-    initializeTarget(target)
-    {
-        if (target.CanvasAgent)
-            target.CanvasAgent.enable();
-    }
-
-    // Static
-
-    static supportsRecordingAutoCapture()
-    {
-        return window.CanvasAgent && CanvasAgent.setRecordingAutoCaptureFrameCount;
+        if (window.CanvasAgent)
+            CanvasAgent.enable();
     }
 
     // Public
 
-    get importedRecordings() { return this._importedRecordings; }
-
     get canvases()
     {
-        return Array.from(this._canvasIdentifierMap.values());
-    }
-
-    get shaderPrograms()
-    {
-        return Array.from(this._shaderProgramIdentifierMap.values());
-    }
-
-    processJSON({filename, json, error})
-    {
-        if (error) {
-            WI.Recording.synthesizeError(error);
-            return;
-        }
-
-        let recording = WI.Recording.fromPayload(json);
-        if (!recording) {
-            WI.Recording.synthesizeError(WI.UIString("unsupported version."));
-            return;
-        }
-
-        let extensionStart = filename.lastIndexOf(".");
-        if (extensionStart !== -1)
-            filename = filename.substring(0, extensionStart);
-        recording.createDisplayName(filename);
-
-        this._importedRecordings.add(recording);
-
-        this.dispatchEventToListeners(WI.CanvasManager.Event.RecordingImported, {recording, initiatedByUser: true});
-    }
-
-    setRecordingAutoCaptureFrameCount(enabled, count)
-    {
-        console.assert(!isNaN(count) && count >= 0);
-
-        return CanvasAgent.setRecordingAutoCaptureFrameCount(enabled ? count : 0)
-        .then(() => {
-            WI.settings.canvasRecordingAutoCaptureEnabled.value = enabled && count;
-            WI.settings.canvasRecordingAutoCaptureFrameCount.value = count;
-        })
-        .catch((error) => {
-            console.error(error);
-        });
+        return [...this._canvasIdentifierMap.values()];
     }
 
     canvasAdded(canvasPayload)
     {
-        // Called from WI.CanvasObserver.
+        // Called from WebInspector.CanvasObserver.
 
         console.assert(!this._canvasIdentifierMap.has(canvasPayload.canvasId), `Canvas already exists with id ${canvasPayload.canvasId}.`);
 
-        let canvas = WI.Canvas.fromPayload(canvasPayload);
+        let canvas = WebInspector.Canvas.fromPayload(canvasPayload);
         this._canvasIdentifierMap.set(canvas.identifier, canvas);
 
-        this.dispatchEventToListeners(WI.CanvasManager.Event.CanvasAdded, {canvas});
+        this.dispatchEventToListeners(WebInspector.CanvasManager.Event.CanvasWasAdded, {canvas});
     }
 
     canvasRemoved(canvasIdentifier)
     {
-        // Called from WI.CanvasObserver.
+        // Called from WebInspector.CanvasObserver.
 
         let canvas = this._canvasIdentifierMap.take(canvasIdentifier);
         console.assert(canvas);
         if (!canvas)
             return;
 
-        this._removeCanvas(canvas);
-    }
-
-    canvasMemoryChanged(canvasIdentifier, memoryCost)
-    {
-        // Called from WI.CanvasObserver.
-
-        let canvas = this._canvasIdentifierMap.get(canvasIdentifier);
-        console.assert(canvas);
-        if (!canvas)
-            return;
-
-        canvas.memoryCost = memoryCost;
-    }
-
-    cssCanvasClientNodesChanged(canvasIdentifier)
-    {
-        // Called from WI.CanvasObserver.
-
-        let canvas = this._canvasIdentifierMap.get(canvasIdentifier);
-        console.assert(canvas);
-        if (!canvas)
-            return;
-
-        canvas.cssCanvasClientNodesChanged();
-    }
-
-    recordingStarted(canvasIdentifier, initiator)
-    {
-        // Called from WI.CanvasObserver.
-
-        let canvas = this._canvasIdentifierMap.get(canvasIdentifier);
-        console.assert(canvas);
-        if (!canvas)
-            return;
-
-        canvas.recordingStarted(initiator);
-    }
-
-    recordingProgress(canvasIdentifier, framesPayload, bufferUsed)
-    {
-        // Called from WI.CanvasObserver.
-
-        let canvas = this._canvasIdentifierMap.get(canvasIdentifier);
-        console.assert(canvas);
-        if (!canvas)
-            return;
-
-        canvas.recordingProgress(framesPayload, bufferUsed);
-    }
-
-    recordingFinished(canvasIdentifier, recordingPayload)
-    {
-        // Called from WI.CanvasObserver.
-
-        let canvas = this._canvasIdentifierMap.get(canvasIdentifier);
-        console.assert(canvas);
-        if (!canvas)
-            return;
-
-        canvas.recordingFinished(recordingPayload);
-    }
-
-    extensionEnabled(canvasIdentifier, extension)
-    {
-        // Called from WI.CanvasObserver.
-
-        let canvas = this._canvasIdentifierMap.get(canvasIdentifier);
-        console.assert(canvas);
-        if (!canvas)
-            return;
-
-        canvas.enableExtension(extension);
-    }
-
-    programCreated(canvasIdentifier, programIdentifier)
-    {
-        // Called from WI.CanvasObserver.
-
-        let canvas = this._canvasIdentifierMap.get(canvasIdentifier);
-        console.assert(canvas);
-        if (!canvas)
-            return;
-
-        console.assert(!this._shaderProgramIdentifierMap.has(programIdentifier), `ShaderProgram already exists with id ${programIdentifier}.`);
-
-        let program = new WI.ShaderProgram(programIdentifier, canvas);
-        this._shaderProgramIdentifierMap.set(program.identifier, program);
-
-        canvas.shaderProgramCollection.add(program);
-    }
-
-    programDeleted(programIdentifier)
-    {
-        // Called from WI.CanvasObserver.
-
-        let program = this._shaderProgramIdentifierMap.take(programIdentifier);
-        console.assert(program);
-        if (!program)
-            return;
-
-        program.canvas.shaderProgramCollection.remove(program);
+        this.dispatchEventToListeners(WebInspector.CanvasManager.Event.CanvasWasRemoved, {canvas});
     }
 
     // Private
 
-    _removeCanvas(canvas)
-    {
-        for (let program of canvas.shaderProgramCollection)
-            this._shaderProgramIdentifierMap.delete(program.identifier);
-
-        canvas.shaderProgramCollection.clear();
-
-        for (let recording of canvas.recordingCollection) {
-            recording.source = null;
-            recording.createDisplayName(recording.displayName);
-        }
-
-        this.dispatchEventToListeners(WI.CanvasManager.Event.CanvasRemoved, {canvas});
-    }
-
     _mainResourceDidChange(event)
     {
-        console.assert(event.target instanceof WI.Frame);
+        console.assert(event.target instanceof WebInspector.Frame);
         if (!event.target.isMainFrame())
             return;
 
-        WI.Canvas.resetUniqueDisplayNameNumbers();
+        WebInspector.Canvas.resetUniqueDisplayNameNumbers();
 
-        for (let canvas of this._canvasIdentifierMap.values())
-            this._removeCanvas(canvas);
-
-        this._shaderProgramIdentifierMap.clear();
-        this._canvasIdentifierMap.clear();
+        if (this._canvasIdentifierMap.size) {
+            this._canvasIdentifierMap.clear();
+            this.dispatchEventToListeners(WebInspector.CanvasManager.Event.Cleared);
+        }
     }
 };
 
-WI.CanvasManager.Event = {
-    CanvasAdded: "canvas-manager-canvas-was-added",
-    CanvasRemoved: "canvas-manager-canvas-was-removed",
-    RecordingImported: "canvas-manager-recording-imported",
+WebInspector.CanvasManager.Event = {
+    Cleared: "canvas-manager-cleared",
+    CanvasWasAdded: "canvas-manager-canvas-was-added",
+    CanvasWasRemoved: "canvas-manager-canvas-was-removed",
 };

@@ -23,45 +23,50 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.FrameTreeElement = class FrameTreeElement extends WI.ResourceTreeElement
+WebInspector.FrameTreeElement = class FrameTreeElement extends WebInspector.ResourceTreeElement
 {
-    constructor(frame)
+    constructor(frame, representedObject)
     {
-        console.assert(frame instanceof WI.Frame);
+        console.assert(frame instanceof WebInspector.Frame);
 
-        super(frame.mainResource, frame);
+        super(frame.mainResource, representedObject || frame);
 
         this._frame = frame;
 
         this._updateExpandedSetting();
 
-        frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
-        frame.addEventListener(WI.Frame.Event.ResourceWasAdded, this._resourceWasAdded, this);
-        frame.addEventListener(WI.Frame.Event.ResourceWasRemoved, this._resourceWasRemoved, this);
-        frame.addEventListener(WI.Frame.Event.ExtraScriptAdded, this._extraScriptAdded, this);
-        frame.addEventListener(WI.Frame.Event.ChildFrameWasAdded, this._childFrameWasAdded, this);
-        frame.addEventListener(WI.Frame.Event.ChildFrameWasRemoved, this._childFrameWasRemoved, this);
+        frame.addEventListener(WebInspector.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
+        frame.addEventListener(WebInspector.Frame.Event.ResourceWasAdded, this._resourceWasAdded, this);
+        frame.addEventListener(WebInspector.Frame.Event.ResourceWasRemoved, this._resourceWasRemoved, this);
+        frame.addEventListener(WebInspector.Frame.Event.ExtraScriptAdded, this._extraScriptAdded, this);
+        frame.addEventListener(WebInspector.Frame.Event.ChildFrameWasAdded, this._childFrameWasAdded, this);
+        frame.addEventListener(WebInspector.Frame.Event.ChildFrameWasRemoved, this._childFrameWasRemoved, this);
+
+        frame.domTree.addEventListener(WebInspector.DOMTree.Event.ContentFlowWasAdded, this._childContentFlowWasAdded, this);
+        frame.domTree.addEventListener(WebInspector.DOMTree.Event.ContentFlowWasRemoved, this._childContentFlowWasRemoved, this);
+        frame.domTree.addEventListener(WebInspector.DOMTree.Event.RootDOMNodeInvalidated, this._rootDOMNodeInvalidated, this);
 
         this.shouldRefreshChildren = true;
         this.folderSettingsKey = this._frame.url.hash;
 
-        this.registerFolderizeSettings("frames", WI.UIString("Frames"), this._frame.childFrameCollection, WI.FrameTreeElement);
-        this.registerFolderizeSettings("extra-scripts", WI.UIString("Extra Scripts"), this._frame.extraScriptCollection, WI.ScriptTreeElement);
+        this.registerFolderizeSettings("frames", WebInspector.UIString("Frames"), this._frame.childFrameCollection, WebInspector.FrameTreeElement);
+        this.registerFolderizeSettings("flows", WebInspector.UIString("Flows"), this._frame.domTree.contentFlowCollection, WebInspector.ContentFlowTreeElement);
+        this.registerFolderizeSettings("extra-scripts", WebInspector.UIString("Extra Scripts"), this._frame.extraScriptCollection, WebInspector.ScriptTreeElement);
 
         function forwardingConstructor(representedObject, ...extraArguments) {
-            if (representedObject instanceof WI.CSSStyleSheet)
-                return new WI.CSSStyleSheetTreeElement(representedObject, ...extraArguments);
-            return new WI.ResourceTreeElement(representedObject, ...extraArguments);
+            if (representedObject instanceof WebInspector.CSSStyleSheet)
+                return new WebInspector.CSSStyleSheetTreeElement(representedObject, ...extraArguments);
+            return new WebInspector.ResourceTreeElement(representedObject, ...extraArguments);
         }
 
-        for (let [key, value] of Object.entries(WI.Resource.Type)) {
-            let folderName = WI.Resource.displayNameForType(value, true);
+        for (let [key, value] of Object.entries(WebInspector.Resource.Type)) {
+            let folderName = WebInspector.Resource.displayNameForType(value, true);
 
             let treeElementConstructor = forwardingConstructor;
-            if (value === WI.Resource.Type.WebSocket)
-                treeElementConstructor = WI.WebSocketResourceTreeElement;
+            if (value === WebInspector.Resource.Type.WebSocket)
+                treeElementConstructor = WebInspector.WebSocketResourceTreeElement;
 
-            this.registerFolderizeSettings(key, folderName, this._frame.resourceCollectionForType(value), treeElementConstructor);
+            this.registerFolderizeSettings(key, folderName, this._frame.resourceCollectionForType(value), forwardingConstructor);
         }
 
         this.updateParentStatus();
@@ -113,14 +118,14 @@ WI.FrameTreeElement = class FrameTreeElement extends WI.ResourceTreeElement
     onattach()
     {
         // Immediate superclasses are skipped, since Frames handle their own SourceMapResources.
-        WI.GeneralTreeElement.prototype.onattach.call(this);
+        WebInspector.GeneralTreeElement.prototype.onattach.call(this);
 
-        WI.cssManager.addEventListener(WI.CSSManager.Event.StyleSheetAdded, this._styleSheetAdded, this);
+        WebInspector.cssStyleManager.addEventListener(WebInspector.CSSStyleManager.Event.StyleSheetAdded, this._styleSheetAdded, this);
     }
 
     ondetach()
     {
-        WI.cssManager.removeEventListener(WI.CSSManager.Event.StyleSheetAdded, this._styleSheetAdded, this);
+        WebInspector.cssStyleManager.removeEventListener(WebInspector.CSSStyleManager.Event.StyleSheetAdded, this._styleSheetAdded, this);
 
         super.ondetach();
     }
@@ -132,11 +137,11 @@ WI.FrameTreeElement = class FrameTreeElement extends WI.ResourceTreeElement
         if (a === b)
             return 0;
 
-        var aIsResource = a instanceof WI.ResourceTreeElement;
-        var bIsResource = b instanceof WI.ResourceTreeElement;
+        var aIsResource = a instanceof WebInspector.ResourceTreeElement;
+        var bIsResource = b instanceof WebInspector.ResourceTreeElement;
 
         if (aIsResource && bIsResource)
-            return WI.ResourceTreeElement.compareResourceTreeElements(a, b);
+            return WebInspector.ResourceTreeElement.compareResourceTreeElements(a, b);
 
         if (!aIsResource && !bIsResource) {
             // When both components are not resources then default to base class comparison.
@@ -160,10 +165,10 @@ WI.FrameTreeElement = class FrameTreeElement extends WI.ResourceTreeElement
         this.updateParentStatus();
         this.prepareToPopulate();
 
-        for (let frame of this._frame.childFrameCollection)
+        for (let frame of this._frame.childFrameCollection.items)
             this.addChildForRepresentedObject(frame);
 
-        for (let resource of this._frame.resourceCollection)
+        for (let resource of this._frame.resourceCollection.items)
             this.addChildForRepresentedObject(resource);
 
         var sourceMaps = this.resource && this.resource.sourceMaps;
@@ -173,18 +178,22 @@ WI.FrameTreeElement = class FrameTreeElement extends WI.ResourceTreeElement
                 this.addChildForRepresentedObject(sourceMap.resources[j]);
         }
 
-        for (let extraScript of this._frame.extraScriptCollection) {
+        for (let contentFlow of this._frame.domTree.contentFlowCollection.items)
+            this.addChildForRepresentedObject(contentFlow);
+
+        for (let extraScript of this._frame.extraScriptCollection.items) {
             if (extraScript.sourceURL || extraScript.sourceMappingURL)
                 this.addChildForRepresentedObject(extraScript);
         }
 
         const doNotCreateIfMissing = true;
-        WI.cssManager.preferredInspectorStyleSheetForFrame(this._frame, this.addRepresentedObjectToNewChildQueue.bind(this), doNotCreateIfMissing);
+        WebInspector.cssStyleManager.preferredInspectorStyleSheetForFrame(this._frame, this.addRepresentedObjectToNewChildQueue.bind(this), doNotCreateIfMissing);
     }
 
     onexpand()
     {
         this._expandedSetting.value = true;
+        this._frame.domTree.requestContentFlowList();
     }
 
     oncollapse()
@@ -195,21 +204,11 @@ WI.FrameTreeElement = class FrameTreeElement extends WI.ResourceTreeElement
             this._expandedSetting.value = false;
     }
 
-    // Protected
-
-    get mainTitleText()
-    {
-        // We can't assume that `this._frame` exists since this may be called before that is set.
-        if (this.resource.parentFrame.name)
-            return WI.UIString("%s (%s)").format(this.resource.parentFrame.name, super.mainTitleText);
-        return super.mainTitleText;
-    }
-
     // Private
 
     _updateExpandedSetting()
     {
-        this._expandedSetting = new WI.Setting("frame-expanded-" + this._frame.url.hash, this._frame.isMainFrame() ? true : false);
+        this._expandedSetting = new WebInspector.Setting("frame-expanded-" + this._frame.url.hash, this._frame.isMainFrame() ? true : false);
         if (this._expandedSetting.value)
             this.expand();
         else
@@ -255,6 +254,22 @@ WI.FrameTreeElement = class FrameTreeElement extends WI.ResourceTreeElement
     _childFrameWasRemoved(event)
     {
         this.removeChildForRepresentedObject(event.data.childFrame);
+    }
+
+    _childContentFlowWasAdded(event)
+    {
+        this.addRepresentedObjectToNewChildQueue(event.data.flow);
+    }
+
+    _childContentFlowWasRemoved(event)
+    {
+        this.removeChildForRepresentedObject(event.data.flow);
+    }
+
+    _rootDOMNodeInvalidated()
+    {
+        if (this.expanded)
+            this._frame.domTree.requestContentFlowList();
     }
 
     _styleSheetAdded(event)

@@ -18,7 +18,8 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#pragma once
+#ifndef PlatformPathCairo_h
+#define PlatformPathCairo_h
 
 #if USE(CAIRO)
 
@@ -30,14 +31,17 @@ namespace WebCore {
 class CairoPath {
 public:
     CairoPath();
-    ~CairoPath() = default;
 
-    cairo_t* context() { return m_context.get(); }
+    ~CairoPath() {}
+
+    cairo_t* context() { return m_cr.get(); }
 
 private:
-    RefPtr<cairo_t> m_context;
+    RefPtr<cairo_t> m_cr;
 };
 
 } // namespace WebCore
 
 #endif // USE(CAIRO)
+
+#endif // PlatformPathCairo_h

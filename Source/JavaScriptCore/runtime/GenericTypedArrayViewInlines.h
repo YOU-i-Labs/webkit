@@ -39,53 +39,25 @@ GenericTypedArrayView<Adaptor>::GenericTypedArrayView(
 }
 
 template<typename Adaptor>
-Ref<GenericTypedArrayView<Adaptor>> GenericTypedArrayView<Adaptor>::create(unsigned length)
-{
-    auto result = tryCreate(length);
-    RELEASE_ASSERT(result);
-    return result.releaseNonNull();
-}
-
-template<typename Adaptor>
-Ref<GenericTypedArrayView<Adaptor>> GenericTypedArrayView<Adaptor>::create(
-    const typename Adaptor::Type* array, unsigned length)
-{
-    auto result = tryCreate(array, length);
-    RELEASE_ASSERT(result);
-    return result.releaseNonNull();
-}
-
-template<typename Adaptor>
-Ref<GenericTypedArrayView<Adaptor>> GenericTypedArrayView<Adaptor>::create(
-    RefPtr<ArrayBuffer>&& buffer, unsigned byteOffset, unsigned length)
-{
-    auto result = tryCreate(WTFMove(buffer), byteOffset, length);
-    RELEASE_ASSERT(result);
-    return result.releaseNonNull();
-}
-
-template<typename Adaptor>
-RefPtr<GenericTypedArrayView<Adaptor>> GenericTypedArrayView<Adaptor>::tryCreate(unsigned length)
+RefPtr<GenericTypedArrayView<Adaptor>> GenericTypedArrayView<Adaptor>::create(unsigned length)
 {
     auto buffer = ArrayBuffer::tryCreate(length, sizeof(typename Adaptor::Type));
     if (!buffer)
         return nullptr;
-    return tryCreate(WTFMove(buffer), 0, length);
+    return create(WTFMove(buffer), 0, length);
 }
 
 template<typename Adaptor>
-RefPtr<GenericTypedArrayView<Adaptor>> GenericTypedArrayView<Adaptor>::tryCreate(
+RefPtr<GenericTypedArrayView<Adaptor>> GenericTypedArrayView<Adaptor>::create(
     const typename Adaptor::Type* array, unsigned length)
 {
-    RefPtr<GenericTypedArrayView> result = tryCreate(length);
-    if (!result)
-        return nullptr;
+    RefPtr<GenericTypedArrayView> result = create(length);
     memcpy(result->data(), array, length * sizeof(typename Adaptor::Type));
     return result;
 }
 
 template<typename Adaptor>
-RefPtr<GenericTypedArrayView<Adaptor>> GenericTypedArrayView<Adaptor>::tryCreate(
+RefPtr<GenericTypedArrayView<Adaptor>> GenericTypedArrayView<Adaptor>::create(
     RefPtr<ArrayBuffer>&& buffer, unsigned byteOffset, unsigned length)
 {
     ASSERT(buffer);
@@ -98,23 +70,14 @@ RefPtr<GenericTypedArrayView<Adaptor>> GenericTypedArrayView<Adaptor>::tryCreate
 }
 
 template<typename Adaptor>
-Ref<GenericTypedArrayView<Adaptor>>
-GenericTypedArrayView<Adaptor>::createUninitialized(unsigned length)
-{
-    auto result = tryCreateUninitialized(length);
-    RELEASE_ASSERT(result);
-    return result.releaseNonNull();
-}
-
-template<typename Adaptor>
 RefPtr<GenericTypedArrayView<Adaptor>>
-GenericTypedArrayView<Adaptor>::tryCreateUninitialized(unsigned length)
+GenericTypedArrayView<Adaptor>::createUninitialized(unsigned length)
 {
     RefPtr<ArrayBuffer> buffer =
         ArrayBuffer::tryCreateUninitialized(length, sizeof(typename Adaptor::Type));
     if (!buffer)
         return nullptr;
-    return tryCreate(WTFMove(buffer), 0, length);
+    return create(WTFMove(buffer), 0, length);
 }
 
 template<typename Adaptor>
@@ -133,7 +96,7 @@ GenericTypedArrayView<Adaptor>::subarray(int start, int end) const
     ArrayBuffer* buffer = possiblySharedBuffer();
     ASSERT(buffer);
     clampOffsetAndNumElements<Adaptor::Type>(*buffer, byteOffset(), &offset, &length);
-    return tryCreate(buffer, offset, length);
+    return create(buffer, offset, length);
 }
 
 template<typename Adaptor>

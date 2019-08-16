@@ -35,7 +35,7 @@
 ] interface RTCTrackEvent : Event {
     readonly attribute RTCRtpReceiver receiver;
     readonly attribute MediaStreamTrack track;
-    [CachedAttribute, SameObject] readonly attribute FrozenArray<MediaStream> streams;
+    readonly attribute FrozenArray<MediaStream> streams;
     readonly attribute RTCRtpTransceiver transceiver;
 };
 

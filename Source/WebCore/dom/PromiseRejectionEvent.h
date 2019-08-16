@@ -26,36 +26,35 @@
 #pragma once
 
 #include "Event.h"
-#include "JSValueInWrappedObject.h"
+#include "JSDOMPromise.h"
+#include <heap/Strong.h>
 
 namespace WebCore {
-
-class DOMPromise;
 
 class PromiseRejectionEvent final : public Event {
 public:
     struct Init : EventInit {
-        RefPtr<DOMPromise> promise;
+        JSC::JSPromise* promise;
         JSC::JSValue reason;
     };
 
-    static Ref<PromiseRejectionEvent> create(const AtomicString& type, const Init& initializer, IsTrusted isTrusted = IsTrusted::No)
+    static Ref<PromiseRejectionEvent> create(JSC::ExecState& state, const AtomicString& type, const Init& initializer, IsTrusted isTrusted = IsTrusted::No)
     {
-        return adoptRef(*new PromiseRejectionEvent(type, initializer, isTrusted));
+        return adoptRef(*new PromiseRejectionEvent(state, type, initializer, isTrusted));
     }
 
     virtual ~PromiseRejectionEvent();
 
-    DOMPromise& promise() const { return m_promise.get(); }
-    const JSValueInWrappedObject& reason() const { return m_reason; }
+    JSC::JSPromise& promise() const { return *m_promise.get(); }
+    JSC::JSValue reason() const { return m_reason.get(); }
 
     EventInterface eventInterface() const override { return PromiseRejectionEventInterfaceType; }
 
 private:
-    PromiseRejectionEvent(const AtomicString&, const Init&, IsTrusted);
+    PromiseRejectionEvent(JSC::ExecState&, const AtomicString&, const Init&, IsTrusted);
 
-    Ref<DOMPromise> m_promise;
-    JSValueInWrappedObject m_reason;
+    JSC::Strong<JSC::JSPromise> m_promise;
+    JSC::Strong<JSC::Unknown> m_reason;
 };
 
 } // namespace WebCore

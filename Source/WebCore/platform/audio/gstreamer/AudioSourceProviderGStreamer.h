@@ -23,36 +23,18 @@
 
 #include "AudioSourceProvider.h"
 #include "GRefPtrGStreamer.h"
-#include "MainThreadNotifier.h"
 #include <gst/gst.h>
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
-
-#if ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC)
-#include "GStreamerAudioStreamDescription.h"
-#include "MediaStreamTrackPrivate.h"
-#include "WebAudioSourceProvider.h"
-#endif
 
 typedef struct _GstAdapter GstAdapter;
 typedef struct _GstAppSink GstAppSink;
 
 namespace WebCore {
 
-#if ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC)
-class AudioSourceProviderGStreamer final : public WebAudioSourceProvider {
-public:
-    static Ref<AudioSourceProviderGStreamer> create(MediaStreamTrackPrivate& source)
-    {
-        return adoptRef(*new AudioSourceProviderGStreamer(source));
-    }
-    AudioSourceProviderGStreamer(MediaStreamTrackPrivate&);
-#else
 class AudioSourceProviderGStreamer : public AudioSourceProvider {
     WTF_MAKE_NONCOPYABLE(AudioSourceProviderGStreamer);
 public:
-#endif
-
     AudioSourceProviderGStreamer();
     ~AudioSourceProviderGStreamer();
 
@@ -71,11 +53,6 @@ public:
     void clearAdapters();
 
 private:
-    GRefPtr<GstElement> m_pipeline;
-    enum MainThreadNotification {
-        DeinterleavePadsConfigured = 1 << 0,
-    };
-    Ref<MainThreadNotifier<MainThreadNotification>> m_notifier;
     GRefPtr<GstElement> m_audioSinkBin;
     AudioSourceProviderClient* m_client;
     int m_deinterleaveSourcePads;
@@ -84,7 +61,7 @@ private:
     unsigned long m_deinterleavePadAddedHandlerId;
     unsigned long m_deinterleaveNoMorePadsHandlerId;
     unsigned long m_deinterleavePadRemovedHandlerId;
-    Lock m_adapterMutex;
+    GMutex m_adapterMutex;
 };
 
 }

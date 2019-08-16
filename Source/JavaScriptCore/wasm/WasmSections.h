@@ -27,13 +27,14 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#if ASSERT_DISABLED
-IGNORE_RETURN_TYPE_WARNINGS_BEGIN
-#endif
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreturn-type"
+#endif // COMPILER(GCC) && ASSERT_DISABLED
 
 namespace JSC { namespace Wasm {
 
-#define FOR_EACH_KNOWN_WASM_SECTION(macro) \
+#define FOR_EACH_WASM_SECTION(macro) \
     macro(Type,     1, "Function signature declarations") \
     macro(Import,   2, "Import declarations") \
     macro(Function, 3, "Function declarations") \
@@ -47,58 +48,38 @@ namespace JSC { namespace Wasm {
     macro(Data,    11, "Data segments")
 
 enum class Section : uint8_t {
-    // It's important that Begin is less than every other section number and that Custom is greater.
-    // This only works because section numbers are currently monotonically increasing.
-    // Also, Begin is not a real section but is used as a marker for validating the ordering
-    // of sections.
-    Begin = 0,
 #define DEFINE_WASM_SECTION_ENUM(NAME, ID, DESCRIPTION) NAME = ID,
-    FOR_EACH_KNOWN_WASM_SECTION(DEFINE_WASM_SECTION_ENUM)
+    FOR_EACH_WASM_SECTION(DEFINE_WASM_SECTION_ENUM)
 #undef DEFINE_WASM_SECTION_ENUM
     Custom
 };
-static_assert(static_cast<uint8_t>(Section::Begin) < static_cast<uint8_t>(Section::Type), "Begin should come before the first known section.");
 
 template<typename Int>
-inline bool isKnownSection(Int section)
+static inline bool isValidSection(Int section)
 {
     switch (section) {
 #define VALIDATE_SECTION(NAME, ID, DESCRIPTION) case static_cast<Int>(Section::NAME): return true;
-        FOR_EACH_KNOWN_WASM_SECTION(VALIDATE_SECTION)
+        FOR_EACH_WASM_SECTION(VALIDATE_SECTION)
 #undef VALIDATE_SECTION
     default:
         return false;
     }
 }
 
-inline bool decodeSection(uint8_t sectionByte, Section& section)
+static inline bool validateOrder(Section previous, Section next)
 {
-    section = Section::Custom;
-    if (!sectionByte)
+    if (previous == Section::Custom)
         return true;
-
-    if (!isKnownSection(sectionByte))
-        return false;
-
-    section = static_cast<Section>(sectionByte);
-    return true;
+    return static_cast<uint8_t>(previous) < static_cast<uint8_t>(next);
 }
 
-inline bool validateOrder(Section previousKnown, Section next)
-{
-    ASSERT(isKnownSection(previousKnown) || previousKnown == Section::Begin);
-    return static_cast<uint8_t>(previousKnown) < static_cast<uint8_t>(next);
-}
-
-inline const char* makeString(Section section)
+static inline const char* makeString(Section section)
 {
     switch (section) {
-    case Section::Begin:
-        return "Begin";
     case Section::Custom:
         return "Custom";
 #define STRINGIFY_SECTION_NAME(NAME, ID, DESCRIPTION) case Section::NAME: return #NAME;
-        FOR_EACH_KNOWN_WASM_SECTION(STRINGIFY_SECTION_NAME)
+        FOR_EACH_WASM_SECTION(STRINGIFY_SECTION_NAME)
 #undef STRINGIFY_SECTION_NAME
     }
     ASSERT_NOT_REACHED();
@@ -106,8 +87,8 @@ inline const char* makeString(Section section)
 
 } } // namespace JSC::Wasm
 
-#if ASSERT_DISABLED
-IGNORE_RETURN_TYPE_WARNINGS_END
-#endif
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic pop
+#endif // COMPILER(GCC) && ASSERT_DISABLED
 
 #endif // ENABLE(WEBASSEMBLY)

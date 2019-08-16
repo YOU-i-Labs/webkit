@@ -31,6 +31,7 @@
 #include "Database.h"
 #include "DatabaseManager.h"
 #include "Document.h"
+#include "ExceptionCode.h"
 #include "SecurityOrigin.h"
 
 namespace WebCore {
@@ -41,15 +42,13 @@ ExceptionOr<RefPtr<Database>> DOMWindowWebDatabase::openDatabase(DOMWindow& wind
         return RefPtr<Database> { nullptr };
     auto& manager = DatabaseManager::singleton();
     if (!manager.isAvailable())
-        return Exception { SecurityError };
+        return Exception { SECURITY_ERR };
     auto* document = window.document();
     if (!document)
-        return Exception { SecurityError };
-    document->addConsoleMessage(MessageSource::Storage, MessageLevel::Warning, "Web SQL is deprecated. Please use IndexedDB instead.");
-
+        return Exception { SECURITY_ERR };
     auto& securityOrigin = document->securityOrigin();
     if (!securityOrigin.canAccessDatabase(document->topOrigin()))
-        return Exception { SecurityError };
+        return Exception { SECURITY_ERR };
     auto result = manager.openDatabase(*window.document(), name, version, displayName, estimatedSize, WTFMove(creationCallback));
     if (result.hasException()) {
         // FIXME: To preserve our past behavior, this discards the error string in the exception.

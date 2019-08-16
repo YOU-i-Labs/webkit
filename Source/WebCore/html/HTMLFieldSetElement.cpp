@@ -26,20 +26,15 @@
 #include "HTMLFieldSetElement.h"
 
 #include "ElementIterator.h"
-#include "GenericCachedHTMLCollection.h"
 #include "HTMLFormControlsCollection.h"
 #include "HTMLLegendElement.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "NodeRareData.h"
 #include "RenderElement.h"
-#include "ScriptDisallowedScope.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLFieldSetElement);
 
 using namespace HTMLNames;
 
@@ -62,7 +57,7 @@ Ref<HTMLFieldSetElement> HTMLFieldSetElement::create(const QualifiedName& tagNam
 
 static void updateFromControlElementsAncestorDisabledStateUnder(HTMLElement& startNode, bool isDisabled)
 {
-    RefPtr<HTMLFormControlElement> control;
+    HTMLFormControlElement* control;
     if (is<HTMLFormControlElement>(startNode))
         control = &downcast<HTMLFormControlElement>(startNode);
     else
@@ -101,7 +96,7 @@ void HTMLFieldSetElement::disabledStateChanged()
 
     bool thisFieldsetIsDisabled = hasAttributeWithoutSynchronization(disabledAttr);
     bool hasSeenFirstLegendElement = false;
-    for (RefPtr<HTMLElement> control = Traversal<HTMLElement>::firstChild(*this); control; control = Traversal<HTMLElement>::nextSibling(*control)) {
+    for (HTMLElement* control = Traversal<HTMLElement>::firstChild(*this); control; control = Traversal<HTMLElement>::nextSibling(*control)) {
         if (!hasSeenFirstLegendElement && is<HTMLLegendElement>(*control)) {
             hasSeenFirstLegendElement = true;
             updateFromControlElementsAncestorDisabledStateUnder(*control, false /* isDisabled */);
@@ -117,7 +112,7 @@ void HTMLFieldSetElement::childrenChanged(const ChildChange& change)
     if (!hasAttributeWithoutSynchronization(disabledAttr))
         return;
 
-    RefPtr<HTMLLegendElement> legend = Traversal<HTMLLegendElement>::firstChild(*this);
+    HTMLLegendElement* legend = Traversal<HTMLLegendElement>::firstChild(*this);
     if (!legend)
         return;
 
@@ -168,9 +163,48 @@ HTMLLegendElement* HTMLFieldSetElement::legend() const
     return const_cast<HTMLLegendElement*>(childrenOfType<HTMLLegendElement>(*this).first());
 }
 
-Ref<HTMLCollection> HTMLFieldSetElement::elements()
+Ref<HTMLFormControlsCollection> HTMLFieldSetElement::elements()
 {
-    return ensureRareData().ensureNodeLists().addCachedCollection<GenericCachedHTMLCollection<CollectionTypeTraits<FieldSetElements>::traversalType>>(*this, FieldSetElements);
+    return ensureRareData().ensureNodeLists().addCachedCollection<HTMLFormControlsCollection>(*this, FormControls);
+}
+
+Ref<HTMLCollection> HTMLFieldSetElement::elementsForNativeBindings()
+{
+    return elements();
+}
+
+void HTMLFieldSetElement::updateAssociatedElements() const
+{
+    uint64_t documentVersion = document().domTreeVersion();
+    if (m_documentVersion == documentVersion)
+        return;
+
+    m_documentVersion = documentVersion;
+
+    m_associatedElements.clear();
+
+    for (auto& element : descendantsOfType<HTMLElement>(const_cast<HTMLFieldSetElement&>(*this))) {
+        if (is<HTMLObjectElement>(element))
+            m_associatedElements.append(&downcast<HTMLObjectElement>(element));
+        else if (is<HTMLFormControlElement>(element))
+            m_associatedElements.append(&downcast<HTMLFormControlElement>(element));
+    }
+}
+
+const Vector<FormAssociatedElement*>& HTMLFieldSetElement::associatedElements() const
+{
+    updateAssociatedElements();
+    return m_associatedElements;
+}
+
+unsigned HTMLFieldSetElement::length() const
+{
+    unsigned length = 0;
+    for (auto* element : associatedElements()) {
+        if (element->isEnumeratable())
+            ++length;
+    }
+    return length;
 }
 
 void HTMLFieldSetElement::addInvalidDescendant(const HTMLFormControlElement& invalidFormControlElement)

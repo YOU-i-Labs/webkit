@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include <wtf/RunLoop.h>
+#include "RunLoop.h"
 
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
@@ -94,7 +94,7 @@ void RunLoop::performWork()
     {
         Function<void ()> function;
         {
-            auto locker = holdLock(m_functionQueueLock);
+            MutexLocker locker(m_functionQueueLock);
             functionsToHandle = m_functionQueue.size();
 
             if (m_functionQueue.isEmpty())
@@ -109,7 +109,7 @@ void RunLoop::performWork()
     for (size_t functionsHandled = 1; functionsHandled < functionsToHandle; ++functionsHandled) {
         Function<void ()> function;
         {
-            auto locker = holdLock(m_functionQueueLock);
+            MutexLocker locker(m_functionQueueLock);
 
             // Even if we start off with N functions to handle and we've only handled less than N functions, the queue
             // still might be empty because those functions might have been handled in an inner RunLoop::performWork().
@@ -127,7 +127,7 @@ void RunLoop::performWork()
 void RunLoop::dispatch(Function<void ()>&& function)
 {
     {
-        auto locker = holdLock(m_functionQueueLock);
+        MutexLocker locker(m_functionQueueLock);
         m_functionQueue.append(WTFMove(function));
     }
 

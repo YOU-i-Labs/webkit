@@ -25,7 +25,6 @@
 
 import os
 import sys
-import subprocess
 
 
 def enumerablePseudoType(stringPseudoType):
@@ -94,10 +93,12 @@ output_file.write("""
 
 #include "CSSParserSelector.h"
 
-IGNORE_WARNINGS_BEGIN("implicit-fallthrough")
-
-// Older versions of gperf like to use the `register` keyword.
-#define register
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunknown-pragmas"
+#pragma clang diagnostic ignored "-Wdeprecated-register"
+#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
+#endif
 
 namespace WebCore {
 
@@ -199,7 +200,9 @@ PseudoClassOrCompatibilityPseudoElement parsePseudoClassAndCompatibilityElementS
 
 } // namespace WebCore
 
-IGNORE_WARNINGS_END
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 """)
 output_file.close()
@@ -208,6 +211,7 @@ gperf_command = sys.argv[2]
 if 'GPERF' in os.environ:
     gperf_command = os.environ['GPERF']
 
-if subprocess.call([gperf_command, '--key-positions=*', '-m', '10', '-s', '2', 'SelectorPseudoClassAndCompatibilityElementMap.gperf', '--output-file=SelectorPseudoClassAndCompatibilityElementMap.cpp']) != 0:
+gperf_return = os.system("%s --key-positions=\"*\" -m 10 -s 2 SelectorPseudoClassAndCompatibilityElementMap.gperf --output-file=SelectorPseudoClassAndCompatibilityElementMap.cpp" % gperf_command)
+if gperf_return != 0:
     print("Error when generating SelectorPseudoClassAndCompatibilityElementMap.cpp from SelectorPseudoClassAndCompatibilityElementMap.gperf :(")
     sys.exit(gperf_return)

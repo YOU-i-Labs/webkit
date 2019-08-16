@@ -23,11 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPanel
+WebInspector.SearchSidebarPanel = class SearchSidebarPanel extends WebInspector.NavigationSidebarPanel
 {
-    constructor()
+    constructor(contentBrowser)
     {
-        super("search", WI.UIString("Search"), true, true);
+        super("search", WebInspector.UIString("Search"), true, true);
+
+        this.contentBrowser = contentBrowser;
 
         var searchElement = document.createElement("div");
         searchElement.classList.add("search-bar");
@@ -40,15 +42,17 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
         this._inputElement.addEventListener("input", this._searchFieldInput.bind(this));
         this._inputElement.setAttribute("results", 5);
         this._inputElement.setAttribute("autosave", "inspector-search-autosave");
-        this._inputElement.setAttribute("placeholder", WI.UIString("Search Resource Content"));
+        this._inputElement.setAttribute("placeholder", WebInspector.UIString("Search Resource Content"));
         searchElement.appendChild(this._inputElement);
 
-        this._searchQuerySetting = new WI.Setting("search-sidebar-query", "");
+        this.filterBar.placeholder = WebInspector.UIString("Filter Search Results");
+
+        this._searchQuerySetting = new WebInspector.Setting("search-sidebar-query", "");
         this._inputElement.value = this._searchQuerySetting.value;
 
-        WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
+        WebInspector.Frame.addEventListener(WebInspector.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
 
-        this.contentTreeOutline.addEventListener(WI.TreeOutline.Event.SelectionDidChange, this._treeSelectionDidChange, this);
+        this.contentTreeOutline.addEventListener(WebInspector.TreeOutline.Event.SelectionDidChange, this._treeSelectionDidChange, this);
     }
 
     // Public
@@ -57,16 +61,12 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
     {
         super.closed();
 
-        WI.Frame.removeEventListener(null, null, this);
+        WebInspector.Frame.removeEventListener(null, null, this);
     }
 
     focusSearchField(performSearch)
     {
-        if (!this.parentSidebar)
-            return;
-
-        this.parentSidebar.selectedSidebarPanel = this;
-        this.parentSidebar.collapsed = false;
+        this.show();
 
         this._inputElement.select();
 
@@ -101,8 +101,8 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
 
         function createTreeElementForMatchObject(matchObject, parentTreeElement)
         {
-            let matchTreeElement = new WI.SearchResultTreeElement(matchObject);
-            matchTreeElement.addEventListener(WI.TreeElement.Event.DoubleClick, this._treeElementDoubleClick, this);
+            let matchTreeElement = new WebInspector.SearchResultTreeElement(matchObject);
+            matchTreeElement.addEventListener(WebInspector.TreeElement.Event.DoubleClick, this._treeElementDoubleClick, this);
 
             parentTreeElement.appendChild(matchTreeElement);
 
@@ -124,7 +124,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
                 updateEmptyContentPlaceholderTimeout = null;
             }
 
-            this.updateEmptyContentPlaceholder(WI.UIString("No Search Results"));
+            this.updateEmptyContentPlaceholder(WebInspector.UIString("No Search Results"));
         }
 
         function forEachMatch(searchQuery, lineContent, callback)
@@ -149,7 +149,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
                 if (error || !resourceMatches || !resourceMatches.length)
                     return;
 
-                var frame = WI.networkManager.frameForIdentifier(frameId);
+                var frame = WebInspector.frameResourceManager.frameForIdentifier(frameId);
                 if (!frame)
                     return;
 
@@ -162,7 +162,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
                 for (var i = 0; i < resourceMatches.length; ++i) {
                     var match = resourceMatches[i];
                     forEachMatch(searchQuery, match.lineContent, (lineMatch, lastIndex) => {
-                        var matchObject = new WI.SourceCodeSearchMatchObject(resource, match.lineContent, searchQuery, new WI.TextRange(match.lineNumber, lineMatch.index, match.lineNumber, lastIndex));
+                        var matchObject = new WebInspector.SourceCodeSearchMatchObject(resource, match.lineContent, searchQuery, new WebInspector.TextRange(match.lineNumber, lineMatch.index, match.lineNumber, lastIndex));
                         createTreeElementForMatchObject.call(this, matchObject, resourceTreeElement);
                     });
                 }
@@ -170,28 +170,18 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
                 updateEmptyContentPlaceholder.call(this);
             }
 
-            let preventDuplicates = new Set;
-
-            for (let i = 0; i < result.length; ++i) {
-                let searchResult = result[i];
+            for (var i = 0; i < result.length; ++i) {
+                var searchResult = result[i];
                 if (!searchResult.url || !searchResult.frameId)
                     continue;
-
-                // FIXME: Backend sometimes searches files twice.
-                // <https://webkit.org/b/188287> Web Inspector: [Backend] Page.searchInResources sometimes returns duplicate results for a resource
-                // Note we will still want this to fix legacy backends.
-                let key = searchResult.frameId + ":" + searchResult.url;
-                if (preventDuplicates.has(key))
-                    continue;
-                preventDuplicates.add(key);
 
                 // COMPATIBILITY (iOS 9): Page.searchInResources did not have the optional requestId parameter.
                 PageAgent.searchInResource(searchResult.frameId, searchResult.url, searchQuery, isCaseSensitive, isRegex, searchResult.requestId, resourceCallback.bind(this, searchResult.frameId, searchResult.url));
             }
 
             let promises = [
-                WI.Frame.awaitEvent(WI.Frame.Event.ResourceWasAdded),
-                WI.Target.awaitEvent(WI.Target.Event.ResourceAdded)
+                WebInspector.Frame.awaitEvent(WebInspector.Frame.Event.ResourceWasAdded),
+                WebInspector.Target.awaitEvent(WebInspector.Target.Event.ResourceAdded)
             ];
             Promise.race(promises).then(this._contentChanged.bind(this));
         }
@@ -215,7 +205,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
                 for (var i = 0; i < scriptMatches.length; ++i) {
                     var match = scriptMatches[i];
                     forEachMatch(searchQuery, match.lineContent, (lineMatch, lastIndex) => {
-                        var matchObject = new WI.SourceCodeSearchMatchObject(script, match.lineContent, searchQuery, new WI.TextRange(match.lineNumber, lineMatch.index, match.lineNumber, lastIndex));
+                        var matchObject = new WebInspector.SourceCodeSearchMatchObject(script, match.lineContent, searchQuery, new WebInspector.TextRange(match.lineNumber, lineMatch.index, match.lineNumber, lastIndex));
                         createTreeElementForMatchObject.call(this, matchObject, scriptTreeElement);
                     });
                 }
@@ -250,7 +240,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
                     if (this._domSearchIdentifier !== searchId)
                         return;
 
-                    var domNode = WI.domManager.nodeForId(nodeIds[i]);
+                    var domNode = WebInspector.domTreeManager.nodeForId(nodeIds[i]);
                     if (!domNode || !domNode.ownerDocument)
                         continue;
 
@@ -259,24 +249,24 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
                         continue;
 
                     // FIXME: This should use a frame to do resourceForURL, but DOMAgent does not provide a frameId.
-                    var resource = WI.networkManager.resourceForURL(domNode.ownerDocument.documentURL);
+                    var resource = WebInspector.frameResourceManager.resourceForURL(domNode.ownerDocument.documentURL);
                     if (!resource)
                         continue;
 
                     var resourceTreeElement = this._searchTreeElementForResource(resource);
-                    var domNodeTitle = WI.DOMSearchMatchObject.titleForDOMNode(domNode);
+                    var domNodeTitle = WebInspector.DOMSearchMatchObject.titleForDOMNode(domNode);
 
                     // Textual matches.
                     var didFindTextualMatch = false;
                     forEachMatch(searchQuery, domNodeTitle, (lineMatch, lastIndex) => {
-                        var matchObject = new WI.DOMSearchMatchObject(resource, domNode, domNodeTitle, searchQuery, new WI.TextRange(0, lineMatch.index, 0, lastIndex));
+                        var matchObject = new WebInspector.DOMSearchMatchObject(resource, domNode, domNodeTitle, searchQuery, new WebInspector.TextRange(0, lineMatch.index, 0, lastIndex));
                         createTreeElementForMatchObject.call(this, matchObject, resourceTreeElement);
                         didFindTextualMatch = true;
                     });
 
                     // Non-textual matches are CSS Selector or XPath matches. In such cases, display the node entirely highlighted.
                     if (!didFindTextualMatch) {
-                        var matchObject = new WI.DOMSearchMatchObject(resource, domNode, domNodeTitle, domNodeTitle, new WI.TextRange(0, 0, 0, domNodeTitle.length));
+                        var matchObject = new WebInspector.DOMSearchMatchObject(resource, domNode, domNodeTitle, domNodeTitle, new WebInspector.TextRange(0, 0, 0, domNodeTitle.length));
                         createTreeElementForMatchObject.call(this, matchObject, resourceTreeElement);
                     }
 
@@ -288,12 +278,12 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
         }
 
         if (window.DOMAgent)
-            WI.domManager.ensureDocument();
+            WebInspector.domTreeManager.requestDocument(function(){});
 
         if (window.PageAgent)
             PageAgent.searchInResources(searchQuery, isCaseSensitive, isRegex, resourcesCallback.bind(this));
 
-        setTimeout(searchScripts.bind(this, WI.debuggerManager.searchableScripts), 0);
+        setTimeout(searchScripts.bind(this, WebInspector.debuggerManager.searchableScripts), 0);
 
         if (window.DOMAgent) {
             if (this._domSearchIdentifier) {
@@ -328,7 +318,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
     {
         var resourceTreeElement = this.contentTreeOutline.getCachedTreeElement(resource);
         if (!resourceTreeElement) {
-            resourceTreeElement = new WI.ResourceTreeElement(resource);
+            resourceTreeElement = new WebInspector.ResourceTreeElement(resource);
             resourceTreeElement.hasChildren = true;
             resourceTreeElement.expand();
 
@@ -342,7 +332,7 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
     {
         var scriptTreeElement = this.contentTreeOutline.getCachedTreeElement(script);
         if (!scriptTreeElement) {
-            scriptTreeElement = new WI.ScriptTreeElement(script);
+            scriptTreeElement = new WebInspector.ScriptTreeElement(script);
             scriptTreeElement.hasChildren = true;
             scriptTreeElement.expand();
 
@@ -373,31 +363,31 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
 
     _treeSelectionDidChange(event)
     {
-        if (!this.selected)
+        if (!this.visible)
             return;
 
-        let treeElement = this.contentTreeOutline.selectedTreeElement;
-        if (!treeElement || treeElement instanceof WI.FolderTreeElement)
+        let treeElement = event.data.selectedElement;
+        if (!treeElement || treeElement instanceof WebInspector.FolderTreeElement)
             return;
 
         const options = {
             ignoreNetworkTab: true,
         };
 
-        if (treeElement instanceof WI.ResourceTreeElement || treeElement instanceof WI.ScriptTreeElement) {
+        if (treeElement instanceof WebInspector.ResourceTreeElement || treeElement instanceof WebInspector.ScriptTreeElement) {
             const cookie = null;
-            WI.showRepresentedObject(treeElement.representedObject, cookie, options);
+            WebInspector.showRepresentedObject(treeElement.representedObject, cookie, options);
             return;
         }
 
-        console.assert(treeElement instanceof WI.SearchResultTreeElement);
-        if (!(treeElement instanceof WI.SearchResultTreeElement))
+        console.assert(treeElement instanceof WebInspector.SearchResultTreeElement);
+        if (!(treeElement instanceof WebInspector.SearchResultTreeElement))
             return;
 
-        if (treeElement.representedObject instanceof WI.DOMSearchMatchObject)
-            WI.showMainFrameDOMTree(treeElement.representedObject.domNode);
-        else if (treeElement.representedObject instanceof WI.SourceCodeSearchMatchObject)
-            WI.showOriginalOrFormattedSourceCodeTextRange(treeElement.representedObject.sourceCodeTextRange, options);
+        if (treeElement.representedObject instanceof WebInspector.DOMSearchMatchObject)
+            WebInspector.showMainFrameDOMTree(treeElement.representedObject.domNode);
+        else if (treeElement.representedObject instanceof WebInspector.SourceCodeSearchMatchObject)
+            WebInspector.showOriginalOrFormattedSourceCodeTextRange(treeElement.representedObject.sourceCodeTextRange, options);
     }
 
     _treeElementDoubleClick(event)
@@ -406,12 +396,12 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
         if (!treeElement)
             return;
 
-        if (treeElement.representedObject instanceof WI.DOMSearchMatchObject) {
-            WI.showMainFrameDOMTree(treeElement.representedObject.domNode, {
+        if (treeElement.representedObject instanceof WebInspector.DOMSearchMatchObject) {
+            WebInspector.showMainFrameDOMTree(treeElement.representedObject.domNode, {
                 ignoreSearchTab: true,
             });
-        } else if (treeElement.representedObject instanceof WI.SourceCodeSearchMatchObject) {
-            WI.showOriginalOrFormattedSourceCodeTextRange(treeElement.representedObject.sourceCodeTextRange, {
+        } else if (treeElement.representedObject instanceof WebInspector.SourceCodeSearchMatchObject) {
+            WebInspector.showOriginalOrFormattedSourceCodeTextRange(treeElement.representedObject.sourceCodeTextRange, {
                 ignoreNetworkTab: true,
                 ignoreSearchTab: true,
             });
@@ -425,10 +415,10 @@ WI.SearchSidebarPanel = class SearchSidebarPanel extends WI.NavigationSidebarPan
         if (!this._changedBanner) {
             this._changedBanner = document.createElement("div");
             this._changedBanner.classList.add("banner");
-            this._changedBanner.append(WI.UIString("The page's content has changed"), document.createElement("br"));
+            this._changedBanner.append(WebInspector.UIString("The page's content has changed"), document.createElement("br"));
 
             let performSearchLink = this._changedBanner.appendChild(document.createElement("a"));
-            performSearchLink.textContent = WI.UIString("Search Again");
+            performSearchLink.textContent = WebInspector.UIString("Search Again");
             performSearchLink.addEventListener("click", () => {
                 const performSearch = true;
                 this.focusSearchField(performSearch);

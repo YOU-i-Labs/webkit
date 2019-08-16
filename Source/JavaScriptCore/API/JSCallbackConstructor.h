@@ -26,20 +26,19 @@
 #ifndef JSCallbackConstructor_h
 #define JSCallbackConstructor_h
 
-#include "JSDestructibleObject.h"
 #include "JSObjectRef.h"
+#include "runtime/JSDestructibleObject.h"
 
 namespace JSC {
 
-class JSCallbackConstructor final : public JSDestructibleObject {
+class JSCallbackConstructor : public JSDestructibleObject {
 public:
     typedef JSDestructibleObject Base;
     static const unsigned StructureFlags = Base::StructureFlags | ImplementsHasInstance | ImplementsDefaultHasInstance;
 
     static JSCallbackConstructor* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, JSClassRef classRef, JSObjectCallAsConstructorCallback callback) 
     {
-        VM& vm = exec->vm();
-        JSCallbackConstructor* constructor = new (NotNull, allocateCell<JSCallbackConstructor>(vm.heap)) JSCallbackConstructor(globalObject, structure, classRef, callback);
+        JSCallbackConstructor* constructor = new (NotNull, allocateCell<JSCallbackConstructor>(*exec->heap())) JSCallbackConstructor(globalObject, structure, classRef, callback);
         constructor->finishCreation(globalObject, classRef);
         return constructor;
     }

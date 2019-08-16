@@ -48,7 +48,6 @@ inline DoubleFormatState mergeDoubleFormatStates(DoubleFormatState a, DoubleForm
         case CantUseDoubleFormat:
             return CantUseDoubleFormat;
         }
-        RELEASE_ASSERT_NOT_REACHED();
     case NotUsingDoubleFormat:
         switch (b) {
         case EmptyDoubleFormatState:
@@ -58,7 +57,6 @@ inline DoubleFormatState mergeDoubleFormatStates(DoubleFormatState a, DoubleForm
         case CantUseDoubleFormat:
             return CantUseDoubleFormat;
         }
-        RELEASE_ASSERT_NOT_REACHED();
     case CantUseDoubleFormat:
         return CantUseDoubleFormat;
     }

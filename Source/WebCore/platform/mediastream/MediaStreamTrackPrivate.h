@@ -36,13 +36,12 @@ class AudioSourceProvider;
 class GraphicsContext;
 class MediaSample;
 class RealtimeMediaSourceCapabilities;
-class WebAudioSourceProvider;
 
 class MediaStreamTrackPrivate : public RefCounted<MediaStreamTrackPrivate>, public RealtimeMediaSource::Observer {
 public:
     class Observer {
     public:
-        virtual ~Observer() = default;
+        virtual ~Observer() { }
 
         virtual void trackStarted(MediaStreamTrackPrivate&) { };
         virtual void trackEnded(MediaStreamTrackPrivate&) = 0;
@@ -50,10 +49,8 @@ public:
         virtual void trackSettingsChanged(MediaStreamTrackPrivate&) = 0;
         virtual void trackEnabledChanged(MediaStreamTrackPrivate&) = 0;
         virtual void sampleBufferUpdated(MediaStreamTrackPrivate&, MediaSample&) { };
+        virtual void audioSamplesAvailable(MediaStreamTrackPrivate&) { };
         virtual void readyStateChanged(MediaStreamTrackPrivate&) { };
-
-        // May get called on a background thread.
-        virtual void audioSamplesAvailable(MediaStreamTrackPrivate&, const MediaTime&, const PlatformAudioData&, const AudioStreamDescription&, size_t) { };
     };
 
     static Ref<MediaStreamTrackPrivate> create(Ref<RealtimeMediaSource>&&);
@@ -66,10 +63,6 @@ public:
 
     bool ended() const { return m_isEnded; }
 
-    enum class HintValue { Empty, Speech, Music, Motion, Detail, Text };
-    HintValue contentHint() const { return m_contentHint; }
-    void setContentHint(HintValue);
-    
     void startProducingData() { m_source->start(); }
     void stopProducingData() { m_source->stop(); }
     bool isProducingData() { return m_source->isProducingData(); }
@@ -106,8 +99,6 @@ public:
     enum class ReadyState { None, Live, Ended };
     ReadyState readyState() const { return m_readyState; }
 
-    void setIdForTesting(String&& id) { m_id = WTFMove(id); }
-
 private:
     MediaStreamTrackPrivate(Ref<RealtimeMediaSource>&&, String&& id);
 
@@ -115,6 +106,7 @@ private:
     void sourceStarted() final;
     void sourceStopped() final;
     void sourceMutedChanged() final;
+    void sourceEnabledChanged() final;
     void sourceSettingsChanged() final;
     bool preventSourceFromStopping() final;
     void videoSampleAvailable(MediaSample&) final;
@@ -122,10 +114,7 @@ private:
 
     void updateReadyState();
 
-    void forEachObserver(const WTF::Function<void(Observer&)>&) const;
-
-    mutable RecursiveLock m_observersLock;
-    HashSet<Observer*> m_observers;
+    Vector<Observer*> m_observers;
     Ref<RealtimeMediaSource> m_source;
 
     String m_id;
@@ -133,8 +122,6 @@ private:
     bool m_isEnabled { true };
     bool m_isEnded { false };
     bool m_haveProducedData { false };
-    HintValue m_contentHint { HintValue::Empty };
-    RefPtr<WebAudioSourceProvider> m_audioSourceProvider;
 };
 
 typedef Vector<RefPtr<MediaStreamTrackPrivate>> MediaStreamTrackPrivateVector;

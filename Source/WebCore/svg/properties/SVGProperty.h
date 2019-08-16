@@ -31,7 +31,7 @@ enum SVGPropertyRole {
 
 class SVGProperty : public RefCounted<SVGProperty> {
 public:
-    virtual ~SVGProperty() = default;
+    virtual ~SVGProperty() { }
 
     virtual bool isReadOnly() const = 0;
     virtual void commitChange() = 0;

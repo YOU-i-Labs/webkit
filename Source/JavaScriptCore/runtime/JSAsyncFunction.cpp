@@ -47,14 +47,14 @@ JSAsyncFunction::JSAsyncFunction(VM& vm, FunctionExecutable* executable, JSScope
 JSAsyncFunction* JSAsyncFunction::createImpl(VM& vm, FunctionExecutable* executable, JSScope* scope, Structure* structure)
 {
     JSAsyncFunction* asyncFunction = new (NotNull, allocateCell<JSAsyncFunction>(vm.heap)) JSAsyncFunction(vm, executable, scope, structure);
-    ASSERT(asyncFunction->structure(vm)->globalObject());
+    ASSERT(asyncFunction->structure()->globalObject());
     asyncFunction->finishCreation(vm);
     return asyncFunction;
 }
 
 JSAsyncFunction* JSAsyncFunction::create(VM& vm, FunctionExecutable* executable, JSScope* scope)
 {
-    JSAsyncFunction* asyncFunction = createImpl(vm, executable, scope, scope->globalObject(vm)->asyncFunctionStructure());
+    JSAsyncFunction* asyncFunction = createImpl(vm, executable, scope, scope->globalObject()->asyncFunctionStructure());
     executable->singletonFunction()->notifyWrite(vm, asyncFunction, "Allocating an async function");
     return asyncFunction;
 }
@@ -68,7 +68,7 @@ JSAsyncFunction* JSAsyncFunction::create(VM& vm, FunctionExecutable* executable,
 
 JSAsyncFunction* JSAsyncFunction::createWithInvalidatedReallocationWatchpoint(VM& vm, FunctionExecutable* executable, JSScope* scope)
 {
-    return createImpl(vm, executable, scope, scope->globalObject(vm)->asyncFunctionStructure());
+    return createImpl(vm, executable, scope, scope->globalObject()->asyncFunctionStructure());
 }
 
 }

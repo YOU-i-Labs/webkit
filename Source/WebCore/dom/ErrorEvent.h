@@ -32,9 +32,8 @@
 #pragma once
 
 #include "Event.h"
-#include "JSValueInWrappedObject.h"
 #include "SerializedScriptValue.h"
-#include <JavaScriptCore/Strong.h>
+#include <heap/Strong.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -54,9 +53,9 @@ public:
         JSC::JSValue error;
     };
 
-    static Ref<ErrorEvent> create(const AtomicString& type, const Init& initializer, IsTrusted isTrusted = IsTrusted::No)
+    static Ref<ErrorEvent> create(JSC::ExecState& state, const AtomicString& type, const Init& initializer, IsTrusted isTrusted = IsTrusted::No)
     {
-        return adoptRef(*new ErrorEvent(type, initializer, isTrusted));
+        return adoptRef(*new ErrorEvent(state, type, initializer, isTrusted));
     }
 
     virtual ~ErrorEvent();
@@ -67,16 +66,13 @@ public:
     unsigned colno() const { return m_columnNumber; }
     JSC::JSValue error(JSC::ExecState&, JSC::JSGlobalObject&);
 
-    const JSValueInWrappedObject& originalError() const { return m_error; }
-    SerializedScriptValue* serializedError() const { return m_serializedError.get(); }
-
     EventInterface eventInterface() const override;
-
-    RefPtr<SerializedScriptValue> trySerializeError(JSC::ExecState&);
 
 private:
     ErrorEvent(const String& message, const String& fileName, unsigned lineNumber, unsigned columnNumber, JSC::Strong<JSC::Unknown> error);
-    ErrorEvent(const AtomicString&, const Init&, IsTrusted);
+    ErrorEvent(JSC::ExecState&, const AtomicString&, const Init&, IsTrusted);
+
+    RefPtr<SerializedScriptValue> trySerializeError(JSC::ExecState&);
 
     bool isErrorEvent() const override;
 
@@ -84,8 +80,8 @@ private:
     String m_fileName;
     unsigned m_lineNumber;
     unsigned m_columnNumber;
-    JSValueInWrappedObject m_error;
-    RefPtr<SerializedScriptValue> m_serializedError;
+    JSC::Strong<JSC::Unknown> m_error;
+    RefPtr<SerializedScriptValue> m_serializedDetail;
     bool m_triedToSerialize { false };
 };
 

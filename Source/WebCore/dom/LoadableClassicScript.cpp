@@ -26,7 +26,6 @@
 #include "config.h"
 #include "LoadableClassicScript.h"
 
-#include "FetchIdioms.h"
 #include "ScriptElement.h"
 #include "ScriptSourceCode.h"
 #include "SubresourceIntegrity.h"
@@ -52,16 +51,16 @@ bool LoadableClassicScript::isLoaded() const
     return m_cachedScript->isLoaded();
 }
 
-Optional<LoadableScript::Error> LoadableClassicScript::error() const
+std::optional<LoadableScript::Error> LoadableClassicScript::error() const
 {
     ASSERT(m_cachedScript);
     if (m_error)
         return m_error;
 
     if (m_cachedScript->errorOccurred())
-        return Error { ErrorType::CachedScript, WTF::nullopt };
+        return Error { ErrorType::CachedScript, std::nullopt };
 
-    return WTF::nullopt;
+    return std::nullopt;
 }
 
 bool LoadableClassicScript::wasCanceled() const
@@ -85,27 +84,18 @@ void LoadableClassicScript::notifyFinished(CachedResource& resource)
         };
     }
 
+#if ENABLE(NOSNIFF)
     if (!m_error && !isScriptAllowedByNosniff(m_cachedScript->response())) {
         m_error = Error {
             ErrorType::Nosniff,
             ConsoleMessage {
                 MessageSource::Security,
                 MessageLevel::Error,
-                makeString("Refused to execute ", m_cachedScript->url().stringCenterEllipsizedToLength(), " as script because \"X-Content-Type: nosniff\" was given and its Content-Type is not a script MIME type.")
+                makeString("Did not load script at '", m_cachedScript->url().stringCenterEllipsizedToLength(), "' because non script MIME types are not allowed when 'X-Content-Type: nosniff' is given.")
             }
         };
     }
-
-    if (!m_error && shouldBlockResponseDueToMIMEType(m_cachedScript->response(), m_cachedScript->options().destination)) {
-        m_error = Error {
-            ErrorType::MIMEType,
-            ConsoleMessage {
-                MessageSource::Security,
-                MessageLevel::Error,
-                makeString("Refused to execute ", m_cachedScript->url().stringCenterEllipsizedToLength(), " as script because ", m_cachedScript->response().mimeType(), " is not a script MIME type.")
-            }
-        };
-    }
+#endif
 
     if (!m_error && !resource.errorOccurred() && !matchIntegrityMetadata(resource, m_integrity)) {
         m_error = Error {
@@ -126,7 +116,7 @@ void LoadableClassicScript::execute(ScriptElement& scriptElement)
 bool LoadableClassicScript::load(Document& document, const URL& sourceURL)
 {
     ASSERT(!m_cachedScript);
-    m_cachedScript = requestScriptWithCache(document, sourceURL, crossOriginMode(), String { m_integrity });
+    m_cachedScript = requestScriptWithCache(document, sourceURL, crossOriginMode());
     if (!m_cachedScript)
         return false;
     m_cachedScript->addClient(*this);

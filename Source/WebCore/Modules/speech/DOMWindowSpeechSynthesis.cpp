@@ -38,11 +38,13 @@
 namespace WebCore {
 
 DOMWindowSpeechSynthesis::DOMWindowSpeechSynthesis(DOMWindow* window)
-    : DOMWindowProperty(window)
+    : DOMWindowProperty(window->frame())
 {
 }
 
-DOMWindowSpeechSynthesis::~DOMWindowSpeechSynthesis() = default;
+DOMWindowSpeechSynthesis::~DOMWindowSpeechSynthesis()
+{
+}
 
 const char* DOMWindowSpeechSynthesis::supplementName()
 {

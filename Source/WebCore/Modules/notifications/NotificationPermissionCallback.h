@@ -27,7 +27,6 @@
 
 #if ENABLE(NOTIFICATIONS)
 
-#include "ActiveDOMCallback.h"
 #include "CallbackResult.h"
 #include "Notification.h"
 #include <wtf/Forward.h>
@@ -35,10 +34,9 @@
 
 namespace WebCore {
 
-class NotificationPermissionCallback : public RefCounted<NotificationPermissionCallback>, public ActiveDOMCallback {
+class NotificationPermissionCallback : public RefCounted<NotificationPermissionCallback> {
 public:
-    using ActiveDOMCallback::ActiveDOMCallback;
-
+    virtual ~NotificationPermissionCallback() { }
     virtual CallbackResult<void> handleEvent(Notification::Permission) = 0;
 };
 

@@ -23,20 +23,37 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.WorkerTarget = class WorkerTarget extends WI.Target
+WebInspector.WorkerTarget = class WorkerTarget extends WebInspector.Target
 {
     constructor(workerId, name, connection)
     {
-        super(workerId, name, WI.Target.Type.Worker, connection);
+        super(workerId, name, WebInspector.Target.Type.Worker, connection);
 
-        const isPageContext = false;
-        this._executionContext = new WI.ExecutionContext(this, WI.RuntimeManager.TopLevelContextExecutionIdentifier, this.displayName, isPageContext, null);
+        WebInspector.frameResourceManager.adoptOrphanedResourcesForTarget(this);
+
+        if (this.RuntimeAgent) {
+            this._executionContext = new WebInspector.ExecutionContext(this, WebInspector.RuntimeManager.TopLevelContextExecutionIdentifier, this.displayName, false, null);
+            this.RuntimeAgent.enable();
+            if (WebInspector.showJavaScriptTypeInformationSetting && WebInspector.showJavaScriptTypeInformationSetting.value)
+                this.RuntimeAgent.enableTypeProfiler();
+            if (WebInspector.enableControlFlowProfilerSetting && WebInspector.enableControlFlowProfilerSetting.value)
+                this.RuntimeAgent.enableControlFlowProfiler();
+        }
+
+        if (this.DebuggerAgent)
+            WebInspector.debuggerManager.initializeTarget(this);
+
+        if (this.ConsoleAgent)
+            this.ConsoleAgent.enable();
+
+        if (this.HeapAgent)
+            this.HeapAgent.enable();
     }
 
     // Protected (Target)
 
     get displayName()
     {
-        return WI.displayNameForURL(this._name);
+        return WebInspector.displayNameForURL(this._name);
     }
 };

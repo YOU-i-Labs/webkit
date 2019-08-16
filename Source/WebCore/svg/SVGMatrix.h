@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "ExceptionCode.h"
 #include "SVGMatrixValue.h"
 #include "SVGPropertyTearOff.h"
 
@@ -39,6 +40,11 @@ public:
     }
 
     static Ref<SVGMatrix> create(const SVGMatrixValue& initialValue = { })
+    {
+        return adoptRef(*new SVGMatrix(initialValue));
+    }
+
+    static Ref<SVGMatrix> create(const SVGMatrixValue* initialValue)
     {
         return adoptRef(*new SVGMatrix(initialValue));
     }
@@ -58,7 +64,7 @@ public:
     ExceptionOr<void> setA(double value)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         propertyReference().setA(value);
         commitChange();
@@ -74,7 +80,7 @@ public:
     ExceptionOr<void> setB(double value)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         propertyReference().setB(value);
         commitChange();
@@ -90,7 +96,7 @@ public:
     ExceptionOr<void> setC(double value)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         propertyReference().setC(value);
         commitChange();
@@ -106,7 +112,7 @@ public:
     ExceptionOr<void> setD(double value)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         propertyReference().setD(value);
         commitChange();
@@ -122,7 +128,7 @@ public:
     ExceptionOr<void> setE(double value)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         propertyReference().setE(value);
         commitChange();
@@ -138,7 +144,7 @@ public:
     ExceptionOr<void> setF(double value)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         propertyReference().setF(value);
         commitChange();
@@ -149,7 +155,7 @@ public:
     ExceptionOr<Ref<SVGMatrix>> multiply(SVGMatrix& secondMatrix)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         auto result = propertyReference().multiply(secondMatrix.propertyReference());
         commitChange();
@@ -160,7 +166,7 @@ public:
     ExceptionOr<Ref<SVGMatrix>> inverse()
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         auto result = propertyReference().inverse();
         if (result.hasException())
@@ -173,7 +179,7 @@ public:
     ExceptionOr<Ref<SVGMatrix>> translate(float x, float y)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         auto result = propertyReference().translate(x, y);        
         commitChange();
@@ -184,7 +190,7 @@ public:
     ExceptionOr<Ref<SVGMatrix>> scale(float scaleFactor)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         auto result = propertyReference().scale(scaleFactor);        
         commitChange();
@@ -195,7 +201,7 @@ public:
     ExceptionOr<Ref<SVGMatrix>> scaleNonUniform(float scaleFactorX, float scaleFactorY)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         auto result = propertyReference().scaleNonUniform(scaleFactorX, scaleFactorY);        
         commitChange();
@@ -206,7 +212,7 @@ public:
     ExceptionOr<Ref<SVGMatrix>> rotate(float angle)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         auto result = propertyReference().rotate(angle);        
         commitChange();
@@ -217,7 +223,7 @@ public:
     ExceptionOr<Ref<SVGMatrix>> rotateFromVector(float x, float y)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         auto result = propertyReference().rotateFromVector(x, y);        
         if (result.hasException())
@@ -230,7 +236,7 @@ public:
     ExceptionOr<Ref<SVGMatrix>> flipX()
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         auto result = propertyReference().flipX();        
         commitChange();
@@ -241,7 +247,7 @@ public:
     ExceptionOr<Ref<SVGMatrix>> flipY()
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         auto result = propertyReference().flipY();        
         commitChange();
@@ -252,7 +258,7 @@ public:
     ExceptionOr<Ref<SVGMatrix>> skewX(float angle)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         auto result = propertyReference().skewX(angle);        
         commitChange();
@@ -263,7 +269,7 @@ public:
     ExceptionOr<Ref<SVGMatrix>> skewY(float angle)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         auto result = propertyReference().skewY(angle);        
         commitChange();

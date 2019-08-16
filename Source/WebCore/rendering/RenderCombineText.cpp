@@ -23,12 +23,9 @@
 
 #include "RenderBlock.h"
 #include "StyleInheritedData.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderCombineText);
 
 const float textCombineMargin = 1.15f; // Allow em + 15% margin
 
@@ -57,7 +54,6 @@ void RenderCombineText::styleDidChange(StyleDifference diff, const RenderStyle* 
     }
 
     m_needsFontUpdate = true;
-    combineTextIfNeeded();
 }
 
 void RenderCombineText::setRenderedText(const String& text)
@@ -65,7 +61,6 @@ void RenderCombineText::setRenderedText(const String& text)
     RenderText::setRenderedText(text);
 
     m_needsFontUpdate = true;
-    combineTextIfNeeded();
 }
 
 float RenderCombineText::width(unsigned from, unsigned length, const FontCascade& font, float xPosition, HashSet<const Font*>* fallbackFonts, GlyphOverflow* glyphOverflow) const
@@ -76,10 +71,10 @@ float RenderCombineText::width(unsigned from, unsigned length, const FontCascade
     return RenderText::width(from, length, font, xPosition, fallbackFonts, glyphOverflow);
 }
 
-Optional<FloatPoint> RenderCombineText::computeTextOrigin(const FloatRect& boxRect) const
+std::optional<FloatPoint> RenderCombineText::computeTextOrigin(const FloatRect& boxRect) const
 {
     if (!m_isCombined)
-        return WTF::nullopt;
+        return std::nullopt;
 
     // Visually center m_combinedTextWidth/Ascent/Descent within boxRect
     FloatPoint result = boxRect.minXMaxYCorner();
@@ -100,7 +95,7 @@ String RenderCombineText::combinedStringForRendering() const
     return { };
 }
 
-void RenderCombineText::combineTextIfNeeded()
+void RenderCombineText::combineText()
 {
     if (!m_needsFontUpdate)
         return;
@@ -122,14 +117,14 @@ void RenderCombineText::combineTextIfNeeded()
 
     FontSelector* fontSelector = style().fontCascade().fontSelector();
 
-    description.setOrientation(FontOrientation::Horizontal); // We are going to draw combined text horizontally.
+    description.setOrientation(Horizontal); // We are going to draw combined text horizontally.
 
-    FontCascade horizontalFont(FontCascadeDescription { description }, style().fontCascade().letterSpacing(), style().fontCascade().wordSpacing());
+    FontCascade horizontalFont(description, style().fontCascade().letterSpacing(), style().fontCascade().wordSpacing());
     horizontalFont.update(fontSelector);
     
     GlyphOverflow glyphOverflow;
     glyphOverflow.computeBounds = true;
-    float combinedTextWidth = width(0, text().length(), horizontalFont, 0, nullptr, &glyphOverflow);
+    float combinedTextWidth = width(0, textLength(), horizontalFont, 0, nullptr, &glyphOverflow);
 
     float bestFitDelta = combinedTextWidth - emWidth;
     auto bestFitDescription = description;
@@ -137,24 +132,24 @@ void RenderCombineText::combineTextIfNeeded()
     m_isCombined = combinedTextWidth <= emWidth;
     
     if (m_isCombined)
-        shouldUpdateFont = m_combineFontStyle->setFontDescription(WTFMove(description)); // Need to change font orientation to horizontal.
+        shouldUpdateFont = m_combineFontStyle->setFontDescription(description); // Need to change font orientation to horizontal.
     else {
         // Need to try compressed glyphs.
-        static const FontWidthVariant widthVariants[] = { FontWidthVariant::HalfWidth, FontWidthVariant::ThirdWidth, FontWidthVariant::QuarterWidth };
+        static const FontWidthVariant widthVariants[] = { HalfWidth, ThirdWidth, QuarterWidth };
         for (auto widthVariant : widthVariants) {
             description.setWidthVariant(widthVariant); // When modifying this, make sure to keep it in sync with FontPlatformData::isForTextCombine()!
 
-            FontCascade compressedFont(FontCascadeDescription { description }, style().fontCascade().letterSpacing(), style().fontCascade().wordSpacing());
+            FontCascade compressedFont(description, style().fontCascade().letterSpacing(), style().fontCascade().wordSpacing());
             compressedFont.update(fontSelector);
             
             glyphOverflow.left = glyphOverflow.top = glyphOverflow.right = glyphOverflow.bottom = 0;
-            float runWidth = RenderText::width(0, text().length(), compressedFont, 0, nullptr, &glyphOverflow);
+            float runWidth = RenderText::width(0, textLength(), compressedFont, 0, nullptr, &glyphOverflow);
             if (runWidth <= emWidth) {
                 combinedTextWidth = runWidth;
                 m_isCombined = true;
 
                 // Replace my font with the new one.
-                shouldUpdateFont = m_combineFontStyle->setFontDescription(WTFMove(description));
+                shouldUpdateFont = m_combineFontStyle->setFontDescription(description);
                 break;
             }
             
@@ -172,13 +167,13 @@ void RenderCombineText::combineTextIfNeeded()
         do {
             float computedSize = originalSize * scaleFactor;
             bestFitDescription.setComputedSize(computedSize);
-            shouldUpdateFont = m_combineFontStyle->setFontDescription(FontCascadeDescription { bestFitDescription });
+            shouldUpdateFont = m_combineFontStyle->setFontDescription(bestFitDescription);
         
-            FontCascade compressedFont(WTFMove(bestFitDescription), style().fontCascade().letterSpacing(), style().fontCascade().wordSpacing());
+            FontCascade compressedFont(bestFitDescription, style().fontCascade().letterSpacing(), style().fontCascade().wordSpacing());
             compressedFont.update(fontSelector);
             
             glyphOverflow.left = glyphOverflow.top = glyphOverflow.right = glyphOverflow.bottom = 0;
-            float runWidth = RenderText::width(0, text().length(), compressedFont, 0, nullptr, &glyphOverflow);
+            float runWidth = RenderText::width(0, textLength(), compressedFont, 0, nullptr, &glyphOverflow);
             if (runWidth <= emWidth) {
                 combinedTextWidth = runWidth;
                 m_isCombined = true;
@@ -197,8 +192,6 @@ void RenderCombineText::combineTextIfNeeded()
         m_combinedTextWidth = combinedTextWidth;
         m_combinedTextAscent = glyphOverflow.top;
         m_combinedTextDescent = glyphOverflow.bottom;
-        m_lineBoxes.dirtyRange(*this, 0, originalText().length(), originalText().length());
-        setNeedsLayout();
     }
 }
 

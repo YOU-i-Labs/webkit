@@ -23,7 +23,9 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef DataURLDecoder_h
+#define DataURLDecoder_h
+
 
 #include <wtf/Function.h>
 #include <wtf/Optional.h>
@@ -36,6 +38,7 @@
 namespace WebCore {
 
 class SharedBuffer;
+class URL;
 
 namespace DataURLDecoder {
 
@@ -46,7 +49,7 @@ struct Result {
     RefPtr<SharedBuffer> data;
 };
 
-using DecodeCompletionHandler = WTF::Function<void (Optional<Result>)>;
+using DecodeCompletionHandler = WTF::Function<void (std::optional<Result>)>;
 struct ScheduleContext {
 #if HAVE(RUNLOOP_TIMER)
     SchedulePairHashSet scheduledPairs;
@@ -58,3 +61,5 @@ void decode(const URL&, const ScheduleContext&, DecodeCompletionHandler&&);
 }
 
 }
+
+#endif

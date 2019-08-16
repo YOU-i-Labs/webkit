@@ -24,7 +24,7 @@
  */
 
 (function() {
-    if (WI.dontLocalizeUserInterface)
+    if (WebInspector.dontLocalizeUserInterface)
         return;
 
     let localizedStringsURL = InspectorFrontendHost.localizedStringsURL();
@@ -33,7 +33,7 @@
         document.write("<script src=\"" + localizedStringsURL + "\"></script>");
 })();
 
-WI.unlocalizedString = function(string)
+WebInspector.unlocalizedString = function(string)
 {
     // Intentionally do nothing, since this is for engineering builds
     // (such as in Debug UI) or in text that is standardized in English.
@@ -41,25 +41,23 @@ WI.unlocalizedString = function(string)
     return string;
 };
 
-WI.UIString = function(string, key, comment)
+WebInspector.UIString = function(string, vararg)
 {
-    if (WI.dontLocalizeUserInterface)
+    if (WebInspector.dontLocalizeUserInterface)
         return string;
 
-    key = key || string;
-
-    if (window.localizedStrings && key in window.localizedStrings)
-        return window.localizedStrings[key];
+    if (window.localizedStrings && string in window.localizedStrings)
+        return window.localizedStrings[string];
 
     if (!window.localizedStrings)
-        console.error(`Attempted to load localized string "${key}" before localizedStrings was initialized.`, comment);
+        console.error(`Attempted to load localized string "${string}" before localizedStrings was initialized.`);
 
     if (!this._missingLocalizedStrings)
         this._missingLocalizedStrings = {};
 
-    if (!(key in this._missingLocalizedStrings)) {
-        console.error(`Localized string "${key}" was not found.`, comment);
-        this._missingLocalizedStrings[key] = true;
+    if (!(string in this._missingLocalizedStrings)) {
+        console.error("Localized string \"" + string + "\" was not found.");
+        this._missingLocalizedStrings[string] = true;
     }
 
     return "LOCALIZED STRING NOT FOUND";

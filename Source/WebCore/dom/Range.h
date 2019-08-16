@@ -25,6 +25,7 @@
 #pragma once
 
 #include "FloatRect.h"
+#include "FragmentScriptingPermission.h"
 #include "IntRect.h"
 #include "RangeBoundaryPoint.h"
 #include <wtf/Forward.h>
@@ -41,7 +42,6 @@ class DocumentFragment;
 class FloatQuad;
 class Node;
 class NodeWithIndex;
-class RenderText;
 class SelectionRect;
 class Text;
 class VisiblePosition;
@@ -84,6 +84,7 @@ public:
     WEBCORE_EXPORT ExceptionOr<void> insertNode(Ref<Node>&&);
     WEBCORE_EXPORT String toString() const;
 
+    String toHTML() const;
     WEBCORE_EXPORT String text() const;
 
     WEBCORE_EXPORT ExceptionOr<Ref<DocumentFragment>> createContextualFragment(const String& html);
@@ -116,14 +117,13 @@ public:
     };
 
     // Not transform-friendly
-    enum class RespectClippingForTextRects { No, Yes };
-    WEBCORE_EXPORT void absoluteTextRects(Vector<IntRect>&, bool useSelectionHeight = false, RangeInFixedPosition* = nullptr, RespectClippingForTextRects = RespectClippingForTextRects::No) const;
+    WEBCORE_EXPORT void absoluteTextRects(Vector<IntRect>&, bool useSelectionHeight = false, RangeInFixedPosition* = nullptr) const;
     WEBCORE_EXPORT IntRect absoluteBoundingBox() const;
 
     // Transform-friendly
     WEBCORE_EXPORT void absoluteTextQuads(Vector<FloatQuad>&, bool useSelectionHeight = false, RangeInFixedPosition* = nullptr) const;
-    WEBCORE_EXPORT FloatRect absoluteBoundingRect(RespectClippingForTextRects = RespectClippingForTextRects::No) const;
-#if PLATFORM(IOS_FAMILY)
+    WEBCORE_EXPORT FloatRect absoluteBoundingRect() const;
+#if PLATFORM(IOS)
     WEBCORE_EXPORT void collectSelectionRects(Vector<SelectionRect>&) const;
     WEBCORE_EXPORT int collectSelectionRectsWithoutUnionInteriorLines(Vector<SelectionRect>&) const;
 #endif
@@ -163,10 +163,8 @@ private:
     ExceptionOr<RefPtr<DocumentFragment>> processContents(ActionType);
 
     enum class CoordinateSpace { Absolute, Client };
-    Vector<FloatRect> borderAndTextRects(CoordinateSpace, RespectClippingForTextRects = RespectClippingForTextRects::No) const;
-    FloatRect boundingRect(CoordinateSpace, RespectClippingForTextRects = RespectClippingForTextRects::No) const;
-
-    Vector<FloatRect> absoluteRectsForRangeInText(Node*, RenderText&, bool useSelectionHeight, bool& isFixed, RespectClippingForTextRects) const;
+    Vector<FloatQuad> borderAndTextQuads(CoordinateSpace) const;
+    FloatRect boundingRect(CoordinateSpace) const;
 
     Ref<Document> m_ownerDocument;
     RangeBoundaryPoint m_start;
@@ -182,9 +180,6 @@ inline bool documentOrderComparator(const Node* a, const Node* b)
 {
     return Range::compareBoundaryPoints(const_cast<Node*>(a), 0, const_cast<Node*>(b), 0).releaseReturnValue() < 0;
 }
-    
-WTF::TextStream& operator<<(WTF::TextStream&, const RangeBoundaryPoint&);
-WTF::TextStream& operator<<(WTF::TextStream&, const Range&);
 
 } // namespace
 

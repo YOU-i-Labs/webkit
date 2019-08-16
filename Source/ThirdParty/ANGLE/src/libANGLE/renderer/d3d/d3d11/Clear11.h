@@ -23,14 +23,6 @@ class Renderer11;
 class RenderTarget11;
 struct ClearParameters;
 
-template <typename T>
-struct RtvDsvClearInfo
-{
-    T r, g, b, a;
-    float z;
-    float c1padding[3];
-};
-
 class Clear11 : angle::NonCopyable
 {
   public:
@@ -38,63 +30,52 @@ class Clear11 : angle::NonCopyable
     ~Clear11();
 
     // Clears the framebuffer with the supplied clear parameters, assumes that the framebuffer is currently applied.
-    gl::Error clearFramebuffer(const gl::Context *context,
-                               const ClearParameters &clearParams,
+    gl::Error clearFramebuffer(const ClearParameters &clearParams,
                                const gl::FramebufferState &fboData);
 
   private:
-    class ShaderManager final : angle::NonCopyable
+    struct MaskedRenderTarget
     {
-      public:
-        ShaderManager();
-        ~ShaderManager();
-        gl::Error getShadersAndLayout(Renderer11 *renderer,
-                                      const INT clearType,
-                                      const uint32_t numRTs,
-                                      const bool hasLayeredLayout,
-                                      const d3d11::InputLayout **il,
-                                      const d3d11::VertexShader **vs,
-                                      const d3d11::GeometryShader **gs,
-                                      const d3d11::PixelShader **ps);
-
-      private:
-        constexpr static size_t kNumShaders = D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT;
-
-        d3d11::InputLayout mIl9;
-        d3d11::LazyShader<ID3D11VertexShader> mVs9;
-        d3d11::LazyShader<ID3D11PixelShader> mPsFloat9;
-        d3d11::LazyShader<ID3D11VertexShader> mVs;
-        d3d11::LazyShader<ID3D11VertexShader> mVsMultiview;
-        d3d11::LazyShader<ID3D11GeometryShader> mGsMultiview;
-        d3d11::LazyShader<ID3D11PixelShader> mPsDepth;
-        std::array<d3d11::LazyShader<ID3D11PixelShader>, kNumShaders> mPsFloat;
-        std::array<d3d11::LazyShader<ID3D11PixelShader>, kNumShaders> mPsUInt;
-        std::array<d3d11::LazyShader<ID3D11PixelShader>, kNumShaders> mPsSInt;
+        bool colorMask[4];
+        RenderTarget11 *renderTarget;
     };
 
-    bool useVertexBuffer() const;
-    gl::Error ensureConstantBufferCreated();
-    gl::Error ensureVertexBufferCreated();
-    gl::Error ensureResourcesInitialized();
+    ID3D11BlendState *getBlendState(const std::vector<MaskedRenderTarget> &rts);
+    ID3D11DepthStencilState *getDepthStencilState(const ClearParameters &clearParams);
+
+    struct ClearShader final : public angle::NonCopyable
+    {
+        ClearShader(DXGI_FORMAT colorType,
+                    const char *inputLayoutName,
+                    const BYTE *vsByteCode,
+                    size_t vsSize,
+                    const char *vsDebugName,
+                    const BYTE *psByteCode,
+                    size_t psSize,
+                    const char *psDebugName);
+        ~ClearShader();
+
+        d3d11::LazyInputLayout *inputLayout;
+        d3d11::LazyShader<ID3D11VertexShader> vertexShader;
+        d3d11::LazyShader<ID3D11PixelShader> pixelShader;
+    };
+
 
     Renderer11 *mRenderer;
-    bool mResourcesInitialized;
 
     // States
-    d3d11::RasterizerState mScissorEnabledRasterizerState;
-    d3d11::RasterizerState mScissorDisabledRasterizerState;
+    angle::ComPtr<ID3D11RasterizerState> mScissorEnabledRasterizerState;
+    angle::ComPtr<ID3D11RasterizerState> mScissorDisabledRasterizerState;
     gl::DepthStencilState mDepthStencilStateKey;
     d3d11::BlendStateKey mBlendStateKey;
 
-    // Shaders and shader resources
-    ShaderManager mShaderManager;
-    d3d11::Buffer mConstantBuffer;
-    d3d11::Buffer mVertexBuffer;
-
-    // Buffer data and draw parameters
-    RtvDsvClearInfo<float> mShaderData;
+    // Shaders and Shader Resources
+    ClearShader *mFloatClearShader;
+    ClearShader *mUintClearShader;
+    ClearShader *mIntClearShader;
+    angle::ComPtr<ID3D11Buffer> mVertexBuffer;
 };
 
-}  // namespace rx
+}
 
 #endif // LIBANGLE_RENDERER_D3D_D3D11_CLEAR11_H_

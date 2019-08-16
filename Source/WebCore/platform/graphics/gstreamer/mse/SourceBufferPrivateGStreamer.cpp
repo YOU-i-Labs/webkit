@@ -38,7 +38,7 @@
 #if ENABLE(MEDIA_SOURCE) && USE(GSTREAMER)
 
 #include "ContentType.h"
-#include "GStreamerCommon.h"
+#include "GStreamerUtilities.h"
 #include "MediaPlayerPrivateGStreamerMSE.h"
 #include "MediaSample.h"
 #include "MediaSourceClientGStreamerMSE.h"
@@ -66,14 +66,14 @@ void SourceBufferPrivateGStreamer::setClient(SourceBufferPrivateClient* client)
     m_sourceBufferPrivateClient = client;
 }
 
-void SourceBufferPrivateGStreamer::append(Vector<unsigned char>&& data)
+void SourceBufferPrivateGStreamer::append(const unsigned char* data, unsigned length)
 {
     ASSERT(m_mediaSource);
 
     if (!m_sourceBufferPrivateClient)
         return;
 
-    if (m_client->append(this, WTFMove(data)))
+    if (m_client->append(this, data, length))
         return;
 
     m_sourceBufferPrivateClient->sourceBufferPrivateAppendComplete(SourceBufferPrivateClient::ReadStreamFailed);
@@ -118,11 +118,6 @@ void SourceBufferPrivateGStreamer::enqueueSample(Ref<MediaSample>&& sample, cons
     m_client->enqueueSample(WTFMove(sample));
 }
 
-void SourceBufferPrivateGStreamer::allSamplesInTrackEnqueued(const AtomicString& trackId)
-{
-    m_client->allSamplesInTrackEnqueued(trackId);
-}
-
 bool SourceBufferPrivateGStreamer::isReadyForMoreSamples(const AtomicString&)
 {
     return m_isReadyForMoreSamples;
@@ -148,6 +143,11 @@ void SourceBufferPrivateGStreamer::setActive(bool isActive)
         m_mediaSource->sourceBufferPrivateDidChangeActiveState(this, isActive);
 }
 
+void SourceBufferPrivateGStreamer::stopAskingForMoreSamples(const AtomicString&)
+{
+    notImplemented();
+}
+
 void SourceBufferPrivateGStreamer::notifyClientWhenReadyForMoreSamples(const AtomicString& trackId)
 {
     ASSERT(WTF::isMainThread());
@@ -171,12 +171,6 @@ void SourceBufferPrivateGStreamer::didReceiveAllPendingSamples()
 {
     if (m_sourceBufferPrivateClient)
         m_sourceBufferPrivateClient->sourceBufferPrivateAppendComplete(SourceBufferPrivateClient::AppendSucceeded);
-}
-
-void SourceBufferPrivateGStreamer::appendParsingFailed()
-{
-    if (m_sourceBufferPrivateClient)
-        m_sourceBufferPrivateClient->sourceBufferPrivateAppendComplete(SourceBufferPrivateClient::ParsingFailed);
 }
 
 }

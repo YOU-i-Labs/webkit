@@ -29,6 +29,7 @@
 
 #include "CSSSelector.h"
 #include "Element.h"
+#include "SpaceSplitString.h"
 #include "StyleRelations.h"
 
 namespace WebCore {
@@ -79,7 +80,7 @@ public:
         { }
 
         const SelectorChecker::Mode resolvingMode;
-        PseudoId pseudoId { PseudoId::None };
+        PseudoId pseudoId { NOPSEUDO };
         RenderScrollbar* scrollbar { nullptr };
         ScrollbarPart scrollbarPart { NoPart };
         const ContainerNode* scope { nullptr };

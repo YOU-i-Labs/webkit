@@ -30,6 +30,7 @@
 #include "ExecutableAllocator.h"
 #include "JSCInlines.h"
 #include "VMInlines.h"
+#include <wtf/StringExtras.h>
 
 namespace JSC {
 

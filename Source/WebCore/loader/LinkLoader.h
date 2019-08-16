@@ -41,34 +41,35 @@
 namespace WebCore {
 
 class Document;
+class URL;
 class LinkPreloadResourceClient;
 
 struct LinkRelAttribute;
 
-class LinkLoader : private CachedResourceClient, public CanMakeWeakPtr<LinkLoader> {
+class LinkLoader : private CachedResourceClient {
 public:
     explicit LinkLoader(LinkLoaderClient&);
     virtual ~LinkLoader();
 
     bool loadLink(const LinkRelAttribute&, const URL&, const String& as, const String& media, const String& type, const String& crossOrigin, Document&);
-    static Optional<CachedResource::Type> resourceTypeFromAsAttribute(const String& as);
+    static std::optional<CachedResource::Type> resourceTypeFromAsAttribute(const String& as);
 
-    enum class MediaAttributeCheck { MediaAttributeEmpty, MediaAttributeNotEmpty, SkipMediaAttributeCheck };
+    enum class MediaAttributeCheck { MediaAttributeEmpty, MediaAttributeNotEmpty };
     static void loadLinksFromHeader(const String& headerValue, const URL& baseURL, Document&, MediaAttributeCheck);
     static bool isSupportedType(CachedResource::Type, const String& mimeType);
 
+    WeakPtr<LinkLoader> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(); }
     void triggerEvents(const CachedResource&);
     void cancelLoad();
 
 private:
     void notifyFinished(CachedResource&) override;
-    static void preconnectIfNeeded(const LinkRelAttribute&, const URL& href, Document&, const String& crossOrigin);
     static std::unique_ptr<LinkPreloadResourceClient> preloadIfNeeded(const LinkRelAttribute&, const URL& href, Document&, const String& as, const String& media, const String& type, const String& crossOriginMode, LinkLoader*);
-    void prefetchIfNeeded(const LinkRelAttribute&, const URL& href, Document&);
 
     LinkLoaderClient& m_client;
     CachedResourceHandle<CachedResource> m_cachedLinkResource;
     std::unique_ptr<LinkPreloadResourceClient> m_preloadResourceClient;
+    WeakPtrFactory<LinkLoader> m_weakPtrFactory;
 };
 
 }

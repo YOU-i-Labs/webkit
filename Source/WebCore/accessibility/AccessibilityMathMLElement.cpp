@@ -41,7 +41,9 @@ AccessibilityMathMLElement::AccessibilityMathMLElement(RenderObject* renderer, b
 {
 }
 
-AccessibilityMathMLElement::~AccessibilityMathMLElement() = default;
+AccessibilityMathMLElement::~AccessibilityMathMLElement()
+{
+}
 
 Ref<AccessibilityMathMLElement> AccessibilityMathMLElement::create(RenderObject* renderer, bool isAnonymousOperator)
 {
@@ -51,18 +53,18 @@ Ref<AccessibilityMathMLElement> AccessibilityMathMLElement::create(RenderObject*
 AccessibilityRole AccessibilityMathMLElement::determineAccessibilityRole()
 {
     if (!m_renderer)
-        return AccessibilityRole::Unknown;
+        return UnknownRole;
 
-    if ((m_ariaRole = determineAriaRoleAttribute()) != AccessibilityRole::Unknown)
+    if ((m_ariaRole = determineAriaRoleAttribute()) != UnknownRole)
         return m_ariaRole;
 
     Node* node = m_renderer->node();
     if (node && node->hasTagName(MathMLNames::mathTag))
-        return AccessibilityRole::DocumentMath;
+        return DocumentMathRole;
 
     // It's not clear which role a platform should choose for a math element.
     // Declaring a math element role should give flexibility to platforms to choose.
-    return AccessibilityRole::MathElement;
+    return MathElementRole;
 }
 
 String AccessibilityMathMLElement::textUnderElement(AccessibilityTextUnderElementMode mode) const
@@ -151,7 +153,7 @@ bool AccessibilityMathMLElement::isAnonymousMathOperator() const
 
 bool AccessibilityMathMLElement::isMathFenceOperator() const
 {
-    if (!is<RenderMathMLOperator>(renderer()))
+    if (!is<RenderMathMLOperator>(m_renderer))
         return false;
 
     return downcast<RenderMathMLOperator>(*m_renderer).hasOperatorFlag(MathMLOperatorDictionary::Fence);
@@ -159,7 +161,7 @@ bool AccessibilityMathMLElement::isMathFenceOperator() const
 
 bool AccessibilityMathMLElement::isMathSeparatorOperator() const
 {
-    if (!is<RenderMathMLOperator>(renderer()))
+    if (!is<RenderMathMLOperator>(m_renderer))
         return false;
 
     return downcast<RenderMathMLOperator>(*m_renderer).hasOperatorFlag(MathMLOperatorDictionary::Separator);
@@ -206,7 +208,7 @@ bool AccessibilityMathMLElement::isMathScriptObject(AccessibilityMathScriptObjec
     if (!parent)
         return false;
 
-    return type == AccessibilityMathScriptObjectType::Subscript ? this == parent->mathSubscriptObject() : this == parent->mathSuperscriptObject();
+    return type == Subscript ? this == parent->mathSubscriptObject() : this == parent->mathSuperscriptObject();
 }
 
 bool AccessibilityMathMLElement::isMathMultiscriptObject(AccessibilityMathMultiscriptObjectType type) const
@@ -221,16 +223,16 @@ bool AccessibilityMathMLElement::isMathMultiscriptObject(AccessibilityMathMultis
     // this token is present and in the position corresponding with the type.
 
     AccessibilityMathMultiscriptPairs pairs;
-    if (type == AccessibilityMathMultiscriptObjectType::PreSubscript || type == AccessibilityMathMultiscriptObjectType::PreSuperscript)
+    if (type == PreSubscript || type == PreSuperscript)
         parent->mathPrescripts(pairs);
     else
         parent->mathPostscripts(pairs);
 
     for (const auto& pair : pairs) {
         if (this == pair.first)
-            return (type == AccessibilityMathMultiscriptObjectType::PreSubscript || type == AccessibilityMathMultiscriptObjectType::PostSubscript);
+            return (type == PreSubscript || type == PostSubscript);
         if (this == pair.second)
-            return (type == AccessibilityMathMultiscriptObjectType::PreSuperscript || type == AccessibilityMathMultiscriptObjectType::PostSuperscript);
+            return (type == PreSuperscript || type == PostSuperscript);
     }
 
     return false;
@@ -443,7 +445,7 @@ void AccessibilityMathMLElement::mathPostscripts(AccessibilityMathMultiscriptPai
 
 int AccessibilityMathMLElement::mathLineThickness() const
 {
-    if (!is<RenderMathMLFraction>(renderer()))
+    if (!is<RenderMathMLFraction>(m_renderer))
         return -1;
 
     return downcast<RenderMathMLFraction>(*m_renderer).relativeLineThickness();

@@ -23,6 +23,11 @@
 
 #include <cairo.h>
 
+#if USE(FREETYPE)
+#include <cairo-ft.h>
+#include <fontconfig/fcfreetype.h>
+#endif
+
 namespace WTF {
 
 template<> void refIfNotNull(cairo_t* ptr)
@@ -96,6 +101,32 @@ template<> void derefIfNotNull(cairo_region_t* ptr)
     if (LIKELY(ptr))
         cairo_region_destroy(ptr);
 }
+
+#if USE(FREETYPE)
+template<> void refIfNotNull(FcPattern* ptr)
+{
+    if (LIKELY(ptr))
+        FcPatternReference(ptr);
+}
+
+template<> void derefIfNotNull(FcPattern* ptr)
+{
+    if (LIKELY(ptr))
+        FcPatternDestroy(ptr);
+}
+
+template<> void refIfNotNull(FcConfig* ptr)
+{
+    if (LIKELY(ptr))
+        FcConfigReference(ptr);
+}
+
+template<> void derefIfNotNull(FcConfig* ptr)
+{
+    if (LIKELY(ptr))
+        FcConfigDestroy(ptr);
+}
+#endif
 
 } // namespace WTF
 

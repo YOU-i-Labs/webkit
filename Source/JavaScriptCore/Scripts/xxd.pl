@@ -1,4 +1,4 @@
-#! /usr/bin/env perl
+#! /usr/bin/perl
 
 # Copyright (C) 2010-2011 Google Inc. All rights reserved.
 #

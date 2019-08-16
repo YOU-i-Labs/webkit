@@ -26,7 +26,6 @@ class DirectiveParser : public Lexer
                     Diagnostics *diagnostics,
                     DirectiveHandler *directiveHandler,
                     int maxMacroExpansionDepth);
-    ~DirectiveParser() override;
 
     void lex(Token *token) override;
 

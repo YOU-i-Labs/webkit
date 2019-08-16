@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineOverviewGraph extends WI.TimelineOverviewGraph
+WebInspector.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineOverviewGraph extends WebInspector.TimelineOverviewGraph
 {
     constructor(timeline, timelineOverview)
     {
@@ -33,7 +33,7 @@ WI.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineOverviewGra
         this.element.addEventListener("click", this._mouseClicked.bind(this));
 
         this._renderingFrameTimeline = timeline;
-        this._renderingFrameTimeline.addEventListener(WI.Timeline.Event.RecordAdded, this._timelineRecordAdded, this);
+        this._renderingFrameTimeline.addEventListener(WebInspector.Timeline.Event.RecordAdded, this._timelineRecordAdded, this);
 
         this._selectedFrameMarker = document.createElement("div");
         this._selectedFrameMarker.classList.add("frame-marker");
@@ -57,9 +57,9 @@ WI.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineOverviewGra
             return Math.max(previousValue, currentValue.duration);
         }, 0);
 
-        this._graphHeightSeconds = maximumFrameDuration * 1.1; // Add 10% margin above frames.
-        this._graphHeightSeconds = Math.min(this._graphHeightSeconds, WI.RenderingFrameTimelineOverviewGraph.MaximumGraphHeightSeconds);
-        this._graphHeightSeconds = Math.max(this._graphHeightSeconds, WI.RenderingFrameTimelineOverviewGraph.MinimumGraphHeightSeconds);
+        this._graphHeightSeconds = maximumFrameDuration * 1.1;  // Add 10% margin above frames.
+        this._graphHeightSeconds = Math.min(this._graphHeightSeconds, WebInspector.RenderingFrameTimelineOverviewGraph.MaximumGraphHeightSeconds);
+        this._graphHeightSeconds = Math.max(this._graphHeightSeconds, WebInspector.RenderingFrameTimelineOverviewGraph.MinimumGraphHeightSeconds);
         return this._graphHeightSeconds;
     }
 
@@ -78,10 +78,10 @@ WI.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineOverviewGra
     {
         super.recordWasFiltered(record, filtered);
 
-        if (!(record instanceof WI.RenderingFrameTimelineRecord))
+        if (!(record instanceof WebInspector.RenderingFrameTimelineRecord))
             return;
 
-        record[WI.RenderingFrameTimelineOverviewGraph.RecordWasFilteredSymbol] = filtered;
+        record[WebInspector.RenderingFrameTimelineOverviewGraph.RecordWasFilteredSymbol] = filtered;
 
         // Set filtered style if the frame element is within the visible range.
         const startIndex = Math.floor(this.startTime);
@@ -117,7 +117,7 @@ WI.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineOverviewGra
             let record = records[i];
             let timelineRecordFrame = this._timelineRecordFrames[recordFrameIndex];
             if (!timelineRecordFrame)
-                timelineRecordFrame = this._timelineRecordFrames[recordFrameIndex] = new WI.TimelineRecordFrame(this, record);
+                timelineRecordFrame = this._timelineRecordFrames[recordFrameIndex] = new WebInspector.TimelineRecordFrame(this, record);
             else
                 timelineRecordFrame.record = record;
 
@@ -125,7 +125,7 @@ WI.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineOverviewGra
             if (!timelineRecordFrame.element.parentNode)
                 this.element.appendChild(timelineRecordFrame.element);
 
-            timelineRecordFrame.filtered = record[WI.RenderingFrameTimelineOverviewGraph.RecordWasFilteredSymbol] || false;
+            timelineRecordFrame.filtered = record[WebInspector.RenderingFrameTimelineOverviewGraph.RecordWasFilteredSymbol] || false;
             ++recordFrameIndex;
         }
 
@@ -194,7 +194,7 @@ WI.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineOverviewGra
 
                 var label = document.createElement("div");
                 label.classList.add("label");
-                label.innerText = WI.UIString("%d fps").format(framesPerSecond);
+                label.innerText = WebInspector.UIString("%d fps").format(framesPerSecond);
                 divider.appendChild(label);
 
                 this.element.appendChild(divider);
@@ -222,11 +222,11 @@ WI.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineOverviewGra
             return;
         }
 
-        var frameWidth = 1 / this.timelineOverview.secondsPerPixel;
+        var frameWidth = (1 / this.timelineOverview.secondsPerPixel);
         this._selectedFrameMarker.style.width = frameWidth + "px";
 
         var markerLeftPosition = this.selectedRecord.frameIndex - this.startTime;
-        let property = WI.resolvedLayoutDirection() === WI.LayoutDirection.RTL ? "right" : "left";
+        let property = WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.RTL ? "right" : "left";
         this._selectedFrameMarker.style.setProperty(property, ((markerLeftPosition / this.timelineOverview.visibleDuration) * 100).toFixed(2) + "%");
 
         if (!this._selectedFrameMarker.parentElement)
@@ -248,7 +248,7 @@ WI.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineOverviewGra
     _mouseClicked(event)
     {
         let position = 0;
-        if (WI.resolvedLayoutDirection() === WI.LayoutDirection.RTL)
+        if (WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.RTL)
             position = this.element.totalOffsetRight - event.pageX;
         else
             position = event.pageX - this.element.totalOffsetLeft;
@@ -258,7 +258,7 @@ WI.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineOverviewGra
             return;
 
         var newSelectedRecord = this._renderingFrameTimeline.records[frameIndex];
-        if (newSelectedRecord[WI.RenderingFrameTimelineOverviewGraph.RecordWasFilteredSymbol])
+        if (newSelectedRecord[WebInspector.RenderingFrameTimelineOverviewGraph.RecordWasFilteredSymbol])
             return;
 
         if (this.selectedRecord === newSelectedRecord)
@@ -276,7 +276,7 @@ WI.RenderingFrameTimelineOverviewGraph = class RenderingFrameTimelineOverviewGra
     }
 };
 
-WI.RenderingFrameTimelineOverviewGraph.RecordWasFilteredSymbol = Symbol("rendering-frame-overview-graph-record-was-filtered");
+WebInspector.RenderingFrameTimelineOverviewGraph.RecordWasFilteredSymbol = Symbol("rendering-frame-overview-graph-record-was-filtered");
 
-WI.RenderingFrameTimelineOverviewGraph.MaximumGraphHeightSeconds = 0.037;
-WI.RenderingFrameTimelineOverviewGraph.MinimumGraphHeightSeconds = 0.0185;
+WebInspector.RenderingFrameTimelineOverviewGraph.MaximumGraphHeightSeconds = 0.037;
+WebInspector.RenderingFrameTimelineOverviewGraph.MinimumGraphHeightSeconds = 0.0185;

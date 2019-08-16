@@ -23,12 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.DatabaseObject = class DatabaseObject
+WebInspector.DatabaseObject = class DatabaseObject extends WebInspector.Object
 {
     constructor(id, host, name, version)
     {
+        super();
+
         this._id = id;
-        this._host = host ? host : WI.UIString("Local File");
+        this._host = host ? host : WebInspector.UIString("Local File");
         this._name = name;
         this._version = version;
     }
@@ -42,8 +44,8 @@ WI.DatabaseObject = class DatabaseObject
 
     saveIdentityToCookie(cookie)
     {
-        cookie[WI.DatabaseObject.HostCookieKey] = this.host;
-        cookie[WI.DatabaseObject.NameCookieKey] = this.name;
+        cookie[WebInspector.DatabaseObject.HostCookieKey] = this.host;
+        cookie[WebInspector.DatabaseObject.NameCookieKey] = this.name;
     }
 
     getTableNames(callback)
@@ -62,20 +64,20 @@ WI.DatabaseObject = class DatabaseObject
         function queryCallback(error, columnNames, values, sqlError)
         {
             if (error) {
-                errorCallback(WI.UIString("An unexpected error occurred."));
+                errorCallback(WebInspector.UIString("An unexpected error occurred."));
                 return;
             }
 
             if (sqlError) {
                 switch (sqlError.code) {
-                case SQLError.VERSION_ERR:
-                    errorCallback(WI.UIString("Database no longer has expected version."));
+                case SQLException.VERSION_ERR:
+                    errorCallback(WebInspector.UIString("Database no longer has expected version."));
                     break;
-                case SQLError.TOO_LARGE_ERR:
-                    errorCallback(WI.UIString("Data returned from the database is too large."));
+                case SQLException.TOO_LARGE_ERR:
+                    errorCallback(WebInspector.UIString("Data returned from the database is too large."));
                     break;
                 default:
-                    errorCallback(WI.UIString("An unexpected error occurred."));
+                    errorCallback(WebInspector.UIString("An unexpected error occurred."));
                     break;
                 }
                 return;
@@ -88,6 +90,6 @@ WI.DatabaseObject = class DatabaseObject
     }
 };
 
-WI.DatabaseObject.TypeIdentifier = "database";
-WI.DatabaseObject.HostCookieKey = "database-object-host";
-WI.DatabaseObject.NameCookieKey = "database-object-name";
+WebInspector.DatabaseObject.TypeIdentifier = "database";
+WebInspector.DatabaseObject.HostCookieKey = "database-object-host";
+WebInspector.DatabaseObject.NameCookieKey = "database-object-name";

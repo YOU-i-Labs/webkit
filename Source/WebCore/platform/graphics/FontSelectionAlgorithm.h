@@ -26,268 +26,272 @@
 #pragma once
 
 #include "TextFlags.h"
-#include <algorithm>
-#include <tuple>
+#include <wtf/Function.h>
+#include <wtf/GetPtr.h>
 #include <wtf/Hasher.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/Optional.h>
-#include <wtf/text/TextStream.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
 // Unclamped, unchecked, signed fixed-point number representing a value used for font variations.
-// Sixteen bits in total, one sign bit, two fractional bits, smallest positive value is 0.25,
-// maximum value is 8191.75, and minimum value is -8192.
+// Sixteen bits in total, one sign bit, two fractional bits, means the smallest positive representable value is 0.25,
+// the maximum representable value is 8191.75, and the minimum representable value is -8192.
 class FontSelectionValue {
 public:
-    using BackingType = int16_t;
-
     FontSelectionValue() = default;
 
-    // Explicit because it won't work correctly for values outside the representable range.
-    explicit constexpr FontSelectionValue(int);
+    // Explicit because it is lossy.
+    explicit FontSelectionValue(int x)
+        : m_backing(x * fractionalEntropy)
+    {
+    }
 
-    // Explicit because it won't work correctly for values outside the representable range and because precision can be lost.
-    explicit constexpr FontSelectionValue(float);
+    // Explicit because it is lossy.
+    explicit FontSelectionValue(float x)
+        : m_backing(x * fractionalEntropy)
+    {
+    }
 
-    // Precision can be lost, but value will be clamped to the representable range.
-    static constexpr FontSelectionValue clampFloat(float);
+    operator float() const
+    {
+        // floats have 23 fractional bits, but only 14 fractional bits are necessary, so every value can be represented losslessly.
+        return m_backing / static_cast<float>(fractionalEntropy);
+    }
 
-    // Since floats have 23 mantissa bits, every value can be represented losslessly.
-    constexpr operator float() const;
+    FontSelectionValue operator+(const FontSelectionValue other) const;
+    FontSelectionValue operator-(const FontSelectionValue other) const;
+    FontSelectionValue operator*(const FontSelectionValue other) const;
+    FontSelectionValue operator/(const FontSelectionValue other) const;
+    FontSelectionValue operator-() const;
+    bool operator==(const FontSelectionValue other) const;
+    bool operator!=(const FontSelectionValue other) const;
+    bool operator<(const FontSelectionValue other) const;
+    bool operator<=(const FontSelectionValue other) const;
+    bool operator>(const FontSelectionValue other) const;
+    bool operator>=(const FontSelectionValue other) const;
 
-    static constexpr FontSelectionValue maximumValue();
-    static constexpr FontSelectionValue minimumValue();
+    int16_t rawValue() const
+    {
+        return m_backing;
+    }
 
-    friend constexpr FontSelectionValue operator+(FontSelectionValue, FontSelectionValue);
-    friend constexpr FontSelectionValue operator-(FontSelectionValue, FontSelectionValue);
-    friend constexpr FontSelectionValue operator*(FontSelectionValue, FontSelectionValue);
-    friend constexpr FontSelectionValue operator/(FontSelectionValue, FontSelectionValue);
-    friend constexpr FontSelectionValue operator-(FontSelectionValue);
+    static FontSelectionValue maximumValue()
+    {
+        static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(std::numeric_limits<int16_t>::max(), RawTag::RawTag);
+        return result.get();
+    }
 
-    constexpr BackingType rawValue() const { return m_backing; }
+    static FontSelectionValue minimumValue()
+    {
+        static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(std::numeric_limits<int16_t>::min(), RawTag::RawTag);
+        return result.get();
+    }
+
+    static FontSelectionValue clampFloat(float value)
+    {
+        if (value < static_cast<float>(FontSelectionValue::minimumValue()))
+            return FontSelectionValue::minimumValue();
+        if (value > static_cast<float>(FontSelectionValue::maximumValue()))
+            return FontSelectionValue::maximumValue();
+        return FontSelectionValue(value);
+    }
 
 private:
     enum class RawTag { RawTag };
-    constexpr FontSelectionValue(int, RawTag);
+
+    FontSelectionValue(int16_t rawValue, RawTag)
+        : m_backing(rawValue)
+    {
+    }
 
     static constexpr int fractionalEntropy = 4;
-    BackingType m_backing { 0 };
+    int16_t m_backing { 0 };
 };
 
-constexpr FontSelectionValue::FontSelectionValue(int x)
-    : m_backing(x * fractionalEntropy)
+inline FontSelectionValue FontSelectionValue::operator+(const FontSelectionValue other) const
 {
-    // FIXME: Should we assert the passed in value was in range?
+    return FontSelectionValue(m_backing + other.m_backing, RawTag::RawTag);
 }
 
-constexpr FontSelectionValue::FontSelectionValue(float x)
-    : m_backing(x * fractionalEntropy)
+inline FontSelectionValue FontSelectionValue::operator-(const FontSelectionValue other) const
 {
-    // FIXME: Should we assert the passed in value was in range?
+    return FontSelectionValue(m_backing - other.m_backing, RawTag::RawTag);
 }
 
-constexpr FontSelectionValue::operator float() const
+inline FontSelectionValue FontSelectionValue::operator*(const FontSelectionValue other) const
 {
-    return m_backing / static_cast<float>(fractionalEntropy);
+    return FontSelectionValue(static_cast<int32_t>(m_backing) * other.m_backing / fractionalEntropy, RawTag::RawTag);
 }
 
-constexpr FontSelectionValue FontSelectionValue::maximumValue()
+inline FontSelectionValue FontSelectionValue::operator/(const FontSelectionValue other) const
 {
-    return { std::numeric_limits<BackingType>::max(), RawTag::RawTag };
+    return FontSelectionValue(static_cast<int32_t>(m_backing) / other.m_backing * fractionalEntropy, RawTag::RawTag);
 }
 
-constexpr FontSelectionValue FontSelectionValue::minimumValue()
+inline FontSelectionValue FontSelectionValue::operator-() const
 {
-    return { std::numeric_limits<BackingType>::min(), RawTag::RawTag };
+    return FontSelectionValue(-m_backing, RawTag::RawTag);
 }
 
-constexpr FontSelectionValue FontSelectionValue::clampFloat(float value)
+inline bool FontSelectionValue::operator==(const FontSelectionValue other) const
 {
-    return FontSelectionValue { std::max<float>(minimumValue(), std::min<float>(value, maximumValue())) };
+    return m_backing == other.m_backing;
 }
 
-constexpr FontSelectionValue::FontSelectionValue(int rawValue, RawTag)
-    : m_backing(rawValue)
+inline bool FontSelectionValue::operator!=(const FontSelectionValue other) const
 {
+    return !operator==(other);
 }
 
-constexpr FontSelectionValue operator+(FontSelectionValue a, FontSelectionValue b)
+inline bool FontSelectionValue::operator<(const FontSelectionValue other) const
 {
-    return { a.m_backing + b.m_backing, FontSelectionValue::RawTag::RawTag };
+    return m_backing < other.m_backing;
 }
 
-constexpr FontSelectionValue operator-(FontSelectionValue a, FontSelectionValue b)
+inline bool FontSelectionValue::operator<=(const FontSelectionValue other) const
 {
-    return { a.m_backing - b.m_backing, FontSelectionValue::RawTag::RawTag };
+    return m_backing <= other.m_backing;
 }
 
-constexpr FontSelectionValue operator*(FontSelectionValue a, FontSelectionValue b)
+inline bool FontSelectionValue::operator>(const FontSelectionValue other) const
 {
-    return { a.m_backing * b.m_backing / FontSelectionValue::fractionalEntropy, FontSelectionValue::RawTag::RawTag };
+    return m_backing > other.m_backing;
 }
 
-constexpr FontSelectionValue operator/(FontSelectionValue a, FontSelectionValue b)
+inline bool FontSelectionValue::operator>=(const FontSelectionValue other) const
 {
-    return { a.m_backing * FontSelectionValue::fractionalEntropy / b.m_backing, FontSelectionValue::RawTag::RawTag };
+    return m_backing >= other.m_backing;
 }
 
-constexpr FontSelectionValue operator-(FontSelectionValue value)
+static inline FontSelectionValue italicThreshold()
 {
-    return { -value.m_backing, FontSelectionValue::RawTag::RawTag };
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(20);
+    return result.get();
 }
 
-constexpr bool operator==(FontSelectionValue a, FontSelectionValue b)
+static inline bool isItalic(FontSelectionValue fontWeight)
 {
-    return a.rawValue() == b.rawValue();
+    return fontWeight >= italicThreshold();
 }
 
-constexpr bool operator!=(FontSelectionValue a, FontSelectionValue b)
+static inline FontSelectionValue normalItalicValue()
 {
-    return a.rawValue() != b.rawValue();
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue();
+    return result.get();
 }
 
-constexpr bool operator<(FontSelectionValue a, FontSelectionValue b)
+static inline FontSelectionValue italicValue()
 {
-    return a.rawValue() < b.rawValue();
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(20);
+    return result.get();
 }
 
-constexpr bool operator<=(FontSelectionValue a, FontSelectionValue b)
+static inline FontSelectionValue boldThreshold()
 {
-    return a.rawValue() <= b.rawValue();
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(600);
+    return result.get();
 }
 
-constexpr bool operator>(FontSelectionValue a, FontSelectionValue b)
+static inline FontSelectionValue boldWeightValue()
 {
-    return a.rawValue() > b.rawValue();
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(700);
+    return result.get();
 }
 
-constexpr bool operator>=(FontSelectionValue a, FontSelectionValue b)
+static inline FontSelectionValue normalWeightValue()
 {
-    return a.rawValue() >= b.rawValue();
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(400);
+    return result.get();
 }
 
-constexpr FontSelectionValue italicThreshold()
+static inline FontSelectionValue lightWeightValue()
 {
-    return FontSelectionValue { 20 };
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(200);
+    return result.get();
 }
 
-constexpr bool isItalic(Optional<FontSelectionValue> fontWeight)
-{
-    return fontWeight && fontWeight.value() >= italicThreshold();
-}
-
-constexpr FontSelectionValue normalItalicValue()
-{
-    return FontSelectionValue { 0 };
-}
-
-constexpr FontSelectionValue italicValue()
-{
-    return FontSelectionValue { 20 };
-}
-
-constexpr FontSelectionValue boldThreshold()
-{
-    return FontSelectionValue { 600 };
-}
-
-constexpr FontSelectionValue boldWeightValue()
-{
-    return FontSelectionValue { 700 };
-}
-
-constexpr FontSelectionValue normalWeightValue()
-{
-    return FontSelectionValue { 400 };
-}
-
-constexpr FontSelectionValue lightWeightValue()
-{
-    return FontSelectionValue { 200 };
-}
-
-constexpr bool isFontWeightBold(FontSelectionValue fontWeight)
+static inline bool isFontWeightBold(FontSelectionValue fontWeight)
 {
     return fontWeight >= boldThreshold();
 }
 
-constexpr FontSelectionValue lowerWeightSearchThreshold()
+static inline FontSelectionValue weightSearchThreshold()
 {
-    return FontSelectionValue { 400 };
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(500);
+    return result.get();
 }
 
-constexpr FontSelectionValue upperWeightSearchThreshold()
+static inline FontSelectionValue ultraCondensedStretchValue()
 {
-    return FontSelectionValue { 500 };
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(50);
+    return result.get();
 }
 
-constexpr FontSelectionValue ultraCondensedStretchValue()
+static inline FontSelectionValue extraCondensedStretchValue()
 {
-    return FontSelectionValue { 50 };
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(62.5f);
+    return result.get();
 }
 
-constexpr FontSelectionValue extraCondensedStretchValue()
+static inline FontSelectionValue condensedStretchValue()
 {
-    return FontSelectionValue { 62.5f };
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(75);
+    return result.get();
 }
 
-constexpr FontSelectionValue condensedStretchValue()
+static inline FontSelectionValue semiCondensedStretchValue()
 {
-    return FontSelectionValue { 75 };
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(87.5f);
+    return result.get();
 }
 
-constexpr FontSelectionValue semiCondensedStretchValue()
+static inline FontSelectionValue normalStretchValue()
 {
-    return FontSelectionValue { 87.5f };
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(100);
+    return result.get();
 }
 
-constexpr FontSelectionValue normalStretchValue()
+static inline FontSelectionValue semiExpandedStretchValue()
 {
-    return FontSelectionValue { 100 };
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(112.5f);
+    return result.get();
 }
 
-constexpr FontSelectionValue semiExpandedStretchValue()
+static inline FontSelectionValue expandedStretchValue()
 {
-    return FontSelectionValue { 112.5f };
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(125);
+    return result.get();
 }
 
-constexpr FontSelectionValue expandedStretchValue()
+static inline FontSelectionValue extraExpandedStretchValue()
 {
-    return FontSelectionValue { 125 };
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(150);
+    return result.get();
 }
 
-constexpr FontSelectionValue extraExpandedStretchValue()
+static inline FontSelectionValue ultraExpandedStretchValue()
 {
-    return FontSelectionValue { 150 };
-}
-
-constexpr FontSelectionValue ultraExpandedStretchValue()
-{
-    return FontSelectionValue { 200 };
+    static NeverDestroyed<FontSelectionValue> result = FontSelectionValue(200);
+    return result.get();
 }
 
 // [Inclusive, Inclusive]
 struct FontSelectionRange {
-    using Value = FontSelectionValue;
-
-    constexpr FontSelectionRange(Value minimum, Value maximum)
+    FontSelectionRange(FontSelectionValue minimum, FontSelectionValue maximum)
         : minimum(minimum)
         , maximum(maximum)
     {
     }
 
-    explicit constexpr FontSelectionRange(Value value)
-        : minimum(value)
-        , maximum(value)
+    bool operator==(const FontSelectionRange& other) const
     {
+        return minimum == other.minimum
+            && maximum == other.maximum;
     }
 
-    constexpr bool operator==(const FontSelectionRange& other) const
-    {
-        return WTF::tie(minimum, maximum) == WTF::tie(other.minimum, other.maximum);
-    }
-
-    constexpr bool isValid() const
+    bool isValid() const
     {
         return minimum <= maximum;
     }
@@ -304,82 +308,107 @@ struct FontSelectionRange {
         ASSERT(isValid());
     }
 
-    constexpr bool includes(Value target) const
+    bool includes(FontSelectionValue target) const
     {
         return target >= minimum && target <= maximum;
     }
 
-    // FIXME: This name is not so great. Move this into the add function below
-    // once we move FontPlatformDataCacheKeyHash from IntegerHasher to Hasher,
-    // and then it doesn't need to have a name.
-    constexpr uint32_t uniqueValue() const
+    uint32_t uniqueValue() const
     {
         return minimum.rawValue() << 16 | maximum.rawValue();
     }
 
-    Value minimum { 1 };
-    Value maximum { 0 };
+    FontSelectionValue minimum { FontSelectionValue(1) };
+    FontSelectionValue maximum { FontSelectionValue(0) };
 };
-
-inline void add(Hasher& hasher, const FontSelectionRange& range)
-{
-    add(hasher, range.uniqueValue());
-}
 
 struct FontSelectionRequest {
-    using Value = FontSelectionValue;
+    FontSelectionRequest() = default;
 
-    Value weight;
-    Value width;
-    // FIXME: We are using an optional here to be able to distinguish between an explicit
-    // or implicit slope (for "italic" and "oblique") and the "normal" value which has no
-    // slope. The "italic" and "oblique" values can be distinguished by looking at the
-    // "fontStyleAxis" on the FontDescription. We should come up with a tri-state member
-    // so that it's a lot clearer whether we're dealing with a "normal", "italic" or explicit
-    // "oblique" font style. See webkit.org/b/187774.
-    Optional<Value> slope;
-
-    std::tuple<Value, Value, Optional<Value>> tied() const
+    FontSelectionRequest(FontSelectionValue weight, FontSelectionValue width, FontSelectionValue slope)
+        : weight(weight)
+        , width(width)
+        , slope(slope)
     {
-        return WTF::tie(weight, width, slope);
     }
+
+    bool operator==(const FontSelectionRequest& other) const
+    {
+        return weight == other.weight
+            && width == other.width
+            && slope == other.slope;
+    }
+
+    bool operator!=(const FontSelectionRequest& other) const
+    {
+        return !operator==(other);
+    }
+
+    FontSelectionValue weight;
+    FontSelectionValue width;
+    FontSelectionValue slope;
 };
 
-inline TextStream& operator<<(TextStream& ts, const FontSelectionValue& fontSelectionValue)
-{
-    ts << TextStream::FormatNumberRespectingIntegers(fontSelectionValue.rawValue());
-    return ts;
-}
+// Only used for HashMaps. We don't want to put the bool into FontSelectionRequest
+// because FontSelectionRequest needs to be as small as possible because it's inside
+// every FontDescription.
+struct FontSelectionRequestKey {
+    FontSelectionRequestKey() = default;
 
-inline TextStream& operator<<(TextStream& ts, const Optional<FontSelectionValue>& optionalFontSelectionValue)
-{
-    ts << optionalFontSelectionValue.valueOr(normalItalicValue());
-    return ts;
-}
+    FontSelectionRequestKey(FontSelectionRequest request)
+        : request(request)
+    {
+    }
 
-inline bool operator==(const FontSelectionRequest& a, const FontSelectionRequest& b)
-{
-    return a.tied() == b.tied();
-}
+    explicit FontSelectionRequestKey(WTF::HashTableDeletedValueType)
+        : isDeletedValue(true)
+    {
+    }
 
-inline bool operator!=(const FontSelectionRequest& a, const FontSelectionRequest& b)
-{
-    return !(a == b);
-}
+    bool isHashTableDeletedValue() const
+    {
+        return isDeletedValue;
+    }
 
-inline void add(Hasher& hasher, const FontSelectionRequest& request)
-{
-    add(hasher, request.tied());
-}
+    bool operator==(const FontSelectionRequestKey& other) const
+    {
+        return request == other.request
+            && isDeletedValue == other.isDeletedValue;
+    }
+
+    FontSelectionRequest request;
+    bool isDeletedValue { false };
+};
+
+struct FontSelectionRequestKeyHash {
+    static unsigned hash(const FontSelectionRequestKey& key)
+    {
+        IntegerHasher hasher;
+        hasher.add(key.request.weight.rawValue());
+        hasher.add(key.request.width.rawValue());
+        hasher.add(key.request.slope.rawValue());
+        hasher.add(key.isDeletedValue);
+        return hasher.hash();
+    }
+
+    static bool equal(const FontSelectionRequestKey& a, const FontSelectionRequestKey& b)
+    {
+        return a == b;
+    }
+
+    static const bool safeToCompareToEmptyOrDeleted = true;
+};
 
 struct FontSelectionCapabilities {
-    using Range = FontSelectionRange;
-
-    FontSelectionCapabilities& operator=(const FontSelectionCapabilities&) = default;
-
-    constexpr std::tuple<Range, Range, Range> tied() const
+    FontSelectionCapabilities()
     {
-        return WTF::tie(weight, width, slope);
+    }
+
+    FontSelectionCapabilities(FontSelectionRange weight, FontSelectionRange width, FontSelectionRange slope)
+        : weight(weight)
+        , width(width)
+        , slope(slope)
+    {
     }
 
     void expand(const FontSelectionCapabilities& capabilities)
@@ -389,103 +418,131 @@ struct FontSelectionCapabilities {
         slope.expand(capabilities.slope);
     }
 
-    Range weight { normalWeightValue() };
-    Range width { normalStretchValue() };
-    Range slope { normalItalicValue() };
+    bool operator==(const FontSelectionCapabilities& other) const
+    {
+        return weight == other.weight
+            && width == other.width
+            && slope == other.slope;
+    }
+
+    bool operator!=(const FontSelectionCapabilities& other) const
+    {
+        return !(*this == other);
+    }
+
+    FontSelectionRange weight { normalWeightValue(), normalWeightValue() };
+    FontSelectionRange width { normalStretchValue(), normalStretchValue() };
+    FontSelectionRange slope { normalItalicValue(), normalItalicValue() };
 };
 
-constexpr bool operator==(const FontSelectionCapabilities& a, const FontSelectionCapabilities& b)
-{
-    return a.tied() == b.tied();
-}
-
-constexpr bool operator!=(const FontSelectionCapabilities& a, const FontSelectionCapabilities& b)
-{
-    return !(a == b);
-}
-
 struct FontSelectionSpecifiedCapabilities {
-    using Capabilities = FontSelectionCapabilities;
-    using Range = FontSelectionRange;
-    using OptionalRange = Optional<Range>;
-
-    constexpr Capabilities computeFontSelectionCapabilities() const
+    FontSelectionCapabilities computeFontSelectionCapabilities() const
     {
-        return { computeWeight(), computeWidth(), computeSlope() };
+        return FontSelectionCapabilities(computeWeight(), computeWidth(), computeSlope());
     }
 
-    constexpr std::tuple<OptionalRange&, OptionalRange&, OptionalRange&> tied()
+    bool operator==(const FontSelectionSpecifiedCapabilities& other) const
     {
-        return WTF::tie(weight, width, slope);
+        return weight == other.weight
+            && width == other.width
+            && slope == other.slope;
     }
 
-    constexpr std::tuple<const OptionalRange&, const OptionalRange&, const OptionalRange&> tied() const
+    bool operator!=(const FontSelectionSpecifiedCapabilities& other) const
     {
-        return WTF::tie(weight, width, slope);
+        return !(*this == other);
     }
 
-    FontSelectionSpecifiedCapabilities& operator=(const Capabilities& other)
+    FontSelectionSpecifiedCapabilities& operator=(const FontSelectionCapabilities& other)
     {
-        tied() = other.tied();
+        weight = other.weight;
+        width = other.width;
+        slope = other.slope;
         return *this;
     }
 
-    constexpr Range computeWeight() const
+    FontSelectionRange computeWeight() const
     {
-        return weight.valueOr(Range { normalWeightValue() });
+        return weight.value_or(FontSelectionRange({ normalWeightValue(), normalWeightValue() }));
     }
 
-    constexpr Range computeWidth() const
+    FontSelectionRange computeWidth() const
     {
-        return width.valueOr(Range { normalStretchValue() });
+        return width.value_or(FontSelectionRange({ normalStretchValue(), normalStretchValue() }));
     }
 
-    constexpr Range computeSlope() const
+    FontSelectionRange computeSlope() const
     {
-        return slope.valueOr(Range { normalItalicValue() });
+        return slope.value_or(FontSelectionRange({ normalItalicValue(), normalItalicValue() }));
     }
 
-    OptionalRange weight;
-    OptionalRange width;
-    OptionalRange slope;
+    std::optional<FontSelectionRange> weight;
+    std::optional<FontSelectionRange> width;
+    std::optional<FontSelectionRange> slope;
 };
-
-constexpr bool operator==(const FontSelectionSpecifiedCapabilities& a, const FontSelectionSpecifiedCapabilities& b)
-{
-    return a.tied() == b.tied();
-}
-
-constexpr bool operator!=(const FontSelectionSpecifiedCapabilities& a, const FontSelectionSpecifiedCapabilities& b)
-{
-    return !(a == b);
-}
 
 class FontSelectionAlgorithm {
 public:
-    using Capabilities = FontSelectionCapabilities;
-
     FontSelectionAlgorithm() = delete;
-    FontSelectionAlgorithm(FontSelectionRequest, const Vector<Capabilities>&, Optional<Capabilities> capabilitiesBounds = WTF::nullopt);
+
+    FontSelectionAlgorithm(FontSelectionRequest request, const Vector<FontSelectionCapabilities>& capabilities, std::optional<FontSelectionCapabilities> capabilitiesBounds = std::nullopt)
+        : m_request(request)
+        , m_capabilities(capabilities)
+        , m_filter(new bool[m_capabilities.size()])
+    {
+        ASSERT(!m_capabilities.isEmpty());
+        if (capabilitiesBounds)
+            m_capabilitiesBounds = capabilitiesBounds.value();
+        else {
+            for (auto capabilities : m_capabilities)
+                m_capabilitiesBounds.expand(capabilities);
+        }
+        for (size_t i = 0; i < m_capabilities.size(); ++i)
+            m_filter[i] = true;
+    }
 
     struct DistanceResult {
         FontSelectionValue distance;
         FontSelectionValue value;
     };
-    DistanceResult stretchDistance(Capabilities) const;
-    DistanceResult styleDistance(Capabilities) const;
-    DistanceResult weightDistance(Capabilities) const;
+
+    DistanceResult stretchDistance(FontSelectionCapabilities) const;
+    DistanceResult styleDistance(FontSelectionCapabilities) const;
+    DistanceResult weightDistance(FontSelectionCapabilities) const;
 
     size_t indexOfBestCapabilities();
 
 private:
-    using DistanceFunction = DistanceResult (FontSelectionAlgorithm::*)(Capabilities) const;
-    using CapabilitiesRange = FontSelectionRange Capabilities::*;
-    FontSelectionValue bestValue(const bool eliminated[], DistanceFunction) const;
-    void filterCapability(bool eliminated[], DistanceFunction, CapabilitiesRange);
+    template <typename T>
+    using IterateActiveCapabilitiesWithReturnCallback = WTF::Function<std::optional<T>(FontSelectionCapabilities, size_t)>;
+
+    template <typename T>
+    inline std::optional<T> iterateActiveCapabilitiesWithReturn(const IterateActiveCapabilitiesWithReturnCallback<T>& callback)
+    {
+        for (size_t i = 0; i < m_capabilities.size(); ++i) {
+            if (!m_filter[i])
+                continue;
+            if (auto result = callback(m_capabilities[i], i))
+                return result;
+        }
+        return std::nullopt;
+    }
+
+    template <typename T>
+    inline void iterateActiveCapabilities(T callback)
+    {
+        iterateActiveCapabilitiesWithReturn<int>([&](FontSelectionCapabilities capabilities, size_t i) -> std::optional<int> {
+            callback(capabilities, i);
+            return std::nullopt;
+        });
+    }
+
+    void filterCapability(DistanceResult(FontSelectionAlgorithm::*computeDistance)(FontSelectionCapabilities) const, FontSelectionRange FontSelectionCapabilities::*inclusionRange);
 
     FontSelectionRequest m_request;
-    Capabilities m_capabilitiesBounds;
-    const Vector<Capabilities>& m_capabilities;
+    FontSelectionCapabilities m_capabilitiesBounds;
+    const Vector<FontSelectionCapabilities>& m_capabilities;
+    std::unique_ptr<bool[]> m_filter;
 };
 
 }

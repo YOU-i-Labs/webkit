@@ -33,7 +33,7 @@ namespace WebCore {
 
 class AudioDSPKernel;
     
-class DelayProcessor final : public AudioDSPKernelProcessor {
+class DelayProcessor : public AudioDSPKernelProcessor {
 public:
     DelayProcessor(AudioContext&, float sampleRate, unsigned numberOfChannels, double maxDelayTime);
     virtual ~DelayProcessor();

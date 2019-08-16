@@ -31,13 +31,29 @@
 #include <wtf/Function.h>
 #include <wtf/Vector.h>
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 namespace WebCore {
 
 class CryptoAlgorithmParameters;
 
 struct JsonWebKey;
+
+class AesKeyAlgorithm final : public KeyAlgorithm {
+public:
+    AesKeyAlgorithm(const String& name, size_t length)
+        : KeyAlgorithm(name)
+        , m_length(length)
+    {
+    }
+
+    KeyAlgorithmClass keyAlgorithmClass() const final { return KeyAlgorithmClass::AES; }
+
+    size_t length() const { return m_length; }
+
+private:
+    size_t m_length;
+};
 
 class CryptoKeyAES final : public CryptoKey {
 public:
@@ -69,7 +85,8 @@ private:
     CryptoKeyAES(CryptoAlgorithmIdentifier, const Vector<uint8_t>& key, bool extractable, CryptoKeyUsageBitmap);
     CryptoKeyAES(CryptoAlgorithmIdentifier, Vector<uint8_t>&& key, bool extractable, CryptoKeyUsageBitmap);
 
-    KeyAlgorithm algorithm() const final;
+    std::unique_ptr<KeyAlgorithm> buildAlgorithm() const final;
+    std::unique_ptr<CryptoKeyData> exportData() const final;
 
     Vector<uint8_t> m_key;
 };
@@ -78,4 +95,6 @@ private:
 
 SPECIALIZE_TYPE_TRAITS_CRYPTO_KEY(CryptoKeyAES, CryptoKeyClass::AES)
 
-#endif // ENABLE(WEB_CRYPTO)
+SPECIALIZE_TYPE_TRAITS_KEY_ALGORITHM(AesKeyAlgorithm, KeyAlgorithmClass::AES)
+
+#endif // ENABLE(SUBTLE_CRYPTO)

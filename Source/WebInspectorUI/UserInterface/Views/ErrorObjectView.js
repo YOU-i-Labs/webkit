@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015, 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ErrorObjectView = class ErrorObjectView extends WI.Object
+WebInspector.ErrorObjectView = class ErrorObjectView extends WebInspector.Object
 {
     constructor(object)
     {
         super();
 
-        console.assert(object instanceof WI.RemoteObject && object.subtype === "error", object);
+        console.assert(object instanceof WebInspector.RemoteObject && object.subtype === "error", object);
 
         this._object = object;
 
@@ -38,12 +38,12 @@ WI.ErrorObjectView = class ErrorObjectView extends WI.Object
 
         this._element = document.createElement("div");
         this._element.classList.add("error-object");
-        var previewElement = WI.FormattedValue.createElementForError(this._object);
+        var previewElement = WebInspector.FormattedValue.createElementForError(this._object);
         this._element.append(previewElement);
         previewElement.addEventListener("click", this._handlePreviewOrTitleElementClick.bind(this));
 
         this._outlineElement = this._element.appendChild(document.createElement("div"));
-        this._outlineElement.className = "content";
+        this._outline = new WebInspector.TreeOutline(this._outlineElement);
     }
 
     // Static
@@ -55,13 +55,13 @@ WI.ErrorObjectView = class ErrorObjectView extends WI.Object
 
         var span = document.createElement("span");
         span.classList.add("error-object-link-container");
-        span.textContent = ` ${emDash} `;
+        span.textContent = " — ";
 
         const options = {
             ignoreNetworkTab: true,
             ignoreSearchTab: true,
         };
-        let a = WI.linkifyLocation(sourceURL, new WI.SourceCodePosition(parseInt(lineNumber) - 1, parseInt(columnNumber)), options);
+        let a = WebInspector.linkifyLocation(sourceURL, new WebInspector.SourceCodePosition(parseInt(lineNumber) - 1, parseInt(columnNumber)), options);
         a.classList.add("error-object-link");
         span.appendChild(a);
 
@@ -80,6 +80,11 @@ WI.ErrorObjectView = class ErrorObjectView extends WI.Object
         return this._element;
     }
 
+    get treeOutline()
+    {
+        return this._outline;
+    }
+
     get expanded()
     {
         return this._expanded;
@@ -87,18 +92,14 @@ WI.ErrorObjectView = class ErrorObjectView extends WI.Object
 
     update()
     {
-        const options = {
-            ownProperties: true,
-            generatePreview: true,
-        };
-        this._object.getPropertyDescriptorsAsObject((properties) => {
+        this._object.getOwnPropertyDescriptorsAsObject((properties) => {
             console.assert(properties && properties.stack && properties.stack.value);
 
             if (!this._hasStackTrace)
                 this._buildStackTrace(properties.stack.value.value);
 
             this._hasStackTrace = true;
-        }, options);
+        });
     }
 
     expand()
@@ -140,8 +141,8 @@ WI.ErrorObjectView = class ErrorObjectView extends WI.Object
 
     _buildStackTrace(stackString)
     {
-        let stackTrace = WI.StackTrace.fromString(this._object.target, stackString);
-        let stackTraceElement = new WI.StackTraceView(stackTrace).element;
+        let stackTrace = WebInspector.StackTrace.fromString(this._object.target, stackString);
+        let stackTraceElement = new WebInspector.StackTraceView(stackTrace).element;
         this._outlineElement.appendChild(stackTraceElement);
     }
 };

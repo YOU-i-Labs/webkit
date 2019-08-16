@@ -25,11 +25,10 @@
 
 #pragma once
 
-#include "JSCast.h"
+#include "JSCell.h"
 #include "JSObject.h"
 #include "Structure.h"
 #include <wtf/StdLibExtras.h>
-#include <wtf/UniqueArray.h>
 
 namespace JSC {
 
@@ -43,7 +42,7 @@ public:
     typedef JSCell Base;
     static const unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;
 
-    static StructureChain* create(VM& vm, JSObject* head)
+    static StructureChain* create(VM& vm, Structure* head)
     { 
         StructureChain* chain = new (NotNull, allocateCell<StructureChain>(vm.heap)) StructureChain(vm, vm.structureChainStructure.get());
         chain->finishCreation(vm, head);
@@ -63,30 +62,28 @@ public:
     static void destroy(JSCell*);
 
 protected:
-    void finishCreation(VM& vm, JSObject* head)
+    void finishCreation(VM& vm, Structure* head)
     {
         Base::finishCreation(vm);
-
         size_t size = 0;
-        for (JSObject* current = head; current; current = current->structure(vm)->storedPrototypeObject(current))
+        for (Structure* current = head; current; current = current->storedPrototype().isNull() ? 0 : asObject(current->storedPrototype())->structure())
             ++size;
 
-        auto vector = makeUniqueArray<WriteBarrier<Structure>>(size + 1);
+        std::unique_ptr<WriteBarrier<Structure>[]> vector = std::make_unique<WriteBarrier<Structure>[]>(size + 1);
 
         size_t i = 0;
-        for (JSObject* current = head; current; current = current->structure(vm)->storedPrototypeObject(current))
-            vector[i++].set(vm, this, current->structure(vm));
+        for (Structure* current = head; current; current = current->storedPrototype().isNull() ? 0 : asObject(current->storedPrototype())->structure())
+            vector[i++].set(vm, this, current);
         
         vm.heap.mutatorFence();
         m_vector = WTFMove(vector);
-        vm.heap.writeBarrier(this);
     }
 
 private:
     friend class LLIntOffsetsExtractor;
 
     StructureChain(VM&, Structure*);
-    UniqueArray<WriteBarrier<Structure>> m_vector;
+    std::unique_ptr<WriteBarrier<Structure>[]> m_vector;
 };
 
 } // namespace JSC

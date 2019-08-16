@@ -28,19 +28,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef LayoutUnit_h
+#define LayoutUnit_h
 
+#include "ValueToString.h"
 #include <limits.h>
 #include <limits>
 #include <math.h>
 #include <stdlib.h>
 #include <wtf/MathExtras.h>
 #include <wtf/SaturatedArithmetic.h>
-#include <wtf/text/ValueToString.h>
-
-namespace WTF {
-class TextStream;
-}
 
 namespace WebCore {
 
@@ -83,6 +80,11 @@ public:
     LayoutUnit(double value)
     {
         m_value = clampToInteger(value * kFixedPointDenominator);
+    }
+
+    static LayoutUnit fromPixel(int value)
+    {
+        return LayoutUnit(value);
     }
 
     static LayoutUnit fromFloatCeil(float value)
@@ -773,8 +775,6 @@ inline float& operator/=(float& a, const LayoutUnit& b)
     return a;
 }
 
-WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const LayoutUnit&);
-
 inline int roundToInt(LayoutUnit value)
 {
     return value.round();
@@ -821,24 +821,14 @@ inline bool isIntegerValue(const LayoutUnit value)
     return value.toInt() == value;
 }
 
-inline namespace StringLiterals {
-
-inline LayoutUnit operator"" _lu(unsigned long long value)
-{
-    return LayoutUnit(value);
-}
-
-}
+#ifndef NDEBUG
+// This structure is used by PODIntervalTree for debugging.
+template <>
+struct ValueToString<LayoutUnit> {
+    static String string(const LayoutUnit value) { return String::number(value.toFloat()); }
+};
+#endif
 
 } // namespace WebCore
 
-#ifndef NDEBUG
-namespace WTF {
-// This structure is used by PODIntervalTree for debugging.
-template <>
-struct ValueToString<WebCore::LayoutUnit> {
-    static String string(const WebCore::LayoutUnit value) { return String::number(value.toFloat()); }
-};
-
-} // namespace WTF
-#endif
+#endif // LayoutUnit_h

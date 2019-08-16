@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,26 +23,29 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef TextCodecUTF16_h
+#define TextCodecUTF16_h
 
 #include "TextCodec.h"
 
 namespace WebCore {
 
-class TextCodecUTF16 : public TextCodec {
-public:
-    static void registerEncodingNames(EncodingNameRegistrar);
-    static void registerCodecs(TextCodecRegistrar);
+    class TextCodecUTF16 : public TextCodec {
+    public:
+        static void registerEncodingNames(EncodingNameRegistrar);
+        static void registerCodecs(TextCodecRegistrar);
 
-    explicit TextCodecUTF16(bool littleEndian);
+        TextCodecUTF16(bool littleEndian) : m_littleEndian(littleEndian), m_haveBufferedByte(false) { }
 
-private:
-    String decode(const char*, size_t length, bool flush, bool stopOnError, bool& sawError) final;
-    Vector<uint8_t> encode(StringView, UnencodableHandling) final;
+        String decode(const char*, size_t length, bool flush, bool stopOnError, bool& sawError) override;
+        CString encode(const UChar*, size_t length, UnencodableHandling) override;
 
-    bool m_littleEndian;
-    bool m_haveBufferedByte { false };
-    unsigned char m_bufferedByte;
-};
+    private:
+        bool m_littleEndian;
+        bool m_haveBufferedByte;
+        unsigned char m_bufferedByte;
+    };
 
 } // namespace WebCore
+
+#endif // TextCodecUTF16_h

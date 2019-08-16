@@ -30,21 +30,22 @@
 #include "config.h"
 #include "ImageData.h"
 
-#include <JavaScriptCore/JSCInlines.h>
-#include <JavaScriptCore/TypedArrayInlines.h>
+#include "ExceptionCode.h"
+#include <runtime/JSCInlines.h>
+#include <runtime/TypedArrayInlines.h>
 
 namespace WebCore {
 
 ExceptionOr<Ref<ImageData>> ImageData::create(unsigned sw, unsigned sh)
 {
     if (!sw || !sh)
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     Checked<int, RecordOverflow> dataSize = 4;
     dataSize *= sw;
     dataSize *= sh;
     if (dataSize.hasOverflowed())
-        return Exception { RangeError, "Cannot allocate a buffer of this size"_s };
+        return Exception { TypeError }; // FIXME: Seems a peculiar choice of exception here.
 
     IntSize size(sw, sh);
     auto data = adoptRef(*new ImageData(size));
@@ -77,20 +78,22 @@ RefPtr<ImageData> ImageData::create(const IntSize& size, Ref<Uint8ClampedArray>&
     return adoptRef(*new ImageData(size, WTFMove(byteArray)));
 }
 
-ExceptionOr<RefPtr<ImageData>> ImageData::create(Ref<Uint8ClampedArray>&& byteArray, unsigned sw, Optional<unsigned> sh)
+ExceptionOr<RefPtr<ImageData>> ImageData::create(Ref<Uint8ClampedArray>&& byteArray, unsigned sw, unsigned sh)
 {
     unsigned length = byteArray->length();
-    if (!length || length % 4)
-        return Exception { InvalidStateError, "Length is not a non-zero multiple of 4"_s };
+    if (!length || length % 4 != 0)
+        return Exception { INVALID_STATE_ERR };
 
-    ASSERT(length > 0);
+    if (!sw)
+        return Exception { INDEX_SIZE_ERR };
+
     length /= 4;
-    if (!sw || length % sw)
-        return Exception { IndexSizeError, "Length is not a multiple of sw"_s };
+    if (length % sw != 0)
+        return Exception { INVALID_STATE_ERR };
 
     unsigned height = length / sw;
-    if (sh && sh.value() != height)
-        return Exception { IndexSizeError, "sh value is not equal to height"_s };
+    if (sh && sh != height)
+        return Exception { INDEX_SIZE_ERR };
 
     return create(IntSize(sw, height), WTFMove(byteArray));
 }
@@ -99,13 +102,15 @@ ImageData::ImageData(const IntSize& size)
     : m_size(size)
     , m_data(Uint8ClampedArray::createUninitialized((size.area() * 4).unsafeGet()))
 {
+    ASSERT(m_data);
 }
 
 ImageData::ImageData(const IntSize& size, Ref<Uint8ClampedArray>&& byteArray)
     : m_size(size)
     , m_data(WTFMove(byteArray))
 {
-    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION((size.area() * 4).unsafeGet() <= m_data->length());
+    ASSERT(m_data);
+    ASSERT_WITH_SECURITY_IMPLICATION(!m_data || (size.area() * 4).unsafeGet() <= m_data->length());
 }
 
 }

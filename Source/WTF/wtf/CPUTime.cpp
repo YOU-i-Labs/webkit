@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include <wtf/CPUTime.h>
+#include "CPUTime.h"
 
 namespace WTF {
 

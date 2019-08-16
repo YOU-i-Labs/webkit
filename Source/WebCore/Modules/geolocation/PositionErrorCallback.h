@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "ActiveDOMCallback.h"
 #include "CallbackResult.h"
 #include <wtf/RefCounted.h>
 
@@ -33,10 +32,9 @@ namespace WebCore {
 
 class PositionError;
 
-class PositionErrorCallback : public RefCounted<PositionErrorCallback>, public ActiveDOMCallback {
+class PositionErrorCallback : public RefCounted<PositionErrorCallback> {
 public:
-    using ActiveDOMCallback::ActiveDOMCallback;
-
+    virtual ~PositionErrorCallback() { }
     virtual CallbackResult<void> handleEvent(PositionError&) = 0;
 };
 

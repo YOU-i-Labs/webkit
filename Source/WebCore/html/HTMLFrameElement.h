@@ -30,7 +30,6 @@ namespace WebCore {
 class RenderFrame;
 
 class HTMLFrameElement final : public HTMLFrameElementBase {
-    WTF_MAKE_ISO_ALLOCATED(HTMLFrameElement);
 public:
     static Ref<HTMLFrameElement> create(const QualifiedName&, Document&);
 

@@ -27,7 +27,6 @@
 #include "FontFamilySpecificationNull.h"
 
 #include "FontSelector.h"
-#include <wtf/text/AtomicStringHash.h>
 
 namespace WebCore {
 

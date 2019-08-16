@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "CPU.h"
 #include <wtf/StdLibExtras.h>
 
 namespace JSC {
@@ -35,23 +34,22 @@ namespace JSC {
 // 'extern "C"') needs to be POD; hence putting any constructors into it could cause either compiler
 // warnings, or worse, a change in the ABI used to return these types.
 struct SlowPathReturnType {
-    CPURegister a;
-    CPURegister b;
+    void* a;
+    void* b;
 };
-static_assert(sizeof(SlowPathReturnType) >= sizeof(void*) * 2, "SlowPathReturnType should fit in two machine registers");
 
-inline SlowPathReturnType encodeResult(const void* a, const void* b)
+inline SlowPathReturnType encodeResult(void* a, void* b)
 {
     SlowPathReturnType result;
-    result.a = reinterpret_cast<CPURegister>(a);
-    result.b = reinterpret_cast<CPURegister>(b);
+    result.a = a;
+    result.b = b;
     return result;
 }
 
-inline void decodeResult(SlowPathReturnType result, const void*& a, const void*& b)
+inline void decodeResult(SlowPathReturnType result, void*& a, void*& b)
 {
-    a = reinterpret_cast<void*>(result.a);
-    b = reinterpret_cast<void*>(result.b);
+    a = result.a;
+    b = result.b;
 }
 
 #else // USE(JSVALUE32_64)
@@ -59,13 +57,13 @@ typedef int64_t SlowPathReturnType;
 
 typedef union {
     struct {
-        const void* a;
-        const void* b;
+        void* a;
+        void* b;
     } pair;
     int64_t i;
 } SlowPathReturnTypeEncoding;
 
-inline SlowPathReturnType encodeResult(const void* a, const void* b)
+inline SlowPathReturnType encodeResult(void* a, void* b)
 {
     SlowPathReturnTypeEncoding u;
     u.pair.a = a;
@@ -73,7 +71,7 @@ inline SlowPathReturnType encodeResult(const void* a, const void* b)
     return u.i;
 }
 
-inline void decodeResult(SlowPathReturnType result, const void*& a, const void*& b)
+inline void decodeResult(SlowPathReturnType result, void*& a, void*& b)
 {
     SlowPathReturnTypeEncoding u;
     u.i = result;

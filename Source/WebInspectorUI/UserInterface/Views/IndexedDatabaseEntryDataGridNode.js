@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.IndexedDatabaseEntryDataGridNode = class IndexedDatabaseEntryDataGridNode extends WI.DataGridNode
+WebInspector.IndexedDatabaseEntryDataGridNode = class IndexedDatabaseEntryDataGridNode extends WebInspector.DataGridNode
 {
     constructor(entry)
     {
@@ -42,8 +42,8 @@ WI.IndexedDatabaseEntryDataGridNode = class IndexedDatabaseEntryDataGridNode ext
     createCellContent(columnIdentifier, cell)
     {
         var value = this._entry[columnIdentifier];
-        if (value instanceof WI.RemoteObject)
-            return WI.FormattedValue.createObjectTreeOrFormattedValueForRemoteObject(value, null, true);
+        if (value instanceof WebInspector.RemoteObject)
+            return WebInspector.FormattedValue.createObjectTreeOrFormattedValueForRemoteObject(value, null, true);
 
         return super.createCellContent(columnIdentifier, cell);
     }

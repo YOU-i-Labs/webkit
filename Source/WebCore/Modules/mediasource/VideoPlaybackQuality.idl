@@ -24,7 +24,7 @@
  */
 
 [
-    Conditional=VIDEO,
+    Conditional=MEDIA_SOURCE,
     NoInterfaceObject,
     ImplementationLacksVTable,
 ] interface VideoPlaybackQuality {
@@ -32,6 +32,8 @@
     readonly attribute unsigned long totalVideoFrames;
     readonly attribute unsigned long droppedVideoFrames;
     readonly attribute unsigned long corruptedVideoFrames;
-    [EnabledBySetting=videoQualityIncludesDisplayCompositing] readonly attribute unsigned long displayCompositedVideoFrames;
     readonly attribute unrestricted double totalFrameDelay;
 };
+
+
+

@@ -23,12 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ApplicationCacheFrame = class ApplicationCacheFrame
+WebInspector.ApplicationCacheFrame = class ApplicationCacheFrame extends WebInspector.Object
 {
     constructor(frame, manifest, status)
     {
-        console.assert(frame instanceof WI.Frame);
-        console.assert(manifest instanceof WI.ApplicationCacheManifest);
+        super();
+
+        console.assert(frame instanceof WebInspector.Frame);
+        console.assert(manifest instanceof WebInspector.ApplicationCacheManifest);
 
         this._frame = frame;
         this._manifest = manifest;
@@ -44,11 +46,11 @@ WI.ApplicationCacheFrame = class ApplicationCacheFrame
 
     saveIdentityToCookie(cookie)
     {
-        cookie[WI.ApplicationCacheFrame.FrameURLCookieKey] = this.frame.url;
-        cookie[WI.ApplicationCacheFrame.ManifestURLCookieKey] = this.manifest.manifestURL;
+        cookie[WebInspector.ApplicationCacheFrame.FrameURLCookieKey] = this.frame.url;
+        cookie[WebInspector.ApplicationCacheFrame.ManifestURLCookieKey] = this.manifest.manifestURL;
     }
 };
 
-WI.ApplicationCacheFrame.TypeIdentifier = "application-cache-frame";
-WI.ApplicationCacheFrame.FrameURLCookieKey = "application-cache-frame-url";
-WI.ApplicationCacheFrame.ManifestURLCookieKey = "application-cache-frame-manifest-url";
+WebInspector.ApplicationCacheFrame.TypeIdentifier = "application-cache-frame";
+WebInspector.ApplicationCacheFrame.FrameURLCookieKey = "application-cache-frame-url";
+WebInspector.ApplicationCacheFrame.ManifestURLCookieKey = "application-cache-frame-manifest-url";

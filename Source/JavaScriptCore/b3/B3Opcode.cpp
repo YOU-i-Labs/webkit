@@ -30,13 +30,14 @@
 
 #include <wtf/PrintStream.h>
 
-#if ASSERT_DISABLED
-IGNORE_RETURN_TYPE_WARNINGS_BEGIN
-#endif
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreturn-type"
+#endif // COMPILER(GCC) && ASSERT_DISABLED
 
 namespace JSC { namespace B3 {
 
-Optional<Opcode> invertedCompare(Opcode opcode, Type type)
+std::optional<Opcode> invertedCompare(Opcode opcode, Type type)
 {
     switch (opcode) {
     case Equal:
@@ -46,19 +47,19 @@ Optional<Opcode> invertedCompare(Opcode opcode, Type type)
     case LessThan:
         if (isInt(type))
             return GreaterEqual;
-        return WTF::nullopt;
+        return std::nullopt;
     case GreaterThan:
         if (isInt(type))
             return LessEqual;
-        return WTF::nullopt;
+        return std::nullopt;
     case LessEqual:
         if (isInt(type))
             return GreaterThan;
-        return WTF::nullopt;
+        return std::nullopt;
     case GreaterEqual:
         if (isInt(type))
             return LessThan;
-        return WTF::nullopt;
+        return std::nullopt;
     case Above:
         return BelowEqual;
     case Below:
@@ -68,7 +69,7 @@ Optional<Opcode> invertedCompare(Opcode opcode, Type type)
     case BelowEqual:
         return Above;
     default:
-        return WTF::nullopt;
+        return std::nullopt;
     }
 }
 
@@ -104,9 +105,6 @@ void printInternal(PrintStream& out, Opcode opcode)
         return;
     case Identity:
         out.print("Identity");
-        return;
-    case Opaque:
-        out.print("Opaque");
         return;
     case Const32:
         out.print("Const32");
@@ -372,8 +370,8 @@ void printInternal(PrintStream& out, Opcode opcode)
 
 } // namespace WTF
 
-#if ASSERT_DISABLED
-IGNORE_RETURN_TYPE_WARNINGS_END
-#endif
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic pop
+#endif // COMPILER(GCC) && ASSERT_DISABLED
 
 #endif // ENABLE(B3_JIT)

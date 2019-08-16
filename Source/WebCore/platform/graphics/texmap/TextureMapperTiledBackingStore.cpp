@@ -34,7 +34,7 @@ void TextureMapperTiledBackingStore::updateContentsFromImageIfNeeded(TextureMapp
     if (!m_image)
         return;
 
-    updateContents(textureMapper, m_image.get(), m_image->size(), enclosingIntRect(m_image->rect()));
+    updateContents(textureMapper, m_image.get(), m_image->size(), enclosingIntRect(m_image->rect()), BitmapTexture::UpdateCannotModifyOriginalImageData);
 
     if (m_image->imageObserver())
         m_image->imageObserver()->didDraw(*m_image);
@@ -149,18 +149,28 @@ void TextureMapperTiledBackingStore::createOrDestroyTilesIfNeeded(const FloatSiz
     }
 }
 
-void TextureMapperTiledBackingStore::updateContents(TextureMapper& textureMapper, Image* image, const FloatSize& totalSize, const IntRect& dirtyRect)
+void TextureMapperTiledBackingStore::updateContents(TextureMapper& textureMapper, Image* image, const FloatSize& totalSize, const IntRect& dirtyRect, BitmapTexture::UpdateContentsFlag updateContentsFlag)
 {
     createOrDestroyTilesIfNeeded(totalSize, textureMapper.maxTextureSize(), !image->currentFrameKnownToBeOpaque());
     for (auto& tile : m_tiles)
-        tile.updateContents(textureMapper, image, dirtyRect);
+        tile.updateContents(textureMapper, image, dirtyRect, updateContentsFlag);
 }
 
-void TextureMapperTiledBackingStore::updateContents(TextureMapper& textureMapper, GraphicsLayer* sourceLayer, const FloatSize& totalSize, const IntRect& dirtyRect)
+void TextureMapperTiledBackingStore::updateContents(TextureMapper& textureMapper, GraphicsLayer* sourceLayer, const FloatSize& totalSize, const IntRect& dirtyRect, BitmapTexture::UpdateContentsFlag updateContentsFlag)
 {
     createOrDestroyTilesIfNeeded(totalSize, textureMapper.maxTextureSize(), true);
     for (auto& tile : m_tiles)
-        tile.updateContents(textureMapper, sourceLayer, dirtyRect, m_contentsScale);
+        tile.updateContents(textureMapper, sourceLayer, dirtyRect, updateContentsFlag, m_contentsScale);
+}
+
+RefPtr<BitmapTexture> TextureMapperTiledBackingStore::texture() const
+{
+    for (const auto& tile : m_tiles) {
+        if (auto texture = tile.texture())
+            return texture;
+    }
+
+    return nullptr;
 }
 
 } // namespace WebCore

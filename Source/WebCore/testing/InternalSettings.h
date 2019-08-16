@@ -72,7 +72,6 @@ public:
     ExceptionOr<void> setPDFImageCachingPolicy(const String&);
     ExceptionOr<void> setShouldDisplayTrackKind(const String& kind, bool enabled);
     ExceptionOr<bool> shouldDisplayTrackKind(const String& kind);
-    ExceptionOr<void> setUseDarkAppearance(bool);
     ExceptionOr<void> setStorageBlockingPolicy(const String&);
     ExceptionOr<void> setImagesEnabled(bool);
     ExceptionOr<void> setMinimumTimerInterval(double intervalInSeconds);
@@ -82,9 +81,7 @@ public:
     ExceptionOr<void> setUseLegacyBackgroundSizeShorthandBehavior(bool);
     ExceptionOr<void> setAutoscrollForDragAndDropEnabled(bool);
     ExceptionOr<void> setFontFallbackPrefersPictographs(bool);
-    enum class FontLoadTimingOverride { Block, Swap, Failure };
-    ExceptionOr<void> setFontLoadTimingOverride(const FontLoadTimingOverride&);
-    ExceptionOr<void> setShouldIgnoreFontLoadCompletions(bool);
+    ExceptionOr<void> setWebFontsAlwaysFallBack(bool);
     ExceptionOr<void> setQuickTimePluginReplacementEnabled(bool);
     ExceptionOr<void> setYouTubeFlashPluginReplacementEnabled(bool);
     ExceptionOr<void> setBackgroundShouldExtendBeyondPage(bool);
@@ -100,12 +97,6 @@ public:
     ExceptionOr<void> setSystemLayoutDirection(const String&);
     ExceptionOr<void> setShouldMockBoldSystemFontForAccessibility(bool);
     ExceptionOr<void> setShouldManageAudioSessionCategory(bool);
-    ExceptionOr<void> setCustomPasteboardDataEnabled(bool);
-    ExceptionOr<void> setAccessibilityEventsEnabled(bool);
-    ExceptionOr<void> setIncompleteImageBorderEnabled(bool);
-
-    using FrameFlatteningValue = FrameFlattening;
-    ExceptionOr<void> setFrameFlattening(FrameFlatteningValue);
     
     static void setAllowsAnySSLCertificate(bool);
 
@@ -122,14 +113,9 @@ public:
 
     // RuntimeEnabledFeatures.
     static void setIndexedDBWorkersEnabled(bool);
+    static void setCSSGridLayoutEnabled(bool);
     static void setWebGL2Enabled(bool);
-    static void setWebMetalEnabled(bool);
-    static void setWebVREnabled(bool);
-    static void setScreenCaptureEnabled(bool);
-
-    static bool webAnimationsCSSIntegrationEnabled();
-
-    static void setStorageAccessPromptsEnabled(bool);
+    static void setWebGPUEnabled(bool);
 
 private:
     explicit InternalSettings(Page*);
@@ -179,7 +165,7 @@ private:
         bool m_youTubeFlashPluginReplacementEnabled;
         bool m_shouldConvertPositionStyleOnCopy;
         bool m_fontFallbackPrefersPictographs;
-        bool m_shouldIgnoreFontLoadCompletions;
+        bool m_webFontsAlwaysFallBack;
         bool m_backgroundShouldExtendBeyondPage;
         SecurityOrigin::StorageBlockingPolicy m_storageBlockingPolicy;
         bool m_scrollingTreeIncludesFrames;
@@ -194,32 +180,24 @@ private:
         bool m_inlineMediaPlaybackRequiresPlaysInlineAttribute;
         bool m_deferredCSSParserEnabled;
         bool m_inputEventsEnabled;
-        bool m_incompleteImageBorderEnabled;
-#if ENABLE(ACCESSIBILITY_EVENTS)
-        bool m_accessibilityEventsEnabled;
-#endif
+
         UserInterfaceDirectionPolicy m_userInterfaceDirectionPolicy;
         TextDirection m_systemLayoutDirection;
         PDFImageCachingPolicy m_pdfImageCachingPolicy;
         Settings::ForcedAccessibilityValue m_forcedColorsAreInvertedAccessibilityValue;
         Settings::ForcedAccessibilityValue m_forcedDisplayIsMonochromeAccessibilityValue;
         Settings::ForcedAccessibilityValue m_forcedPrefersReducedMotionAccessibilityValue;
-        Settings::FontLoadTimingOverride m_fontLoadTimingOverride;
-        FrameFlattening m_frameFlattening;
 
         // Runtime enabled settings.
         bool m_indexedDBWorkersEnabled;
+        bool m_cssGridLayoutEnabled;
         bool m_webGL2Enabled;
-        bool m_webMetalEnabled;
-        bool m_webVREnabled;
-        bool m_setScreenCaptureEnabled;
+        bool m_webGPUEnabled;
         
         bool m_shouldMockBoldSystemFontForAccessibility;
 #if USE(AUDIO_SESSION)
         bool m_shouldManageAudioSessionCategory;
 #endif
-        bool m_customPasteboardDataEnabled;
-        bool m_promptForStorageAccessAPIEnabled { false };
     };
 
     Page* m_page;

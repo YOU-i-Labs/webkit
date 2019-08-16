@@ -37,25 +37,23 @@
 
 namespace WebCore {
 
-class Document;
 enum class LinkIconType;
 
 struct LinkRelAttribute {
     bool isStyleSheet { false };
-    Optional<LinkIconType> iconType;
+    std::optional<LinkIconType> iconType;
     bool isAlternate { false };
     bool isDNSPrefetch { false };
     bool isLinkPreload { false };
-    bool isLinkPreconnect { false };
+#if ENABLE(LINK_PREFETCH)
     bool isLinkPrefetch { false };
-#if ENABLE(APPLICATION_MANIFEST)
-    bool isApplicationManifest { false };
+    bool isLinkSubresource { false };
 #endif
 
     LinkRelAttribute();
-    LinkRelAttribute(Document&, const String&);
+    explicit LinkRelAttribute(const String&);
 
-    static bool isSupported(Document&, StringView);
+    static bool isSupported(StringView);
 };
 
 }

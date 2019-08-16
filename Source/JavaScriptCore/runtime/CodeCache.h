@@ -37,6 +37,8 @@
 #include "UnlinkedEvalCodeBlock.h"
 #include "UnlinkedModuleProgramCodeBlock.h"
 #include "UnlinkedProgramCodeBlock.h"
+#include "UnlinkedSourceCode.h"
+#include <wtf/CurrentTime.h>
 #include <wtf/Forward.h>
 #include <wtf/text/WTFString.h>
 
@@ -82,7 +84,7 @@ public:
     CodeCacheMap()
         : m_size(0)
         , m_sizeAtLastPrune(0)
-        , m_timeAtLastPrune(MonotonicTime::now())
+        , m_timeAtLastPrune(monotonicallyIncreasingTime())
         , m_minCapacity(0)
         , m_capacity(0)
         , m_age(0)
@@ -148,7 +150,7 @@ public:
 private:
     // This constant factor biases cache capacity toward allowing a minimum
     // working set to enter the cache before it starts evicting.
-    static const Seconds workingSetTime;
+    static const double workingSetTime;
     static const int64_t workingSetMaxBytes = 16000000;
     static const size_t workingSetMaxEntries = 2000;
 
@@ -170,7 +172,7 @@ private:
         if (m_size <= m_capacity && canPruneQuickly())
             return;
 
-        if (MonotonicTime::now() - m_timeAtLastPrune < workingSetTime
+        if (monotonicallyIncreasingTime() - m_timeAtLastPrune < workingSetTime
             && m_size - m_sizeAtLastPrune < workingSetMaxBytes
             && canPruneQuickly())
                 return;
@@ -181,7 +183,7 @@ private:
     MapType m_map;
     int64_t m_size;
     int64_t m_sizeAtLastPrune;
-    MonotonicTime m_timeAtLastPrune;
+    double m_timeAtLastPrune;
     int64_t m_minCapacity;
     int64_t m_capacity;
     int64_t m_age;
@@ -194,7 +196,7 @@ public:
     UnlinkedProgramCodeBlock* getUnlinkedProgramCodeBlock(VM&, ProgramExecutable*, const SourceCode&, JSParserStrictMode, DebuggerMode, ParserError&);
     UnlinkedEvalCodeBlock* getUnlinkedEvalCodeBlock(VM&, IndirectEvalExecutable*, const SourceCode&, JSParserStrictMode, DebuggerMode, ParserError&, EvalContextType);
     UnlinkedModuleProgramCodeBlock* getUnlinkedModuleProgramCodeBlock(VM&, ModuleProgramExecutable*, const SourceCode&, DebuggerMode, ParserError&);
-    UnlinkedFunctionExecutable* getUnlinkedGlobalFunctionExecutable(VM&, const Identifier&, const SourceCode&, DebuggerMode, Optional<int> functionConstructorParametersEndPosition, ParserError&);
+    UnlinkedFunctionExecutable* getUnlinkedGlobalFunctionExecutable(VM&, const Identifier&, const SourceCode&, DebuggerMode, ParserError&);
 
     void clear() { m_sourceCode.clear(); }
 
@@ -248,7 +250,7 @@ UnlinkedCodeBlockType* generateUnlinkedCodeBlock(VM& vm, ExecutableType* executa
     unlinkedCodeBlock->setSourceURLDirective(source.provider()->sourceURL());
     unlinkedCodeBlock->setSourceMappingURLDirective(source.provider()->sourceMappingURL());
 
-    error = BytecodeGenerator::generate(vm, rootNode.get(), source, unlinkedCodeBlock, debuggerMode, variablesUnderTDZ);
+    error = BytecodeGenerator::generate(vm, rootNode.get(), unlinkedCodeBlock, debuggerMode, variablesUnderTDZ);
 
     if (error.isValid())
         return nullptr;

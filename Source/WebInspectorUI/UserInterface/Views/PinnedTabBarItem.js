@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Devin Rousso <webkit@devinrousso.com>. All rights reserved.
+ * Copyright (C) 2016 Devin Rousso <dcrousso+webkit@gmail.com>. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,25 +23,15 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.PinnedTabBarItem = class PinnedTabBarItem extends WI.TabBarItem
+WebInspector.PinnedTabBarItem = class PinnedTabBarItem extends WebInspector.TabBarItem
 {
-    constructor(image, title)
+    constructor(image, title, representedObject)
     {
-        super(image, title);
+        super(image, title, representedObject);
 
         this.element.classList.add("pinned");
 
         this.element.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this));
-    }
-
-    static fromTabInfo({image, title})
-    {
-        return new WI.PinnedTabBarItem(image, title);
-    }
-
-    titleDidChange()
-    {
-        this.element.title = this.title;
     }
 
     // Private
@@ -50,12 +40,12 @@ WI.PinnedTabBarItem = class PinnedTabBarItem extends WI.TabBarItem
     {
         event.preventDefault();
 
-        let contextMenu = WI.ContextMenu.createFromEvent(event);
+        let contextMenu = WebInspector.ContextMenu.createFromEvent(event);
 
-        this.dispatchEventToListeners(WI.PinnedTabBarItem.Event.ContextMenu, {contextMenu});
+        this.dispatchEventToListeners(WebInspector.PinnedTabBarItem.Event.ContextMenu, {contextMenu});
     }
 };
 
-WI.PinnedTabBarItem.Event = {
+WebInspector.PinnedTabBarItem.Event = {
     ContextMenu: "pinned-tab-bar-item-context-menu",
 };

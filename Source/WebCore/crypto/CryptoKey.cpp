@@ -26,7 +26,7 @@
 #include "config.h"
 #include "CryptoKey.h"
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 #include "CryptoAlgorithmRegistry.h"
 #include <wtf/CryptographicallyRandomNumber.h>
@@ -41,7 +41,9 @@ CryptoKey::CryptoKey(CryptoAlgorithmIdentifier algorithmIdentifier, Type type, b
 {
 }
 
-CryptoKey::~CryptoKey() = default;
+CryptoKey::~CryptoKey()
+{
+}
 
 auto CryptoKey::usages() const -> Vector<CryptoKeyUsage>
 {
@@ -77,4 +79,4 @@ Vector<uint8_t> CryptoKey::randomData(size_t size)
 
 } // namespace WebCore
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TimelineRecordingProgressView = class TimelineRecordingProgressView extends WI.View
+WebInspector.TimelineRecordingProgressView = class TimelineRecordingProgressView extends WebInspector.View
 {
     constructor()
     {
@@ -33,15 +33,15 @@ WI.TimelineRecordingProgressView = class TimelineRecordingProgressView extends W
 
         let statusElement = document.createElement("div");
         statusElement.classList.add("status");
-        statusElement.textContent = WI.UIString("Recording Timeline Data");
+        statusElement.textContent = WebInspector.UIString("Recording Timeline Data");
         this.element.append(statusElement);
 
-        let spinner = new WI.IndeterminateProgressSpinner;
+        let spinner = new WebInspector.IndeterminateProgressSpinner;
         statusElement.append(spinner.element);
 
         this._stopRecordingButtonElement = document.createElement("button");
-        this._stopRecordingButtonElement.textContent = WI.UIString("Stop Recording");
-        this._stopRecordingButtonElement.addEventListener("click", () => WI.timelineManager.stopCapturing());
+        this._stopRecordingButtonElement.textContent = WebInspector.UIString("Stop Recording");
+        this._stopRecordingButtonElement.addEventListener("click", () => WebInspector.timelineManager.stopCapturing());
         this.element.append(this._stopRecordingButtonElement);
     }
 

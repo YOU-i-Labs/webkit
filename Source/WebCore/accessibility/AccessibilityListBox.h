@@ -39,7 +39,7 @@ public:
     
     bool canSetSelectedChildrenAttribute() const override;
     void setSelectedChildren(const AccessibilityChildrenVector&);
-    AccessibilityRole roleValue() const override { return AccessibilityRole::ListBox; }
+    AccessibilityRole roleValue() const override { return ListBoxRole; }
         
     void selectedChildren(AccessibilityChildrenVector&) override;
     void visibleChildren(AccessibilityChildrenVector&) override;

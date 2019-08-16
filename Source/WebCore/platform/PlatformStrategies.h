@@ -63,7 +63,9 @@ public:
     }
 
 protected:
-    PlatformStrategies() = default;
+    PlatformStrategies()
+    {
+    }
 
     virtual ~PlatformStrategies()
     {

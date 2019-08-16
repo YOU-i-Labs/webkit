@@ -29,7 +29,7 @@
 
 namespace JSC {
 
-class ReflectObject final : public JSNonFinalObject {
+class ReflectObject : public JSNonFinalObject {
 private:
     ReflectObject(VM&, Structure*);
 

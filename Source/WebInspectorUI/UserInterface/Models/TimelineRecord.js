@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TimelineRecord = class TimelineRecord extends WI.Object
+WebInspector.TimelineRecord = class TimelineRecord extends WebInspector.Object
 {
     constructor(type, startTime, endTime, callFrames, sourceCodeLocation)
     {
@@ -31,8 +31,8 @@ WI.TimelineRecord = class TimelineRecord extends WI.Object
 
         console.assert(type);
 
-        if (type in WI.TimelineRecord.Type)
-            type = WI.TimelineRecord.Type[type];
+        if (type in WebInspector.TimelineRecord.Type)
+            type = WebInspector.TimelineRecord.Type[type];
 
         this._type = type;
         this._startTime = startTime || NaN;
@@ -142,29 +142,28 @@ WI.TimelineRecord = class TimelineRecord extends WI.Object
 
     saveIdentityToCookie(cookie)
     {
-        cookie[WI.TimelineRecord.SourceCodeURLCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.sourceCode.url ? this._sourceCodeLocation.sourceCode.url.hash : null : null;
-        cookie[WI.TimelineRecord.SourceCodeLocationLineCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.lineNumber : null;
-        cookie[WI.TimelineRecord.SourceCodeLocationColumnCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.columnNumber : null;
-        cookie[WI.TimelineRecord.TypeCookieKey] = this._type || null;
+        cookie[WebInspector.TimelineRecord.SourceCodeURLCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.sourceCode.url ? this._sourceCodeLocation.sourceCode.url.hash : null : null;
+        cookie[WebInspector.TimelineRecord.SourceCodeLocationLineCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.lineNumber : null;
+        cookie[WebInspector.TimelineRecord.SourceCodeLocationColumnCookieKey] = this._sourceCodeLocation ? this._sourceCodeLocation.columnNumber : null;
+        cookie[WebInspector.TimelineRecord.TypeCookieKey] = this._type || null;
     }
 };
 
-WI.TimelineRecord.Event = {
+WebInspector.TimelineRecord.Event = {
     Updated: "timeline-record-updated"
 };
 
-WI.TimelineRecord.Type = {
+WebInspector.TimelineRecord.Type = {
     Network: "timeline-record-type-network",
     Layout: "timeline-record-type-layout",
     Script: "timeline-record-type-script",
     RenderingFrame: "timeline-record-type-rendering-frame",
     Memory: "timeline-record-type-memory",
     HeapAllocations: "timeline-record-type-heap-allocations",
-    Media: "timeline-record-type-media",
 };
 
-WI.TimelineRecord.TypeIdentifier = "timeline-record";
-WI.TimelineRecord.SourceCodeURLCookieKey = "timeline-record-source-code-url";
-WI.TimelineRecord.SourceCodeLocationLineCookieKey = "timeline-record-source-code-location-line";
-WI.TimelineRecord.SourceCodeLocationColumnCookieKey = "timeline-record-source-code-location-column";
-WI.TimelineRecord.TypeCookieKey = "timeline-record-type";
+WebInspector.TimelineRecord.TypeIdentifier = "timeline-record";
+WebInspector.TimelineRecord.SourceCodeURLCookieKey = "timeline-record-source-code-url";
+WebInspector.TimelineRecord.SourceCodeLocationLineCookieKey = "timeline-record-source-code-location-line";
+WebInspector.TimelineRecord.SourceCodeLocationColumnCookieKey = "timeline-record-source-code-location-column";
+WebInspector.TimelineRecord.TypeCookieKey = "timeline-record-type";

@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(ASSEMBLER)
+#if ENABLE(JIT)
 
 #include "FPRInfo.h"
 #include "GPRInfo.h"
@@ -107,4 +107,4 @@ private:
 
 } // namespace JSC
 
-#endif // ENABLE(ASSEMBLER)
+#endif // ENABLE(JIT)

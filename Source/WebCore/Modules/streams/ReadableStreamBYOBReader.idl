@@ -26,10 +26,10 @@
 
 [
     Conditional=STREAMS_API,
-    Constructor(ReadableStream stream),
+    CustomConstructor(ReadableStream stream),
     Exposed=(Window,Worker),
     JSBuiltin,
-    PrivateIdentifier
+    NoInterfaceObject
 ] interface ReadableStreamBYOBReader {
     [NotEnumerable] Promise<any> read(optional any view);
     [NotEnumerable] Promise<any> cancel(optional any reason);

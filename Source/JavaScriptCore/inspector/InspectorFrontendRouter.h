@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "JSExportMacros.h"
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -43,8 +42,8 @@ public:
 
     unsigned frontendCount() const { return m_connections.size(); }
 
-    void connectFrontend(FrontendChannel&);
-    void disconnectFrontend(FrontendChannel&);
+    void connectFrontend(FrontendChannel*);
+    void disconnectFrontend(FrontendChannel*);
     void disconnectAllFrontends();
 
     void sendEvent(const String& message) const;

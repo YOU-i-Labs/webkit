@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2016 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,33 +50,32 @@ public:
     void resize()
     {
         m_map.resize(m_graph.maxNodeCount());
-        if (m_graph.m_form == SSA)
-            m_shadowMap.resize(m_graph.maxNodeCount());
+        m_shadowMap.resize(m_graph.maxNodeCount());
     }
     
     Graph& graph() const { return m_graph; }
     
-    ALWAYS_INLINE T& at(unsigned nodeIndex)
+    T& at(unsigned nodeIndex)
     {
         return m_map[nodeIndex];
     }
     
-    ALWAYS_INLINE T& at(Node* node)
+    T& at(Node* node)
     {
         return at(node->index());
     }
     
-    ALWAYS_INLINE T& atShadow(unsigned nodeIndex)
+    T& atShadow(unsigned nodeIndex)
     {
         return m_shadowMap[nodeIndex];
     }
     
-    ALWAYS_INLINE T& atShadow(Node* node)
+    T& atShadow(Node* node)
     {
         return atShadow(node->index());
     }
     
-    ALWAYS_INLINE T& at(unsigned nodeIndex, NodeFlowProjection::Kind kind)
+    T& at(unsigned nodeIndex, NodeFlowProjection::Kind kind)
     {
         switch (kind) {
         case NodeFlowProjection::Primary:
@@ -88,23 +87,23 @@ public:
         return *bitwise_cast<T*>(nullptr);
     }
     
-    ALWAYS_INLINE T& at(Node* node, NodeFlowProjection::Kind kind)
+    T& at(Node* node, NodeFlowProjection::Kind kind)
     {
         return at(node->index(), kind);
     }
     
-    ALWAYS_INLINE T& at(NodeFlowProjection projection)
+    T& at(NodeFlowProjection projection)
     {
         return at(projection.node(), projection.kind());
     }
     
-    ALWAYS_INLINE const T& at(unsigned nodeIndex) const { return const_cast<FlowMap*>(this)->at(nodeIndex); }
-    ALWAYS_INLINE const T& at(Node* node) const { return const_cast<FlowMap*>(this)->at(node); }
-    ALWAYS_INLINE const T& atShadow(unsigned nodeIndex) const { return const_cast<FlowMap*>(this)->atShadow(nodeIndex); }
-    ALWAYS_INLINE const T& atShadow(Node* node) const { return const_cast<FlowMap*>(this)->atShadow(node); }
-    ALWAYS_INLINE const T& at(unsigned nodeIndex, NodeFlowProjection::Kind kind) const { return const_cast<FlowMap*>(this)->at(nodeIndex, kind); }
-    ALWAYS_INLINE const T& at(Node* node, NodeFlowProjection::Kind kind) const { return const_cast<FlowMap*>(this)->at(node, kind); }
-    ALWAYS_INLINE const T& at(NodeFlowProjection projection) const { return const_cast<FlowMap*>(this)->at(projection); }
+    const T& at(unsigned nodeIndex) const { return const_cast<FlowMap*>(this)->at(nodeIndex); }
+    const T& at(Node* node) const { return const_cast<FlowMap*>(this)->at(node); }
+    const T& atShadow(unsigned nodeIndex) const { return const_cast<FlowMap*>(this)->atShadow(nodeIndex); }
+    const T& atShadow(Node* node) const { return const_cast<FlowMap*>(this)->atShadow(node); }
+    const T& at(unsigned nodeIndex, NodeFlowProjection::Kind kind) const { return const_cast<FlowMap*>(this)->at(nodeIndex, kind); }
+    const T& at(Node* node, NodeFlowProjection::Kind kind) const { return const_cast<FlowMap*>(this)->at(node, kind); }
+    const T& at(NodeFlowProjection projection) const { return const_cast<FlowMap*>(this)->at(projection); }
     
 private:
     Graph& m_graph;

@@ -21,7 +21,7 @@
 #include "JSNodeIterator.h"
 
 #include "Node.h"
-#include <JavaScriptCore/SlotVisitorInlines.h>
+#include <heap/SlotVisitorInlines.h>
 
 namespace WebCore {
 

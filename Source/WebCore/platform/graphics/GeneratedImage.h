@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef GeneratedImage_h
+#define GeneratedImage_h
 
 #include "FloatSize.h"
 #include "Image.h"
@@ -46,7 +47,7 @@ public:
     void destroyDecodedData(bool /*destroyAll*/ = true) override { }
 
 protected:
-    ImageDrawResult draw(GraphicsContext&, const FloatRect& dstRect, const FloatRect& srcRect, CompositeOperator, BlendMode, DecodingMode, ImageOrientationDescription) override = 0;
+    void draw(GraphicsContext&, const FloatRect& dstRect, const FloatRect& srcRect, CompositeOperator, BlendMode, DecodingMode, ImageOrientationDescription) override = 0;
     void drawPattern(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform,
         const FloatPoint& phase, const FloatSize& spacing, CompositeOperator, BlendMode) override = 0;
 
@@ -63,4 +64,4 @@ private:
 
 }
 
-SPECIALIZE_TYPE_TRAITS_IMAGE(GeneratedImage)
+#endif

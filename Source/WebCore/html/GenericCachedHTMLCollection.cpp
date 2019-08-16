@@ -27,7 +27,6 @@
 #include "GenericCachedHTMLCollection.h"
 
 #include "HTMLAppletElement.h"
-#include "HTMLFieldSetElement.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "HTMLOptionElement.h"
@@ -73,8 +72,6 @@ bool GenericCachedHTMLCollection<traversalType>::elementMatches(Element& element
         return (element.hasTagName(aTag) || element.hasTagName(areaTag)) && element.hasAttributeWithoutSynchronization(hrefAttr);
     case DocAnchors:
         return element.hasTagName(aTag) && element.hasAttributeWithoutSynchronization(nameAttr);
-    case FieldSetElements:
-        return is<HTMLObjectElement>(element) || is<HTMLFormControlElement>(element);
     case ByClass:
     case ByTag:
     case ByHTMLTag:

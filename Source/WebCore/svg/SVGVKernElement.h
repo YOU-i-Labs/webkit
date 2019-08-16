@@ -27,7 +27,6 @@
 namespace WebCore {
 
 class SVGVKernElement final : public SVGElement {
-    WTF_MAKE_ISO_ALLOCATED(SVGVKernElement);
 public:
     static Ref<SVGVKernElement> create(const QualifiedName&, Document&);
 

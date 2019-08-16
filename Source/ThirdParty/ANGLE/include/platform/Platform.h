@@ -10,16 +10,15 @@
 #define ANGLE_PLATFORM_H
 
 #include <stdint.h>
-#include <array>
 
 #if defined(_WIN32)
 #   if !defined(LIBANGLE_IMPLEMENTATION)
 #       define ANGLE_PLATFORM_EXPORT __declspec(dllimport)
-#   else
-#       define ANGLE_PLATFORM_EXPORT __declspec(dllexport)
 #   endif
-#elif defined(__GNUC__) || defined(__clang__)
-#   define ANGLE_PLATFORM_EXPORT __attribute__((visibility ("default")))
+#elif defined(__GNUC__)
+#   if defined(LIBANGLE_IMPLEMENTATION)
+#       define ANGLE_PLATFORM_EXPORT __attribute__((visibility ("default")))
+#   endif
 #endif
 #if !defined(ANGLE_PLATFORM_EXPORT)
 #   define ANGLE_PLATFORM_EXPORT
@@ -39,15 +38,12 @@ using EGLDisplayType   = void *;
 struct PlatformMethods;
 
 // Use a C-like API to not trigger undefined calling behaviour.
-// Avoid using decltype here to work around sanitizer limitations.
-// TODO(jmadill): Use decltype here if/when UBSAN is fixed.
 
 // System --------------------------------------------------------------
 
 // Wall clock time in seconds since the epoch.
 // TODO(jmadill): investigate using an ANGLE internal time library
-using CurrentTimeFunc = double (*)(PlatformMethods *platform);
-inline double DefaultCurrentTime(PlatformMethods *platform)
+inline double ANGLE_currentTime(PlatformMethods *platform)
 {
     return 0.0;
 }
@@ -55,8 +51,7 @@ inline double DefaultCurrentTime(PlatformMethods *platform)
 // Monotonically increasing time in seconds from an arbitrary fixed point in the past.
 // This function is expected to return at least millisecond-precision values. For this reason,
 // it is recommended that the fixed point be no further in the past than the epoch.
-using MonotonicallyIncreasingTimeFunc = double (*)(PlatformMethods *platform);
-inline double DefaultMonotonicallyIncreasingTime(PlatformMethods *platform)
+inline double ANGLE_monotonicallyIncreasingTime(PlatformMethods *platform)
 {
     return 0.0;
 }
@@ -64,20 +59,17 @@ inline double DefaultMonotonicallyIncreasingTime(PlatformMethods *platform)
 // Logging ------------------------------------------------------------
 
 // Log an error message within the platform implementation.
-using LogErrorFunc = void (*)(PlatformMethods *platform, const char *errorMessage);
-inline void DefaultLogError(PlatformMethods *platform, const char *errorMessage)
+inline void ANGLE_logError(PlatformMethods *platform, const char *errorMessage)
 {
 }
 
 // Log a warning message within the platform implementation.
-using LogWarningFunc = void (*)(PlatformMethods *platform, const char *warningMessage);
-inline void DefaultLogWarning(PlatformMethods *platform, const char *warningMessage)
+inline void ANGLE_logWarning(PlatformMethods *platform, const char *warningMessage)
 {
 }
 
 // Log an info message within the platform implementation.
-using LogInfoFunc = void (*)(PlatformMethods *platform, const char *infoMessage);
-inline void DefaultLogInfo(PlatformMethods *platform, const char *infoMessage)
+inline void ANGLE_logInfo(PlatformMethods *platform, const char *infoMessage)
 {
 }
 
@@ -90,10 +82,8 @@ inline void DefaultLogInfo(PlatformMethods *platform, const char *infoMessage)
 // expects the returned pointer to be held permanently in a local static. If
 // the unsigned char is non-zero, tracing is enabled. If tracing is enabled,
 // addTraceEvent is expected to be called by the trace event macros.
-using GetTraceCategoryEnabledFlagFunc = const unsigned char *(*)(PlatformMethods *platform,
-                                                                 const char *categoryName);
-inline const unsigned char *DefaultGetTraceCategoryEnabledFlag(PlatformMethods *platform,
-                                                               const char *categoryName)
+inline const unsigned char *ANGLE_getTraceCategoryEnabledFlag(PlatformMethods *platform,
+                                                              const char *categoryName)
 {
     return nullptr;
 }
@@ -145,135 +135,87 @@ inline const unsigned char *DefaultGetTraceCategoryEnabledFlag(PlatformMethods *
 //     matching with other events of the same name.
 //   - MANGLE_ID (0x4): specify this flag if the id parameter is the value
 //     of a pointer.
-using AddTraceEventFunc = angle::TraceEventHandle (*)(PlatformMethods *platform,
-                                                      char phase,
-                                                      const unsigned char *categoryEnabledFlag,
-                                                      const char *name,
-                                                      unsigned long long id,
-                                                      double timestamp,
-                                                      int numArgs,
-                                                      const char **argNames,
-                                                      const unsigned char *argTypes,
-                                                      const unsigned long long *argValues,
-                                                      unsigned char flags);
-inline angle::TraceEventHandle DefaultAddTraceEvent(PlatformMethods *platform,
-                                                    char phase,
-                                                    const unsigned char *categoryEnabledFlag,
-                                                    const char *name,
-                                                    unsigned long long id,
-                                                    double timestamp,
-                                                    int numArgs,
-                                                    const char **argNames,
-                                                    const unsigned char *argTypes,
-                                                    const unsigned long long *argValues,
-                                                    unsigned char flags)
+inline angle::TraceEventHandle ANGLE_addTraceEvent(PlatformMethods *platform,
+                                                   char phase,
+                                                   const unsigned char *categoryEnabledFlag,
+                                                   const char *name,
+                                                   unsigned long long id,
+                                                   double timestamp,
+                                                   int numArgs,
+                                                   const char **argNames,
+                                                   const unsigned char *argTypes,
+                                                   const unsigned long long *argValues,
+                                                   unsigned char flags)
 {
     return 0;
 }
 
 // Set the duration field of a COMPLETE trace event.
-using UpdateTraceEventDurationFunc = void (*)(PlatformMethods *platform,
-                                              const unsigned char *categoryEnabledFlag,
-                                              const char *name,
-                                              angle::TraceEventHandle eventHandle);
-inline void DefaultUpdateTraceEventDuration(PlatformMethods *platform,
-                                            const unsigned char *categoryEnabledFlag,
-                                            const char *name,
-                                            angle::TraceEventHandle eventHandle)
+inline void ANGLE_updateTraceEventDuration(PlatformMethods *platform,
+                                           const unsigned char *categoryEnabledFlag,
+                                           const char *name,
+                                           angle::TraceEventHandle eventHandle)
 {
 }
 
 // Callbacks for reporting histogram data.
 // CustomCounts histogram has exponential bucket sizes, so that min=1, max=1000000, bucketCount=50
 // would do.
-using HistogramCustomCountsFunc = void (*)(PlatformMethods *platform,
-                                           const char *name,
-                                           int sample,
-                                           int min,
-                                           int max,
-                                           int bucketCount);
-inline void DefaultHistogramCustomCounts(PlatformMethods *platform,
-                                         const char *name,
-                                         int sample,
-                                         int min,
-                                         int max,
-                                         int bucketCount)
+inline void ANGLE_histogramCustomCounts(PlatformMethods *platform,
+                                        const char *name,
+                                        int sample,
+                                        int min,
+                                        int max,
+                                        int bucketCount)
 {
 }
 // Enumeration histogram buckets are linear, boundaryValue should be larger than any possible sample
 // value.
-using HistogramEnumerationFunc = void (*)(PlatformMethods *platform,
-                                          const char *name,
-                                          int sample,
-                                          int boundaryValue);
-inline void DefaultHistogramEnumeration(PlatformMethods *platform,
-                                        const char *name,
-                                        int sample,
-                                        int boundaryValue)
+inline void ANGLE_histogramEnumeration(PlatformMethods *platform,
+                                       const char *name,
+                                       int sample,
+                                       int boundaryValue)
 {
 }
 // Unlike enumeration histograms, sparse histograms only allocate memory for non-empty buckets.
-using HistogramSparseFunc = void (*)(PlatformMethods *platform, const char *name, int sample);
-inline void DefaultHistogramSparse(PlatformMethods *platform, const char *name, int sample)
+inline void ANGLE_histogramSparse(PlatformMethods *platform, const char *name, int sample)
 {
 }
 // Boolean histograms track two-state variables.
-using HistogramBooleanFunc = void (*)(PlatformMethods *platform, const char *name, bool sample);
-inline void DefaultHistogramBoolean(PlatformMethods *platform, const char *name, bool sample)
+inline void ANGLE_histogramBoolean(PlatformMethods *platform, const char *name, bool sample)
 {
 }
 
 // Allows us to programatically override ANGLE's default workarounds for testing purposes.
-using OverrideWorkaroundsD3DFunc = void (*)(PlatformMethods *platform,
-                                            angle::WorkaroundsD3D *workaroundsD3D);
-inline void DefaultOverrideWorkaroundsD3D(PlatformMethods *platform,
-                                          angle::WorkaroundsD3D *workaroundsD3D)
-{
-}
-
-// Callback on a successful program link with the program binary. Can be used to store
-// shaders to disk. Keys are a 160-bit SHA-1 hash.
-using ProgramKeyType   = std::array<uint8_t, 20>;
-using CacheProgramFunc = void (*)(PlatformMethods *platform,
-                                  const ProgramKeyType &key,
-                                  size_t programSize,
-                                  const uint8_t *programBytes);
-inline void DefaultCacheProgram(PlatformMethods *platform,
-                                const ProgramKeyType &key,
-                                size_t programSize,
-                                const uint8_t *programBytes)
+inline void ANGLE_overrideWorkaroundsD3D(PlatformMethods *platform,
+                                         angle::WorkaroundsD3D *workaroundsD3D)
 {
 }
 
 // Platform methods are enumerated here once.
-#define ANGLE_PLATFORM_OP(OP)                                    \
-    OP(currentTime, CurrentTime)                                 \
-    OP(monotonicallyIncreasingTime, MonotonicallyIncreasingTime) \
-    OP(logError, LogError)                                       \
-    OP(logWarning, LogWarning)                                   \
-    OP(logInfo, LogInfo)                                         \
-    OP(getTraceCategoryEnabledFlag, GetTraceCategoryEnabledFlag) \
-    OP(addTraceEvent, AddTraceEvent)                             \
-    OP(updateTraceEventDuration, UpdateTraceEventDuration)       \
-    OP(histogramCustomCounts, HistogramCustomCounts)             \
-    OP(histogramEnumeration, HistogramEnumeration)               \
-    OP(histogramSparse, HistogramSparse)                         \
-    OP(histogramBoolean, HistogramBoolean)                       \
-    OP(overrideWorkaroundsD3D, OverrideWorkaroundsD3D)           \
-    OP(cacheProgram, CacheProgram)
+#define ANGLE_PLATFORM_OP(OP)       \
+    OP(currentTime)                 \
+    OP(monotonicallyIncreasingTime) \
+    OP(logError)                    \
+    OP(logWarning)                  \
+    OP(logInfo)                     \
+    OP(getTraceCategoryEnabledFlag) \
+    OP(addTraceEvent)               \
+    OP(updateTraceEventDuration)    \
+    OP(histogramCustomCounts)       \
+    OP(histogramEnumeration)        \
+    OP(histogramSparse)             \
+    OP(histogramBoolean)            \
+    OP(overrideWorkaroundsD3D)
 
-#define ANGLE_PLATFORM_METHOD_DEF(Name, CapsName) CapsName##Func Name = Default##CapsName;
+#define ANGLE_PLATFORM_METHOD_DEF(Name) decltype(&ANGLE_##Name) Name = ANGLE_##Name;
 
-struct ANGLE_PLATFORM_EXPORT PlatformMethods
+struct PlatformMethods
 {
-    PlatformMethods();
-
-    // User data pointer for any implementation specific members. Put it at the start of the
-    // platform structure so it doesn't become overwritten if one version of the platform
-    // adds or removes new members.
-    void *context = 0;
-
     ANGLE_PLATFORM_OP(ANGLE_PLATFORM_METHOD_DEF);
+
+    // User data pointer for any implementation specific members.
+    void *context = 0;
 };
 
 #undef ANGLE_PLATFORM_METHOD_DEF
@@ -282,7 +224,7 @@ struct ANGLE_PLATFORM_EXPORT PlatformMethods
 constexpr unsigned int g_NumPlatformMethods = (sizeof(PlatformMethods) / sizeof(uintptr_t)) - 1;
 
 #define ANGLE_PLATFORM_METHOD_STRING(Name) #Name
-#define ANGLE_PLATFORM_METHOD_STRING2(Name, CapsName) ANGLE_PLATFORM_METHOD_STRING(Name),
+#define ANGLE_PLATFORM_METHOD_STRING2(Name) ANGLE_PLATFORM_METHOD_STRING(Name),
 
 constexpr const char *const g_PlatformMethodNames[g_NumPlatformMethods] = {
     ANGLE_PLATFORM_OP(ANGLE_PLATFORM_METHOD_STRING2)};
@@ -298,6 +240,9 @@ extern "C" {
 // match the compiled signature for this ANGLE, false is returned. On success true is returned.
 // The application should set any platform methods it cares about on the returned pointer.
 // If display is not valid, behaviour is undefined.
+//
+// Use a void * here to silence a sanitizer limitation with decltype.
+// TODO(jmadill): Use angle::PlatformMethods ** if UBSAN is fixed to handle decltype.
 
 ANGLE_PLATFORM_EXPORT bool ANGLE_APIENTRY ANGLEGetDisplayPlatform(angle::EGLDisplayType display,
                                                                   const char *const methodNames[],
@@ -313,6 +258,8 @@ ANGLE_PLATFORM_EXPORT void ANGLE_APIENTRY ANGLEResetDisplayPlatform(angle::EGLDi
 
 namespace angle
 {
+// Use typedefs here instead of decltype to work around sanitizer limitations.
+// TODO(jmadill): Use decltype here if UBSAN is fixed.
 typedef bool(ANGLE_APIENTRY *GetDisplayPlatformFunc)(angle::EGLDisplayType,
                                                      const char *const *,
                                                      unsigned int,

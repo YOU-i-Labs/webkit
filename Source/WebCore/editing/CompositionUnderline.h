@@ -29,26 +29,21 @@
 
 namespace WebCore {
 
-enum class CompositionUnderlineColor { GivenColor, TextColor };
-
 struct CompositionUnderline {
-
     CompositionUnderline()
     {
     }
 
-    CompositionUnderline(unsigned startOffset, unsigned endOffset, CompositionUnderlineColor compositionUnderlineColor, const Color& color, bool thick)
-        : startOffset(startOffset)
-        , endOffset(endOffset)
-        , compositionUnderlineColor(compositionUnderlineColor)
-        , color(color)
-        , thick(thick)
+    CompositionUnderline(unsigned s, unsigned e, const Color& c, bool t) 
+        : startOffset(s)
+        , endOffset(e)
+        , color(c)
+        , thick(t)
     {
     }
 
     unsigned startOffset { 0 };
     unsigned endOffset { 0 };
-    CompositionUnderlineColor compositionUnderlineColor { CompositionUnderlineColor::TextColor };
     Color color;
     bool thick { false };
 };

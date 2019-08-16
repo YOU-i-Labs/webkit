@@ -28,11 +28,8 @@
 #include "HTMLFrameSetElement.h"
 #include "HTMLNames.h"
 #include "RenderFrame.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLFrameElement);
 
 using namespace HTMLNames;
 
@@ -67,7 +64,7 @@ bool HTMLFrameElement::noResize() const
 void HTMLFrameElement::didAttachRenderers()
 {
     HTMLFrameElementBase::didAttachRenderers();
-    const auto containingFrameSet = HTMLFrameSetElement::findContaining(this);
+    const HTMLFrameSetElement* containingFrameSet = HTMLFrameSetElement::findContaining(this);
     if (!containingFrameSet)
         return;
     if (!m_frameBorderSet)

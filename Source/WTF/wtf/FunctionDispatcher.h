@@ -23,7 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef FunctionDispatcher_h
+#define FunctionDispatcher_h
 
 #include <wtf/Function.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -46,3 +47,5 @@ protected:
 } // namespace WTF
 
 using WTF::FunctionDispatcher;
+
+#endif // FunctionDispatcher_h

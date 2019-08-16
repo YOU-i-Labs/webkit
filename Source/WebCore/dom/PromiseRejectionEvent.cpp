@@ -27,20 +27,22 @@
 #include "PromiseRejectionEvent.h"
 
 #include "DOMWrapperWorld.h"
-#include "JSDOMPromise.h"
-#include <JavaScriptCore/HeapInlines.h>
-#include <JavaScriptCore/StrongInlines.h>
+#include <heap/HeapInlines.h>
+#include <heap/StrongInlines.h>
 
-namespace WebCore {
 using namespace JSC;
 
-PromiseRejectionEvent::PromiseRejectionEvent(const AtomicString& type, const Init& initializer, IsTrusted isTrusted)
+namespace WebCore {
+
+PromiseRejectionEvent::PromiseRejectionEvent(ExecState& state, const AtomicString& type, const Init& initializer, IsTrusted isTrusted)
     : Event(type, initializer, isTrusted)
-    , m_promise(*(initializer.promise))
-    , m_reason(initializer.reason)
+    , m_promise(state.vm(), initializer.promise)
+    , m_reason(state.vm(), initializer.reason)
 {
 }
 
-PromiseRejectionEvent::~PromiseRejectionEvent() = default;
+PromiseRejectionEvent::~PromiseRejectionEvent()
+{
+}
 
 } // namespace WebCore

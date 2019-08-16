@@ -39,6 +39,7 @@
 
 namespace WebCore {
 
+// Must match WebKitSystemInterface.h
 enum MediaControlElementType {
     MediaEnterFullscreenButton = 0,
     MediaMuteButton,
@@ -72,8 +73,8 @@ enum MediaControlElementType {
     MediaClosedCaptionsTrackList,
 };
 
-RefPtr<HTMLMediaElement> parentMediaElement(Node*);
-inline RefPtr<HTMLMediaElement> parentMediaElement(const RenderObject& renderer) { return parentMediaElement(renderer.node()); }
+HTMLMediaElement* parentMediaElement(Node*);
+inline HTMLMediaElement* parentMediaElement(const RenderObject& renderer) { return parentMediaElement(renderer.node()); }
 
 MediaControlElementType mediaControlElementType(Node*);
 
@@ -92,7 +93,7 @@ public:
 
 protected:
     explicit MediaControlElement(MediaControlElementType, HTMLElement*);
-    ~MediaControlElement() = default;
+    ~MediaControlElement() { }
 
     virtual void setDisplayType(MediaControlElementType);
     virtual bool isMediaControlElement() const { return true; }
@@ -106,7 +107,6 @@ private:
 // ----------------------------
 
 class MediaControlDivElement : public HTMLDivElement, public MediaControlElement {
-    WTF_MAKE_ISO_ALLOCATED(MediaControlDivElement);
 protected:
     explicit MediaControlDivElement(Document&, MediaControlElementType);
 
@@ -117,7 +117,6 @@ private:
 // ----------------------------
 
 class MediaControlInputElement : public HTMLInputElement, public MediaControlElement {
-    WTF_MAKE_ISO_ALLOCATED(MediaControlInputElement);
 protected:
     explicit MediaControlInputElement(Document&, MediaControlElementType);
 
@@ -129,7 +128,6 @@ private:
 // ----------------------------
 
 class MediaControlTimeDisplayElement : public MediaControlDivElement {
-    WTF_MAKE_ISO_ALLOCATED(MediaControlTimeDisplayElement);
 public:
     void setCurrentValue(double);
     double currentValue() const { return m_currentValue; }
@@ -144,7 +142,6 @@ private:
 // ----------------------------
 
 class MediaControlMuteButtonElement : public MediaControlInputElement {
-    WTF_MAKE_ISO_ALLOCATED(MediaControlMuteButtonElement);
 public:
     void changedMute();
 
@@ -162,7 +159,6 @@ private:
 // ----------------------------
 
 class MediaControlSeekButtonElement : public MediaControlInputElement {
-    WTF_MAKE_ISO_ALLOCATED(MediaControlSeekButtonElement);
 public:
     bool willRespondToMouseClickEvents() override { return true; }
 
@@ -179,7 +175,6 @@ private:
 // ----------------------------
 
 class MediaControlVolumeSliderElement : public MediaControlInputElement {
-    WTF_MAKE_ISO_ALLOCATED(MediaControlVolumeSliderElement);
 public:
     bool willRespondToMouseMoveEvents() override;
     bool willRespondToMouseClickEvents() override;

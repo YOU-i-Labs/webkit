@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,8 +26,8 @@
 #pragma once
 
 #include <functional>
-#include <wtf/Deque.h>
 #include <wtf/Forward.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -37,12 +37,11 @@ class KeyedDecoder {
 public:
     WEBCORE_EXPORT static std::unique_ptr<KeyedDecoder> decoder(const uint8_t* data, size_t);
 
-    virtual ~KeyedDecoder() = default;
+    virtual ~KeyedDecoder() { }
 
     virtual bool decodeBytes(const String& key, const uint8_t*&, size_t&) = 0;
     virtual bool decodeBool(const String& key, bool&) = 0;
     virtual bool decodeUInt32(const String& key, uint32_t&) = 0;
-    virtual bool decodeUInt64(const String& key, uint64_t&) = 0;
     virtual bool decodeInt32(const String& key, int32_t&) = 0;
     virtual bool decodeInt64(const String& key, int64_t&) = 0;
     virtual bool decodeFloat(const String& key, float&) = 0;
@@ -105,18 +104,17 @@ public:
         return result;
     }
 
-    template<typename ContainerType, typename F>
-    bool decodeObjects(const String& key, ContainerType& objects, F&& function)
+    template<typename T, typename F>
+    bool decodeObjects(const String& key, Vector<T>& objects, F&& function)
     {
         if (!beginArray(key))
             return false;
 
         bool result = true;
         while (beginArrayElement()) {
-            typename ContainerType::ValueType element;
+            T element;
             if (!function(*this, element)) {
                 result = false;
-                endArrayElement();
                 break;
             }
             objects.append(WTFMove(element));
@@ -146,12 +144,11 @@ class KeyedEncoder {
 public:
     WEBCORE_EXPORT static std::unique_ptr<KeyedEncoder> encoder();
 
-    virtual ~KeyedEncoder() = default;
+    virtual ~KeyedEncoder() { }
 
     virtual void encodeBytes(const String& key, const uint8_t*, size_t) = 0;
     virtual void encodeBool(const String& key, bool) = 0;
     virtual void encodeUInt32(const String& key, uint32_t) = 0;
-    virtual void encodeUInt64(const String& key, uint64_t) = 0;
     virtual void encodeInt32(const String& key, int32_t) = 0;
     virtual void encodeInt64(const String& key, int64_t) = 0;
     virtual void encodeFloat(const String& key, float) = 0;

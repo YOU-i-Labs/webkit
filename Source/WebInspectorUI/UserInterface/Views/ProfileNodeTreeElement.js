@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ProfileNodeTreeElement = class ProfileNodeTreeElement extends WI.GeneralTreeElement
+WebInspector.ProfileNodeTreeElement = class ProfileNodeTreeElement extends WebInspector.GeneralTreeElement
 {
     constructor(profileNode, delegate)
     {
@@ -34,14 +34,14 @@ WI.ProfileNodeTreeElement = class ProfileNodeTreeElement extends WI.GeneralTreeE
 
         if (!title) {
             switch (profileNode.type) {
-            case WI.ProfileNode.Type.Function:
-                title = WI.UIString("(anonymous function)");
+            case WebInspector.ProfileNode.Type.Function:
+                title = WebInspector.UIString("(anonymous function)");
                 break;
-            case WI.ProfileNode.Type.Program:
-                title = WI.UIString("(program)");
+            case WebInspector.ProfileNode.Type.Program:
+                title = WebInspector.UIString("(program)");
                 break;
             default:
-                title = WI.UIString("(anonymous function)");
+                title = WebInspector.UIString("(anonymous function)");
                 console.error("Unknown ProfileNode type: " + profileNode.type);
             }
         }
@@ -55,13 +55,13 @@ WI.ProfileNodeTreeElement = class ProfileNodeTreeElement extends WI.GeneralTreeE
         var className;
 
         switch (profileNode.type) {
-        case WI.ProfileNode.Type.Function:
-            className = WI.CallFrameView.FunctionIconStyleClassName;
+        case WebInspector.ProfileNode.Type.Function:
+            className = WebInspector.CallFrameView.FunctionIconStyleClassName;
             if (!sourceCodeLocation)
-                className = WI.CallFrameView.NativeIconStyleClassName;
+                className = WebInspector.CallFrameView.NativeIconStyleClassName;
             break;
-        case WI.ProfileNode.Type.Program:
-            className = WI.TimelineRecordTreeElement.EvaluatedRecordIconStyleClass;
+        case WebInspector.ProfileNode.Type.Program:
+            className = WebInspector.TimelineRecordTreeElement.EvaluatedRecordIconStyleClass;
             break;
         }
 
@@ -70,9 +70,11 @@ WI.ProfileNodeTreeElement = class ProfileNodeTreeElement extends WI.GeneralTreeE
         // This is more than likely an event listener function with an "on" prefix and it is
         // as long or longer than the shortest event listener name -- "oncut".
         if (profileNode.functionName && profileNode.functionName.startsWith("on") && profileNode.functionName.length >= 5)
-            className = WI.CallFrameView.EventListenerIconStyleClassName;
+            className = WebInspector.CallFrameView.EventListenerIconStyleClassName;
 
-        super([className], title, subtitle, profileNode, {hasChildren: !!profileNode.childNodes.length});
+        var hasChildren = !!profileNode.childNodes.length;
+
+        super([className], title, subtitle, profileNode, hasChildren);
 
         this._profileNode = profileNode;
         this._delegate = delegate || null;
@@ -126,7 +128,7 @@ WI.ProfileNodeTreeElement = class ProfileNodeTreeElement extends WI.GeneralTreeE
         }
 
         for (var childProfileNode of this._profileNode.childNodes) {
-            var childTreeElement = new WI.ProfileNodeTreeElement(childProfileNode);
+            var childTreeElement = new WebInspector.ProfileNodeTreeElement(childProfileNode);
             this.appendChild(childTreeElement);
         }
     }

@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ScopeRadioButtonNavigationItem = class ScopeRadioButtonNavigationItem extends WI.RadioButtonNavigationItem
+WebInspector.ScopeRadioButtonNavigationItem = class ScopeRadioButtonNavigationItem extends WebInspector.RadioButtonNavigationItem
 {
     constructor(identifier, toolTip, scopeItems, defaultScopeItem)
     {
@@ -48,7 +48,7 @@ WI.ScopeRadioButtonNavigationItem = class ScopeRadioButtonNavigationItem extends
         this._scopeItemSelect.addEventListener("change", this._handleItemChanged.bind(this));
         this._element.appendChild(this._scopeItemSelect);
 
-        this._element.appendChild(WI.ImageUtilities.useSVGSymbol("Images/UpDownArrows.svg", "arrows"));
+        this._element.appendChild(useSVGSymbol("Images/UpDownArrows.svg", "arrows"));
     }
 
     // Public
@@ -85,10 +85,10 @@ WI.ScopeRadioButtonNavigationItem = class ScopeRadioButtonNavigationItem extends
         }
 
         this._element.title = selectedItemIdentifier.label;
-        this.dispatchEventToListeners(WI.ScopeRadioButtonNavigationItem.Event.SelectedItemChanged);
+        this.dispatchEventToListeners(WebInspector.ScopeRadioButtonNavigationItem.Event.SelectedItemChanged);
     }
 };
 
-WI.ScopeRadioButtonNavigationItem.Event = {
+WebInspector.ScopeRadioButtonNavigationItem.Event = {
     SelectedItemChanged: "scope-radio-button-navigation-item-selected-item-changed"
 };

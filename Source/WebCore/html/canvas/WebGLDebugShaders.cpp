@@ -40,7 +40,9 @@ WebGLDebugShaders::WebGLDebugShaders(WebGLRenderingContextBase& context)
 {
 }
 
-WebGLDebugShaders::~WebGLDebugShaders() = default;
+WebGLDebugShaders::~WebGLDebugShaders()
+{
+}
 
 WebGLExtension::ExtensionName WebGLDebugShaders::getName() const
 {

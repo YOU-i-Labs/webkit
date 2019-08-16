@@ -38,12 +38,7 @@ ParallelHelperPool& heapHelperPool()
     std::call_once(
         initializeHelperPoolOnceFlag,
         [] {
-#if OS(LINUX)
-            const char* threadName = "HeapHelper";
-#else
-            const char* threadName = "Heap Helper Thread";
-#endif
-            helperPool = new ParallelHelperPool(threadName);
+            helperPool = new ParallelHelperPool();
             helperPool->ensureThreads(Options::numberOfGCMarkers() - 1);
         });
     return *helperPool;

@@ -23,29 +23,33 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.NewTabContentView = class NewTabContentView extends WI.TabContentView
+WebInspector.NewTabContentView = class NewTabContentView extends WebInspector.TabContentView
 {
     constructor(identifier)
     {
-        let tabBarItem = WI.GeneralTabBarItem.fromTabInfo(WI.NewTabContentView.tabInfo());
+        let {image, title} = WebInspector.NewTabContentView.tabInfo();
+        let tabBarItem = new WebInspector.GeneralTabBarItem(image, title);
         tabBarItem.isDefaultTab = true;
 
         super(identifier || "new-tab", "new-tab", tabBarItem);
 
-        this._tabElementsByTabClass = new Map;
+        WebInspector.notifications.addEventListener(WebInspector.Notification.TabTypesChanged, this._updateShownTabs.bind(this));
 
-        let allTabClasses = Array.from(WI.knownTabClasses());
-        this._shownTabClasses = allTabClasses.filter((tabClass) => tabClass.isTabAllowed() && !tabClass.tabInfo().isEphemeral);
-        this._shownTabClasses.sort((a, b) => a.tabInfo().title.extendedLocaleCompare(b.tabInfo().title));
+        this._tabElementsByTabClass = new Map;
+        this._updateShownTabs();
     }
 
     static tabInfo()
     {
         return {
             image: "Images/NewTab.svg",
-            title: WI.UIString("New Tab"),
-            isEphemeral: true,
+            title: WebInspector.UIString("New Tab"),
         };
+    }
+
+    static isEphemeral()
+    {
+        return true;
     }
 
     static shouldSaveTab()
@@ -57,20 +61,20 @@ WI.NewTabContentView = class NewTabContentView extends WI.TabContentView
 
     get type()
     {
-        return WI.NewTabContentView.Type;
+        return WebInspector.NewTabContentView.Type;
     }
 
     shown()
     {
-        WI.tabBar.addEventListener(WI.TabBar.Event.TabBarItemAdded, this._updateTabItems, this);
-        WI.tabBar.addEventListener(WI.TabBar.Event.TabBarItemRemoved, this._updateTabItems, this);
+        WebInspector.tabBrowser.tabBar.addEventListener(WebInspector.TabBar.Event.TabBarItemAdded, this._updateTabItems, this);
+        WebInspector.tabBrowser.tabBar.addEventListener(WebInspector.TabBar.Event.TabBarItemRemoved, this._updateTabItems, this);
 
         this._updateTabItems();
     }
 
     hidden()
     {
-        WI.tabBar.removeEventListener(null, null, this);
+        WebInspector.tabBrowser.tabBar.removeEventListener(null, null, this);
     }
 
     get supportsSplitContentBrowser()
@@ -89,7 +93,7 @@ WI.NewTabContentView = class NewTabContentView extends WI.TabContentView
             let tabItemElement = document.createElement("div");
             tabItemElement.classList.add("tab-item");
             tabItemElement.addEventListener("click", this._createNewTabWithType.bind(this, tabClass.Type));
-            tabItemElement[WI.NewTabContentView.TypeSymbol] = tabClass.Type;
+            tabItemElement[WebInspector.NewTabContentView.TypeSymbol] = tabClass.Type;
 
             let boxElement = tabItemElement.appendChild(document.createElement("div"));
             boxElement.classList.add("box");
@@ -112,35 +116,48 @@ WI.NewTabContentView = class NewTabContentView extends WI.TabContentView
 
     _createNewTabWithType(tabType, event)
     {
-        if (!WI.isNewTabWithTypeAllowed(tabType))
+        if (!WebInspector.isNewTabWithTypeAllowed(tabType))
             return;
 
         const canCreateAdditionalTabs = this._allowableTabTypes().length > 1;
         const options = {
             referencedView: this,
-            shouldReplaceTab: !canCreateAdditionalTabs || !WI.modifierKeys.metaKey,
-            shouldShowNewTab: !WI.modifierKeys.metaKey
+            shouldReplaceTab: !canCreateAdditionalTabs || !WebInspector.modifierKeys.metaKey,
+            shouldShowNewTab: !WebInspector.modifierKeys.metaKey
         };
-        WI.createNewTabWithType(tabType, options);
+        WebInspector.createNewTabWithType(tabType, options);
+    }
+
+    _updateShownTabs()
+    {
+        let allTabClasses = Array.from(WebInspector.knownTabClasses());
+        let allowedTabClasses = allTabClasses.filter((tabClass) => tabClass.isTabAllowed() && !tabClass.isEphemeral());
+        allowedTabClasses.sort((a, b) => a.tabInfo().title.localeCompare(b.tabInfo().title));
+
+        if (Array.shallowEqual(this._shownTabClasses, allowedTabClasses))
+            return;
+
+        this._shownTabClasses = allowedTabClasses;
+        this.needsLayout();
     }
 
     _allowableTabTypes()
     {
         let tabTypes = this._shownTabClasses.map((tabClass) => tabClass.Type);
-        return tabTypes.filter((type) => WI.isNewTabWithTypeAllowed(type));
+        return tabTypes.filter((type) => WebInspector.isNewTabWithTypeAllowed(type));
     }
 
     _updateTabItems()
     {
         for (let [tabClass, tabItemElement] of this._tabElementsByTabClass.entries()) {
-            let allowed = WI.isNewTabWithTypeAllowed(tabClass.Type);
-            tabItemElement.classList.toggle(WI.NewTabContentView.DisabledStyleClassName, !allowed);
+            let allowed = WebInspector.isNewTabWithTypeAllowed(tabClass.Type);
+            tabItemElement.classList.toggle(WebInspector.NewTabContentView.DisabledStyleClassName, !allowed);
         }
     }
 };
 
-WI.NewTabContentView.Type = "new-tab";
-WI.NewTabContentView.TypeSymbol = Symbol("type");
+WebInspector.NewTabContentView.Type = "new-tab";
+WebInspector.NewTabContentView.TypeSymbol = Symbol("type");
 
-WI.NewTabContentView.TabItemStyleClassName = "tab-item";
-WI.NewTabContentView.DisabledStyleClassName = "disabled";
+WebInspector.NewTabContentView.TabItemStyleClassName = "tab-item";
+WebInspector.NewTabContentView.DisabledStyleClassName = "disabled";

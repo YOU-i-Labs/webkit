@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "BytecodeStructs.h"
+#include "Instruction.h"
 #include "ObjectPropertyCondition.h"
 #include "Watchpoint.h"
 
@@ -33,21 +33,16 @@ namespace JSC {
 
 class LLIntPrototypeLoadAdaptiveStructureWatchpoint : public Watchpoint {
 public:
-    LLIntPrototypeLoadAdaptiveStructureWatchpoint() = default;
-    LLIntPrototypeLoadAdaptiveStructureWatchpoint(const ObjectPropertyCondition&, OpGetById::Metadata&);
+    LLIntPrototypeLoadAdaptiveStructureWatchpoint(const ObjectPropertyCondition&, Instruction*);
 
-    void install(VM&);
-
-    static void clearLLIntGetByIdCache(OpGetById::Metadata&);
-
-    const ObjectPropertyCondition& key() const { return m_key; }
+    void install();
 
 protected:
-    void fireInternal(VM&, const FireDetail&) override;
+    void fireInternal(const FireDetail&) override;
 
 private:
     ObjectPropertyCondition m_key;
-    OpGetById::Metadata& m_getByIdMetadata;
+    Instruction* m_getByIdInstruction;
 };
 
 } // namespace JSC

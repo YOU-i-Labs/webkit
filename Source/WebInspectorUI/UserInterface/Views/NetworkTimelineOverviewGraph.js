@@ -24,7 +24,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.NetworkTimelineOverviewGraph = class NetworkTimelineOverviewGraph extends WI.TimelineOverviewGraph
+WebInspector.NetworkTimelineOverviewGraph = class NetworkTimelineOverviewGraph extends WebInspector.TimelineOverviewGraph
 {
     constructor(timeline, timelineOverview)
     {
@@ -32,8 +32,8 @@ WI.NetworkTimelineOverviewGraph = class NetworkTimelineOverviewGraph extends WI.
 
         this.element.classList.add("network");
 
-        timeline.addEventListener(WI.Timeline.Event.RecordAdded, this._networkTimelineRecordAdded, this);
-        timeline.addEventListener(WI.Timeline.Event.TimesUpdated, this.needsLayout, this);
+        timeline.addEventListener(WebInspector.Timeline.Event.RecordAdded, this._networkTimelineRecordAdded, this);
+        timeline.addEventListener(WebInspector.Timeline.Event.TimesUpdated, this.needsLayout, this);
 
         this.reset();
     }
@@ -47,7 +47,7 @@ WI.NetworkTimelineOverviewGraph = class NetworkTimelineOverviewGraph extends WI.
         this._nextDumpRow = 0;
         this._timelineRecordGridRows = [];
 
-        for (var i = 0; i < WI.NetworkTimelineOverviewGraph.MaximumRowCount; ++i)
+        for (var i = 0; i < WebInspector.NetworkTimelineOverviewGraph.MaximumRowCount; ++i)
             this._timelineRecordGridRows.push([]);
 
         this.element.removeChildren();
@@ -75,7 +75,7 @@ WI.NetworkTimelineOverviewGraph = class NetworkTimelineOverviewGraph extends WI.
         {
             let timelineRecordBar = rowRecordBars[recordBarIndex];
             if (!timelineRecordBar)
-                timelineRecordBar = rowRecordBars[recordBarIndex] = new WI.TimelineRecordBar(this, records, renderMode);
+                timelineRecordBar = rowRecordBars[recordBarIndex] = new WebInspector.TimelineRecordBar(records, renderMode);
             else {
                 timelineRecordBar.renderMode = renderMode;
                 timelineRecordBar.records = records;
@@ -92,7 +92,7 @@ WI.NetworkTimelineOverviewGraph = class NetworkTimelineOverviewGraph extends WI.
 
             recordBarIndex = 0;
 
-            WI.TimelineRecordBar.createCombinedBars(rowRecords, secondsPerPixel, this, createBar.bind(this, rowElement, rowRecordBars));
+            WebInspector.TimelineRecordBar.createCombinedBars(rowRecords, secondsPerPixel, this, createBar.bind(this, rowElement, rowRecordBars));
 
             // Remove the remaining unused TimelineRecordBars.
             for (; recordBarIndex < rowRecordBars.length; ++recordBarIndex) {
@@ -107,14 +107,14 @@ WI.NetworkTimelineOverviewGraph = class NetworkTimelineOverviewGraph extends WI.
     _networkTimelineRecordAdded(event)
     {
         var resourceTimelineRecord = event.data.record;
-        console.assert(resourceTimelineRecord instanceof WI.ResourceTimelineRecord);
+        console.assert(resourceTimelineRecord instanceof WebInspector.ResourceTimelineRecord);
 
         function compareByStartTime(a, b)
         {
             return a.startTime - b.startTime;
         }
 
-        let minimumBarPaddingTime = WI.TimelineOverview.MinimumDurationPerPixel * (WI.TimelineRecordBar.MinimumWidthPixels + WI.TimelineRecordBar.MinimumMarginPixels);
+        let minimumBarPaddingTime = WebInspector.TimelineOverview.MinimumDurationPerPixel * (WebInspector.TimelineRecordBar.MinimumWidthPixels + WebInspector.TimelineRecordBar.MinimumMarginPixels);
 
         // Try to find a row that has room and does not overlap a previous record.
         var foundRowForRecord = false;
@@ -148,7 +148,7 @@ WI.NetworkTimelineOverviewGraph = class NetworkTimelineOverviewGraph extends WI.
 
         // We didn't find a empty spot, so dump into the designated dump row.
         if (!foundRowForRecord) {
-            if (this._nextDumpRow >= WI.NetworkTimelineOverviewGraph.MaximumRowCount)
+            if (this._nextDumpRow >= WebInspector.NetworkTimelineOverviewGraph.MaximumRowCount)
                 this._nextDumpRow = 0;
             insertObjectIntoSortedArray(resourceTimelineRecord, this._timelineRecordGridRows[this._nextDumpRow++], compareByStartTime);
         }
@@ -157,4 +157,4 @@ WI.NetworkTimelineOverviewGraph = class NetworkTimelineOverviewGraph extends WI.
     }
 };
 
-WI.NetworkTimelineOverviewGraph.MaximumRowCount = 6;
+WebInspector.NetworkTimelineOverviewGraph.MaximumRowCount = 6;

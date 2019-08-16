@@ -25,10 +25,10 @@
 
 #include "ClipStack.h"
 #include "FilterOperation.h"
+#include "FloatQuad.h"
+#include "GraphicsContext3D.h"
 #include "IntSize.h"
 #include "TextureMapper.h"
-#include "TextureMapperContextAttributes.h"
-#include "TextureMapperGLHeaders.h"
 #include "TransformationMatrix.h"
 
 namespace WebCore {
@@ -44,7 +44,6 @@ public:
     virtual ~TextureMapperGL();
 
     enum Flag {
-        NoFlag = 0x00,
         ShouldBlend = 0x01,
         ShouldFlipTexture = 0x02,
         ShouldUseARBTextureRect = 0x04,
@@ -62,9 +61,8 @@ public:
     void drawBorder(const Color&, float borderWidth, const FloatRect&, const TransformationMatrix&) override;
     void drawNumber(int number, const Color&, const FloatPoint&, const TransformationMatrix&) override;
     void drawTexture(const BitmapTexture&, const FloatRect&, const TransformationMatrix&, float opacity, unsigned exposedEdges) override;
-    virtual void drawTexture(GLuint texture, Flags, const IntSize& textureSize, const FloatRect& targetRect, const TransformationMatrix& modelViewMatrix, float opacity, unsigned exposedEdges = AllEdges);
+    virtual void drawTexture(Platform3DObject texture, Flags, const IntSize& textureSize, const FloatRect& targetRect, const TransformationMatrix& modelViewMatrix, float opacity, unsigned exposedEdges = AllEdges);
     void drawSolidColor(const FloatRect&, const TransformationMatrix&, const Color&) override;
-    void clearColor(const Color&) override;
 
     void bindSurface(BitmapTexture* surface) override;
     BitmapTexture* currentSurface();
@@ -74,8 +72,9 @@ public:
     void endClip() override;
     IntRect clipBounds() override;
     IntSize maxTextureSize() const override { return IntSize(2000, 2000); }
-    Ref<BitmapTexture> createTexture() override { return createTexture(GL_DONT_CARE); }
-    Ref<BitmapTexture> createTexture(GLint internalFormat) override;
+    Ref<BitmapTexture> createTexture() override { return createTexture(GraphicsContext3D::DONT_CARE); }
+    Ref<BitmapTexture> createTexture(GC3Dint internalFormat) override;
+    inline GraphicsContext3D* graphicsContext3D() const { return m_context3D.get(); }
 
     void drawFiltered(const BitmapTexture& sourceTexture, const BitmapTexture* contentTexture, const FilterOperation&, int pass);
 
@@ -83,17 +82,16 @@ public:
 
 private:
     void drawTexturedQuadWithProgram(TextureMapperShaderProgram&, uint32_t texture, Flags, const IntSize&, const FloatRect&, const TransformationMatrix& modelViewMatrix, float opacity);
-    void draw(const FloatRect&, const TransformationMatrix& modelViewMatrix, TextureMapperShaderProgram&, GLenum drawingMode, Flags);
+    void draw(const FloatRect&, const TransformationMatrix& modelViewMatrix, TextureMapperShaderProgram&, GC3Denum drawingMode, Flags);
 
-    void drawUnitRect(TextureMapperShaderProgram&, GLenum drawingMode);
+    void drawUnitRect(TextureMapperShaderProgram&, GC3Denum drawingMode);
     void drawEdgeTriangles(TextureMapperShaderProgram&);
 
     bool beginScissorClip(const TransformationMatrix&, const FloatRect&);
     void bindDefaultSurface();
     ClipStack& clipStack();
     inline TextureMapperGLData& data() { return *m_data; }
-
-    TextureMapperContextAttributes m_contextAttributes;
+    RefPtr<GraphicsContext3D> m_context3D;
     TextureMapperGLData* m_data;
     ClipStack m_clipStack;
     bool m_enableEdgeDistanceAntialiasing;

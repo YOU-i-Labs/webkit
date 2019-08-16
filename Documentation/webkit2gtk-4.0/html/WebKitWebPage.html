@@ -8,7 +8,7 @@
 <link rel="up" href="ch02.html" title="Web Extensions">
 <link rel="prev" href="WebKitWebExtension.html" title="WebKitWebExtension">
 <link rel="next" href="WebKitFrame.html" title="WebKitFrame">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.25.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -44,7 +44,7 @@
 <tbody>
 <tr>
 <td class="function_type">
-<a href="../webkitdomgtk-4.0/WebKitDOMDocument.html#WebKitDOMDocument-struct"><span class="returnvalue">WebKitDOMDocument</span></a> *
+<a href="../html/WebKitDOMDocument.html#WebKitDOMDocument-struct"><span class="returnvalue">WebKitDOMDocument</span></a> *
 </td>
 <td class="function_name">
 <a class="link" href="WebKitWebPage.html#webkit-web-page-get-dom-document" title="webkit_web_page_get_dom_document ()">webkit_web_page_get_dom_document</a> <span class="c_punctuation">()</span>
@@ -134,11 +134,6 @@
 <td class="signal_name"><a class="link" href="WebKitWebPage.html#WebKitWebPage-send-request" title="The “send-request” signal">send-request</a></td>
 <td class="signal_flags"><a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></td>
 </tr>
-<tr>
-<td class="signal_type"><span class="returnvalue">void</span></td>
-<td class="signal_name"><a class="link" href="WebKitWebPage.html#WebKitWebPage-will-submit-form" title="The “will-submit-form” signal">will-submit-form</a></td>
-<td class="signal_flags"><a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></td>
-</tr>
 </tbody>
 </table></div>
 </div>
@@ -149,23 +144,15 @@
 <col width="150px" class="name">
 <col class="description">
 </colgroup>
-<tbody>
-<tr>
+<tbody><tr>
 <td class="datatype_keyword"> </td>
 <td class="function_name"><a class="link" href="WebKitWebPage.html#WebKitWebPage-struct" title="WebKitWebPage">WebKitWebPage</a></td>
-</tr>
-<tr>
-<td class="datatype_keyword">enum</td>
-<td class="function_name"><a class="link" href="WebKitWebPage.html#WebKitFormSubmissionStep" title="enum WebKitFormSubmissionStep">WebKitFormSubmissionStep</a></td>
-</tr>
-</tbody>
+</tr></tbody>
 </table></div>
 </div>
 <div class="refsect1">
 <a name="WebKitWebPage.object-hierarchy"></a><h2>Object Hierarchy</h2>
-<pre class="screen">    <a href="../gobject/gobject-Enumeration-and-Flag-Types.html">GEnum</a>
-    <span class="lineart">╰──</span> WebKitFormSubmissionStep
-    <a href="../gobject/gobject-The-Base-Object-Type.html#GObject-struct">GObject</a>
+<pre class="screen">    <a href="../gobject/gobject-The-Base-Object-Type.html#GObject-struct">GObject</a>
     <span class="lineart">╰──</span> WebKitWebPage
 </pre>
 </div>
@@ -176,9 +163,9 @@
 <a name="WebKitWebPage.functions_details"></a><h2>Functions</h2>
 <div class="refsect2">
 <a name="webkit-web-page-get-dom-document"></a><h3>webkit_web_page_get_dom_document ()</h3>
-<pre class="programlisting"><a href="../webkitdomgtk-4.0/WebKitDOMDocument.html#WebKitDOMDocument-struct"><span class="returnvalue">WebKitDOMDocument</span></a> *
+<pre class="programlisting"><a href="../html/WebKitDOMDocument.html#WebKitDOMDocument-struct"><span class="returnvalue">WebKitDOMDocument</span></a> *
 webkit_web_page_get_dom_document (<em class="parameter"><code><a class="link" href="WebKitWebPage.html" title="WebKitWebPage"><span class="type">WebKitWebPage</span></a> *web_page</code></em>);</pre>
-<p>Get the <a href="../webkitdomgtk-4.0/WebKitDOMDocument.html#WebKitDOMDocument-struct"><span class="type">WebKitDOMDocument</span></a> currently loaded in <em class="parameter"><code>web_page</code></em>
+<p>Get the <a href="../html/WebKitDOMDocument.html#WebKitDOMDocument-struct"><span class="type">WebKitDOMDocument</span></a> currently loaded in <em class="parameter"><code>web_page</code></em>
 </p>
 <div class="refsect3">
 <a name="webkit-web-page-get-dom-document.parameters"></a><h4>Parameters</h4>
@@ -197,7 +184,7 @@ webkit_web_page_get_dom_document (<em class="parameter"><code><a class="link" hr
 </div>
 <div class="refsect3">
 <a name="webkit-web-page-get-dom-document.returns"></a><h4>Returns</h4>
-<p>the <a href="../webkitdomgtk-4.0/WebKitDOMDocument.html#WebKitDOMDocument-struct"><span class="type">WebKitDOMDocument</span></a> currently loaded, or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a>
+<p> the <a href="../html/WebKitDOMDocument.html#WebKitDOMDocument-struct"><span class="type">WebKitDOMDocument</span></a> currently loaded, or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a>
 if no document is currently loaded. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
@@ -284,7 +271,7 @@ webkit_web_page_get_main_frame (<em class="parameter"><code><a class="link" href
 </div>
 <div class="refsect3">
 <a name="webkit-web-page-get-main-frame.returns"></a><h4>Returns</h4>
-<p>the <a class="link" href="WebKitFrame.html" title="WebKitFrame"><span class="type">WebKitFrame</span></a> that is the main frame of <em class="parameter"><code>web_page</code></em>
+<p> the <a class="link" href="WebKitFrame.html" title="WebKitFrame"><span class="type">WebKitFrame</span></a> that is the main frame of <em class="parameter"><code>web_page</code></em>
 . </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
@@ -313,7 +300,7 @@ webkit_web_page_get_editor (<em class="parameter"><code><a class="link" href="We
 </div>
 <div class="refsect3">
 <a name="webkit-web-page-get-editor.returns"></a><h4>Returns</h4>
-<p>the <a class="link" href="WebKitWebEditor.html" title="WebKitWebEditor"><span class="type">WebKitWebEditor</span></a>. </p>
+<p> the <a class="link" href="WebKitWebEditor.html" title="WebKitWebEditor"><span class="type">WebKitWebEditor</span></a>. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 <p class="since">Since: <a class="link" href="api-index-2-10.html#api-index-2.10">2.10</a></p>
@@ -324,41 +311,6 @@ webkit_web_page_get_editor (<em class="parameter"><code><a class="link" href="We
 <div class="refsect2">
 <a name="WebKitWebPage-struct"></a><h3>WebKitWebPage</h3>
 <pre class="programlisting">typedef struct _WebKitWebPage WebKitWebPage;</pre>
-</div>
-<hr>
-<div class="refsect2">
-<a name="WebKitFormSubmissionStep"></a><h3>enum WebKitFormSubmissionStep</h3>
-<p>Used to indicate a particular stage in form submission. See
-<a class="link" href="WebKitWebPage.html#WebKitWebPage-will-submit-form" title="The “will-submit-form” signal"><span class="type">“will-submit-form”</span></a>.</p>
-<div class="refsect3">
-<a name="WebKitFormSubmissionStep.members"></a><h4>Members</h4>
-<div class="informaltable"><table class="informaltable" width="100%" border="0">
-<colgroup>
-<col width="300px" class="enum_members_name">
-<col class="enum_members_description">
-<col width="200px" class="enum_members_annotations">
-</colgroup>
-<tbody>
-<tr>
-<td class="enum_member_name"><p><a name="WEBKIT-FORM-SUBMISSION-WILL-SEND-DOM-EVENT:CAPS"></a>WEBKIT_FORM_SUBMISSION_WILL_SEND_DOM_EVENT</p></td>
-<td class="enum_member_description">
-<p>indicates the form's
-DOM submit event is about to be emitted.</p>
-</td>
-<td class="enum_member_annotations"> </td>
-</tr>
-<tr>
-<td class="enum_member_name"><p><a name="WEBKIT-FORM-SUBMISSION-WILL-COMPLETE:CAPS"></a>WEBKIT_FORM_SUBMISSION_WILL_COMPLETE</p></td>
-<td class="enum_member_description">
-<p>indicates the form is about
-to be submitted.</p>
-</td>
-<td class="enum_member_annotations"> </td>
-</tr>
-</tbody>
-</table></div>
-</div>
-<p class="since">Since: <a class="link" href="api-index-2-20.html#api-index-2.20">2.20</a></p>
 </div>
 </div>
 <div class="refsect1">
@@ -427,7 +379,7 @@ give the application a chance to customize the proposed menu,
 build its own context menu or pass user data to the UI Process.
 This signal is useful when the information available in the UI Process
 is not enough to build or customize the context menu, for example, to
-add menu entries depending on the <a href="../webkitdomgtk-4.0/WebKitDOMNode.html#WebKitDOMNode-struct"><span class="type">WebKitDOMNode</span></a> at the coordinates of the
+add menu entries depending on the <a href="../html/WebKitDOMNode.html#WebKitDOMNode-struct"><span class="type">WebKitDOMNode</span></a> at the coordinates of the
 <em class="parameter"><code>hit_test_result</code></em>
 . Otherwise, it's recommended to use <a class="link" href="WebKitWebView.html#WebKitWebView-context-menu" title="The “context-menu” signal"><span class="type">“context-menu”</span></a>
 signal instead.</p>
@@ -537,8 +489,8 @@ keep them alive after the signal handler returns.</p>
 </tr>
 <tr>
 <td class="parameter_name"><p>elements</p></td>
-<td class="parameter_description"><p>a <a href="../glib/glib-Pointer-Arrays.html#GPtrArray"><span class="type">GPtrArray</span></a> of
-<a href="../webkitdomgtk-4.0/WebKitDOMElement.html#WebKitDOMElement-struct"><span class="type">WebKitDOMElement</span></a> with the list of forms in the page. </p></td>
+<td class="parameter_description"><p> a <a href="../glib/glib-Pointer-Arrays.html#GPtrArray"><span class="type">GPtrArray</span></a> of
+<a href="../html/WebKitDOMElement.html#WebKitDOMElement-struct"><span class="type">WebKitDOMElement</span></a> with the list of forms in the page. </p></td>
 <td class="parameter_annotations"><span class="annotation">[<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> WebKitDOMElement][<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></td>
 </tr>
 <tr>
@@ -572,9 +524,6 @@ request to be sent to the server due to the redirection and the
 <em class="parameter"><code>redirected_response</code></em>
  parameter containing the response
 received by the server for the initial request.</p>
-<p>Modifications to the <a class="link" href="WebKitURIRequest.html" title="WebKitURIRequest"><span class="type">WebKitURIRequest</span></a> and its associated
-<span class="type">SoupMessageHeaders</span> will be taken into account when the request
-is sent over the network.</p>
 <div class="refsect3">
 <a name="WebKitWebPage-send-request.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -614,108 +563,9 @@ is sent over the network.</p>
 </div>
 <p>Flags: <a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></p>
 </div>
-<hr>
-<div class="refsect2">
-<a name="WebKitWebPage-will-submit-form"></a><h3>The <code class="literal">“will-submit-form”</code> signal</h3>
-<pre class="programlisting"><span class="returnvalue">void</span>
-user_function (<a class="link" href="WebKitWebPage.html" title="WebKitWebPage"><span class="type">WebKitWebPage</span></a>           *web_page,
-               <a href="../webkitdomgtk-4.0/WebKitDOMElement.html#WebKitDOMElement-struct"><span class="type">WebKitDOMElement</span></a>        *form,
-               <a class="link" href="WebKitWebPage.html#WebKitFormSubmissionStep" title="enum WebKitFormSubmissionStep"><span class="type">WebKitFormSubmissionStep</span></a> step,
-               <a class="link" href="WebKitFrame.html" title="WebKitFrame"><span class="type">WebKitFrame</span></a>             *source_frame,
-               <a class="link" href="WebKitFrame.html" title="WebKitFrame"><span class="type">WebKitFrame</span></a>             *target_frame,
-               <a href="../glib/glib-Pointer-Arrays.html#GPtrArray"><span class="type">GPtrArray</span></a>               *text_field_names,
-               <a href="../glib/glib-Pointer-Arrays.html#GPtrArray"><span class="type">GPtrArray</span></a>               *text_field_values,
-               <a href="../glib/glib-Basic-Types.html#gpointer"><span class="type">gpointer</span></a>                 user_data)</pre>
-<p>This signal is emitted to indicate various points during form
-submission. <em class="parameter"><code>step</code></em>
- indicates the current stage of form submission.</p>
-<p>If this signal is emitted with <a class="link" href="WebKitWebPage.html#WEBKIT-FORM-SUBMISSION-WILL-SEND-DOM-EVENT:CAPS"><code class="literal">WEBKIT_FORM_SUBMISSION_WILL_SEND_DOM_EVENT</code></a>,
-then the DOM submit event is about to be emitted. JavaScript code
-may rely on the submit event to detect that the user has clicked
-on a submit button, and to possibly cancel the form submission
-before <a class="link" href="WebKitWebPage.html#WEBKIT-FORM-SUBMISSION-WILL-COMPLETE:CAPS"><code class="literal">WEBKIT_FORM_SUBMISSION_WILL_COMPLETE</code></a>. However, beware
-that, for historical reasons, the submit event is not emitted at
-all if the form submission is triggered by JavaScript. For these
-reasons, <a class="link" href="WebKitWebPage.html#WEBKIT-FORM-SUBMISSION-WILL-SEND-DOM-EVENT:CAPS"><code class="literal">WEBKIT_FORM_SUBMISSION_WILL_SEND_DOM_EVENT</code></a> may not
-be used to reliably detect whether a form will be submitted.
-Instead, use it to detect if a user has clicked on a form's
-submit button even if JavaScript later cancels the form
-submission, or to read the values of the form's fields even if
-JavaScript later clears certain fields before submitting. This
-may be needed, for example, to implement a robust browser
-password manager, as some misguided websites may use such
-techniques to attempt to thwart password managers.</p>
-<p>If this signal is emitted with <a class="link" href="WebKitWebPage.html#WEBKIT-FORM-SUBMISSION-WILL-COMPLETE:CAPS"><code class="literal">WEBKIT_FORM_SUBMISSION_WILL_COMPLETE</code></a>,
-the form will imminently be submitted. It can no longer be
-cancelled. This event always occurs immediately before a form is
-submitted to its target, so use this event to reliably detect
-when a form is submitted. This event occurs after
-<a class="link" href="WebKitWebPage.html#WEBKIT-FORM-SUBMISSION-WILL-SEND-DOM-EVENT:CAPS"><code class="literal">WEBKIT_FORM_SUBMISSION_WILL_SEND_DOM_EVENT</code></a> if that event is
-emitted.</p>
-<div class="refsect3">
-<a name="WebKitWebPage-will-submit-form.parameters"></a><h4>Parameters</h4>
-<div class="informaltable"><table class="informaltable" width="100%" border="0">
-<colgroup>
-<col width="150px" class="parameters_name">
-<col class="parameters_description">
-<col width="200px" class="parameters_annotations">
-</colgroup>
-<tbody>
-<tr>
-<td class="parameter_name"><p>web_page</p></td>
-<td class="parameter_description"><p>the <a class="link" href="WebKitWebPage.html" title="WebKitWebPage"><span class="type">WebKitWebPage</span></a> on which the signal is emitted</p></td>
-<td class="parameter_annotations"> </td>
-</tr>
-<tr>
-<td class="parameter_name"><p>form</p></td>
-<td class="parameter_description"><p>the <a href="../webkitdomgtk-4.0/WebKitDOMElement.html#WebKitDOMElement-struct"><span class="type">WebKitDOMElement</span></a> to be submitted, which will always correspond to an HTMLFormElement</p></td>
-<td class="parameter_annotations"> </td>
-</tr>
-<tr>
-<td class="parameter_name"><p>step</p></td>
-<td class="parameter_description"><p>a <span class="type">WebKitFormSubmissionEventType</span> indicating the current
-stage of form submission</p></td>
-<td class="parameter_annotations"> </td>
-</tr>
-<tr>
-<td class="parameter_name"><p>source_frame</p></td>
-<td class="parameter_description"><p>the <a class="link" href="WebKitFrame.html" title="WebKitFrame"><span class="type">WebKitFrame</span></a> containing the form to be
-submitted</p></td>
-<td class="parameter_annotations"> </td>
-</tr>
-<tr>
-<td class="parameter_name"><p>target_frame</p></td>
-<td class="parameter_description"><p>the <a class="link" href="WebKitFrame.html" title="WebKitFrame"><span class="type">WebKitFrame</span></a> containing the form's target,
-which may be the same as <em class="parameter"><code>source_frame</code></em>
-if no target was specified</p></td>
-<td class="parameter_annotations"> </td>
-</tr>
-<tr>
-<td class="parameter_name"><p>text_field_names</p></td>
-<td class="parameter_description"><p>names of
-the form's text fields. </p></td>
-<td class="parameter_annotations"><span class="annotation">[<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> utf8][<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></td>
-</tr>
-<tr>
-<td class="parameter_name"><p>text_field_values</p></td>
-<td class="parameter_description"><p>values
-of the form's text fields. </p></td>
-<td class="parameter_annotations"><span class="annotation">[<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> utf8][<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></td>
-</tr>
-<tr>
-<td class="parameter_name"><p>user_data</p></td>
-<td class="parameter_description"><p>user data set when the signal handler was connected.</p></td>
-<td class="parameter_annotations"> </td>
-</tr>
-</tbody>
-</table></div>
-</div>
-<p>Flags: <a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></p>
-<p class="since">Since: <a class="link" href="api-index-2-20.html#api-index-2.20">2.20</a></p>
-</div>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.25.1</div>
 </body>
 </html>

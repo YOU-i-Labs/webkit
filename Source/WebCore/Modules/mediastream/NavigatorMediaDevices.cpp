@@ -40,18 +40,20 @@
 
 namespace WebCore {
 
-NavigatorMediaDevices::NavigatorMediaDevices(DOMWindow* window)
-    : DOMWindowProperty(window)
+NavigatorMediaDevices::NavigatorMediaDevices(Frame* frame)
+    : DOMWindowProperty(frame)
 {
 }
 
-NavigatorMediaDevices::~NavigatorMediaDevices() = default;
+NavigatorMediaDevices::~NavigatorMediaDevices()
+{
+}
 
 NavigatorMediaDevices* NavigatorMediaDevices::from(Navigator* navigator)
 {
     NavigatorMediaDevices* supplement = static_cast<NavigatorMediaDevices*>(Supplement<Navigator>::from(navigator, supplementName()));
     if (!supplement) {
-        auto newSupplement = std::make_unique<NavigatorMediaDevices>(navigator->window());
+        auto newSupplement = std::make_unique<NavigatorMediaDevices>(navigator->frame());
         supplement = newSupplement.get();
         provideTo(navigator, supplementName(), WTFMove(newSupplement));
     }

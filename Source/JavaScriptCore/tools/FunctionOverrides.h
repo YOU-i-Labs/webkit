@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "Options.h"
 #include "SourceCode.h"
 #include <wtf/HashMap.h>
 #include <wtf/text/WTFString.h>

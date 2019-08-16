@@ -29,19 +29,18 @@
 #if ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)
 
 #include "ScrollingStateTree.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 
-Ref<ScrollingStateFrameScrollingNode> ScrollingStateFrameScrollingNode::create(ScrollingStateTree& stateTree, ScrollingNodeType nodeType, ScrollingNodeID nodeID)
+Ref<ScrollingStateFrameScrollingNode> ScrollingStateFrameScrollingNode::create(ScrollingStateTree& stateTree, ScrollingNodeID nodeID)
 {
-    return adoptRef(*new ScrollingStateFrameScrollingNode(stateTree, nodeType, nodeID));
+    return adoptRef(*new ScrollingStateFrameScrollingNode(stateTree, nodeID));
 }
 
-ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(ScrollingStateTree& stateTree, ScrollingNodeType nodeType, ScrollingNodeID nodeID)
-    : ScrollingStateScrollingNode(stateTree, nodeType, nodeID)
+ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(ScrollingStateTree& stateTree, ScrollingNodeID nodeID)
+    : ScrollingStateScrollingNode(stateTree, FrameScrollingNode, nodeID)
 {
-    ASSERT(isFrameScrollingNode());
 }
 
 ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(const ScrollingStateFrameScrollingNode& stateNode, ScrollingStateTree& adoptiveTree)
@@ -65,6 +64,9 @@ ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(const Scrolli
     , m_fixedElementsLayoutRelativeToFrame(stateNode.fixedElementsLayoutRelativeToFrame())
     , m_visualViewportEnabled(stateNode.visualViewportEnabled())
 {
+    if (hasChangedProperty(ScrolledContentsLayer))
+        setScrolledContentsLayer(stateNode.scrolledContentsLayer().toRepresentation(adoptiveTree.preferredLayerRepresentation()));
+
     if (hasChangedProperty(CounterScrollingLayer))
         setCounterScrollingLayer(stateNode.counterScrollingLayer().toRepresentation(adoptiveTree.preferredLayerRepresentation()));
 
@@ -79,15 +81,11 @@ ScrollingStateFrameScrollingNode::ScrollingStateFrameScrollingNode(const Scrolli
 
     if (hasChangedProperty(FooterLayer))
         setFooterLayer(stateNode.footerLayer().toRepresentation(adoptiveTree.preferredLayerRepresentation()));
-
-    if (hasChangedProperty(VerticalScrollbarLayer))
-        setVerticalScrollbarLayer(stateNode.verticalScrollbarLayer().toRepresentation(adoptiveTree.preferredLayerRepresentation()));
-
-    if (hasChangedProperty(HorizontalScrollbarLayer))
-        setHorizontalScrollbarLayer(stateNode.horizontalScrollbarLayer().toRepresentation(adoptiveTree.preferredLayerRepresentation()));
 }
 
-ScrollingStateFrameScrollingNode::~ScrollingStateFrameScrollingNode() = default;
+ScrollingStateFrameScrollingNode::~ScrollingStateFrameScrollingNode()
+{
+}
 
 Ref<ScrollingStateNode> ScrollingStateFrameScrollingNode::clone(ScrollingStateTree& adoptiveTree)
 {
@@ -185,6 +183,15 @@ void ScrollingStateFrameScrollingNode::setTopContentInset(float topContentInset)
     setPropertyChanged(TopContentInset);
 }
 
+void ScrollingStateFrameScrollingNode::setScrolledContentsLayer(const LayerRepresentation& layerRepresentation)
+{
+    if (layerRepresentation == m_scrolledContentsLayer)
+        return;
+    
+    m_scrolledContentsLayer = layerRepresentation;
+    setPropertyChanged(ScrolledContentsLayer);
+}
+
 void ScrollingStateFrameScrollingNode::setCounterScrollingLayer(const LayerRepresentation& layerRepresentation)
 {
     if (layerRepresentation == m_counterScrollingLayer)
@@ -230,24 +237,6 @@ void ScrollingStateFrameScrollingNode::setFooterLayer(const LayerRepresentation&
     setPropertyChanged(FooterLayer);
 }
 
-void ScrollingStateFrameScrollingNode::setVerticalScrollbarLayer(const LayerRepresentation& layer)
-{
-    if (layer == m_verticalScrollbarLayer)
-        return;
-
-    m_verticalScrollbarLayer = layer;
-    setPropertyChanged(VerticalScrollbarLayer);
-}
-
-void ScrollingStateFrameScrollingNode::setHorizontalScrollbarLayer(const LayerRepresentation& layer)
-{
-    if (layer == m_horizontalScrollbarLayer)
-        return;
-
-    m_horizontalScrollbarLayer = layer;
-    setPropertyChanged(HorizontalScrollbarLayer);
-}
-
 void ScrollingStateFrameScrollingNode::setFixedElementsLayoutRelativeToFrame(bool fixedElementsLayoutRelativeToFrame)
 {
     if (fixedElementsLayoutRelativeToFrame == m_fixedElementsLayoutRelativeToFrame)
@@ -282,6 +271,7 @@ void ScrollingStateFrameScrollingNode::dumpProperties(TextStream& ts, ScrollingS
     if (behavior & ScrollingStateTreeAsTextBehaviorIncludeLayerIDs) {
         ts.dumpProperty("counter scrolling layer ID", m_counterScrollingLayer.layerID());
         ts.dumpProperty("inset clip layer ID", m_insetClipLayer.layerID());
+        ts.dumpProperty("scrolled contents layer ID", m_scrolledContentsLayer.layerID());
         ts.dumpProperty("content shadow layer ID", m_contentShadowLayer.layerID());
         ts.dumpProperty("header layer ID", m_headerLayer.layerID());
         ts.dumpProperty("footer layer ID", m_footerLayer.layerID());
@@ -311,7 +301,8 @@ void ScrollingStateFrameScrollingNode::dumpProperties(TextStream& ts, ScrollingS
         ts << "asynchronous event dispatch region";
         for (auto rect : m_eventTrackingRegions.asynchronousDispatchRegion.rects()) {
             ts << "\n";
-            ts << indent << rect;
+            ts.writeIndent();
+            ts << rect;
         }
     }
 
@@ -321,7 +312,8 @@ void ScrollingStateFrameScrollingNode::dumpProperties(TextStream& ts, ScrollingS
             ts << "synchronous event dispatch region for event " << synchronousEventRegion.key;
             for (auto rect : synchronousEventRegion.value.rects()) {
                 ts << "\n";
-                ts << indent << rect;
+                ts.writeIndent();
+                ts << rect;
             }
         }
     }

@@ -38,10 +38,9 @@ public:
 
     void addPage(Page&);
     void removePage(Page&);
-    void clearPagesPluginData();
 
-    virtual Vector<PluginInfo> pluginInfo(Page&, Optional<Vector<SupportedPluginIdentifier>>&) = 0;
-    virtual Vector<PluginInfo> webVisiblePluginInfo(Page&, const URL&) = 0;
+    virtual void getPluginInfo(Page&, Vector<PluginInfo>&) = 0;
+    virtual void getWebVisiblePluginInfo(Page&, Vector<PluginInfo>&) = 0;
 
 private:
     virtual void refreshPlugins() = 0;

@@ -27,35 +27,32 @@
 
 #if ENABLE(INDEXED_DATABASE)
 
-#include "DOMException.h"
-#include "ExceptionCode.h"
+#include "DOMError.h"
+#include "IDBDatabaseException.h"
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class IDBError {
 public:
-    WEBCORE_EXPORT explicit IDBError(Optional<ExceptionCode> = WTF::nullopt, const String& message = { });
+    IDBError() { }
+    IDBError(ExceptionCode);
+    WEBCORE_EXPORT IDBError(ExceptionCode, const String& message);
 
     static IDBError userDeleteError()
     {
-        return IDBError { UnknownError, "Database deleted by request of the user"_s };
-    }
-    
-    static IDBError serverConnectionLostError()
-    {
-        return IDBError { UnknownError, "Connection to Indexed Database server lost. Refresh the page to try again"_s };
+        return { IDBDatabaseException::UnknownError, ASCIILiteral("Database deleted by request of the user") };
     }
 
-    WEBCORE_EXPORT IDBError& operator=(const IDBError&);
+    IDBError& operator=(const IDBError&);
 
-    RefPtr<DOMException> toDOMException() const;
+    RefPtr<DOMError> toDOMError() const;
 
-    Optional<ExceptionCode> code() const { return m_code; }
+    ExceptionCode code() const { return m_code; }
     String name() const;
     String message() const;
 
-    bool isNull() const { return !m_code; }
+    bool isNull() const { return m_code == IDBDatabaseException::NoError; }
 
     IDBError isolatedCopy() const;
 
@@ -63,35 +60,21 @@ public:
     template<class Decoder> static bool decode(Decoder&, IDBError&);
 
 private:
-    Optional<ExceptionCode> m_code;
+    ExceptionCode m_code { IDBDatabaseException::NoError };
     String m_message;
 };
 
 template<class Encoder>
 void IDBError::encode(Encoder& encoder) const
 {
-    if (m_code) {
-        encoder << true;
-        encoder.encodeEnum(m_code.value());
-    } else
-        encoder << false;
-    encoder << m_message;
+    encoder << m_code << m_message;
 }
     
 template<class Decoder>
 bool IDBError::decode(Decoder& decoder, IDBError& error)
 {
-    bool hasCode = false;
-    if (!decoder.decode(hasCode))
+    if (!decoder.decode(error.m_code))
         return false;
-
-    if (hasCode) {
-        ExceptionCode ec;
-        if (!decoder.decodeEnum(ec))
-            return false;
-        error.m_code = ec;
-    } else
-        error.m_code = WTF::nullopt;
 
     if (!decoder.decode(error.m_message))
         return false;

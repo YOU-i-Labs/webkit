@@ -32,7 +32,6 @@
 #include "QuotedPrintable.h"
 
 #include <wtf/ASCIICType.h>
-#include <wtf/Vector.h>
 
 namespace WebCore {
 

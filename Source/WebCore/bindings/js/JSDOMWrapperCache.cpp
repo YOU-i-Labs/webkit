@@ -22,10 +22,11 @@
 #include "config.h"
 #include "JSDOMWrapperCache.h"
 
-#include <JavaScriptCore/JSCInlines.h>
+#include <runtime/JSCInlines.h>
+
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 
 Structure* getCachedDOMStructure(JSDOMGlobalObject& globalObject, const ClassInfo* classInfo)
 {

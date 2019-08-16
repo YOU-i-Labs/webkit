@@ -47,8 +47,8 @@ public:
     }
 
 protected:
-    RectBase() = default;
-    ~RectBase() = default;
+    RectBase() { }
+    ~RectBase() { }
 
 private:
     RefPtr<CSSPrimitiveValue> m_top;
@@ -67,7 +67,7 @@ public:
     }
 
 private:
-    Rect() = default;
+    Rect() { }
     static String generateCSSString(const String& top, const String& right, const String& bottom, const String& left)
     {
         return "rect(" + top + ", " + right + ", " + bottom + ", " + left + ')';
@@ -84,7 +84,7 @@ public:
     }
 
 private:
-    Quad() = default;
+    Quad() { }
     static String generateCSSString(const String& top, const String& right, const String& bottom, const String& left)
     {
         StringBuilder result;

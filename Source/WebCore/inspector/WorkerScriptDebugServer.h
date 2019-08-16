@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include <JavaScriptCore/ScriptDebugServer.h>
+#include <inspector/ScriptDebugServer.h>
 
 namespace WebCore {
 
@@ -39,10 +39,9 @@ class WorkerGlobalScope;
 
 class WorkerScriptDebugServer final : public Inspector::ScriptDebugServer {
     WTF_MAKE_NONCOPYABLE(WorkerScriptDebugServer);
-    WTF_MAKE_FAST_ALLOCATED;
 public:
     WorkerScriptDebugServer(WorkerGlobalScope&);
-    ~WorkerScriptDebugServer() = default;
+    ~WorkerScriptDebugServer() { }
 
     void recompileAllJSFunctions() override;
 

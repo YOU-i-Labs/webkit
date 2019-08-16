@@ -27,6 +27,7 @@
 
 #if ENABLE(SPEECH_SYNTHESIS)
 
+#include "PlatformExportMacros.h"
 #include "PlatformSpeechSynthesisUtterance.h"
 #include "PlatformSpeechSynthesizer.h"
 #include "SpeechSynthesisUtterance.h"
@@ -73,7 +74,7 @@ private:
     void handleSpeakingCompleted(SpeechSynthesisUtterance&, bool errorOccurred);
     void fireEvent(const AtomicString& type, SpeechSynthesisUtterance&, unsigned long charIndex, const String& name);
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     // Restrictions to change default behaviors.
     enum BehaviorRestrictionFlags {
         NoRestrictions = 0,
@@ -89,7 +90,7 @@ private:
     SpeechSynthesisUtterance* m_currentSpeechUtterance;
     Deque<Ref<SpeechSynthesisUtterance>> m_utteranceQueue;
     bool m_isPaused;
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     BehaviorRestrictions m_restrictions;
 #endif
 };

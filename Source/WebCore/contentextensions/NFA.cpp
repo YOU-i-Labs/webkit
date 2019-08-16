@@ -54,7 +54,7 @@ void NFA::debugPrintDot() const
             for (unsigned actionIndex = node.actionStart; actionIndex < node.actionEnd; ++actionIndex) {
                 if (!isFirst)
                     dataLogF(", ");
-                dataLogF("%" PRIu64, actions[actionIndex]);
+                dataLogF("%llu", actions[actionIndex]);
                 isFirst = false;
             }
             dataLogF(")");

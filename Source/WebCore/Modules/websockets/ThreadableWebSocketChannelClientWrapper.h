@@ -30,12 +30,15 @@
 
 #pragma once
 
+#if ENABLE(WEB_SOCKETS)
+
 #include "ScriptExecutionContext.h"
 #include "ThreadableWebSocketChannel.h"
 #include "WebSocketChannelClient.h"
 #include "WorkerThreadableWebSocketChannel.h"
 #include <memory>
 #include <wtf/Forward.h>
+#include <wtf/Threading.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -105,3 +108,5 @@ private:
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_SOCKETS)

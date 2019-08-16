@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,21 +28,16 @@
 
 #if ENABLE(WEBASSEMBLY)
 
+#include "VM.h"
 #include <wtf/FastMalloc.h>
 #include <wtf/HashFunctions.h>
 #include <wtf/PrintStream.h>
-#include <wtf/text/WTFString.h>
 
 namespace JSC { namespace Wasm {
 
 namespace {
-namespace WasmSignatureInternal {
-static const bool verbose = false;
+const bool verbose = false;
 }
-}
-
-SignatureInformation* SignatureInformation::theOne { nullptr };
-std::once_flag SignatureInformation::signatureInformationFlag;
 
 String Signature::toString() const
 {
@@ -86,22 +81,60 @@ SignatureInformation::SignatureInformation()
 {
 }
 
-Ref<Signature> SignatureInformation::adopt(Ref<Signature>&& signature)
+SignatureInformation& SignatureInformation::singleton()
+{
+    static SignatureInformation* theOne;
+    static std::once_flag signatureInformationFlag;
+    std::call_once(signatureInformationFlag, [] () {
+        theOne = new SignatureInformation;
+    });
+
+    return *theOne;
+}
+
+std::pair<SignatureIndex, Ref<Signature>> SignatureInformation::adopt(Ref<Signature>&& signature)
 {
     SignatureInformation& info = singleton();
     LockHolder lock(info.m_lock);
 
-    SignatureIndex nextValue = signature->index();
-    auto addResult = info.m_signatureSet.add(SignatureHash { signature.copyRef() });
+    SignatureIndex nextValue = info.m_nextIndex;
+    auto addResult = info.m_signatureMap.add(SignatureHash { signature.ptr() }, nextValue);
     if (addResult.isNewEntry) {
-        if (WasmSignatureInternal::verbose)
-            dataLogLn("Adopt new signature ", signature.get(), " with index ", nextValue, " hash: ", signature->hash());
-        return WTFMove(signature);
+        ++info.m_nextIndex;
+        RELEASE_ASSERT(info.m_nextIndex > nextValue); // crash on overflow.
+        ASSERT(nextValue == addResult.iterator->value);
+        if (verbose)
+            dataLogLn("Adopt new signature ", signature.get(), " with index ", addResult.iterator->value, " hash: ", signature->hash());
+
+        auto addResult = info.m_indexMap.add(nextValue, signature.copyRef());
+        RELEASE_ASSERT(addResult.isNewEntry);
+        ASSERT(info.m_indexMap.size() == info.m_signatureMap.size());
+        return std::make_pair(nextValue, WTFMove(signature));
     }
-    nextValue = addResult.iterator->key->index();
-    if (WasmSignatureInternal::verbose)
-        dataLogLn("Existing signature ", signature.get(), " with index ", nextValue, " hash: ", signature->hash());
-    return Ref<Signature>(*addResult.iterator->key);
+    if (verbose)
+        dataLogLn("Existing signature ", signature.get(), " with index ", addResult.iterator->value, " hash: ", signature->hash());
+    ASSERT(addResult.iterator->value != Signature::invalidIndex);
+    ASSERT(info.m_indexMap.contains(addResult.iterator->value));
+    return std::make_pair(addResult.iterator->value, Ref<Signature>(*info.m_indexMap.get(addResult.iterator->value)));
+}
+
+const Signature& SignatureInformation::get(SignatureIndex index)
+{
+    ASSERT(index != Signature::invalidIndex);
+    SignatureInformation& info = singleton();
+    LockHolder lock(info.m_lock);
+
+    return *info.m_indexMap.get(index);
+}
+
+SignatureIndex SignatureInformation::get(const Signature& signature)
+{
+    SignatureInformation& info = singleton();
+    LockHolder lock(info.m_lock);
+
+    auto result = info.m_signatureMap.get(SignatureHash { &signature });
+    ASSERT(result != Signature::invalidIndex);
+    return result;
 }
 
 void SignatureInformation::tryCleanup()
@@ -109,10 +142,24 @@ void SignatureInformation::tryCleanup()
     SignatureInformation& info = singleton();
     LockHolder lock(info.m_lock);
 
-    info.m_signatureSet.removeIf([&] (auto& hash) {
-        const auto& signature = hash.key;
-        return signature->refCount() == 1;
-    });
+    Vector<std::pair<SignatureIndex, Signature*>> toRemove;
+    for (const auto& pair : info.m_indexMap) {
+        const Ref<Signature>& signature = pair.value;
+        if (signature->refCount() == 1) {
+            // We're the only owner.
+            toRemove.append(std::make_pair(pair.key, signature.ptr()));
+        }
+    }
+    for (const auto& pair : toRemove) {
+        bool removed = info.m_signatureMap.remove(SignatureHash { pair.second });
+        ASSERT_UNUSED(removed, removed);
+        removed = info.m_indexMap.remove(pair.first);
+        ASSERT_UNUSED(removed, removed);
+    }
+    if (info.m_signatureMap.isEmpty()) {
+        ASSERT(info.m_indexMap.isEmpty());
+        info.m_nextIndex = Signature::firstValidIndex;
+    }
 }
 
 } } // namespace JSC::Wasm

@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef WTF_Box_h
+#define WTF_Box_h
 
 #include <wtf/RefPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -35,16 +36,13 @@ namespace WTF {
 template<typename T>
 class Box {
 public:
-    Box() = default;
-    Box(Box&&) = default;
-    Box(const Box&) = default;
+    Box()
+    {
+    }
 
     Box(std::nullptr_t)
     {
     }
-
-    Box& operator=(Box&&) = default;
-    Box& operator=(const Box&) = default;
 
     template<typename... Arguments>
     static Box create(Arguments&&... arguments)
@@ -59,7 +57,7 @@ public:
     T& operator*() const { return m_data->value; }
     T* operator->() const { return &m_data->value; }
 
-    explicit operator bool() const { return static_cast<bool>(m_data); }
+    explicit operator bool() { return m_data; }
     
 private:
     struct Data : ThreadSafeRefCounted<Data> {
@@ -78,3 +76,6 @@ private:
 } // namespace WTF
 
 using WTF::Box;
+
+#endif // WTF_Box_h
+

@@ -1,6 +1,5 @@
 /*
  * Copyright (C) Research In Motion Limited 2010, 2012. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,6 +21,7 @@
 
 #include "SVGAnimatedListPropertyTearOff.h"
 #include "SVGPathByteStream.h"
+#include "SVGPathElement.h"
 #include "SVGPathSegList.h"
 #include "SVGPathUtilities.h"
 
@@ -40,20 +40,20 @@ public:
     Ref<ListPropertyTearOff> baseVal() final
     {
         if (m_baseVal)
-            return *static_cast<ListPropertyTearOff*>(m_baseVal.get());
+            return *m_baseVal;
 
         auto property = SVGPathSegList::create(*this, BaseValRole, PathSegUnalteredRole, m_values, m_wrappers);
-        m_baseVal = makeWeakPtr(property.get());
+        m_baseVal = property.ptr();
         return property;
     }
 
     Ref<ListPropertyTearOff> animVal() final
     {
         if (m_animVal)
-            return *static_cast<ListPropertyTearOff*>(m_animVal.get());
+            return *m_animVal;
 
         auto property = SVGPathSegList::create(*this, AnimValRole, PathSegUnalteredRole, m_values, m_wrappers);
-        m_animVal = makeWeakPtr(property.get());
+        m_animVal = property.ptr();
         return property;
     }
 
@@ -87,15 +87,39 @@ public:
         Base::animationEnded();
     }
 
-    void animValDidChange();
+    void animValDidChange()
+    {
+        ASSERT(m_animatedPathByteStream);
+        SVGPathElement* pathElement = downcast<SVGPathElement>(contextElement());
+
+        // If the animVal is observed from JS, we have to update it on each animation step.
+        // This is an expensive operation and only done, if someone actually observes the animatedPathSegList() while an animation is running.
+        if (pathElement->isAnimValObserved()) {
+            auto& animatedList = currentAnimatedValue();
+            animatedList.clear();
+            buildSVGPathSegListValuesFromByteStream(*m_animatedPathByteStream, *pathElement, animatedList, UnalteredParsing);
+        }
+
+        Base::animValDidChange();
+    }
 
     SVGPathByteStream* animatedPathByteStream() const { return m_animatedPathByteStream; }
 
 private:
-    SVGAnimatedPathSegListPropertyTearOff(SVGElement*, const QualifiedName&, AnimatedPropertyType, SVGPathSegListValues&);
-    virtual ~SVGAnimatedPathSegListPropertyTearOff();
+    SVGAnimatedPathSegListPropertyTearOff(SVGElement* contextElement, const QualifiedName& attributeName, AnimatedPropertyType animatedPropertyType, SVGPathSegListValues& values)
+        : Base(contextElement, attributeName, animatedPropertyType, values)
+        , m_animatedPathByteStream(nullptr)
+    {
+        ASSERT(contextElement);
+        ASSERT(is<SVGPathElement>(contextElement));
+    }
 
-    SVGPathByteStream* m_animatedPathByteStream { nullptr };
+    virtual ~SVGAnimatedPathSegListPropertyTearOff()
+    {
+        downcast<SVGPathElement>(contextElement())->animatedPropertyWillBeDeleted();
+    }
+
+    SVGPathByteStream* m_animatedPathByteStream;
 };
 
 } // namespace WebCore

@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.MemoryInstrument = class MemoryInstrument extends WI.Instrument
+WebInspector.MemoryInstrument = class MemoryInstrument extends WebInspector.Instrument
 {
     constructor()
     {
         super();
 
-        console.assert(WI.MemoryInstrument.supported());
+        console.assert(WebInspector.MemoryInstrument.supported());
     }
 
     // Static
@@ -44,7 +44,7 @@ WI.MemoryInstrument = class MemoryInstrument extends WI.Instrument
 
     get timelineRecordType()
     {
-        return WI.TimelineRecord.Type.Memory;
+        return WebInspector.TimelineRecord.Type.Memory;
     }
 
     startInstrumentation(initiatedByBackend)

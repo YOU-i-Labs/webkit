@@ -23,13 +23,18 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.CodeMirrorGradientEditingController = class CodeMirrorGradientEditingController extends WI.CodeMirrorEditingController
+WebInspector.CodeMirrorGradientEditingController = class CodeMirrorGradientEditingController extends WebInspector.CodeMirrorEditingController
 {
+    constructor(codeMirror, marker)
+    {
+        super(codeMirror, marker);
+    }
+
     // Public
 
     get initialValue()
     {
-        return WI.Gradient.fromString(this.text);
+        return WebInspector.Gradient.fromString(this.text);
     }
 
     get cssClassName()
@@ -41,7 +46,7 @@ WI.CodeMirrorGradientEditingController = class CodeMirrorGradientEditingControll
     {
         // Since the gradient editor can resize to be quite tall, let's avoid displaying the popover
         // above the edited value so that it may not change which edge it attaches to upon editing a stop.
-        return [WI.RectEdge.MIN_X, WI.RectEdge.MAX_Y, WI.RectEdge.MAX_X];
+        return [WebInspector.RectEdge.MIN_X, WebInspector.RectEdge.MAX_Y, WebInspector.RectEdge.MAX_X];
     }
 
     popoverTargetFrameWithRects(rects)
@@ -58,9 +63,9 @@ WI.CodeMirrorGradientEditingController = class CodeMirrorGradientEditingControll
             popover.update();
         }
 
-        this._gradientEditor = new WI.GradientEditor;
-        this._gradientEditor.addEventListener(WI.GradientEditor.Event.GradientChanged, this._gradientEditorGradientChanged, this);
-        this._gradientEditor.addEventListener(WI.GradientEditor.Event.ColorPickerToggled, handleColorPickerToggled, this);
+        this._gradientEditor = new WebInspector.GradientEditor;
+        this._gradientEditor.addEventListener(WebInspector.GradientEditor.Event.GradientChanged, this._gradientEditorGradientChanged, this);
+        this._gradientEditor.addEventListener(WebInspector.GradientEditor.Event.ColorPickerToggled, handleColorPickerToggled, this);
         popover.content = this._gradientEditor.element;
     }
 

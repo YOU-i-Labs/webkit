@@ -24,11 +24,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ProbeDetailsSidebarPanel = class ProbeDetailsSidebarPanel extends WI.DetailsSidebarPanel
+WebInspector.ProbeDetailsSidebarPanel = class ProbeDetailsSidebarPanel extends WebInspector.DetailsSidebarPanel
 {
     constructor()
     {
-        super("probe", WI.UIString("Probes"));
+        super("probe", WebInspector.UIString("Probes"), WebInspector.UIString("Probes"));
 
         this._probeSetSections = new Map;
         this._inspectedProbeSets = [];
@@ -45,16 +45,14 @@ WI.ProbeDetailsSidebarPanel = class ProbeDetailsSidebarPanel extends WI.DetailsS
     {
         for (let probeSet of this._inspectedProbeSets) {
             let removedSection = this._probeSetSections.get(probeSet);
-            if (removedSection)
-                removedSection.element.remove();
+            removedSection.element.remove();
         }
 
         this._inspectedProbeSets = newProbeSets;
 
         for (let probeSet of newProbeSets) {
             let shownSection = this._probeSetSections.get(probeSet);
-            if (shownSection)
-                this.contentView.element.appendChild(shownSection.element);
+            this.contentView.element.appendChild(shownSection.element);
         }
     }
 
@@ -64,13 +62,13 @@ WI.ProbeDetailsSidebarPanel = class ProbeDetailsSidebarPanel extends WI.DetailsS
             objects = [objects];
 
         var inspectedProbeSets = objects.filter(function(object) {
-            return object instanceof WI.ProbeSet;
+            return object instanceof WebInspector.ProbeSet;
         });
 
         inspectedProbeSets.sort(function sortBySourceLocation(aProbeSet, bProbeSet) {
             var aLocation = aProbeSet.breakpoint.sourceCodeLocation;
             var bLocation = bProbeSet.breakpoint.sourceCodeLocation;
-            var comparisonResult = aLocation.sourceCode.displayName.extendedLocaleCompare(bLocation.sourceCode.displayName);
+            var comparisonResult = aLocation.sourceCode.displayName.localeCompare(bLocation.sourceCode.displayName);
             if (comparisonResult !== 0)
                 return comparisonResult;
 
@@ -86,26 +84,18 @@ WI.ProbeDetailsSidebarPanel = class ProbeDetailsSidebarPanel extends WI.DetailsS
         return !!this._inspectedProbeSets.length;
     }
 
-    closed()
-    {
-        WI.debuggerManager.removeEventListener(null, null, this);
-
-        super.closed();
-    }
-
     // Protected
 
     initialLayout()
     {
         super.initialLayout();
 
-        WI.debuggerManager.addEventListener(WI.DebuggerManager.Event.ProbeSetAdded, this._probeSetAdded, this);
-        WI.debuggerManager.addEventListener(WI.DebuggerManager.Event.ProbeSetRemoved, this._probeSetRemoved, this);
+        WebInspector.probeManager.addEventListener(WebInspector.ProbeManager.Event.ProbeSetAdded, this._probeSetAdded, this);
+        WebInspector.probeManager.addEventListener(WebInspector.ProbeManager.Event.ProbeSetRemoved, this._probeSetRemoved, this);
 
-        for (let probeSet of new Set([...this._inspectedProbeSets, ...WI.debuggerManager.probeSets]))
+        // Initialize sidebar sections for probe sets that already exist.
+        for (var probeSet of WebInspector.probeManager.probeSets)
             this._probeSetAdded(probeSet);
-
-        this.inspectedProbeSets = this._inspectedProbeSets;
     }
 
     sizeDidChange()
@@ -122,13 +112,13 @@ WI.ProbeDetailsSidebarPanel = class ProbeDetailsSidebarPanel extends WI.DetailsS
     _probeSetAdded(probeSetOrEvent)
     {
         var probeSet;
-        if (probeSetOrEvent instanceof WI.ProbeSet)
+        if (probeSetOrEvent instanceof WebInspector.ProbeSet)
             probeSet = probeSetOrEvent;
         else
             probeSet = probeSetOrEvent.data.probeSet;
         console.assert(!this._probeSetSections.has(probeSet), "New probe group ", probeSet, " already has its own sidebar.");
 
-        var newSection = new WI.ProbeSetDetailsSection(probeSet);
+        var newSection = new WebInspector.ProbeSetDetailsSection(probeSet);
         this._probeSetSections.set(probeSet, newSection);
     }
 

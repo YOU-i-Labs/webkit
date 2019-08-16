@@ -31,7 +31,8 @@
 
 #pragma once
 
-#include <wtf/StdSet.h>
+#include <set>
+#include <wtf/Noncopyable.h>
 
 namespace WebCore {
 
@@ -56,7 +57,7 @@ private:
     RenderBox& m_containerBox;
     RenderBox* m_currentChild;
 
-    using OrderValues = StdSet<int>;
+    typedef std::set<int> OrderValues;
     OrderValues m_orderValues;
     OrderValues::const_iterator m_orderValuesIterator;
     bool m_isReset { false };

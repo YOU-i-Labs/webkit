@@ -22,8 +22,8 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-#pragma once
+#ifndef AuthenticationChallenge_h
+#define AuthenticationChallenge_h
 
 #include "AuthenticationChallengeBase.h"
 #include "AuthenticationClient.h"
@@ -33,7 +33,7 @@ typedef struct _SoupMessage SoupMessage;
 
 namespace WebCore {
 
-class AuthenticationChallenge final : public AuthenticationChallengeBase {
+class AuthenticationChallenge : public AuthenticationChallengeBase {
 public:
     AuthenticationChallenge()
     {
@@ -46,7 +46,6 @@ public:
 
     AuthenticationChallenge(SoupMessage*, SoupAuth*, bool retrying, AuthenticationClient* = nullptr);
     AuthenticationClient* authenticationClient() const { return m_authenticationClient.get(); }
-    SoupMessage* soupMessage() const { return m_soupMessage.get(); }
     SoupAuth* soupAuth() const { return m_soupAuth.get(); }
     void setProposedCredential(const Credential& credential) { m_proposedCredential = credential; }
 
@@ -54,10 +53,10 @@ private:
     friend class AuthenticationChallengeBase;
     static bool platformCompare(const AuthenticationChallenge&, const AuthenticationChallenge&);
 
-    GRefPtr<SoupMessage> m_soupMessage;
     GRefPtr<SoupAuth> m_soupAuth;
     RefPtr<AuthenticationClient> m_authenticationClient;
 };
 
-} // namespace WebCore
+}
 
+#endif

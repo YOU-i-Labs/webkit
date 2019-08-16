@@ -23,14 +23,15 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef TrackPrivateBaseGStreamer_h
+#define TrackPrivateBaseGStreamer_h
 
 #if ENABLE(VIDEO) && USE(GSTREAMER) && ENABLE(VIDEO_TRACK)
 
-#include "GStreamerCommon.h"
+#include "GRefPtrGStreamer.h"
 #include "MainThreadNotifier.h"
-#include <gst/gst.h>
 #include <wtf/Lock.h>
+#include <wtf/ThreadingPrimitives.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -41,13 +42,6 @@ class TrackPrivateBaseGStreamer {
 public:
     virtual ~TrackPrivateBaseGStreamer();
 
-    enum TrackType {
-        Audio,
-        Video,
-        Text,
-        Unknown
-    };
-
     GstPad* pad() const { return m_pad.get(); }
 
     virtual void disconnect();
@@ -56,18 +50,9 @@ public:
 
     void setIndex(int index) { m_index =  index; }
 
-#if GST_CHECK_VERSION(1, 10, 0)
-    GstStream* stream()
-    {
-        return m_stream.get();
-    }
-#endif
-
 protected:
     TrackPrivateBaseGStreamer(TrackPrivateBase* owner, gint index, GRefPtr<GstPad>);
-#if GST_CHECK_VERSION(1, 10, 0)
-    TrackPrivateBaseGStreamer(TrackPrivateBase* owner, gint index, GRefPtr<GstStream>);
-#endif
+
     void notifyTrackOfActiveChanged();
     void notifyTrackOfTagsChanged();
 
@@ -83,9 +68,6 @@ protected:
     AtomicString m_label;
     AtomicString m_language;
     GRefPtr<GstPad> m_pad;
-#if GST_CHECK_VERSION(1, 10, 0)
-    GRefPtr<GstStream> m_stream;
-#endif
 
 private:
     bool getLanguageCode(GstTagList* tags, AtomicString& value);
@@ -106,3 +88,5 @@ private:
 } // namespace WebCore
 
 #endif // ENABLE(VIDEO) && USE(GSTREAMER) && ENABLE(VIDEO_TRACK)
+
+#endif // TrackPrivateBaseGStreamer_h

@@ -362,10 +362,10 @@ TextDirection directionOfEnclosingBlock(const Position& position)
 {
     auto block = enclosingBlock(position.containerNode());
     if (!block)
-        return TextDirection::LTR;
+        return LTR;
     auto renderer = block->renderer();
     if (!renderer)
-        return TextDirection::LTR;
+        return LTR;
     return renderer->style().direction();
 }
 
@@ -375,7 +375,7 @@ TextDirection directionOfEnclosingBlock(const Position& position)
 // on a Position before using it to create a DOM Range, or an exception will be thrown.
 int lastOffsetForEditing(const Node& node)
 {
-    if (node.isCharacterDataNode())
+    if (node.offsetInCharacters())
         return node.maxCharacterOffset();
 
     if (node.hasChildNodes())
@@ -456,13 +456,13 @@ static bool isSpecialHTMLElement(const Node* node)
     if (!renderer)
         return false;
 
-    if (renderer->style().display() == DisplayType::Table || renderer->style().display() == DisplayType::InlineTable)
+    if (renderer->style().display() == TABLE || renderer->style().display() == INLINE_TABLE)
         return true;
 
     if (renderer->style().isFloating())
         return true;
 
-    if (renderer->style().position() != PositionType::Static)
+    if (renderer->style().position() != StaticPosition)
         return true;
 
     return false;
@@ -890,7 +890,7 @@ Ref<HTMLElement> createHTMLElement(Document& document, const QualifiedName& name
 
 Ref<HTMLElement> createHTMLElement(Document& document, const AtomicString& tagName)
 {
-    return createHTMLElement(document, QualifiedName(nullAtom(), tagName, xhtmlNamespaceURI));
+    return createHTMLElement(document, QualifiedName(nullAtom, tagName, xhtmlNamespaceURI));
 }
 
 bool isTabSpanNode(const Node* node)
@@ -927,13 +927,13 @@ Ref<Element> createTabSpanElement(Document& document, const String& tabText)
 
 Ref<Element> createTabSpanElement(Document& document)
 {
-    return createTabSpanElement(document, document.createEditingTextNode("\t"_s));
+    return createTabSpanElement(document, document.createEditingTextNode(ASCIILiteral("\t")));
 }
 
 bool isNodeRendered(const Node& node)
 {
     auto* renderer = node.renderer();
-    return renderer && renderer->style().visibility() == Visibility::Visible;
+    return renderer && renderer->style().visibility() == VISIBLE;
 }
 
 unsigned numEnclosingMailBlockquotes(const Position& position)
@@ -1092,16 +1092,6 @@ int indexForVisiblePosition(Node& node, const VisiblePosition& visiblePosition, 
     return TextIterator::rangeLength(range.ptr(), forSelectionPreservation);
 }
 
-VisiblePosition visiblePositionForPositionWithOffset(const VisiblePosition& position, int offset)
-{
-    RefPtr<ContainerNode> root;
-    unsigned startIndex = indexForVisiblePosition(position, root);
-    if (!root)
-        return { };
-
-    return visiblePositionForIndex(startIndex + offset, root.get());
-}
-
 VisiblePosition visiblePositionForIndex(int index, ContainerNode* scope)
 {
     auto range = TextIterator::rangeFromLocationAndLength(scope, index, 0, true);
@@ -1117,9 +1107,9 @@ VisiblePosition visiblePositionForIndexUsingCharacterIterator(Node& node, int in
     if (index <= 0)
         return { firstPositionInOrBeforeNode(&node), DOWNSTREAM };
 
-    auto range = Range::create(node.document());
+    RefPtr<Range> range = Range::create(node.document());
     range->selectNodeContents(node);
-    CharacterIterator it(range.get());
+    CharacterIterator it(*range);
     it.advance(index - 1);
     return { it.atEnd() ? range->endPosition() : it.range()->endPosition(), UPSTREAM };
 }

@@ -34,7 +34,6 @@ class FilterEffect;
 class SVGFilterPrimitiveStandardAttributes;
 
 class RenderSVGResourceFilterPrimitive final : public RenderSVGHiddenContainer {
-    WTF_MAKE_ISO_ALLOCATED(RenderSVGResourceFilterPrimitive);
 public:
     RenderSVGResourceFilterPrimitive(SVGFilterPrimitiveStandardAttributes&, RenderStyle&&);
     SVGFilterPrimitiveStandardAttributes& filterPrimitiveElement() const;
@@ -42,6 +41,9 @@ public:
     void styleDidChange(StyleDifference, const RenderStyle*) override;
 
     const char* renderName() const override { return "RenderSVGResourceFilterPrimitive"; }
+
+    // They depend on the RenderObject argument of RenderSVGResourceFilter::applyResource.
+    static FloatRect determineFilterPrimitiveSubregion(FilterEffect&);
 
     inline void primitiveAttributeChanged(const QualifiedName& attribute)
     {

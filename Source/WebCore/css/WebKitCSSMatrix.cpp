@@ -31,6 +31,7 @@
 #include "CSSPropertyNames.h"
 #include "CSSToLengthConversionData.h"
 #include "CSSValueKeywords.h"
+#include "ExceptionCode.h"
 #include "StyleProperties.h"
 #include "TransformFunctions.h"
 #include <wtf/MathExtras.h>
@@ -57,7 +58,9 @@ ExceptionOr<Ref<WebKitCSSMatrix>> WebKitCSSMatrix::create(const String& string)
     return WTFMove(result);
 }
 
-WebKitCSSMatrix::~WebKitCSSMatrix() = default;
+WebKitCSSMatrix::~WebKitCSSMatrix()
+{
+}
 
 ExceptionOr<void> WebKitCSSMatrix::setMatrixValue(const String& string)
 {
@@ -66,7 +69,7 @@ ExceptionOr<void> WebKitCSSMatrix::setMatrixValue(const String& string)
 
     auto styleDeclaration = MutableStyleProperties::create();
     if (CSSParser::parseValue(styleDeclaration, CSSPropertyTransform, string, true, HTMLStandardMode) == CSSParser::ParseResult::Error)
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
 
     // Convert to TransformOperations. This can fail if a property requires style (i.e., param uses 'ems' or 'exs')
     auto value = styleDeclaration->getPropertyCSSValue(CSSPropertyTransform);
@@ -77,13 +80,13 @@ ExceptionOr<void> WebKitCSSMatrix::setMatrixValue(const String& string)
 
     TransformOperations operations;
     if (!transformsForValue(*value, CSSToLengthConversionData(), operations))
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
 
     // Convert transform operations to a TransformationMatrix. This can fail if a parameter has a percentage ('%').
     TransformationMatrix matrix;
     for (auto& operation : operations.operations()) {
         if (operation->apply(matrix, IntSize(0, 0)))
-            return Exception { SyntaxError };
+            return Exception { SYNTAX_ERR };
     }
     m_matrix = matrix;
     return { };
@@ -104,7 +107,7 @@ ExceptionOr<Ref<WebKitCSSMatrix>> WebKitCSSMatrix::inverse() const
 {
     auto inverse = m_matrix.inverse();
     if (!inverse)
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
     return create(inverse.value());
 }
 
@@ -198,7 +201,7 @@ Ref<WebKitCSSMatrix> WebKitCSSMatrix::skewY(double angle) const
 ExceptionOr<String> WebKitCSSMatrix::toString() const
 {
     if (!m_matrix.containsOnlyFiniteValues())
-        return Exception { InvalidStateError, "Matrix contains non-finite values"_s };
+        return Exception { INVALID_STATE_ERR, ASCIILiteral("Matrix contains non-finite values") };
 
     StringBuilder builder;
     if (m_matrix.isAffine()) {

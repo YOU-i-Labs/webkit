@@ -40,7 +40,6 @@ IDBValue::IDBValue()
 IDBValue::IDBValue(const SerializedScriptValue& scriptValue)
     : m_data(ThreadSafeDataBuffer::copyVector(scriptValue.data()))
     , m_blobURLs(scriptValue.blobURLsIsolatedCopy())
-    , m_sessionID(scriptValue.sessionID())
 {
 }
 
@@ -49,27 +48,24 @@ IDBValue::IDBValue(const ThreadSafeDataBuffer& value)
 {
 }
 
-IDBValue::IDBValue(const SerializedScriptValue& scriptValue, const Vector<String>& blobURLs, const PAL::SessionID& sessionID, const Vector<String>& blobFilePaths)
+IDBValue::IDBValue(const SerializedScriptValue& scriptValue, const Vector<String>& blobURLs, const Vector<String>& blobFilePaths)
     : m_data(ThreadSafeDataBuffer::copyVector(scriptValue.data()))
     , m_blobURLs(blobURLs)
-    , m_sessionID(sessionID)
     , m_blobFilePaths(blobFilePaths)
 {
     ASSERT(m_data.data());
 }
 
-IDBValue::IDBValue(const ThreadSafeDataBuffer& value, Vector<String>&& blobURLs, const PAL::SessionID& sessionID, Vector<String>&& blobFilePaths)
+IDBValue::IDBValue(const ThreadSafeDataBuffer& value, Vector<String>&& blobURLs, Vector<String>&& blobFilePaths)
     : m_data(value)
     , m_blobURLs(WTFMove(blobURLs))
-    , m_sessionID(sessionID)
     , m_blobFilePaths(WTFMove(blobFilePaths))
 {
 }
 
-IDBValue::IDBValue(const ThreadSafeDataBuffer& value, const Vector<String>& blobURLs, const PAL::SessionID& sessionID, const Vector<String>& blobFilePaths)
+IDBValue::IDBValue(const ThreadSafeDataBuffer& value, const Vector<String>& blobURLs, const Vector<String>& blobFilePaths)
     : m_data(value)
     , m_blobURLs(blobURLs)
-    , m_sessionID(sessionID)
     , m_blobFilePaths(blobFilePaths)
 {
 }
@@ -79,9 +75,8 @@ void IDBValue::setAsIsolatedCopy(const IDBValue& other)
     ASSERT(m_blobURLs.isEmpty() && m_blobFilePaths.isEmpty());
 
     m_data = other.m_data;
-    m_blobURLs = crossThreadCopy(other.m_blobURLs);
-    m_sessionID = other.m_sessionID;
-    m_blobFilePaths = crossThreadCopy(other.m_blobFilePaths);
+    m_blobURLs = CrossThreadCopier<Vector<String>>::copy(other.m_blobURLs);
+    m_blobFilePaths = CrossThreadCopier<Vector<String>>::copy(other.m_blobFilePaths);
 }
 
 IDBValue IDBValue::isolatedCopy() const

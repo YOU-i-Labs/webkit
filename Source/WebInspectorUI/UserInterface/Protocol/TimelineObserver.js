@@ -23,37 +23,37 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TimelineObserver = class TimelineObserver
+WebInspector.TimelineObserver = class TimelineObserver
 {
     // Events defined by the "Timeline" domain.
 
     eventRecorded(record)
     {
-        WI.timelineManager.eventRecorded(record);
+        WebInspector.timelineManager.eventRecorded(record);
     }
 
     recordingStarted(startTime)
     {
-        WI.timelineManager.capturingStarted(startTime);
+        WebInspector.timelineManager.capturingStarted(startTime);
     }
 
     recordingStopped(endTime)
     {
-        WI.timelineManager.capturingStopped(endTime);
+        WebInspector.timelineManager.capturingStopped(endTime);
     }
 
     autoCaptureStarted()
     {
-        WI.timelineManager.autoCaptureStarted();
+        WebInspector.timelineManager.autoCaptureStarted();
     }
 
     programmaticCaptureStarted()
     {
-        WI.timelineManager.programmaticCaptureStarted();
+        WebInspector.timelineManager.programmaticCaptureStarted();
     }
 
     programmaticCaptureStopped()
     {
-        WI.timelineManager.programmaticCaptureStopped();
+        WebInspector.timelineManager.programmaticCaptureStopped();
     }
 };

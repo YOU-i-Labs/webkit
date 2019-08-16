@@ -37,12 +37,13 @@
 
 namespace WebCore {
 
+class Frame;
 class MediaDevices;
 class Navigator;
 
 class NavigatorMediaDevices : public Supplement<Navigator>, public DOMWindowProperty {
 public:
-    explicit NavigatorMediaDevices(DOMWindow*);
+    explicit NavigatorMediaDevices(Frame*);
     virtual ~NavigatorMediaDevices();
     static NavigatorMediaDevices* from(Navigator*);
 

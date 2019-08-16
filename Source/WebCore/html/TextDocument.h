@@ -29,7 +29,6 @@
 namespace WebCore {
 
 class TextDocument final : public HTMLDocument {
-    WTF_MAKE_ISO_ALLOCATED(TextDocument);
 public:
     static Ref<TextDocument> create(Frame* frame, const URL& url)
     {

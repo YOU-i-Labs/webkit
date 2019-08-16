@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
- * Copyright (C) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -31,7 +31,6 @@ namespace WebCore {
 class SVGGlyphElement;
 
 class SVGAltGlyphElement final : public SVGTextPositioningElement, public SVGURIReference {
-    WTF_MAKE_ISO_ALLOCATED(SVGAltGlyphElement);
 public:
     static Ref<SVGAltGlyphElement> create(const QualifiedName&, Document&);
 
@@ -45,13 +44,12 @@ public:
 private:
     SVGAltGlyphElement(const QualifiedName&, Document&);
 
-    using AttributeOwnerProxy = SVGAttributeOwnerProxyImpl<SVGAltGlyphElement, SVGTextPositioningElement, SVGURIReference>;
-    const SVGAttributeOwnerProxy& attributeOwnerProxy() const final { return m_attributeOwnerProxy; }
-
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
     bool childShouldCreateRenderer(const Node&) const override;
 
-    AttributeOwnerProxy m_attributeOwnerProxy { *this };
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGAltGlyphElement)
+        DECLARE_ANIMATED_STRING_OVERRIDE(Href, href)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

@@ -37,24 +37,25 @@
 
 namespace WebCore {
 
-Color StyleColor::colorFromKeyword(CSSValueID keyword, OptionSet<Options> options)
+Color StyleColor::colorFromKeyword(CSSValueID keyword)
 {
     if (const char* valueName = getValueName(keyword)) {
         if (const NamedColor* namedColor = findColor(valueName, strlen(valueName)))
             return Color(namedColor->ARGBValue);
     }
-
-    return RenderTheme::singleton().systemColor(keyword, options);
+    return RenderTheme::singleton().systemColor(keyword);
 }
 
 bool StyleColor::isColorKeyword(CSSValueID id)
 {
-    return (id >= CSSValueAlpha && id <= CSSValueWebkitText) || (id >= CSSValueAliceblue && id <= CSSValueYellowgreen) || isSystemColor(id);
+    return (id >= CSSValueAlpha && id <= CSSValueWebkitText)
+        || (id >= CSSValueAliceblue && id <= CSSValueYellowgreen)
+        || id == CSSValueMenu || isSystemColor(id);
 }
 
 bool StyleColor::isSystemColor(CSSValueID id)
 {
-    return (id >= CSSValueWebkitLink && id <= CSSValueWebkitFocusRingColor) || id == CSSValueMenu || id == CSSValueText;
+    return (id >= CSSValueActiveborder && id <= CSSValueAppleSystemYellow) || id == CSSValueMenu || id == CSSValueWebkitFocusRingColor;
 }
 
 } // namespace WebCore

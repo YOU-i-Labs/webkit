@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SettingsView = class SettingsView extends WI.View
+WebInspector.SettingsView = class SettingsView extends WebInspector.View
 {
     constructor(identifier, displayName)
     {
@@ -54,7 +54,7 @@ WI.SettingsView = class SettingsView extends WI.View
 
     addGroup(title)
     {
-        let settingsGroup = new WI.SettingsGroup(title);
+        let settingsGroup = new WebInspector.SettingsGroup(title);
         this.element.append(settingsGroup.element);
 
         return settingsGroup;
@@ -68,19 +68,9 @@ WI.SettingsView = class SettingsView extends WI.View
         let separatorElement = this.element.appendChild(document.createElement("div"));
         separatorElement.classList.add("separator");
     }
-
-    addCenteredContainer(...nodes)
-    {
-        let containerElement = document.createElement("div");
-        containerElement.append(...nodes);
-        containerElement.classList.add("container", "container-centered");
-        this.element.append(containerElement);
-
-        return containerElement;
-    }
 };
 
-WI.SettingsView.EditorType = {
+WebInspector.SettingsView.EditorType = {
     Checkbox: "settings-view-editor-type-checkbox",
     Numeric: "settings-view-editor-type-numeric",
     Select: "settings-view-editor-type-select",

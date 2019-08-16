@@ -34,8 +34,9 @@
 #endif
 #include "SharedBuffer.h"
 
-namespace WebCore {
 using namespace std;
+
+namespace WebCore {
 
 #if ENABLE(OPENTYPE_MATH)
 namespace OpenType {
@@ -253,21 +254,24 @@ OpenTypeMathData::OpenTypeMathData(const FontPlatformData& font)
     const OpenType::MathVariants* mathVariants = math->mathVariants(*m_mathBuffer);
     if (!mathVariants)
         m_mathBuffer = nullptr;
-}
 #elif USE(HARFBUZZ)
 OpenTypeMathData::OpenTypeMathData(const FontPlatformData& font)
-    : m_mathFont(font.createOpenTypeMathHarfBuzzFont())
 {
-}
-#elif USE(DIRECT2D)
-OpenTypeMathData::OpenTypeMathData(const FontPlatformData& font)
-{
-}
+    HarfBuzzFace* face = font.harfBuzzFace();
+    if (face) {
+        m_mathFont.reset(face->createFont());
+        if (!hb_ot_math_has_data(hb_font_get_face(m_mathFont.get())))
+            m_mathFont.release();
+    }
 #else
-OpenTypeMathData::OpenTypeMathData(const FontPlatformData&) = default;
+OpenTypeMathData::OpenTypeMathData(const FontPlatformData&)
+{
 #endif
+}
 
-OpenTypeMathData::~OpenTypeMathData() = default;
+OpenTypeMathData::~OpenTypeMathData()
+{
+}
 
 #if ENABLE(OPENTYPE_MATH)
 float OpenTypeMathData::getMathConstant(const Font& font, MathConstant constant) const
@@ -293,13 +297,13 @@ float OpenTypeMathData::getMathConstant(const Font& font, MathConstant constant)
 
     return value * font.sizePerUnit();
 #elif USE(HARFBUZZ)
-float OpenTypeMathData::getMathConstant(const Font& font, MathConstant constant) const
+float OpenTypeMathData::getMathConstant(const Font&, MathConstant constant) const
 {
     hb_position_t value = hb_ot_math_get_constant(m_mathFont.get(), static_cast<hb_ot_math_constant_t>(constant));
     if (constant == ScriptPercentScaleDown || constant == ScriptScriptPercentScaleDown || constant == RadicalDegreeBottomRaisePercent)
         return value / 100.0;
 
-    return value * font.sizePerUnit();
+    return value / 65536.0;
 #else
 float OpenTypeMathData::getMathConstant(const Font&, MathConstant) const
 {
@@ -323,9 +327,9 @@ float OpenTypeMathData::getItalicCorrection(const Font& font, Glyph glyph) const
 
     return mathItalicsCorrectionInfo->getItalicCorrection(*m_mathBuffer, glyph) * font.sizePerUnit();
 #elif USE(HARFBUZZ)
-float OpenTypeMathData::getItalicCorrection(const Font& font, Glyph glyph) const
+float OpenTypeMathData::getItalicCorrection(const Font&, Glyph glyph) const
 {
-    return hb_ot_math_get_glyph_italics_correction(m_mathFont.get(), glyph) * font.sizePerUnit();
+    return hb_ot_math_get_glyph_italics_correction(m_mathFont.get(), glyph) / 65536.0;
 #else
 float OpenTypeMathData::getItalicCorrection(const Font&, Glyph) const
 {

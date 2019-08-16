@@ -26,12 +26,12 @@
 #pragma once
 
 #include "CachedResource.h"
+#include "DocumentLoader.h"
 #include "Element.h"
 #include "ResourceLoadPriority.h"
 #include "ResourceLoaderOptions.h"
 #include "ResourceRequest.h"
 #include "SecurityOrigin.h"
-#include "ServiceWorkerIdentifier.h"
 #include <wtf/RefPtr.h>
 #include <wtf/text/AtomicString.h>
 
@@ -43,55 +43,37 @@ struct BlockedStatus;
 
 class Document;
 class FrameLoader;
-struct ServiceWorkerRegistrationData;
-enum class ReferrerPolicy : uint8_t;
+enum class ReferrerPolicy;
 
 bool isRequestCrossOrigin(SecurityOrigin*, const URL& requestURL, const ResourceLoaderOptions&);
 
 class CachedResourceRequest {
 public:
-    CachedResourceRequest(ResourceRequest&&, const ResourceLoaderOptions&, Optional<ResourceLoadPriority> = WTF::nullopt, String&& charset = String());
+    CachedResourceRequest(ResourceRequest&&, const ResourceLoaderOptions&, std::optional<ResourceLoadPriority> = std::nullopt, String&& charset = String());
 
     ResourceRequest&& releaseResourceRequest() { return WTFMove(m_resourceRequest); }
     const ResourceRequest& resourceRequest() const { return m_resourceRequest; }
-    ResourceRequest& resourceRequest() { return m_resourceRequest; }
-
     const String& charset() const { return m_charset; }
     void setCharset(const String& charset) { m_charset = charset; }
-
     const ResourceLoaderOptions& options() const { return m_options; }
     void setOptions(const ResourceLoaderOptions& options) { m_options = options; }
-
-    const Optional<ResourceLoadPriority>& priority() const { return m_priority; }
-    void setPriority(Optional<ResourceLoadPriority>&& priority) { m_priority = WTFMove(priority); }
-
+    const std::optional<ResourceLoadPriority>& priority() const { return m_priority; }
     void setInitiator(Element&);
     void setInitiator(const AtomicString& name);
     const AtomicString& initiatorName() const;
-
     bool allowsCaching() const { return m_options.cachingPolicy == CachingPolicy::AllowCaching; }
     void setCachingPolicy(CachingPolicy policy) { m_options.cachingPolicy = policy;  }
 
-    // Whether this request should impact request counting and delay window.onload.
-    bool ignoreForRequestCount() const { return m_ignoreForRequestCount; }
-    void setIgnoreForRequestCount(bool ignoreForRequestCount) { m_ignoreForRequestCount = ignoreForRequestCount; }
-
-    void setDestinationIfNotSet(FetchOptions::Destination);
-
-    void deprecatedSetAsPotentiallyCrossOrigin(const String&, Document&); // Use WebCore::createPotentialAccessControlRequest() instead.
-
+    void setAsPotentiallyCrossOrigin(const String&, Document&);
     void updateForAccessControl(Document&);
 
-    void updateReferrerPolicy(ReferrerPolicy);
-    void updateReferrerOriginAndUserAgentHeaders(FrameLoader&);
+    void updateReferrerOriginAndUserAgentHeaders(FrameLoader&, ReferrerPolicy);
     void upgradeInsecureRequestIfNeeded(Document&);
     void setAcceptHeaderIfNone(CachedResource::Type);
     void updateAccordingCacheMode();
-    void updateAcceptEncodingHeader();
-
     void removeFragmentIdentifierIfNeeded();
 #if ENABLE(CONTENT_EXTENSIONS)
-    void applyBlockedStatus(const ContentExtensions::BlockedStatus&, Page*);
+    void applyBlockedStatus(const ContentExtensions::BlockedStatus&);
 #endif
     void setDomainForCachePartition(Document&);
     void setDomainForCachePartition(const String&);
@@ -107,23 +89,16 @@ public:
 
     static String splitFragmentIdentifierFromRequestURL(ResourceRequest&);
 
-#if ENABLE(SERVICE_WORKER)
-    void setClientIdentifierIfNeeded(DocumentIdentifier);
-    void setSelectedServiceWorkerRegistrationIdentifierIfNeeded(ServiceWorkerRegistrationIdentifier);
-    void setNavigationServiceWorkerRegistrationData(const Optional<ServiceWorkerRegistrationData>&);
-#endif
-
 private:
     ResourceRequest m_resourceRequest;
     String m_charset;
     ResourceLoaderOptions m_options;
-    Optional<ResourceLoadPriority> m_priority;
+    std::optional<ResourceLoadPriority> m_priority;
     RefPtr<Element> m_initiatorElement;
     AtomicString m_initiatorName;
     RefPtr<SecurityOrigin> m_origin;
     String m_fragmentIdentifier;
     bool m_isLinkPreload { false };
-    bool m_ignoreForRequestCount { false };
 };
 
 void upgradeInsecureResourceRequestIfNeeded(ResourceRequest&, Document&);

@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "CallFrame.h"
+#include "Interpreter.h"
 #include "VMInlines.h"
 #include <wtf/StackStats.h>
 

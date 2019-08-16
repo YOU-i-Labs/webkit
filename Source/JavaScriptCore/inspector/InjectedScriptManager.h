@@ -36,6 +36,10 @@
 #include <wtf/HashMap.h>
 #include <wtf/text/WTFString.h>
 
+namespace Deprecated {
+class ScriptObject;
+}
+
 namespace JSC {
 class ExecState;
 }
@@ -43,8 +47,7 @@ class ExecState;
 namespace Inspector {
 
 class JS_EXPORT_PRIVATE InjectedScriptManager {
-    WTF_MAKE_NONCOPYABLE(InjectedScriptManager);
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(InjectedScriptManager); WTF_MAKE_FAST_ALLOCATED;
 public:
     InjectedScriptManager(InspectorEnvironment&, Ref<InjectedScriptHost>&&);
     virtual ~InjectedScriptManager();

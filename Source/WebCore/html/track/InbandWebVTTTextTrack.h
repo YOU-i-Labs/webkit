@@ -47,12 +47,7 @@ private:
 
     void newCuesParsed() final;
     void newRegionsParsed() final;
-    void newStyleSheetsParsed() final;
     void fileFailedToParse() final;
-
-#if !RELEASE_LOG_DISABLED
-    const char* logClassName() const final { return "InbandWebVTTTextTrack"; }
-#endif
 
     std::unique_ptr<WebVTTParser> m_webVTTParser;
 };

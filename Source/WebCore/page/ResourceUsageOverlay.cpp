@@ -29,7 +29,6 @@
 
 #include "ResourceUsageOverlay.h"
 
-#include "Frame.h"
 #include "FrameView.h"
 #include "Page.h"
 #include "PageOverlayController.h"
@@ -54,7 +53,7 @@ ResourceUsageOverlay::~ResourceUsageOverlay()
 
     // FIXME: This is a hack so we don't try to uninstall the PageOverlay during Page destruction.
     if (m_page.mainFrame().page())
-        m_page.pageOverlayController().uninstallPageOverlay(*m_overlay, PageOverlay::FadeMode::DoNotFade);
+        m_page.mainFrame().pageOverlayController().uninstallPageOverlay(*m_overlay, PageOverlay::FadeMode::DoNotFade);
 }
 
 void ResourceUsageOverlay::initialize()
@@ -66,13 +65,13 @@ void ResourceUsageOverlay::initialize()
 
     IntRect initialRect(frameView.width() / 2 - normalWidth / 2, frameView.height() - normalHeight - 20, normalWidth, normalHeight);
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     // FIXME: The overlay should be stuck to the viewport instead of moving along with the page.
     initialRect.setY(20);
 #endif
 
     m_overlay->setFrame(initialRect);
-    m_page.pageOverlayController().installPageOverlay(*m_overlay, PageOverlay::FadeMode::DoNotFade);
+    m_page.mainFrame().pageOverlayController().installPageOverlay(*m_overlay, PageOverlay::FadeMode::DoNotFade);
     platformInitialize();
 }
 

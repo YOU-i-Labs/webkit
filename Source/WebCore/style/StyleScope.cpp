@@ -28,7 +28,6 @@
 #include "config.h"
 #include "StyleScope.h"
 
-#include "CSSFontSelector.h"
 #include "CSSStyleSheet.h"
 #include "Element.h"
 #include "ElementChildIterator.h"
@@ -96,22 +95,14 @@ StyleResolver& Scope::resolver()
 
     if (!m_resolver) {
         SetForScope<bool> isUpdatingStyleResolver { m_isUpdatingStyleResolver, true };
-
         m_resolver = std::make_unique<StyleResolver>(m_document);
 
-        if (!m_shadowRoot) {
-            m_document.fontSelector().buildStarted();
-            m_resolver->ruleSets().initializeUserStyle();
-        } else {
-            m_resolver->ruleSets().setIsForShadowScope();
-            m_resolver->ruleSets().setUsesSharedUserStyle(m_shadowRoot->mode() != ShadowRootMode::UserAgent);
-        }
-
-        m_resolver->addCurrentSVGFontFaceRules();
-        m_resolver->appendAuthorStyleSheets(m_activeStyleSheets);
-
         if (!m_shadowRoot)
-            m_document.fontSelector().buildCompleted();
+            m_resolver->ruleSets().initializeUserStyle();
+        else
+            m_resolver->ruleSets().setUsesSharedUserStyle(m_shadowRoot->mode() != ShadowRootMode::UserAgent);
+
+        m_resolver->appendAuthorStyleSheets(m_activeStyleSheets);
     }
     ASSERT(!m_shadowRoot || &m_document == &m_shadowRoot->document());
     ASSERT(&m_resolver->document() == &m_document);
@@ -132,25 +123,6 @@ void Scope::clearResolver()
 
     if (!m_shadowRoot)
         m_document.didClearStyleResolver();
-}
-
-void Scope::releaseMemory()
-{
-    if (!m_shadowRoot) {
-        for (auto* descendantShadowRoot : m_document.inDocumentShadowRoots())
-            descendantShadowRoot->styleScope().releaseMemory();
-    }
-
-#if ENABLE(CSS_SELECTOR_JIT)
-    for (auto& sheet : m_activeStyleSheets) {
-        sheet->contents().traverseRules([] (const StyleRuleBase& rule) {
-            if (is<StyleRule>(rule))
-                downcast<StyleRule>(rule).releaseCompiledSelectors();
-            return false;
-        });
-    }
-#endif
-    clearResolver();
 }
 
 Scope& Scope::forNode(Node& node)
@@ -198,6 +170,15 @@ void Scope::setPreferredStylesheetSetName(const String& name)
     m_preferredStylesheetSetName = name;
     didChangeActiveStyleSheetCandidates();
 }
+
+void Scope::setSelectedStylesheetSetName(const String& name)
+{
+    if (m_selectedStylesheetSetName == name)
+        return;
+    m_selectedStylesheetSetName = name;
+    didChangeActiveStyleSheetCandidates();
+}
+
 
 void Scope::addPendingSheet(const Element& element)
 {
@@ -302,34 +283,30 @@ void Scope::removeStyleSheetCandidateNode(Node& node)
         didChangeActiveStyleSheetCandidates();
 }
 
-#if ENABLE(XSLT)
-// FIXME: <https://webkit.org/b/178830> Remove XSLT relaed code from Style::Scope.
-Vector<Ref<ProcessingInstruction>> Scope::collectXSLTransforms()
-{
-    Vector<Ref<ProcessingInstruction>> processingInstructions;
-    for (auto& node : m_styleSheetCandidateNodes) {
-        if (is<ProcessingInstruction>(*node) && downcast<ProcessingInstruction>(*node).isXSL())
-            processingInstructions.append(downcast<ProcessingInstruction>(*node));
-    }
-    return processingInstructions;
-}
-#endif
-
 void Scope::collectActiveStyleSheets(Vector<RefPtr<StyleSheet>>& sheets)
 {
     if (!m_document.settings().authorAndUserStylesEnabled())
         return;
 
     for (auto& node : m_styleSheetCandidateNodes) {
-        RefPtr<StyleSheet> sheet;
+        StyleSheet* sheet = nullptr;
         if (is<ProcessingInstruction>(*node)) {
-            if (!downcast<ProcessingInstruction>(*node).isCSS())
-                continue;
+            // Processing instruction (XML documents only).
             // We don't support linking to embedded CSS stylesheets, see <https://bugs.webkit.org/show_bug.cgi?id=49281> for discussion.
-            sheet = downcast<ProcessingInstruction>(*node).sheet();
+            ProcessingInstruction& pi = downcast<ProcessingInstruction>(*node);
+            sheet = pi.sheet();
+#if ENABLE(XSLT)
+            // Don't apply XSL transforms to already transformed documents -- <rdar://problem/4132806>
+            if (pi.isXSL() && !m_document.transformSourceDocument()) {
+                // Don't apply XSL transforms until loading is finished.
+                if (!m_document.parsing())
+                    m_document.applyXSLTransform(&pi);
+                return;
+            }
+#endif
         } else if (is<HTMLLinkElement>(*node) || is<HTMLStyleElement>(*node) || is<SVGStyleElement>(*node)) {
             Element& element = downcast<Element>(*node);
-            AtomicString title = element.isInShadowTree() ? nullAtom() : element.attributeWithoutSynchronization(titleAttr);
+            AtomicString title = element.attributeWithoutSynchronization(titleAttr);
             bool enabledViaScript = false;
             if (is<HTMLLinkElement>(element)) {
                 // <LINK> element
@@ -340,13 +317,15 @@ void Scope::collectActiveStyleSheets(Vector<RefPtr<StyleSheet>>& sheets)
                 if (linkElement.styleSheetIsLoading()) {
                     // it is loading but we should still decide which style sheet set to use
                     if (!enabledViaScript && !title.isEmpty() && m_preferredStylesheetSetName.isEmpty()) {
-                        if (!linkElement.attributeWithoutSynchronization(relAttr).contains("alternate"))
+                        if (!linkElement.attributeWithoutSynchronization(relAttr).contains("alternate")) {
                             m_preferredStylesheetSetName = title;
+                            m_selectedStylesheetSetName = title;
+                        }
                     }
                     continue;
                 }
                 if (!linkElement.sheet())
-                    title = nullAtom();
+                    title = nullAtom;
             }
             // Get the current preferred styleset. This is the
             // set of sheets that will be enabled.
@@ -368,7 +347,7 @@ void Scope::collectActiveStyleSheets(Vector<RefPtr<StyleSheet>>& sheets)
                     // us as the preferred set. Otherwise, just ignore
                     // this sheet.
                     if (is<HTMLStyleElement>(element) || !rel.contains("alternate"))
-                        m_preferredStylesheetSetName = title;
+                        m_preferredStylesheetSetName = m_selectedStylesheetSetName = title;
                 }
                 if (title != m_preferredStylesheetSetName)
                     sheet = nullptr;
@@ -378,7 +357,7 @@ void Scope::collectActiveStyleSheets(Vector<RefPtr<StyleSheet>>& sheets)
                 sheet = nullptr;
         }
         if (sheet)
-            sheets.append(WTFMove(sheet));
+            sheets.append(sheet);
     }
 }
 
@@ -454,18 +433,6 @@ static void filterEnabledNonemptyCSSStyleSheets(Vector<RefPtr<CSSStyleSheet>>& r
     }
 }
 
-static void invalidateHostAndSlottedStyleIfNeeded(ShadowRoot& shadowRoot, StyleResolver& resolver)
-{
-    auto& host = *shadowRoot.host();
-    if (!resolver.ruleSets().authorStyle().hostPseudoClassRules().isEmpty())
-        host.invalidateStyle();
-
-    if (!resolver.ruleSets().authorStyle().slottedPseudoElementRules().isEmpty()) {
-        for (auto& shadowChild : childrenOfType<Element>(host))
-            shadowChild.invalidateStyle();
-    }
-}
-
 void Scope::updateActiveStyleSheets(UpdateType updateType)
 {
     ASSERT(!m_pendingUpdate);
@@ -478,7 +445,7 @@ void Scope::updateActiveStyleSheets(UpdateType updateType)
         // Crash stacks indicate we can get here when a resource load fails synchronously (for example due to content blocking).
         // FIXME: These kind of cases should be eliminated and this path replaced by an assert.
         m_pendingUpdate = UpdateType::ContentsOrInterpretation;
-        m_document.scheduleFullStyleRebuild();
+        m_document.scheduleForcedStyleRecalc();
         return;
     }
 
@@ -513,9 +480,16 @@ void Scope::updateActiveStyleSheets(UpdateType updateType)
         if (m_shadowRoot) {
             for (auto& shadowChild : childrenOfType<Element>(*m_shadowRoot))
                 shadowChild.invalidateStyleForSubtree();
-            invalidateHostAndSlottedStyleIfNeeded(*m_shadowRoot, resolver());
+            if (m_shadowRoot->host()) {
+                if (!resolver().ruleSets().authorStyle().hostPseudoClassRules().isEmpty())
+                    m_shadowRoot->host()->invalidateStyle();
+                if (!resolver().ruleSets().authorStyle().slottedPseudoElementRules().isEmpty()) {
+                    for (auto& shadowChild : childrenOfType<Element>(*m_shadowRoot->host()))
+                        shadowChild.invalidateStyle();
+                }
+            }
         } else
-            m_document.scheduleFullStyleRebuild();
+            m_document.scheduleForcedStyleRecalc();
     }
 }
 
@@ -598,14 +572,9 @@ void Scope::clearPendingUpdate()
 
 void Scope::scheduleUpdate(UpdateType update)
 {
-    if (update == UpdateType::ContentsOrInterpretation) {
-        // :host and ::slotted rules might go away.
-        if (m_shadowRoot && m_resolver)
-            invalidateHostAndSlottedStyleIfNeeded(*m_shadowRoot, *m_resolver);
-        // FIXME: The m_isUpdatingStyleResolver test is here because extension stylesheets can get us here from StyleResolver::appendAuthorStyleSheets.
-        if (!m_isUpdatingStyleResolver)
-            clearResolver();
-    }
+    // FIXME: The m_isUpdatingStyleResolver test is here because extension stylesheets can get us here from StyleResolver::appendAuthorStyleSheets.
+    if (update == UpdateType::ContentsOrInterpretation && !m_isUpdatingStyleResolver)
+        clearResolver();
 
     if (!m_pendingUpdate || *m_pendingUpdate < update) {
         m_pendingUpdate = update;
@@ -616,43 +585,6 @@ void Scope::scheduleUpdate(UpdateType update)
     if (m_pendingUpdateTimer.isActive())
         return;
     m_pendingUpdateTimer.startOneShot(0_s);
-}
-
-void Scope::evaluateMediaQueriesForViewportChange()
-{
-    evaluateMediaQueries([] (StyleResolver& resolver) {
-        return resolver.hasMediaQueriesAffectedByViewportChange();
-    });
-}
-
-void Scope::evaluateMediaQueriesForAccessibilitySettingsChange()
-{
-    evaluateMediaQueries([] (StyleResolver& resolver) {
-        return resolver.hasMediaQueriesAffectedByAccessibilitySettingsChange();
-    });
-}
-
-void Scope::evaluateMediaQueriesForAppearanceChange()
-{
-    evaluateMediaQueries([] (StyleResolver& resolver) {
-        return resolver.hasMediaQueriesAffectedByAppearanceChange();
-    });
-}
-
-template <typename TestFunction>
-void Scope::evaluateMediaQueries(TestFunction&& testFunction)
-{
-    if (!m_shadowRoot) {
-        for (auto* descendantShadowRoot : m_document.inDocumentShadowRoots())
-            descendantShadowRoot->styleScope().evaluateMediaQueries(testFunction);
-    }
-    auto* resolver = resolverIfExists();
-    if (!resolver)
-        return;
-    if (!testFunction(*resolver))
-        return;
-    scheduleUpdate(UpdateType::ContentsOrInterpretation);
-    InspectorInstrumentation::mediaQueryResultChanged(m_document);
 }
 
 void Scope::didChangeActiveStyleSheetCandidates()
@@ -669,7 +601,7 @@ void Scope::didChangeStyleSheetEnvironment()
 {
     if (!m_shadowRoot) {
         for (auto* descendantShadowRoot : m_document.inDocumentShadowRoots()) {
-            // Stylesheets is author shadow roots are potentially affected.
+            // Stylesheets is author shadow roots are are potentially affected.
             if (descendantShadowRoot->mode() != ShadowRootMode::UserAgent)
                 descendantShadowRoot->styleScope().scheduleUpdate(UpdateType::ContentsOrInterpretation);
         }

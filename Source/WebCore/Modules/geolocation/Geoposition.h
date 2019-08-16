@@ -26,7 +26,7 @@
 #pragma once
 
 #include "Coordinates.h"
-#include "DOMTimeStamp.h"
+#include "Event.h"
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
 

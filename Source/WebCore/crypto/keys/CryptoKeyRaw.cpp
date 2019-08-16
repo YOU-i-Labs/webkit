@@ -26,9 +26,10 @@
 #include "config.h"
 #include "CryptoKeyRaw.h"
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 #include "CryptoAlgorithmRegistry.h"
+#include "CryptoKeyDataOctetSequence.h"
 
 namespace WebCore {
 
@@ -38,13 +39,17 @@ CryptoKeyRaw::CryptoKeyRaw(CryptoAlgorithmIdentifier identifier, Vector<uint8_t>
 {
 }
 
-auto CryptoKeyRaw::algorithm() const -> KeyAlgorithm
+std::unique_ptr<KeyAlgorithm> CryptoKeyRaw::buildAlgorithm() const
 {
-    CryptoKeyAlgorithm result;
-    result.name = CryptoAlgorithmRegistry::singleton().name(algorithmIdentifier());
-    return result;
+    return std::make_unique<RawKeyAlgorithm>(CryptoAlgorithmRegistry::singleton().name(algorithmIdentifier()));
+}
+
+std::unique_ptr<CryptoKeyData> CryptoKeyRaw::exportData() const
+{
+
+    return std::make_unique<CryptoKeyDataOctetSequence>(m_key);
 }
 
 } // namespace WebCore
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

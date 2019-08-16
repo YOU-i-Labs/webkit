@@ -36,6 +36,12 @@
 namespace WebCore {
 
 class UndoableStateMark : public InspectorHistory::Action {
+public:
+    UndoableStateMark()
+        : Action("[UndoableState]")
+    {
+    }
+
 private:
     ExceptionOr<void> perform() final { return { }; }
     ExceptionOr<void> undo() final { return { }; }

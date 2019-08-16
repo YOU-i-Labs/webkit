@@ -190,25 +190,13 @@ class TracksPanel extends LayoutNode
 
     _handleMousedown(event)
     {
-        if (this._isPointInTracksPanel(new DOMPoint(event.clientX, event.clientY)))
+        if (this.element.contains(event.target))
             return;
 
         this._dismiss();
 
         event.preventDefault();
         event.stopPropagation();
-    }
-
-    _isPointInTracksPanel(point)
-    {
-        let ancestor = this.element.parentNode;
-        while (ancestor && !(ancestor instanceof ShadowRoot))
-            ancestor = ancestor.parentNode;
-
-        if (!ancestor)
-            ancestor = document;
-
-        return this.element.contains(ancestor.elementFromPoint(point.x, point.y));
     }
 
     _handleKeydown(event)

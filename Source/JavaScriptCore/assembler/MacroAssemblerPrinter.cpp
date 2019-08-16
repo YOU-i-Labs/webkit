@@ -26,21 +26,16 @@
 #include "config.h"
 #include "MacroAssemblerPrinter.h"
 
-#if ENABLE(ASSEMBLER)
 #if ENABLE(MASM_PROBE)
 
 #include "MacroAssembler.h"
-#include <inttypes.h>
 
 namespace JSC {
-
 namespace Printer {
 
-using CPUState = Probe::CPUState;
+using CPUState = MacroAssembler::CPUState;
 using RegisterID = MacroAssembler::RegisterID;
 using FPRegisterID = MacroAssembler::FPRegisterID;
-
-template<typename T> T nextID(T id) { return static_cast<T>(id + 1); }
 
 void printAllRegisters(PrintStream& out, Context& context)
 {
@@ -53,31 +48,32 @@ void printAllRegisters(PrintStream& out, Context& context)
     };
 #define INDENT indent()
 
-    INDENT; out.print("cpu: {\n");
+    INDENT, out.print("cpu: {\n");
 
 #if USE(JSVALUE32_64)
-    #define INTPTR_HEX_VALUE_FORMAT "0x%08" PRIxPTR
+    #define INTPTR_HEX_VALUE_FORMAT "0x%08lx"
 #else
-    #define INTPTR_HEX_VALUE_FORMAT "0x%016" PRIxPTR
+    #define INTPTR_HEX_VALUE_FORMAT "0x%016lx"
 #endif
 
-    for (auto id = MacroAssembler::firstRegister(); id <= MacroAssembler::lastRegister(); id = nextID(id)) {
-        intptr_t value = static_cast<intptr_t>(cpu.gpr(id));
-        INDENT; out.printf("    %6s: " INTPTR_HEX_VALUE_FORMAT "  %" PRIdPTR "\n", cpu.gprName(id), value, value);
+    #define PRINT_GPREGISTER(_type, _regName) { \
+        intptr_t value = reinterpret_cast<intptr_t>(cpu._regName); \
+        INDENT, out.printf("    %6s: " INTPTR_HEX_VALUE_FORMAT "  %ld\n", #_regName, value, value) ; \
     }
-    for (auto id = MacroAssembler::firstSPRegister(); id <= MacroAssembler::lastSPRegister(); id = nextID(id)) {
-        intptr_t value = static_cast<intptr_t>(cpu.spr(id));
-        INDENT; out.printf("    %6s: " INTPTR_HEX_VALUE_FORMAT "  %" PRIdPTR "\n", cpu.sprName(id), value, value);
-    }
+    FOR_EACH_CPU_GPREGISTER(PRINT_GPREGISTER)
+    FOR_EACH_CPU_SPECIAL_REGISTER(PRINT_GPREGISTER)
+    #undef PRINT_GPREGISTER
     #undef INTPTR_HEX_VALUE_FORMAT
-
-    for (auto id = MacroAssembler::firstFPRegister(); id <= MacroAssembler::lastFPRegister(); id = nextID(id)) {
-        uint64_t u = bitwise_cast<uint64_t>(cpu.fpr(id));
-        double d = cpu.fpr(id);
-        INDENT; out.printf("    %6s: 0x%016" PRIx64 "  %.13g\n", cpu.fprName(id), u, d);
+    
+    #define PRINT_FPREGISTER(_type, _regName) { \
+        uint64_t* u = reinterpret_cast<uint64_t*>(&cpu._regName); \
+        double* d = reinterpret_cast<double*>(&cpu._regName); \
+        INDENT, out.printf("    %6s: 0x%016llx  %.13g\n", #_regName, *u, *d); \
     }
+    FOR_EACH_CPU_FPREGISTER(PRINT_FPREGISTER)
+    #undef PRINT_FPREGISTER
 
-    INDENT; out.print("}\n");
+    INDENT, out.print("}\n");
 #undef INDENT
 
 }
@@ -85,16 +81,23 @@ void printAllRegisters(PrintStream& out, Context& context)
 void printPCRegister(PrintStream& out, Context& context)
 {
     auto cpu = context.probeContext.cpu;
-    void* value = cpu.pc();
-    out.printf("pc:<%p %" PRIdPTR ">", value, bitwise_cast<intptr_t>(value));
+    void* value;
+#if CPU(X86) || CPU(X86_64)
+    value = cpu.eip;
+#elif CPU(ARM_TRADITIONAL) || CPU(ARM_THUMB2) || CPU(ARM64)
+    value = cpu.pc;
+#else
+#error "Unsupported CPU"
+#endif
+    out.printf("pc:<%p %ld>", value, bitwise_cast<intptr_t>(value));
 }
 
 void printRegisterID(PrintStream& out, Context& context)
 {
     RegisterID regID = context.data.as<RegisterID>();
     const char* name = CPUState::gprName(regID);
-    intptr_t value = context.probeContext.gpr(regID);
-    out.printf("%s:<%p %" PRIdPTR ">", name, bitwise_cast<void*>(value), value);
+    void* value = context.probeContext.gpr(regID);
+    out.printf("%s:<%p %ld>", name, value, bitwise_cast<intptr_t>(value));
 }
 
 void printFPRegisterID(PrintStream& out, Context& context)
@@ -102,7 +105,7 @@ void printFPRegisterID(PrintStream& out, Context& context)
     FPRegisterID regID = context.data.as<FPRegisterID>();
     const char* name = CPUState::fprName(regID);
     double value = context.probeContext.fpr(regID);
-    out.printf("%s:<0x%016" PRIx64 " %.13g>", name, bitwise_cast<uint64_t>(value), value);
+    out.printf("%s:<0x%016llx %.13g>", name, bitwise_cast<uint64_t>(value), value);
 }
 
 void printAddress(PrintStream& out, Context& context)
@@ -110,8 +113,8 @@ void printAddress(PrintStream& out, Context& context)
     MacroAssembler::Address address = context.data.as<MacroAssembler::Address>();
     RegisterID regID = address.base;
     const char* name = CPUState::gprName(regID);
-    intptr_t value = context.probeContext.gpr(regID);
-    out.printf("Address{base:%s:<%p %" PRIdPTR ">, offset:<0x%x %d>", name, bitwise_cast<void*>(value), value, address.offset, address.offset);
+    void* value = context.probeContext.gpr(regID);
+    out.printf("Address{base:%s:<%p %ld>, offset:<0x%x %d>", name, value, bitwise_cast<intptr_t>(value), address.offset, address.offset);
 }
 
 void printMemory(PrintStream& out, Context& context)
@@ -149,7 +152,7 @@ void printMemory(PrintStream& out, Context& context)
         }
         if (memory.numBytes == sizeof(int64_t)) {
             auto p = reinterpret_cast<int64_t*>(ptr);
-            out.printf("%p:<0x%016" PRIx64 " %" PRId64 ">", p, *p, *p);
+            out.printf("%p:<0x%016llx %lld>", p, *p, *p);
             return;
         }
         // Else, unknown word size. Fall thru and dump in the generic way.
@@ -172,13 +175,13 @@ void printMemory(PrintStream& out, Context& context)
         out.print("\n");
 }
 
-void printCallback(Probe::Context& probeContext)
+void printCallback(ProbeContext* probeContext)
 {
     auto& out = WTF::dataFile();
-    PrintRecordList& list = *probeContext.arg<PrintRecordList*>();
+    PrintRecordList& list = *reinterpret_cast<PrintRecordList*>(probeContext->arg);
     for (size_t i = 0; i < list.size(); i++) {
         auto& record = list[i];
-        Context context(probeContext, record.data);
+        Context context(*probeContext, record.data);
         record.printer(out, context);
     }
 }
@@ -187,4 +190,3 @@ void printCallback(Probe::Context& probeContext)
 } // namespace JSC
 
 #endif // ENABLE(MASM_PROBE)
-#endif // ENABLE(ASSEMBLER)

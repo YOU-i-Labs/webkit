@@ -26,7 +26,8 @@
 // THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+//
+// Author: vladl@google.com (Vlad Losev)
 
 // This sample shows how to test common properties of multiple
 // implementations of an interface (aka interface tests) using
@@ -37,17 +38,19 @@
 // The interface and its implementations are in this header.
 #include "prime_tables.h"
 
-#include "gtest/gtest.h"
-namespace {
+#include <gtest/gtest.h>
+
+#if GTEST_HAS_PARAM_TEST
 
 using ::testing::TestWithParam;
 using ::testing::Values;
 
-// As a general rule, to prevent a test from affecting the tests that come
-// after it, you should create and destroy the tested objects for each test
-// instead of reusing them.  In this sample we will define a simple factory
-// function for PrimeTable objects.  We will instantiate objects in test's
-// SetUp() method and delete them in TearDown() method.
+// As a general rule, tested objects should not be reused between tests.
+// Also, their constructors and destructors of tested objects can have
+// side effects. Thus you should create and destroy them for each test.
+// In this sample we will define a simple factory function for PrimeTable
+// objects. We will instantiate objects in test's SetUp() method and
+// delete them in TearDown() method.
 typedef PrimeTable* CreatePrimeTableFunc();
 
 PrimeTable* CreateOnTheFlyPrimeTable() {
@@ -59,13 +62,14 @@ PrimeTable* CreatePreCalculatedPrimeTable() {
   return new PreCalculatedPrimeTable(max_precalculated);
 }
 
-// Inside the test body, fixture constructor, SetUp(), and TearDown() you
-// can refer to the test parameter by GetParam().  In this case, the test
-// parameter is a factory function which we call in fixture's SetUp() to
-// create and store an instance of PrimeTable.
-class PrimeTableTestSmpl7 : public TestWithParam<CreatePrimeTableFunc*> {
+// Inside the test body, fixture constructor, SetUp(), and TearDown()
+// you can refer to the test parameter by GetParam().
+// In this case, the test parameter is a PrimeTableFactory interface pointer
+// which we use in fixture's SetUp() to create and store an instance of
+// PrimeTable.
+class PrimeTableTest : public TestWithParam<CreatePrimeTableFunc*> {
  public:
-  virtual ~PrimeTableTestSmpl7() { delete table_; }
+  virtual ~PrimeTableTest() { delete table_; }
   virtual void SetUp() { table_ = (*GetParam())(); }
   virtual void TearDown() {
     delete table_;
@@ -76,7 +80,7 @@ class PrimeTableTestSmpl7 : public TestWithParam<CreatePrimeTableFunc*> {
   PrimeTable* table_;
 };
 
-TEST_P(PrimeTableTestSmpl7, ReturnsFalseForNonPrimes) {
+TEST_P(PrimeTableTest, ReturnsFalseForNonPrimes) {
   EXPECT_FALSE(table_->IsPrime(-5));
   EXPECT_FALSE(table_->IsPrime(0));
   EXPECT_FALSE(table_->IsPrime(1));
@@ -85,7 +89,7 @@ TEST_P(PrimeTableTestSmpl7, ReturnsFalseForNonPrimes) {
   EXPECT_FALSE(table_->IsPrime(100));
 }
 
-TEST_P(PrimeTableTestSmpl7, ReturnsTrueForPrimes) {
+TEST_P(PrimeTableTest, ReturnsTrueForPrimes) {
   EXPECT_TRUE(table_->IsPrime(2));
   EXPECT_TRUE(table_->IsPrime(3));
   EXPECT_TRUE(table_->IsPrime(5));
@@ -94,7 +98,7 @@ TEST_P(PrimeTableTestSmpl7, ReturnsTrueForPrimes) {
   EXPECT_TRUE(table_->IsPrime(131));
 }
 
-TEST_P(PrimeTableTestSmpl7, CanGetNextPrime) {
+TEST_P(PrimeTableTest, CanGetNextPrime) {
   EXPECT_EQ(2, table_->GetNextPrime(0));
   EXPECT_EQ(3, table_->GetNextPrime(2));
   EXPECT_EQ(5, table_->GetNextPrime(3));
@@ -110,8 +114,19 @@ TEST_P(PrimeTableTestSmpl7, CanGetNextPrime) {
 //
 // Here, we instantiate our tests with a list of two PrimeTable object
 // factory functions:
-INSTANTIATE_TEST_CASE_P(OnTheFlyAndPreCalculated, PrimeTableTestSmpl7,
-                        Values(&CreateOnTheFlyPrimeTable,
-                               &CreatePreCalculatedPrimeTable<1000>));
+INSTANTIATE_TEST_CASE_P(
+    OnTheFlyAndPreCalculated,
+    PrimeTableTest,
+    Values(&CreateOnTheFlyPrimeTable, &CreatePreCalculatedPrimeTable<1000>));
 
-}  // namespace
+#else
+
+// Google Test may not support value-parameterized tests with some
+// compilers. If we use conditional compilation to compile out all
+// code referring to the gtest_main library, MSVC linker will not link
+// that library at all and consequently complain about missing entry
+// point defined in that library (fatal error LNK1561: entry point
+// must be defined). This dummy test keeps gtest_main linked in.
+TEST(DummyTest, ValueParameterizedTestsAreNotSupportedOnThisPlatform) {}
+
+#endif  // GTEST_HAS_PARAM_TEST

@@ -2,7 +2,6 @@
  * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
  * Copyright (C) 2014 Adobe Systems Incorporated. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,20 +22,45 @@
 #include "config.h"
 #include "SVGRectElement.h"
 
+#include "RenderSVGPath.h"
 #include "RenderSVGRect.h"
 #include "RenderSVGResource.h"
-#include <wtf/IsoMallocInlines.h>
+#include "SVGLengthValue.h"
+#include "SVGNames.h"
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(SVGRectElement);
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGRectElement, SVGNames::xAttr, X, x)
+DEFINE_ANIMATED_LENGTH(SVGRectElement, SVGNames::yAttr, Y, y)
+DEFINE_ANIMATED_LENGTH(SVGRectElement, SVGNames::widthAttr, Width, width)
+DEFINE_ANIMATED_LENGTH(SVGRectElement, SVGNames::heightAttr, Height, height)
+DEFINE_ANIMATED_LENGTH(SVGRectElement, SVGNames::rxAttr, Rx, rx)
+DEFINE_ANIMATED_LENGTH(SVGRectElement, SVGNames::ryAttr, Ry, ry)
+DEFINE_ANIMATED_BOOLEAN(SVGRectElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
+
+BEGIN_REGISTER_ANIMATED_PROPERTIES(SVGRectElement)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(x)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(y)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(width)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(height)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(rx)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(ry)
+    REGISTER_LOCAL_ANIMATED_PROPERTY(externalResourcesRequired)
+    REGISTER_PARENT_ANIMATED_PROPERTIES(SVGGraphicsElement)
+END_REGISTER_ANIMATED_PROPERTIES
 
 inline SVGRectElement::SVGRectElement(const QualifiedName& tagName, Document& document)
-    : SVGGeometryElement(tagName, document)
-    , SVGExternalResourcesRequired(this)
+    : SVGGraphicsElement(tagName, document)
+    , m_x(LengthModeWidth)
+    , m_y(LengthModeHeight)
+    , m_width(LengthModeWidth)
+    , m_height(LengthModeHeight)
+    , m_rx(LengthModeWidth)
+    , m_ry(LengthModeHeight)
 {
     ASSERT(hasTagName(SVGNames::rectTag));
-    registerAttributes();
+    registerAnimatedPropertiesForSVGRectElement();
 }
 
 Ref<SVGRectElement> SVGRectElement::create(const QualifiedName& tagName, Document& document)
@@ -44,52 +68,46 @@ Ref<SVGRectElement> SVGRectElement::create(const QualifiedName& tagName, Documen
     return adoptRef(*new SVGRectElement(tagName, document));
 }
 
-void SVGRectElement::registerAttributes()
-{
-    auto& registry = attributeRegistry();
-    if (!registry.isEmpty())
-        return;
-    registry.registerAttribute<SVGNames::xAttr, &SVGRectElement::m_x>();
-    registry.registerAttribute<SVGNames::yAttr, &SVGRectElement::m_y>();
-    registry.registerAttribute<SVGNames::widthAttr, &SVGRectElement::m_width>();
-    registry.registerAttribute<SVGNames::heightAttr, &SVGRectElement::m_height>();
-    registry.registerAttribute<SVGNames::rxAttr, &SVGRectElement::m_rx>();
-    registry.registerAttribute<SVGNames::ryAttr, &SVGRectElement::m_ry>();
-}
-
 void SVGRectElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     SVGParsingError parseError = NoError;
 
     if (name == SVGNames::xAttr)
-        m_x.setValue(SVGLengthValue::construct(LengthModeWidth, value, parseError));
+        setXBaseValue(SVGLengthValue::construct(LengthModeWidth, value, parseError));
     else if (name == SVGNames::yAttr)
-        m_y.setValue(SVGLengthValue::construct(LengthModeHeight, value, parseError));
+        setYBaseValue(SVGLengthValue::construct(LengthModeHeight, value, parseError));
     else if (name == SVGNames::rxAttr)
-        m_rx.setValue(SVGLengthValue::construct(LengthModeWidth, value, parseError, ForbidNegativeLengths));
+        setRxBaseValue(SVGLengthValue::construct(LengthModeWidth, value, parseError, ForbidNegativeLengths));
     else if (name == SVGNames::ryAttr)
-        m_ry.setValue(SVGLengthValue::construct(LengthModeHeight, value, parseError, ForbidNegativeLengths));
+        setRyBaseValue(SVGLengthValue::construct(LengthModeHeight, value, parseError, ForbidNegativeLengths));
     else if (name == SVGNames::widthAttr)
-        m_width.setValue(SVGLengthValue::construct(LengthModeWidth, value, parseError, ForbidNegativeLengths));
+        setWidthBaseValue(SVGLengthValue::construct(LengthModeWidth, value, parseError, ForbidNegativeLengths));
     else if (name == SVGNames::heightAttr)
-        m_height.setValue(SVGLengthValue::construct(LengthModeHeight, value, parseError, ForbidNegativeLengths));
+        setHeightBaseValue(SVGLengthValue::construct(LengthModeHeight, value, parseError, ForbidNegativeLengths));
 
     reportAttributeParsingError(parseError, name, value);
 
-    SVGGeometryElement::parseAttribute(name, value);
+    SVGGraphicsElement::parseAttribute(name, value);
     SVGExternalResourcesRequired::parseAttribute(name, value);
 }
 
 void SVGRectElement::svgAttributeChanged(const QualifiedName& attrName)
 {
-    if (isKnownAttribute(attrName)) {
+    if (attrName == SVGNames::xAttr || attrName == SVGNames::yAttr || attrName == SVGNames::widthAttr || attrName == SVGNames::heightAttr || attrName == SVGNames::rxAttr || attrName == SVGNames::ryAttr) {
         InstanceInvalidationGuard guard(*this);
         invalidateSVGPresentationAttributeStyle();
         return;
     }
 
-    SVGGeometryElement::svgAttributeChanged(attrName);
-    SVGExternalResourcesRequired::svgAttributeChanged(attrName);
+    if (SVGLangSpace::isKnownAttribute(attrName) || SVGExternalResourcesRequired::isKnownAttribute(attrName)) {
+        if (auto* renderer = downcast<RenderSVGShape>(this->renderer())) {
+            InstanceInvalidationGuard guard(*this);
+            RenderSVGResource::markForLayoutAndParentResourceInvalidation(*renderer);
+        }
+        return;
+    }
+
+    SVGGraphicsElement::svgAttributeChanged(attrName);
 }
 
 RenderPtr<RenderElement> SVGRectElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,19 +29,26 @@
 
 #include "CaptureDevice.h"
 #include "RealtimeMediaSource.h"
-#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
-class WEBCORE_EXPORT CaptureDeviceManager : public CanMakeWeakPtr<CaptureDeviceManager> {
+class CaptureDeviceManager {
 public:
-    virtual const Vector<CaptureDevice>& captureDevices() = 0;
-    virtual Optional<CaptureDevice> captureDeviceWithPersistentID(CaptureDevice::DeviceType, const String&) { return WTF::nullopt; }
+    using CaptureDeviceChangedCallback = std::function<void()>;
+    using ObserverToken = uint32_t;
+    virtual ObserverToken addCaptureDeviceChangedObserver(CaptureDeviceChangedCallback);
+    virtual void removeCaptureDeviceChangedObserver(ObserverToken);
+
+    virtual Vector<CaptureDevice>& captureDevices() = 0;
+    virtual void refreshCaptureDevices() { }
+    virtual Vector<CaptureDevice> getAudioSourcesInfo();
+    virtual Vector<CaptureDevice> getVideoSourcesInfo();
+    virtual std::optional<CaptureDevice> deviceWithUID(const String&, RealtimeMediaSource::Type);
 
 protected:
     virtual ~CaptureDeviceManager();
-    CaptureDevice captureDeviceFromPersistentID(const String& captureDeviceID);
-    void deviceChanged();
+    std::optional<CaptureDevice> captureDeviceFromPersistentID(const String& captureDeviceID);
+    HashMap<ObserverToken, CaptureDeviceChangedCallback> m_observers;
 };
 
 } // namespace WebCore

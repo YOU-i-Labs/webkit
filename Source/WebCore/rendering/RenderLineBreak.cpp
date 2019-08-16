@@ -33,15 +33,12 @@
 #include "RootInlineBox.h"
 #include "SimpleLineLayoutFunctions.h"
 #include "VisiblePosition.h"
-#include <wtf/IsoMallocInlines.h>
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 #include "SelectionRect.h"
 #endif
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderLineBreak);
 
 static const int invalidLineHeight = -1;
 
@@ -154,7 +151,7 @@ bool RenderLineBreak::canBeSelectionLeaf() const
     return true;
 }
 
-VisiblePosition RenderLineBreak::positionForPoint(const LayoutPoint&, const RenderFragmentContainer*)
+VisiblePosition RenderLineBreak::positionForPoint(const LayoutPoint&, const RenderRegion*)
 {
     ensureLineBoxes();
     return createVisiblePosition(0, DOWNSTREAM);
@@ -229,7 +226,7 @@ void RenderLineBreak::updateFromStyle()
     m_cachedLineHeight = invalidLineHeight;
 }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 void RenderLineBreak::collectSelectionRects(Vector<SelectionRect>& rects, unsigned, unsigned)
 {
     ensureLineBoxes();

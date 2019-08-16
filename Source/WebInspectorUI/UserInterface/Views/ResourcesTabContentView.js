@@ -23,20 +23,27 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ResourcesTabContentView = class ResourcesTabContentView extends WI.ContentBrowserTabContentView
+WebInspector.ResourcesTabContentView = class ResourcesTabContentView extends WebInspector.ContentBrowserTabContentView
 {
     constructor(identifier)
     {
-        let tabBarItem = WI.GeneralTabBarItem.fromTabInfo(WI.ResourcesTabContentView.tabInfo());
-        const detailsSidebarPanelConstructors = [WI.ResourceDetailsSidebarPanel, WI.ProbeDetailsSidebarPanel];
-        super(identifier || "resources", "resources", tabBarItem, WI.ResourceSidebarPanel, detailsSidebarPanelConstructors);
+        let {image, title} = WebInspector.ResourcesTabContentView.tabInfo();
+        let tabBarItem = new WebInspector.GeneralTabBarItem(image, title);
+        let detailsSidebarPanelConstructors = [WebInspector.ResourceDetailsSidebarPanel, WebInspector.ProbeDetailsSidebarPanel];
+
+        // FIXME: Until ContentFlows are moved to the Elements tab, these details sidebar panels need to be included.
+        detailsSidebarPanelConstructors = detailsSidebarPanelConstructors.concat([WebInspector.DOMNodeDetailsSidebarPanel, WebInspector.CSSStyleDetailsSidebarPanel]);
+        if (window.LayerTreeAgent)
+            detailsSidebarPanelConstructors.push(WebInspector.LayerTreeDetailsSidebarPanel);
+
+        super(identifier || "resources", "resources", tabBarItem, WebInspector.ResourceSidebarPanel, detailsSidebarPanelConstructors);
     }
 
     static tabInfo()
     {
         return {
             image: "Images/Resources.svg",
-            title: WI.UIString("Resources"),
+            title: WebInspector.UIString("Resources"),
         };
     }
 
@@ -44,7 +51,7 @@ WI.ResourcesTabContentView = class ResourcesTabContentView extends WI.ContentBro
 
     get type()
     {
-        return WI.ResourcesTabContentView.Type;
+        return WebInspector.ResourcesTabContentView.Type;
     }
 
     get supportsSplitContentBrowser()
@@ -54,15 +61,13 @@ WI.ResourcesTabContentView = class ResourcesTabContentView extends WI.ContentBro
 
     canShowRepresentedObject(representedObject)
     {
-        return representedObject instanceof WI.Frame
-            || representedObject instanceof WI.FrameCollection
-            || representedObject instanceof WI.Resource
-            || representedObject instanceof WI.ResourceCollection
-            || representedObject instanceof WI.Script
-            || representedObject instanceof WI.ScriptCollection
-            || representedObject instanceof WI.CSSStyleSheet
-            || representedObject instanceof WI.CSSStyleSheetCollection;
+        return representedObject instanceof WebInspector.Frame
+            || representedObject instanceof WebInspector.Resource
+            || representedObject instanceof WebInspector.Script
+            || representedObject instanceof WebInspector.CSSStyleSheet
+            || representedObject instanceof WebInspector.ContentFlow
+            || representedObject instanceof WebInspector.Collection;
     }
 };
 
-WI.ResourcesTabContentView.Type = "resources";
+WebInspector.ResourcesTabContentView.Type = "resources";

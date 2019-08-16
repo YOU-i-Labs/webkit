@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef WTF_Lock_h
+#define WTF_Lock_h
 
 #include <wtf/LockAlgorithm.h>
 #include <wtf/Locker.h>
@@ -31,7 +32,7 @@
 
 namespace TestWebKitAPI {
 struct LockInspector;
-}
+};
 
 namespace WTF {
 
@@ -47,12 +48,10 @@ typedef LockAlgorithm<uint8_t, 1, 2> DefaultLockAlgorithm;
 // at worst one call to unlock() per millisecond will do a direct hand-off to the thread that is at
 // the head of the queue. When there are collisions, each collision increases the fair unlock delay
 // by one millisecond in the worst case.
-class Lock {
-    WTF_MAKE_NONCOPYABLE(Lock);
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    constexpr Lock() = default;
 
+// This is a struct without a constructor or destructor so that it can be statically initialized.
+// Use Lock in instance variables.
+struct LockBase {
     void lock()
     {
         if (UNLIKELY(!DefaultLockAlgorithm::lockFastAssumingZero(m_byte)))
@@ -111,7 +110,7 @@ public:
         return isHeld();
     }
 
-private:
+protected:
     friend struct TestWebKitAPI::LockInspector;
     
     static const uint8_t isHeldBit = 1;
@@ -128,12 +127,27 @@ private:
         return !m_byte.load();
     }
 
-    Atomic<uint8_t> m_byte { 0 };
+    Atomic<uint8_t> m_byte;
 };
 
-using LockHolder = Locker<Lock>;
+class Lock : public LockBase {
+    WTF_MAKE_NONCOPYABLE(Lock);
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    Lock()
+    {
+        m_byte.store(0, std::memory_order_relaxed);
+    }
+};
+
+typedef LockBase StaticLock;
+typedef Locker<LockBase> LockHolder;
 
 } // namespace WTF
 
 using WTF::Lock;
 using WTF::LockHolder;
+using WTF::StaticLock;
+
+#endif // WTF_Lock_h
+

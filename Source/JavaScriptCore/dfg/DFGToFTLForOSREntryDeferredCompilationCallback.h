@@ -29,7 +29,7 @@
 
 #include "DFGJITCode.h"
 #include "DeferredCompilationCallback.h"
-#include <wtf/Ref.h>
+#include <wtf/RefPtr.h>
 
 namespace JSC {
 

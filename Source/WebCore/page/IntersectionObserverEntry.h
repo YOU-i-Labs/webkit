@@ -43,12 +43,10 @@ public:
 
     struct Init {
         double time;
-        Optional<DOMRectInit> rootBounds;
+        DOMRectInit rootBounds;
         DOMRectInit boundingClientRect;
         DOMRectInit intersectionRect;
-        double intersectionRatio;
         RefPtr<Element> target;
-        bool isIntersecting;
     };
 
     static Ref<IntersectionObserverEntry> create(const Init& init)
@@ -57,12 +55,11 @@ public:
     }
     
     double time() const { return m_time; }
-    DOMRectReadOnly* rootBounds() const { return m_rootBounds.get(); }
-    DOMRectReadOnly* boundingClientRect() const { return m_boundingClientRect.get(); }
-    DOMRectReadOnly* intersectionRect() const { return m_intersectionRect.get(); }
-    Element* target() const { return m_target.get(); }
+    RefPtr<DOMRectReadOnly> rootBounds() const { return m_rootBounds; }
+    RefPtr<DOMRectReadOnly> boundingClientRect() const { return m_boundingClientRect; }
+    RefPtr<DOMRectReadOnly> intersectionRect() const { return m_intersectionRect; }
+    RefPtr<Element> target() const { return m_target; }
 
-    bool isIntersecting() const { return m_isIntersecting; }
     double intersectionRatio() const { return m_intersectionRatio; }
 
 private:
@@ -74,7 +71,6 @@ private:
     RefPtr<DOMRectReadOnly> m_intersectionRect;
     double m_intersectionRatio { 0 };
     RefPtr<Element> m_target;
-    bool m_isIntersecting { false };
 };
 
 

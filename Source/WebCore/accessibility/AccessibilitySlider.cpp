@@ -54,7 +54,7 @@ AccessibilityOrientation AccessibilitySlider::orientation() const
 {
     // Default to horizontal in the unknown case.
     if (!m_renderer)
-        return AccessibilityOrientation::Horizontal;
+        return AccessibilityOrientationHorizontal;
     
     const RenderStyle& style = m_renderer->style();
 
@@ -64,15 +64,15 @@ AccessibilityOrientation AccessibilitySlider::orientation() const
     case SliderHorizontalPart:
     case MediaSliderPart:
     case MediaFullScreenVolumeSliderPart:
-        return AccessibilityOrientation::Horizontal;
+        return AccessibilityOrientationHorizontal;
     
     case SliderThumbVerticalPart: 
     case SliderVerticalPart:
     case MediaVolumeSliderPart:
-        return AccessibilityOrientation::Vertical;
+        return AccessibilityOrientationVertical;
         
     default:
-        return AccessibilityOrientation::Horizontal;
+        return AccessibilityOrientationHorizontal;
     }
 }
     
@@ -84,7 +84,7 @@ void AccessibilitySlider::addChildren()
 
     AXObjectCache* cache = m_renderer->document().axObjectCache();
 
-    auto& thumb = downcast<AccessibilitySliderThumb>(*cache->getOrCreate(AccessibilityRole::SliderThumb));
+    auto& thumb = downcast<AccessibilitySliderThumb>(*cache->getOrCreate(SliderThumbRole));
     thumb.setParent(this);
 
     // Before actually adding the value indicator to the hierarchy,
@@ -108,7 +108,7 @@ AccessibilityObject* AccessibilitySlider::elementAccessibilityHitTest(const IntP
             return m_children[0].get();
     }
     
-    return axObjectCache()->getOrCreate(renderer());
+    return axObjectCache()->getOrCreate(m_renderer);
 }
 
 float AccessibilitySlider::valueForRange() const
@@ -128,9 +128,6 @@ float AccessibilitySlider::minValueForRange() const
 
 void AccessibilitySlider::setValue(const String& value)
 {
-    if (dispatchAccessibleSetValueEvent(value))
-        return;
-
     HTMLInputElement* input = inputElement();
     
     if (input->value() == value)

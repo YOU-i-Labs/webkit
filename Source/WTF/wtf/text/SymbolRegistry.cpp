@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include <wtf/text/SymbolRegistry.h>
+#include "SymbolRegistry.h"
 
 namespace WTF {
 
@@ -47,6 +47,12 @@ Ref<RegisteredSymbolImpl> SymbolRegistry::symbolForKey(const String& rep)
     auto symbol = RegisteredSymbolImpl::create(*rep.impl(), *this);
     *addResult.iterator = SymbolRegistryKey(&symbol.get());
     return symbol;
+}
+
+String SymbolRegistry::keyForSymbol(RegisteredSymbolImpl& uid)
+{
+    ASSERT(uid.symbolRegistry() == this);
+    return uid.extractFoldedString();
 }
 
 void SymbolRegistry::remove(RegisteredSymbolImpl& uid)

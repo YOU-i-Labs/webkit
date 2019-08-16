@@ -38,7 +38,9 @@ WebGLDebugRendererInfo::WebGLDebugRendererInfo(WebGLRenderingContextBase& contex
 {
 }
 
-WebGLDebugRendererInfo::~WebGLDebugRendererInfo() = default;
+WebGLDebugRendererInfo::~WebGLDebugRendererInfo()
+{
+}
 
 WebGLExtension::ExtensionName WebGLDebugRendererInfo::getName() const
 {

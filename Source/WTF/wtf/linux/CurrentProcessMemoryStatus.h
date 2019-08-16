@@ -25,6 +25,8 @@
 
 #pragma once
 
+#if OS(LINUX)
+
 namespace WTF {
 
 struct ProcessMemoryStatus {
@@ -43,3 +45,5 @@ void currentProcessMemoryStatus(ProcessMemoryStatus&);
 
 using WTF::ProcessMemoryStatus;
 using WTF::currentProcessMemoryStatus;
+
+#endif // OS(LINUX)

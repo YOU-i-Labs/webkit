@@ -23,13 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.SettingEditor = class SettingEditor extends WI.Object
+WebInspector.SettingEditor = class SettingEditor extends WebInspector.Object
 {
     constructor(type, label, options)
     {
         super();
 
         this._type = type;
+        this._label = label;
         this._value = null;
 
         this._editorElement = this._createEditorElement(options);
@@ -39,25 +40,31 @@ WI.SettingEditor = class SettingEditor extends WI.Object
         this._element.classList.add("editor");
         this._element.append(this._editorElement);
 
-        this.label = label;
+        if (this._label) {
+            this._editorElement.id = "setting-editor-" + WebInspector.SettingEditor._nextEditorIdentifier++;
+            let labelElement = document.createElement("label");
+            labelElement.setAttribute("for", this._editorElement.id);
+            labelElement.textContent = label;
+
+            this._element.append(labelElement);
+        }
     }
 
     static createForSetting(setting, label, options)
     {
         let type;
         if (typeof setting.value === "boolean")
-            type = WI.SettingEditor.Type.Checkbox;
+            type = WebInspector.SettingEditor.Type.Checkbox;
         else if (typeof setting.value === "number")
-            type = WI.SettingEditor.Type.Numeric;
+            type = WebInspector.SettingEditor.Type.Numeric;
 
         console.assert(type, "Cannot deduce editor type from setting value type.", setting);
         if (!type)
             return null;
 
-        let editor = new WI.SettingEditor(type, label, options);
+        let editor = new WebInspector.SettingEditor(type, label, options);
         editor.value = setting.value;
-        editor.addEventListener(WI.SettingEditor.Event.ValueDidChange, () => { setting.value = editor.value; });
-        setting.addEventListener(WI.Setting.Event.Changed, () => { editor.value = setting.value; });
+        editor.addEventListener(WebInspector.SettingEditor.Event.ValueDidChange, () => { setting.value = editor.value; });
 
         return editor;
     }
@@ -66,36 +73,7 @@ WI.SettingEditor = class SettingEditor extends WI.Object
 
     get element() { return this._element; }
     get type() { return this._type; }
-
-    get label()
-    {
-        return this._label;
-    }
-
-    set label(label)
-    {
-        if (label === this._label)
-            return;
-
-        this._label = label;
-
-        if (!this._label) {
-            if (this._labelElement)
-                this._labelElement.remove();
-
-            this._editorElement.removeAttribute("id");
-            this._labelElement = null;
-            return;
-        }
-
-        if (!this._labelElement) {
-            this._editorElement.id = "setting-editor-" + WI.SettingEditor._nextEditorIdentifier++;
-            this._labelElement = this._element.appendChild(document.createElement("label"));
-            this._labelElement.setAttribute("for", this._editorElement.id);
-        }
-
-        this._labelElement.textContent = this._label;
-    }
+    get label() { return this._label; }
 
     get value()
     {
@@ -110,12 +88,12 @@ WI.SettingEditor = class SettingEditor extends WI.Object
         let oldValue = this._value;
         this._value = value;
 
-        if (this._type === WI.SettingEditor.Type.Checkbox)
+        if (this._type == WebInspector.SettingEditor.Type.Checkbox)
             this._editorElement.checked = !!this._value;
         else
             this._editorElement.value = this._value;
 
-        this.dispatchEventToListeners(WI.SettingEditor.Event.ValueDidChange, {oldValue});
+        this.dispatchEventToListeners(WebInspector.SettingEditor.Event.ValueDidChange, {oldValue});
     }
 
     // Private
@@ -125,13 +103,13 @@ WI.SettingEditor = class SettingEditor extends WI.Object
         let editorElement;
 
         switch (this._type) {
-        case WI.SettingEditor.Type.Checkbox:
+        case WebInspector.SettingEditor.Type.Checkbox:
             editorElement = document.createElement("input");
             editorElement.type = "checkbox";
             editorElement.addEventListener("change", (event) => { this.value = event.target.checked; });
             break;
 
-        case WI.SettingEditor.Type.Numeric:
+        case WebInspector.SettingEditor.Type.Numeric:
             editorElement = document.createElement("input");
             editorElement.type = "number";
 
@@ -147,7 +125,7 @@ WI.SettingEditor = class SettingEditor extends WI.Object
             });
             break;
 
-        case WI.SettingEditor.Type.Select:
+        case WebInspector.SettingEditor.Type.Select:
             editorElement = document.createElement("select");
             var keyValuePairs = [];
 
@@ -175,14 +153,14 @@ WI.SettingEditor = class SettingEditor extends WI.Object
     }
 };
 
-WI.SettingEditor._nextEditorIdentifier = 1;
+WebInspector.SettingEditor._nextEditorIdentifier = 1;
 
-WI.SettingEditor.Type = {
+WebInspector.SettingEditor.Type = {
     Checkbox: "setting-editor-type-checkbox",
     Numeric: "setting-editor-type-numeric",
     Select: "setting-editor-type-select",
 };
 
-WI.SettingEditor.Event = {
+WebInspector.SettingEditor.Event = {
     ValueDidChange: "value-did-change",
 };

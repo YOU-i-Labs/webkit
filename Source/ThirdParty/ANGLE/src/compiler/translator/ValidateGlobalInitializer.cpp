@@ -6,7 +6,6 @@
 
 #include "compiler/translator/ValidateGlobalInitializer.h"
 
-#include "compiler/translator/IntermTraverse.h"
 #include "compiler/translator/ParseContext.h"
 
 namespace sh

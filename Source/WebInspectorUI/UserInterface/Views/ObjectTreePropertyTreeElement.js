@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends WI.ObjectTreeBaseTreeElement
+WebInspector.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends WebInspector.ObjectTreeBaseTreeElement
 {
     constructor(property, propertyPath, mode, prototypeName)
     {
         super(property, propertyPath, property);
 
-        this._mode = mode || WI.ObjectTreeView.Mode.Properties;
+        this._mode = mode || WebInspector.ObjectTreeView.Mode.Properties;
         this._prototypeName = prototypeName;
 
         this.mainTitle = this._titleFragment();
@@ -90,10 +90,10 @@ WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends W
     _updateHasChildren()
     {
         var resolvedValue = this.resolvedValue();
-        var valueHasChildren = resolvedValue && resolvedValue.hasChildren;
+        var valueHasChildren = (resolvedValue && resolvedValue.hasChildren);
         var wasThrown = this.hadError();
 
-        if (this._mode === WI.ObjectTreeView.Mode.Properties)
+        if (this._mode === WebInspector.ObjectTreeView.Mode.Properties)
             this.hasChildren = !wasThrown && valueHasChildren;
         else
             this.hasChildren = !wasThrown && valueHasChildren && (this.property.name === "__proto__" || this._alwaysDisplayAsProperty());
@@ -118,7 +118,7 @@ WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends W
         if (this.property.name === "__proto__")
             return this._createTitlePrototype();
 
-        if (this._mode === WI.ObjectTreeView.Mode.Properties)
+        if (this._mode === WebInspector.ObjectTreeView.Mode.Properties)
             return this._createTitlePropertyStyle();
         else
             return this._createTitleAPIStyle();
@@ -131,7 +131,7 @@ WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends W
 
         var nameElement = document.createElement("span");
         nameElement.className = "prototype-name";
-        nameElement.textContent = WI.UIString("%s Prototype").format(this._sanitizedPrototypeString(this.property.value));
+        nameElement.textContent = WebInspector.UIString("%s Prototype").format(this._sanitizedPrototypeString(this.property.value));
         nameElement.title = this.propertyPathString(this.thisPropertyPath());
         return nameElement;
     }
@@ -147,7 +147,7 @@ WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends W
         nameElement.title = this.propertyPathString(this.thisPropertyPath());
 
         // Property attributes.
-        if (this._mode === WI.ObjectTreeView.Mode.Properties) {
+        if (this._mode === WebInspector.ObjectTreeView.Mode.Properties) {
             if (!this.property.enumerable)
                 nameElement.classList.add("not-enumerable");
         }
@@ -157,12 +157,10 @@ WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends W
         var resolvedValue = this.resolvedValue();
         if (resolvedValue) {
             if (resolvedValue.preview) {
-                this._previewView = new WI.ObjectPreviewView(resolvedValue.preview);
+                this._previewView = new WebInspector.ObjectPreviewView(resolvedValue.preview);
                 valueOrGetterElement = this._previewView.element;
             } else {
-                this._loadPreviewLazilyIfNeeded();
-
-                valueOrGetterElement = WI.FormattedValue.createElementForRemoteObject(resolvedValue, this.hadError());
+                valueOrGetterElement = WebInspector.FormattedValue.createElementForRemoteObject(resolvedValue, this.hadError());
 
                 // Special case a function property string.
                 if (resolvedValue.type === "function")
@@ -171,7 +169,7 @@ WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends W
         } else {
             valueOrGetterElement = document.createElement("span");
             if (this.property.hasGetter())
-                valueOrGetterElement.appendChild(this.createGetterElement(this._mode !== WI.ObjectTreeView.Mode.ClassAPI));
+                valueOrGetterElement.appendChild(this.createGetterElement(this._mode !== WebInspector.ObjectTreeView.Mode.ClassAPI));
             if (this.property.hasSetter())
                 valueOrGetterElement.appendChild(this.createSetterElement());
         }
@@ -214,28 +212,12 @@ WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends W
             var spacer = container.appendChild(document.createElement("span"));
             spacer.className = "spacer";
             if (this.property.hasGetter())
-                container.appendChild(this.createGetterElement(this._mode !== WI.ObjectTreeView.Mode.ClassAPI));
+                container.appendChild(this.createGetterElement(this._mode !== WebInspector.ObjectTreeView.Mode.ClassAPI));
             if (this.property.hasSetter())
                 container.appendChild(this.createSetterElement());
         }
 
         return container;
-    }
-
-    _loadPreviewLazilyIfNeeded()
-    {
-        let resolvedValue = this.resolvedValue();
-        if (!resolvedValue.canLoadPreview())
-            return;
-
-        resolvedValue.updatePreview((preview) => {
-            if (preview) {
-                this.mainTitle = this._titleFragment();
-
-                if (this.expanded)
-                    this._previewView.showTitle();
-            }
-        });
     }
 
     _alwaysDisplayAsProperty()
@@ -269,8 +251,8 @@ WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends W
         if (isFunctionStringNativeCode(resolvedValue.description)) {
             // Native function on a prototype, likely "Foo.prototype.method".
             if (this._prototypeName) {
-                if (WI.NativePrototypeFunctionParameters[this._prototypeName]) {
-                    var params = WI.NativePrototypeFunctionParameters[this._prototypeName][this._property.name];
+                if (WebInspector.NativePrototypeFunctionParameters[this._prototypeName]) {
+                    var params = WebInspector.NativePrototypeFunctionParameters[this._prototypeName][this._property.name];
                     return params ? "(" + params + ")" : "()";
                 }
             }
@@ -282,8 +264,8 @@ WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends W
                 var match = parentDescription.match(/^function\s+([^)]+?)\(/);
                 if (match) {
                     var name = match[1];
-                    if (WI.NativeConstructorFunctionParameters[name]) {
-                        var params = WI.NativeConstructorFunctionParameters[name][this._property.name];
+                    if (WebInspector.NativeConstructorFunctionParameters[name]) {
+                        var params = WebInspector.NativeConstructorFunctionParameters[name][this._property.name];
                         return params ? "(" + params + ")" : "()";
                     }
                 }
@@ -292,8 +274,8 @@ WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends W
             // Native DOM constructor or on native objects that are not functions.
             if (parentDescription.endsWith("Constructor") || ["Math", "JSON", "Reflect", "Console"].includes(parentDescription)) {
                 var name = parentDescription;
-                if (WI.NativeConstructorFunctionParameters[name]) {
-                    var params = WI.NativeConstructorFunctionParameters[name][this._property.name];
+                if (WebInspector.NativeConstructorFunctionParameters[name]) {
+                    var params = WebInspector.NativeConstructorFunctionParameters[name][this._property.name];
                     return params ? "(" + params + ")" : "()";
                 }
             }
@@ -321,18 +303,13 @@ WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends W
         if (this.children.length && !this.shouldRefreshChildren)
             return;
 
-        const options = {
-            ownProperties: true,
-            generatePreview: true,
-        };
-
         var resolvedValue = this.resolvedValue();
-        if (resolvedValue.isCollectionType() && this._mode === WI.ObjectTreeView.Mode.Properties)
+        if (resolvedValue.isCollectionType() && this._mode === WebInspector.ObjectTreeView.Mode.Properties)
             resolvedValue.getCollectionEntries(0, 100, this._updateChildrenInternal.bind(this, this._updateEntries, this._mode));
-        else if (this._mode === WI.ObjectTreeView.Mode.ClassAPI || this._mode === WI.ObjectTreeView.Mode.PureAPI)
-            resolvedValue.getPropertyDescriptors(this._updateChildrenInternal.bind(this, this._updateProperties, WI.ObjectTreeView.Mode.ClassAPI), options);
+        else if (this._mode === WebInspector.ObjectTreeView.Mode.ClassAPI || this._mode === WebInspector.ObjectTreeView.Mode.PureAPI)
+            resolvedValue.getOwnPropertyDescriptors(this._updateChildrenInternal.bind(this, this._updateProperties, WebInspector.ObjectTreeView.Mode.ClassAPI));
         else if (this.property.name === "__proto__")
-            resolvedValue.getPropertyDescriptors(this._updateChildrenInternal.bind(this, this._updateProperties, WI.ObjectTreeView.Mode.PrototypeAPI), options);
+            resolvedValue.getOwnPropertyDescriptors(this._updateChildrenInternal.bind(this, this._updateProperties, WebInspector.ObjectTreeView.Mode.PrototypeAPI));
         else
             resolvedValue.getDisplayablePropertyDescriptors(this._updateChildrenInternal.bind(this, this._updateProperties, this._mode));
     }
@@ -342,8 +319,8 @@ WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends W
         this.removeChildren();
 
         if (!list) {
-            var errorMessageElement = WI.ObjectTreeView.createEmptyMessageElement(WI.UIString("Could not fetch properties. Object may no longer exist."));
-            this.appendChild(new WI.TreeElement(errorMessageElement, null, false));
+            var errorMessageElement = WebInspector.ObjectTreeView.createEmptyMessageElement(WebInspector.UIString("Could not fetch properties. Object may no longer exist."));
+            this.appendChild(new WebInspector.TreeElement(errorMessageElement, null, false));
             return;
         }
 
@@ -354,33 +331,33 @@ WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends W
     {
         for (var entry of entries) {
             if (entry.key) {
-                this.appendChild(new WI.ObjectTreeMapKeyTreeElement(entry.key, propertyPath));
-                this.appendChild(new WI.ObjectTreeMapValueTreeElement(entry.value, propertyPath, entry.key));
+                this.appendChild(new WebInspector.ObjectTreeMapKeyTreeElement(entry.key, propertyPath));
+                this.appendChild(new WebInspector.ObjectTreeMapValueTreeElement(entry.value, propertyPath, entry.key));
             } else
-                this.appendChild(new WI.ObjectTreeSetIndexTreeElement(entry.value, propertyPath));
+                this.appendChild(new WebInspector.ObjectTreeSetIndexTreeElement(entry.value, propertyPath));
         }
 
         if (!this.children.length) {
-            var emptyMessageElement = WI.ObjectTreeView.createEmptyMessageElement(WI.UIString("No Entries"));
-            this.appendChild(new WI.TreeElement(emptyMessageElement, null, false));
+            var emptyMessageElement = WebInspector.ObjectTreeView.createEmptyMessageElement(WebInspector.UIString("No Entries"));
+            this.appendChild(new WebInspector.TreeElement(emptyMessageElement, null, false));
         }
 
         // Show the prototype so users can see the API.
         var resolvedValue = this.resolvedValue();
         resolvedValue.getOwnPropertyDescriptor("__proto__", (propertyDescriptor) => {
             if (propertyDescriptor)
-                this.appendChild(new WI.ObjectTreePropertyTreeElement(propertyDescriptor, propertyPath, mode));
+                this.appendChild(new WebInspector.ObjectTreePropertyTreeElement(propertyDescriptor, propertyPath, mode));
         });
     }
 
     _updateProperties(properties, propertyPath, mode)
     {
-        properties.sort(WI.ObjectTreeView.comparePropertyDescriptors);
+        properties.sort(WebInspector.ObjectTreeView.comparePropertyDescriptors);
 
         var resolvedValue = this.resolvedValue();
         var isArray = resolvedValue.isArray();
-        var isPropertyMode = mode === WI.ObjectTreeView.Mode.Properties || this._getterValue;
-        var isAPI = mode !== WI.ObjectTreeView.Mode.Properties;
+        var isPropertyMode = mode === WebInspector.ObjectTreeView.Mode.Properties || this._getterValue;
+        var isAPI = mode !== WebInspector.ObjectTreeView.Mode.Properties;
 
         var prototypeName;
         if (this.property.name === "__proto__") {
@@ -403,19 +380,19 @@ WI.ObjectTreePropertyTreeElement = class ObjectTreePropertyTreeElement extends W
 
             if (isArray && isPropertyMode) {
                 if (propertyDescriptor.isIndexProperty())
-                    this.appendChild(new WI.ObjectTreeArrayIndexTreeElement(propertyDescriptor, propertyPath));
+                    this.appendChild(new WebInspector.ObjectTreeArrayIndexTreeElement(propertyDescriptor, propertyPath));
                 else if (propertyDescriptor.name === "__proto__")
-                    this.appendChild(new WI.ObjectTreePropertyTreeElement(propertyDescriptor, propertyPath, mode, prototypeName));
+                    this.appendChild(new WebInspector.ObjectTreePropertyTreeElement(propertyDescriptor, propertyPath, mode, prototypeName));
             } else
-                this.appendChild(new WI.ObjectTreePropertyTreeElement(propertyDescriptor, propertyPath, mode, prototypeName));
+                this.appendChild(new WebInspector.ObjectTreePropertyTreeElement(propertyDescriptor, propertyPath, mode, prototypeName));
 
             if (propertyDescriptor.name === "__proto__")
                 hadProto = true;
         }
 
         if (!this.children.length || (hadProto && this.children.length === 1)) {
-            var emptyMessageElement = WI.ObjectTreeView.createEmptyMessageElement(WI.UIString("No Properties"));
-            this.insertChild(new WI.TreeElement(emptyMessageElement, null, false), 0);
+            var emptyMessageElement = WebInspector.ObjectTreeView.createEmptyMessageElement(WebInspector.UIString("No Properties"));
+            this.insertChild(new WebInspector.TreeElement(emptyMessageElement, null, false), 0);
         }
     }
 };

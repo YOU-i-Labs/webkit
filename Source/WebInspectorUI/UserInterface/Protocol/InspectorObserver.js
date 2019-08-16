@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.InspectorObserver = class InspectorObserver
+WebInspector.InspectorObserver = class InspectorObserver
 {
     // Events defined by the "Inspector" domain.
 
@@ -39,35 +39,27 @@ WI.InspectorObserver = class InspectorObserver
 
     inspect(payload, hints)
     {
-        let remoteObject = WI.RemoteObject.fromPayload(payload, WI.mainTarget);
+        var remoteObject = WebInspector.RemoteObject.fromPayload(payload, WebInspector.mainTarget);
         if (remoteObject.subtype === "node") {
-            WI.domManager.inspectNodeObject(remoteObject);
-            return;
-        }
-
-        if (remoteObject.type === "function") {
-            remoteObject.findFunctionSourceCodeLocation().then((sourceCodeLocation) => {
-                if (sourceCodeLocation instanceof WI.SourceCodeLocation) {
-                    WI.showSourceCodeLocation(sourceCodeLocation, {
-                        ignoreNetworkTab: true,
-                        ignoreSearchTab: true,
-                    });
-                }
-            });
-            remoteObject.release();
+            WebInspector.domTreeManager.inspectNodeObject(remoteObject);
             return;
         }
 
         if (hints.databaseId)
-            WI.databaseManager.inspectDatabase(hints.databaseId);
+            WebInspector.storageManager.inspectDatabase(hints.databaseId);
         else if (hints.domStorageId)
-            WI.domStorageManager.inspectDOMStorage(hints.domStorageId);
+            WebInspector.storageManager.inspectDOMStorage(hints.domStorageId);
 
         remoteObject.release();
     }
 
+    detached(reason)
+    {
+        // FIXME: Not implemented.
+    }
+
     activateExtraDomains(domains)
     {
-        WI.sharedApp.activateExtraDomains(domains);
+        WebInspector.activateExtraDomains(domains);
     }
 };

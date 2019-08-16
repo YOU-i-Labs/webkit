@@ -29,8 +29,9 @@
 #include "config.h"
 #include "FetchBodyConsumer.h"
 
+#if ENABLE(FETCH_API)
+
 #include "JSBlob.h"
-#include "ReadableStreamChunk.h"
 #include "TextResourceDecoder.h"
 
 namespace WebCore {
@@ -57,73 +58,29 @@ static String textFromUTF8(const unsigned char* data, unsigned length)
     return decoder->decodeAndFlush(reinterpret_cast<const char*>(data), length);
 }
 
-static void resolveWithTypeAndData(Ref<DeferredPromise>&& promise, FetchBodyConsumer::Type type, const String& contentType, const unsigned char* data, unsigned length)
+void FetchBodyConsumer::resolveWithData(Ref<DeferredPromise>&& promise, const unsigned char* data, unsigned length)
 {
-    switch (type) {
-    case FetchBodyConsumer::Type::ArrayBuffer:
+    switch (m_type) {
+    case Type::ArrayBuffer:
         fulfillPromiseWithArrayBuffer(WTFMove(promise), data, length);
         return;
-    case FetchBodyConsumer::Type::Blob:
-        promise->resolveWithNewlyCreated<IDLInterface<Blob>>(blobFromData(data, length, contentType).get());
+    case Type::Blob:
+        promise->resolveWithNewlyCreated<IDLInterface<Blob>>(blobFromData(data, length, m_contentType).get());
         return;
-    case FetchBodyConsumer::Type::JSON:
+    case Type::JSON:
         fulfillPromiseWithJSON(WTFMove(promise), textFromUTF8(data, length));
         return;
-    case FetchBodyConsumer::Type::Text:
+    case Type::Text:
         promise->resolve<IDLDOMString>(textFromUTF8(data, length));
         return;
-    case FetchBodyConsumer::Type::None:
+    case Type::None:
         ASSERT_NOT_REACHED();
         return;
     }
 }
 
-void FetchBodyConsumer::clean()
+void FetchBodyConsumer::resolve(Ref<DeferredPromise>&& promise)
 {
-    m_buffer = nullptr;
-    m_consumePromise = nullptr;
-    if (m_sink) {
-        m_sink->clearCallback();
-        return;
-    }
-}
-
-void FetchBodyConsumer::resolveWithData(Ref<DeferredPromise>&& promise, const unsigned char* data, unsigned length)
-{
-    resolveWithTypeAndData(WTFMove(promise), m_type, m_contentType, data, length);
-}
-
-void FetchBodyConsumer::extract(ReadableStream& stream, ReadableStreamToSharedBufferSink::Callback&& callback)
-{
-    ASSERT(!m_sink);
-    m_sink = ReadableStreamToSharedBufferSink::create(WTFMove(callback));
-    m_sink->pipeFrom(stream);
-}
-
-void FetchBodyConsumer::resolve(Ref<DeferredPromise>&& promise, ReadableStream* stream)
-{
-    if (stream) {
-        ASSERT(!m_sink);
-        m_sink = ReadableStreamToSharedBufferSink::create([promise = WTFMove(promise), data = SharedBuffer::create(), type = m_type, contentType = m_contentType](auto&& result) mutable {
-            if (result.hasException()) {
-                promise->reject(result.releaseException());
-                return;
-            }
-
-            if (auto chunk = result.returnValue())
-                data->append(reinterpret_cast<const char*>(chunk->data), chunk->size);
-            else
-                resolveWithTypeAndData(WTFMove(promise), type, contentType, reinterpret_cast<const unsigned char*>(data->data()), data->size());
-        });
-        m_sink->pipeFrom(*stream);
-        return;
-    }
-
-    if (m_isLoading) {
-        m_consumePromise = WTFMove(promise);
-        return;
-    }
-
     ASSERT(m_type != Type::None);
     switch (m_type) {
     case Type::ArrayBuffer:
@@ -144,22 +101,18 @@ void FetchBodyConsumer::resolve(Ref<DeferredPromise>&& promise, ReadableStream* 
     }
 }
 
-void FetchBodyConsumer::append(const char* data, unsigned size)
+void FetchBodyConsumer::append(const char* data, unsigned length)
 {
-    if (m_source) {
-        m_source->enqueue(ArrayBuffer::tryCreate(data, size));
-        return;
-    }
     if (!m_buffer) {
-        m_buffer = SharedBuffer::create(data, size);
+        m_buffer = SharedBuffer::create(data, length);
         return;
     }
-    m_buffer->append(data, size);
+    m_buffer->append(data, length);
 }
 
-void FetchBodyConsumer::append(const unsigned char* data, unsigned size)
+void FetchBodyConsumer::append(const unsigned char* data, unsigned length)
 {
-    append(reinterpret_cast<const char*>(data), size);
+    append(reinterpret_cast<const char*>(data), length);
 }
 
 RefPtr<SharedBuffer> FetchBodyConsumer::takeData()
@@ -197,44 +150,6 @@ String FetchBodyConsumer::takeAsText()
     return text;
 }
 
-void FetchBodyConsumer::setConsumePromise(Ref<DeferredPromise>&& promise)
-{
-    ASSERT(!m_consumePromise);
-    m_consumePromise = WTFMove(promise);
-}
-
-void FetchBodyConsumer::setSource(Ref<FetchBodySource>&& source)
-{
-    m_source = WTFMove(source);
-    if (m_buffer) {
-        m_source->enqueue(m_buffer->tryCreateArrayBuffer());
-        m_buffer = nullptr;
-    }
-}
-
-void FetchBodyConsumer::loadingFailed(const Exception& exception)
-{
-    m_isLoading = false;
-    if (m_consumePromise) {
-        m_consumePromise->reject(exception);
-        m_consumePromise = nullptr;
-    }
-    if (m_source) {
-        m_source->error(exception);
-        m_source = nullptr;
-    }
-}
-
-void FetchBodyConsumer::loadingSucceeded()
-{
-    m_isLoading = false;
-
-    if (m_consumePromise)
-        resolve(m_consumePromise.releaseNonNull(), nullptr);
-    if (m_source) {
-        m_source->close();
-        m_source = nullptr;
-    }
-}
-
 } // namespace WebCore
+
+#endif // ENABLE(FETCH_API)

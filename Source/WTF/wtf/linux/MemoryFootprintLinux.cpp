@@ -24,37 +24,41 @@
  */
 
 #include "config.h"
-#include <wtf/MemoryFootprint.h>
+#include "MemoryFootprint.h"
 
+#if OS(LINUX)
 #include <stdio.h>
-#include <wtf/MonotonicTime.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringView.h>
+#endif
 
 namespace WTF {
 
-static const Seconds s_memoryFootprintUpdateInterval = 1_s;
-
+#if OS(LINUX)
 template<typename Functor>
 static void forEachLine(FILE* file, Functor functor)
 {
     char* buffer = nullptr;
     size_t size = 0;
     while (getline(&buffer, &size, file) != -1) {
-        functor(buffer);
+        functor(buffer, size);
+        free(buffer);
+        buffer = nullptr;
+        size = 0;
     }
-    free(buffer);
 }
+#endif
 
-static size_t computeMemoryFootprint()
+std::optional<size_t> memoryFootprint()
 {
+#if OS(LINUX)
     FILE* file = fopen("/proc/self/smaps", "r");
     if (!file)
-        return 0;
+        return std::nullopt;
 
     unsigned long totalPrivateDirtyInKB = 0;
     bool isAnonymous = false;
-    forEachLine(file, [&] (char* buffer) {
+    forEachLine(file, [&] (char* buffer, size_t) {
         {
             unsigned long start;
             unsigned long end;
@@ -70,7 +74,7 @@ static size_t computeMemoryFootprint()
             }
             if (scannedCount == 7) {
                 StringView pathString(path);
-                isAnonymous = pathString == "[heap]" || pathString.startsWith("[stack");
+                isAnonymous = pathString == ASCIILiteral("[heap]") || pathString.startsWith("[stack");
                 return;
             }
         }
@@ -84,19 +88,8 @@ static size_t computeMemoryFootprint()
     });
     fclose(file);
     return totalPrivateDirtyInKB * KB;
+#endif
+    return std::nullopt;
 }
 
-size_t memoryFootprint()
-{
-    static size_t footprint = 0;
-    static MonotonicTime previousUpdateTime = { };
-    Seconds elapsed = MonotonicTime::now() - previousUpdateTime;
-    if (elapsed >= s_memoryFootprintUpdateInterval) {
-        footprint = computeMemoryFootprint();
-        previousUpdateTime = MonotonicTime::now();
-    }
-
-    return footprint;
 }
-
-} // namespace WTF

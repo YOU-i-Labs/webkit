@@ -33,8 +33,8 @@
 #include "ContentType.h"
 #include "MediaPlayer.h"
 
-#if PLATFORM(IOS_FAMILY)
-#include <wtf/SoftLinking.h>
+#if PLATFORM(IOS)
+#include "SoftLinking.h"
 #endif
 
 namespace WebCore {
@@ -54,9 +54,9 @@ bool CDMPrivateMediaPlayer::supportsMIMEType(const String& mimeType)
     return MediaPlayer::supportsKeySystem(m_cdm->keySystem(), mimeType);
 }
 
-std::unique_ptr<LegacyCDMSession> CDMPrivateMediaPlayer::createSession(LegacyCDMSessionClient* client)
+std::unique_ptr<CDMSession> CDMPrivateMediaPlayer::createSession(CDMSessionClient* client)
 {
-    auto mediaPlayer = m_cdm->mediaPlayer();
+    MediaPlayer* mediaPlayer = m_cdm->mediaPlayer();
     if (!mediaPlayer)
         return nullptr;
 

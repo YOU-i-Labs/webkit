@@ -27,7 +27,6 @@
 #ifndef DNSResolveQueue_h
 #define DNSResolveQueue_h
 
-#include "DNS.h"
 #include "Timer.h"
 #include <atomic>
 #include <wtf/Forward.h>
@@ -40,34 +39,30 @@ class DNSResolveQueue {
     friend NeverDestroyed<DNSResolveQueue>;
 
 public:
-    DNSResolveQueue();
-    virtual ~DNSResolveQueue() = default;
-
     static DNSResolveQueue& singleton();
 
-    virtual void resolve(const String& hostname, uint64_t identifier, DNSCompletionHandler&&) = 0;
-    virtual void stopResolve(uint64_t identifier) = 0;
     void add(const String& hostname);
     void decrementRequestCount()
     {
         --m_requestsInFlight;
     }
 
-protected:
+private:
+    DNSResolveQueue();
+
     bool isUsingProxy();
 
-    bool m_isUsingProxy { true };
+    void updateIsUsingProxy();
+    void platformResolve(const String&);
 
-private:
-    virtual void updateIsUsingProxy() = 0;
-    virtual void platformResolve(const String&) = 0;
     void timerFired();
 
     Timer m_timer;
 
     HashSet<String> m_names;
     std::atomic<int> m_requestsInFlight;
-    MonotonicTime m_lastProxyEnabledStatusCheckTime;
+    bool m_isUsingProxy;
+    double m_lastProxyEnabledStatusCheckTime;
 };
 
 }

@@ -29,18 +29,18 @@
 #include "SVGCursorElement.h"
 #include "SVGLengthContext.h"
 #include "SVGURIReference.h"
+#include "TreeScope.h"
 #include <wtf/MathExtras.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-CSSCursorImageValue::CSSCursorImageValue(Ref<CSSValue>&& imageValue, bool hasHotSpot, const IntPoint& hotSpot, LoadedFromOpaqueSource loadedFromOpaqueSource)
+CSSCursorImageValue::CSSCursorImageValue(Ref<CSSValue>&& imageValue, bool hasHotSpot, const IntPoint& hotSpot)
     : CSSValue(CursorImageClass)
     , m_imageValue(WTFMove(imageValue))
     , m_hasHotSpot(hasHotSpot)
     , m_hotSpot(hotSpot)
-    , m_loadedFromOpaqueSource(loadedFromOpaqueSource)
 {
     if (is<CSSImageValue>(m_imageValue.get()))
         m_originalURL = downcast<CSSImageValue>(m_imageValue.get()).url();
@@ -65,13 +65,12 @@ String CSSCursorImageValue::customCSSText() const
     return result.toString();
 }
 
-// FIXME: Should this function take a TreeScope instead?
 SVGCursorElement* CSSCursorImageValue::updateCursorElement(const Document& document)
 {
     if (!m_originalURL.hasFragmentIdentifier())
         return nullptr;
 
-    auto element = SVGURIReference::targetElementFromIRIString(m_originalURL, document).element;
+    auto* element = SVGURIReference::targetElementFromIRIString(m_originalURL, document);
     if (!is<SVGCursorElement>(element))
         return nullptr;
 
@@ -107,7 +106,7 @@ std::pair<CachedImage*, float> CSSCursorImageValue::loadImage(CachedResourceLoad
 
     if (auto* cursorElement = updateCursorElement(*loader.document())) {
         if (cursorElement->href() != downcast<CSSImageValue>(m_imageValue.get()).url())
-            m_imageValue = CSSImageValue::create(loader.document()->completeURL(cursorElement->href()), m_loadedFromOpaqueSource);
+            m_imageValue = CSSImageValue::create(loader.document()->completeURL(cursorElement->href()));
     }
 
     return { downcast<CSSImageValue>(m_imageValue.get()).loadImage(loader, options), 1 };

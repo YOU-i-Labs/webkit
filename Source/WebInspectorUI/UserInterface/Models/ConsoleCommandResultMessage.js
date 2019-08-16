@@ -27,28 +27,28 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ConsoleCommandResultMessage = class ConsoleCommandResult extends WI.ConsoleMessage
+WebInspector.ConsoleCommandResultMessage = class ConsoleCommandResult extends WebInspector.ConsoleMessage
 {
     constructor(target, result, wasThrown, savedResultIndex, shouldRevealConsole = true)
     {
-        let source = WI.ConsoleMessage.MessageSource.JS;
-        let level = wasThrown ? WI.ConsoleMessage.MessageLevel.Error : WI.ConsoleMessage.MessageLevel.Log;
-        let type = WI.ConsoleMessage.MessageType.Result;
+        let source = WebInspector.ConsoleMessage.MessageSource.JS;
+        let level = wasThrown ? WebInspector.ConsoleMessage.MessageLevel.Error : WebInspector.ConsoleMessage.MessageLevel.Log;
+        let type = WebInspector.ConsoleMessage.MessageType.Result;
 
         super(target, source, level, "", type, undefined, undefined, undefined, 0, [result], undefined, undefined);
 
         this._savedResultIndex = savedResultIndex;
         this._shouldRevealConsole = shouldRevealConsole;
 
-        if (this._savedResultIndex && this._savedResultIndex > WI.ConsoleCommandResultMessage.maximumSavedResultIndex)
-            WI.ConsoleCommandResultMessage.maximumSavedResultIndex = this._savedResultIndex;
+        if (this._savedResultIndex && this._savedResultIndex > WebInspector.ConsoleCommandResultMessage.maximumSavedResultIndex)
+            WebInspector.ConsoleCommandResultMessage.maximumSavedResultIndex = this._savedResultIndex;
     }
 
     // Static
 
     static clearMaximumSavedResultIndex()
     {
-        WI.ConsoleCommandResultMessage.maximumSavedResultIndex = 0;
+        WebInspector.ConsoleCommandResultMessage.maximumSavedResultIndex = 0;
     }
 
     // Public
@@ -64,4 +64,4 @@ WI.ConsoleCommandResultMessage = class ConsoleCommandResult extends WI.ConsoleMe
     }
 };
 
-WI.ConsoleCommandResultMessage.maximumSavedResultIndex = 0;
+WebInspector.ConsoleCommandResultMessage.maximumSavedResultIndex = 0;

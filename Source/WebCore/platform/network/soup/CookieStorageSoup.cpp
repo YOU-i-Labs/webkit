@@ -23,7 +23,7 @@
 
 namespace WebCore {
 
-void startObservingCookieChanges(const NetworkStorageSession&, WTF::Function<void ()>&&)
+void startObservingCookieChanges(const NetworkStorageSession&, std::function<void ()>&&)
 {
     ASSERT_NOT_REACHED();
 }

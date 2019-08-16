@@ -30,35 +30,13 @@
 #if ENABLE(MATHML)
 
 #include "RenderMathMLScripts.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(MathMLScriptsElement);
-
 using namespace MathMLNames;
-
-static ScriptType scriptTypeOf(const QualifiedName& tagName)
-{
-    if (tagName == msubTag)
-        return ScriptType::Sub;
-    if (tagName == msupTag)
-        return ScriptType::Super;
-    if (tagName == msubsupTag)
-        return ScriptType::SubSup;
-    if (tagName == munderTag)
-        return ScriptType::Under;
-    if (tagName == moverTag)
-        return ScriptType::Over;
-    if (tagName == munderoverTag)
-        return ScriptType::UnderOver;
-    ASSERT(tagName == mmultiscriptsTag);
-    return ScriptType::Multiscripts;
-}
 
 MathMLScriptsElement::MathMLScriptsElement(const QualifiedName& tagName, Document& document)
     : MathMLPresentationElement(tagName, document)
-    , m_scriptType(scriptTypeOf(tagName))
 {
 }
 
@@ -80,9 +58,9 @@ const MathMLElement::Length& MathMLScriptsElement::superscriptShift()
 void MathMLScriptsElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == subscriptshiftAttr)
-        m_subscriptShift = WTF::nullopt;
+        m_subscriptShift = std::nullopt;
     else if (name == superscriptshiftAttr)
-        m_superscriptShift = WTF::nullopt;
+        m_superscriptShift = std::nullopt;
 
     MathMLElement::parseAttribute(name, value);
 }

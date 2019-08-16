@@ -30,7 +30,7 @@
 
 #include "ScrollingStateFixedNode.h"
 #include "ScrollingStateTree.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 #include <wtf/text/WTFString.h>
 
@@ -39,7 +39,9 @@ namespace WebCore {
 ScrollingStateNode::ScrollingStateNode(ScrollingNodeType nodeType, ScrollingStateTree& scrollingStateTree, ScrollingNodeID nodeID)
     : m_nodeType(nodeType)
     , m_nodeID(nodeID)
+    , m_changedProperties(0)
     , m_scrollingStateTree(scrollingStateTree)
+    , m_parent(nullptr)
 {
 }
 
@@ -50,13 +52,16 @@ ScrollingStateNode::ScrollingStateNode(const ScrollingStateNode& stateNode, Scro
     , m_nodeID(stateNode.scrollingNodeID())
     , m_changedProperties(stateNode.changedProperties())
     , m_scrollingStateTree(adoptiveTree)
+    , m_parent(nullptr)
 {
     if (hasChangedProperty(ScrollLayer))
         setLayer(stateNode.layer().toRepresentation(adoptiveTree.preferredLayerRepresentation()));
-    scrollingStateTree().addNode(*this);
+    scrollingStateTree().addNode(this);
 }
 
-ScrollingStateNode::~ScrollingStateNode() = default;
+ScrollingStateNode::~ScrollingStateNode()
+{
+}
 
 void ScrollingStateNode::setPropertyChanged(unsigned propertyBit)
 {
@@ -97,35 +102,6 @@ void ScrollingStateNode::appendChild(Ref<ScrollingStateNode>&& childNode)
     m_children->append(WTFMove(childNode));
 }
 
-void ScrollingStateNode::insertChild(Ref<ScrollingStateNode>&& childNode, size_t index)
-{
-    childNode->setParent(this);
-
-    if (!m_children) {
-        ASSERT(!index);
-        m_children = std::make_unique<Vector<RefPtr<ScrollingStateNode>>>();
-    }
-
-    m_children->insert(index, WTFMove(childNode));
-}
-
-size_t ScrollingStateNode::indexOfChild(ScrollingStateNode& childNode) const
-{
-    if (!m_children)
-        return notFound;
-
-    return m_children->find(&childNode);
-}
-
-void ScrollingStateNode::reconcileLayerPositionForViewportRect(const LayoutRect& viewportRect, ScrollingLayerPositionAction action)
-{
-    if (!m_children)
-        return;
-
-    for (auto& child : *m_children)
-        child->reconcileLayerPositionForViewportRect(viewportRect, action);
-}
-
 void ScrollingStateNode::setLayer(const LayerRepresentation& layerRepresentation)
 {
     if (layerRepresentation == m_layer)
@@ -148,25 +124,28 @@ void ScrollingStateNode::dumpProperties(TextStream& ts, ScrollingStateTreeAsText
 void ScrollingStateNode::dump(TextStream& ts, ScrollingStateTreeAsTextBehavior behavior) const
 {
     ts << "\n";
-    ts << indent << "(";
+    ts.writeIndent();
+    ts << "(";
     ts.increaseIndent();
     dumpProperties(ts, behavior);
 
     if (m_children) {
         ts << "\n";
-        ts << indent <<"(";
-        {
-            TextStream::IndentScope indentScope(ts);
-            ts << "children " << children()->size();
-            for (auto& child : *m_children)
-                child->dump(ts, behavior);
-            ts << "\n";
-        }
-        ts << indent << ")";
+        ts.writeIndent();
+        ts << "(";
+        ts.increaseIndent();
+        ts << "children " << children()->size();
+        for (auto& child : *m_children)
+            child->dump(ts, behavior);
+        ts << "\n";
+        ts.decreaseIndent();
+        ts.writeIndent();
+        ts << ")";
     }
     ts << "\n";
     ts.decreaseIndent();
-    ts << indent << ")";
+    ts.writeIndent();
+    ts << ")";
 }
 
 String ScrollingStateNode::scrollingStateTreeAsText(ScrollingStateTreeAsTextBehavior behavior) const

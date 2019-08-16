@@ -34,15 +34,14 @@
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "HTMLParserIdioms.h"
-#include "NavigationScheduler.h"
 #include "PingLoader.h"
-#include <wtf/JSONValues.h>
+#include <inspector/InspectorValues.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/CString.h>
 
+using namespace Inspector;
 
 namespace WebCore {
-using namespace Inspector;
 
 XSSAuditorDelegate::XSSAuditorDelegate(Document& document)
     : m_document(document)
@@ -76,15 +75,15 @@ Ref<FormData> XSSAuditorDelegate::generateViolationReport(const XSSInfo& xssInfo
     auto& frameLoader = m_document.frame()->loader();
     String httpBody;
     if (frameLoader.documentLoader()) {
-        if (auto formData = makeRefPtr(frameLoader.documentLoader()->originalRequest().httpBody()))
+        if (auto* formData = frameLoader.documentLoader()->originalRequest().httpBody())
             httpBody = formData->flattenToString();
     }
 
-    auto reportDetails = JSON::Object::create();
+    auto reportDetails = InspectorObject::create();
     reportDetails->setString("request-url", xssInfo.m_originalURL);
     reportDetails->setString("request-body", httpBody);
 
-    auto reportObject = JSON::Object::create();
+    auto reportObject = InspectorObject::create();
     reportObject->setObject("xss-report", WTFMove(reportDetails));
 
     return FormData::create(reportObject->toJSONString().utf8().data());

@@ -45,8 +45,7 @@ bool argumentsInvolveStackSlot(InlineCallFrame* inlineCallFrame, VirtualRegister
         && reg == VirtualRegister(inlineCallFrame->stackOffset + CallFrameSlot::argumentCount))
         return true;
     
-    // We do not include fixups here since it is not related to |arguments|, rest parameters, and varargs.
-    unsigned numArguments = inlineCallFrame->argumentCountIncludingThis - 1;
+    unsigned numArguments = inlineCallFrame->arguments.size() - 1;
     VirtualRegister argumentStart =
         VirtualRegister(inlineCallFrame->stackOffset) + CallFrame::argumentOffset(0);
     return reg >= argumentStart && reg < argumentStart + numArguments;
@@ -66,45 +65,7 @@ Node* emitCodeToGetArgumentsArrayLength(
         graph, arguments,
         arguments->op() == CreateDirectArguments || arguments->op() == CreateScopedArguments
         || arguments->op() == CreateClonedArguments || arguments->op() == CreateRest
-        || arguments->op() == NewArrayBuffer
-        || arguments->op() == PhantomDirectArguments || arguments->op() == PhantomClonedArguments
-        || arguments->op() == PhantomCreateRest || arguments->op() == PhantomNewArrayBuffer
-        || arguments->op() == PhantomNewArrayWithSpread,
-        arguments->op());
-
-    if (arguments->op() == PhantomNewArrayWithSpread) {
-        unsigned numberOfNonSpreadArguments = 0;
-        BitVector* bitVector = arguments->bitVector();
-        Node* currentSum = nullptr;
-        for (unsigned i = 0; i < arguments->numChildren(); i++) {
-            if (bitVector->get(i)) {
-                Node* child = graph.varArgChild(arguments, i).node();
-                DFG_ASSERT(graph, child, child->op() == PhantomSpread, child->op());
-                DFG_ASSERT(graph, child->child1().node(),
-                    child->child1()->op() == PhantomCreateRest || child->child1()->op() == PhantomNewArrayBuffer,
-                    child->child1()->op());
-                Node* lengthOfChild = emitCodeToGetArgumentsArrayLength(insertionSet, child->child1().node(), nodeIndex, origin);
-                if (currentSum)
-                    currentSum = insertionSet.insertNode(nodeIndex, SpecInt32Only, ArithAdd, origin, OpInfo(Arith::CheckOverflow), Edge(currentSum, Int32Use), Edge(lengthOfChild, Int32Use));
-                else
-                    currentSum = lengthOfChild;
-            } else
-                numberOfNonSpreadArguments++;
-        }
-        if (currentSum) {
-            if (!numberOfNonSpreadArguments)
-                return currentSum;
-            return insertionSet.insertNode(
-                nodeIndex, SpecInt32Only, ArithAdd, origin, OpInfo(Arith::CheckOverflow), Edge(currentSum, Int32Use),
-                insertionSet.insertConstantForUse(nodeIndex, origin, jsNumber(numberOfNonSpreadArguments), Int32Use));
-        }
-        return insertionSet.insertConstant(nodeIndex, origin, jsNumber(numberOfNonSpreadArguments));
-    }
-
-    if (arguments->op() == NewArrayBuffer || arguments->op() == PhantomNewArrayBuffer) {
-        return insertionSet.insertConstant(
-            nodeIndex, origin, jsNumber(arguments->castOperand<JSImmutableButterfly*>()->length()));
-    }
+        || arguments->op() == PhantomDirectArguments || arguments->op() == PhantomClonedArguments || arguments->op() == PhantomCreateRest);
     
     InlineCallFrame* inlineCallFrame = arguments->origin.semantic.inlineCallFrame;
 
@@ -113,7 +74,7 @@ Node* emitCodeToGetArgumentsArrayLength(
         numberOfArgumentsToSkip = arguments->numberOfArgumentsToSkip();
     
     if (inlineCallFrame && !inlineCallFrame->isVarargs()) {
-        unsigned argumentsSize = inlineCallFrame->argumentCountIncludingThis - 1;
+        unsigned argumentsSize = inlineCallFrame->arguments.size() - 1;
         if (argumentsSize >= numberOfArgumentsToSkip)
             argumentsSize -= numberOfArgumentsToSkip;
         else
@@ -122,8 +83,16 @@ Node* emitCodeToGetArgumentsArrayLength(
             nodeIndex, origin, jsNumber(argumentsSize));
     }
     
-    Node* argumentCount = insertionSet.insertNode(nodeIndex,
-        SpecInt32Only, GetArgumentCountIncludingThis, origin, OpInfo(inlineCallFrame));
+    Node* argumentCount;
+    if (!inlineCallFrame)
+        argumentCount = insertionSet.insertNode(nodeIndex, SpecInt32Only, GetArgumentCountIncludingThis, origin);
+    else {
+        VirtualRegister argumentCountRegister(inlineCallFrame->stackOffset + CallFrameSlot::argumentCount);
+        
+        argumentCount = insertionSet.insertNode(
+            nodeIndex, SpecInt32Only, GetStack, origin,
+            OpInfo(graph.m_stackAccessData.add(argumentCountRegister, FlushedInt32)));
+    }
 
     Node* result = insertionSet.insertNode(
         nodeIndex, SpecInt32Only, ArithSub, origin, OpInfo(Arith::Unchecked),

@@ -949,10 +949,10 @@ String Decimal::toString() const
 {
     switch (m_data.formatClass()) {
     case EncodedData::ClassInfinity:
-        return sign() ? "-Infinity"_s : "Infinity"_s;
+        return sign() ? ASCIILiteral("-Infinity") : ASCIILiteral("Infinity");
 
     case EncodedData::ClassNaN:
-        return "NaN"_s;
+        return ASCIILiteral("NaN");
 
     case EncodedData::ClassNormal:
     case EncodedData::ClassZero:

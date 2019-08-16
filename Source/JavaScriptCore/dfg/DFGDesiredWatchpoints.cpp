@@ -37,15 +37,14 @@ namespace JSC { namespace DFG {
 void ArrayBufferViewWatchpointAdaptor::add(
     CodeBlock* codeBlock, JSArrayBufferView* view, CommonData& common)
 {
-    VM& vm = *codeBlock->vm();
     Watchpoint* watchpoint = common.watchpoints.add(codeBlock);
     ArrayBufferNeuteringWatchpoint* neuteringWatchpoint =
-        ArrayBufferNeuteringWatchpoint::create(vm);
-    neuteringWatchpoint->set().add(watchpoint);
+        ArrayBufferNeuteringWatchpoint::create(*codeBlock->vm());
+    neuteringWatchpoint->set()->add(watchpoint);
     codeBlock->addConstant(neuteringWatchpoint);
     // FIXME: We don't need to set this watchpoint at all for shared buffers.
     // https://bugs.webkit.org/show_bug.cgi?id=164108
-    vm.heap.addReference(neuteringWatchpoint, view->possiblySharedBuffer());
+    codeBlock->vm()->heap.addReference(neuteringWatchpoint, view->possiblySharedBuffer());
 }
 
 void InferredValueAdaptor::add(
@@ -58,13 +57,12 @@ void InferredValueAdaptor::add(
 void AdaptiveStructureWatchpointAdaptor::add(
     CodeBlock* codeBlock, const ObjectPropertyCondition& key, CommonData& common)
 {
-    VM& vm = *codeBlock->vm();
     switch (key.kind()) {
     case PropertyCondition::Equivalence:
-        common.adaptiveInferredPropertyValueWatchpoints.add(key, codeBlock)->install(vm);
+        common.adaptiveInferredPropertyValueWatchpoints.add(key, codeBlock)->install();
         break;
     default:
-        common.adaptiveStructureWatchpoints.add(key, codeBlock)->install(vm);
+        common.adaptiveStructureWatchpoints.add(key, codeBlock)->install();
         break;
     }
 }

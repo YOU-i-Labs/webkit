@@ -32,28 +32,18 @@ namespace JSC {
 
 class ArrayAllocationProfile {
 public:
-    ArrayAllocationProfile() = default;
-
-    ArrayAllocationProfile(IndexingType recommendedIndexingMode)
+    ArrayAllocationProfile()
+        : m_currentIndexingType(ArrayWithUndecided)
+        , m_lastArray(0)
     {
-        initializeIndexingMode(recommendedIndexingMode);
     }
-
+    
     IndexingType selectIndexingType()
     {
         JSArray* lastArray = m_lastArray;
         if (lastArray && UNLIKELY(lastArray->indexingType() != m_currentIndexingType))
-            updateProfile();
+            updateIndexingType();
         return m_currentIndexingType;
-    }
-
-    // vector length hint becomes [0, BASE_CONTIGUOUS_VECTOR_LEN_MAX].
-    unsigned vectorLengthHint()
-    {
-        JSArray* lastArray = m_lastArray;
-        if (lastArray && (m_largestSeenVectorLength != BASE_CONTIGUOUS_VECTOR_LEN_MAX) && UNLIKELY(lastArray->getVectorLength() > m_largestSeenVectorLength))
-            updateProfile();
-        return m_largestSeenVectorLength;
     }
     
     JSArray* updateLastAllocation(JSArray* lastArray)
@@ -62,8 +52,8 @@ public:
         return lastArray;
     }
     
-    JS_EXPORT_PRIVATE void updateProfile();
-
+    JS_EXPORT_PRIVATE void updateIndexingType();
+    
     static IndexingType selectIndexingTypeFor(ArrayAllocationProfile* profile)
     {
         if (!profile)
@@ -78,13 +68,10 @@ public:
         return lastArray;
     }
 
-    void initializeIndexingMode(IndexingType recommendedIndexingMode) { m_currentIndexingType = recommendedIndexingMode; }
-
 private:
     
-    IndexingType m_currentIndexingType { ArrayWithUndecided };
-    unsigned m_largestSeenVectorLength { 0 };
-    JSArray* m_lastArray { nullptr };
+    IndexingType m_currentIndexingType;
+    JSArray* m_lastArray;
 };
 
 } // namespace JSC

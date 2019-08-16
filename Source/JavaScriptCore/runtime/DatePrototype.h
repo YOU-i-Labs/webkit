@@ -26,7 +26,7 @@ namespace JSC {
 
 class ObjectPrototype;
 
-class DatePrototype final : public JSNonFinalObject {
+class DatePrototype : public JSNonFinalObject {
 private:
     DatePrototype(VM&, Structure*);
 

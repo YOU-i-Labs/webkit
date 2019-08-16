@@ -44,9 +44,6 @@ class Node;
 class Page;
 class ScriptExecutionContext;
 class WorkerGlobalScope;
-#if ENABLE(CSS_PAINTING_API)
-class WorkletGlobalScope;
-#endif
 
 DOMWindow* domWindowFromExecState(JSC::ExecState*);
 Frame* frameFromExecState(JSC::ExecState*);
@@ -56,9 +53,6 @@ JSC::ExecState* mainWorldExecState(Frame*);
 
 JSC::ExecState* execStateFromNode(DOMWrapperWorld&, Node*);
 WEBCORE_EXPORT JSC::ExecState* execStateFromPage(DOMWrapperWorld&, Page*);
-JSC::ExecState* execStateFromWorkerGlobalScope(WorkerGlobalScope&);
-#if ENABLE(CSS_PAINTING_API)
-JSC::ExecState* execStateFromWorkletGlobalScope(WorkletGlobalScope&);
-#endif
+JSC::ExecState* execStateFromWorkerGlobalScope(WorkerGlobalScope*);
 
 } // namespace WebCore

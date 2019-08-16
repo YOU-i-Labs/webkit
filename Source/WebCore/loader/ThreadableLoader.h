@@ -43,6 +43,12 @@ namespace WebCore {
     class ScriptExecutionContext;
     class ThreadableLoaderClient;
 
+    enum PreflightPolicy {
+        ConsiderPreflight,
+        ForcePreflight,
+        PreventPreflight
+    };
+
     enum class ContentSecurityPolicyEnforcement {
         DoNotEnforce,
         EnforceChildSrcDirective,
@@ -57,12 +63,12 @@ namespace WebCore {
 
     struct ThreadableLoaderOptions : ResourceLoaderOptions {
         ThreadableLoaderOptions();
-        explicit ThreadableLoaderOptions(FetchOptions&&);
-        ThreadableLoaderOptions(const ResourceLoaderOptions&, ContentSecurityPolicyEnforcement, String&& initiator, ResponseFilteringPolicy);
+        ThreadableLoaderOptions(const ResourceLoaderOptions&, PreflightPolicy, ContentSecurityPolicyEnforcement, String&& initiator, ResponseFilteringPolicy);
         ~ThreadableLoaderOptions();
 
         ThreadableLoaderOptions isolatedCopy() const;
 
+        PreflightPolicy preflightPolicy { ConsiderPreflight };
         ContentSecurityPolicyEnforcement contentSecurityPolicyEnforcement { ContentSecurityPolicyEnforcement::EnforceConnectSrcDirective };
         String initiator; // This cannot be an AtomicString, as isolatedCopy() wouldn't create an object that's safe for passing to another thread.
         ResponseFilteringPolicy filteringPolicy { ResponseFilteringPolicy::Disable };
@@ -83,8 +89,8 @@ namespace WebCore {
         static void logError(ScriptExecutionContext&, const ResourceError&, const String&);
 
     protected:
-        ThreadableLoader() = default;
-        virtual ~ThreadableLoader() = default;
+        ThreadableLoader() { }
+        virtual ~ThreadableLoader() { }
         virtual void refThreadableLoader() = 0;
         virtual void derefThreadableLoader() = 0;
     };

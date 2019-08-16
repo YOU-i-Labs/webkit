@@ -1,6 +1,5 @@
 /*
  * Copyright (C) Research In Motion Limited 2011. All rights reserved.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -33,12 +32,16 @@ SVGAnimatedNumberAnimator::SVGAnimatedNumberAnimator(SVGAnimationElement* animat
 
 std::unique_ptr<SVGAnimatedType> SVGAnimatedNumberAnimator::constructFromString(const String& string)
 {
-    return SVGAnimatedType::create(SVGPropertyTraits<float>::fromString(string));
+    auto animatedType = SVGAnimatedType::createNumber(std::make_unique<float>());
+    float& animatedNumber = animatedType->number();
+    if (!parseNumberFromString(string, animatedNumber))
+        animatedNumber = 0;
+    return animatedType;
 }
 
 std::unique_ptr<SVGAnimatedType> SVGAnimatedNumberAnimator::startAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
 {
-    return constructFromBaseValue<SVGAnimatedNumber>(animatedTypes);
+    return SVGAnimatedType::createNumber(constructFromBaseValue<SVGAnimatedNumber>(animatedTypes));
 }
 
 void SVGAnimatedNumberAnimator::stopAnimValAnimation(const SVGElementAnimatedPropertyList& animatedTypes)
@@ -48,7 +51,7 @@ void SVGAnimatedNumberAnimator::stopAnimValAnimation(const SVGElementAnimatedPro
 
 void SVGAnimatedNumberAnimator::resetAnimValToBaseVal(const SVGElementAnimatedPropertyList& animatedTypes, SVGAnimatedType& type)
 {
-    resetFromBaseValue<SVGAnimatedNumber>(animatedTypes, type);
+    resetFromBaseValue<SVGAnimatedNumber>(animatedTypes, type, &SVGAnimatedType::number);
 }
 
 void SVGAnimatedNumberAnimator::animValWillChange(const SVGElementAnimatedPropertyList& animatedTypes)
@@ -66,12 +69,14 @@ void SVGAnimatedNumberAnimator::addAnimatedTypes(SVGAnimatedType* from, SVGAnima
     ASSERT(from->type() == AnimatedNumber);
     ASSERT(from->type() == to->type());
 
-    to->as<float>() += from->as<float>();
+    to->number() += from->number();
 }
 
 static float parseNumberFromString(SVGAnimationElement*, const String& string)
 {
-    return SVGPropertyTraits<float>::fromString(string);
+    float number = 0;
+    parseNumberFromString(string, number);
+    return number;
 }
 
 void SVGAnimatedNumberAnimator::calculateAnimatedValue(float percentage, unsigned repeatCount, SVGAnimatedType* from, SVGAnimatedType* to, SVGAnimatedType* toAtEndOfDuration, SVGAnimatedType* animated)
@@ -79,10 +84,10 @@ void SVGAnimatedNumberAnimator::calculateAnimatedValue(float percentage, unsigne
     ASSERT(m_animationElement);
     ASSERT(m_contextElement);
 
-    auto fromNumber = (m_animationElement->animationMode() == ToAnimation ? animated : from)->as<float>();
-    auto toNumber = to->as<float>();
-    const auto toAtEndOfDurationNumber = toAtEndOfDuration->as<float>();
-    auto& animatedNumber = animated->as<float>();
+    float fromNumber = m_animationElement->animationMode() == ToAnimation ? animated->number() : from->number();
+    float toNumber = to->number();
+    float toAtEndOfDurationNumber = toAtEndOfDuration->number();
+    float& animatedNumber = animated->number();
 
     // Apply CSS inheritance rules.
     m_animationElement->adjustForInheritance<float>(parseNumberFromString, m_animationElement->fromPropertyValueType(), fromNumber, m_contextElement);

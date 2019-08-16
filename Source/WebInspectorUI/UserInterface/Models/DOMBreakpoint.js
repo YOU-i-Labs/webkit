@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.DOMBreakpoint = class DOMBreakpoint extends WI.Object
+WebInspector.DOMBreakpoint = class DOMBreakpoint extends WebInspector.Object
 {
     constructor(domNodeOrInfo, type, disabled)
     {
@@ -31,11 +31,11 @@ WI.DOMBreakpoint = class DOMBreakpoint extends WI.Object
 
         super();
 
-        if (domNodeOrInfo instanceof WI.DOMNode) {
+        if (domNodeOrInfo instanceof WebInspector.DOMNode) {
             this._domNodeIdentifier = domNodeOrInfo.id;
             this._path = domNodeOrInfo.path();
-            console.assert(WI.networkManager.mainFrame);
-            this._url = WI.networkManager.mainFrame.url;
+            console.assert(WebInspector.frameResourceManager.mainFrame);
+            this._url = WebInspector.frameResourceManager.mainFrame.url;
         } else if (domNodeOrInfo && typeof domNodeOrInfo === "object") {
             this._domNodeIdentifier = null;
             this._path = domNodeOrInfo.path;
@@ -64,7 +64,7 @@ WI.DOMBreakpoint = class DOMBreakpoint extends WI.Object
 
         this._disabled = disabled;
 
-        this.dispatchEventToListeners(WI.DOMBreakpoint.Event.DisabledStateDidChange);
+        this.dispatchEventToListeners(WebInspector.DOMBreakpoint.Event.DisabledStateDidChange);
     }
 
     get domNodeIdentifier()
@@ -83,7 +83,7 @@ WI.DOMBreakpoint = class DOMBreakpoint extends WI.Object
 
         this._domNodeIdentifier = nodeIdentifier;
 
-        this.dispatchEventToListeners(WI.DOMBreakpoint.Event.ResolvedStateDidChange, data);
+        this.dispatchEventToListeners(WebInspector.DOMBreakpoint.Event.ResolvedStateDidChange, data);
     }
 
     get serializableInfo()
@@ -97,23 +97,23 @@ WI.DOMBreakpoint = class DOMBreakpoint extends WI.Object
 
     saveIdentityToCookie(cookie)
     {
-        cookie[WI.DOMBreakpoint.DocumentURLCookieKey] = this.url;
-        cookie[WI.DOMBreakpoint.NodePathCookieKey] = this.path;
-        cookie[WI.DOMBreakpoint.TypeCookieKey] = this.type;
+        cookie[WebInspector.DOMBreakpoint.DocumentURLCookieKey] = this.url;
+        cookie[WebInspector.DOMBreakpoint.NodePathCookieKey] = this.path;
+        cookie[WebInspector.DOMBreakpoint.TypeCookieKey] = this.type;
     }
 };
 
-WI.DOMBreakpoint.DocumentURLCookieKey = "dom-breakpoint-document-url";
-WI.DOMBreakpoint.NodePathCookieKey = "dom-breakpoint-node-path";
-WI.DOMBreakpoint.TypeCookieKey = "dom-breakpoint-type";
+WebInspector.DOMBreakpoint.DocumentURLCookieKey = "dom-breakpoint-document-url";
+WebInspector.DOMBreakpoint.NodePathCookieKey = "dom-breakpoint-node-path";
+WebInspector.DOMBreakpoint.TypeCookieKey = "dom-breakpoint-type";
 
-WI.DOMBreakpoint.Type = {
+WebInspector.DOMBreakpoint.Type = {
     SubtreeModified: "subtree-modified",
     AttributeModified: "attribute-modified",
     NodeRemoved: "node-removed",
 };
 
-WI.DOMBreakpoint.Event = {
+WebInspector.DOMBreakpoint.Event = {
     DisabledStateDidChange: "dom-breakpoint-disabled-state-did-change",
     ResolvedStateDidChange: "dom-breakpoint-resolved-state-did-change",
 };

@@ -32,14 +32,11 @@
 #include "GraphicsContext.h"
 #include "MathMLNames.h"
 #include "PaintInfo.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/MathExtras.h>
 
 namespace WebCore {
 
 using namespace MathMLNames;
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderMathMLMenclose);
 
 // The MathML in HTML5 implementation note suggests drawing the left part of longdiv with a parenthesis.
 // For now, we use a Bezier curve and this somewhat arbitrary value.
@@ -173,10 +170,11 @@ void RenderMathMLMenclose::layoutBlock(bool relayoutChildren, LayoutUnit)
     if (!relayoutChildren && simplifiedLayout())
         return;
 
-    LayoutUnit contentWidth, contentAscent, contentDescent;
-    stretchVerticalOperatorsAndLayoutChildren();
-    getContentBoundingBox(contentWidth, contentAscent, contentDescent);
-    layoutRowItems(contentWidth, contentAscent);
+    LayoutUnit contentAscent = 0;
+    LayoutUnit contentDescent = 0;
+    RenderMathMLRow::computeLineVerticalStretch(contentAscent, contentDescent);
+    RenderMathMLRow::layoutRowItems(contentAscent, contentDescent);
+    LayoutUnit contentWidth = logicalWidth();
 
     SpaceAroundContent space = spaceAroundContent(contentWidth, contentAscent + contentDescent);
     setLogicalWidth(space.left + contentWidth + space.right);
@@ -187,8 +185,6 @@ void RenderMathMLMenclose::layoutBlock(bool relayoutChildren, LayoutUnit)
         child->setLocation(child->location() + contentLocation);
 
     m_contentRect = LayoutRect(space.left, space.top, contentWidth, contentAscent + contentDescent);
-
-    layoutPositionedObjects(relayoutChildren);
 
     clearNeedsLayout();
 }
@@ -207,7 +203,7 @@ void RenderMathMLMenclose::paint(PaintInfo& info, const LayoutPoint& paintOffset
 {
     RenderMathMLRow::paint(info, paintOffset);
 
-    if (info.context().paintingDisabled() || info.phase != PaintPhase::Foreground || style().visibility() != Visibility::Visible)
+    if (info.context().paintingDisabled() || info.phase != PaintPhaseForeground || style().visibility() != VISIBLE)
         return;
 
     LayoutUnit thickness = ruleThickness();
@@ -218,7 +214,7 @@ void RenderMathMLMenclose::paint(PaintInfo& info, const LayoutPoint& paintOffset
 
     paintInfo.context().setStrokeThickness(thickness);
     paintInfo.context().setStrokeStyle(SolidStroke);
-    paintInfo.context().setStrokeColor(style().visitedDependentColorWithColorFilter(CSSPropertyColor));
+    paintInfo.context().setStrokeColor(style().visitedDependentColor(CSSPropertyColor));
     paintInfo.context().setFillColor(Color::transparent);
     paintInfo.applyTransform(AffineTransform().translate(paintOffset + location()));
 

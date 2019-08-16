@@ -28,12 +28,11 @@
 
 [
     Conditional=ENCRYPTED_MEDIA,
-    EnabledAtRuntime=EncryptedMediaAPI,
-    DisabledByQuirk=hasBrokenEncryptedMediaAPISupport,
+    EnabledAtRuntime=EncryptedMediaAPI
 ] interface MediaKeySession : EventTarget {
     readonly attribute DOMString sessionId;
     readonly attribute unrestricted double expiration;
-    readonly attribute Promise<void> closed;
+    [CustomGetter, CachedAttribute] readonly attribute Promise<void> closed;
     readonly attribute MediaKeyStatusMap keyStatuses;
     attribute EventHandler onkeystatuseschange;
     attribute EventHandler onmessage;

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,25 +23,26 @@
 #pragma once
 
 #include "RenderBlockFlow.h"
-#include "RenderListMarker.h"
+#include "RenderPtr.h"
 
 namespace WebCore {
 
 class HTMLOListElement;
+class RenderListMarker;
 
 class RenderListItem final : public RenderBlockFlow {
-    WTF_MAKE_ISO_ALLOCATED(RenderListItem);
 public:
     RenderListItem(Element&, RenderStyle&&);
     virtual ~RenderListItem();
-
     Element& element() const { return downcast<Element>(nodeForNonAnonymous()); }
 
-    int value() const;
+    int value() const { if (!m_isValueUpToDate) updateValueNow(); return m_value; }
     void updateValue();
 
-    Optional<int> explicitValue() const { return m_valueWasSetExplicitly ? m_value : WTF::nullopt; }
-    void setExplicitValue(Optional<int>);
+    bool hasExplicitValue() const { return m_hasExplicitValue; }
+    int explicitValue() const { return m_explicitValue; }
+    void setExplicitValue(int value);
+    void clearExplicitValue();
 
     void setNotInList(bool notInList) { m_notInList = notInList; }
     bool notInList() const { return m_notInList; }
@@ -54,48 +55,48 @@ public:
     static void updateItemValuesForOrderedList(const HTMLOListElement&);
     static unsigned itemCountForOrderedList(const HTMLOListElement&);
 
-    RenderStyle computeMarkerStyle() const;
+    void didDestroyListMarker() { m_marker = nullptr; }
 
-    RenderListMarker* markerRenderer() const { return m_marker.get(); }
-    void setMarkerRenderer(RenderListMarker& marker) { m_marker = makeWeakPtr(marker); }
-
-    bool isInReversedOrderedList() const;
+#if !ASSERT_DISABLED
+    bool inLayout() const { return m_inLayout; }
+#endif
 
 private:
+    void willBeDestroyed() override;
 
-    const char* renderName() const final { return "RenderListItem"; }
+    const char* renderName() const override { return "RenderListItem"; }
 
-    bool isListItem() const final { return true; }
+    bool isListItem() const override { return true; }
     
-    void insertedIntoTree() final;
-    void willBeRemovedFromTree() final;
+    void insertedIntoTree() override;
+    void willBeRemovedFromTree() override;
 
-    void paint(PaintInfo&, const LayoutPoint&) final;
+    void paint(PaintInfo&, const LayoutPoint&) override;
 
-    void layout() final;
+    void layout() override;
 
     void positionListMarker();
 
-    void addOverflowFromChildren() final;
-    void computePreferredLogicalWidths() final;
+    void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
 
+    void addOverflowFromChildren() override;
+    void computePreferredLogicalWidths() override;
+
+    void insertOrMoveMarkerRendererIfNeeded();
+    inline int calcValue() const;
     void updateValueNow() const;
     void explicitValueChanged();
 
-    WeakPtr<RenderListMarker> m_marker;
-    mutable Optional<int> m_value;
-    bool m_valueWasSetExplicitly { false };
-    bool m_notInList { false };
+    int m_explicitValue;
+    RenderListMarker* m_marker;
+    mutable int m_value;
+#if !ASSERT_DISABLED
+    bool m_inLayout { false };
+#endif
+    bool m_hasExplicitValue : 1;
+    mutable bool m_isValueUpToDate : 1;
+    bool m_notInList : 1;
 };
-
-bool isHTMLListElement(const Node&);
-
-inline int RenderListItem::value() const
-{
-    if (!m_value)
-        updateValueNow();
-    return m_value.value();
-}
 
 } // namespace WebCore
 

@@ -120,17 +120,31 @@ bool TVersionGLSL::visitFunctionPrototype(Visit, TIntermFunctionPrototype *node)
 
 bool TVersionGLSL::visitAggregate(Visit, TIntermAggregate *node)
 {
-    if (node->getOp() == EOpConstruct && node->getType().isMatrix())
+    switch (node->getOp())
     {
-        const TIntermSequence &sequence = *(node->getSequence());
-        if (sequence.size() == 1)
+        case EOpConstructMat2:
+        case EOpConstructMat2x3:
+        case EOpConstructMat2x4:
+        case EOpConstructMat3x2:
+        case EOpConstructMat3:
+        case EOpConstructMat3x4:
+        case EOpConstructMat4x2:
+        case EOpConstructMat4x3:
+        case EOpConstructMat4:
         {
-            TIntermTyped *typed = sequence.front()->getAsTyped();
-            if (typed && typed->isMatrix())
+            const TIntermSequence &sequence = *(node->getSequence());
+            if (sequence.size() == 1)
             {
-                ensureVersionIsAtLeast(GLSL_VERSION_120);
+                TIntermTyped *typed = sequence.front()->getAsTyped();
+                if (typed && typed->isMatrix())
+                {
+                    ensureVersionIsAtLeast(GLSL_VERSION_120);
+                }
             }
+            break;
         }
+        default:
+            break;
     }
     return true;
 }

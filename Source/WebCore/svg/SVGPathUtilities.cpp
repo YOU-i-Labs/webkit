@@ -39,69 +39,14 @@
 
 namespace WebCore {
 
-Path buildPathFromString(const String& d)
+bool buildPathFromString(const String& d, Path& result)
 {
     if (d.isEmpty())
-        return { };
+        return true;
 
-    Path path;
-    SVGPathBuilder builder(path);
+    SVGPathBuilder builder(result);
     SVGPathStringSource source(d);
-    SVGPathParser::parse(source, builder);
-    return path;
-}
-
-String buildStringFromPath(const Path& path)
-{
-    StringBuilder builder;
-
-    if (!path.isNull() && !path.isEmpty()) {
-        path.apply([&builder] (const PathElement& element) {
-            switch (element.type) {
-            case PathElementMoveToPoint:
-                builder.append('M');
-                builder.appendECMAScriptNumber(element.points[0].x());
-                builder.append(' ');
-                builder.appendECMAScriptNumber(element.points[0].y());
-                break;
-            case PathElementAddLineToPoint:
-                builder.append('L');
-                builder.appendECMAScriptNumber(element.points[0].x());
-                builder.append(' ');
-                builder.appendECMAScriptNumber(element.points[0].y());
-                break;
-            case PathElementAddQuadCurveToPoint:
-                builder.append('Q');
-                builder.appendECMAScriptNumber(element.points[0].x());
-                builder.append(' ');
-                builder.appendECMAScriptNumber(element.points[0].y());
-                builder.append(',');
-                builder.appendECMAScriptNumber(element.points[1].x());
-                builder.append(' ');
-                builder.appendECMAScriptNumber(element.points[1].y());
-                break;
-            case PathElementAddCurveToPoint:
-                builder.append('C');
-                builder.appendECMAScriptNumber(element.points[0].x());
-                builder.append(' ');
-                builder.appendECMAScriptNumber(element.points[0].y());
-                builder.append(',');
-                builder.appendECMAScriptNumber(element.points[1].x());
-                builder.append(' ');
-                builder.appendECMAScriptNumber(element.points[1].y());
-                builder.append(',');
-                builder.appendECMAScriptNumber(element.points[2].x());
-                builder.append(' ');
-                builder.appendECMAScriptNumber(element.points[2].y());
-                break;
-            case PathElementCloseSubpath:
-                builder.append('Z');
-                break;
-            }
-        });
-    }
-
-    return builder.toString();
+    return SVGPathParser::parse(source, builder);
 }
 
 bool buildSVGPathByteStreamFromSVGPathSegListValues(const SVGPathSegListValues& list, SVGPathByteStream& result, PathParsingMode parsingMode)
@@ -132,16 +77,14 @@ bool appendSVGPathByteStreamFromSVGPathSeg(RefPtr<SVGPathSeg>&& pathSeg, SVGPath
     return ok;
 }
 
-Path buildPathFromByteStream(const SVGPathByteStream& stream)
+bool buildPathFromByteStream(const SVGPathByteStream& stream, Path& result)
 {
     if (stream.isEmpty())
-        return { };
+        return true;
 
-    Path path;
-    SVGPathBuilder builder(path);
+    SVGPathBuilder builder(result);
     SVGPathByteStreamSource source(stream);
-    SVGPathParser::parse(source, builder);
-    return path;
+    return SVGPathParser::parse(source, builder);
 }
 
 bool buildSVGPathSegListValuesFromByteStream(const SVGPathByteStream& stream, SVGPathElement& element, SVGPathSegListValues& result, PathParsingMode parsingMode)
@@ -206,15 +149,15 @@ bool buildAnimatedSVGPathByteStream(const SVGPathByteStream& fromStream, const S
 
 bool addToSVGPathByteStream(SVGPathByteStream& streamToAppendTo, const SVGPathByteStream& byStream, unsigned repeatCount)
 {
-    // The byStream will be blended with streamToAppendTo. So streamToAppendTo has to have elements.
+    // Why return when streamToAppendTo is empty? Don't we still need to append?
     if (streamToAppendTo.isEmpty() || byStream.isEmpty())
         return true;
 
-    // builder is the destination of blending fromSource and bySource. The stream of builder
-    // (i.e. streamToAppendTo) has to be cleared before calling addAnimatedPath.
+    // Is it OK to make the SVGPathByteStreamBuilder from a stream, and then clear that stream?
     SVGPathByteStreamBuilder builder(streamToAppendTo);
 
-    SVGPathByteStream fromStreamCopy = WTFMove(streamToAppendTo);
+    SVGPathByteStream fromStreamCopy = streamToAppendTo;
+    streamToAppendTo.clear();
 
     SVGPathByteStreamSource fromSource(fromStreamCopy);
     SVGPathByteStreamSource bySource(byStream);

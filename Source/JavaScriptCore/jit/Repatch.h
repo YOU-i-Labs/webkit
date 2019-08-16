@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2015 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,9 @@
 
 #if ENABLE(JIT)
 
+#include "CCallHelpers.h"
 #include "CallVariant.h"
+#include "JITOperations.h"
 #include "PutKind.h"
 
 namespace JSC {
@@ -35,8 +37,7 @@ namespace JSC {
 enum class GetByIDKind {
     Normal,
     Try,
-    WithThis,
-    Direct
+    WithThis
 };
 
 void repatchGetByID(ExecState*, JSValue, const Identifier&, const PropertySlot&, StructureStubInfo&, GetByIDKind);
@@ -44,19 +45,17 @@ void buildGetByIDList(ExecState*, JSValue, const Identifier&, const PropertySlot
 void buildGetByIDProtoList(ExecState*, JSValue, const Identifier&, const PropertySlot&, StructureStubInfo&);
 void repatchPutByID(ExecState*, JSValue, Structure*, const Identifier&, const PutPropertySlot&, StructureStubInfo&, PutKind);
 void buildPutByIdList(ExecState*, JSValue, Structure*, const Identifier&, const PutPropertySlot&, StructureStubInfo&, PutKind);
-void repatchInByID(ExecState*, JSObject*, const Identifier&, bool wasFound, const PropertySlot&, StructureStubInfo&);
-void repatchInstanceOf(ExecState*, JSValue value, JSValue prototype, StructureStubInfo&, bool wasFound);
-void linkFor(ExecState*, CallLinkInfo&, CodeBlock*, JSObject* callee, MacroAssemblerCodePtr<JSEntryPtrTag>);
-void linkDirectFor(ExecState*, CallLinkInfo&, CodeBlock*, MacroAssemblerCodePtr<JSEntryPtrTag>);
+void repatchIn(ExecState*, JSCell*, const Identifier&, bool wasFound, const PropertySlot&, StructureStubInfo&);
+void linkFor(ExecState*, CallLinkInfo&, CodeBlock*, JSFunction* callee, MacroAssemblerCodePtr);
+void linkDirectFor(ExecState*, CallLinkInfo&, CodeBlock*, MacroAssemblerCodePtr);
 void linkSlowFor(ExecState*, CallLinkInfo&);
 void unlinkFor(VM&, CallLinkInfo&);
 void linkVirtualFor(ExecState*, CallLinkInfo&);
 void linkPolymorphicCall(ExecState*, CallLinkInfo&, CallVariant);
 void resetGetByID(CodeBlock*, StructureStubInfo&, GetByIDKind);
 void resetPutByID(CodeBlock*, StructureStubInfo&);
-void resetInByID(CodeBlock*, StructureStubInfo&);
-void resetInstanceOf(StructureStubInfo&);
-void ftlThunkAwareRepatchCall(CodeBlock*, CodeLocationCall<JSInternalPtrTag>, FunctionPtr<CFunctionPtrTag> newCalleeFunction);
+void resetIn(CodeBlock*, StructureStubInfo&);
+void ftlThunkAwareRepatchCall(CodeBlock*, CodeLocationCall, FunctionPtr newCalleeFunction);
 
 } // namespace JSC
 

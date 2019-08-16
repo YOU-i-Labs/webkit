@@ -25,7 +25,7 @@
 
 #include "HTMLElement.h"
 #include "HTMLNames.h"
-#include "SharedStringHash.h"
+#include "LinkHash.h"
 #include "URLUtils.h"
 #include <wtf/OptionSet.h>
 
@@ -37,11 +37,9 @@ class DOMTokenList;
 enum class Relation {
     NoReferrer = 1 << 0,
     NoOpener = 1 << 1,
-    Opener = 1 << 2,
 };
 
 class HTMLAnchorElement : public HTMLElement, public URLUtils<HTMLAnchorElement> {
-    WTF_MAKE_ISO_ALLOCATED(HTMLAnchorElement);
 public:
     static Ref<HTMLAnchorElement> create(Document&);
     static Ref<HTMLAnchorElement> create(const QualifiedName&, Document&);
@@ -64,14 +62,10 @@ public:
 
     bool hasRel(Relation) const;
     
-    SharedStringHash visitedLinkHash() const;
+    LinkHash visitedLinkHash() const;
     void invalidateCachedVisitedLinkHash() { m_cachedVisitedLinkHash = 0; }
 
-    WEBCORE_EXPORT DOMTokenList& relList() const;
-
-#if USE(SYSTEM_PREVIEW)
-    WEBCORE_EXPORT bool isSystemPreviewLink() const;
-#endif
+    WEBCORE_EXPORT DOMTokenList& relList();
 
 protected:
     HTMLAnchorElement(const QualifiedName&, Document&);
@@ -81,7 +75,7 @@ protected:
 private:
     bool supportsFocus() const override;
     bool isMouseFocusable() const override;
-    bool isKeyboardFocusable(KeyboardEvent*) const override;
+    bool isKeyboardFocusable(KeyboardEvent&) const override;
     void defaultEventHandler(Event&) final;
     void setActive(bool active = true, bool pause = false) final;
     void accessKeyAction(bool sendMouseEvents) final;
@@ -90,8 +84,6 @@ private:
     String target() const override;
     int tabIndex() const final;
     bool draggable() const final;
-
-    String effectiveTarget() const;
 
     void sendPings(const URL& destinationURL);
 
@@ -112,15 +104,15 @@ private:
     bool m_hasRootEditableElementForSelectionOnMouseDown;
     bool m_wasShiftKeyDownOnMouseDown;
     OptionSet<Relation> m_linkRelations;
-    mutable SharedStringHash m_cachedVisitedLinkHash;
+    mutable LinkHash m_cachedVisitedLinkHash;
 
-    mutable std::unique_ptr<DOMTokenList> m_relList;
+    std::unique_ptr<DOMTokenList> m_relList;
 };
 
-inline SharedStringHash HTMLAnchorElement::visitedLinkHash() const
+inline LinkHash HTMLAnchorElement::visitedLinkHash() const
 {
     if (!m_cachedVisitedLinkHash)
-        m_cachedVisitedLinkHash = computeVisitedLinkHash(document().baseURL(), attributeWithoutSynchronization(HTMLNames::hrefAttr));
+        m_cachedVisitedLinkHash = WebCore::visitedLinkHash(document().baseURL(), attributeWithoutSynchronization(HTMLNames::hrefAttr));
     return m_cachedVisitedLinkHash; 
 }
 

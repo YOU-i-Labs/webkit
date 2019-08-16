@@ -24,8 +24,8 @@ namespace rx
 
 Image9::Image9(Renderer9 *renderer)
 {
-    mSurface  = nullptr;
-    mRenderer = nullptr;
+    mSurface = NULL;
+    mRenderer = NULL;
 
     mD3DPool = D3DPOOL_SYSTEMMEM;
     mD3DFormat = D3DFMT_UNKNOWN;
@@ -45,9 +45,7 @@ gl::Error Image9::generateMip(IDirect3DSurface9 *destSurface, IDirect3DSurface9 
     ASSERT(SUCCEEDED(result));
     if (FAILED(result))
     {
-        return gl::OutOfMemory()
-               << "Failed to query the source surface description for mipmap generation, "
-               << gl::FmtHR(result);
+        return gl::Error(GL_OUT_OF_MEMORY, "Failed to query the source surface description for mipmap generation, result: 0x%X.", result);
     }
 
     D3DSURFACE_DESC sourceDesc;
@@ -55,9 +53,7 @@ gl::Error Image9::generateMip(IDirect3DSurface9 *destSurface, IDirect3DSurface9 
     ASSERT(SUCCEEDED(result));
     if (FAILED(result))
     {
-        return gl::OutOfMemory()
-               << "Failed to query the destination surface description for mipmap generation, "
-               << gl::FmtHR(result);
+        return gl::Error(GL_OUT_OF_MEMORY, "Failed to query the destination surface description for mipmap generation, result: 0x%X.", result);
     }
 
     ASSERT(sourceDesc.Format == destDesc.Format);
@@ -65,25 +61,23 @@ gl::Error Image9::generateMip(IDirect3DSurface9 *destSurface, IDirect3DSurface9 
     ASSERT(sourceDesc.Height == 1 || sourceDesc.Height / 2 == destDesc.Height);
 
     const d3d9::D3DFormat &d3dFormatInfo = d3d9::GetD3DFormatInfo(sourceDesc.Format);
-    ASSERT(d3dFormatInfo.info().mipGenerationFunction != nullptr);
+    ASSERT(d3dFormatInfo.info().mipGenerationFunction != NULL);
 
     D3DLOCKED_RECT sourceLocked = {0};
-    result                      = sourceSurface->LockRect(&sourceLocked, nullptr, D3DLOCK_READONLY);
+    result = sourceSurface->LockRect(&sourceLocked, NULL, D3DLOCK_READONLY);
     ASSERT(SUCCEEDED(result));
     if (FAILED(result))
     {
-        return gl::OutOfMemory() << "Failed to lock the source surface for mipmap generation, "
-                                 << gl::FmtHR(result);
+        return gl::Error(GL_OUT_OF_MEMORY, "Failed to lock the source surface for mipmap generation, result: 0x%X.", result);
     }
 
     D3DLOCKED_RECT destLocked = {0};
-    result                    = destSurface->LockRect(&destLocked, nullptr, 0);
+    result = destSurface->LockRect(&destLocked, NULL, 0);
     ASSERT(SUCCEEDED(result));
     if (FAILED(result))
     {
         sourceSurface->UnlockRect();
-        return gl::OutOfMemory() << "Failed to lock the destination surface for mipmap generation, "
-                                 << gl::FmtHR(result);
+        return gl::Error(GL_OUT_OF_MEMORY, "Failed to lock the destination surface for mipmap generation, result: 0x%X.", result);
     }
 
     const uint8_t *sourceData = reinterpret_cast<const uint8_t*>(sourceLocked.pBits);
@@ -103,13 +97,25 @@ gl::Error Image9::generateMip(IDirect3DSurface9 *destSurface, IDirect3DSurface9 
 
 gl::Error Image9::generateMipmap(Image9 *dest, Image9 *source)
 {
-    IDirect3DSurface9 *sourceSurface = nullptr;
-    ANGLE_TRY(source->getSurface(&sourceSurface));
+    IDirect3DSurface9 *sourceSurface = NULL;
+    gl::Error error = source->getSurface(&sourceSurface);
+    if (error.isError())
+    {
+        return error;
+    }
 
-    IDirect3DSurface9 *destSurface = nullptr;
-    ANGLE_TRY(dest->getSurface(&destSurface));
+    IDirect3DSurface9 *destSurface = NULL;
+    error = dest->getSurface(&destSurface);
+    if (error.isError())
+    {
+        return error;
+    }
 
-    ANGLE_TRY(generateMip(destSurface, sourceSurface));
+    error = generateMip(destSurface, sourceSurface);
+    if (error.isError())
+    {
+        return error;
+    }
 
     dest->markDirty();
 
@@ -123,17 +129,17 @@ gl::Error Image9::copyLockableSurfaces(IDirect3DSurface9 *dest, IDirect3DSurface
 
     HRESULT result;
 
-    result = source->LockRect(&sourceLock, nullptr, 0);
+    result = source->LockRect(&sourceLock, NULL, 0);
     if (FAILED(result))
     {
-        return gl::OutOfMemory() << "Failed to lock source surface for copy, " << gl::FmtHR(result);
+        return gl::Error(GL_OUT_OF_MEMORY, "Failed to lock source surface for copy, result: 0x%X.", result);
     }
 
-    result = dest->LockRect(&destLock, nullptr, 0);
+    result = dest->LockRect(&destLock, NULL, 0);
     if (FAILED(result))
     {
         source->UnlockRect();
-        return gl::OutOfMemory() << "Failed to lock source surface for copy, " << gl::FmtHR(result);
+        return gl::Error(GL_OUT_OF_MEMORY, "Failed to lock source surface for copy, result: 0x%X.", result);
     }
 
     ASSERT(sourceLock.pBits && destLock.pBits);
@@ -155,84 +161,6 @@ gl::Error Image9::copyLockableSurfaces(IDirect3DSurface9 *dest, IDirect3DSurface
 
     source->UnlockRect();
     dest->UnlockRect();
-
-    return gl::NoError();
-}
-
-// static
-gl::Error Image9::CopyImage(const gl::Context *context,
-                            Image9 *dest,
-                            Image9 *source,
-                            const gl::Rectangle &sourceRect,
-                            const gl::Offset &destOffset,
-                            bool unpackFlipY,
-                            bool unpackPremultiplyAlpha,
-                            bool unpackUnmultiplyAlpha)
-{
-    IDirect3DSurface9 *sourceSurface = nullptr;
-    ANGLE_TRY(source->getSurface(&sourceSurface));
-
-    IDirect3DSurface9 *destSurface = nullptr;
-    ANGLE_TRY(dest->getSurface(&destSurface));
-
-    D3DSURFACE_DESC destDesc;
-    HRESULT result = destSurface->GetDesc(&destDesc);
-    ASSERT(SUCCEEDED(result));
-    if (FAILED(result))
-    {
-        return gl::OutOfMemory()
-               << "Failed to query the source surface description for mipmap generation, "
-               << gl::FmtHR(result);
-    }
-    const d3d9::D3DFormat &destD3DFormatInfo = d3d9::GetD3DFormatInfo(destDesc.Format);
-
-    D3DSURFACE_DESC sourceDesc;
-    result = sourceSurface->GetDesc(&sourceDesc);
-    ASSERT(SUCCEEDED(result));
-    if (FAILED(result))
-    {
-        return gl::OutOfMemory()
-               << "Failed to query the destination surface description for mipmap generation, "
-               << gl::FmtHR(result);
-    }
-    const d3d9::D3DFormat &sourceD3DFormatInfo = d3d9::GetD3DFormatInfo(sourceDesc.Format);
-
-    D3DLOCKED_RECT sourceLocked = {0};
-    result                      = sourceSurface->LockRect(&sourceLocked, nullptr, D3DLOCK_READONLY);
-    ASSERT(SUCCEEDED(result));
-    if (FAILED(result))
-    {
-        return gl::OutOfMemory() << "Failed to lock the source surface for CopyImage, "
-                                 << gl::FmtHR(result);
-    }
-
-    D3DLOCKED_RECT destLocked = {0};
-    result                    = destSurface->LockRect(&destLocked, nullptr, 0);
-    ASSERT(SUCCEEDED(result));
-    if (FAILED(result))
-    {
-        sourceSurface->UnlockRect();
-        return gl::OutOfMemory() << "Failed to lock the destination surface for CopyImage, "
-                                 << gl::FmtHR(result);
-    }
-
-    const uint8_t *sourceData = reinterpret_cast<const uint8_t *>(sourceLocked.pBits) +
-                                sourceRect.x * sourceD3DFormatInfo.pixelBytes +
-                                sourceRect.y * sourceLocked.Pitch;
-    uint8_t *destData = reinterpret_cast<uint8_t *>(destLocked.pBits) +
-                        destOffset.x * destD3DFormatInfo.pixelBytes +
-                        destOffset.y * destLocked.Pitch;
-    ASSERT(sourceData && destData);
-
-    CopyImageCHROMIUM(sourceData, sourceLocked.Pitch, sourceD3DFormatInfo.pixelBytes,
-                      sourceD3DFormatInfo.info().colorReadFunction, destData, destLocked.Pitch,
-                      destD3DFormatInfo.pixelBytes, destD3DFormatInfo.info().colorWriteFunction,
-                      gl::GetUnsizedFormat(dest->getInternalFormat()),
-                      destD3DFormatInfo.info().componentType, sourceRect.width, sourceRect.height,
-                      unpackFlipY, unpackPremultiplyAlpha, unpackUnmultiplyAlpha);
-
-    destSurface->UnlockRect();
-    sourceSurface->UnlockRect();
 
     return gl::NoError();
 }
@@ -262,7 +190,7 @@ bool Image9::redefine(GLenum target, GLenum internalformat, const gl::Extents &s
         mRenderable = (d3d9FormatInfo.renderFormat != D3DFMT_UNKNOWN);
 
         SafeRelease(mSurface);
-        mDirty = (d3d9FormatInfo.dataInitializerFunction != nullptr);
+        mDirty = (d3d9FormatInfo.dataInitializerFunction != NULL);
 
         return true;
     }
@@ -277,8 +205,8 @@ gl::Error Image9::createSurface()
         return gl::NoError();
     }
 
-    IDirect3DTexture9 *newTexture = nullptr;
-    IDirect3DSurface9 *newSurface = nullptr;
+    IDirect3DTexture9 *newTexture = NULL;
+    IDirect3DSurface9 *newSurface = NULL;
     const D3DPOOL poolToUse = D3DPOOL_SYSTEMMEM;
     const D3DFORMAT d3dFormat = getD3DFormat();
 
@@ -291,20 +219,20 @@ gl::Error Image9::createSurface()
 
         IDirect3DDevice9 *device = mRenderer->getDevice();
 
-        HRESULT result = device->CreateTexture(requestWidth, requestHeight, levelToFetch + 1, 0,
-                                               d3dFormat, poolToUse, &newTexture, nullptr);
+        HRESULT result = device->CreateTexture(requestWidth, requestHeight, levelToFetch + 1, 0, d3dFormat,
+                                                    poolToUse, &newTexture, NULL);
 
         if (FAILED(result))
         {
             ASSERT(result == D3DERR_OUTOFVIDEOMEMORY || result == E_OUTOFMEMORY);
-            return gl::OutOfMemory() << "Failed to create image surface, " << gl::FmtHR(result);
+            return gl::Error(GL_OUT_OF_MEMORY, "Failed to create image surface, result: 0x%X.", result);
         }
 
         newTexture->GetSurfaceLevel(levelToFetch, &newSurface);
         SafeRelease(newTexture);
 
         const d3d9::TextureFormat &d3dFormatInfo = d3d9::GetTextureFormatInfo(mInternalFormat);
-        if (d3dFormatInfo.dataInitializerFunction != nullptr)
+        if (d3dFormatInfo.dataInitializerFunction != NULL)
         {
             RECT entireRect;
             entireRect.left = 0;
@@ -317,7 +245,7 @@ gl::Error Image9::createSurface()
             ASSERT(SUCCEEDED(result));
             if (FAILED(result))
             {
-                return gl::OutOfMemory() << "Failed to lock image surface, " << gl::FmtHR(result);
+                return gl::Error(GL_OUT_OF_MEMORY, "Failed to lock image surface, result: 0x%X.", result);
             }
 
             d3dFormatInfo.dataInitializerFunction(mWidth, mHeight, 1, reinterpret_cast<uint8_t*>(lockedRect.pBits),
@@ -327,7 +255,7 @@ gl::Error Image9::createSurface()
             ASSERT(SUCCEEDED(result));
             if (FAILED(result))
             {
-                return gl::OutOfMemory() << "Failed to unlock image surface, " << gl::FmtHR(result);
+                return gl::Error(GL_OUT_OF_MEMORY, "Failed to unlock image surface, result: 0x%X.", result);
             }
         }
     }
@@ -353,7 +281,7 @@ gl::Error Image9::lock(D3DLOCKED_RECT *lockedRect, const RECT &rect)
         ASSERT(SUCCEEDED(result));
         if (FAILED(result))
         {
-            return gl::OutOfMemory() << "Failed to lock image surface, " << gl::FmtHR(result);
+            return gl::Error(GL_OUT_OF_MEMORY, "Failed to lock image surface, result: 0x%X.", result);
         }
 
         mDirty = true;
@@ -384,9 +312,7 @@ bool Image9::isDirty() const
 {
     // Make sure to that this image is marked as dirty even if the staging texture hasn't been created yet
     // if initialization is required before use.
-    return (mSurface ||
-            d3d9::GetTextureFormatInfo(mInternalFormat).dataInitializerFunction != nullptr) &&
-           mDirty;
+    return (mSurface || d3d9::GetTextureFormatInfo(mInternalFormat).dataInitializerFunction != NULL) && mDirty;
 }
 
 gl::Error Image9::getSurface(IDirect3DSurface9 **outSurface)
@@ -401,13 +327,11 @@ gl::Error Image9::getSurface(IDirect3DSurface9 **outSurface)
     return gl::NoError();
 }
 
-gl::Error Image9::setManagedSurface2D(const gl::Context *context,
-                                      TextureStorage *storage,
-                                      int level)
+gl::Error Image9::setManagedSurface2D(TextureStorage *storage, int level)
 {
-    IDirect3DSurface9 *surface = nullptr;
+    IDirect3DSurface9 *surface = NULL;
     TextureStorage9 *storage9  = GetAs<TextureStorage9>(storage);
-    gl::Error error = storage9->getSurfaceLevel(context, GL_TEXTURE_2D, level, false, &surface);
+    gl::Error error = storage9->getSurfaceLevel(GL_TEXTURE_2D, level, false, &surface);
     if (error.isError())
     {
         return error;
@@ -415,15 +339,12 @@ gl::Error Image9::setManagedSurface2D(const gl::Context *context,
     return setManagedSurface(surface);
 }
 
-gl::Error Image9::setManagedSurfaceCube(const gl::Context *context,
-                                        TextureStorage *storage,
-                                        int face,
-                                        int level)
+gl::Error Image9::setManagedSurfaceCube(TextureStorage *storage, int face, int level)
 {
-    IDirect3DSurface9 *surface = nullptr;
+    IDirect3DSurface9 *surface = NULL;
     TextureStorage9 *storage9 = GetAs<TextureStorage9>(storage);
-    gl::Error error = storage9->getSurfaceLevel(context, GL_TEXTURE_CUBE_MAP_POSITIVE_X + face,
-                                                level, false, &surface);
+    gl::Error error =
+        storage9->getSurfaceLevel(GL_TEXTURE_CUBE_MAP_POSITIVE_X + face, level, false, &surface);
     if (error.isError())
     {
         return error;
@@ -456,10 +377,7 @@ gl::Error Image9::setManagedSurface(IDirect3DSurface9 *surface)
     return gl::NoError();
 }
 
-gl::Error Image9::copyToStorage(const gl::Context *context,
-                                TextureStorage *storage,
-                                const gl::ImageIndex &index,
-                                const gl::Box &region)
+gl::Error Image9::copyToStorage(TextureStorage *storage, const gl::ImageIndex &index, const gl::Box &region)
 {
     gl::Error error = createSurface();
     if (error.isError())
@@ -469,12 +387,11 @@ gl::Error Image9::copyToStorage(const gl::Context *context,
 
     TextureStorage9 *storage9 = GetAs<TextureStorage9>(storage);
 
-    IDirect3DSurface9 *destSurface = nullptr;
+    IDirect3DSurface9 *destSurface = NULL;
 
     if (index.type == GL_TEXTURE_2D)
     {
-        error =
-            storage9->getSurfaceLevel(context, GL_TEXTURE_2D, index.mipIndex, true, &destSurface);
+        error = storage9->getSurfaceLevel(GL_TEXTURE_2D, index.mipIndex, true, &destSurface);
         if (error.isError())
         {
             return error;
@@ -483,7 +400,7 @@ gl::Error Image9::copyToStorage(const gl::Context *context,
     else
     {
         ASSERT(gl::IsCubeMapTextureTarget(index.type));
-        error = storage9->getSurfaceLevel(context, index.type, index.mipIndex, true, &destSurface);
+        error = storage9->getSurfaceLevel(index.type, index.mipIndex, true, &destSurface);
         if (error.isError())
         {
             return error;
@@ -500,7 +417,7 @@ gl::Error Image9::copyToSurface(IDirect3DSurface9 *destSurface, const gl::Box &a
     ASSERT(area.width > 0 && area.height > 0 && area.depth == 1);
     ASSERT(destSurface);
 
-    IDirect3DSurface9 *sourceSurface = nullptr;
+    IDirect3DSurface9 *sourceSurface = NULL;
     gl::Error error = getSurface(&sourceSurface);
     if (error.isError())
     {
@@ -525,22 +442,19 @@ gl::Error Image9::copyToSurface(IDirect3DSurface9 *destSurface, const gl::Box &a
         sourceSurface->GetDesc(&desc);
 
         IDirect3DSurface9 *surf = 0;
-        HRESULT result = device->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format,
-                                                             D3DPOOL_SYSTEMMEM, &surf, nullptr);
+        HRESULT result = device->CreateOffscreenPlainSurface(desc.Width, desc.Height, desc.Format, D3DPOOL_SYSTEMMEM, &surf, NULL);
         if (FAILED(result))
         {
-            return gl::OutOfMemory()
-                   << "Internal CreateOffscreenPlainSurface call failed, " << gl::FmtHR(result);
+            return gl::Error(GL_OUT_OF_MEMORY, "Internal CreateOffscreenPlainSurface call failed, result: 0x%X.", result);
         }
 
-        auto err = copyLockableSurfaces(surf, sourceSurface);
+        copyLockableSurfaces(surf, sourceSurface);
         result = device->UpdateSurface(surf, &rect, destSurface, &point);
         SafeRelease(surf);
-        ANGLE_TRY(err);
         ASSERT(SUCCEEDED(result));
         if (FAILED(result))
         {
-            return gl::OutOfMemory() << "Internal UpdateSurface call failed, " << gl::FmtHR(result);
+            return gl::Error(GL_OUT_OF_MEMORY, "Internal UpdateSurface call failed, result: 0x%X.", result);
         }
     }
     else
@@ -550,7 +464,7 @@ gl::Error Image9::copyToSurface(IDirect3DSurface9 *destSurface, const gl::Box &a
         ASSERT(SUCCEEDED(result));
         if (FAILED(result))
         {
-            return gl::OutOfMemory() << "Internal UpdateSurface call failed, " << gl::FmtHR(result);
+            return gl::Error(GL_OUT_OF_MEMORY, "Internal UpdateSurface call failed, result: 0x%X.", result);
         }
     }
 
@@ -559,8 +473,7 @@ gl::Error Image9::copyToSurface(IDirect3DSurface9 *destSurface, const gl::Box &a
 
 // Store the pixel rectangle designated by xoffset,yoffset,width,height with pixels stored as format/type at input
 // into the target pixel rectangle.
-gl::Error Image9::loadData(const gl::Context *context,
-                           const gl::Box &area,
+gl::Error Image9::loadData(const gl::Box &area,
                            const gl::PixelUnpackState &unpack,
                            GLenum type,
                            const void *input,
@@ -569,7 +482,7 @@ gl::Error Image9::loadData(const gl::Context *context,
     // 3D textures are not supported by the D3D9 backend.
     ASSERT(area.z == 0 && area.depth == 1);
 
-    const gl::InternalFormat &formatInfo = gl::GetSizedInternalFormatInfo(mInternalFormat);
+    const gl::InternalFormat &formatInfo = gl::GetInternalFormatInfo(mInternalFormat);
     GLuint inputRowPitch                 = 0;
     ANGLE_TRY_RESULT(
         formatInfo.computeRowPitch(type, area.width, unpack.alignment, unpack.rowLength),
@@ -579,7 +492,7 @@ gl::Error Image9::loadData(const gl::Context *context,
     ASSERT(unpack.skipRows == 0);
 
     const d3d9::TextureFormat &d3dFormatInfo = d3d9::GetTextureFormatInfo(mInternalFormat);
-    ASSERT(d3dFormatInfo.loadFunction != nullptr);
+    ASSERT(d3dFormatInfo.loadFunction != NULL);
 
     RECT lockRect =
     {
@@ -603,14 +516,12 @@ gl::Error Image9::loadData(const gl::Context *context,
     return gl::NoError();
 }
 
-gl::Error Image9::loadCompressedData(const gl::Context *context,
-                                     const gl::Box &area,
-                                     const void *input)
+gl::Error Image9::loadCompressedData(const gl::Box &area, const void *input)
 {
     // 3D textures are not supported by the D3D9 backend.
     ASSERT(area.z == 0 && area.depth == 1);
 
-    const gl::InternalFormat &formatInfo = gl::GetSizedInternalFormatInfo(mInternalFormat);
+    const gl::InternalFormat &formatInfo = gl::GetInternalFormatInfo(mInternalFormat);
     GLsizei inputRowPitch                = 0;
     ANGLE_TRY_RESULT(formatInfo.computeRowPitch(GL_UNSIGNED_BYTE, area.width, 1, 0), inputRowPitch);
     GLsizei inputDepthPitch = 0;
@@ -622,7 +533,7 @@ gl::Error Image9::loadCompressedData(const gl::Context *context,
     ASSERT(area.x % d3d9::GetD3DFormatInfo(d3d9FormatInfo.texFormat).blockWidth == 0);
     ASSERT(area.y % d3d9::GetD3DFormatInfo(d3d9FormatInfo.texFormat).blockHeight == 0);
 
-    ASSERT(d3d9FormatInfo.loadFunction != nullptr);
+    ASSERT(d3d9FormatInfo.loadFunction != NULL);
 
     RECT lockRect =
     {
@@ -663,19 +574,16 @@ gl::Error Image9::copyFromRTInternal(const gl::Offset &destOffset,
 
     IDirect3DDevice9 *device = mRenderer->getDevice();
 
-    IDirect3DSurface9 *renderTargetData = nullptr;
+    IDirect3DSurface9 *renderTargetData = NULL;
     D3DSURFACE_DESC description;
     surface->GetDesc(&description);
 
-    HRESULT result = device->CreateOffscreenPlainSurface(description.Width, description.Height,
-                                                         description.Format, D3DPOOL_SYSTEMMEM,
-                                                         &renderTargetData, nullptr);
+    HRESULT result = device->CreateOffscreenPlainSurface(description.Width, description.Height, description.Format, D3DPOOL_SYSTEMMEM, &renderTargetData, NULL);
 
     if (FAILED(result))
     {
         SafeRelease(surface);
-        return gl::OutOfMemory() << "Could not create matching destination surface, "
-                                 << gl::FmtHR(result);
+        return gl::Error(GL_OUT_OF_MEMORY, "Could not create matching destination surface, result: 0x%X.", result);
     }
 
     result = device->GetRenderTargetData(surface, renderTargetData);
@@ -684,8 +592,7 @@ gl::Error Image9::copyFromRTInternal(const gl::Offset &destOffset,
     {
         SafeRelease(renderTargetData);
         SafeRelease(surface);
-        return gl::OutOfMemory() << "GetRenderTargetData unexpectedly failed, "
-                                 << gl::FmtHR(result);
+        return gl::Error(GL_OUT_OF_MEMORY, "GetRenderTargetData unexpectedly failed, result: 0x%X.", result);
     }
 
     int width = sourceArea.width;
@@ -701,9 +608,7 @@ gl::Error Image9::copyFromRTInternal(const gl::Offset &destOffset,
     {
         SafeRelease(renderTargetData);
         SafeRelease(surface);
-        return gl::OutOfMemory()
-               << "Failed to lock the source surface (rectangle might be invalid), "
-               << gl::FmtHR(result);
+        return gl::Error(GL_OUT_OF_MEMORY, "Failed to lock the source surface (rectangle might be invalid), result: 0x%X.", result);
     }
 
     D3DLOCKED_RECT destLock = {0};
@@ -883,12 +788,10 @@ gl::Error Image9::copyFromRTInternal(const gl::Offset &destOffset,
     return gl::NoError();
 }
 
-gl::Error Image9::copyFromTexStorage(const gl::Context *context,
-                                     const gl::ImageIndex &imageIndex,
-                                     TextureStorage *source)
+gl::Error Image9::copyFromTexStorage(const gl::ImageIndex &imageIndex, TextureStorage *source)
 {
     RenderTargetD3D *renderTarget = nullptr;
-    gl::Error error               = source->getRenderTarget(context, imageIndex, &renderTarget);
+    gl::Error error = source->getRenderTarget(imageIndex, &renderTarget);
     if (error.isError())
     {
         return error;
@@ -898,16 +801,15 @@ gl::Error Image9::copyFromTexStorage(const gl::Context *context,
     return copyFromRTInternal(gl::Offset(), sourceArea, renderTarget);
 }
 
-gl::Error Image9::copyFromFramebuffer(const gl::Context *context,
-                                      const gl::Offset &destOffset,
+gl::Error Image9::copyFromFramebuffer(const gl::Offset &destOffset,
                                       const gl::Rectangle &sourceArea,
                                       const gl::Framebuffer *source)
 {
     const gl::FramebufferAttachment *srcAttachment = source->getReadColorbuffer();
     ASSERT(srcAttachment);
 
-    RenderTargetD3D *renderTarget = nullptr;
-    gl::Error error               = srcAttachment->getRenderTarget(context, &renderTarget);
+    RenderTargetD3D *renderTarget = NULL;
+    gl::Error error = srcAttachment->getRenderTarget(&renderTarget);
     if (error.isError())
     {
         return error;

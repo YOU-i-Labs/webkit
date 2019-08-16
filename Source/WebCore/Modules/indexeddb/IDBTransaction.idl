@@ -33,7 +33,7 @@
     readonly attribute DOMStringList objectStoreNames;
     readonly attribute IDBTransactionMode mode;
     readonly attribute IDBDatabase db;
-    readonly attribute DOMException error;
+    readonly attribute DOMError error;
 
     [MayThrowException] IDBObjectStore objectStore(DOMString name);
     [MayThrowException] void abort();

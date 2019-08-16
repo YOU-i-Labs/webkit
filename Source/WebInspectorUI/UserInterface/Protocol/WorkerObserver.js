@@ -23,22 +23,22 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.WorkerObserver = class WorkerObserver
+WebInspector.WorkerObserver = class WorkerObserver
 {
     // Events defined by the "Worker" domain.
 
     workerCreated(workerId, url)
     {
-        WI.workerManager.workerCreated(workerId, url);
+        WebInspector.workerManager.workerCreated(workerId, url);
     }
 
     workerTerminated(workerId)
     {
-        WI.workerManager.workerTerminated(workerId);
+        WebInspector.workerManager.workerTerminated(workerId);
     }
 
     dispatchMessageFromWorker(workerId, message)
     {
-        WI.workerManager.dispatchMessageFromWorker(workerId, message);
+        WebInspector.workerManager.dispatchMessageFromWorker(workerId, message);
     }
 };

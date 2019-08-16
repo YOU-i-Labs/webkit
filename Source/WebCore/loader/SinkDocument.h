@@ -30,7 +30,6 @@
 namespace WebCore {
 
 class SinkDocument final : public HTMLDocument {
-    WTF_MAKE_ISO_ALLOCATED(SinkDocument);
 public:
     static Ref<SinkDocument> create(Frame* frame, const URL& url)
     {

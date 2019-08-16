@@ -35,7 +35,7 @@ SVGTextLayoutEngineBaseline::SVGTextLayoutEngineBaseline(const FontCascade& font
 
 float SVGTextLayoutEngineBaseline::calculateBaselineShift(const SVGRenderStyle& style, SVGElement* context) const
 {
-    if (style.baselineShift() == BaselineShift::Length) {
+    if (style.baselineShift() == BS_LENGTH) {
         auto baselineShiftValueLength = style.baselineShiftValue();
         if (baselineShiftValueLength.unitType() == LengthTypePercentage)
             return baselineShiftValueLength.valueAsPercentage() * m_font.pixelSize();
@@ -45,61 +45,61 @@ float SVGTextLayoutEngineBaseline::calculateBaselineShift(const SVGRenderStyle& 
     }
 
     switch (style.baselineShift()) {
-    case BaselineShift::Baseline:
+    case BS_BASELINE:
         return 0;
-    case BaselineShift::Sub:
+    case BS_SUB:
         return -m_font.fontMetrics().floatHeight() / 2;
-    case BaselineShift::Super:
+    case BS_SUPER:
         return m_font.fontMetrics().floatHeight() / 2;
-    case BaselineShift::Length:
+    case BS_LENGTH:
         break;
     }
     ASSERT_NOT_REACHED();
     return 0;
 }
 
-AlignmentBaseline SVGTextLayoutEngineBaseline::dominantBaselineToAlignmentBaseline(bool isVerticalText, const RenderObject* textRenderer) const
+EAlignmentBaseline SVGTextLayoutEngineBaseline::dominantBaselineToAlignmentBaseline(bool isVerticalText, const RenderObject* textRenderer) const
 {
     ASSERT(textRenderer);
     ASSERT(textRenderer->parent());
 
     const SVGRenderStyle& svgStyle = textRenderer->style().svgStyle();
 
-    DominantBaseline baseline = svgStyle.dominantBaseline();
-    if (baseline == DominantBaseline::Auto) {
+    EDominantBaseline baseline = svgStyle.dominantBaseline();
+    if (baseline == DB_AUTO) {
         if (isVerticalText)
-            baseline = DominantBaseline::Central;
+            baseline = DB_CENTRAL;
         else
-            baseline = DominantBaseline::Alphabetic;
+            baseline = DB_ALPHABETIC;
     }
 
     switch (baseline) {
-    case DominantBaseline::UseScript:
+    case DB_USE_SCRIPT:
         // FIXME: The dominant-baseline and the baseline-table components are set by determining the predominant script of the character data content.
-        return AlignmentBaseline::Alphabetic;
-    case DominantBaseline::NoChange:
+        return AB_ALPHABETIC;
+    case DB_NO_CHANGE:
         return dominantBaselineToAlignmentBaseline(isVerticalText, textRenderer->parent());
-    case DominantBaseline::ResetSize:
+    case DB_RESET_SIZE:
         return dominantBaselineToAlignmentBaseline(isVerticalText, textRenderer->parent());
-    case DominantBaseline::Ideographic:
-        return AlignmentBaseline::Ideographic;
-    case DominantBaseline::Alphabetic:
-        return AlignmentBaseline::Alphabetic;
-    case DominantBaseline::Hanging:
-        return AlignmentBaseline::Hanging;
-    case DominantBaseline::Mathematical:
-        return AlignmentBaseline::Mathematical;
-    case DominantBaseline::Central:
-        return AlignmentBaseline::Central;
-    case DominantBaseline::Middle:
-        return AlignmentBaseline::Middle;
-    case DominantBaseline::TextAfterEdge:
-        return AlignmentBaseline::TextAfterEdge;
-    case DominantBaseline::TextBeforeEdge:
-        return AlignmentBaseline::TextBeforeEdge;
+    case DB_IDEOGRAPHIC:
+        return AB_IDEOGRAPHIC;
+    case DB_ALPHABETIC:
+        return AB_ALPHABETIC;
+    case DB_HANGING:
+        return AB_HANGING;
+    case DB_MATHEMATICAL:
+        return AB_MATHEMATICAL;
+    case DB_CENTRAL:
+        return AB_CENTRAL;
+    case DB_MIDDLE:
+        return AB_MIDDLE;
+    case DB_TEXT_AFTER_EDGE:
+        return AB_TEXT_AFTER_EDGE;
+    case DB_TEXT_BEFORE_EDGE:
+        return AB_TEXT_BEFORE_EDGE;
     default:
         ASSERT_NOT_REACHED();
-        return AlignmentBaseline::Auto;
+        return AB_AUTO;
     }
 }
 
@@ -108,48 +108,45 @@ float SVGTextLayoutEngineBaseline::calculateAlignmentBaselineShift(bool isVertic
     const RenderObject* textRendererParent = textRenderer.parent();
     ASSERT(textRendererParent);
 
-    AlignmentBaseline baseline = textRenderer.style().svgStyle().alignmentBaseline();
-    if (baseline == AlignmentBaseline::Auto) {
+    EAlignmentBaseline baseline = textRenderer.style().svgStyle().alignmentBaseline();
+    if (baseline == AB_AUTO) {
         baseline = dominantBaselineToAlignmentBaseline(isVerticalText, textRendererParent);
-        ASSERT(baseline != AlignmentBaseline::Auto);
+        ASSERT(baseline != AB_AUTO);
     }
 
     const FontMetrics& fontMetrics = m_font.fontMetrics();
 
     // Note: http://wiki.apache.org/xmlgraphics-fop/LineLayout/AlignmentHandling
     switch (baseline) {
-    case AlignmentBaseline::Baseline:
-        // FIXME: This seems wrong. Why are we returning an enum value converted to a float?
-        return static_cast<float>(dominantBaselineToAlignmentBaseline(isVerticalText, textRendererParent));
-    case AlignmentBaseline::BeforeEdge:
-    case AlignmentBaseline::TextBeforeEdge:
+    case AB_BASELINE:
+        return dominantBaselineToAlignmentBaseline(isVerticalText, textRendererParent);
+    case AB_BEFORE_EDGE:
+    case AB_TEXT_BEFORE_EDGE:
         return fontMetrics.floatAscent();
-    case AlignmentBaseline::Middle:
+    case AB_MIDDLE:
         return fontMetrics.xHeight() / 2;
-    case AlignmentBaseline::Central:
+    case AB_CENTRAL:
         return (fontMetrics.floatAscent() - fontMetrics.floatDescent()) / 2;
-    case AlignmentBaseline::AfterEdge:
-    case AlignmentBaseline::TextAfterEdge:
-    case AlignmentBaseline::Ideographic:
+    case AB_AFTER_EDGE:
+    case AB_TEXT_AFTER_EDGE:
+    case AB_IDEOGRAPHIC:
         return fontMetrics.floatDescent();
-    case AlignmentBaseline::Alphabetic:
+    case AB_ALPHABETIC:
         return 0;
-    case AlignmentBaseline::Hanging:
+    case AB_HANGING:
         return fontMetrics.floatAscent() * 8 / 10.f;
-    case AlignmentBaseline::Mathematical:
+    case AB_MATHEMATICAL:
         return fontMetrics.floatAscent() / 2;
-    case AlignmentBaseline::Auto:
+    default:
         ASSERT_NOT_REACHED();
         return 0;
     }
-    ASSERT_NOT_REACHED();
-    return 0;
 }
 
 float SVGTextLayoutEngineBaseline::calculateGlyphOrientationAngle(bool isVerticalText, const SVGRenderStyle& style, const UChar& character) const
 {
     switch (isVerticalText ? style.glyphOrientationVertical() : style.glyphOrientationHorizontal()) {
-    case GlyphOrientation::Auto:
+    case GO_AUTO:
         // Spec: Fullwidth ideographic and fullwidth Latin text will be set with a glyph-orientation of 0-degrees.
         // Text which is not fullwidth will be set with a glyph-orientation of 90-degrees.
         // FIXME: There's not an accurate way to tell if text is fullwidth by looking at a single character.
@@ -168,13 +165,13 @@ float SVGTextLayoutEngineBaseline::calculateGlyphOrientationAngle(bool isVertica
         }
         ASSERT_NOT_REACHED();
         break;
-    case GlyphOrientation::Degrees90:
+    case GO_90DEG:
         return 90;
-    case GlyphOrientation::Degrees180:
+    case GO_180DEG:
         return 180;
-    case GlyphOrientation::Degrees270:
+    case GO_270DEG:
         return 270;
-    case GlyphOrientation::Degrees0:
+    case GO_0DEG:
         return 0;
     }
     ASSERT_NOT_REACHED();

@@ -30,7 +30,6 @@
 namespace WebCore {
 
 class XMLDocument : public Document {
-    WTF_MAKE_ISO_ALLOCATED(XMLDocument);
 public:
     static Ref<XMLDocument> create(Frame* frame, const URL& url)
     {

@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef WTF_TimeWithDynamicClockType_h
+#define WTF_TimeWithDynamicClockType_h
 
 #include <wtf/ClockType.h>
 #include <wtf/MonotonicTime.h>
@@ -159,3 +160,5 @@ inline bool isfinite(WTF::TimeWithDynamicClockType time)
 using WTF::TimeWithDynamicClockType;
 using WTF::hasElapsed;
 using WTF::sleep;
+
+#endif // WTF_TimeWithDynamicClockType_h

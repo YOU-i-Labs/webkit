@@ -29,6 +29,7 @@
  */
 
 #include "config.h"
+#if ENABLE(WEB_SOCKETS)
 #include "ThreadableWebSocketChannelClientWrapper.h"
 
 #include "ScriptExecutionContext.h"
@@ -270,3 +271,5 @@ void ThreadableWebSocketChannelClientWrapper::processPendingTasks()
 }
 
 } // namespace WebCore
+
+#endif

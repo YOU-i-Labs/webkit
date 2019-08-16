@@ -31,7 +31,6 @@ namespace WebCore {
 class SVGInlineTextBox;
 
 class RenderSVGInlineText final : public RenderText {
-    WTF_MAKE_ISO_ALLOCATED(RenderSVGInlineText);
 public:
     RenderSVGInlineText(Text&, const String&);
 
@@ -59,7 +58,7 @@ private:
 
     bool isSVGInlineText() const override { return true; }
 
-    VisiblePosition positionForPoint(const LayoutPoint&, const RenderFragmentContainer*) override;
+    VisiblePosition positionForPoint(const LayoutPoint&, const RenderRegion*) override;
     LayoutRect localCaretRect(InlineBox*, unsigned caretOffset, LayoutUnit* extraWidthToEndOfLine = 0) override;
     IntRect linesBoundingBox() const override;
     std::unique_ptr<InlineTextBox> createTextBox() override;

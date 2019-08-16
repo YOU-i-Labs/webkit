@@ -24,31 +24,33 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TypeSet = class TypeSet
+WebInspector.TypeSet = class TypeSet extends WebInspector.Object
 {
     constructor(typeSet)
     {
+        super();
+
         console.assert(typeSet);
 
         var bitString = 0x0;
         if (typeSet.isFunction)
-            bitString |= WI.TypeSet.TypeBit.Function;
+            bitString |= WebInspector.TypeSet.TypeBit.Function;
         if (typeSet.isUndefined)
-            bitString |= WI.TypeSet.TypeBit.Undefined;
+            bitString |= WebInspector.TypeSet.TypeBit.Undefined;
         if (typeSet.isNull)
-            bitString |= WI.TypeSet.TypeBit.Null;
+            bitString |= WebInspector.TypeSet.TypeBit.Null;
         if (typeSet.isBoolean)
-            bitString |= WI.TypeSet.TypeBit.Boolean;
+            bitString |= WebInspector.TypeSet.TypeBit.Boolean;
         if (typeSet.isInteger)
-            bitString |= WI.TypeSet.TypeBit.Integer;
+            bitString |= WebInspector.TypeSet.TypeBit.Integer;
         if (typeSet.isNumber)
-            bitString |= WI.TypeSet.TypeBit.Number;
+            bitString |= WebInspector.TypeSet.TypeBit.Number;
         if (typeSet.isString)
-            bitString |= WI.TypeSet.TypeBit.String;
+            bitString |= WebInspector.TypeSet.TypeBit.String;
         if (typeSet.isObject)
-            bitString |= WI.TypeSet.TypeBit.Object;
+            bitString |= WebInspector.TypeSet.TypeBit.Object;
         if (typeSet.isSymbol)
-            bitString |= WI.TypeSet.TypeBit.Symbol;
+            bitString |= WebInspector.TypeSet.TypeBit.Symbol;
         console.assert(bitString);
 
         this._typeSet = typeSet;
@@ -60,7 +62,7 @@ WI.TypeSet = class TypeSet
 
     static fromPayload(payload)
     {
-        return new WI.TypeSet(payload);
+        return new WebInspector.TypeSet(payload);
     }
 
     // Public
@@ -115,7 +117,7 @@ WI.TypeSet = class TypeSet
     }
 };
 
-WI.TypeSet.TypeBit = {
+WebInspector.TypeSet.TypeBit = {
     "Function"    :  0x1,
     "Undefined"   :  0x2,
     "Null"        :  0x4,
@@ -127,4 +129,4 @@ WI.TypeSet.TypeBit = {
     "Symbol"      :  0x100
 };
 
-WI.TypeSet.NullOrUndefinedTypeBits = WI.TypeSet.TypeBit.Null | WI.TypeSet.TypeBit.Undefined;
+WebInspector.TypeSet.NullOrUndefinedTypeBits = WebInspector.TypeSet.TypeBit.Null | WebInspector.TypeSet.TypeBit.Undefined;

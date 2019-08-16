@@ -36,7 +36,7 @@ EsprimaFormatter = class EsprimaFormatter
         let tree = (function() {
             try {
                 return esprima.parse(sourceText, {attachComment: true, range: true, tokens: true, sourceType});
-            } catch {
+            } catch (error) {
                 return null;
             }
         })();

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,16 +56,16 @@ ThrowScope::~ThrowScope()
     }
 
     bool willBeHandleByLLIntOrJIT = false;
-    const void* previousScopeStackPosition = m_previousScope ? m_previousScope->stackPosition() : nullptr;
-    void* topEntryFrame = m_vm.topEntryFrame;
+    void* previousScope = m_previousScope;
+    void* topVMEntryFrame = m_vm.topVMEntryFrame;
 
-    // If the topEntryFrame was pushed on the stack after the previousScope was instantiated,
+    // If the topVMEntryFrame was pushed on the stack after the previousScope was instantiated,
     // then this throwScope will be returning to LLINT or JIT code that always do an exception
     // check. In that case, skip the simulated throw because the LLInt and JIT will be
     // checking for the exception their own way instead of calling ThrowScope::exception().
-    if (topEntryFrame && previousScopeStackPosition > topEntryFrame)
+    if (topVMEntryFrame && previousScope > topVMEntryFrame)
         willBeHandleByLLIntOrJIT = true;
-
+    
     if (!willBeHandleByLLIntOrJIT)
         simulateThrow();
 }
@@ -100,8 +100,12 @@ void ThrowScope::simulateThrow()
     m_vm.m_simulatedThrowPointLocation = m_location;
     m_vm.m_simulatedThrowPointRecursionDepth = m_recursionDepth;
     m_vm.m_needExceptionCheck = true;
-    if (UNLIKELY(Options::dumpSimulatedThrows()))
-        m_vm.m_nativeStackTraceOfLastSimulatedThrow = StackTrace::captureStackTrace(Options::unexpectedExceptionStackTraceLimit());
+
+    if (Options::dumpSimulatedThrows()) {
+        dataLog("Simulated throw from this scope: ", m_location, "\n");
+        dataLog("    (ExceptionScope::m_recursionDepth was ", m_recursionDepth, ")\n");
+        WTFReportBacktrace();
+    }
 }
 
 #endif // ENABLE(EXCEPTION_SCOPE_VERIFICATION)

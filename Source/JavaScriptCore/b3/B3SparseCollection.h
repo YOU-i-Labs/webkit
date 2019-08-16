@@ -107,8 +107,8 @@ public:
             ++holeIndex;
         }
 
-        m_indexFreeList.shrink(0);
-        m_vector.shrink(endIndex);
+        m_indexFreeList.resize(0);
+        m_vector.resize(endIndex);
     }
 
     unsigned size() const { return m_vector.size(); }

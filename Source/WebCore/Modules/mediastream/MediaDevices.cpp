@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2015 Ericsson AB. All rights reserved.
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,37 +39,32 @@
 #include "EventNames.h"
 #include "MediaDevicesRequest.h"
 #include "MediaTrackSupportedConstraints.h"
-#include "RealtimeMediaSourceSettings.h"
-#include "RuntimeEnabledFeatures.h"
-#include "UserMediaController.h"
 #include "UserMediaRequest.h"
 #include <wtf/RandomNumber.h>
 
 namespace WebCore {
 
 inline MediaDevices::MediaDevices(Document& document)
-    : ActiveDOMObject(&document)
+    : ContextDestructionObserver(&document)
     , m_scheduledEventTimer(*this, &MediaDevices::scheduledEventTimerFired)
-    , m_eventNames(eventNames())
+    , m_weakPtrFactory(this)
 {
-    suspendIfNeeded();
+    m_deviceChangedToken = RealtimeMediaSourceCenter::singleton().addDevicesChangedObserver([weakThis = createWeakPtr(), this]() {
 
-    static_assert(static_cast<size_t>(MediaDevices::DisplayCaptureSurfaceType::Monitor) == static_cast<size_t>(RealtimeMediaSourceSettings::DisplaySurfaceType::Monitor), "MediaDevices::DisplayCaptureSurfaceType::Monitor is not equal to RealtimeMediaSourceSettings::DisplaySurfaceType::Monitor as expected");
-    static_assert(static_cast<size_t>(MediaDevices::DisplayCaptureSurfaceType::Window) == static_cast<size_t>(RealtimeMediaSourceSettings::DisplaySurfaceType::Window), "MediaDevices::DisplayCaptureSurfaceType::Window is not RealtimeMediaSourceSettings::DisplaySurfaceType::Window as expected");
-    static_assert(static_cast<size_t>(MediaDevices::DisplayCaptureSurfaceType::Application) == static_cast<size_t>(RealtimeMediaSourceSettings::DisplaySurfaceType::Application), "MediaDevices::DisplayCaptureSurfaceType::Application is not RealtimeMediaSourceSettings::DisplaySurfaceType::Application as expected");
-    static_assert(static_cast<size_t>(MediaDevices::DisplayCaptureSurfaceType::Browser) == static_cast<size_t>(RealtimeMediaSourceSettings::DisplaySurfaceType::Browser), "MediaDevices::DisplayCaptureSurfaceType::Browser is not RealtimeMediaSourceSettings::DisplaySurfaceType::Browser as expected");
+        if (!weakThis)
+            return;
+
+        // FIXME: We should only dispatch an event if the user has been granted access to the type of
+        // device that was added or removed.
+        if (!m_scheduledEventTimer.isActive())
+            m_scheduledEventTimer.startOneShot(Seconds(randomNumber() / 2));
+    });
 }
 
-MediaDevices::~MediaDevices() = default;
-
-void MediaDevices::stop()
+MediaDevices::~MediaDevices()
 {
-    if (m_deviceChangeToken) {
-        auto* document = this->document();
-        auto* controller = document ? UserMediaController::from(document->page()) : nullptr;
-        if (document && controller)
-            controller->removeDeviceChangeObserver(m_deviceChangeToken);
-    }
+    if (m_deviceChangedToken)
+        RealtimeMediaSourceCenter::singleton().removeDevicesChangedObserver(m_deviceChangedToken.value());
 }
 
 Ref<MediaDevices> MediaDevices::create(Document& document)
@@ -96,35 +91,17 @@ static MediaConstraints createMediaConstraints(const Variant<bool, MediaTrackCon
     );
 }
 
-void MediaDevices::getUserMedia(const StreamConstraints& constraints, Promise&& promise) const
+ExceptionOr<void> MediaDevices::getUserMedia(const StreamConstraints& constraints, Promise&& promise) const
 {
     auto* document = this->document();
-    if (!document) {
-        promise.reject(Exception { InvalidStateError });
-        return;
-    }
+    if (!document)
+        return Exception { INVALID_STATE_ERR };
 
     auto audioConstraints = createMediaConstraints(constraints.audio);
     auto videoConstraints = createMediaConstraints(constraints.video);
     if (videoConstraints.isValid)
         videoConstraints.setDefaultVideoConstraints();
-
-    auto request = UserMediaRequest::create(*document, { MediaStreamRequest::Type::UserMedia, WTFMove(audioConstraints), WTFMove(videoConstraints) }, WTFMove(promise));
-    request->start();
-
-    return;
-}
-
-ExceptionOr<void> MediaDevices::getDisplayMedia(const StreamConstraints& constraints, Promise&& promise) const
-{
-    auto* document = this->document();
-    if (!document)
-        return Exception { InvalidStateError };
-
-    auto request = UserMediaRequest::create(*document, { MediaStreamRequest::Type::DisplayMedia, { }, createMediaConstraints(constraints.video) }, WTFMove(promise));
-    request->start();
-
-    return { };
+    return UserMediaRequest::start(*document, WTFMove(audioConstraints), WTFMove(videoConstraints), WTFMove(promise));
 }
 
 void MediaDevices::enumerateDevices(EnumerateDevicesPromise&& promise) const
@@ -150,60 +127,12 @@ MediaTrackSupportedConstraints MediaDevices::getSupportedConstraints()
     result.echoCancellation = supported.supportsEchoCancellation();
     result.deviceId = supported.supportsDeviceId();
     result.groupId = supported.supportsGroupId();
-
     return result;
 }
 
 void MediaDevices::scheduledEventTimerFired()
 {
-    if (scriptExecutionContext())
-        dispatchEvent(Event::create(eventNames().devicechangeEvent, Event::CanBubble::No, Event::IsCancelable::No));
-}
-
-bool MediaDevices::hasPendingActivity() const
-{
-    return !isContextStopped() && hasEventListeners(m_eventNames.devicechangeEvent);
-}
-
-const char* MediaDevices::activeDOMObjectName() const
-{
-    return "MediaDevices";
-}
-
-bool MediaDevices::canSuspendForDocumentSuspension() const
-{
-    return true;
-}
-
-bool MediaDevices::addEventListener(const AtomicString& eventType, Ref<EventListener>&& listener, const AddEventListenerOptions& options)
-{
-    if (!m_listeningForDeviceChanges && eventType == eventNames().devicechangeEvent) {
-        auto* document = this->document();
-        auto* controller = document ? UserMediaController::from(document->page()) : nullptr;
-        if (document && controller) {
-            m_listeningForDeviceChanges = true;
-
-            m_deviceChangeToken = controller->addDeviceChangeObserver([weakThis = makeWeakPtr(*this), this]() {
-
-                if (!weakThis || m_scheduledEventTimer.isActive())
-                    return;
-
-                auto* document = this->document();
-                auto* controller = document ? UserMediaController::from(document->page()) : nullptr;
-                if (!controller)
-                    return;
-
-                bool canAccessMicrophone = controller->canCallGetUserMedia(*document, { UserMediaController::CaptureType::Microphone }) == UserMediaController::GetUserMediaAccess::CanCall;
-                bool canAccessCamera = controller->canCallGetUserMedia(*document, { UserMediaController::CaptureType::Camera }) == UserMediaController::GetUserMediaAccess::CanCall;
-                if (!canAccessMicrophone && !canAccessCamera)
-                    return;
-
-                m_scheduledEventTimer.startOneShot(Seconds(randomNumber() / 2));
-            });
-        }
-    }
-
-    return EventTargetWithInlineData::addEventListener(eventType, WTFMove(listener), options);
+    dispatchEvent(Event::create(eventNames().devicechangeEvent, false, false));
 }
 
 } // namespace WebCore

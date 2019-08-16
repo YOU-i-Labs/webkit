@@ -16,41 +16,25 @@ namespace gl
 class VertexArray;
 
 //
-// Implementation of Generic Vertex Attribute Bindings for ES3.1. The members are intentionally made
-// private in order to hide implementation details.
+// Implementation of Generic Vertex Attribute Bindings for ES3.1
 //
-class VertexBinding final : angle::NonCopyable
+struct VertexBinding final : angle::NonCopyable
 {
-  public:
     VertexBinding();
-    VertexBinding(VertexBinding &&binding);
-    ~VertexBinding();
+    explicit VertexBinding(VertexBinding &&binding);
     VertexBinding &operator=(VertexBinding &&binding);
 
-    GLuint getStride() const { return mStride; }
-    void setStride(GLuint strideIn) { mStride = strideIn; }
+    GLuint stride;
+    GLuint divisor;
+    GLintptr offset;
 
-    GLuint getDivisor() const { return mDivisor; }
-    void setDivisor(GLuint divisorIn) { mDivisor = divisorIn; }
-
-    GLintptr getOffset() const { return mOffset; }
-    void setOffset(GLintptr offsetIn) { mOffset = offsetIn; }
-
-    const BindingPointer<Buffer> &getBuffer() const { return mBuffer; }
-    void setBuffer(const gl::Context *context, Buffer *bufferIn) { mBuffer.set(context, bufferIn); }
-
-  private:
-    GLuint mStride;
-    GLuint mDivisor;
-    GLintptr mOffset;
-
-    BindingPointer<Buffer> mBuffer;
+    BindingPointer<Buffer> buffer;
 };
 
 //
 // Implementation of Generic Vertex Attributes for ES3.1
 //
-struct VertexAttribute final : private angle::NonCopyable
+struct VertexAttribute final : angle::NonCopyable
 {
     explicit VertexAttribute(GLuint bindingIndex);
     explicit VertexAttribute(VertexAttribute &&attrib);
@@ -62,12 +46,17 @@ struct VertexAttribute final : private angle::NonCopyable
     bool normalized;
     bool pureInteger;
 
-    const void *pointer;
-    GLuint relativeOffset;
+    const GLvoid *pointer;
+    GLintptr relativeOffset;
 
     GLuint vertexAttribArrayStride;  // ONLY for queries of VERTEX_ATTRIB_ARRAY_STRIDE
     GLuint bindingIndex;
 };
+
+bool operator==(const VertexAttribute &a, const VertexAttribute &b);
+bool operator!=(const VertexAttribute &a, const VertexAttribute &b);
+bool operator==(const VertexBinding &a, const VertexBinding &b);
+bool operator!=(const VertexBinding &a, const VertexBinding &b);
 
 size_t ComputeVertexAttributeTypeSize(const VertexAttribute &attrib);
 
@@ -77,13 +66,14 @@ size_t ComputeVertexAttributeStride(const VertexAttribute &attrib, const VertexB
 // Warning: you should ensure binding really matches attrib.bindingIndex before using this function.
 GLintptr ComputeVertexAttributeOffset(const VertexAttribute &attrib, const VertexBinding &binding);
 
-size_t ComputeVertexBindingElementCount(GLuint divisor, size_t drawCount, size_t instanceCount);
-
-GLenum GetVertexAttributeBaseType(const VertexAttribute &attrib);
+size_t ComputeVertexBindingElementCount(const VertexBinding &binding,
+                                        size_t drawCount,
+                                        size_t instanceCount);
 
 struct VertexAttribCurrentValueData
 {
-    union {
+    union
+    {
         GLfloat FloatValues[4];
         GLint IntValues[4];
         GLuint UnsignedIntValues[4];
@@ -104,4 +94,4 @@ bool operator!=(const VertexAttribCurrentValueData &a, const VertexAttribCurrent
 
 #include "VertexAttribute.inl"
 
-#endif  // LIBANGLE_VERTEXATTRIBUTE_H_
+#endif // LIBANGLE_VERTEXATTRIBUTE_H_

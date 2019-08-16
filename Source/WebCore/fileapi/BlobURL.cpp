@@ -32,7 +32,7 @@
 
 #include "BlobURL.h"
 
-#include <wtf/URL.h>
+#include "URL.h"
 #include "SecurityOrigin.h"
 #include <wtf/UUID.h>
 #include <wtf/text/WTFString.h>
@@ -72,8 +72,8 @@ String BlobURL::getIdentifier(const URL& url)
 URL BlobURL::createBlobURL(const String& originString)
 {
     ASSERT(!originString.isEmpty());
-    String urlString = "blob:" + originString + '/' + createCanonicalUUIDString();
-    return URL({ }, urlString);
+    String urlString = "blob:" + encodeWithURLEscapeSequences(originString) + '/' + createCanonicalUUIDString();
+    return URL(ParsedURLString, urlString);
 }
 
 } // namespace WebCore

@@ -26,9 +26,9 @@
 #include "config.h"
 #include "UserContentURLPattern.h"
 
+#include "URL.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/URL.h>
 
 namespace WebCore {
 
@@ -125,7 +125,7 @@ bool UserContentURLPattern::matches(const URL& test) const
 
 bool UserContentURLPattern::matchesHost(const URL& test) const
 {
-    auto host = test.host();
+    const String& host = test.host();
     if (equalIgnoringASCIICase(host, m_host))
         return true;
 
@@ -138,7 +138,7 @@ bool UserContentURLPattern::matchesHost(const URL& test) const
         return true;
 
     // Check if the domain is a subdomain of our host.
-    if (!host.endsWithIgnoringASCIICase(m_host))
+    if (!host.endsWith(m_host, false))
         return false;
 
     ASSERT(host.length() > m_host.length());

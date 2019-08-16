@@ -35,6 +35,7 @@
 #include "ScriptCallStack.h"
 #include "ScriptCallStackFactory.h"
 #include "ScriptObject.h"
+#include <wtf/CurrentTime.h>
 #include <wtf/text/WTFString.h>
 
 namespace Inspector {
@@ -43,7 +44,7 @@ static const unsigned maximumConsoleMessages = 100;
 static const int expireConsoleMessagesStep = 10;
 
 InspectorConsoleAgent::InspectorConsoleAgent(AgentContext& context, InspectorHeapAgent* heapAgent)
-    : InspectorAgentBase("Console"_s)
+    : InspectorAgentBase(ASCIILiteral("Console"))
     , m_injectedScriptManager(context.injectedScriptManager)
     , m_frontendDispatcher(std::make_unique<ConsoleFrontendDispatcher>(context.frontendRouter))
     , m_backendDispatcher(ConsoleBackendDispatcher::create(context.backendDispatcher, this))
@@ -68,7 +69,6 @@ void InspectorConsoleAgent::willDestroyFrontendAndBackend(DisconnectReason)
 void InspectorConsoleAgent::discardValues()
 {
     m_consoleMessages.clear();
-    m_expiredConsoleMessageCount = 0;
 }
 
 void InspectorConsoleAgent::enable(ErrorString&)
@@ -83,11 +83,9 @@ void InspectorConsoleAgent::enable(ErrorString&)
         expiredMessage.addToFrontend(*m_frontendDispatcher, m_injectedScriptManager, false);
     }
 
-    Vector<std::unique_ptr<ConsoleMessage>> messages;
-    m_consoleMessages.swap(messages);
-
-    for (size_t i = 0; i < messages.size(); ++i)
-        messages[i]->addToFrontend(*m_frontendDispatcher, m_injectedScriptManager, false);
+    size_t messageCount = m_consoleMessages.size();
+    for (size_t i = 0; i < messageCount; ++i)
+        m_consoleMessages[i]->addToFrontend(*m_frontendDispatcher, m_injectedScriptManager, false);
 }
 
 void InspectorConsoleAgent::disable(ErrorString&)
@@ -102,8 +100,9 @@ void InspectorConsoleAgent::clearMessages(ErrorString&)
 {
     m_consoleMessages.clear();
     m_expiredConsoleMessageCount = 0;
+    m_previousMessage = nullptr;
 
-    m_injectedScriptManager.releaseObjectGroup("console"_s);
+    m_injectedScriptManager.releaseObjectGroup(ASCIILiteral("console"));
 
     if (m_enabled)
         m_frontendDispatcher->messagesCleared();
@@ -137,7 +136,7 @@ void InspectorConsoleAgent::startTiming(const String& title)
     if (title.isNull())
         return;
 
-    auto result = m_times.add(title, MonotonicTime::now());
+    auto result = m_times.add(title, monotonicallyIncreasingTime());
 
     if (!result.isNewEntry) {
         // FIXME: Send an enum to the frontend for localization?
@@ -160,11 +159,11 @@ void InspectorConsoleAgent::stopTiming(const String& title, Ref<ScriptCallStack>
         return;
     }
 
-    MonotonicTime startTime = it->value;
+    double startTime = it->value;
     m_times.remove(it);
 
-    Seconds elapsed = MonotonicTime::now() - startTime;
-    String message = title + String::format(": %.3fms", elapsed.milliseconds());
+    double elapsed = monotonicallyIncreasingTime() - startTime;
+    String message = title + String::format(": %.3fms", elapsed * 1000);
     addMessageToConsole(std::make_unique<ConsoleMessage>(MessageSource::ConsoleAPI, MessageType::Timing, MessageLevel::Debug, message, WTFMove(callStack)));
 }
 
@@ -183,13 +182,13 @@ void InspectorConsoleAgent::takeHeapSnapshot(const String& title)
 
 void InspectorConsoleAgent::count(JSC::ExecState* state, Ref<ScriptArguments>&& arguments)
 {
-    Ref<ScriptCallStack> callStack = createScriptCallStackForConsole(state);
+    Ref<ScriptCallStack> callStack = createScriptCallStackForConsole(state, ScriptCallStack::maxCallStackSizeToCapture);
 
     String title;
     String identifier;
     if (!arguments->argumentCount()) {
         // '@' prefix for engine generated labels.
-        title = "Global"_s;
+        title = ASCIILiteral("Global");
         identifier = makeString('@', title);
     } else {
         // '#' prefix for user labels.
@@ -219,34 +218,21 @@ void InspectorConsoleAgent::addConsoleMessage(std::unique_ptr<ConsoleMessage> co
     ASSERT(m_injectedScriptManager.inspectorEnvironment().developerExtrasEnabled());
     ASSERT_ARG(consoleMessage, consoleMessage);
 
-    ConsoleMessage* previousMessage = m_consoleMessages.isEmpty() ? nullptr : m_consoleMessages.last().get();
-
-    if (previousMessage && !isGroupMessage(previousMessage->type()) && previousMessage->isEqual(consoleMessage.get())) {
-        previousMessage->incrementCount();
+    if (m_previousMessage && !isGroupMessage(m_previousMessage->type()) && m_previousMessage->isEqual(consoleMessage.get())) {
+        m_previousMessage->incrementCount();
         if (m_enabled)
-            previousMessage->updateRepeatCountInConsole(*m_frontendDispatcher);
+            m_previousMessage->updateRepeatCountInConsole(*m_frontendDispatcher);
     } else {
-        ConsoleMessage* newMessage = consoleMessage.get();
+        m_previousMessage = consoleMessage.get();
         m_consoleMessages.append(WTFMove(consoleMessage));
         if (m_enabled)
-            newMessage->addToFrontend(*m_frontendDispatcher, m_injectedScriptManager, true);
-
-        if (m_consoleMessages.size() >= maximumConsoleMessages) {
-            m_expiredConsoleMessageCount += expireConsoleMessagesStep;
-            m_consoleMessages.remove(0, expireConsoleMessagesStep);
-        }
+            m_previousMessage->addToFrontend(*m_frontendDispatcher, m_injectedScriptManager, true);
     }
-}
 
-void InspectorConsoleAgent::getLoggingChannels(ErrorString&, RefPtr<JSON::ArrayOf<Protocol::Console::Channel>>& channels)
-{
-    // Default implementation has no logging channels.
-    channels = JSON::ArrayOf<Protocol::Console::Channel>::create();
-}
-
-void InspectorConsoleAgent::setLoggingChannelLevel(ErrorString& errorString, const String&, const String&)
-{
-    errorString = "No such channel to enable"_s;
+    if (m_consoleMessages.size() >= maximumConsoleMessages) {
+        m_expiredConsoleMessageCount += expireConsoleMessagesStep;
+        m_consoleMessages.remove(0, expireConsoleMessagesStep);
+    }
 }
 
 } // namespace Inspector

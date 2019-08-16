@@ -29,7 +29,6 @@
 
 #include "IDBDatabaseInfo.h"
 #include "IDBError.h"
-#include <wtf/MainThread.h>
 
 namespace WebCore {
 
@@ -58,13 +57,14 @@ namespace IDBServer {
 
 class IDBBackingStoreTemporaryFileHandler {
 public:
-    virtual ~IDBBackingStoreTemporaryFileHandler() = default;
+    virtual ~IDBBackingStoreTemporaryFileHandler() { }
+    virtual void prepareForAccessToTemporaryFile(const String& path) = 0;
     virtual void accessToTemporaryFileComplete(const String& path) = 0;
 };
 
 class IDBBackingStore {
 public:
-    virtual ~IDBBackingStore() { RELEASE_ASSERT(!isMainThread()); }
+    virtual ~IDBBackingStore() { }
 
     virtual IDBError getOrEstablishDatabaseInfo(IDBDatabaseInfo&) = 0;
 
@@ -98,10 +98,6 @@ public:
 
     virtual bool supportsSimultaneousTransactions() = 0;
     virtual bool isEphemeral() = 0;
-
-    virtual void setQuota(uint64_t) = 0;
-protected:
-    IDBBackingStore() { RELEASE_ASSERT(!isMainThread()); }
 };
 
 } // namespace IDBServer

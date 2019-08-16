@@ -20,7 +20,6 @@
 
 #pragma once
 
-#include "FrameDestructionObserver.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
@@ -37,10 +36,12 @@ class GraphicsContext;
 class IntRect;
 class Node;
 
-class PrintContext : public FrameDestructionObserver {
+class PrintContext {
 public:
     WEBCORE_EXPORT explicit PrintContext(Frame*);
     WEBCORE_EXPORT ~PrintContext();
+
+    Frame* frame() const { return m_frame; }
 
     // Break up a page into rects without relayout.
     // FIXME: This means that CSS page breaks won't be on page boundary if the size is different than what was passed to begin(). That's probably not always desirable.
@@ -95,6 +96,7 @@ public:
     static constexpr float maximumShrinkFactor() { return 2; }
 
 protected:
+    Frame* m_frame;
     Vector<IntRect> m_pageRects;
 
 private:

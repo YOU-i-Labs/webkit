@@ -36,7 +36,6 @@ namespace WebCore {
 class MathMLTokenElement;
 
 class RenderMathMLToken : public RenderMathMLBlock {
-    WTF_MAKE_ISO_ALLOCATED(RenderMathMLToken);
 public:
     RenderMathMLToken(MathMLTokenElement&, RenderStyle&&);
     RenderMathMLToken(Document&, RenderStyle&&);
@@ -49,8 +48,8 @@ public:
 protected:
     void paint(PaintInfo&, const LayoutPoint&) override;
     void paintChildren(PaintInfo& forSelf, const LayoutPoint&, PaintInfo& forChild, bool usePrintRect) override;
-    Optional<int> firstLineBaseline() const override;
-    void layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight = 0_lu) override;
+    std::optional<int> firstLineBaseline() const override;
+    void layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight = 0) override;
     void computePreferredLogicalWidths() override;
 
 private:
@@ -64,7 +63,7 @@ private:
         m_mathVariantGlyphDirty = true;
         setNeedsLayoutAndPrefWidthsRecalc();
     }
-    Optional<UChar32> m_mathVariantCodePoint { WTF::nullopt };
+    std::optional<UChar32> m_mathVariantCodePoint { std::nullopt };
     bool m_mathVariantIsMirrored { false };
     bool m_mathVariantGlyphDirty { false };
 };

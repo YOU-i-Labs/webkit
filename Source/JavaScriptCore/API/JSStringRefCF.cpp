@@ -49,10 +49,10 @@ JSStringRef JSStringCreateWithCFString(CFStringRef string)
     if (static_cast<size_t>(convertedSize) == length && static_cast<size_t>(usedBufferLength) == length)
         return &OpaqueJSString::create(lcharBuffer.data(), length).leakRef();
 
-    Vector<UniChar> buffer(length);
-    CFStringGetCharacters(string, CFRangeMake(0, length), buffer.data());
+    auto buffer = std::make_unique<UniChar[]>(length);
+    CFStringGetCharacters(string, CFRangeMake(0, length), buffer.get());
     static_assert(sizeof(UniChar) == sizeof(UChar), "UniChar and UChar must be same size");
-    return &OpaqueJSString::create(reinterpret_cast<UChar*>(buffer.data()), length).leakRef();
+    return &OpaqueJSString::create(reinterpret_cast<UChar*>(buffer.get()), length).leakRef();
 }
 
 CFStringRef JSStringCopyCFString(CFAllocatorRef allocator, JSStringRef string)

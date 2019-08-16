@@ -34,10 +34,6 @@
 #include "ScrollbarTheme.h"
 #include <wtf/Compiler.h>
 
-#if ENABLE(ATTACHMENT_ELEMENT)
-#include "HTMLAttachmentElement.h"
-#endif
-
 #if ENABLE(VIDEO_TRACK)
 #include "WebVTTElement.h"
 #endif
@@ -47,11 +43,6 @@ namespace WebCore {
 ALWAYS_INLINE bool isAutofilled(const Element& element)
 {
     return is<HTMLInputElement>(element) && downcast<HTMLInputElement>(element).isAutoFilled();
-}
-
-ALWAYS_INLINE bool isAutofilledStrongPassword(const Element& element)
-{
-    return is<HTMLInputElement>(element) && downcast<HTMLInputElement>(element).isAutoFilled() && downcast<HTMLInputElement>(element).hasAutoFillStrongPasswordButton();
 }
 
 ALWAYS_INLINE bool matchesDefaultPseudoClass(const Element& element)
@@ -133,13 +124,6 @@ ALWAYS_INLINE bool isWindowInactive(const Element& element)
         return false;
     return !page->focusController().isActive();
 }
-
-#if ENABLE(ATTACHMENT_ELEMENT)
-ALWAYS_INLINE bool hasAttachment(const Element& element)
-{
-    return is<HTMLImageElement>(element) && downcast<HTMLImageElement>(element).attachmentElement();
-}
-#endif
 
 ALWAYS_INLINE bool containslanguageSubtagMatchingRange(StringView language, StringView range, unsigned languageLength, unsigned& position)
 {
@@ -375,13 +359,6 @@ ALWAYS_INLINE bool matchesFullScreenDocumentPseudoClass(const Element& element)
     if (!element.document().webkitIsFullScreen())
         return false;
     return true;
-}
-
-ALWAYS_INLINE bool matchesFullScreenControlsHiddenPseudoClass(const Element& element)
-{
-    if (&element != element.document().webkitCurrentFullScreenElement())
-        return false;
-    return element.document().areFullscreenControlsHidden();
 }
 #endif
 

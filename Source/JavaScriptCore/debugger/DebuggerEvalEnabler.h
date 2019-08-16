@@ -32,50 +32,29 @@ namespace JSC {
 
 class DebuggerEvalEnabler {
 public:
-    enum class Mode {
-        EvalOnCurrentCallFrame,
-        EvalOnCallFrameAtDebuggerEntry,
-    };
-
-    DebuggerEvalEnabler(const ExecState* exec, Mode mode = Mode::EvalOnCurrentCallFrame)
+    explicit DebuggerEvalEnabler(const ExecState* exec)
         : m_exec(exec)
-#if !ASSERT_DISABLED
-        , m_mode(mode)
-#endif
-        
+        , m_evalWasDisabled(false)
     {
-        UNUSED_PARAM(mode);
         if (exec) {
             JSGlobalObject* globalObject = exec->lexicalGlobalObject();
             m_evalWasDisabled = !globalObject->evalEnabled();
             if (m_evalWasDisabled)
                 globalObject->setEvalEnabled(true, globalObject->evalDisabledErrorMessage());
-#if !ASSERT_DISABLED
-            if (m_mode == Mode::EvalOnCallFrameAtDebuggerEntry)
-                globalObject->setCallFrameAtDebuggerEntry(exec);
-#endif
         }
     }
 
     ~DebuggerEvalEnabler()
     {
-        if (m_exec) {
+        if (m_evalWasDisabled) {
             JSGlobalObject* globalObject = m_exec->lexicalGlobalObject();
-            if (m_evalWasDisabled)
-                globalObject->setEvalEnabled(false, globalObject->evalDisabledErrorMessage());
-#if !ASSERT_DISABLED
-            if (m_mode == Mode::EvalOnCallFrameAtDebuggerEntry)
-                globalObject->setCallFrameAtDebuggerEntry(nullptr);
-#endif
+            globalObject->setEvalEnabled(false, globalObject->evalDisabledErrorMessage());
         }
     }
 
 private:
     const ExecState* m_exec;
-    bool m_evalWasDisabled { false };
-#if !ASSERT_DISABLED
-    DebuggerEvalEnabler::Mode m_mode;
-#endif
+    bool m_evalWasDisabled;
 };
 
 } // namespace JSC

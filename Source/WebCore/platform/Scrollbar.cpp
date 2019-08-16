@@ -77,6 +77,7 @@ Scrollbar::Scrollbar(ScrollableArea& scrollableArea, ScrollbarOrientation orient
     , m_suppressInvalidation(false)
     , m_isAlphaLocked(false)
     , m_isCustomScrollbar(isCustomScrollbar)
+    , m_weakPtrFactory(this)
 {
     theme().registerScrollbar(*this);
 
@@ -158,7 +159,7 @@ void Scrollbar::updateThumbProportion()
 
 void Scrollbar::paint(GraphicsContext& context, const IntRect& damageRect, Widget::SecurityOriginPaintPolicy)
 {
-    if (context.invalidatingControlTints() && theme().supportsControlTints()) {
+    if (context.updatingControlTints() && theme().supportsControlTints()) {
         invalidate();
         return;
     }
@@ -318,7 +319,7 @@ void Scrollbar::setPressedPart(ScrollbarPart part)
         theme().invalidatePart(*this, m_hoveredPart);
 }
 
-#if !PLATFORM(IOS_FAMILY)
+#if !PLATFORM(IOS)
 bool Scrollbar::mouseMoved(const PlatformMouseEvent& evt)
 {
     if (m_pressedPart == ThumbPart) {

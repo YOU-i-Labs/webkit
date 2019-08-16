@@ -22,18 +22,16 @@
 #include "HTMLFrameOwnerElement.h"
 
 #include "DOMWindow.h"
+#include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "RenderWidget.h"
 #include "ShadowRoot.h"
 #include "SVGDocument.h"
 #include "StyleTreeResolver.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLFrameOwnerElement);
 
 HTMLFrameOwnerElement::HTMLFrameOwnerElement(const QualifiedName& tagName, Document& document)
     : HTMLElement(tagName, document)
@@ -60,7 +58,7 @@ void HTMLFrameOwnerElement::setContentFrame(Frame* frame)
     ASSERT(isConnected());
     m_contentFrame = frame;
 
-    for (RefPtr<ContainerNode> node = this; node; node = node->parentOrShadowHostNode())
+    for (ContainerNode* node = this; node; node = node->parentOrShadowHostNode())
         node->incrementConnectedSubframeCount();
 }
 
@@ -71,13 +69,17 @@ void HTMLFrameOwnerElement::clearContentFrame()
 
     m_contentFrame = 0;
 
-    for (RefPtr<ContainerNode> node = this; node; node = node->parentOrShadowHostNode())
+    for (ContainerNode* node = this; node; node = node->parentOrShadowHostNode())
         node->decrementConnectedSubframeCount();
 }
 
 void HTMLFrameOwnerElement::disconnectContentFrame()
 {
-    if (RefPtr<Frame> frame = contentFrame()) {
+    // FIXME: Currently we don't do this in removedFrom because this causes an
+    // unload event in the subframe which could execute script that could then
+    // reach up into this document and then attempt to look back down. We should
+    // see if this behavior is really needed as Gecko does not allow this.
+    if (Frame* frame = contentFrame()) {
         Ref<Frame> protect(*frame);
         frame->loader().frameDetached();
         frame->disconnectOwnerElement();
@@ -92,12 +94,12 @@ HTMLFrameOwnerElement::~HTMLFrameOwnerElement()
 
 Document* HTMLFrameOwnerElement::contentDocument() const
 {
-    return m_contentFrame ? m_contentFrame->document() : nullptr;
+    return m_contentFrame ? m_contentFrame->document() : 0;
 }
 
-WindowProxy* HTMLFrameOwnerElement::contentWindow() const
+DOMWindow* HTMLFrameOwnerElement::contentWindow() const
 {
-    return m_contentFrame ? &m_contentFrame->windowProxy() : nullptr;
+    return m_contentFrame ? m_contentFrame->document()->domWindow() : 0;
 }
 
 void HTMLFrameOwnerElement::setSandboxFlags(SandboxFlags flags)
@@ -105,7 +107,7 @@ void HTMLFrameOwnerElement::setSandboxFlags(SandboxFlags flags)
     m_sandboxFlags = flags;
 }
 
-bool HTMLFrameOwnerElement::isKeyboardFocusable(KeyboardEvent* event) const
+bool HTMLFrameOwnerElement::isKeyboardFocusable(KeyboardEvent& event) const
 {
     return m_contentFrame && HTMLElement::isKeyboardFocusable(event);
 }
@@ -116,10 +118,10 @@ ExceptionOr<Document&> HTMLFrameOwnerElement::getSVGDocument() const
     if (is<SVGDocument>(document))
         return *document;
     // Spec: http://www.w3.org/TR/SVG/struct.html#InterfaceGetSVGDocument
-    return Exception { NotSupportedError };
+    return Exception { NOT_SUPPORTED_ERR };
 }
 
-void HTMLFrameOwnerElement::scheduleInvalidateStyleAndLayerComposition()
+void HTMLFrameOwnerElement::scheduleinvalidateStyleAndLayerComposition()
 {
     if (Style::postResolutionCallbacksAreSuspended()) {
         RefPtr<HTMLFrameOwnerElement> element = this;
@@ -132,8 +134,8 @@ void HTMLFrameOwnerElement::scheduleInvalidateStyleAndLayerComposition()
 
 bool SubframeLoadingDisabler::canLoadFrame(HTMLFrameOwnerElement& owner)
 {
-    for (RefPtr<ContainerNode> node = &owner; node; node = node->parentOrShadowHostNode()) {
-        if (disabledSubtreeRoots().contains(node.get()))
+    for (ContainerNode* node = &owner; node; node = node->parentOrShadowHostNode()) {
+        if (disabledSubtreeRoots().contains(node))
             return false;
     }
     return true;

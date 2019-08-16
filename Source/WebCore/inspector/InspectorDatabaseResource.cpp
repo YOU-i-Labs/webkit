@@ -32,11 +32,11 @@
 #include "InspectorDatabaseResource.h"
 
 #include "Database.h"
-
-
-namespace WebCore {
+#include <inspector/InspectorValues.h>
 
 using namespace Inspector;
+
+namespace WebCore {
 
 static int nextUnusedId = 1;
 

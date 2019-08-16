@@ -27,7 +27,6 @@ namespace WebCore {
 class HTMLDetailsElement;
 
 class HTMLSummaryElement final : public HTMLElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLSummaryElement);
 public:
     static Ref<HTMLSummaryElement> create(const QualifiedName&, Document&);
 
@@ -40,11 +39,11 @@ private:
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
     void defaultEventHandler(Event&) final;
 
-    void didAddUserAgentShadowRoot(ShadowRoot&) final;
+    void didAddUserAgentShadowRoot(ShadowRoot*) final;
 
     bool hasCustomFocusLogic() const final { return true; }
 
-    RefPtr<HTMLDetailsElement> detailsElement() const;
+    HTMLDetailsElement* detailsElement() const;
 
     bool supportsFocus() const final;
 };

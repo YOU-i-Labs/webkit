@@ -26,33 +26,29 @@
 #pragma once
 
 #include "WasmName.h"
-#include "WasmNameSection.h"
-#include <wtf/RefPtr.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/WTFString.h>
 
 namespace JSC { namespace Wasm {
 
-struct NameSection;
-
 struct IndexOrName {
     typedef size_t Index;
 
-    IndexOrName() { m_indexName.index = emptyTag; }
-    IndexOrName(Index, std::pair<const Name*, RefPtr<NameSection>>&&);
-    bool isEmpty() const { return bitwise_cast<Index>(m_indexName) & emptyTag; }
-    bool isIndex() const { return bitwise_cast<Index>(m_indexName) & indexTag; }
+    IndexOrName()
+        : m_index(emptyTag)
+    { }
+    IndexOrName(Index, const Name*);
+    bool isEmpty() const { return bitwise_cast<Index>(*this) & emptyTag; }
+    bool isIndex() const { return bitwise_cast<Index>(*this) & indexTag; }
     bool isName() const { return !(isEmpty() || isName()); }
-    NameSection* nameSection() const { return m_nameSection.get(); }
 
     friend String makeString(const IndexOrName&);
 
 private:
     union {
-        Index index;
-        const Name* name;
-    } m_indexName;
-    RefPtr<NameSection> m_nameSection;
+        Index m_index;
+        const Name* m_name;
+    };
 
     // Use the top bits as tags. Neither pointers nor the function index space should use them.
     static constexpr Index indexTag = 1ull << (CHAR_BIT * sizeof(Index) - 1);

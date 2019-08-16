@@ -38,7 +38,7 @@ class VideoTrack;
 
 class VideoTrackClient {
 public:
-    virtual ~VideoTrackClient() = default;
+    virtual ~VideoTrackClient() { }
     virtual void videoTrackSelectedChanged(VideoTrack&) = 0;
 };
 
@@ -73,7 +73,6 @@ public:
     const MediaDescription& description() const;
 
     void setPrivate(VideoTrackPrivate&);
-    void setMediaElement(HTMLMediaElement*) override;
 
 private:
     VideoTrack(VideoTrackClient&, VideoTrackPrivate&);
@@ -93,13 +92,10 @@ private:
 
     void updateKindFromPrivate();
 
-#if !RELEASE_LOG_DISABLED
-    const char* logClassName() const final { return "VideoTrack"; }
-#endif
+    bool m_selected;
+    VideoTrackClient* m_client;
 
-    VideoTrackClient* m_client { nullptr };
     Ref<VideoTrackPrivate> m_private;
-    bool m_selected { false };
 };
 
 } // namespace WebCore

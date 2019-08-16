@@ -27,33 +27,27 @@
 
 namespace WebCore {
 
-using FormControlState = Vector<String>;
+class FormControlState;
 
 class HTMLFormControlElementWithState : public HTMLFormControlElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLFormControlElementWithState);
 public:
     virtual ~HTMLFormControlElementWithState();
 
+    bool canContainRangeEndPoint() const override { return false; }
+
     virtual bool shouldSaveAndRestoreFormControlState() const;
     virtual FormControlState saveFormControlState() const;
-    virtual void restoreFormControlState(const FormControlState&) { } // Called only if state is not empty.
+    // The specified FormControlState must have at least one string value.
+    virtual void restoreFormControlState(const FormControlState&) { }
 
 protected:
     HTMLFormControlElementWithState(const QualifiedName& tagName, Document&, HTMLFormElement*);
 
     virtual bool shouldAutocomplete() const;
-
-    bool canContainRangeEndPoint() const override { return false; }
     void finishParsingChildren() override;
-    InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) override;
-    void removedFromAncestor(RemovalType, ContainerNode&) override;
-
-private:
-    bool isFormControlElementWithState() const final;
+    InsertionNotificationRequest insertedInto(ContainerNode&) override;
+    void removedFrom(ContainerNode&) override;
+    bool isFormControlElementWithState() const override;
 };
 
 } // namespace WebCore
-
-SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::HTMLFormControlElementWithState)
-    static bool isType(const WebCore::FormAssociatedElement& element) { return element.isFormControlElementWithState(); }
-SPECIALIZE_TYPE_TRAITS_END()

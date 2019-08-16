@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,93 +25,85 @@
 
 #pragma once
 
-#include <cmath>
-#include <wtf/Optional.h>
 #include <wtf/Ref.h>
 #include <wtf/RefCounted.h>
 
-#if PLATFORM(IOS_FAMILY)
-OBJC_CLASS CLLocation;
-#endif
-
 namespace WebCore {
 
-class GeolocationPosition {
+class GeolocationPosition : public RefCounted<GeolocationPosition> {
 public:
-    GeolocationPosition() = default;
+    static Ref<GeolocationPosition> create(double timestamp, double latitude, double longitude, double accuracy)
+    {
+        return adoptRef(*new GeolocationPosition(timestamp, latitude, longitude, accuracy));
+    }
 
+    static Ref<GeolocationPosition> create(double timestamp, double latitude, double longitude, double accuracy, bool providesAltitude, double altitude, bool providesAltitudeAccuracy, double altitudeAccuracy, bool providesHeading, double heading, bool providesSpeed, double speed)
+    {
+        return adoptRef(*new GeolocationPosition(timestamp, latitude, longitude, accuracy, providesAltitude, altitude, providesAltitudeAccuracy, altitudeAccuracy, providesHeading, heading, providesSpeed, speed));
+    }
+
+    double timestamp() const { return m_timestamp; }
+
+    double latitude() const { return m_latitude; }
+    double longitude() const { return m_longitude; }
+    double accuracy() const { return m_accuracy; }
+    double altitude() const { return m_altitude; }
+    double altitudeAccuracy() const { return m_altitudeAccuracy; }
+    double heading() const { return m_heading; }
+    double speed() const { return m_speed; }
+
+    bool canProvideAltitude() const { return m_canProvideAltitude; }
+    bool canProvideAltitudeAccuracy() const { return m_canProvideAltitudeAccuracy; }
+    bool canProvideHeading() const { return m_canProvideHeading; }
+    bool canProvideSpeed() const { return m_canProvideSpeed; }
+
+private:
     GeolocationPosition(double timestamp, double latitude, double longitude, double accuracy)
-        : timestamp(timestamp)
-        , latitude(latitude)
-        , longitude(longitude)
-        , accuracy(accuracy)
+        : m_timestamp(timestamp)
+        , m_latitude(latitude)
+        , m_longitude(longitude)
+        , m_accuracy(accuracy)
+        , m_altitude(0)
+        , m_altitudeAccuracy(0)
+        , m_heading(0)
+        , m_speed(0)
+        , m_canProvideAltitude(false)
+        , m_canProvideAltitudeAccuracy(false)
+        , m_canProvideHeading(false)
+        , m_canProvideSpeed(false)
     {
     }
 
-#if PLATFORM(IOS_FAMILY)
-    WEBCORE_EXPORT explicit GeolocationPosition(CLLocation*);
-#endif
+    GeolocationPosition(double timestamp, double latitude, double longitude, double accuracy, bool providesAltitude, double altitude, bool providesAltitudeAccuracy, double altitudeAccuracy, bool providesHeading, double heading, bool providesSpeed, double speed)
+        : m_timestamp(timestamp)
+        , m_latitude(latitude)
+        , m_longitude(longitude)
+        , m_accuracy(accuracy)
+        , m_altitude(altitude)
+        , m_altitudeAccuracy(altitudeAccuracy)
+        , m_heading(heading)
+        , m_speed(speed)
+        , m_canProvideAltitude(providesAltitude)
+        , m_canProvideAltitudeAccuracy(providesAltitudeAccuracy)
+        , m_canProvideHeading(providesHeading)
+        , m_canProvideSpeed(providesSpeed)
+    {
+    }
 
-    double timestamp { std::numeric_limits<double>::quiet_NaN() };
+    double m_timestamp;
 
-    double latitude { std::numeric_limits<double>::quiet_NaN() };
-    double longitude { std::numeric_limits<double>::quiet_NaN() };
-    double accuracy { std::numeric_limits<double>::quiet_NaN() };
+    double m_latitude;
+    double m_longitude;
+    double m_accuracy;
+    double m_altitude;
+    double m_altitudeAccuracy;
+    double m_heading;
+    double m_speed;
 
-    Optional<double> altitude;
-    Optional<double> altitudeAccuracy;
-    Optional<double> heading;
-    Optional<double> speed;
-    Optional<double> floorLevel;
-
-    bool isValid() const;
-
-    template<class Encoder> void encode(Encoder&) const;
-    template<class Decoder> static bool decode(Decoder&, GeolocationPosition&);
+    bool m_canProvideAltitude;
+    bool m_canProvideAltitudeAccuracy;
+    bool m_canProvideHeading;
+    bool m_canProvideSpeed;
 };
-
-template<class Encoder>
-void GeolocationPosition::encode(Encoder& encoder) const
-{
-    encoder << timestamp;
-    encoder << latitude;
-    encoder << longitude;
-    encoder << accuracy;
-    encoder << altitude;
-    encoder << altitudeAccuracy;
-    encoder << heading;
-    encoder << speed;
-    encoder << floorLevel;
-}
-
-template<class Decoder>
-bool GeolocationPosition::decode(Decoder& decoder, GeolocationPosition& position)
-{
-    if (!decoder.decode(position.timestamp))
-        return false;
-    if (!decoder.decode(position.latitude))
-        return false;
-    if (!decoder.decode(position.longitude))
-        return false;
-    if (!decoder.decode(position.accuracy))
-        return false;
-    if (!decoder.decode(position.altitude))
-        return false;
-    if (!decoder.decode(position.altitudeAccuracy))
-        return false;
-    if (!decoder.decode(position.heading))
-        return false;
-    if (!decoder.decode(position.speed))
-        return false;
-    if (!decoder.decode(position.floorLevel))
-        return false;
-
-    return true;
-}
-
-inline bool GeolocationPosition::isValid() const
-{
-    return !std::isnan(timestamp) && !std::isnan(latitude) && !std::isnan(longitude) && !std::isnan(accuracy);
-}
 
 } // namespace WebCore

@@ -31,9 +31,8 @@
 #include "JSDOMWindowBase.h"
 #include "runtime_object.h"
 #include "runtime_root.h"
-#include <JavaScriptCore/JSCInlines.h>
-#include <JavaScriptCore/JSLock.h>
-#include <JavaScriptCore/ObjectPrototype.h>
+#include "runtime/JSLock.h"
+#include "runtime/ObjectPrototype.h"
 
 namespace JSC {
 
@@ -45,7 +44,9 @@ Array::Array(RefPtr<RootObject>&& rootObject)
     ASSERT(m_rootObject);
 }
 
-Array::~Array() = default;
+Array::~Array()
+{
+}
 
 Instance::Instance(RefPtr<RootObject>&& rootObject)
     : m_rootObject(WTFMove(rootObject))

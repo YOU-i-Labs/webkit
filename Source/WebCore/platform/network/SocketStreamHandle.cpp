@@ -31,7 +31,6 @@
 #include "config.h"
 #include "SocketStreamHandle.h"
 
-#include "CookieRequestHeaderFieldProxy.h"
 #include "SocketStreamHandleClient.h"
 #include <wtf/Function.h>
 
@@ -53,14 +52,7 @@ void SocketStreamHandle::sendData(const char* data, size_t length, Function<void
 {
     if (m_state == Connecting || m_state == Closing)
         return completionHandler(false);
-    platformSend(reinterpret_cast<const uint8_t*>(data), length, WTFMove(completionHandler));
-}
-
-void SocketStreamHandle::sendHandshake(CString&& handshake, Optional<CookieRequestHeaderFieldProxy>&& headerFieldProxy, Function<void(bool, bool)> completionHandler)
-{
-    if (m_state == Connecting || m_state == Closing)
-        return completionHandler(false, false);
-    platformSendHandshake(reinterpret_cast<const uint8_t*>(handshake.data()), handshake.length(), headerFieldProxy, WTFMove(completionHandler));
+    platformSend(data, length, WTFMove(completionHandler));
 }
 
 void SocketStreamHandle::close()

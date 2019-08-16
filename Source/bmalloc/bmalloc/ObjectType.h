@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,14 +27,13 @@
 #define ObjectType_h
 
 #include "BAssert.h"
-#include "HeapKind.h"
 #include "Sizes.h"
 
 namespace bmalloc {
 
 enum class ObjectType : unsigned char { Small, Large };
 
-ObjectType objectType(HeapKind, void*);
+ObjectType objectType(void*);
 
 inline bool mightBeLarge(void* object)
 {

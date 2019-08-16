@@ -56,9 +56,9 @@ FlexLayoutAlgorithm::FlexLayoutAlgorithm(const RenderStyle& style, LayoutUnit li
 bool FlexLayoutAlgorithm::computeNextFlexLine(size_t& nextIndex, Vector<FlexItem>& lineItems, LayoutUnit& sumFlexBaseSize, double& totalFlexGrow, double& totalFlexShrink, double& totalWeightedFlexShrink, LayoutUnit& sumHypotheticalMainSize)
 {
     lineItems.clear();
-    sumFlexBaseSize = 0_lu;
+    sumFlexBaseSize = LayoutUnit();
     totalFlexGrow = totalFlexShrink = totalWeightedFlexShrink = 0;
-    sumHypotheticalMainSize = 0_lu;
+    sumHypotheticalMainSize = LayoutUnit();
 
     bool lineHasInFlowItem = false;
 

@@ -24,7 +24,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ProbeSetDataTable = class ProbeSetDataTable extends WI.Object
+WebInspector.ProbeSetDataTable = class ProbeSetDataTable extends WebInspector.Object
 {
     constructor(probeSet)
     {
@@ -32,7 +32,7 @@ WI.ProbeSetDataTable = class ProbeSetDataTable extends WI.Object
 
         this._probeSet = probeSet;
         this._frames = [];
-        this._previousBatchIdentifier = WI.ProbeSetDataTable.SentinelValue;
+        this._previousBatchIdentifier = WebInspector.ProbeSetDataTable.SentinelValue;
     }
 
     // Public
@@ -49,7 +49,7 @@ WI.ProbeSetDataTable = class ProbeSetDataTable extends WI.Object
 
     willRemove()
     {
-        this.dispatchEventToListeners(WI.ProbeSetDataTable.Event.WillRemove);
+        this.dispatchEventToListeners(WebInspector.ProbeSetDataTable.Event.WillRemove);
         this._frames = [];
         delete this._probeSet;
     }
@@ -84,7 +84,7 @@ WI.ProbeSetDataTable = class ProbeSetDataTable extends WI.Object
     {
         for (var frame of this.frames)
             if (!frame[probe.id])
-                frame[probe.id] = WI.ProbeSetDataTable.UnknownValue;
+                frame[probe.id] = WebInspector.ProbeSetDataTable.UnknownValue;
     }
 
     removeProbe(probe)
@@ -97,13 +97,13 @@ WI.ProbeSetDataTable = class ProbeSetDataTable extends WI.Object
 
     createFrame()
     {
-        return new WI.ProbeSetDataFrame(this._frames.length);
+        return new WebInspector.ProbeSetDataFrame(this._frames.length);
     }
 
     addFrame(frame)
     {
         this._frames.push(frame);
-        this.dispatchEventToListeners(WI.ProbeSetDataTable.Event.FrameInserted, frame);
+        this.dispatchEventToListeners(WebInspector.ProbeSetDataTable.Event.FrameInserted, frame);
     }
 
     addSeparator()
@@ -118,15 +118,15 @@ WI.ProbeSetDataTable = class ProbeSetDataTable extends WI.Object
             return;
 
         previousFrame.isSeparator = true;
-        this.dispatchEventToListeners(WI.ProbeSetDataTable.Event.SeparatorInserted, previousFrame);
+        this.dispatchEventToListeners(WebInspector.ProbeSetDataTable.Event.SeparatorInserted, previousFrame);
     }
 };
 
-WI.ProbeSetDataTable.Event = {
+WebInspector.ProbeSetDataTable.Event = {
     FrameInserted: "probe-set-data-table-frame-inserted",
     SeparatorInserted: "probe-set-data-table-separator-inserted",
     WillRemove: "probe-set-data-table-will-remove"
 };
 
-WI.ProbeSetDataTable.SentinelValue = -1;
-WI.ProbeSetDataTable.UnknownValue = "?";
+WebInspector.ProbeSetDataTable.SentinelValue = -1;
+WebInspector.ProbeSetDataTable.UnknownValue = "?";

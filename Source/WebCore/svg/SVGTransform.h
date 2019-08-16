@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "ExceptionCode.h"
 #include "SVGMatrix.h"
 #include "SVGPropertyTearOff.h"
 #include "SVGTransformValue.h"
@@ -39,6 +40,11 @@ public:
     }
 
     static Ref<SVGTransform> create(const SVGTransformValue& initialValue = { })
+    {
+        return adoptRef(*new SVGTransform(initialValue));
+    }
+
+    static Ref<SVGTransform> create(const SVGTransformValue* initialValue)
     {
         return adoptRef(*new SVGTransform(initialValue));
     }
@@ -65,7 +71,7 @@ public:
     ExceptionOr<void> setMatrix(SVGMatrix& matrix)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         propertyReference().setMatrix(matrix.propertyReference());
         commitChange();
@@ -76,7 +82,7 @@ public:
     ExceptionOr<void> setTranslate(float tx, float ty)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         propertyReference().setTranslate(tx, ty);
         commitChange();
@@ -87,7 +93,7 @@ public:
     ExceptionOr<void> setScale(float sx, float sy)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         propertyReference().setScale(sx, sy);
         commitChange();
@@ -98,7 +104,7 @@ public:
     ExceptionOr<void> setRotate(float angle, float cx, float cy)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         propertyReference().setRotate(angle, cx, cy);
         commitChange();
@@ -109,7 +115,7 @@ public:
     ExceptionOr<void> setSkewX(float angle)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         propertyReference().setSkewX(angle);
         commitChange();
@@ -120,7 +126,7 @@ public:
     ExceptionOr<void> setSkewY(float angle)
     {
         if (isReadOnly())
-            return Exception { NoModificationAllowedError };
+            return Exception { NO_MODIFICATION_ALLOWED_ERR };
 
         propertyReference().setSkewY(angle);
         commitChange();
@@ -135,6 +141,11 @@ private:
     }
 
     explicit SVGTransform(const SVGTransformValue& initialValue)
+        : SVGPropertyTearOff<SVGTransformValue>(initialValue)
+    {
+    }
+
+    explicit SVGTransform(const SVGTransformValue* initialValue)
         : SVGPropertyTearOff<SVGTransformValue>(initialValue)
     {
     }

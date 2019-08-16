@@ -24,22 +24,20 @@
 #pragma once
 
 #include "FormNamedItem.h"
-#include "Node.h"
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class ContainerNode;
-class DOMFormData;
 class Document;
 class FormAttributeTargetObserver;
+class FormDataList;
 class HTMLElement;
 class HTMLFormElement;
+class Node;
 class ValidityState;
 
 class FormAssociatedElement : public FormNamedItem {
-    WTF_MAKE_NONCOPYABLE(FormAssociatedElement);
-    WTF_MAKE_FAST_ALLOCATED;
 public:
     virtual ~FormAssociatedElement();
 
@@ -61,7 +59,7 @@ public:
 
     // Override in derived classes to get the encoded name=value pair for submitting.
     // Return true for a successful control (see HTML4-17.13.2).
-    virtual bool appendFormData(DOMFormData&, bool) { return false; }
+    virtual bool appendFormData(FormDataList&, bool) { return false; }
 
     void formWillBeDestroyed();
 
@@ -92,8 +90,8 @@ public:
 protected:
     FormAssociatedElement(HTMLFormElement*);
 
-    void insertedIntoAncestor(Node::InsertionType, ContainerNode&);
-    void removedFromAncestor(Node::RemovalType, ContainerNode&);
+    void insertedInto(ContainerNode&);
+    void removedFrom(ContainerNode&);
     void didMoveToNewDocument(Document& oldDocument);
 
     void setForm(HTMLFormElement*);

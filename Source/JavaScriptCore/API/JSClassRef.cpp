@@ -35,8 +35,9 @@
 #include "ObjectPrototype.h"
 #include "JSCInlines.h"
 #include <wtf/text/StringHash.h>
-#include <wtf/unicode/UTF8Conversion.h>
+#include <wtf/unicode/UTF8.h>
 
+using namespace std;
 using namespace JSC;
 using namespace WTF::Unicode;
 
@@ -118,7 +119,7 @@ Ref<OpaqueJSClass> OpaqueJSClass::create(const JSClassDefinition* clientDefiniti
 
     JSClassDefinition protoDefinition = kJSClassDefinitionEmpty;
     protoDefinition.finalize = 0;
-    std::swap(definition.staticFunctions, protoDefinition.staticFunctions); // Move static functions to the prototype.
+    swap(definition.staticFunctions, protoDefinition.staticFunctions); // Move static functions to the prototype.
     
     // We are supposed to use JSClassRetain/Release but since we know that we currently have
     // the only reference to this class object we cheat and use a RefPtr instead.

@@ -22,7 +22,8 @@
  *
  */
 
-#pragma once
+#ifndef TransformOperations_h
+#define TransformOperations_h
 
 #include "LayoutSize.h"
 #include "TransformOperation.h"
@@ -52,22 +53,12 @@ public:
     // values describe affine transforms)
     bool has3DOperation() const
     {
-        for (const auto& operation : m_operations) {
-            if (operation->is3DOperation())
+        for (unsigned i = 0; i < m_operations.size(); ++i)
+            if (m_operations[i]->is3DOperation())
                 return true;
-        }
         return false;
     }
-
-    bool isRepresentableIn2D() const
-    {
-        for (const auto& operation : m_operations) {
-            if (!operation->isRepresentableIn2D())
-                return false;
-        }
-        return true;
-    }
-
+    
     bool operationsMatch(const TransformOperations&) const;
     
     void clear()
@@ -91,7 +82,8 @@ private:
     Vector<RefPtr<TransformOperation>> m_operations;
 };
 
-WTF::TextStream& operator<<(WTF::TextStream&, const TransformOperations&);
+TextStream& operator<<(TextStream&, const TransformOperations&);
 
 } // namespace WebCore
 
+#endif // TransformOperations_h

@@ -29,28 +29,28 @@
 #include "ApplicationCacheHost.h"
 #include "Document.h"
 #include "DocumentLoader.h"
+#include "ExceptionCode.h"
 #include "Frame.h"
-#include "FrameLoader.h"
 
 namespace WebCore {
 
-DOMApplicationCache::DOMApplicationCache(DOMWindow& window)
-    : DOMWindowProperty(&window)
+DOMApplicationCache::DOMApplicationCache(Frame& frame)
+    : DOMWindowProperty(&frame)
 {
     if (auto* host = applicationCacheHost())
         host->setDOMApplicationCache(this);
 }
 
-void DOMApplicationCache::suspendForPageCache()
+void DOMApplicationCache::disconnectFrameForDocumentSuspension()
 {
     if (auto* host = applicationCacheHost())
         host->setDOMApplicationCache(nullptr);
-    DOMWindowProperty::suspendForPageCache();
+    DOMWindowProperty::disconnectFrameForDocumentSuspension();
 }
 
-void DOMApplicationCache::resumeFromPageCache()
+void DOMApplicationCache::reconnectFrameFromDocumentSuspension(Frame* frame)
 {
-    DOMWindowProperty::resumeFromPageCache();
+    DOMWindowProperty::reconnectFrameFromDocumentSuspension(frame);
     if (auto* host = applicationCacheHost())
         host->setDOMApplicationCache(this);
 }
@@ -64,10 +64,9 @@ void DOMApplicationCache::willDestroyGlobalObjectInFrame()
 
 ApplicationCacheHost* DOMApplicationCache::applicationCacheHost() const
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return nullptr;
-    auto* documentLoader = frame->loader().documentLoader();
+    auto* documentLoader = m_frame->loader().documentLoader();
     if (!documentLoader)
         return nullptr;
     return &documentLoader->applicationCacheHost();
@@ -85,7 +84,7 @@ ExceptionOr<void> DOMApplicationCache::update()
 {
     auto* host = applicationCacheHost();
     if (!host || !host->update())
-        return Exception { InvalidStateError };
+        return Exception { INVALID_STATE_ERR };
     return { };
 }
 
@@ -93,7 +92,7 @@ ExceptionOr<void> DOMApplicationCache::swapCache()
 {
     auto* host = applicationCacheHost();
     if (!host || !host->swapCache())
-        return Exception { InvalidStateError };
+        return Exception { INVALID_STATE_ERR };
     return { };
 }
 
@@ -105,10 +104,9 @@ void DOMApplicationCache::abort()
 
 ScriptExecutionContext* DOMApplicationCache::scriptExecutionContext() const
 {
-    auto* frame = this->frame();
-    if (!frame)
+    if (!m_frame)
         return nullptr;
-    return frame->document();
+    return m_frame->document();
 }
 
 } // namespace WebCore

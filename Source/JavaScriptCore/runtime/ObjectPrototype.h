@@ -24,7 +24,7 @@
 
 namespace JSC {
 
-class ObjectPrototype final : public JSNonFinalObject {
+class ObjectPrototype : public JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
     static const unsigned StructureFlags = Base::StructureFlags | IsImmutablePrototypeExoticObject;
@@ -44,5 +44,7 @@ protected:
 private:
     ObjectPrototype(VM&, Structure*);
 };
+
+JS_EXPORT_PRIVATE EncodedJSValue JSC_HOST_CALL objectProtoFuncToString(ExecState*);
 
 } // namespace JSC

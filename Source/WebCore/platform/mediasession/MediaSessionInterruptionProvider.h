@@ -44,7 +44,7 @@ public:
     virtual void didReceiveEndOfInterruptionNotification(MediaSessionInterruptingCategory) = 0;
 
 protected:
-    virtual ~MediaSessionInterruptionProviderClient() = default;
+    virtual ~MediaSessionInterruptionProviderClient() { }
 };
 
 class MediaSessionInterruptionProvider : public RefCounted<MediaSessionInterruptionProvider> {
@@ -52,7 +52,7 @@ public:
     explicit MediaSessionInterruptionProvider(MediaSessionInterruptionProviderClient&);
     virtual ~MediaSessionInterruptionProvider();
 
-    // To be overridden by subclasses.
+    // To be overriden by subclasses.
     virtual void beginListeningForInterruptions() = 0;
     virtual void stopListeningForInterruptions() = 0;
 

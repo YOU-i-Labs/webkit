@@ -32,7 +32,6 @@ namespace WebCore {
 class RenderView;
 
 class RenderIFrame final : public RenderFrameBase {
-    WTF_MAKE_ISO_ALLOCATED(RenderIFrame);
 public:
     RenderIFrame(HTMLIFrameElement&, RenderStyle&&);
 
@@ -50,7 +49,7 @@ private:
 
     bool isRenderIFrame() const override { return true; }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     // FIXME: Do we still need this workaround to avoid breaking layout tests?
     const char* renderName() const override { return "RenderPartObject"; }
 #else
@@ -60,8 +59,6 @@ private:
     bool requiresLayer() const override;
 
     RenderView* contentRootRenderer() const;
-
-    bool isFullScreenIFrame() const;
 };
 
 } // namespace WebCore

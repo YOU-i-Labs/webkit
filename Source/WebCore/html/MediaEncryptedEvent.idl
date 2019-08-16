@@ -34,8 +34,7 @@ dictionary MediaEncryptedEventInit : EventInit {
 [
     Conditional=ENCRYPTED_MEDIA,
     Constructor(DOMString type, optional MediaEncryptedEventInit eventInitDict),
-    EnabledAtRuntime=EncryptedMediaAPI,
-    DisabledByQuirk=hasBrokenEncryptedMediaAPISupport,
+    EnabledAtRuntime=EncryptedMediaAPI
 ] interface MediaEncryptedEvent : Event {
     readonly attribute DOMString initDataType;
     readonly attribute ArrayBuffer? initData;

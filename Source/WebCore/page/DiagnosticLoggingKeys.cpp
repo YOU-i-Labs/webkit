@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2012, 2013 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,834 +30,742 @@ namespace WebCore {
 
 String DiagnosticLoggingKeys::mediaLoadedKey()
 {
-    return "mediaLoaded"_s;
+    return ASCIILiteral("mediaLoaded");
 }
 
 String DiagnosticLoggingKeys::mediaLoadingFailedKey()
 {
-    return "mediaFailedLoading"_s;
+    return ASCIILiteral("mediaFailedLoading");
 }
 
 String DiagnosticLoggingKeys::memoryCacheEntryDecisionKey()
 {
-    return "memoryCacheEntryDecision"_s;
+    return ASCIILiteral("memoryCacheEntryDecision");
 }
 
 String DiagnosticLoggingKeys::memoryCacheUsageKey()
 {
-    return "memoryCacheUsage"_s;
+    return ASCIILiteral("memoryCacheUsage");
 }
 
 String DiagnosticLoggingKeys::missingValidatorFieldsKey()
 {
-    return "missingValidatorFields"_s;
+    return ASCIILiteral("missingValidatorFields");
 }
 
 String DiagnosticLoggingKeys::pluginLoadedKey()
 {
-    return "pluginLoaded"_s;
+    return ASCIILiteral("pluginLoaded");
 }
 
 String DiagnosticLoggingKeys::pluginLoadingFailedKey()
 {
-    return "pluginFailedLoading"_s;
+    return ASCIILiteral("pluginFailedLoading");
 }
 
 String DiagnosticLoggingKeys::postPageBackgroundingCPUUsageKey()
 {
-    return "postPageBackgroundingCPUUsage"_s;
+    return ASCIILiteral("postPageBackgroundingCPUUsage");
 }
 
 String DiagnosticLoggingKeys::postPageBackgroundingMemoryUsageKey()
 {
-    return "postPageBackgroundingMemoryUsage"_s;
+    return ASCIILiteral("postPageBackgroundingMemoryUsage");
 }
 
 String DiagnosticLoggingKeys::pageHandlesWebGLContextLossKey()
 {
-    return "pageHandlesWebGLContextLoss"_s;
+    return ASCIILiteral("pageHandlesWebGLContextLoss");
 }
 
 String DiagnosticLoggingKeys::postPageLoadCPUUsageKey()
 {
-    return "postPageLoadCPUUsage"_s;
+    return ASCIILiteral("postPageLoadCPUUsage");
 }
 
 String DiagnosticLoggingKeys::postPageLoadMemoryUsageKey()
 {
-    return "postPageLoadMemoryUsage"_s;
+    return ASCIILiteral("postPageLoadMemoryUsage");
 }
 
 String DiagnosticLoggingKeys::provisionalLoadKey()
 {
-    return "provisionalLoad"_s;
+    return ASCIILiteral("provisionalLoad");
 }
 
 String DiagnosticLoggingKeys::pageContainsPluginKey()
 {
-    return "pageContainsPlugin"_s;
+    return ASCIILiteral("pageContainsPlugin");
 }
 
 String DiagnosticLoggingKeys::pageContainsAtLeastOnePluginKey()
 {
-    return "pageContainsAtLeastOnePlugin"_s;
+    return ASCIILiteral("pageContainsAtLeastOnePlugin");
 }
 
 String DiagnosticLoggingKeys::pageContainsMediaEngineKey()
 {
-    return "pageContainsMediaEngine"_s;
+    return ASCIILiteral("pageContainsMediaEngine");
 }
 
 String DiagnosticLoggingKeys::pageContainsAtLeastOneMediaEngineKey()
 {
-    return "pageContainsAtLeastOneMediaEngine"_s;
+    return ASCIILiteral("pageContainsAtLeastOneMediaEngine");
 }
 
 String DiagnosticLoggingKeys::pageLoadedKey()
 {
-    return "pageLoaded"_s;
+    return ASCIILiteral("pageLoaded");
 }
 
 String DiagnosticLoggingKeys::playedKey()
 {
-    return "played"_s;
+    return ASCIILiteral("played");
 }
 
 String DiagnosticLoggingKeys::engineFailedToLoadKey()
 {
-    return "engineFailedToLoad"_s;
+    return ASCIILiteral("engineFailedToLoad");
 }
 
 String DiagnosticLoggingKeys::entryRightlyNotWarmedUpKey()
 {
-    return "entryRightlyNotWarmedUp"_s;
+    return ASCIILiteral("entryRightlyNotWarmedUp");
 }
 
 String DiagnosticLoggingKeys::entryWronglyNotWarmedUpKey()
 {
-    return "entryWronglyNotWarmedUp"_s;
+    return ASCIILiteral("entryWronglyNotWarmedUp");
 }
 
 String DiagnosticLoggingKeys::navigationKey()
 {
-    return "navigation"_s;
+    return ASCIILiteral("navigation");
 }
 
 String DiagnosticLoggingKeys::needsRevalidationKey()
 {
-    return "needsRevalidation"_s;
+    return ASCIILiteral("needsRevalidation");
 }
 
 String DiagnosticLoggingKeys::networkCacheKey()
 {
-    return "networkCache"_s;
+    return ASCIILiteral("networkCache");
 }
 
 String DiagnosticLoggingKeys::networkCacheFailureReasonKey()
 {
-    return "networkCacheFailureReason"_s;
+    return ASCIILiteral("networkCacheFailureReason");
 }
 
 String DiagnosticLoggingKeys::networkCacheUnusedReasonKey()
 {
-    return "networkCacheUnusedReason"_s;
+    return ASCIILiteral("networkCacheUnusedReason");
 }
 
 String DiagnosticLoggingKeys::networkCacheReuseFailureKey()
 {
-    return "networkCacheReuseFailure"_s;
+    return ASCIILiteral("networkCacheReuseFailure");
 }
 
 String DiagnosticLoggingKeys::networkKey()
 {
-    return "network"_s;
+    return ASCIILiteral("network");
 }
 
 String DiagnosticLoggingKeys::networkProcessCrashedKey()
 {
-    return "networkProcessCrashed"_s;
+    return ASCIILiteral("networkProcessCrashed");
 }
 
 String DiagnosticLoggingKeys::neverSeenBeforeKey()
 {
-    return "neverSeenBefore"_s;
+    return ASCIILiteral("neverSeenBefore");
 }
 
 String DiagnosticLoggingKeys::noKey()
 {
-    return "no"_s;
+    return ASCIILiteral("no");
 }
 
 String DiagnosticLoggingKeys::noCacheKey()
 {
-    return "noCache"_s;
+    return ASCIILiteral("noCache");
 }
 
 String DiagnosticLoggingKeys::noStoreKey()
 {
-    return "noStore"_s;
+    return ASCIILiteral("noStore");
 }
 
 String DiagnosticLoggingKeys::nonVisibleStateKey()
 {
-    return "nonVisibleState"_s;
+    return ASCIILiteral("nonVisibleState");
 }
 
 String DiagnosticLoggingKeys::notInMemoryCacheKey()
 {
-    return "notInMemoryCache"_s;
+    return ASCIILiteral("notInMemoryCache");
 }
 
 String DiagnosticLoggingKeys::pageCacheKey()
 {
-    return "pageCache"_s;
+    return ASCIILiteral("pageCache");
 }
 
 String DiagnosticLoggingKeys::pageCacheFailureKey()
 {
-    return "pageCacheFailure"_s;
+    return ASCIILiteral("pageCacheFailure");
 }
 
 String DiagnosticLoggingKeys::noDocumentLoaderKey()
 {
-    return "noDocumentLoader"_s;
+    return ASCIILiteral("noDocumentLoader");
 }
 
 String DiagnosticLoggingKeys::noLongerInCacheKey()
 {
-    return "noLongerInCache"_s;
+    return ASCIILiteral("noLongerInCache");
 }
 
 String DiagnosticLoggingKeys::otherKey()
 {
-    return "other"_s;
+    return ASCIILiteral("other");
 }
 
 String DiagnosticLoggingKeys::mainDocumentErrorKey()
 {
-    return "mainDocumentError"_s;
+    return ASCIILiteral("mainDocumentError");
 }
 
 String DiagnosticLoggingKeys::mainResourceKey()
 {
-    return "mainResource"_s;
+    return ASCIILiteral("mainResource");
 }
 
 String DiagnosticLoggingKeys::isErrorPageKey()
 {
-    return "isErrorPage"_s;
+    return ASCIILiteral("isErrorPage");
 }
 
 String DiagnosticLoggingKeys::isExpiredKey()
 {
-    return "isExpired"_s;
+    return ASCIILiteral("isExpired");
 }
 
 String DiagnosticLoggingKeys::isReloadIgnoringCacheDataKey()
 {
-    return "isReloadIgnoringCacheData"_s;
+    return ASCIILiteral("isReloadIgnoringCacheData");
 }
 
 String DiagnosticLoggingKeys::loadingKey()
 {
-    return "loading"_s;
+    return ASCIILiteral("loading");
 }
 
 String DiagnosticLoggingKeys::hasPluginsKey()
 {
-    return "hasPlugins"_s;
+    return ASCIILiteral("hasPlugins");
 }
 
 String DiagnosticLoggingKeys::httpsNoStoreKey()
 {
-    return "httpsNoStore"_s;
+    return ASCIILiteral("httpsNoStore");
 }
 
 String DiagnosticLoggingKeys::imageKey()
 {
-    return "image"_s;
+    return ASCIILiteral("image");
 }
 
 String DiagnosticLoggingKeys::inMemoryCacheKey()
 {
-    return "inMemoryCache"_s;
+    return ASCIILiteral("inMemoryCache");
 }
 
 String DiagnosticLoggingKeys::inactiveKey()
 {
-    return "inactive"_s;
+    return ASCIILiteral("inactive");
 }
 
 String DiagnosticLoggingKeys::internalErrorKey()
 {
-    return "internalError"_s;
+    return ASCIILiteral("internalError");
 }
 
 String DiagnosticLoggingKeys::invalidSessionIDKey()
 {
-    return "invalidSessionID"_s;
+    return ASCIILiteral("invalidSessionID");
 }
 
 String DiagnosticLoggingKeys::isAttachmentKey()
 {
-    return "isAttachment"_s;
+    return ASCIILiteral("isAttachment");
 }
 
 String DiagnosticLoggingKeys::isConditionalRequestKey()
 {
-    return "isConditionalRequest"_s;
+    return ASCIILiteral("isConditionalRequest");
 }
 
 String DiagnosticLoggingKeys::isDisabledKey()
 {
-    return "isDisabled"_s;
+    return ASCIILiteral("isDisabled");
 }
 
 String DiagnosticLoggingKeys::noCurrentHistoryItemKey()
 {
-    return "noCurrentHistoryItem"_s;
+    return ASCIILiteral("noCurrentHistoryItem");
 }
 
 String DiagnosticLoggingKeys::quirkRedirectComingKey()
 {
-    return "quirkRedirectComing"_s;
+    return ASCIILiteral("quirkRedirectComing");
 }
 
 String DiagnosticLoggingKeys::rawKey()
 {
-    return "raw"_s;
+    return ASCIILiteral("raw");
 }
 
 String DiagnosticLoggingKeys::redirectKey()
 {
-    return "redirect"_s;
+    return ASCIILiteral("redirect");
 }
 
 String DiagnosticLoggingKeys::isLoadingKey()
 {
-    return "isLoading"_s;
+    return ASCIILiteral("isLoading");
 }
 
 String DiagnosticLoggingKeys::documentLoaderStoppingKey()
 {
-    return "documentLoaderStopping"_s;
-}
-
-String DiagnosticLoggingKeys::domainCausingCrashKey()
-{
-    return "DomainCausingCrash"_s;
+    return ASCIILiteral("documentLoaderStopping");
 }
 
 String DiagnosticLoggingKeys::domainCausingEnergyDrainKey()
 {
-    return "DomainCausingEnergyDrain"_s;
+    return ASCIILiteral("DomainCausingEnergyDrain");
 }
 
 String DiagnosticLoggingKeys::domainCausingJetsamKey()
 {
-    return "DomainCausingJetsam"_s;
+    return ASCIILiteral("DomainCausingJetsam");
 }
 
 String DiagnosticLoggingKeys::simulatedPageCrashKey()
 {
-    return "SimulatedPageCrash"_s;
+    return ASCIILiteral("SimulatedPageCrash");
 }
 
 String DiagnosticLoggingKeys::exceededActiveMemoryLimitKey()
 {
-    return "ExceededActiveMemoryLimit"_s;
+    return ASCIILiteral("ExceededActiveMemoryLimit");
 }
 
 String DiagnosticLoggingKeys::exceededInactiveMemoryLimitKey()
 {
-    return "ExceededInactiveMemoryLimit"_s;
+    return ASCIILiteral("ExceededInactiveMemoryLimit");
 }
 
 String DiagnosticLoggingKeys::exceededBackgroundCPULimitKey()
 {
-    return "ExceededBackgroundCPULimit"_s;
+    return ASCIILiteral("ExceededBackgroundCPULimit");
 }
 
 String DiagnosticLoggingKeys::domainVisitedKey()
 {
-    return "DomainVisited"_s;
+    return ASCIILiteral("DomainVisited");
 }
 
 String DiagnosticLoggingKeys::cannotSuspendActiveDOMObjectsKey()
 {
-    return "cannotSuspendActiveDOMObjects"_s;
+    return ASCIILiteral("cannotSuspendActiveDOMObjects");
 }
 
 String DiagnosticLoggingKeys::cpuUsageKey()
 {
-    return "cpuUsage"_s;
+    return ASCIILiteral("cpuUsage");
 }
 
 String DiagnosticLoggingKeys::createSharedBufferFailedKey()
 {
-    return "createSharedBufferFailed"_s;
+    return ASCIILiteral("createSharedBufferFailed");
 }
 
 String DiagnosticLoggingKeys::activeInForegroundTabKey()
 {
-    return "activeInForegroundTab"_s;
+    return ASCIILiteral("activeInForegroundTab");
 }
 
 String DiagnosticLoggingKeys::activeInBackgroundTabOnlyKey()
 {
-    return "activeInBackgroundTabOnly"_s;
+    return ASCIILiteral("activeInBackgroundTabOnly");
 }
 
 String DiagnosticLoggingKeys::applicationCacheKey()
 {
-    return "applicationCache"_s;
+    return ASCIILiteral("applicationCache");
 }
-
-#if ENABLE(APPLICATION_MANIFEST)
-String DiagnosticLoggingKeys::applicationManifestKey()
-{
-    return "applicationManifest"_s;
-}
-#endif
 
 String DiagnosticLoggingKeys::audioKey()
 {
-    return "audio"_s;
+    return ASCIILiteral("audio");
 }
 
 String DiagnosticLoggingKeys::backNavigationDeltaKey()
 {
-    return "backNavigationDelta"_s;
+    return ASCIILiteral("backNavigationDelta");
 }
 
 String DiagnosticLoggingKeys::canCacheKey()
 {
-    return "canCache"_s;
+    return ASCIILiteral("canCache");
 }
 
 String DiagnosticLoggingKeys::cacheControlNoStoreKey()
 {
-    return "cacheControlNoStore"_s;
+    return ASCIILiteral("cacheControlNoStore");
 }
 
 String DiagnosticLoggingKeys::cachedResourceRevalidationKey()
 {
-    return "cachedResourceRevalidation"_s;
+    return ASCIILiteral("cachedResourceRevalidation");
 }
 
 String DiagnosticLoggingKeys::cachedResourceRevalidationReasonKey()
 {
-    return "cachedResourceRevalidationReason"_s;
+    return ASCIILiteral("cachedResourceRevalidationReason");
 }
 
 String DiagnosticLoggingKeys::deniedByClientKey()
 {
-    return "deniedByClient"_s;
+    return ASCIILiteral("deniedByClient");
 }
 
 String DiagnosticLoggingKeys::deviceMotionKey()
 {
-    return "deviceMotion"_s;
+    return ASCIILiteral("deviceMotion");
 }
 
 String DiagnosticLoggingKeys::deviceOrientationKey()
 {
-    return "deviceOrientation"_s;
+    return ASCIILiteral("deviceOrientation");
+}
+
+String DiagnosticLoggingKeys::deviceProximityKey()
+{
+    return ASCIILiteral("deviceProximity");
 }
 
 String DiagnosticLoggingKeys::diskCacheKey()
 {
-    return "diskCache"_s;
+    return ASCIILiteral("diskCache");
 }
 
 String DiagnosticLoggingKeys::diskCacheAfterValidationKey()
 {
-    return "diskCacheAfterValidation"_s;
+    return ASCIILiteral("diskCacheAfterValidation");
 }
 
 String DiagnosticLoggingKeys::reloadKey()
 {
-    return "reload"_s;
+    return ASCIILiteral("reload");
 }
 
 String DiagnosticLoggingKeys::replaceKey()
 {
-    return "replace"_s;
+    return ASCIILiteral("replace");
 }
 
 String DiagnosticLoggingKeys::retrievalRequestKey()
 {
-    return "retrievalRequest"_s;
+    return ASCIILiteral("retrievalRequest");
 }
 
 String DiagnosticLoggingKeys::resourceLoadedKey()
 {
-    return "resourceLoaded"_s;
+    return ASCIILiteral("resourceLoaded");
 }
 
 String DiagnosticLoggingKeys::resourceResponseSourceKey()
 {
-    return "resourceResponseSource"_s;
+    return ASCIILiteral("resourceResponseSource");
 }
 
 String DiagnosticLoggingKeys::retrievalKey()
 {
-    return "retrieval"_s;
+    return ASCIILiteral("retrieval");
 }
 
 String DiagnosticLoggingKeys::revalidatingKey()
 {
-    return "revalidating"_s;
+    return ASCIILiteral("revalidating");
 }
 
 String DiagnosticLoggingKeys::reloadFromOriginKey()
 {
-    return "reloadFromOrigin"_s;
+    return ASCIILiteral("reloadFromOrigin");
 }
 
 String DiagnosticLoggingKeys::reloadRevalidatingExpiredKey()
 {
-    return "reloadRevalidatingExpired"_s;
+    return ASCIILiteral("reloadRevalidatingExpired");
 }
 
 String DiagnosticLoggingKeys::sameLoadKey()
 {
-    return "sameLoad"_s;
+    return ASCIILiteral("sameLoad");
 }
 
 String DiagnosticLoggingKeys::scriptKey()
 {
-    return "script"_s;
-}
-
-String DiagnosticLoggingKeys::serviceWorkerKey()
-{
-    return "serviceWorker"_s;
+    return ASCIILiteral("script");
 }
 
 String DiagnosticLoggingKeys::streamingMedia()
 {
-    return "streamingMedia"_s;
+    return ASCIILiteral("streamingMedia");
 }
 
 String DiagnosticLoggingKeys::styleSheetKey()
 {
-    return "styleSheet"_s;
+    return ASCIILiteral("styleSheet");
 }
 
 String DiagnosticLoggingKeys::successfulSpeculativeWarmupWithRevalidationKey()
 {
-    return "successfulSpeculativeWarmupWithRevalidation"_s;
+    return ASCIILiteral("successfulSpeculativeWarmupWithRevalidation");
 }
 
 String DiagnosticLoggingKeys::successfulSpeculativeWarmupWithoutRevalidationKey()
 {
-    return "successfulSpeculativeWarmupWithoutRevalidation"_s;
+    return ASCIILiteral("successfulSpeculativeWarmupWithoutRevalidation");
 }
 
 String DiagnosticLoggingKeys::svgDocumentKey()
 {
-    return "svgDocument"_s;
+    return ASCIILiteral("svgDocument");
 }
 
 String DiagnosticLoggingKeys::synchronousMessageFailedKey()
 {
-    return "synchronousMessageFailed"_s;
-}
-
-String DiagnosticLoggingKeys::telemetryPageLoadKey()
-{
-    return "telemetryPageLoad"_s;
-}
-
-String DiagnosticLoggingKeys::timedOutKey()
-{
-    return "timedOut"_s;
-}
-
-String DiagnosticLoggingKeys::canceledLessThan2SecondsKey()
-{
-    return "canceledLessThan2Seconds"_s;
-}
-
-String DiagnosticLoggingKeys::canceledLessThan5SecondsKey()
-{
-    return "canceledLessThan5Seconds"_s;
-}
-
-String DiagnosticLoggingKeys::canceledLessThan20SecondsKey()
-{
-    return "canceledLessThan20Seconds"_s;
-}
-
-String DiagnosticLoggingKeys::canceledMoreThan20SecondsKey()
-{
-    return "canceledMoreThan20Seconds"_s;
-}
-
-String DiagnosticLoggingKeys::failedLessThan2SecondsKey()
-{
-    return "failedLessThan2Seconds"_s;
-}
-
-String DiagnosticLoggingKeys::failedLessThan5SecondsKey()
-{
-    return "failedLessThan5Seconds"_s;
-}
-
-String DiagnosticLoggingKeys::failedLessThan20SecondsKey()
-{
-    return "failedLessThan20Seconds"_s;
-}
-
-String DiagnosticLoggingKeys::failedMoreThan20SecondsKey()
-{
-    return "failedMoreThan20Seconds"_s;
-}
-
-String DiagnosticLoggingKeys::occurredKey()
-{
-    return "occurred"_s;
-}
-
-String DiagnosticLoggingKeys::succeededLessThan2SecondsKey()
-{
-    return "succeededLessThan2Seconds"_s;
-}
-
-String DiagnosticLoggingKeys::succeededLessThan5SecondsKey()
-{
-    return "succeededLessThan5Seconds"_s;
-}
-
-String DiagnosticLoggingKeys::succeededLessThan20SecondsKey()
-{
-    return "succeededLessThan20Seconds"_s;
-}
-
-String DiagnosticLoggingKeys::succeededMoreThan20SecondsKey()
-{
-    return "succeededMoreThan20Seconds"_s;
+    return ASCIILiteral("synchronousMessageFailed");
 }
 
 String DiagnosticLoggingKeys::uncacheableStatusCodeKey()
 {
-    return "uncacheableStatusCode"_s;
+    return ASCIILiteral("uncacheableStatusCode");
 }
 
 String DiagnosticLoggingKeys::underMemoryPressureKey()
 {
-    return "underMemoryPressure"_s;
+    return ASCIILiteral("underMemoryPressure");
 }
 
 String DiagnosticLoggingKeys::unknownEntryRequestKey()
 {
-    return "unknownEntryRequest"_s;
+    return ASCIILiteral("unknownEntryRequest");
 }
 
 String DiagnosticLoggingKeys::unlikelyToReuseKey()
 {
-    return "unlikelyToReuse"_s;
+    return ASCIILiteral("unlikelyToReuse");
 }
 
 String DiagnosticLoggingKeys::unsupportedHTTPMethodKey()
 {
-    return "unsupportedHTTPMethod"_s;
+    return ASCIILiteral("unsupportedHTTPMethod");
 }
 
 String DiagnosticLoggingKeys::unsuspendableDOMObjectKey()
 {
-    return "unsuspendableDOMObject"_s;
+    return ASCIILiteral("unsuspendableDOMObject");
 }
 
 String DiagnosticLoggingKeys::unusedKey()
 {
-    return "unused"_s;
+    return ASCIILiteral("unused");
 }
 
 String DiagnosticLoggingKeys::unusedReasonCredentialSettingsKey()
 {
-    return "unused.reason.credentialSettings"_s;
+    return ASCIILiteral("unused.reason.credentialSettings");
 }
 
 String DiagnosticLoggingKeys::unusedReasonErrorKey()
 {
-    return "unused.reason.error"_s;
+    return ASCIILiteral("unused.reason.error");
 }
 
 String DiagnosticLoggingKeys::unusedReasonMustRevalidateNoValidatorKey()
 {
-    return "unused.reason.mustRevalidateNoValidator"_s;
+    return ASCIILiteral("unused.reason.mustRevalidateNoValidator");
 }
 
 String DiagnosticLoggingKeys::unusedReasonNoStoreKey()
 {
-    return "unused.reason.noStore"_s;
+    return ASCIILiteral("unused.reason.noStore");
 }
 
 String DiagnosticLoggingKeys::unusedReasonRedirectChainKey()
 {
-    return "unused.reason.redirectChain"_s;
+    return ASCIILiteral("unused.reason.redirectChain");
 }
 
 String DiagnosticLoggingKeys::unusedReasonReloadKey()
 {
-    return "unused.reason.reload"_s;
+    return ASCIILiteral("unused.reason.reload");
 }
 
 String DiagnosticLoggingKeys::unusedReasonTypeMismatchKey()
 {
-    return "unused.reason.typeMismatch"_s;
+    return ASCIILiteral("unused.reason.typeMismatch");
 }
 
 String DiagnosticLoggingKeys::usedKey()
 {
-    return "used"_s;
+    return ASCIILiteral("used");
 }
 
 String DiagnosticLoggingKeys::userZoomActionKey()
 {
-    return "userZoomAction"_s;
+    return ASCIILiteral("userZoomAction");
 }
 
 String DiagnosticLoggingKeys::varyingHeaderMismatchKey()
 {
-    return "varyingHeaderMismatch"_s;
+    return ASCIILiteral("varyingHeaderMismatch");
 }
 
 String DiagnosticLoggingKeys::videoKey()
 {
-    return "video"_s;
+    return ASCIILiteral("video");
 }
 
 String DiagnosticLoggingKeys::visibleNonActiveStateKey()
 {
-    return "visibleNonActiveState"_s;
+    return ASCIILiteral("visibleNonActiveState");
 }
 
 String DiagnosticLoggingKeys::visibleAndActiveStateKey()
 {
-    return "visibleAndActiveState"_s;
+    return ASCIILiteral("visibleAndActiveState");
 }
 
 String DiagnosticLoggingKeys::wastedSpeculativeWarmupWithRevalidationKey()
 {
-    return "wastedSpeculativeWarmupWithRevalidation"_s;
+    return ASCIILiteral("wastedSpeculativeWarmupWithRevalidation");
 }
 
 String DiagnosticLoggingKeys::wastedSpeculativeWarmupWithoutRevalidationKey()
 {
-    return "wastedSpeculativeWarmupWithoutRevalidation"_s;
+    return ASCIILiteral("wastedSpeculativeWarmupWithoutRevalidation");
 }
 
 String DiagnosticLoggingKeys::webViewKey()
 {
-    return "webView"_s;
+    return ASCIILiteral("webView");
 }
 
 String DiagnosticLoggingKeys::yesKey()
 {
-    return "yes"_s;
+    return ASCIILiteral("yes");
 }
 
 String DiagnosticLoggingKeys::expiredKey()
 {
-    return "expired"_s;
+    return ASCIILiteral("expired");
 }
 
 String DiagnosticLoggingKeys::fontKey()
 {
-    return "font"_s;
+    return ASCIILiteral("font");
 }
 
 String DiagnosticLoggingKeys::prunedDueToMemoryPressureKey()
 {
-    return "pruned.memoryPressure"_s;
+    return ASCIILiteral("pruned.memoryPressure");
 }
 
 String DiagnosticLoggingKeys::prunedDueToMaxSizeReached()
 {
-    return "pruned.capacityReached"_s;
+    return ASCIILiteral("pruned.capacityReached");
 }
 
 String DiagnosticLoggingKeys::prunedDueToProcessSuspended()
 {
-    return "pruned.processSuspended"_s;
+    return ASCIILiteral("pruned.processSuspended");
 }
 
 String WebCore::DiagnosticLoggingKeys::notHTTPFamilyKey()
 {
-    return "notHTTPFamily"_s;
+    return ASCIILiteral("notHTTPFamily");
 }
 
 String WebCore::DiagnosticLoggingKeys::webGLStateKey()
 {
-    return "webGLState"_s;
+    return ASCIILiteral("webGLState");
 }
 
 String DiagnosticLoggingKeys::memoryUsageToDiagnosticLoggingKey(uint64_t memoryUsage)
 {
     if (memoryUsage < 32 * MB)
-        return "below32"_s;
+        return ASCIILiteral("below32");
     if (memoryUsage < 64 * MB)
-        return "32to64"_s;
+        return ASCIILiteral("32to64");
     if (memoryUsage < 128 * MB)
-        return "64to128"_s;
+        return ASCIILiteral("64to128");
     if (memoryUsage < 256 * MB)
-        return "128to256"_s;
+        return ASCIILiteral("128to256");
     if (memoryUsage < 512 * MB)
-        return "256to512"_s;
+        return ASCIILiteral("256to512");
     if (memoryUsage < 1024 * MB)
-        return "512to1024"_s;
+        return ASCIILiteral("512to1024");
     if (memoryUsage < 2048 * MB)
-        return "1024to2048"_s;
+        return ASCIILiteral("1024to2048");
     if (memoryUsage < 4096llu * MB)
-        return "2048to4096"_s;
+        return ASCIILiteral("2048to4096");
     if (memoryUsage < 8192llu * MB)
-        return "4096to8192"_s;
+        return ASCIILiteral("4096to8192");
     if (memoryUsage < 16384llu * MB)
-        return "8192to16384"_s;
+        return ASCIILiteral("8192to16384");
     if (memoryUsage < 32768llu * MB)
-        return "16384to32768"_s;
-    return "over32768"_s;
+        return ASCIILiteral("16384to32768");
+    return ASCIILiteral("over32768");
 }
 
 String DiagnosticLoggingKeys::foregroundCPUUsageToDiagnosticLoggingKey(double cpuUsage)
 {
     if (cpuUsage < 10)
-        return "below10"_s;
+        return ASCIILiteral("below10");
     if (cpuUsage < 20)
-        return "10to20"_s;
+        return ASCIILiteral("10to20");
     if (cpuUsage < 40)
-        return "20to40"_s;
+        return ASCIILiteral("20to40");
     if (cpuUsage < 60)
-        return "40to60"_s;
+        return ASCIILiteral("40to60");
     if (cpuUsage < 80)
-        return "60to80"_s;
-    return "over80"_s;
+        return ASCIILiteral("60to80");
+    return ASCIILiteral("over80");
 }
 
 String DiagnosticLoggingKeys::backgroundCPUUsageToDiagnosticLoggingKey(double cpuUsage)
 {
     if (cpuUsage < 1)
-        return "below1"_s;
+        return ASCIILiteral("below1");
     if (cpuUsage < 5)
-        return "1to5"_s;
+        return ASCIILiteral("1to5");
     if (cpuUsage < 10)
-        return "5to10"_s;
+        return ASCIILiteral("5to10");
     if (cpuUsage < 30)
-        return "10to30"_s;
+        return ASCIILiteral("10to30");
     if (cpuUsage < 50)
-        return "30to50"_s;
+        return ASCIILiteral("30to50");
     if (cpuUsage < 70)
-        return "50to70"_s;
-    return "over70"_s;
+        return ASCIILiteral("50to70");
+    return ASCIILiteral("over70");
 }
 
-String DiagnosticLoggingKeys::resourceLoadStatisticsTelemetryKey()
-{
-    return "resourceLoadStatisticsTelemetry"_s;
-}
-    
 } // namespace WebCore
 

@@ -27,7 +27,7 @@
 
 #include "CryptoAlgorithmParameters.h"
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 namespace WebCore {
 
@@ -36,19 +36,10 @@ public:
     String namedCurve;
 
     Class parametersClass() const final { return Class::EcKeyParams; }
-
-    CryptoAlgorithmEcKeyParams isolatedCopy() const
-    {
-        CryptoAlgorithmEcKeyParams result;
-        result.identifier = identifier;
-        result.namedCurve = namedCurve.isolatedCopy();
-
-        return result;
-    }
 };
 
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_CRYPTO_ALGORITHM_PARAMETERS(EcKeyParams)
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

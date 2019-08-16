@@ -40,7 +40,9 @@ ActiveDOMCallback::ActiveDOMCallback(ScriptExecutionContext* context)
 {
 }
 
-ActiveDOMCallback::~ActiveDOMCallback() = default;
+ActiveDOMCallback::~ActiveDOMCallback()
+{
+}
 
 bool ActiveDOMCallback::canInvokeCallback() const
 {

@@ -32,29 +32,19 @@
 #include "JSCSSRuleCustom.h"
 #include "JSStyleSheetCustom.h"
 
-
-namespace WebCore {
 using namespace JSC;
 
-bool JSCSSRuleListOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, SlotVisitor& visitor, const char** reason)
+namespace WebCore {
+
+bool JSCSSRuleListOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, SlotVisitor& visitor)
 {
     JSCSSRuleList* jsCSSRuleList = jsCast<JSCSSRuleList*>(handle.slot()->asCell());
-    if (!jsCSSRuleList->hasCustomProperties(*jsCSSRuleList->vm()))
+    if (!jsCSSRuleList->hasCustomProperties())
         return false;
-
-    if (CSSStyleSheet* styleSheet = jsCSSRuleList->wrapped().styleSheet()) {
-        if (UNLIKELY(reason))
-            *reason = "CSSStyleSheet is opaque root";
-
+    if (CSSStyleSheet* styleSheet = jsCSSRuleList->wrapped().styleSheet())
         return visitor.containsOpaqueRoot(root(styleSheet));
-    }
-    
-    if (CSSRule* cssRule = jsCSSRuleList->wrapped().item(0)) {
-        if (UNLIKELY(reason))
-            *reason = "CSSRule is opaque root";
-
+    if (CSSRule* cssRule = jsCSSRuleList->wrapped().item(0))
         return visitor.containsOpaqueRoot(root(cssRule));
-    }
     return false;
 }
 

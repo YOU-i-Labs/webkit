@@ -28,17 +28,21 @@
 
 #pragma once
 
-#include "FetchRequest.h"
+#if ENABLE(FETCH_API)
+
 #include "JSDOMPromiseDeferred.h"
 #include <wtf/Forward.h>
 
 namespace WebCore {
 
 class DOMWindow;
+class FetchRequest;
 
 class DOMWindowFetch {
 public:
-    static void fetch(DOMWindow&, FetchRequest::Info&&, FetchRequest::Init&&, Ref<DeferredPromise>&&);
+    static void fetch(DOMWindow&, FetchRequest&, Ref<DeferredPromise>&&);
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(FETCH_API)

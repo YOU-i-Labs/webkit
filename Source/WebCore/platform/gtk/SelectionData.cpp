@@ -47,6 +47,8 @@ void SelectionData::setURIList(const String& uriListString)
 
     // Line separator is \r\n per RFC 2483 - however, for compatibility
     // reasons we also allow just \n here.
+    Vector<String> uriList;
+    uriListString.split('\n', uriList);
 
     // Process the input and copy the first valid URL into the url member.
     // In case no URLs can be found, subsequent calls to getData("URL")
@@ -54,7 +56,8 @@ void SelectionData::setURIList(const String& uriListString)
     // "The DragEvent and DataTransfer interfaces"). Also extract all filenames
     // from the URI list.
     bool setURL = false;
-    for (auto& line : uriListString.split('\n')) {
+    for (size_t i = 0; i < uriList.size(); ++i) {
+        String& line = uriList[i];
         line = line.stripWhiteSpace();
         if (line.isEmpty())
             continue;

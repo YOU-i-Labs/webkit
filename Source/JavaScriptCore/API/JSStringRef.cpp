@@ -29,7 +29,7 @@
 
 #include "InitializeThreading.h"
 #include "OpaqueJSString.h"
-#include <wtf/unicode/UTF8Conversion.h>
+#include <wtf/unicode/UTF8.h>
 
 using namespace JSC;
 using namespace WTF::Unicode;
@@ -62,7 +62,7 @@ JSStringRef JSStringCreateWithUTF8CString(const char* string)
 JSStringRef JSStringCreateWithCharactersNoCopy(const JSChar* chars, size_t numChars)
 {
     initializeThreading();
-    return OpaqueJSString::tryCreate(StringImpl::createWithoutCopying(reinterpret_cast<const UChar*>(chars), numChars)).leakRef();
+    return OpaqueJSString::create(StringImpl::createWithoutCopying(reinterpret_cast<const UChar*>(chars), numChars)).leakRef();
 }
 
 JSStringRef JSStringRetain(JSStringRef string)
@@ -125,5 +125,9 @@ bool JSStringIsEqual(JSStringRef a, JSStringRef b)
 
 bool JSStringIsEqualToUTF8CString(JSStringRef a, const char* b)
 {
-    return JSStringIsEqual(a, adoptRef(JSStringCreateWithUTF8CString(b)).get());
+    JSStringRef bBuf = JSStringCreateWithUTF8CString(b);
+    bool result = JSStringIsEqual(a, bBuf);
+    JSStringRelease(bBuf);
+    
+    return result;
 }

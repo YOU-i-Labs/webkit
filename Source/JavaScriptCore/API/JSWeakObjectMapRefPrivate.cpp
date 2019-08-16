@@ -44,11 +44,10 @@ extern "C" {
 JSWeakObjectMapRef JSWeakObjectMapCreate(JSContextRef context, void* privateData, JSWeakMapDestroyedCallback callback)
 {
     ExecState* exec = toJS(context);
-    VM& vm = exec->vm();
-    JSLockHolder locker(vm);
-    auto map = OpaqueJSWeakObjectMap::create(vm, privateData, callback);
-    exec->lexicalGlobalObject()->registerWeakMap(map.ptr());
-    return map.ptr();
+    JSLockHolder locker(exec);
+    RefPtr<OpaqueJSWeakObjectMap> map = OpaqueJSWeakObjectMap::create(exec->vm(), privateData, callback);
+    exec->lexicalGlobalObject()->registerWeakMap(map.get());
+    return map.get();
 }
 
 void JSWeakObjectMapSet(JSContextRef ctx, JSWeakObjectMapRef map, void* key, JSObjectRef object)
@@ -58,14 +57,13 @@ void JSWeakObjectMapSet(JSContextRef ctx, JSWeakObjectMapRef map, void* key, JSO
         return;
     }
     ExecState* exec = toJS(ctx);
-    VM& vm = exec->vm();
-    JSLockHolder locker(vm);
+    JSLockHolder locker(exec);
     JSObject* obj = toJS(object);
     if (!obj)
         return;
-    ASSERT(obj->inherits<JSProxy>(vm)
-        || obj->inherits<JSCallbackObject<JSGlobalObject>>(vm)
-        || obj->inherits<JSCallbackObject<JSDestructibleObject>>(vm));
+    ASSERT(obj->inherits(exec->vm(), JSProxy::info())
+        || obj->inherits(exec->vm(), JSCallbackObject<JSGlobalObject>::info())
+        || obj->inherits(exec->vm(), JSCallbackObject<JSDestructibleObject>::info()));
     map->map().set(key, obj);
 }
 

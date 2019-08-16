@@ -36,7 +36,6 @@ namespace WebCore {
 // The main purpose of this class at the moment is to override rendererIsNeeded() to return
 // false to make sure we don't attempt to render such elements.
 class SVGUnknownElement final : public SVGElement {
-    WTF_MAKE_ISO_ALLOCATED(SVGUnknownElement);
 public:
     static Ref<SVGUnknownElement> create(const QualifiedName& tagName, Document& document)
     {

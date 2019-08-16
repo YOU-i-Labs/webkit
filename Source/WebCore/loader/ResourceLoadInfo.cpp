@@ -34,48 +34,42 @@ namespace WebCore {
 ResourceType toResourceType(CachedResource::Type type)
 {
     switch (type) {
-    case CachedResource::Type::MainResource:
+    case CachedResource::MainResource:
         return ResourceType::Document;
-    case CachedResource::Type::SVGDocumentResource:
+    case CachedResource::SVGDocumentResource:
         return ResourceType::SVGDocument;
-    case CachedResource::Type::ImageResource:
+    case CachedResource::ImageResource:
         return ResourceType::Image;
-    case CachedResource::Type::CSSStyleSheet:
+    case CachedResource::CSSStyleSheet:
 #if ENABLE(XSLT)
-    case CachedResource::Type::XSLStyleSheet:
+    case CachedResource::XSLStyleSheet:
 #endif
         return ResourceType::StyleSheet;
 
-    case CachedResource::Type::Script:
+    case CachedResource::Script:
         return ResourceType::Script;
 
-    case CachedResource::Type::FontResource:
+    case CachedResource::FontResource:
 #if ENABLE(SVG_FONTS)
-    case CachedResource::Type::SVGFontResource:
+    case CachedResource::SVGFontResource:
 #endif
         return ResourceType::Font;
 
-    case CachedResource::Type::MediaResource:
-        return ResourceType::Media;
-
-    case CachedResource::Type::Beacon:
-    case CachedResource::Type::Icon:
-    case CachedResource::Type::RawResource:
+    case CachedResource::MediaResource:
+    case CachedResource::Icon:
+    case CachedResource::RawResource:
         return ResourceType::Raw;
 
 #if ENABLE(VIDEO_TRACK)
-    case CachedResource::Type::TextTrackResource:
+    case CachedResource::TextTrackResource:
         return ResourceType::Media;
 #endif
-    case CachedResource::Type::LinkPrefetch:
+#if ENABLE(LINK_PREFETCH)
+    case CachedResource::LinkPrefetch:
+    case CachedResource::LinkSubresource:
         ASSERT_NOT_REACHED();
-        break;
-#if ENABLE(APPLICATION_MANIFEST)
-    case CachedResource::Type::ApplicationManifest:
-        return ResourceType::Raw;
 #endif
     };
-    return ResourceType::Raw;
 }
 
 uint16_t readResourceType(const String& name)

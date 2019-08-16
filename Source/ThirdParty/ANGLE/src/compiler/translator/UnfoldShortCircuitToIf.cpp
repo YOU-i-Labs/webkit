@@ -11,8 +11,8 @@
 
 #include "compiler/translator/UnfoldShortCircuitToIf.h"
 
+#include "compiler/translator/IntermNode.h"
 #include "compiler/translator/IntermNodePatternMatcher.h"
-#include "compiler/translator/IntermTraverse.h"
 
 namespace sh
 {
@@ -24,7 +24,7 @@ namespace
 class UnfoldShortCircuitTraverser : public TIntermTraverser
 {
   public:
-    UnfoldShortCircuitTraverser(TSymbolTable *symbolTable);
+    UnfoldShortCircuitTraverser();
 
     bool visitBinary(Visit visit, TIntermBinary *node) override;
     bool visitTernary(Visit visit, TIntermTernary *node) override;
@@ -40,8 +40,8 @@ class UnfoldShortCircuitTraverser : public TIntermTraverser
     IntermNodePatternMatcher mPatternToUnfoldMatcher;
 };
 
-UnfoldShortCircuitTraverser::UnfoldShortCircuitTraverser(TSymbolTable *symbolTable)
-    : TIntermTraverser(true, false, true, symbolTable),
+UnfoldShortCircuitTraverser::UnfoldShortCircuitTraverser()
+    : TIntermTraverser(true, false, true),
       mFoundShortCircuit(false),
       mPatternToUnfoldMatcher(IntermNodePatternMatcher::kUnfoldedShortCircuitExpression)
 {
@@ -90,7 +90,7 @@ bool UnfoldShortCircuitTraverser::visitBinary(Visit visit, TIntermBinary *node)
 
             insertStatementsInParentBlock(insertions);
 
-            queueReplacement(createTempSymbol(boolType), OriginalNode::IS_DROPPED);
+            queueReplacement(node, createTempSymbol(boolType), OriginalNode::IS_DROPPED);
             return false;
         }
         case EOpLogicalAnd:
@@ -114,7 +114,7 @@ bool UnfoldShortCircuitTraverser::visitBinary(Visit visit, TIntermBinary *node)
 
             insertStatementsInParentBlock(insertions);
 
-            queueReplacement(createTempSymbol(boolType), OriginalNode::IS_DROPPED);
+            queueReplacement(node, createTempSymbol(boolType), OriginalNode::IS_DROPPED);
             return false;
         }
         default:
@@ -157,7 +157,7 @@ bool UnfoldShortCircuitTraverser::visitTernary(Visit visit, TIntermTernary *node
     insertStatementsInParentBlock(insertions);
 
     TIntermSymbol *ternaryResult = createTempSymbol(node->getType());
-    queueReplacement(ternaryResult, OriginalNode::IS_DROPPED);
+    queueReplacement(node, ternaryResult, OriginalNode::IS_DROPPED);
 
     return false;
 }
@@ -165,14 +165,16 @@ bool UnfoldShortCircuitTraverser::visitTernary(Visit visit, TIntermTernary *node
 void UnfoldShortCircuitTraverser::nextIteration()
 {
     mFoundShortCircuit = false;
-    nextTemporaryId();
+    nextTemporaryIndex();
 }
 
 }  // namespace
 
-void UnfoldShortCircuitToIf(TIntermNode *root, TSymbolTable *symbolTable)
+void UnfoldShortCircuitToIf(TIntermNode *root, unsigned int *temporaryIndex)
 {
-    UnfoldShortCircuitTraverser traverser(symbolTable);
+    UnfoldShortCircuitTraverser traverser;
+    ASSERT(temporaryIndex != nullptr);
+    traverser.useTemporaryIndex(temporaryIndex);
     // Unfold one operator at a time, and reset the traverser between iterations.
     do
     {

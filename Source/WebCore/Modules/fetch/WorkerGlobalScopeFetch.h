@@ -28,16 +28,20 @@
 
 #pragma once
 
-#include "FetchRequest.h"
+#if ENABLE(FETCH_API)
+
 #include "JSDOMPromiseDeferred.h"
 
 namespace WebCore {
 
+class FetchRequest;
 class WorkerGlobalScope;
 
 class WorkerGlobalScopeFetch {
 public:
-    static void fetch(WorkerGlobalScope&, FetchRequest::Info&&, FetchRequest::Init&&, Ref<DeferredPromise>&&);
+    static void fetch(WorkerGlobalScope&, FetchRequest&, Ref<DeferredPromise>&&);
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(FETCH_API)

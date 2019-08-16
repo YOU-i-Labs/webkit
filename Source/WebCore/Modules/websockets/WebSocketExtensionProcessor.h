@@ -30,6 +30,8 @@
 
 #pragma once
 
+#if ENABLE(WEB_SOCKETS)
+
 #include <wtf/HashMap.h>
 #include <wtf/text/WTFString.h>
 
@@ -37,7 +39,7 @@ namespace WebCore {
 
 class WebSocketExtensionProcessor {
 public:
-    virtual ~WebSocketExtensionProcessor() = default;
+    virtual ~WebSocketExtensionProcessor() { }
 
     String extensionToken() const { return m_extensionToken; }
 
@@ -65,3 +67,5 @@ private:
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(WEB_SOCKETS)

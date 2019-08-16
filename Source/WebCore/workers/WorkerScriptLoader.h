@@ -26,9 +26,7 @@
 
 #pragma once
 
-#include "ContentSecurityPolicyResponseHeaders.h"
-#include "FetchOptions.h"
-#include "ResourceError.h"
+#include "URL.h"
 #include "ResourceRequest.h"
 #include "ThreadableLoader.h"
 #include "ThreadableLoaderClient.h"
@@ -36,70 +34,58 @@
 #include <wtf/FastMalloc.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
-#include <wtf/URL.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
-class ResourceResponse;
-class ScriptExecutionContext;
-class TextResourceDecoder;
-class WorkerScriptLoaderClient;
+    class ResourceResponse;
+    class ScriptExecutionContext;
+    class TextResourceDecoder;
+    class WorkerScriptLoaderClient;
 
-class WorkerScriptLoader : public RefCounted<WorkerScriptLoader>, public ThreadableLoaderClient {
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    static Ref<WorkerScriptLoader> create()
-    {
-        return adoptRef(*new WorkerScriptLoader);
-    }
+    class WorkerScriptLoader : public RefCounted<WorkerScriptLoader>, public ThreadableLoaderClient {
+        WTF_MAKE_FAST_ALLOCATED;
+    public:
+        static Ref<WorkerScriptLoader> create()
+        {
+            return adoptRef(*new WorkerScriptLoader);
+        }
 
-    Optional<Exception> loadSynchronously(ScriptExecutionContext*, const URL&, FetchOptions::Mode, FetchOptions::Cache, ContentSecurityPolicyEnforcement, const String& initiatorIdentifier);
-    void loadAsynchronously(ScriptExecutionContext&, ResourceRequest&&, FetchOptions&&, ContentSecurityPolicyEnforcement, ServiceWorkersMode, WorkerScriptLoaderClient&);
+        void loadSynchronously(ScriptExecutionContext*, const URL&, FetchOptions::Mode, ContentSecurityPolicyEnforcement, const String& initiatorIdentifier);
+        void loadAsynchronously(ScriptExecutionContext*, const URL&, FetchOptions::Mode, ContentSecurityPolicyEnforcement, const String& initiatorIdentifier, WorkerScriptLoaderClient*);
 
-    void notifyError();
+        void notifyError();
 
-    String script();
-    const ContentSecurityPolicyResponseHeaders& contentSecurityPolicy() const { return m_contentSecurityPolicy; }
-    const String& referrerPolicy() const { return m_referrerPolicy; }
-    const URL& url() const { return m_url; }
-    const URL& responseURL() const;
-    const String& responseMIMEType() const { return m_responseMIMEType; }
-    bool failed() const { return m_failed; }
-    unsigned long identifier() const { return m_identifier; }
-    const ResourceError& error() const { return m_error; }
+        String script();
+        const URL& url() const { return m_url; }
+        const URL& responseURL() const;
+        bool failed() const { return m_failed; }
+        unsigned long identifier() const { return m_identifier; }
 
-    void didReceiveResponse(unsigned long identifier, const ResourceResponse&) override;
-    void didReceiveData(const char* data, int dataLength) override;
-    void didFinishLoading(unsigned long identifier) override;
-    void didFail(const ResourceError&) override;
+        void didReceiveResponse(unsigned long identifier, const ResourceResponse&) override;
+        void didReceiveData(const char* data, int dataLength) override;
+        void didFinishLoading(unsigned long identifier) override;
+        void didFail(const ResourceError&) override;
 
-    void cancel();
+    private:
+        friend class WTF::RefCounted<WorkerScriptLoader>;
 
-private:
-    friend class WTF::RefCounted<WorkerScriptLoader>;
+        WorkerScriptLoader();
+        ~WorkerScriptLoader();
 
-    WorkerScriptLoader();
-    ~WorkerScriptLoader();
+        std::unique_ptr<ResourceRequest> createResourceRequest(const String& initiatorIdentifier);
+        void notifyFinished();
 
-    std::unique_ptr<ResourceRequest> createResourceRequest(const String& initiatorIdentifier);
-    void notifyFinished();
-
-    WorkerScriptLoaderClient* m_client { nullptr };
-    RefPtr<ThreadableLoader> m_threadableLoader;
-    String m_responseEncoding;
-    RefPtr<TextResourceDecoder> m_decoder;
-    StringBuilder m_script;
-    URL m_url;
-    URL m_responseURL;
-    String m_responseMIMEType;
-    FetchOptions::Destination m_destination;
-    ContentSecurityPolicyResponseHeaders m_contentSecurityPolicy;
-    String m_referrerPolicy;
-    unsigned long m_identifier { 0 };
-    bool m_failed { false };
-    bool m_finishing { false };
-    ResourceError m_error;
-};
+        WorkerScriptLoaderClient* m_client { nullptr };
+        RefPtr<ThreadableLoader> m_threadableLoader;
+        String m_responseEncoding;        
+        RefPtr<TextResourceDecoder> m_decoder;
+        StringBuilder m_script;
+        URL m_url;
+        URL m_responseURL;
+        unsigned long m_identifier { 0 };
+        bool m_failed { false };
+        bool m_finishing { false };
+    };
 
 } // namespace WebCore

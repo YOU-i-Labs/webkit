@@ -32,27 +32,27 @@ namespace WebCore {
 class CollapsedBorderValue {
 public:
     CollapsedBorderValue()
-        : m_style(static_cast<unsigned>(BorderStyle::None))
-        , m_precedence(static_cast<unsigned>(BorderPrecedence::Off))
+        : m_style(BNONE)
+        , m_precedence(BOFF)
         , m_transparent(false)
     {
     }
 
-    CollapsedBorderValue(const BorderValue& border, const Color& color, BorderPrecedence precedence)
+    CollapsedBorderValue(const BorderValue& border, const Color& color, EBorderPrecedence precedence)
         : m_width(LayoutUnit(border.nonZero() ? border.width() : 0))
         , m_color(color)
-        , m_style(static_cast<unsigned>(border.style()))
-        , m_precedence(static_cast<unsigned>(precedence))
+        , m_style(border.style())
+        , m_precedence(precedence)
         , m_transparent(border.isTransparent())
     {
     }
 
-    LayoutUnit width() const { return style() > BorderStyle::Hidden ? m_width : 0_lu; }
-    BorderStyle style() const { return static_cast<BorderStyle>(m_style); }
-    bool exists() const { return precedence() != BorderPrecedence::Off; }
+    LayoutUnit width() const { return m_style > BHIDDEN ? m_width : LayoutUnit::fromPixel(0); }
+    EBorderStyle style() const { return static_cast<EBorderStyle>(m_style); }
+    bool exists() const { return m_precedence != BOFF; }
     const Color& color() const { return m_color; }
     bool isTransparent() const { return m_transparent; }
-    BorderPrecedence precedence() const { return static_cast<BorderPrecedence>(m_precedence); }
+    EBorderPrecedence precedence() const { return static_cast<EBorderPrecedence>(m_precedence); }
 
     bool isSameIgnoringColor(const CollapsedBorderValue& o) const
     {
@@ -64,8 +64,8 @@ public:
 private:
     LayoutUnit m_width;
     Color m_color;
-    unsigned m_style : 4; // BorderStyle
-    unsigned m_precedence : 3; // BorderPrecedence
+    unsigned m_style : 4; // EBorderStyle
+    unsigned m_precedence : 3; // EBorderPrecedence
     unsigned m_transparent : 1;
 };
 

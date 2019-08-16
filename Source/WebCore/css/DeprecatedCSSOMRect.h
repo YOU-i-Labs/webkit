@@ -28,15 +28,13 @@
 #include "DeprecatedCSSOMPrimitiveValue.h"
 #include "Rect.h"
 #include <wtf/RefPtr.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
 class DeprecatedCSSOMRect final : public RefCounted<DeprecatedCSSOMRect> {
 public:
-    static Ref<DeprecatedCSSOMRect> create(const Rect& rect, CSSStyleDeclaration& owner)
-    {
-        return adoptRef(*new DeprecatedCSSOMRect(rect, owner));
-    }
+    static Ref<DeprecatedCSSOMRect> create(const Rect& rect) { return adoptRef(*new DeprecatedCSSOMRect(rect)); }
 
     DeprecatedCSSOMPrimitiveValue* top() const { return m_top.get(); }
     DeprecatedCSSOMPrimitiveValue* right() const { return m_right.get(); }
@@ -44,16 +42,16 @@ public:
     DeprecatedCSSOMPrimitiveValue* left() const { return m_left.get(); }
     
 private:
-    DeprecatedCSSOMRect(const Rect& rect, CSSStyleDeclaration& owner)
+    DeprecatedCSSOMRect(const Rect& rect)
     {
         if (rect.top())
-            m_top = rect.top()->createDeprecatedCSSOMPrimitiveWrapper(owner);
+            m_top = rect.top()->createDeprecatedCSSOMPrimitiveWrapper();
         if (rect.right())
-            m_right = rect.right()->createDeprecatedCSSOMPrimitiveWrapper(owner);
+            m_right = rect.right()->createDeprecatedCSSOMPrimitiveWrapper();
         if (rect.bottom())
-            m_bottom = rect.bottom()->createDeprecatedCSSOMPrimitiveWrapper(owner);
+            m_bottom = rect.bottom()->createDeprecatedCSSOMPrimitiveWrapper();
         if (rect.left())
-            m_left = rect.left()->createDeprecatedCSSOMPrimitiveWrapper(owner);
+            m_left = rect.left()->createDeprecatedCSSOMPrimitiveWrapper();
     }
     
     RefPtr<DeprecatedCSSOMPrimitiveValue> m_top;

@@ -45,10 +45,10 @@ class RTCSessionDescriptionRequest : public RefCounted<RTCSessionDescriptionRequ
 public:
     class ExtraData : public RefCounted<ExtraData> {
     public:
-        virtual ~ExtraData() = default;
+        virtual ~ExtraData() { }
     };
 
-    virtual ~RTCSessionDescriptionRequest() = default;
+    virtual ~RTCSessionDescriptionRequest() { }
 
     virtual void requestSucceeded(RTCSessionDescriptionDescriptor&) = 0;
     virtual void requestFailed(const String& error) = 0;
@@ -57,7 +57,7 @@ public:
     void setExtraData(RefPtr<ExtraData>&& extraData) { m_extraData = extraData; }
 
 protected:
-    RTCSessionDescriptionRequest() = default;
+    RTCSessionDescriptionRequest() { }
 
 private:
     RefPtr<ExtraData> m_extraData;

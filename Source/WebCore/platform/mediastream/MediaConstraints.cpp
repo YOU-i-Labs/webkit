@@ -219,7 +219,7 @@ void MediaTrackConstraintSetMap::filter(const WTF::Function<bool(const MediaCons
         return;
 }
 
-void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, Optional<IntConstraint>&& constraint)
+void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::optional<IntConstraint>&& constraint)
 {
     switch (constraintType) {
     case MediaConstraintType::Width:
@@ -242,15 +242,13 @@ void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, Optiona
     case MediaConstraintType::FacingMode:
     case MediaConstraintType::DeviceId:
     case MediaConstraintType::GroupId:
-    case MediaConstraintType::DisplaySurface:
-    case MediaConstraintType::LogicalSurface:
     case MediaConstraintType::Unknown:
         ASSERT_NOT_REACHED();
         break;
     }
 }
 
-void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, Optional<DoubleConstraint>&& constraint)
+void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::optional<DoubleConstraint>&& constraint)
 {
     switch (constraintType) {
     case MediaConstraintType::AspectRatio:
@@ -271,25 +269,17 @@ void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, Optiona
     case MediaConstraintType::FacingMode:
     case MediaConstraintType::DeviceId:
     case MediaConstraintType::GroupId:
-    case MediaConstraintType::DisplaySurface:
-    case MediaConstraintType::LogicalSurface:
     case MediaConstraintType::Unknown:
         ASSERT_NOT_REACHED();
         break;
     }
 }
 
-void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, Optional<BooleanConstraint>&& constraint)
+void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::optional<BooleanConstraint>&& constraint)
 {
     switch (constraintType) {
     case MediaConstraintType::EchoCancellation:
         m_echoCancellation = WTFMove(constraint);
-        break;
-    case MediaConstraintType::DisplaySurface:
-        m_displaySurface = WTFMove(constraint);
-        break;
-    case MediaConstraintType::LogicalSurface:
-        m_logicalSurface = WTFMove(constraint);
         break;
 
     case MediaConstraintType::Width:
@@ -308,7 +298,7 @@ void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, Optiona
     }
 }
 
-void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, Optional<StringConstraint>&& constraint)
+void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, std::optional<StringConstraint>&& constraint)
 {
     switch (constraintType) {
     case MediaConstraintType::FacingMode:
@@ -329,8 +319,6 @@ void MediaTrackConstraintSetMap::set(MediaConstraintType constraintType, Optiona
     case MediaConstraintType::FrameRate:
     case MediaConstraintType::Volume:
     case MediaConstraintType::EchoCancellation:
-    case MediaConstraintType::DisplaySurface:
-    case MediaConstraintType::LogicalSurface:
     case MediaConstraintType::Unknown:
         ASSERT_NOT_REACHED();
         break;
@@ -370,7 +358,7 @@ static inline void addDefaultVideoConstraints(MediaTrackConstraintSetMap& videoC
     }
     if (addFacingModeConstraint) {
         StringConstraint facingModeConstraint({ }, MediaConstraintType::FacingMode);
-        facingModeConstraint.setIdeal("user"_s);
+        facingModeConstraint.setIdeal(ASCIILiteral("user"));
         videoConstraints.set(MediaConstraintType::FacingMode, WTFMove(facingModeConstraint));
     }
 }

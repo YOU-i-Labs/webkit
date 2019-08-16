@@ -20,8 +20,8 @@
 #include "DOMMimeType.h"
 
 #include "DOMPlugin.h"
-#include "Frame.h"
 #include "FrameLoader.h"
+#include "MainFrame.h"
 #include "Page.h"
 #include "PluginData.h"
 #include "SubframeLoader.h"
@@ -40,7 +40,9 @@ DOMMimeType::DOMMimeType(RefPtr<PluginData>&& pluginData, Frame* frame, unsigned
     m_pluginInfo = m_pluginData->webVisiblePlugins()[mimePluginIndices[index]];
 }
 
-DOMMimeType::~DOMMimeType() = default;
+DOMMimeType::~DOMMimeType()
+{
+}
 
 String DOMMimeType::type() const
 {

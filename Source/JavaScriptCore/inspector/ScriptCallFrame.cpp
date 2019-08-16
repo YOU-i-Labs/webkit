@@ -32,6 +32,8 @@
 #include "config.h"
 #include "ScriptCallFrame.h"
 
+#include "InspectorValues.h"
+
 namespace Inspector {
 
 ScriptCallFrame::ScriptCallFrame(const String& functionName, const String& scriptName, JSC::SourceID sourceID, unsigned lineNumber, unsigned column)
@@ -62,9 +64,9 @@ bool ScriptCallFrame::isNative() const
     return m_scriptName == "[native code]";
 }
 
-Ref<Protocol::Console::CallFrame> ScriptCallFrame::buildInspectorObject() const
+Ref<Inspector::Protocol::Console::CallFrame> ScriptCallFrame::buildInspectorObject() const
 {
-    return Protocol::Console::CallFrame::create()
+    return Inspector::Protocol::Console::CallFrame::create()
         .setFunctionName(m_functionName)
         .setUrl(m_scriptName)
         .setScriptId(String::number(m_sourceID))

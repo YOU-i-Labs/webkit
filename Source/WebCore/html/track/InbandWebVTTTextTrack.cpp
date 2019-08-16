@@ -46,7 +46,9 @@ Ref<InbandTextTrack> InbandWebVTTTextTrack::create(ScriptExecutionContext& conte
     return adoptRef(*new InbandWebVTTTextTrack(context, client, trackPrivate));
 }
 
-InbandWebVTTTextTrack::~InbandWebVTTTextTrack() = default;
+InbandWebVTTTextTrack::~InbandWebVTTTextTrack()
+{
+}
 
 WebVTTParser& InbandWebVTTTextTrack::parser()
 {
@@ -72,12 +74,9 @@ void InbandWebVTTTextTrack::newCuesParsed()
     for (auto& cueData : cues) {
         auto vttCue = VTTCue::create(*scriptExecutionContext(), *cueData);
         if (hasCue(vttCue.ptr(), TextTrackCue::IgnoreDuration)) {
-            DEBUG_LOG(LOGIDENTIFIER, "ignoring already added cue: ", vttCue.get());
+            LOG(Media, "InbandWebVTTTextTrack::newCuesParsed ignoring already added cue: start=%.2f, end=%.2f, content=\"%s\"\n", vttCue->startTime(), vttCue->endTime(), vttCue->text().utf8().data());
             return;
         }
-
-        DEBUG_LOG(LOGIDENTIFIER, vttCue.get());
-
         addCue(WTFMove(vttCue));
     }
 }
@@ -92,13 +91,9 @@ void InbandWebVTTTextTrack::newRegionsParsed()
     }
 }
 
-void InbandWebVTTTextTrack::newStyleSheetsParsed()
-{
-}
-
 void InbandWebVTTTextTrack::fileFailedToParse()
 {
-    ERROR_LOG(LOGIDENTIFIER, "Error parsing WebVTT stream.");
+    LOG(Media, "Error parsing WebVTT stream.");
 }
 
 } // namespace WebCore

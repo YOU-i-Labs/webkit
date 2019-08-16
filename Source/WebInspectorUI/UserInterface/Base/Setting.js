@@ -29,7 +29,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.Setting = class Setting extends WI.Object
+WebInspector.Setting = class Setting extends WebInspector.Object
 {
     constructor(name, defaultValue)
     {
@@ -41,21 +41,6 @@ WI.Setting = class Setting extends WI.Object
         let levelString = inspectionLevel > 1 ? "-" + inspectionLevel : "";
         this._localStorageKey = `com.apple.WebInspector${levelString}.${name}`;
         this._defaultValue = defaultValue;
-    }
-
-    // Static
-
-    static migrateValue(key)
-    {
-        let value = undefined;
-        if (!window.InspectorTest && window.localStorage && key in window.localStorage) {
-            try {
-                value = JSON.parse(window.localStorage[key]);
-            } catch { }
-
-            window.localStorage.removeItem(key);
-        }
-        return value;
     }
 
     // Public
@@ -76,7 +61,7 @@ WI.Setting = class Setting extends WI.Object
         if (!window.InspectorTest && window.localStorage && this._localStorageKey in window.localStorage) {
             try {
                 this._value = JSON.parse(window.localStorage[this._localStorageKey]);
-            } catch {
+            } catch (e) {
                 delete window.localStorage[this._localStorageKey];
             }
         }
@@ -98,12 +83,12 @@ WI.Setting = class Setting extends WI.Object
                     delete window.localStorage[this._localStorageKey];
                 else
                     window.localStorage[this._localStorageKey] = JSON.stringify(this._value);
-            } catch {
+            } catch (e) {
                 console.error("Error saving setting with name: " + this._name);
             }
         }
 
-        this.dispatchEventToListeners(WI.Setting.Event.Changed, this._value, {name: this._name});
+        this.dispatchEventToListeners(WebInspector.Setting.Event.Changed, this._value, {name: this._name});
     }
 
     reset()
@@ -113,50 +98,27 @@ WI.Setting = class Setting extends WI.Object
     }
 };
 
-WI.Setting.Event = {
+WebInspector.Setting.Event = {
     Changed: "setting-changed"
 };
 
-WI.settings = {
-    canvasRecordingAutoCaptureEnabled: new WI.Setting("canvas-recording-auto-capture-enabled", false),
-    canvasRecordingAutoCaptureFrameCount: new WI.Setting("canvas-recording-auto-capture-frame-count", 1),
-    clearLogOnNavigate: new WI.Setting("clear-log-on-navigate", true),
-    clearNetworkOnNavigate: new WI.Setting("clear-network-on-navigate", true),
-    enableControlFlowProfiler: new WI.Setting("enable-control-flow-profiler", false),
-    enableLineWrapping: new WI.Setting("enable-line-wrapping", false),
-    groupByDOMNode: new WI.Setting("group-by-dom-node", false),
-    indentUnit: new WI.Setting("indent-unit", 4),
-    indentWithTabs: new WI.Setting("indent-with-tabs", false),
-    resourceCachingDisabled: new WI.Setting("disable-resource-caching", false),
-    selectedNetworkDetailContentViewIdentifier: new WI.Setting("network-detail-content-view-identifier", "preview"),
-    sourceMapsEnabled: new WI.Setting("source-maps-enabled", true),
-    showAllRequestsBreakpoint: new WI.Setting("show-all-requests-breakpoint", true),
-    showAssertionFailuresBreakpoint: new WI.Setting("show-assertion-failures-breakpoint", true),
-    showCanvasPath: new WI.Setting("show-canvas-path", false),
-    showImageGrid: new WI.Setting("show-image-grid", false),
-    showInvalidCharacters: new WI.Setting("show-invalid-characters", false),
-    showJavaScriptTypeInformation: new WI.Setting("show-javascript-type-information", false),
-    showPaintRects: new WI.Setting("show-paint-rects", false),
-    showRulers: new WI.Setting("show-rulers", false),
-    showScopeChainOnPause: new WI.Setting("show-scope-chain-sidebar", true),
-    showShadowDOM: new WI.Setting("show-shadow-dom", false),
-    showWhitespaceCharacters: new WI.Setting("show-whitespace-characters", false),
-    tabSize: new WI.Setting("tab-size", 4),
-    zoomFactor: new WI.Setting("zoom-factor", 1),
-
-    // Experimental
-    experimentalEnableComputedStyleCascades: new WI.Setting("experimental-enable-computed-style-cascades", false),
-    experimentalEnableLayersTab: new WI.Setting("experimental-enable-layers-tab", false),
-    experimentalEnableNewTabBar: new WI.Setting("experimental-enable-new-tab-bar", false),
-    experimentalEnableAuditTab: new WI.Setting("experimental-enable-audit-tab", false),
-
-    // DebugUI
-    autoLogProtocolMessages: new WI.Setting("auto-collect-protocol-messages", false),
-    autoLogTimeStats: new WI.Setting("auto-collect-time-stats", false),
-    enableLayoutFlashing: new WI.Setting("enable-layout-flashing", false),
-    enableStyleEditingDebugMode: new WI.Setting("enable-style-editing-debug-mode", false),
-    enableUncaughtExceptionReporter: new WI.Setting("enable-uncaught-exception-reporter", true),
-    filterMultiplexingBackendInspectorProtocolMessages: new WI.Setting("filter-multiplexing-backend-inspector-protocol-messages", true),
-    layoutDirection: new WI.Setting("layout-direction-override", "system"),
-    pauseForInternalScripts: new WI.Setting("pause-for-internal-scripts", false),
+WebInspector.settings = {
+    autoLogProtocolMessages: new WebInspector.Setting("auto-collect-protocol-messages", false),
+    autoLogTimeStats: new WebInspector.Setting("auto-collect-time-stats", false),
+    enableUncaughtExceptionReporter: new WebInspector.Setting("enable-uncaught-exception-reporter", true),
+    enableLineWrapping: new WebInspector.Setting("enable-line-wrapping", false),
+    indentUnit: new WebInspector.Setting("indent-unit", 4),
+    tabSize: new WebInspector.Setting("tab-size", 4),
+    indentWithTabs: new WebInspector.Setting("indent-with-tabs", false),
+    showWhitespaceCharacters: new WebInspector.Setting("show-whitespace-characters", false),
+    showInvalidCharacters: new WebInspector.Setting("show-invalid-characters", false),
+    clearLogOnNavigate: new WebInspector.Setting("clear-log-on-navigate", true),
+    clearNetworkOnNavigate: new WebInspector.Setting("clear-network-on-navigate", true),
+    zoomFactor: new WebInspector.Setting("zoom-factor", 1),
+    layoutDirection: new WebInspector.Setting("layout-direction-override", "system"),
+    stylesShowInlineWarnings: new WebInspector.Setting("styles-show-inline-warning", true),
+    stylesInsertNewline: new WebInspector.Setting("styles-insert-newline", true),
+    stylesSelectOnFirstClick: new WebInspector.Setting("styles-select-on-first-click", true),
+    showScopeChainOnPause: new WebInspector.Setting("show-scope-chain-sidebar", true),
+    showImageGrid: new WebInspector.Setting("show-image-grid", false),
 };

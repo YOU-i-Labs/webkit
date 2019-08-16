@@ -22,7 +22,6 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #include "config.h"
 #include "WasmWorklist.h"
 
@@ -34,9 +33,7 @@
 
 namespace JSC { namespace Wasm {
 
-namespace WasmWorklistInternal {
 static const bool verbose = false;
-}
 
 const char* Worklist::priorityString(Priority priority)
 {
@@ -58,7 +55,7 @@ class Worklist::Thread final : public AutomaticThread {
 public:
     using Base = AutomaticThread;
     Thread(const AbstractLocker& locker, Worklist& work)
-        : Base(locker, work.m_lock, work.m_planEnqueued.copyRef())
+        : Base(locker, work.m_lock, work.m_planEnqueued)
         , worklist(work)
     {
 
@@ -117,11 +114,6 @@ protected:
         return complete(holdLock(*worklist.m_lock));
     }
 
-    const char* name() const override
-    {
-        return "Wasm Worklist Helper Thread";
-    }
-
 public:
     Condition synchronize;
     Worklist& worklist;
@@ -152,7 +144,7 @@ void Worklist::enqueue(Ref<Plan> plan)
             ASSERT_UNUSED(element, element.plan.get() != &plan.get());
     }
 
-    dataLogLnIf(WasmWorklistInternal::verbose, "Enqueuing plan");
+    dataLogLnIf(verbose, "Enqueuing plan");
     m_queue.enqueue({ Priority::Preparation, nextTicket(),  WTFMove(plan) });
     m_planEnqueued->notifyOne(locker);
 }
@@ -178,13 +170,13 @@ void Worklist::completePlanSynchronously(Plan& plan)
     plan.waitForCompletion();
 }
 
-void Worklist::stopAllPlansForContext(Context& context)
+void Worklist::stopAllPlansForVM(VM& vm)
 {
     LockHolder locker(*m_lock);
     Vector<QueueElement> elements;
     while (!m_queue.isEmpty()) {
         QueueElement element = m_queue.dequeue();
-        bool didCancel = element.plan->tryRemoveContextAndCancelIfLast(context);
+        bool didCancel = element.plan->tryRemoveVMAndCancelIfLast(vm);
         if (!didCancel)
             elements.append(WTFMove(element));
     }
@@ -194,7 +186,7 @@ void Worklist::stopAllPlansForContext(Context& context)
 
     for (auto& thread : m_threads) {
         if (thread->element.plan) {
-            bool didCancel = thread->element.plan->tryRemoveContextAndCancelIfLast(context);
+            bool didCancel = thread->element.plan->tryRemoveVMAndCancelIfLast(vm);
             if (didCancel) {
                 // We don't have to worry about the deadlocking since the thread can't block without checking for a new plan and must hold the lock to do so.
                 thread->synchronize.wait(*m_lock);

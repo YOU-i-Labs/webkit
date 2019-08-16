@@ -47,6 +47,7 @@ ALWAYS_INLINE void SlotVisitor::appendUnbarriered(JSCell* cell)
     
     Dependency dependency;
     if (UNLIKELY(cell->isLargeAllocation())) {
+        dependency = nullDependency();
         if (LIKELY(cell->largeAllocation().isMarked())) {
             if (LIKELY(!m_heapSnapshotBuilder))
                 return;
@@ -85,6 +86,7 @@ ALWAYS_INLINE void SlotVisitor::appendHiddenUnbarriered(JSCell* cell)
     
     Dependency dependency;
     if (UNLIKELY(cell->isLargeAllocation())) {
+        dependency = nullDependency();
         if (LIKELY(cell->largeAllocation().isMarked()))
             return;
     } else {
@@ -103,14 +105,14 @@ ALWAYS_INLINE void SlotVisitor::append(const Weak<T>& weak)
     appendUnbarriered(weak.get());
 }
 
-template<typename T, typename Traits>
-ALWAYS_INLINE void SlotVisitor::append(const WriteBarrierBase<T, Traits>& slot)
+template<typename T>
+ALWAYS_INLINE void SlotVisitor::append(const WriteBarrierBase<T>& slot)
 {
     appendUnbarriered(slot.get());
 }
 
-template<typename T, typename Traits>
-ALWAYS_INLINE void SlotVisitor::appendHidden(const WriteBarrierBase<T, Traits>& slot)
+template<typename T>
+ALWAYS_INLINE void SlotVisitor::appendHidden(const WriteBarrierBase<T>& slot)
 {
     appendHiddenUnbarriered(slot.get());
 }
@@ -134,30 +136,11 @@ ALWAYS_INLINE void SlotVisitor::appendValuesHidden(const WriteBarrierBase<Unknow
         appendHidden(barriers[i]);
 }
 
-inline bool SlotVisitor::addOpaqueRoot(void* ptr)
-{
-    if (!ptr)
-        return false;
-    if (m_ignoreNewOpaqueRoots)
-        return false;
-    if (!heap()->m_opaqueRoots.add(ptr))
-        return false;
-    m_visitCount++;
-    return true;
-}
-
-inline bool SlotVisitor::containsOpaqueRoot(void* ptr) const
-{
-    return heap()->m_opaqueRoots.contains(ptr);
-}
-
 inline void SlotVisitor::reportExtraMemoryVisited(size_t size)
 {
     if (m_isFirstVisit) {
+        heap()->reportExtraMemoryVisited(size);
         m_nonCellVisitCount += size;
-        // FIXME: Change this to use SaturatedArithmetic when available.
-        // https://bugs.webkit.org/show_bug.cgi?id=170411
-        m_extraMemorySize += size;
     }
 }
 
@@ -176,12 +159,12 @@ inline Heap* SlotVisitor::heap() const
 
 inline VM& SlotVisitor::vm()
 {
-    return *m_heap.vm();
+    return *m_heap.m_vm;
 }
 
 inline const VM& SlotVisitor::vm() const
 {
-    return *m_heap.vm();
+    return *m_heap.m_vm;
 }
 
 template<typename Func>

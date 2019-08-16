@@ -28,12 +28,10 @@
 
 #pragma once
 
-#include <functional>
-#include <wtf/Function.h>
+#include <set>
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
 #include <wtf/RunLoop.h>
-#include <wtf/StdSet.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
 namespace WebCore {
@@ -43,7 +41,7 @@ class WheelEventTestTrigger : public ThreadSafeRefCounted<WheelEventTestTrigger>
 public:
     WheelEventTestTrigger();
 
-    WEBCORE_EXPORT void setTestCallbackAndStartNotificationTimer(WTF::Function<void()>&&);
+    WEBCORE_EXPORT void setTestCallbackAndStartNotificationTimer(std::function<void()>);
     WEBCORE_EXPORT void clearAllTestDeferrals();
     
     enum DeferTestTriggerReason {
@@ -52,17 +50,16 @@ public:
         ScrollingThreadSyncNeeded,
         ContentScrollInProgress
     };
-    using DeferTestTriggerReasonSet = StdSet<DeferTestTriggerReason>;
     typedef const void* ScrollableAreaIdentifier;
     void WEBCORE_EXPORT deferTestsForReason(ScrollableAreaIdentifier, DeferTestTriggerReason);
     void WEBCORE_EXPORT removeTestDeferralForReason(ScrollableAreaIdentifier, DeferTestTriggerReason);
     void triggerTestTimerFired();
 
 private:
-    WTF::Function<void()> m_testNotificationCallback;
+    std::function<void()> m_testNotificationCallback;
     RunLoop::Timer<WheelEventTestTrigger> m_testTriggerTimer;
     mutable Lock m_testTriggerMutex;
-    WTF::HashMap<ScrollableAreaIdentifier, DeferTestTriggerReasonSet> m_deferTestTriggerReasons;
+    WTF::HashMap<ScrollableAreaIdentifier, std::set<DeferTestTriggerReason>> m_deferTestTriggerReasons;
 };
 
 } // namespace WebCore

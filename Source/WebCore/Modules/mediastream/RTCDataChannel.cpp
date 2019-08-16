@@ -31,11 +31,12 @@
 #include "Blob.h"
 #include "Event.h"
 #include "EventNames.h"
+#include "ExceptionCode.h"
 #include "MessageEvent.h"
 #include "RTCDataChannelHandler.h"
 #include "ScriptExecutionContext.h"
-#include <JavaScriptCore/ArrayBuffer.h>
-#include <JavaScriptCore/ArrayBufferView.h>
+#include <runtime/ArrayBuffer.h>
+#include <runtime/ArrayBufferView.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -89,64 +90,64 @@ const AtomicString& RTCDataChannel::binaryType() const
     }
 
     ASSERT_NOT_REACHED();
-    return emptyAtom();
+    return emptyAtom;
 }
 
 ExceptionOr<void> RTCDataChannel::setBinaryType(const AtomicString& binaryType)
 {
     if (binaryType == blobKeyword())
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
     if (binaryType == arraybufferKeyword()) {
         m_binaryType = BinaryType::ArrayBuffer;
         return { };
     }
-    return Exception { TypeMismatchError };
+    return Exception { TYPE_MISMATCH_ERR };
 }
 
 ExceptionOr<void> RTCDataChannel::send(const String& data)
 {
+    // FIXME: We should only throw in Connected state.
     if (m_readyState != RTCDataChannelState::Open)
-        return Exception { InvalidStateError };
+        return Exception { INVALID_STATE_ERR };
 
     if (!m_handler->sendStringData(data)) {
         // FIXME: Decide what the right exception here is.
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
     }
 
     return { };
 }
-
-ExceptionOr<void> RTCDataChannel::sendRawData(const char* data, size_t length)
-{
-    if (m_readyState != RTCDataChannelState::Open)
-        return Exception { InvalidStateError };
-
-    if (!length)
-        return { };
-
-    if (!m_handler->sendRawData(data, length)) {
-        // FIXME: Decide what the right exception here is.
-        return Exception { SyntaxError };
-    }
-
-    return { };
-}
-
 
 ExceptionOr<void> RTCDataChannel::send(ArrayBuffer& data)
 {
-    return sendRawData(static_cast<const char*>(data.data()), data.byteLength());
+    // FIXME: We should only throw in Connected state.
+    if (m_readyState != RTCDataChannelState::Open)
+        return Exception { INVALID_STATE_ERR };
+
+    size_t dataLength = data.byteLength();
+    if (!dataLength)
+        return { };
+
+    const char* dataPointer = static_cast<const char*>(data.data());
+
+    if (!m_handler->sendRawData(dataPointer, dataLength)) {
+        // FIXME: Decide what the right exception here is.
+        return Exception { SYNTAX_ERR };
+    }
+
+    return { };
 }
 
 ExceptionOr<void> RTCDataChannel::send(ArrayBufferView& data)
 {
-    return sendRawData(static_cast<const char*>(data.baseAddress()), data.byteLength());
+    // FIXME: We should only throw in Connected state.
+    return send(*data.unsharedBuffer());
 }
 
 ExceptionOr<void> RTCDataChannel::send(Blob&)
 {
     // FIXME: Implement.
-    return Exception { NotSupportedError };
+    return Exception { NOT_SUPPORTED_ERR };
 }
 
 void RTCDataChannel::close()
@@ -171,10 +172,10 @@ void RTCDataChannel::didChangeReadyState(RTCDataChannelState newState)
 
     switch (m_readyState) {
     case RTCDataChannelState::Open:
-        scheduleDispatchEvent(Event::create(eventNames().openEvent, Event::CanBubble::No, Event::IsCancelable::No));
+        scheduleDispatchEvent(Event::create(eventNames().openEvent, false, false));
         break;
     case RTCDataChannelState::Closed:
-        scheduleDispatchEvent(Event::create(eventNames().closeEvent, Event::CanBubble::No, Event::IsCancelable::No));
+        scheduleDispatchEvent(Event::create(eventNames().closeEvent, false, false));
         break;
     default:
         break;
@@ -211,7 +212,7 @@ void RTCDataChannel::didDetectError()
     if (m_stopped)
         return;
 
-    scheduleDispatchEvent(Event::create(eventNames().errorEvent, Event::CanBubble::No, Event::IsCancelable::No));
+    scheduleDispatchEvent(Event::create(eventNames().errorEvent, false, false));
 }
 
 void RTCDataChannel::bufferedAmountIsDecreasing(size_t amount)
@@ -220,7 +221,7 @@ void RTCDataChannel::bufferedAmountIsDecreasing(size_t amount)
         return;
 
     if (amount <= m_bufferedAmountLowThreshold)
-        scheduleDispatchEvent(Event::create(eventNames().bufferedamountlowEvent, Event::CanBubble::No, Event::IsCancelable::No));
+        scheduleDispatchEvent(Event::create(eventNames().bufferedamountlowEvent, false, false));
 }
 
 void RTCDataChannel::stop()

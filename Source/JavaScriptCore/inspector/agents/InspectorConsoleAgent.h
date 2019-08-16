@@ -25,12 +25,12 @@
 
 #pragma once
 
-#include "InspectorAgentBase.h"
 #include "InspectorBackendDispatchers.h"
 #include "InspectorFrontendDispatchers.h"
+#include "inspector/InspectorAgentBase.h"
+#include "runtime/ConsoleTypes.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
-#include <wtf/MonotonicTime.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringHash.h>
@@ -62,6 +62,8 @@ public:
     void enable(ErrorString&) override;
     void disable(ErrorString&) override;
     void clearMessages(ErrorString&) override;
+    void setMonitoringXHREnabled(ErrorString&, bool enabled) override = 0;
+    void addInspectedNode(ErrorString&, int nodeId) override = 0;
 
     bool enabled() const { return m_enabled; }
     void reset();
@@ -73,9 +75,6 @@ public:
     void takeHeapSnapshot(const String& title);
     void count(JSC::ExecState*, Ref<ScriptArguments>&&);
 
-    void getLoggingChannels(ErrorString&, RefPtr<JSON::ArrayOf<Protocol::Console::Channel>>&) override;
-    void setLoggingChannelLevel(ErrorString&, const String& channel, const String& level) override;
-
 protected:
     void addConsoleMessage(std::unique_ptr<ConsoleMessage>);
 
@@ -84,10 +83,11 @@ protected:
     RefPtr<ConsoleBackendDispatcher> m_backendDispatcher;
     InspectorHeapAgent* m_heapAgent;
 
+    ConsoleMessage* m_previousMessage { nullptr };
     Vector<std::unique_ptr<ConsoleMessage>> m_consoleMessages;
     int m_expiredConsoleMessageCount { 0 };
     HashMap<String, unsigned> m_counts;
-    HashMap<String, MonotonicTime> m_times;
+    HashMap<String, double> m_times;
     bool m_enabled { false };
 };
 

@@ -26,7 +26,6 @@
 namespace WebCore {
 
 class SVGAnimateColorElement final : public SVGAnimateElementBase {
-    WTF_MAKE_ISO_ALLOCATED(SVGAnimateColorElement);
 public:
     static Ref<SVGAnimateColorElement> create(const QualifiedName&, Document&);
 

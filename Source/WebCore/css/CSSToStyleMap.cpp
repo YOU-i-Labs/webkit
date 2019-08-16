@@ -29,6 +29,7 @@
 #include "CSSToStyleMap.h"
 
 #include "Animation.h"
+#include "CSSAnimationTriggerScrollValue.h"
 #include "CSSBorderImageSliceValue.h"
 #include "CSSImageGeneratorValue.h"
 #include "CSSImageSetValue.h"
@@ -40,6 +41,7 @@
 #include "FillLayer.h"
 #include "Pair.h"
 #include "Rect.h"
+#include "RenderView.h"
 #include "StyleBuilderConverter.h"
 #include "StyleResolver.h"
 
@@ -82,13 +84,13 @@ void CSSToStyleMap::mapFillAttachment(CSSPropertyID propertyID, FillLayer& layer
 
     switch (downcast<CSSPrimitiveValue>(value).valueID()) {
     case CSSValueFixed:
-        layer.setAttachment(FillAttachment::FixedBackground);
+        layer.setAttachment(FixedBackgroundAttachment);
         break;
     case CSSValueScroll:
-        layer.setAttachment(FillAttachment::ScrollBackground);
+        layer.setAttachment(ScrollBackgroundAttachment);
         break;
     case CSSValueLocal:
-        layer.setAttachment(FillAttachment::LocalBackground);
+        layer.setAttachment(LocalBackgroundAttachment);
         break;
     default:
         return;
@@ -207,13 +209,13 @@ void CSSToStyleMap::mapFillSize(CSSPropertyID propertyID, FillLayer& layer, cons
     FillSize fillSize;
     switch (primitiveValue.valueID()) {
     case CSSValueContain:
-        fillSize.type = FillSizeType::Contain;
+        fillSize.type = Contain;
         break;
     case CSSValueCover:
-        fillSize.type = FillSizeType::Cover;
+        fillSize.type = Cover;
         break;
     default:
-        ASSERT(fillSize.type == FillSizeType::Size);
+        ASSERT(fillSize.type == SizeLength);
         if (!convertToLengthSize(primitiveValue, m_resolver->state().cssToLengthConversionData(), fillSize.size))
             return;
         break;
@@ -271,7 +273,7 @@ void CSSToStyleMap::mapFillYPosition(CSSPropertyID propertyID, FillLayer& layer,
 
 void CSSToStyleMap::mapFillMaskSourceType(CSSPropertyID propertyID, FillLayer& layer, const CSSValue& value)
 {
-    MaskSourceType type = FillLayer::initialFillMaskSourceType(layer.type());
+    EMaskSourceType type = FillLayer::initialFillMaskSourceType(layer.type());
     if (value.treatAsInitialValue(propertyID)) {
         layer.setMaskSourceType(type);
         return;
@@ -282,10 +284,10 @@ void CSSToStyleMap::mapFillMaskSourceType(CSSPropertyID propertyID, FillLayer& l
 
     switch (downcast<CSSPrimitiveValue>(value).valueID()) {
     case CSSValueAlpha:
-        type = MaskSourceType::Alpha;
+        type = EMaskSourceType::MaskAlpha;
         break;
     case CSSValueLuminance:
-        type = MaskSourceType::Luminance;
+        type = EMaskSourceType::MaskLuminance;
         break;
     case CSSValueAuto:
         break;
@@ -362,16 +364,16 @@ void CSSToStyleMap::mapAnimationFillMode(Animation& layer, const CSSValue& value
 
     switch (downcast<CSSPrimitiveValue>(value).valueID()) {
     case CSSValueNone:
-        layer.setFillMode(AnimationFillMode::None);
+        layer.setFillMode(AnimationFillModeNone);
         break;
     case CSSValueForwards:
-        layer.setFillMode(AnimationFillMode::Forwards);
+        layer.setFillMode(AnimationFillModeForwards);
         break;
     case CSSValueBackwards:
-        layer.setFillMode(AnimationFillMode::Backwards);
+        layer.setFillMode(AnimationFillModeBackwards);
         break;
     case CSSValueBoth:
-        layer.setFillMode(AnimationFillMode::Both);
+        layer.setFillMode(AnimationFillModeBoth);
         break;
     default:
         break;
@@ -422,7 +424,7 @@ void CSSToStyleMap::mapAnimationPlayState(Animation& layer, const CSSValue& valu
     if (!is<CSSPrimitiveValue>(value))
         return;
 
-    AnimationPlayState playState = (downcast<CSSPrimitiveValue>(value).valueID() == CSSValuePaused) ? AnimationPlayState::Paused : AnimationPlayState::Playing;
+    EAnimPlayState playState = (downcast<CSSPrimitiveValue>(value).valueID() == CSSValuePaused) ? AnimPlayStatePaused : AnimPlayStatePlaying;
     layer.setPlayState(playState);
 }
 
@@ -506,6 +508,38 @@ void CSSToStyleMap::mapAnimationTimingFunction(Animation& animation, const CSSVa
     }
 }
 
+#if ENABLE(CSS_ANIMATIONS_LEVEL_2)
+void CSSToStyleMap::mapAnimationTrigger(Animation& animation, const CSSValue& value)
+{
+    if (value.treatAsInitialValue(CSSPropertyWebkitAnimationTrigger)) {
+        animation.setTrigger(Animation::initialTrigger());
+        return;
+    }
+
+    if (value.isPrimitiveValue()) {
+        auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
+        if (primitiveValue.valueID() == CSSValueAuto)
+            animation.setTrigger(AutoAnimationTrigger::create());
+        return;
+    }
+
+    if (value.isAnimationTriggerScrollValue()) {
+        auto& scrollTrigger = downcast<CSSAnimationTriggerScrollValue>(value);
+
+        const CSSPrimitiveValue& startValue = downcast<CSSPrimitiveValue>(scrollTrigger.startValue());
+        Length startLength = startValue.computeLength<Length>(m_resolver->state().cssToLengthConversionData());
+
+        Length endLength;
+        if (scrollTrigger.hasEndValue()) {
+            const CSSPrimitiveValue* endValue = downcast<CSSPrimitiveValue>(scrollTrigger.endValue());
+            endLength = endValue->computeLength<Length>(m_resolver->state().cssToLengthConversionData());
+        }
+
+        animation.setTrigger(ScrollAnimationTrigger::create(startLength, endLength));
+    }
+}
+#endif
+
 void CSSToStyleMap::mapNinePieceImage(CSSPropertyID property, CSSValue* value, NinePieceImage& image)
 {
     // If we're not a value list, then we are "none" and don't need to alter the empty image at all.
@@ -516,11 +550,11 @@ void CSSToStyleMap::mapNinePieceImage(CSSPropertyID property, CSSValue* value, N
     CSSValueList& borderImage = downcast<CSSValueList>(*value);
 
     for (auto& current : borderImage) {
-        if (is<CSSImageValue>(current) || is<CSSImageGeneratorValue>(current) || is<CSSImageSetValue>(current))
+        if (is<CSSImageValue>(current.get()) || is<CSSImageGeneratorValue>(current.get()) || is<CSSImageSetValue>(current.get()))
             image.setImage(styleImage(current.get()));
-        else if (is<CSSBorderImageSliceValue>(current))
+        else if (is<CSSBorderImageSliceValue>(current.get()))
             mapNinePieceImageSlice(current, image);
-        else if (is<CSSValueList>(current)) {
+        else if (is<CSSValueList>(current.get())) {
             CSSValueList& slashList = downcast<CSSValueList>(current.get());
             // Map in the image slices.
             if (is<CSSBorderImageSliceValue>(slashList.item(0)))
@@ -533,7 +567,7 @@ void CSSToStyleMap::mapNinePieceImage(CSSPropertyID property, CSSValue* value, N
             // Map in the outset.
             if (slashList.item(2))
                 image.setOutset(mapNinePieceImageQuad(*slashList.item(2)));
-        } else if (is<CSSPrimitiveValue>(current)) {
+        } else if (is<CSSPrimitiveValue>(current.get())) {
             // Set the appropriate rules for stretch/round/repeat of the slices.
             mapNinePieceImageRepeat(current, image);
         }

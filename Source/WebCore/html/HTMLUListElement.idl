@@ -18,7 +18,7 @@
  */
 
 interface HTMLUListElement : HTMLElement {
-    [CEReactions=NotNeeded, Reflect] attribute boolean compact;
-    [CEReactions=NotNeeded, Reflect] attribute DOMString type;
+    [Reflect] attribute boolean compact;
+    [Reflect] attribute DOMString type;
 };
 

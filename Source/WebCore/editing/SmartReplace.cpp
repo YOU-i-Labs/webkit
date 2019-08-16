@@ -54,7 +54,7 @@ static USet* getSmartSet(bool isPreviousCharacter)
     if (!smartSet) {
         // Whitespace and newline (kCFCharacterSetWhitespaceAndNewline)
         UErrorCode ec = U_ZERO_ERROR;
-        String whitespaceAndNewline = "[[:WSpace:] [\\u000A\\u000B\\u000C\\u000D\\u0085]]"_s;
+        String whitespaceAndNewline = ASCIILiteral("[[:WSpace:] [\\u000A\\u000B\\u000C\\u000D\\u0085]]");
         smartSet = uset_openPattern(StringView(whitespaceAndNewline).upconvertedCharacters(), whitespaceAndNewline.length(), &ec);
         ASSERT(U_SUCCESS(ec));
 
@@ -73,15 +73,15 @@ static USet* getSmartSet(bool isPreviousCharacter)
 
         if (isPreviousCharacter) {
             // FIXME: Silly to convert this to a WTF::String just to loop through the characters.
-            addAllCodePoints(smartSet, "([\"\'#$/-`{"_s);
+            addAllCodePoints(smartSet, ASCIILiteral("([\"\'#$/-`{"));
             preSmartSet = smartSet;
         } else {
             // FIXME: Silly to convert this to a WTF::String just to loop through the characters.
-            addAllCodePoints(smartSet, ")].,;:?\'!\"%*-/}"_s);
+            addAllCodePoints(smartSet, ASCIILiteral(")].,;:?\'!\"%*-/}"));
 
             // Punctuation (kCFCharacterSetPunctuation)
             UErrorCode ec = U_ZERO_ERROR;
-            String punctuationClass = "[:P:]"_s;
+            String punctuationClass = ASCIILiteral("[:P:]");
             USet* icuPunct = uset_openPattern(StringView(punctuationClass).upconvertedCharacters(), punctuationClass.length(), &ec);
             ASSERT(U_SUCCESS(ec));
             uset_addAll(smartSet, icuPunct);

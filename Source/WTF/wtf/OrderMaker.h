@@ -23,7 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef WTF_OrderMaker_h
+#define WTF_OrderMaker_h
 
 #include <wtf/Bag.h>
 #include <wtf/HashMap.h>
@@ -137,3 +138,6 @@ private:
 } // namespace WTF
 
 using WTF::OrderMaker;
+
+#endif // WTF_OrderMaker_h
+

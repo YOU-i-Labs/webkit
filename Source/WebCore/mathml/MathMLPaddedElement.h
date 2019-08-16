@@ -32,7 +32,6 @@
 namespace WebCore {
 
 class MathMLPaddedElement final : public MathMLRowElement {
-    WTF_MAKE_ISO_ALLOCATED(MathMLPaddedElement);
 public:
     static Ref<MathMLPaddedElement> create(const QualifiedName& tagName, Document&);
     // FIXME: Pseudo-units are not supported yet (https://bugs.webkit.org/show_bug.cgi?id=85730).
@@ -46,11 +45,11 @@ private:
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
 
-    Optional<Length> m_width;
-    Optional<Length> m_height;
-    Optional<Length> m_depth;
-    Optional<Length> m_lspace;
-    Optional<Length> m_voffset;
+    std::optional<Length> m_width;
+    std::optional<Length> m_height;
+    std::optional<Length> m_depth;
+    std::optional<Length> m_lspace;
+    std::optional<Length> m_voffset;
 };
 
 }

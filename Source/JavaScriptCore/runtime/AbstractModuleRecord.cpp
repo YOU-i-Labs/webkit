@@ -32,14 +32,9 @@
 #include "JSMap.h"
 #include "JSModuleEnvironment.h"
 #include "JSModuleNamespaceObject.h"
-#include "JSModuleRecord.h"
 #include "UnlinkedModuleProgramCodeBlock.h"
-#include "WebAssemblyModuleRecord.h"
 
 namespace JSC {
-namespace AbstractModuleRecordInternal {
-static const bool verbose = false;
-} // namespace AbstractModuleRecordInternal
 
 const ClassInfo AbstractModuleRecord::s_info = { "AbstractModuleRecord", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(AbstractModuleRecord) };
 
@@ -59,12 +54,14 @@ void AbstractModuleRecord::finishCreation(ExecState* exec, VM& vm)
 {
     Base::finishCreation(vm);
     ASSERT(inherits(vm, info()));
+    putDirect(vm, Identifier::fromString(&vm, ASCIILiteral("registryEntry")), jsUndefined());
+    putDirect(vm, Identifier::fromString(&vm, ASCIILiteral("evaluated")), jsBoolean(false));
 
     auto scope = DECLARE_THROW_SCOPE(vm);
-    JSMap* map = JSMap::create(exec, vm, globalObject(vm)->mapStructure());
+    JSMap* map = JSMap::create(exec, vm, globalObject()->mapStructure());
     scope.releaseAssertNoException();
     m_dependenciesMap.set(vm, this, map);
-    putDirect(vm, Identifier::fromString(&vm, "dependenciesMap"_s), m_dependenciesMap.get());
+    putDirect(vm, Identifier::fromString(&vm, ASCIILiteral("dependenciesMap")), m_dependenciesMap.get());
 }
 
 void AbstractModuleRecord::visitChildren(JSCell* cell, SlotVisitor& visitor)
@@ -98,20 +95,20 @@ void AbstractModuleRecord::addExportEntry(const ExportEntry& entry)
     ASSERT_UNUSED(isNewEntry, isNewEntry); // This is guaranteed by the parser.
 }
 
-auto AbstractModuleRecord::tryGetImportEntry(UniquedStringImpl* localName) -> Optional<ImportEntry>
+auto AbstractModuleRecord::tryGetImportEntry(UniquedStringImpl* localName) -> std::optional<ImportEntry>
 {
     const auto iterator = m_importEntries.find(localName);
     if (iterator == m_importEntries.end())
-        return WTF::nullopt;
-    return Optional<ImportEntry>(iterator->value);
+        return std::nullopt;
+    return std::optional<ImportEntry>(iterator->value);
 }
 
-auto AbstractModuleRecord::tryGetExportEntry(UniquedStringImpl* exportName) -> Optional<ExportEntry>
+auto AbstractModuleRecord::tryGetExportEntry(UniquedStringImpl* exportName) -> std::optional<ExportEntry>
 {
     const auto iterator = m_exportEntries.find(exportName);
     if (iterator == m_exportEntries.end())
-        return WTF::nullopt;
-    return Optional<ExportEntry>(iterator->value);
+        return std::nullopt;
+    return std::optional<ExportEntry>(iterator->value);
 }
 
 auto AbstractModuleRecord::ExportEntry::createLocal(const Identifier& exportName, const Identifier& localName) -> ExportEntry
@@ -139,31 +136,31 @@ auto AbstractModuleRecord::Resolution::ambiguous() -> Resolution
     return Resolution { Type::Ambiguous, nullptr, Identifier() };
 }
 
+static JSValue identifierToJSValue(ExecState* exec, const Identifier& identifier)
+{
+    if (identifier.isSymbol())
+        return Symbol::create(exec->vm(), static_cast<SymbolImpl&>(*identifier.impl()));
+    return jsString(&exec->vm(), identifier.impl());
+}
+
 AbstractModuleRecord* AbstractModuleRecord::hostResolveImportedModule(ExecState* exec, const Identifier& moduleName)
 {
-    VM& vm = exec->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
-    JSValue moduleNameValue = identifierToJSValue(vm, moduleName);
-    JSValue entry = m_dependenciesMap->JSMap::get(exec, moduleNameValue);
-    RETURN_IF_EXCEPTION(scope, nullptr);
-    RELEASE_AND_RETURN(scope, jsCast<AbstractModuleRecord*>(entry.get(exec, Identifier::fromString(exec, "module"))));
+    JSValue moduleNameValue = identifierToJSValue(exec, moduleName);
+    JSValue pair = m_dependenciesMap->JSMap::get(exec, moduleNameValue);
+    return jsCast<AbstractModuleRecord*>(pair.get(exec, Identifier::fromString(exec, "value")));
 }
 
 auto AbstractModuleRecord::resolveImport(ExecState* exec, const Identifier& localName) -> Resolution
 {
-    VM& vm = exec->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    Optional<ImportEntry> optionalImportEntry = tryGetImportEntry(localName.impl());
+    std::optional<ImportEntry> optionalImportEntry = tryGetImportEntry(localName.impl());
     if (!optionalImportEntry)
         return Resolution::notFound();
 
     const ImportEntry& importEntry = *optionalImportEntry;
-    if (importEntry.type == AbstractModuleRecord::ImportEntryType::Namespace)
+    if (importEntry.isNamespace(exec->vm()))
         return Resolution::notFound();
 
     AbstractModuleRecord* importedModule = hostResolveImportedModule(exec, importEntry.moduleRequest);
-    RETURN_IF_EXCEPTION(scope, Resolution::error());
     return importedModule->resolveExport(exec, importEntry.importName);
 }
 
@@ -173,7 +170,6 @@ struct AbstractModuleRecord::ResolveQuery {
         static bool equal(const ResolveQuery&, const ResolveQuery&);
         static const bool safeToCompareToEmptyOrDeleted = true;
     };
-    using HashTraits = WTF::CustomHashTraits<ResolveQuery>;
 
     ResolveQuery(AbstractModuleRecord* moduleRecord, UniquedStringImpl* exportName)
         : moduleRecord(moduleRecord)
@@ -208,15 +204,6 @@ struct AbstractModuleRecord::ResolveQuery {
         return exportName.isHashTableDeletedValue();
     }
 
-    void dump(PrintStream& out) const
-    {
-        if (!moduleRecord) {
-            out.print("<empty>");
-            return;
-        }
-        out.print(moduleRecord->moduleKey(), " \"", exportName.get(), "\"");
-    }
-
     // The module record is not marked from the GC. But these records are reachable from the JSGlobalObject.
     // So we don't care the reachability to this record.
     AbstractModuleRecord* moduleRecord;
@@ -233,12 +220,12 @@ inline bool AbstractModuleRecord::ResolveQuery::Hash::equal(const ResolveQuery& 
     return lhs.moduleRecord == rhs.moduleRecord && lhs.exportName == rhs.exportName;
 }
 
-auto AbstractModuleRecord::tryGetCachedResolution(UniquedStringImpl* exportName) -> Optional<Resolution>
+auto AbstractModuleRecord::tryGetCachedResolution(UniquedStringImpl* exportName) -> std::optional<Resolution>
 {
     const auto iterator = m_resolutionCache.find(exportName);
     if (iterator == m_resolutionCache.end())
-        return WTF::nullopt;
-    return Optional<Resolution>(iterator->value);
+        return std::nullopt;
+    return std::optional<Resolution>(iterator->value);
 }
 
 void AbstractModuleRecord::cacheResolution(UniquedStringImpl* exportName, const Resolution& resolution)
@@ -248,13 +235,7 @@ void AbstractModuleRecord::cacheResolution(UniquedStringImpl* exportName, const 
 
 auto AbstractModuleRecord::resolveExportImpl(ExecState* exec, const ResolveQuery& root) -> Resolution
 {
-    VM& vm = exec->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    if (AbstractModuleRecordInternal::verbose)
-        dataLog("Resolving ", root, "\n");
-
-    // https://tc39.github.io/ecma262/#sec-resolveexport
+    // http://www.ecma-international.org/ecma-262/6.0/#sec-resolveexport
 
     // How to avoid C++ recursion in this function:
     // This function avoids C++ recursion of the naive ResolveExport implementation.
@@ -489,28 +470,16 @@ auto AbstractModuleRecord::resolveExportImpl(ExecState* exec, const ResolveQuery
     //  4. Once we follow star links, we should not retrieve the result from the cache and should not cache the result.
     //  5. Once we see star links, even if we have not yet traversed that star link path, we should disable caching.
 
-    using ResolveSet = WTF::HashSet<ResolveQuery, ResolveQuery::Hash, ResolveQuery::HashTraits>;
+    typedef WTF::HashSet<ResolveQuery, ResolveQuery::Hash, WTF::CustomHashTraits<ResolveQuery>> ResolveSet;
     enum class Type { Query, IndirectFallback, GatherStars };
     struct Task {
         ResolveQuery query;
         Type type;
     };
 
-    auto typeString = [] (Type type) -> const char* {
-        switch (type) {
-        case Type::Query:
-            return "Query";
-        case Type::IndirectFallback:
-            return "IndirectFallback";
-        case Type::GatherStars:
-            return "GatherStars";
-        }
-        RELEASE_ASSERT_NOT_REACHED();
-        return nullptr;
-    };
-
     Vector<Task, 8> pendingTasks;
     ResolveSet resolveSet;
+    HashSet<AbstractModuleRecord*> starSet;
 
     Vector<Resolution, 8> frames;
 
@@ -521,14 +490,16 @@ auto AbstractModuleRecord::resolveExportImpl(ExecState* exec, const ResolveQuery
     // Call when the query is not resolved in the current module.
     // It will enqueue the star resolution requests. Return "false" if the error occurs.
     auto resolveNonLocal = [&](const ResolveQuery& query) -> bool {
-        // https://tc39.github.io/ecma262/#sec-resolveexport
+        // http://www.ecma-international.org/ecma-262/6.0/#sec-resolveexport
         // section 15.2.1.16.3, step 6
         // If the "default" name is not resolved in the current module, we need to throw an error and stop resolution immediately,
         // Rationale to this error: A default export cannot be provided by an export *.
-        VM& vm = exec->vm();
-        auto scope = DECLARE_THROW_SCOPE(vm);
-        if (query.exportName == vm.propertyNames->defaultKeyword.impl())
+        if (query.exportName == exec->propertyNames().defaultKeyword.impl())
             return false;
+
+        // step 7, If exportStarSet contains module, then return null.
+        if (!starSet.add(query.moduleRecord).isNewEntry)
+            return true;
 
         // Enqueue the task to gather the results of the stars.
         // And append the new Resolution frame to gather the local result of the stars.
@@ -536,11 +507,11 @@ auto AbstractModuleRecord::resolveExportImpl(ExecState* exec, const ResolveQuery
         foundStarLinks = true;
         frames.append(Resolution::notFound());
 
+
         // Enqueue the tasks in reverse order.
         for (auto iterator = query.moduleRecord->starExportEntries().rbegin(), end = query.moduleRecord->starExportEntries().rend(); iterator != end; ++iterator) {
             const RefPtr<UniquedStringImpl>& starModuleName = *iterator;
             AbstractModuleRecord* importedModuleRecord = query.moduleRecord->hostResolveImportedModule(exec, Identifier::fromUid(exec, starModuleName.get()));
-            RETURN_IF_EXCEPTION(scope, false);
             pendingTasks.append(Task { ResolveQuery(importedModuleRecord, query.exportName.get()), Type::Query });
         }
         return true;
@@ -579,9 +550,6 @@ auto AbstractModuleRecord::resolveExportImpl(ExecState* exec, const ResolveQuery
         const Task task = pendingTasks.takeLast();
         const ResolveQuery& query = task.query;
 
-        if (AbstractModuleRecordInternal::verbose)
-            dataLog("    ", typeString(task.type), " ", task.query, "\n");
-
         switch (task.type) {
         case Type::Query: {
             AbstractModuleRecord* moduleRecord = query.moduleRecord;
@@ -595,20 +563,18 @@ auto AbstractModuleRecord::resolveExportImpl(ExecState* exec, const ResolveQuery
 
             //  4. Once we follow star links, we should not retrieve the result from the cache and should not cache the result.
             if (!foundStarLinks) {
-                if (Optional<Resolution> cachedResolution = moduleRecord->tryGetCachedResolution(query.exportName.get())) {
+                if (std::optional<Resolution> cachedResolution = moduleRecord->tryGetCachedResolution(query.exportName.get())) {
                     if (!mergeToCurrentTop(*cachedResolution))
                         return Resolution::ambiguous();
                     continue;
                 }
             }
 
-            const Optional<ExportEntry> optionalExportEntry = moduleRecord->tryGetExportEntry(query.exportName.get());
+            const std::optional<ExportEntry> optionalExportEntry = moduleRecord->tryGetExportEntry(query.exportName.get());
             if (!optionalExportEntry) {
                 // If there is no matched exported binding in the current module,
                 // we need to look into the stars.
-                bool success = resolveNonLocal(task.query);
-                EXCEPTION_ASSERT(!scope.exception() || !success);
-                if (!success)
+                if (!resolveNonLocal(task.query))
                     return Resolution::error();
                 continue;
             }
@@ -627,7 +593,6 @@ auto AbstractModuleRecord::resolveExportImpl(ExecState* exec, const ResolveQuery
 
             case ExportEntry::Type::Indirect: {
                 AbstractModuleRecord* importedModuleRecord = moduleRecord->hostResolveImportedModule(exec, exportEntry.moduleName);
-                RETURN_IF_EXCEPTION(scope, Resolution::error());
 
                 // When the imported module does not produce any resolved binding, we need to look into the stars in the *current*
                 // module. To do this, we append the `IndirectFallback` task to the task queue.
@@ -647,9 +612,7 @@ auto AbstractModuleRecord::resolveExportImpl(ExecState* exec, const ResolveQuery
             if (resolution.type == Resolution::Type::NotFound) {
                 // Indirect export entry does not produce any resolved binding.
                 // So we will investigate the stars.
-                bool success = resolveNonLocal(task.query);
-                EXCEPTION_ASSERT(!scope.exception() || !success);
-                if (!success)
+                if (!resolveNonLocal(task.query))
                     return Resolution::error();
                 continue;
             }
@@ -690,16 +653,13 @@ auto AbstractModuleRecord::resolveExportImpl(ExecState* exec, const ResolveQuery
 auto AbstractModuleRecord::resolveExport(ExecState* exec, const Identifier& exportName) -> Resolution
 {
     // Look up the cached resolution first before entering the resolving loop, since the loop setup takes some cost.
-    if (Optional<Resolution> cachedResolution = tryGetCachedResolution(exportName.impl()))
+    if (std::optional<Resolution> cachedResolution = tryGetCachedResolution(exportName.impl()))
         return *cachedResolution;
     return resolveExportImpl(exec, ResolveQuery(this, exportName.impl()));
 }
 
 static void getExportedNames(ExecState* exec, AbstractModuleRecord* root, IdentifierSet& exportedNames)
 {
-    VM& vm = exec->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
     HashSet<AbstractModuleRecord*> exportStarSet;
     Vector<AbstractModuleRecord*, 8> pendingModules;
 
@@ -713,13 +673,12 @@ static void getExportedNames(ExecState* exec, AbstractModuleRecord* root, Identi
 
         for (const auto& pair : moduleRecord->exportEntries()) {
             const AbstractModuleRecord::ExportEntry& exportEntry = pair.value;
-            if (moduleRecord == root || vm.propertyNames->defaultKeyword != exportEntry.exportName)
+            if (moduleRecord == root || exec->propertyNames().defaultKeyword != exportEntry.exportName)
                 exportedNames.add(exportEntry.exportName.impl());
         }
 
         for (const auto& starModuleName : moduleRecord->starExportEntries()) {
             AbstractModuleRecord* requestedModuleRecord = moduleRecord->hostResolveImportedModule(exec, Identifier::fromUid(exec, starModuleName.get()));
-            RETURN_IF_EXCEPTION(scope, void());
             pendingModules.append(requestedModuleRecord);
         }
     }
@@ -737,13 +696,11 @@ JSModuleNamespaceObject* AbstractModuleRecord::getModuleNamespace(ExecState* exe
     JSGlobalObject* globalObject = exec->lexicalGlobalObject();
     IdentifierSet exportedNames;
     getExportedNames(exec, this, exportedNames);
-    RETURN_IF_EXCEPTION(scope, nullptr);
 
     Vector<std::pair<Identifier, Resolution>> resolutions;
     for (auto& name : exportedNames) {
         Identifier ident = Identifier::fromUid(exec, name.get());
         const Resolution resolution = resolveExport(exec, ident);
-        RETURN_IF_EXCEPTION(scope, nullptr);
         switch (resolution.type) {
         case Resolution::Type::NotFound:
             throwSyntaxError(exec, scope, makeString("Exported binding name '", String(name.get()), "' is not found."));
@@ -762,35 +719,8 @@ JSModuleNamespaceObject* AbstractModuleRecord::getModuleNamespace(ExecState* exe
         }
     }
 
-    auto* moduleNamespaceObject = JSModuleNamespaceObject::create(exec, globalObject, globalObject->moduleNamespaceObjectStructure(), this, WTFMove(resolutions));
-    RETURN_IF_EXCEPTION(scope, nullptr);
-    m_moduleNamespaceObject.set(vm, this, moduleNamespaceObject);
-    return moduleNamespaceObject;
-}
-
-void AbstractModuleRecord::link(ExecState* exec, JSValue scriptFetcher)
-{
-    VM& vm = exec->vm();
-    if (auto* jsModuleRecord = jsDynamicCast<JSModuleRecord*>(vm, this))
-        return jsModuleRecord->link(exec, scriptFetcher);
-#if ENABLE(WEBASSEMBLY)
-    if (auto* wasmModuleRecord = jsDynamicCast<WebAssemblyModuleRecord*>(vm, this))
-        return wasmModuleRecord->link(exec, scriptFetcher, nullptr, Wasm::CreationMode::FromModuleLoader);
-#endif
-    RELEASE_ASSERT_NOT_REACHED();
-}
-
-JS_EXPORT_PRIVATE JSValue AbstractModuleRecord::evaluate(ExecState* exec)
-{
-    VM& vm = exec->vm();
-    if (auto* jsModuleRecord = jsDynamicCast<JSModuleRecord*>(vm, this))
-        return jsModuleRecord->evaluate(exec);
-#if ENABLE(WEBASSEMBLY)
-    if (auto* wasmModuleRecord = jsDynamicCast<WebAssemblyModuleRecord*>(vm, this))
-        return wasmModuleRecord->evaluate(exec);
-#endif
-    RELEASE_ASSERT_NOT_REACHED();
-    return jsUndefined();
+    m_moduleNamespaceObject.set(vm, this, JSModuleNamespaceObject::create(exec, globalObject, globalObject->moduleNamespaceObjectStructure(), this, WTFMove(resolutions)));
+    return m_moduleNamespaceObject.get();
 }
 
 static String printableName(const RefPtr<UniquedStringImpl>& uid)

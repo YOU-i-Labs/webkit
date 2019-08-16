@@ -39,14 +39,14 @@ class DeviceOrientationController final : public DeviceController {
     WTF_MAKE_NONCOPYABLE(DeviceOrientationController);
 public:
     explicit DeviceOrientationController(DeviceOrientationClient*);
-    virtual ~DeviceOrientationController() = default;
+    virtual ~DeviceOrientationController() { }
 
     void didChangeDeviceOrientation(DeviceOrientationData*);
     DeviceOrientationClient* deviceOrientationClient();
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     // FIXME: We should look to reconcile the iOS and OpenSource differences with this class
-    // so that we can either remove these methods or remove the PLATFORM(IOS_FAMILY)-guard.
+    // so that we can either remove these methods or remove the PLATFORM(IOS)-guard.
     void suspendUpdates();
     void resumeUpdates();
 #else

@@ -25,10 +25,10 @@
 
 #pragma once
 
-#include "WorkerDebuggerProxy.h"
 #include "WorkerGlobalScope.h"
+#include "WorkerReportingProxy.h"
 #include "WorkerThread.h"
-#include <JavaScriptCore/InspectorFrontendChannel.h>
+#include <inspector/InspectorFrontendChannel.h>
 
 namespace WebCore {
 
@@ -39,14 +39,14 @@ public:
         : m_workerGlobalScope(workerGlobalScope)
     {
     }
-    ~WorkerToPageFrontendChannel() = default;
+    ~WorkerToPageFrontendChannel() { }
 
 private:
     ConnectionType connectionType() const override { return ConnectionType::Local; }
 
     void sendMessageToFrontend(const String& message) override
     {
-        m_workerGlobalScope.thread().workerDebuggerProxy().postMessageToDebugger(message);
+        m_workerGlobalScope.thread().workerReportingProxy().postMessageToPageInspector(message);
     }
 
     WorkerGlobalScope& m_workerGlobalScope;

@@ -70,9 +70,9 @@ public:
         CSS_VMAX = 29
     };
 
-    static Ref<DeprecatedCSSOMPrimitiveValue> create(const CSSPrimitiveValue& value, CSSStyleDeclaration& owner)
+    static Ref<DeprecatedCSSOMPrimitiveValue> create(const CSSPrimitiveValue& value)
     {
-        return adoptRef(*new DeprecatedCSSOMPrimitiveValue(value, owner));
+        return adoptRef(*new DeprecatedCSSOMPrimitiveValue(value));
     }
 
     bool equals(const DeprecatedCSSOMPrimitiveValue& other) const { return m_value->equals(other.m_value); }
@@ -93,8 +93,8 @@ public:
     String stringValue() const { return m_value->stringValue(); }
 
 protected:
-    DeprecatedCSSOMPrimitiveValue(const CSSPrimitiveValue& value, CSSStyleDeclaration& owner)
-        : DeprecatedCSSOMValue(DeprecatedPrimitiveValueClass, owner)
+    DeprecatedCSSOMPrimitiveValue(const CSSPrimitiveValue& value)
+        : DeprecatedCSSOMValue(DeprecatedPrimitiveValueClass)
         , m_value(const_cast<CSSPrimitiveValue&>(value))
     {
     }

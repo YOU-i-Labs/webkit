@@ -42,24 +42,22 @@ public:
     struct Init {
         String candidate;
         String sdpMid;
-        Optional<unsigned short> sdpMLineIndex;
+        std::optional<unsigned short> sdpMLineIndex;
     };
 
     static ExceptionOr<Ref<RTCIceCandidate>> create(const Init&);
-    static Ref<RTCIceCandidate> create(const String& candidate, const String& sdpMid, Optional<unsigned short> sdpMLineIndex);
+    static Ref<RTCIceCandidate> create(const String& candidate, const String& sdpMid, std::optional<unsigned short> sdpMLineIndex);
 
     const String& candidate() const { return m_candidate; }
     const String& sdpMid() const { return m_sdpMid; }
-    Optional<unsigned short> sdpMLineIndex() const { return m_sdpMLineIndex; }
-
-    void setCandidate(String&& candidate) { m_candidate = WTFMove(candidate); }
+    std::optional<unsigned short> sdpMLineIndex() const { return m_sdpMLineIndex; }
 
 private:
-    RTCIceCandidate(const String& candidate, const String& sdpMid, Optional<unsigned short> sdpMLineIndex);
+    RTCIceCandidate(const String& candidate, const String& sdpMid, std::optional<unsigned short> sdpMLineIndex);
 
     String m_candidate;
     String m_sdpMid;
-    Optional<unsigned short> m_sdpMLineIndex;
+    std::optional<unsigned short> m_sdpMLineIndex;
 };
 
 } // namespace WebCore

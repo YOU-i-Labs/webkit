@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.BezierEditor = class BezierEditor extends WI.Object
+WebInspector.BezierEditor = class BezierEditor extends WebInspector.Object
 {
     constructor()
     {
@@ -40,7 +40,7 @@ WI.BezierEditor = class BezierEditor extends WI.Object
         this._bezierHeight = editorHeight - (this._controlHandleRadius * 2) - (this._padding * 2);
 
         this._bezierPreviewContainer = this._element.createChild("div", "bezier-preview");
-        this._bezierPreviewContainer.title = WI.UIString("Restart animation");
+        this._bezierPreviewContainer.title = WebInspector.UIString("Restart animation");
         this._bezierPreviewContainer.addEventListener("mousedown", this._resetPreviewAnimation.bind(this));
 
         this._bezierPreview = this._bezierPreviewContainer.createChild("div");
@@ -114,7 +114,7 @@ WI.BezierEditor = class BezierEditor extends WI.Object
         this._mouseDownPosition = null;
         this._bezierContainer.addEventListener("mousedown", this);
 
-        WI.addWindowKeydownListener(this);
+        WebInspector.addWindowKeydownListener(this);
     }
 
     // Public
@@ -129,7 +129,7 @@ WI.BezierEditor = class BezierEditor extends WI.Object
         if (!bezier)
             return;
 
-        var isCubicBezier = bezier instanceof WI.CubicBezier;
+        var isCubicBezier = bezier instanceof WebInspector.CubicBezier;
         console.assert(isCubicBezier);
         if (!isCubicBezier)
             return;
@@ -145,7 +145,7 @@ WI.BezierEditor = class BezierEditor extends WI.Object
 
     removeListeners()
     {
-        WI.removeWindowKeydownListener(this);
+        WebInspector.removeWindowKeydownListener(this);
     }
 
     // Protected
@@ -173,16 +173,16 @@ WI.BezierEditor = class BezierEditor extends WI.Object
         let horizontal = 0;
         let vertical = 0;
         switch (event.keyCode) {
-        case WI.KeyboardShortcut.Key.Up.keyCode:
+        case WebInspector.KeyboardShortcut.Key.Up.keyCode:
             vertical = -1;
             break;
-        case WI.KeyboardShortcut.Key.Right.keyCode:
+        case WebInspector.KeyboardShortcut.Key.Right.keyCode:
             horizontal = 1;
             break;
-        case WI.KeyboardShortcut.Key.Down.keyCode:
+        case WebInspector.KeyboardShortcut.Key.Down.keyCode:
             vertical = 1;
             break;
-        case WI.KeyboardShortcut.Key.Left.keyCode:
+        case WebInspector.KeyboardShortcut.Key.Left.keyCode:
             horizontal = -1;
             break;
         default:
@@ -238,7 +238,7 @@ WI.BezierEditor = class BezierEditor extends WI.Object
 
     _updateControlPointsForMouseEvent(event, calculateSelectedControlPoint)
     {
-        var point = WI.Point.fromEventInElement(event, this._bezierContainer);
+        var point = WebInspector.Point.fromEventInElement(event, this._bezierContainer);
         point.x = Number.constrain(point.x - this._controlHandleRadius, 0, this._bezierWidth);
         point.y -= this._controlHandleRadius + this._padding;
 
@@ -276,10 +276,10 @@ WI.BezierEditor = class BezierEditor extends WI.Object
         var outValueX = round(this._outControl.point.x / this._bezierWidth);
         var outValueY = round(1 - (this._outControl.point.y / this._bezierHeight));
 
-        this._bezier = new WI.CubicBezier(inValueX, inValueY, outValueX, outValueY);
+        this._bezier = new WebInspector.CubicBezier(inValueX, inValueY, outValueX, outValueY);
         this._updateBezier();
 
-        this.dispatchEventToListeners(WI.BezierEditor.Event.BezierChanged, {bezier: this._bezier});
+        this.dispatchEventToListeners(WebInspector.BezierEditor.Event.BezierChanged, {bezier: this._bezier});
     }
 
     _updateBezier()
@@ -311,8 +311,8 @@ WI.BezierEditor = class BezierEditor extends WI.Object
 
     _updateBezierPreview()
     {
-        this._inControl.point = new WI.Point(this._bezier.inPoint.x * this._bezierWidth, (1 - this._bezier.inPoint.y) * this._bezierHeight);
-        this._outControl.point = new WI.Point(this._bezier.outPoint.x * this._bezierWidth, (1 - this._bezier.outPoint.y) * this._bezierHeight);
+        this._inControl.point = new WebInspector.Point(this._bezier.inPoint.x * this._bezierWidth, (1 - this._bezier.inPoint.y) * this._bezierHeight);
+        this._outControl.point = new WebInspector.Point(this._bezier.outPoint.x * this._bezierWidth, (1 - this._bezier.outPoint.y) * this._bezierHeight);
 
         this._updateBezier();
         this._triggerPreviewAnimation();
@@ -381,10 +381,10 @@ WI.BezierEditor = class BezierEditor extends WI.Object
 
         this._updateBezierPreview();
 
-        this.dispatchEventToListeners(WI.BezierEditor.Event.BezierChanged, {bezier: this._bezier});
+        this.dispatchEventToListeners(WebInspector.BezierEditor.Event.BezierChanged, {bezier: this._bezier});
     }
 };
 
-WI.BezierEditor.Event = {
+WebInspector.BezierEditor.Event = {
     BezierChanged: "bezier-editor-bezier-changed"
 };

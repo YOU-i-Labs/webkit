@@ -15,7 +15,7 @@
 
 #include "compiler/translator/SeparateDeclarations.h"
 
-#include "compiler/translator/IntermTraverse.h"
+#include "compiler/translator/IntermNode.h"
 
 namespace sh
 {

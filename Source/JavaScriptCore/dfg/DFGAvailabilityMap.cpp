@@ -60,7 +60,7 @@ void AvailabilityMap::pruneHeap()
         if (possibleNodes.contains(pair.key.base()))
             newHeap.add(pair.key, pair.value);
     }
-    m_heap = WTFMove(newHeap);
+    m_heap = newHeap;
 }
 
 void AvailabilityMap::pruneByLiveness(Graph& graph, CodeOrigin where)
@@ -71,7 +71,7 @@ void AvailabilityMap::pruneByLiveness(Graph& graph, CodeOrigin where)
         [&] (VirtualRegister reg) {
             localsCopy.operand(reg) = m_locals.operand(reg);
         });
-    m_locals = WTFMove(localsCopy);
+    m_locals = localsCopy;
     pruneHeap();
 }
 

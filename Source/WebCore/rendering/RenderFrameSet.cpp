@@ -41,12 +41,9 @@
 #include "RenderLayer.h"
 #include "RenderView.h"
 #include "Settings.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderFrameSet);
 
 RenderFrameSet::RenderFrameSet(HTMLFrameSetElement& frameSet, RenderStyle&& style)
     : RenderBox(frameSet, WTFMove(style), 0)
@@ -56,7 +53,9 @@ RenderFrameSet::RenderFrameSet(HTMLFrameSetElement& frameSet, RenderStyle&& styl
     setInline(false);
 }
 
-RenderFrameSet::~RenderFrameSet() = default;
+RenderFrameSet::~RenderFrameSet()
+{
+}
 
 HTMLFrameSetElement& RenderFrameSet::frameSetElement() const
 {
@@ -95,7 +94,7 @@ void RenderFrameSet::paintColumnBorder(const PaintInfo& paintInfo, const IntRect
     
     // Fill first.
     GraphicsContext& context = paintInfo.context();
-    context.fillRect(borderRect, frameSetElement().hasBorderColor() ? style().visitedDependentColorWithColorFilter(CSSPropertyBorderLeftColor) : borderFillColor());
+    context.fillRect(borderRect, frameSetElement().hasBorderColor() ? style().visitedDependentColor(CSSPropertyBorderLeftColor) : borderFillColor());
     
     // Now stroke the edges but only if we have enough room to paint both edges with a little
     // bit of the fill color showing through.
@@ -114,7 +113,7 @@ void RenderFrameSet::paintRowBorder(const PaintInfo& paintInfo, const IntRect& b
     
     // Fill first.
     GraphicsContext& context = paintInfo.context();
-    context.fillRect(borderRect, frameSetElement().hasBorderColor() ? style().visitedDependentColorWithColorFilter(CSSPropertyBorderLeftColor) : borderFillColor());
+    context.fillRect(borderRect, frameSetElement().hasBorderColor() ? style().visitedDependentColor(CSSPropertyBorderLeftColor) : borderFillColor());
 
     // Now stroke the edges but only if we have enough room to paint both edges with a little
     // bit of the fill color showing through.
@@ -126,7 +125,7 @@ void RenderFrameSet::paintRowBorder(const PaintInfo& paintInfo, const IntRect& b
 
 void RenderFrameSet::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (paintInfo.phase != PaintPhase::Foreground)
+    if (paintInfo.phase != PaintPhaseForeground)
         return;
     
     RenderObject* child = firstChild();
@@ -139,9 +138,9 @@ void RenderFrameSet::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     size_t cols = m_cols.m_sizes.size();
     LayoutUnit borderThickness = frameSetElement().border();
     
-    LayoutUnit yPos;
+    LayoutUnit yPos = 0;
     for (size_t r = 0; r < rows; r++) {
-        LayoutUnit xPos;
+        LayoutUnit xPos = 0;
         for (size_t c = 0; c < cols; c++) {
             downcast<RenderElement>(*child).paint(paintInfo, adjustedPaintOffset);
             xPos += m_cols.m_sizes[c];
@@ -494,18 +493,6 @@ void RenderFrameSet::layout()
     clearNeedsLayout();
 }
 
-static void resetFrameRendererAndDescendents(RenderBox* frameSetChild, RenderFrameSet& parentFrameSet)
-{
-    if (!frameSetChild)
-        return;
-
-    for (auto* descendant = frameSetChild; descendant; descendant = downcast<RenderBox>(RenderObjectTraversal::next(*descendant, &parentFrameSet))) {
-        descendant->setWidth(0);
-        descendant->setHeight(0);
-        descendant->clearNeedsLayout();
-    }
-}
-
 void RenderFrameSet::positionFrames()
 {
     RenderBox* child = firstChildBox();
@@ -528,7 +515,7 @@ void RenderFrameSet::positionFrames()
             if (width != child->width() || height != child->height()) {
                 child->setWidth(width);
                 child->setHeight(height);
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
                 // FIXME: Is this iOS-specific?
                 child->setNeedsLayout(MarkOnlyThis);
 #else
@@ -546,7 +533,12 @@ void RenderFrameSet::positionFrames()
         yPos += height + borderThickness;
     }
 
-    resetFrameRendererAndDescendents(child, *this);
+    // all the remaining frames are hidden to avoid ugly spurious unflowed frames
+    for (auto* descendant = child; descendant; descendant = downcast<RenderBox>(RenderObjectTraversal::next(*descendant, this))) {
+        descendant->setWidth(0);
+        descendant->setHeight(0);
+        descendant->clearNeedsLayout();
+    }
 }
 
 void RenderFrameSet::positionFramesWithFlattening()
@@ -649,12 +641,17 @@ void RenderFrameSet::positionFramesWithFlattening()
     if (repaintNeeded)
         repaint();
 
-    resetFrameRendererAndDescendents(child, *this);
+    // all the remaining frames are hidden to avoid ugly spurious unflowed frames
+    for (; child; child = child->nextSiblingBox()) {
+        child->setWidth(0);
+        child->setHeight(0);
+        child->clearNeedsLayout();
+    }
 }
 
 bool RenderFrameSet::flattenFrameSet() const
 {
-    return view().frameView().effectiveFrameFlattening() != FrameFlattening::Disabled;
+    return settings().frameFlatteningEnabled();
 }
 
 void RenderFrameSet::startResizing(GridAxis& axis, int position)

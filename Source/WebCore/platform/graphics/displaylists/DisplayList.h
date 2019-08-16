@@ -23,21 +23,19 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef DisplayList_h
+#define DisplayList_h
 
 #include "DisplayListItems.h"
 #include <wtf/FastMalloc.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/text/WTFString.h>
 
-namespace WTF {
-class TextStream;
-}
-
 namespace WebCore {
 
 class FloatRect;
 class GraphicsContext;
+class TextStream;
 
 namespace DisplayList {
 
@@ -60,7 +58,7 @@ public:
 
     DisplayList& operator=(DisplayList&&) = default;
 
-    void dump(WTF::TextStream&) const;
+    void dump(TextStream&) const;
 
     const Vector<Ref<Item>>& list() const { return m_list; }
     Item& itemAt(size_t index)
@@ -104,9 +102,10 @@ private:
 
 } // DisplayList
 
-WTF::TextStream& operator<<(WTF::TextStream&, const DisplayList::DisplayList&);
+TextStream& operator<<(TextStream&, const DisplayList::DisplayList&);
 
 } // WebCore
 
 using WebCore::DisplayList::DisplayList;
 
+#endif /* DisplayList_h */

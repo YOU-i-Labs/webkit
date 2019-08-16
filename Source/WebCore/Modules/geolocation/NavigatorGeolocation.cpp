@@ -26,7 +26,6 @@
 
 #include "NavigatorGeolocation.h"
 
-#include "DOMWindow.h"
 #include "Document.h"
 #include "Frame.h"
 #include "Geolocation.h"
@@ -34,12 +33,14 @@
 
 namespace WebCore {
 
-NavigatorGeolocation::NavigatorGeolocation(DOMWindow* window)
-    : DOMWindowProperty(window)
+NavigatorGeolocation::NavigatorGeolocation(Frame* frame)
+    : DOMWindowProperty(frame)
 {
 }
 
-NavigatorGeolocation::~NavigatorGeolocation() = default;
+NavigatorGeolocation::~NavigatorGeolocation()
+{
+}
 
 const char* NavigatorGeolocation::supplementName()
 {
@@ -50,20 +51,20 @@ NavigatorGeolocation* NavigatorGeolocation::from(Navigator* navigator)
 {
     NavigatorGeolocation* supplement = static_cast<NavigatorGeolocation*>(Supplement<Navigator>::from(navigator, supplementName()));
     if (!supplement) {
-        auto newSupplement = std::make_unique<NavigatorGeolocation>(navigator->window());
+        auto newSupplement = std::make_unique<NavigatorGeolocation>(navigator->frame());
         supplement = newSupplement.get();
         provideTo(navigator, supplementName(), WTFMove(newSupplement));
     }
     return supplement;
 }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
 void NavigatorGeolocation::resetAllGeolocationPermission()
 {
     if (m_geolocation)
         m_geolocation->resetAllGeolocationPermission();
 }
-#endif // PLATFORM(IOS_FAMILY)
+#endif // PLATFORM(IOS)
 
 Geolocation* NavigatorGeolocation::geolocation(Navigator& navigator)
 {
@@ -72,8 +73,8 @@ Geolocation* NavigatorGeolocation::geolocation(Navigator& navigator)
 
 Geolocation* NavigatorGeolocation::geolocation() const
 {
-    if (!m_geolocation)
-        m_geolocation = Geolocation::create(window() ? window()->document() : nullptr);
+    if (!m_geolocation && frame())
+        m_geolocation = Geolocation::create(frame()->document());
     return m_geolocation.get();
 }
 

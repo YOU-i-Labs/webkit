@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006, 2010 Rob Buis <buis@kde.org>
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,7 +20,7 @@
 
 #pragma once
 
-#include "SVGAttribute.h"
+#include "SVGAnimatedPropertyMacros.h"
 #include "SVGStringListValues.h"
 
 namespace WebCore {
@@ -29,45 +28,39 @@ namespace WebCore {
 class SVGElement;
 class SVGStringList;
 
-template<typename OwnerType, typename... BaseTypes>
-class SVGAttributeRegistry;
-
-template<typename OwnerType, typename... BaseTypes>
-class SVGAttributeOwnerProxyImpl;
-
 class SVGTests {
-    WTF_MAKE_NONCOPYABLE(SVGTests);
 public:
     static bool hasExtension(const String&);
     bool isValid() const;
 
-    using AttributeRegistry = SVGAttributeRegistry<SVGTests>;
-    static AttributeRegistry& attributeRegistry();
-    static bool isKnownAttribute(const QualifiedName& attributeName);
-
     void parseAttribute(const QualifiedName&, const AtomicString&);
-    void svgAttributeChanged(const QualifiedName&);
 
+    static bool isKnownAttribute(const QualifiedName&);
     static void addSupportedAttributes(HashSet<QualifiedName>&);
+
+    static bool handleAttributeChange(SVGElement*, const QualifiedName&);
+
+    static const SVGAttributeToPropertyMap& attributeToPropertyMap();
 
     WEBCORE_EXPORT static bool hasFeatureForLegacyBindings(const String& feature, const String& version);
 
-    // These methods are called from DOM through the super classes.
-    Ref<SVGStringList> requiredFeatures();
-    Ref<SVGStringList> requiredExtensions();
-    Ref<SVGStringList> systemLanguage();
-
 protected:
-    SVGTests(SVGElement* contextElement);
+    SVGTests();
+
+    Ref<SVGStringList> requiredFeatures(SVGElement&);
+    Ref<SVGStringList> requiredExtensions(SVGElement&);
+    Ref<SVGStringList> systemLanguage(SVGElement&);
+
+    void synchronizeRequiredFeatures(SVGElement&);
+    void synchronizeRequiredExtensions(SVGElement&);
+    void synchronizeSystemLanguage(SVGElement&);
 
 private:
-    using AttributeOwnerProxy = SVGAttributeOwnerProxyImpl<SVGTests>;
-    static void registerAttributes();
+    void synchronizeAttribute(SVGElement& contextElement, SVGSynchronizableAnimatedProperty<SVGStringListValues>&, const QualifiedName& attributeName);
 
-    SVGElement& m_contextElement;
-    SVGStringListValuesAttribute m_requiredFeatures { SVGNames::requiredFeaturesAttr };
-    SVGStringListValuesAttribute m_requiredExtensions { SVGNames::requiredExtensionsAttr };
-    SVGStringListValuesAttribute m_systemLanguage { SVGNames::systemLanguageAttr };
+    SVGSynchronizableAnimatedProperty<SVGStringListValues> m_requiredFeatures;
+    SVGSynchronizableAnimatedProperty<SVGStringListValues> m_requiredExtensions;
+    SVGSynchronizableAnimatedProperty<SVGStringListValues> m_systemLanguage;
 };
 
 } // namespace WebCore

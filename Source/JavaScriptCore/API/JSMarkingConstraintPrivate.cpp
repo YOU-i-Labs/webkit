@@ -28,7 +28,8 @@
 
 #include "APICast.h"
 #include "JSCInlines.h"
-#include "SimpleMarkingConstraint.h"
+#include "MarkingConstraint.h"
+#include "VisitingTimeout.h"
 
 using namespace JSC;
 
@@ -71,11 +72,11 @@ void JSContextGroupAddMarkingConstraint(JSContextGroupRef group, JSMarkingConstr
     // else gets marked.
     ConstraintVolatility volatility = ConstraintVolatility::GreyedByMarking;
     
-    auto constraint = std::make_unique<SimpleMarkingConstraint>(
+    auto constraint = std::make_unique<MarkingConstraint>(
         toCString("Amc", constraintIndex, "(", RawPointer(bitwise_cast<void*>(constraintCallback)), ")"),
         toCString("API Marking Constraint #", constraintIndex, " (", RawPointer(bitwise_cast<void*>(constraintCallback)), ", ", RawPointer(userData), ")"),
         [constraintCallback, userData]
-        (SlotVisitor& slotVisitor) {
+        (SlotVisitor& slotVisitor, const VisitingTimeout&) {
             Marker marker;
             marker.IsMarked = isMarked;
             marker.Mark = mark;
@@ -83,8 +84,7 @@ void JSContextGroupAddMarkingConstraint(JSContextGroupRef group, JSMarkingConstr
             
             constraintCallback(&marker, userData);
         },
-        volatility,
-        ConstraintConcurrency::Sequential);
+        volatility);
     
     vm.heap.addMarkingConstraint(WTFMove(constraint));
 }

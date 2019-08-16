@@ -28,33 +28,33 @@
 #include "CanvasGradient.h"
 
 #include "CanvasStyle.h"
+#include "ExceptionCode.h"
 
 namespace WebCore {
 
 CanvasGradient::CanvasGradient(const FloatPoint& p0, const FloatPoint& p1)
-    : m_gradient(Gradient::create(Gradient::LinearData { p0, p1 }))
+    : m_gradient(Gradient::create(p0, p1))
 {
 }
 
 CanvasGradient::CanvasGradient(const FloatPoint& p0, float r0, const FloatPoint& p1, float r1)
-    : m_gradient(Gradient::create(Gradient::RadialData { p0, p1, r0, r1, 1 }))
+    : m_gradient(Gradient::create(p0, r0, p1, r1))
 {
 }
 
 ExceptionOr<void> CanvasGradient::addColorStop(float value, const String& colorString)
 {
     if (!(value >= 0 && value <= 1))
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
-    // Passing null for canvas ensures that currentColor is treated as black,
-    // as required by the standard.
+    // FIXME: Passing null for canvas means this won't work for current color. Is that OK?
     Color color = parseColorOrCurrentColor(colorString, nullptr /*canvas*/);
     if (!color.isValid()) {
 #if ENABLE(DASHBOARD_SUPPORT)
         if (m_dashboardCompatibilityMode)
             return { };
 #endif
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
     }
 
     m_gradient->addColorStop(value, color);

@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef FilePrintStream_h
+#define FilePrintStream_h
 
 #include <stdio.h>
 #include <wtf/PrintStream.h>
@@ -55,3 +56,6 @@ private:
 } // namespace WTF
 
 using WTF::FilePrintStream;
+
+#endif // FilePrintStream_h
+

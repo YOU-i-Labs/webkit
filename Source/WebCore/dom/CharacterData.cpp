@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,21 +25,20 @@
 #include "Attr.h"
 #include "ElementTraversal.h"
 #include "EventNames.h"
+#include "ExceptionCode.h"
 #include "FrameSelection.h"
 #include "InspectorInstrumentation.h"
 #include "MutationEvent.h"
 #include "MutationObserverInterestGroup.h"
 #include "MutationRecord.h"
+#include "NoEventDispatchAssertion.h"
 #include "ProcessingInstruction.h"
 #include "RenderText.h"
 #include "StyleInheritedData.h"
 #include <unicode/ubrk.h>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(CharacterData);
 
 static bool canUseSetDataOptimization(const CharacterData& node)
 {
@@ -69,7 +68,7 @@ void CharacterData::setData(const String& data)
 ExceptionOr<String> CharacterData::substringData(unsigned offset, unsigned count)
 {
     if (offset > length())
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     return m_data.substring(offset, count);
 }
@@ -96,7 +95,6 @@ unsigned CharacterData::parserAppendData(const String& string, unsigned offset, 
     if (!characterLengthLimit)
         return 0;
 
-    String oldData = m_data;
     if (string.is8Bit())
         m_data.append(string.characters8() + offset, characterLengthLimit);
     else
@@ -106,11 +104,7 @@ unsigned CharacterData::parserAppendData(const String& string, unsigned offset, 
     if (is<Text>(*this) && parentNode())
         downcast<Text>(*this).updateRendererAfterContentChange(oldLength, 0);
 
-    notifyParentAfterChange(ContainerNode::ChildChangeSource::Parser);
-
-    auto mutationRecipients = MutationObserverInterestGroup::createForCharacterDataMutation(*this);
-    if (UNLIKELY(mutationRecipients))
-        mutationRecipients->enqueueMutationRecord(MutationRecord::createCharacterData(*this, oldData));
+    notifyParentAfterChange(ContainerNode::ChildChangeSourceParser);
 
     return characterLengthLimit;
 }
@@ -128,7 +122,7 @@ void CharacterData::appendData(const String& data)
 ExceptionOr<void> CharacterData::insertData(unsigned offset, const String& data)
 {
     if (offset > length())
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     String newStr = m_data;
     newStr.insert(data, offset);
@@ -143,7 +137,7 @@ ExceptionOr<void> CharacterData::insertData(unsigned offset, const String& data)
 ExceptionOr<void> CharacterData::deleteData(unsigned offset, unsigned count)
 {
     if (offset > length())
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     count = std::min(count, length() - offset);
 
@@ -160,7 +154,7 @@ ExceptionOr<void> CharacterData::deleteData(unsigned offset, unsigned count)
 ExceptionOr<void> CharacterData::replaceData(unsigned offset, unsigned count, const String& data)
 {
     if (offset > length())
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     count = std::min(count, length() - offset);
 
@@ -180,6 +174,11 @@ ExceptionOr<void> CharacterData::replaceData(unsigned offset, unsigned count, co
 String CharacterData::nodeValue() const
 {
     return m_data;
+}
+
+bool CharacterData::containsOnlyWhitespace() const
+{
+    return m_data.containsOnlyWhitespace();
 }
 
 ExceptionOr<void> CharacterData::setNodeValue(const String& nodeValue)
@@ -203,7 +202,7 @@ void CharacterData::setDataAndUpdate(const String& newData, unsigned offsetOfRep
     if (document().frame())
         document().frame()->selection().textWasReplaced(this, offsetOfReplacedData, oldLength, newLength);
 
-    notifyParentAfterChange(ContainerNode::ChildChangeSource::API);
+    notifyParentAfterChange(ContainerNode::ChildChangeSourceAPI);
 
     dispatchModifiedEvent(oldData);
 }
@@ -232,7 +231,7 @@ void CharacterData::dispatchModifiedEvent(const String& oldData)
 
     if (!isInShadowTree()) {
         if (document().hasListenerType(Document::DOMCHARACTERDATAMODIFIED_LISTENER))
-            dispatchScopedEvent(MutationEvent::create(eventNames().DOMCharacterDataModifiedEvent, Event::CanBubble::Yes, nullptr, oldData, m_data));
+            dispatchScopedEvent(MutationEvent::create(eventNames().DOMCharacterDataModifiedEvent, true, nullptr, oldData, m_data));
         dispatchSubtreeModifiedEvent();
     }
 
@@ -242,6 +241,11 @@ void CharacterData::dispatchModifiedEvent(const String& oldData)
 int CharacterData::maxCharacterOffset() const
 {
     return static_cast<int>(length());
+}
+
+bool CharacterData::offsetInCharacters() const
+{
+    return true;
 }
 
 } // namespace WebCore

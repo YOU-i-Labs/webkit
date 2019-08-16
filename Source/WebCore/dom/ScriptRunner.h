@@ -50,11 +50,6 @@ public:
     void resume();
     void notifyScriptReady(ScriptElement*, ExecutionType);
 
-    void didBeginYieldingParser() { suspend(); }
-    void didEndYieldingParser() { resume(); }
-
-    void documentFinishedParsing();
-
 private:
     void timerFired();
 

@@ -50,10 +50,10 @@ public:
     void disassociateBufferData();
 
     GC3Dsizeiptr byteLength() const;
-    const RefPtr<JSC::ArrayBuffer> elementArrayBuffer() const { return m_elementArrayBuffer; }
+    const JSC::ArrayBuffer* elementArrayBuffer() const { return m_elementArrayBuffer.get(); }
 
     // Gets the cached max index for the given type if one has been set.
-    Optional<unsigned> getCachedMaxIndex(GC3Denum type);
+    std::optional<unsigned> getCachedMaxIndex(GC3Denum type);
     // Sets the cached max index for the given type.
     void setCachedMaxIndex(GC3Denum type, unsigned value);
 

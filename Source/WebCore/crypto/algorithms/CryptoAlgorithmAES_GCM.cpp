@@ -26,16 +26,15 @@
 #include "config.h"
 #include "CryptoAlgorithmAES_GCM.h"
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 #include "CryptoAlgorithmAesGcmParams.h"
 #include "CryptoAlgorithmAesKeyParams.h"
 #include "CryptoKeyAES.h"
-#include <wtf/CrossThreadCopier.h>
+#include "ExceptionCode.h"
 
 namespace WebCore {
 
-namespace CryptoAlgorithmAES_GCMInternal {
 static const char* const ALG128 = "A128GCM";
 static const char* const ALG192 = "A192GCM";
 static const char* const ALG256 = "A256GCM";
@@ -44,7 +43,6 @@ static const uint64_t PlainTextMaxLength = 549755813632ULL; // 2^39 - 256
 #endif
 static const uint8_t DefaultTagLength = 128;
 static const uint8_t ValidTagLengths[] = { 32, 64, 96, 104, 112, 120, 128 };
-}
 
 static inline bool usagesAreInvalidForCryptoAlgorithmAES_GCM(CryptoKeyUsageBitmap usages)
 {
@@ -53,7 +51,6 @@ static inline bool usagesAreInvalidForCryptoAlgorithmAES_GCM(CryptoKeyUsageBitma
 
 static inline bool tagLengthIsValid(uint8_t tagLength)
 {
-    using namespace CryptoAlgorithmAES_GCMInternal;
     for (size_t i = 0; i < sizeof(ValidTagLengths); i++) {
         if (tagLength == ValidTagLengths[i])
             return true;
@@ -71,11 +68,10 @@ CryptoAlgorithmIdentifier CryptoAlgorithmAES_GCM::identifier() const
     return s_identifier;
 }
 
-void CryptoAlgorithmAES_GCM::encrypt(const CryptoAlgorithmParameters& parameters, Ref<CryptoKey>&& key, Vector<uint8_t>&& plainText, VectorCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
+void CryptoAlgorithmAES_GCM::encrypt(std::unique_ptr<CryptoAlgorithmParameters>&& parameters, Ref<CryptoKey>&& key, Vector<uint8_t>&& plainText, VectorCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
 {
-    using namespace CryptoAlgorithmAES_GCMInternal;
-
-    auto& aesParameters = downcast<CryptoAlgorithmAesGcmParams>(parameters);
+    ASSERT(parameters);
+    auto& aesParameters = downcast<CryptoAlgorithmAesGcmParams>(*parameters);
 
 #if __WORDSIZE >= 64
     if (plainText.size() > PlainTextMaxLength) {
@@ -98,17 +94,13 @@ void CryptoAlgorithmAES_GCM::encrypt(const CryptoAlgorithmParameters& parameters
         return;
     }
 
-    dispatchOperationInWorkQueue(workQueue, context, WTFMove(callback), WTFMove(exceptionCallback),
-        [parameters = crossThreadCopy(aesParameters), key = WTFMove(key), plainText = WTFMove(plainText)] {
-            return platformEncrypt(parameters, downcast<CryptoKeyAES>(key.get()), plainText);
-        });
+    platformEncrypt(WTFMove(parameters), WTFMove(key), WTFMove(plainText), WTFMove(callback), WTFMove(exceptionCallback), context, workQueue);
 }
 
-void CryptoAlgorithmAES_GCM::decrypt(const CryptoAlgorithmParameters& parameters, Ref<CryptoKey>&& key, Vector<uint8_t>&& cipherText, VectorCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
+void CryptoAlgorithmAES_GCM::decrypt(std::unique_ptr<CryptoAlgorithmParameters>&& parameters, Ref<CryptoKey>&& key, Vector<uint8_t>&& cipherText, VectorCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext& context, WorkQueue& workQueue)
 {
-    using namespace CryptoAlgorithmAES_GCMInternal;
-
-    auto& aesParameters = downcast<CryptoAlgorithmAesGcmParams>(parameters);
+    ASSERT(parameters);
+    auto& aesParameters = downcast<CryptoAlgorithmAesGcmParams>(*parameters);
 
     aesParameters.tagLength = aesParameters.tagLength ? aesParameters.tagLength : DefaultTagLength;
     if (!tagLengthIsValid(*(aesParameters.tagLength))) {
@@ -131,10 +123,7 @@ void CryptoAlgorithmAES_GCM::decrypt(const CryptoAlgorithmParameters& parameters
     }
 #endif
 
-    dispatchOperationInWorkQueue(workQueue, context, WTFMove(callback), WTFMove(exceptionCallback),
-        [parameters = crossThreadCopy(aesParameters), key = WTFMove(key), cipherText = WTFMove(cipherText)] {
-            return platformDecrypt(parameters, downcast<CryptoKeyAES>(key.get()), cipherText);
-        });
+    platformDecrypt(WTFMove(parameters), WTFMove(key), WTFMove(cipherText), WTFMove(callback), WTFMove(exceptionCallback), context, workQueue);
 }
 
 void CryptoAlgorithmAES_GCM::generateKey(const CryptoAlgorithmParameters& parameters, bool extractable, CryptoKeyUsageBitmap usages, KeyOrKeyPairCallback&& callback, ExceptionCallback&& exceptionCallback, ScriptExecutionContext&)
@@ -142,7 +131,7 @@ void CryptoAlgorithmAES_GCM::generateKey(const CryptoAlgorithmParameters& parame
     const auto& aesParameters = downcast<CryptoAlgorithmAesKeyParams>(parameters);
 
     if (usagesAreInvalidForCryptoAlgorithmAES_GCM(usages)) {
-        exceptionCallback(SyntaxError);
+        exceptionCallback(SYNTAX_ERR);
         return;
     }
 
@@ -155,21 +144,20 @@ void CryptoAlgorithmAES_GCM::generateKey(const CryptoAlgorithmParameters& parame
     callback(WTFMove(result));
 }
 
-void CryptoAlgorithmAES_GCM::importKey(CryptoKeyFormat format, KeyData&& data, const CryptoAlgorithmParameters& parameters, bool extractable, CryptoKeyUsageBitmap usages, KeyCallback&& callback, ExceptionCallback&& exceptionCallback)
+void CryptoAlgorithmAES_GCM::importKey(SubtleCrypto::KeyFormat format, KeyData&& data, const std::unique_ptr<CryptoAlgorithmParameters>&& parameters, bool extractable, CryptoKeyUsageBitmap usages, KeyCallback&& callback, ExceptionCallback&& exceptionCallback)
 {
-    using namespace CryptoAlgorithmAES_GCMInternal;
-
+    ASSERT(parameters);
     if (usagesAreInvalidForCryptoAlgorithmAES_GCM(usages)) {
-        exceptionCallback(SyntaxError);
+        exceptionCallback(SYNTAX_ERR);
         return;
     }
 
     RefPtr<CryptoKeyAES> result;
     switch (format) {
-    case CryptoKeyFormat::Raw:
-        result = CryptoKeyAES::importRaw(parameters.identifier, WTFMove(WTF::get<Vector<uint8_t>>(data)), extractable, usages);
+    case SubtleCrypto::KeyFormat::Raw:
+        result = CryptoKeyAES::importRaw(parameters->identifier, WTFMove(WTF::get<Vector<uint8_t>>(data)), extractable, usages);
         break;
-    case CryptoKeyFormat::Jwk: {
+    case SubtleCrypto::KeyFormat::Jwk: {
         auto checkAlgCallback = [](size_t length, const String& alg) -> bool {
             switch (length) {
             case CryptoKeyAES::s_length128:
@@ -181,11 +169,11 @@ void CryptoAlgorithmAES_GCM::importKey(CryptoKeyFormat format, KeyData&& data, c
             }
             return false;
         };
-        result = CryptoKeyAES::importJwk(parameters.identifier, WTFMove(WTF::get<JsonWebKey>(data)), extractable, usages, WTFMove(checkAlgCallback));
+        result = CryptoKeyAES::importJwk(parameters->identifier, WTFMove(WTF::get<JsonWebKey>(data)), extractable, usages, WTFMove(checkAlgCallback));
         break;
     }
     default:
-        exceptionCallback(NotSupportedError);
+        exceptionCallback(NOT_SUPPORTED_ERR);
         return;
     }
     if (!result) {
@@ -196,9 +184,8 @@ void CryptoAlgorithmAES_GCM::importKey(CryptoKeyFormat format, KeyData&& data, c
     callback(*result);
 }
 
-void CryptoAlgorithmAES_GCM::exportKey(CryptoKeyFormat format, Ref<CryptoKey>&& key, KeyDataCallback&& callback, ExceptionCallback&& exceptionCallback)
+void CryptoAlgorithmAES_GCM::exportKey(SubtleCrypto::KeyFormat format, Ref<CryptoKey>&& key, KeyDataCallback&& callback, ExceptionCallback&& exceptionCallback)
 {
-    using namespace CryptoAlgorithmAES_GCMInternal;
     const auto& aesKey = downcast<CryptoKeyAES>(key.get());
 
     if (aesKey.key().isEmpty()) {
@@ -208,10 +195,10 @@ void CryptoAlgorithmAES_GCM::exportKey(CryptoKeyFormat format, Ref<CryptoKey>&& 
 
     KeyData result;
     switch (format) {
-    case CryptoKeyFormat::Raw:
+    case SubtleCrypto::KeyFormat::Raw:
         result = Vector<uint8_t>(aesKey.key());
         break;
-    case CryptoKeyFormat::Jwk: {
+    case SubtleCrypto::KeyFormat::Jwk: {
         JsonWebKey jwk = aesKey.exportJwk();
         switch (aesKey.key().size() * 8) {
         case CryptoKeyAES::s_length128:
@@ -230,7 +217,7 @@ void CryptoAlgorithmAES_GCM::exportKey(CryptoKeyFormat format, Ref<CryptoKey>&& 
         break;
     }
     default:
-        exceptionCallback(NotSupportedError);
+        exceptionCallback(NOT_SUPPORTED_ERR);
         return;
     }
 
@@ -244,4 +231,4 @@ ExceptionOr<size_t> CryptoAlgorithmAES_GCM::getKeyLength(const CryptoAlgorithmPa
 
 }
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

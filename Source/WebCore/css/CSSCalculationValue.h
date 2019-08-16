@@ -31,7 +31,6 @@
 #pragma once
 
 #include "CSSPrimitiveValue.h"
-#include "CSSPropertyNames.h"
 #include "CalculationValue.h"
 
 namespace WebCore {
@@ -40,26 +39,26 @@ class CSSParserTokenRange;
 class CSSToLengthConversionData;
 class RenderStyle;
 
-enum class CalculationCategory : uint8_t {
-    Number = 0,
-    Length,
-    Percent,
-    PercentNumber,
-    PercentLength,
-    Angle,
-    Time,
-    Frequency,
-    Other
+enum CalculationCategory {
+    CalcNumber = 0,
+    CalcLength,
+    CalcPercent,
+    CalcPercentNumber,
+    CalcPercentLength,
+    CalcAngle,
+    CalcTime,
+    CalcFrequency,
+    CalcOther
 };
 
 class CSSCalcExpressionNode : public RefCounted<CSSCalcExpressionNode> {
 public:
     enum Type {
         CssCalcPrimitiveValue = 1,
-        CssCalcOperation
+        CssCalcBinaryOperation
     };
 
-    virtual ~CSSCalcExpressionNode() = default;
+    virtual ~CSSCalcExpressionNode() { }
     virtual bool isZero() const = 0;
     virtual std::unique_ptr<CalcExpressionNode> createCalcExpression(const CSSToLengthConversionData&) const = 0;
     virtual double doubleValue() const = 0;
@@ -68,9 +67,6 @@ public:
     virtual bool equals(const CSSCalcExpressionNode& other) const { return m_category == other.m_category && m_isInteger == other.m_isInteger; }
     virtual Type type() const = 0;
     virtual CSSPrimitiveValue::UnitType primitiveType() const = 0;
-
-    virtual void collectDirectComputationalDependencies(HashSet<CSSPropertyID>&) const = 0;
-    virtual void collectDirectRootComputationalDependencies(HashSet<CSSPropertyID>&) const = 0;
 
     CalculationCategory category() const { return m_category; }
     bool isInteger() const { return m_isInteger; }
@@ -89,8 +85,8 @@ private:
 
 class CSSCalcValue final : public CSSValue {
 public:
-    static RefPtr<CSSCalcValue> create(CSSValueID function, const CSSParserTokenRange&, CalculationCategory destinationCategory, ValueRange);
-
+    static RefPtr<CSSCalcValue> create(const CSSParserTokenRange&, ValueRange);
+    
     static RefPtr<CSSCalcValue> create(const CalculationValue&, const RenderStyle&);
 
     CalculationCategory category() const { return m_expression->category(); }
@@ -103,9 +99,6 @@ public:
 
     Ref<CalculationValue> createCalculationValue(const CSSToLengthConversionData&) const;
     void setPermittedValueRange(ValueRange);
-
-    void collectDirectComputationalDependencies(HashSet<CSSPropertyID>&) const;
-    void collectDirectRootComputationalDependencies(HashSet<CSSPropertyID>&) const;
 
     String customCSSText() const;
     bool equals(const CSSCalcValue&) const;
@@ -135,16 +128,6 @@ inline Ref<CalculationValue> CSSCalcValue::createCalculationValue(const CSSToLen
 inline void CSSCalcValue::setPermittedValueRange(ValueRange range)
 {
     m_shouldClampToNonNegative = range != ValueRangeAll;
-}
-
-inline void CSSCalcValue::collectDirectComputationalDependencies(HashSet<CSSPropertyID>& values) const
-{
-    m_expression->collectDirectComputationalDependencies(values);
-}
-
-inline void CSSCalcValue::collectDirectRootComputationalDependencies(HashSet<CSSPropertyID>& values) const
-{
-    m_expression->collectDirectRootComputationalDependencies(values);
 }
 
 } // namespace WebCore

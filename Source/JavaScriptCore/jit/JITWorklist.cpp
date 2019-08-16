@@ -100,19 +100,10 @@ private:
 class JITWorklist::Thread : public AutomaticThread {
 public:
     Thread(const AbstractLocker& locker, JITWorklist& worklist)
-        : AutomaticThread(locker, worklist.m_lock, worklist.m_condition.copyRef())
+        : AutomaticThread(locker, worklist.m_lock, worklist.m_condition)
         , m_worklist(worklist)
     {
         m_worklist.m_numAvailableThreads++;
-    }
-
-    const char* name() const override
-    {
-#if OS(LINUX)
-        return "JITWorker";
-#else
-        return "JIT Worklist Helper Thread";
-#endif
     }
     
 protected:
@@ -282,8 +273,7 @@ void JITWorklist::compileLater(CodeBlock* codeBlock, unsigned loopOSREntryByteco
 
 void JITWorklist::compileNow(CodeBlock* codeBlock, unsigned loopOSREntryBytecodeOffset)
 {
-    VM* vm = codeBlock->vm();
-    DeferGC deferGC(vm->heap);
+    DeferGC deferGC(codeBlock->vm()->heap);
     if (codeBlock->jitType() != JITCode::InterpreterThunk)
         return;
     
@@ -296,7 +286,7 @@ void JITWorklist::compileNow(CodeBlock* codeBlock, unsigned loopOSREntryBytecode
     if (isPlanned) {
         RELEASE_ASSERT(Options::useConcurrentJIT());
         // This is expensive, but probably good enough.
-        completeAllForVM(*vm);
+        completeAllForVM(*codeBlock->vm());
     }
     
     // Now it might be compiled!
@@ -308,7 +298,7 @@ void JITWorklist::compileNow(CodeBlock* codeBlock, unsigned loopOSREntryBytecode
     codeBlock->resetJITData();
     
     // OK, just compile it.
-    JIT::compile(vm, codeBlock, JITCompilationMustSucceed, loopOSREntryBytecodeOffset);
+    JIT::compile(codeBlock->vm(), codeBlock, JITCompilationMustSucceed, loopOSREntryBytecodeOffset);
     codeBlock->ownerScriptExecutable()->installCode(codeBlock);
 }
 

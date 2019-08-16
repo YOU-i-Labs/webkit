@@ -30,7 +30,7 @@
 #include "LayoutUnit.h"
 #include "ScrollSnapOffsetsInfo.h"
 #include "ScrollTypes.h"
-#include <wtf/Forward.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 

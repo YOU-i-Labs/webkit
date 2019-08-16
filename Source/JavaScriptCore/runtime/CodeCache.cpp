@@ -30,13 +30,13 @@
 
 namespace JSC {
 
-const Seconds CodeCacheMap::workingSetTime = 10_s;
+const double CodeCacheMap::workingSetTime = 10.0;
 
 void CodeCacheMap::pruneSlowCase()
 {
     m_minCapacity = std::max(m_size - m_sizeAtLastPrune, static_cast<int64_t>(0));
     m_sizeAtLastPrune = m_size;
-    m_timeAtLastPrune = MonotonicTime::now();
+    m_timeAtLastPrune = monotonicallyIncreasingTime();
 
     if (m_capacity < m_minCapacity)
         m_capacity = m_minCapacity;
@@ -57,8 +57,7 @@ UnlinkedCodeBlockType* CodeCache::getUnlinkedGlobalCodeBlock(VM& vm, ExecutableT
         source, String(), CacheTypes<UnlinkedCodeBlockType>::codeType, strictMode, scriptMode, 
         derivedContextType, evalContextType, isArrowFunctionContext, debuggerMode, 
         vm.typeProfiler() ? TypeProfilerEnabled::Yes : TypeProfilerEnabled::No, 
-        vm.controlFlowProfiler() ? ControlFlowProfilerEnabled::Yes : ControlFlowProfilerEnabled::No,
-        WTF::nullopt);
+        vm.controlFlowProfiler() ? ControlFlowProfilerEnabled::Yes : ControlFlowProfilerEnabled::No);
     SourceCodeValue* cache = m_sourceCode.findCacheAndUpdateAge(key);
     if (cache && Options::useCodeCache()) {
         UnlinkedCodeBlockType* unlinkedCodeBlock = jsCast<UnlinkedCodeBlockType*>(cache->cell.get());
@@ -96,7 +95,7 @@ UnlinkedModuleProgramCodeBlock* CodeCache::getUnlinkedModuleProgramCodeBlock(VM&
     return getUnlinkedGlobalCodeBlock<UnlinkedModuleProgramCodeBlock>(vm, executable, source, JSParserStrictMode::Strict, JSParserScriptMode::Module, debuggerMode, error, EvalContextType::None);
 }
 
-UnlinkedFunctionExecutable* CodeCache::getUnlinkedGlobalFunctionExecutable(VM& vm, const Identifier& name, const SourceCode& source, DebuggerMode debuggerMode, Optional<int> functionConstructorParametersEndPosition, ParserError& error)
+UnlinkedFunctionExecutable* CodeCache::getUnlinkedGlobalFunctionExecutable(VM& vm, const Identifier& name, const SourceCode& source, DebuggerMode debuggerMode, ParserError& error)
 {
     bool isArrowFunctionContext = false;
     SourceCodeKey key(
@@ -108,8 +107,7 @@ UnlinkedFunctionExecutable* CodeCache::getUnlinkedGlobalFunctionExecutable(VM& v
         isArrowFunctionContext,
         debuggerMode, 
         vm.typeProfiler() ? TypeProfilerEnabled::Yes : TypeProfilerEnabled::No, 
-        vm.controlFlowProfiler() ? ControlFlowProfilerEnabled::Yes : ControlFlowProfilerEnabled::No,
-        functionConstructorParametersEndPosition);
+        vm.controlFlowProfiler() ? ControlFlowProfilerEnabled::Yes : ControlFlowProfilerEnabled::No);
     SourceCodeValue* cache = m_sourceCode.findCacheAndUpdateAge(key);
     if (cache && Options::useCodeCache()) {
         UnlinkedFunctionExecutable* executable = jsCast<UnlinkedFunctionExecutable*>(cache->cell.get());
@@ -119,14 +117,25 @@ UnlinkedFunctionExecutable* CodeCache::getUnlinkedGlobalFunctionExecutable(VM& v
     }
 
     JSTextPosition positionBeforeLastNewline;
-    std::unique_ptr<ProgramNode> program = parseFunctionForFunctionConstructor(vm, source, error, &positionBeforeLastNewline, functionConstructorParametersEndPosition);
+    std::unique_ptr<ProgramNode> program = parse<ProgramNode>(
+        &vm, source, Identifier(), JSParserBuiltinMode::NotBuiltin,
+        JSParserStrictMode::NotStrict, JSParserScriptMode::Classic, SourceParseMode::ProgramMode, SuperBinding::NotNeeded,
+        error, &positionBeforeLastNewline);
     if (!program) {
         RELEASE_ASSERT(error.isValid());
         return nullptr;
     }
 
     // This function assumes an input string that would result in a single function declaration.
-    StatementNode* funcDecl = program->singleStatement();
+    StatementNode* statement = program->singleStatement();
+    if (UNLIKELY(!statement)) {
+        JSToken token;
+        error = ParserError(ParserError::SyntaxError, ParserError::SyntaxErrorIrrecoverable, token, "Parser error", -1);
+        return nullptr;
+    }
+    ASSERT(statement->isBlock());
+
+    StatementNode* funcDecl = static_cast<BlockNode*>(statement)->singleStatement();
     if (UNLIKELY(!funcDecl)) {
         JSToken token;
         error = ParserError(ParserError::SyntaxError, ParserError::SyntaxErrorIrrecoverable, token, "Parser error", -1);
@@ -141,8 +150,7 @@ UnlinkedFunctionExecutable* CodeCache::getUnlinkedGlobalFunctionExecutable(VM& v
     
     metadata->overrideName(name);
     metadata->setEndPosition(positionBeforeLastNewline);
-    // The Function constructor only has access to global variables, so no variables will be under TDZ unless they're
-    // in the global lexical environment, which we always TDZ check accesses from.
+    // The Function constructor only has access to global variables, so no variables will be under TDZ.
     VariableEnvironment emptyTDZVariables;
     ConstructAbility constructAbility = constructAbilityForParseMode(metadata->parseMode());
     UnlinkedFunctionExecutable* functionExecutable = UnlinkedFunctionExecutable::create(&vm, source, metadata, UnlinkedNormalFunction, constructAbility, JSParserScriptMode::Classic, emptyTDZVariables, DerivedContextType::None);
@@ -150,8 +158,7 @@ UnlinkedFunctionExecutable* CodeCache::getUnlinkedGlobalFunctionExecutable(VM& v
     functionExecutable->setSourceURLDirective(source.provider()->sourceURL());
     functionExecutable->setSourceMappingURLDirective(source.provider()->sourceMappingURL());
 
-    if (Options::useCodeCache())
-        m_sourceCode.addCache(key, SourceCodeValue(vm, functionExecutable, m_sourceCode.age()));
+    m_sourceCode.addCache(key, SourceCodeValue(vm, functionExecutable, m_sourceCode.age()));
     return functionExecutable;
 }
 

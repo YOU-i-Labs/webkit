@@ -38,9 +38,10 @@
 #include <wtf/DateMath.h>
 #include <wtf/text/StringBuilder.h>
 
+using namespace icu;
+using namespace std;
 
 namespace WebCore {
-using namespace icu;
 
 std::unique_ptr<Locale> Locale::create(const AtomicString& locale)
 {
@@ -250,14 +251,14 @@ String LocaleICU::dateFormat()
     if (!m_dateFormat.isNull())
         return m_dateFormat;
     if (!initializeShortDateFormat())
-        return "yyyy-MM-dd"_s;
+        return ASCIILiteral("yyyy-MM-dd");
     m_dateFormat = getDateFormatPattern(m_shortDateFormat);
     return m_dateFormat;
 }
 
 static String getFormatForSkeleton(const char* locale, const UChar* skeleton, int32_t skeletonLength)
 {
-    String format = "yyyy-MM"_s;
+    String format = ASCIILiteral("yyyy-MM");
     UErrorCode status = U_ZERO_ERROR;
     UDateTimePatternGenerator* patternGenerator = udatpg_open(locale, &status);
     if (!patternGenerator)

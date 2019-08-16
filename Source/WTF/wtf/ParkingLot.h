@@ -23,15 +23,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef WTF_ParkingLot_h
+#define WTF_ParkingLot_h
 
 #include <wtf/Atomics.h>
 #include <wtf/ScopedLambda.h>
+#include <wtf/Threading.h>
 #include <wtf/TimeWithDynamicClockType.h>
 
 namespace WTF {
-
-class Thread;
 
 class ParkingLot {
     ParkingLot() = delete;
@@ -176,3 +176,6 @@ private:
 } // namespace WTF
 
 using WTF::ParkingLot;
+
+#endif // WTF_ParkingLot_h
+

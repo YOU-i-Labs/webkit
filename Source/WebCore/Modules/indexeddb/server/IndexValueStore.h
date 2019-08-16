@@ -30,6 +30,7 @@
 #include "IDBCursorInfo.h"
 #include "IDBKeyData.h"
 #include "IndexValueEntry.h"
+#include <set>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
@@ -66,8 +67,8 @@ public:
         {
         }
 
-        Iterator(IndexValueStore&, IDBKeyDataSet::iterator, IndexValueEntry::Iterator);
-        Iterator(IndexValueStore&, CursorDuplicity, IDBKeyDataSet::reverse_iterator, IndexValueEntry::Iterator);
+        Iterator(IndexValueStore&, std::set<IDBKeyData>::iterator, IndexValueEntry::Iterator);
+        Iterator(IndexValueStore&, CursorDuplicity, std::set<IDBKeyData>::reverse_iterator, IndexValueEntry::Iterator);
 
         void invalidate();
         bool isValid();
@@ -83,8 +84,8 @@ public:
         IndexValueStore* m_store { nullptr };
         bool m_forward { true };
         CursorDuplicity m_duplicity { CursorDuplicity::Duplicates };
-        IDBKeyDataSet::iterator m_forwardIterator;
-        IDBKeyDataSet::reverse_iterator m_reverseIterator;
+        std::set<IDBKeyData>::iterator m_forwardIterator;
+        std::set<IDBKeyData>::reverse_iterator m_reverseIterator;
 
         IndexValueEntry::Iterator m_primaryKeyIterator;
     };
@@ -102,11 +103,11 @@ public:
 #endif
 
 private:
-    IDBKeyDataSet::iterator lowestIteratorInRange(const IDBKeyRangeData&) const;
-    IDBKeyDataSet::reverse_iterator highestReverseIteratorInRange(const IDBKeyRangeData&) const;
+    std::set<IDBKeyData>::iterator lowestIteratorInRange(const IDBKeyRangeData&) const;
+    std::set<IDBKeyData>::reverse_iterator highestReverseIteratorInRange(const IDBKeyRangeData&) const;
 
     IndexKeyValueMap m_records;
-    IDBKeyDataSet m_orderedKeys;
+    std::set<IDBKeyData> m_orderedKeys;
     
     bool m_unique;
 };

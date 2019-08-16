@@ -67,6 +67,7 @@ static void initializeSQLiteIfNecessary()
 #endif
             CRASH();
         }
+        registerSQLiteMemoryPressureHandler();
     });
 }
 
@@ -105,33 +106,22 @@ bool SQLiteDatabase::open(const String& filename, bool forWebSQLDatabase)
     }
 
     if (isOpen())
-        m_openingThread = &Thread::current();
+        m_openingThread = currentThread();
     else
         m_openErrorMessage = "sqlite_open returned null";
 
-    if (!SQLiteStatement(*this, "PRAGMA temp_store = MEMORY;"_s).executeCommand())
+    if (!SQLiteStatement(*this, ASCIILiteral("PRAGMA temp_store = MEMORY;")).executeCommand())
         LOG_ERROR("SQLite database could not set temp_store to memory");
 
-    {
-        SQLiteStatement walStatement(*this, "PRAGMA journal_mode=WAL;"_s);
-        if (walStatement.prepareAndStep() == SQLITE_ROW) {
+    SQLiteStatement walStatement(*this, ASCIILiteral("PRAGMA journal_mode=WAL;"));
+    if (walStatement.prepareAndStep() == SQLITE_ROW) {
 #ifndef NDEBUG
-            String mode = walStatement.getColumnText(0);
-            if (!equalLettersIgnoringASCIICase(mode, "wal"))
-                LOG_ERROR("journal_mode of database should be 'WAL', but is '%s'", mode.utf8().data());
+        String mode = walStatement.getColumnText(0);
+        if (!equalLettersIgnoringASCIICase(mode, "wal"))
+            LOG_ERROR("journal_mode of database should be 'WAL', but is '%s'", mode.utf8().data());
 #endif
-        } else
-            LOG_ERROR("SQLite database failed to set journal_mode to WAL, error: %s", lastErrorMsg());
-    }
-
-    {
-        SQLiteStatement checkpointStatement(*this, "PRAGMA wal_checkpoint(TRUNCATE)"_s);
-        if (checkpointStatement.prepareAndStep() == SQLITE_ROW) {
-            if (checkpointStatement.getColumnInt(0))
-                LOG(SQLDatabase, "SQLite database checkpoint is blocked");
-        } else
-            LOG_ERROR("SQLite database failed to checkpoint: %s", lastErrorMsg());
-    }
+    } else
+        LOG_ERROR("SQLite database failed to set journal_mode to WAL, error: %s", lastErrorMsg());
 
     return isOpen();
 }
@@ -140,7 +130,7 @@ void SQLiteDatabase::close()
 {
     if (m_db) {
         // FIXME: This is being called on the main thread during JS GC. <rdar://problem/5739818>
-        // ASSERT(m_openingThread == &Thread::current());
+        // ASSERT(currentThread() == m_openingThread);
         sqlite3* db = m_db;
         {
             LockHolder locker(m_databaseClosingMutex);
@@ -149,7 +139,7 @@ void SQLiteDatabase::close()
         sqlite3_close(db);
     }
 
-    m_openingThread = nullptr;
+    m_openingThread = 0;
     m_openError = SQLITE_ERROR;
     m_openErrorMessage = CString();
 }
@@ -173,9 +163,9 @@ void SQLiteDatabase::overrideUnauthorizedFunctions()
 void SQLiteDatabase::setFullsync(bool fsync)
 {
     if (fsync) 
-        executeCommand("PRAGMA fullfsync = 1;"_s);
+        executeCommand(ASCIILiteral("PRAGMA fullfsync = 1;"));
     else
-        executeCommand("PRAGMA fullfsync = 0;"_s);
+        executeCommand(ASCIILiteral("PRAGMA fullfsync = 0;"));
 }
 
 int64_t SQLiteDatabase::maximumSize()
@@ -185,7 +175,7 @@ int64_t SQLiteDatabase::maximumSize()
     {
         LockHolder locker(m_authorizerLock);
         enableAuthorizer(false);
-        SQLiteStatement statement(*this, "PRAGMA max_page_count"_s);
+        SQLiteStatement statement(*this, ASCIILiteral("PRAGMA max_page_count"));
         maxPageCount = statement.getColumnInt64(0);
         enableAuthorizer(true);
     }
@@ -223,7 +213,7 @@ int SQLiteDatabase::pageSize()
         LockHolder locker(m_authorizerLock);
         enableAuthorizer(false);
         
-        SQLiteStatement statement(*this, "PRAGMA page_size"_s);
+        SQLiteStatement statement(*this, ASCIILiteral("PRAGMA page_size"));
         m_pageSize = statement.getColumnInt(0);
         
         enableAuthorizer(true);
@@ -240,7 +230,7 @@ int64_t SQLiteDatabase::freeSpaceSize()
         LockHolder locker(m_authorizerLock);
         enableAuthorizer(false);
         // Note: freelist_count was added in SQLite 3.4.1.
-        SQLiteStatement statement(*this, "PRAGMA freelist_count"_s);
+        SQLiteStatement statement(*this, ASCIILiteral("PRAGMA freelist_count"));
         freelistCount = statement.getColumnInt64(0);
         enableAuthorizer(true);
     }
@@ -255,7 +245,7 @@ int64_t SQLiteDatabase::totalSize()
     {
         LockHolder locker(m_authorizerLock);
         enableAuthorizer(false);
-        SQLiteStatement statement(*this, "PRAGMA page_count"_s);
+        SQLiteStatement statement(*this, ASCIILiteral("PRAGMA page_count"));
         pageCount = statement.getColumnInt64(0);
         enableAuthorizer(true);
     }
@@ -308,7 +298,7 @@ bool SQLiteDatabase::tableExists(const String& tablename)
 
 void SQLiteDatabase::clearAllTables()
 {
-    String query = "SELECT name FROM sqlite_master WHERE type='table';"_s;
+    String query = ASCIILiteral("SELECT name FROM sqlite_master WHERE type='table';");
     Vector<String> tables;
     if (!SQLiteStatement(*this, query).returnTextResults(0, tables)) {
         LOG(SQLDatabase, "Unable to retrieve list of tables from database");
@@ -325,7 +315,7 @@ void SQLiteDatabase::clearAllTables()
 
 int SQLiteDatabase::runVacuumCommand()
 {
-    if (!executeCommand("VACUUM;"_s))
+    if (!executeCommand(ASCIILiteral("VACUUM;")))
         LOG(SQLDatabase, "Unable to vacuum database - %s", lastErrorMsg());
     return lastError();
 }
@@ -335,7 +325,7 @@ int SQLiteDatabase::runIncrementalVacuumCommand()
     LockHolder locker(m_authorizerLock);
     enableAuthorizer(false);
 
-    if (!executeCommand("PRAGMA incremental_vacuum"_s))
+    if (!executeCommand(ASCIILiteral("PRAGMA incremental_vacuum")))
         LOG(SQLDatabase, "Unable to run incremental vacuum - %s", lastErrorMsg());
 
     enableAuthorizer(true);
@@ -496,10 +486,9 @@ bool SQLiteDatabase::isAutoCommitOn() const
 
 bool SQLiteDatabase::turnOnIncrementalAutoVacuum()
 {
-    SQLiteStatement statement(*this, "PRAGMA auto_vacuum"_s);
+    SQLiteStatement statement(*this, ASCIILiteral("PRAGMA auto_vacuum"));
     int autoVacuumMode = statement.getColumnInt(0);
     int error = lastError();
-    statement.finalize();
 
     // Check if we got an error while trying to get the value of the auto_vacuum flag.
     // If we got a SQLITE_BUSY error, then there's probably another transaction in
@@ -514,10 +503,10 @@ bool SQLiteDatabase::turnOnIncrementalAutoVacuum()
     case AutoVacuumIncremental:
         return true;
     case AutoVacuumFull:
-        return executeCommand("PRAGMA auto_vacuum = 2"_s);
+        return executeCommand(ASCIILiteral("PRAGMA auto_vacuum = 2"));
     case AutoVacuumNone:
     default:
-        if (!executeCommand("PRAGMA auto_vacuum = 2"_s))
+        if (!executeCommand(ASCIILiteral("PRAGMA auto_vacuum = 2")))
             return false;
         runVacuumCommand();
         error = lastError();
@@ -527,19 +516,19 @@ bool SQLiteDatabase::turnOnIncrementalAutoVacuum()
 
 static void destroyCollationFunction(void* arg)
 {
-    auto f = static_cast<WTF::Function<int(int, const void*, int, const void*)>*>(arg);
+    auto f = static_cast<std::function<int(int, const void*, int, const void*)>*>(arg);
     delete f;
 }
 
 static int callCollationFunction(void* arg, int aLength, const void* a, int bLength, const void* b)
 {
-    auto f = static_cast<WTF::Function<int(int, const void*, int, const void*)>*>(arg);
+    auto f = static_cast<std::function<int(int, const void*, int, const void*)>*>(arg);
     return (*f)(aLength, a, bLength, b);
 }
 
-void SQLiteDatabase::setCollationFunction(const String& collationName, WTF::Function<int(int, const void*, int, const void*)>&& collationFunction)
+void SQLiteDatabase::setCollationFunction(const String& collationName, std::function<int(int, const void*, int, const void*)> collationFunction)
 {
-    auto functionObject = new WTF::Function<int(int, const void*, int, const void*)>(WTFMove(collationFunction));
+    auto functionObject = new std::function<int(int, const void*, int, const void*)>(collationFunction);
     sqlite3_create_collation_v2(m_db, collationName.utf8().data(), SQLITE_UTF8, functionObject, callCollationFunction, destroyCollationFunction);
 }
 

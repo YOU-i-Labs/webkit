@@ -96,9 +96,6 @@ public:
     virtual void suspendScheduledTasks();
     virtual void resumeScheduledTasks();
 
-    virtual void didBeginYieldingParser() { }
-    virtual void didEndYieldingParser() { }
-
 protected:
     explicit DocumentParser(Document&);
 

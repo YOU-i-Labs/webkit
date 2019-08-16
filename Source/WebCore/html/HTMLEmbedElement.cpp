@@ -37,31 +37,26 @@
 #include "RenderWidget.h"
 #include "Settings.h"
 #include "SubframeLoader.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLEmbedElement);
-
 using namespace HTMLNames;
 
-inline HTMLEmbedElement::HTMLEmbedElement(const QualifiedName& tagName, Document& document)
-    : HTMLPlugInImageElement(tagName, document)
+inline HTMLEmbedElement::HTMLEmbedElement(const QualifiedName& tagName, Document& document, bool createdByParser)
+    : HTMLPlugInImageElement(tagName, document, createdByParser)
 {
     ASSERT(hasTagName(embedTag));
 }
 
-Ref<HTMLEmbedElement> HTMLEmbedElement::create(const QualifiedName& tagName, Document& document)
+Ref<HTMLEmbedElement> HTMLEmbedElement::create(const QualifiedName& tagName, Document& document, bool createdByParser)
 {
-    auto result = adoptRef(*new HTMLEmbedElement(tagName, document));
-    result->finishCreating();
-    return result;
+    return adoptRef(*new HTMLEmbedElement(tagName, document, createdByParser));
 }
 
 Ref<HTMLEmbedElement> HTMLEmbedElement::create(Document& document)
 {
-    return create(embedTag, document);
+    return adoptRef(*new HTMLEmbedElement(embedTag, document, false));
 }
 
 static inline RenderWidget* findWidgetRenderer(const Node* node)
@@ -80,8 +75,8 @@ static inline RenderWidget* findWidgetRenderer(const Node* node)
 
 RenderWidget* HTMLEmbedElement::renderWidgetLoadingPlugin() const
 {
-    RefPtr<FrameView> view = document().view();
-    if (!view || (!view->layoutContext().isInRenderTreeLayout() && !view->isPainting())) {
+    FrameView* view = document().view();
+    if (!view || (!view->isInRenderTreeLayout() && !view->isPainting())) {
         // Needs to load the plugin immediatedly because this function is called
         // when JavaScript code accesses the plugin.
         // FIXME: <rdar://16893708> Check if dispatching events here is safe.
@@ -108,11 +103,6 @@ void HTMLEmbedElement::collectStyleForPresentationAttribute(const QualifiedName&
         HTMLPlugInImageElement::collectStyleForPresentationAttribute(name, value, style);
 }
 
-static bool hasTypeOrSrc(const HTMLEmbedElement& embed)
-{
-    return embed.hasAttributeWithoutSynchronization(typeAttr) || embed.hasAttributeWithoutSynchronization(srcAttr);
-}
-
 void HTMLEmbedElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
 {
     if (name == typeAttr) {
@@ -120,17 +110,18 @@ void HTMLEmbedElement::parseAttribute(const QualifiedName& name, const AtomicStr
         // FIXME: The only difference between this and HTMLObjectElement's corresponding
         // code is that HTMLObjectElement does setNeedsWidgetUpdate(true). Consider moving
         // this up to the HTMLPlugInImageElement to be shared.
-        if (renderer() && !hasTypeOrSrc(*this))
-            invalidateStyle();
     } else if (name == codeAttr) {
         m_url = stripLeadingAndTrailingHTMLSpaces(value);
-        // FIXME: Why no call to updateImageLoaderWithNewURLSoon?
+        // FIXME: Why no call to the image loader?
         // FIXME: If both code and src attributes are specified, last one parsed/changed wins. That can't be right!
     } else if (name == srcAttr) {
         m_url = stripLeadingAndTrailingHTMLSpaces(value);
-        updateImageLoaderWithNewURLSoon();
-        if (renderer() && !hasTypeOrSrc(*this))
-            invalidateStyle();
+        document().updateStyleIfNeeded();
+        if (renderer() && isImageType()) {
+            if (!m_imageLoader)
+                m_imageLoader = std::make_unique<HTMLImageLoader>(*this);
+            m_imageLoader->updateFromElementIgnoringPreviousError();
+        }
         // FIXME: If both code and src attributes are specified, last one parsed/changed wins. That can't be right!
     } else
         HTMLPlugInImageElement::parseAttribute(name, value);
@@ -153,26 +144,24 @@ void HTMLEmbedElement::updateWidget(CreatePlugins createPlugins)
 {
     ASSERT(!renderEmbeddedObject()->isPluginUnavailable());
     ASSERT(needsWidgetUpdate());
+    setNeedsWidgetUpdate(false);
 
-    if (m_url.isEmpty() && m_serviceType.isEmpty()) {
-        setNeedsWidgetUpdate(false);
+    if (m_url.isEmpty() && m_serviceType.isEmpty())
         return;
-    }
 
     // Note these pass m_url and m_serviceType to allow better code sharing with
     // <object> which modifies url and serviceType before calling these.
-    if (!allowedToLoadFrameURL(m_url)) {
-        setNeedsWidgetUpdate(false);
+    if (!allowedToLoadFrameURL(m_url))
         return;
-    }
 
     // FIXME: It's sadness that we have this special case here.
     //        See http://trac.webkit.org/changeset/25128 and
     //        plugins/netscape-plugin-setwindow-size.html
-    if (createPlugins == CreatePlugins::No && wouldLoadAsPlugIn(m_url, m_serviceType))
+    if (createPlugins == CreatePlugins::No && wouldLoadAsPlugIn(m_url, m_serviceType)) {
+        // Ensure updateWidget() is called again during layout to create the Netscape plug-in.
+        setNeedsWidgetUpdate(true);
         return;
-
-    setNeedsWidgetUpdate(false);
+    }
 
     // FIXME: These should be joined into a PluginParameters class.
     Vector<String> paramNames;
@@ -203,7 +192,7 @@ void HTMLEmbedElement::updateWidget(CreatePlugins createPlugins)
 
 bool HTMLEmbedElement::rendererIsNeeded(const RenderStyle& style)
 {
-    if (!hasTypeOrSrc(*this))
+    if (!hasAttributeWithoutSynchronization(typeAttr) && !hasAttributeWithoutSynchronization(srcAttr))
         return false;
 
     if (isImageType())
@@ -211,7 +200,7 @@ bool HTMLEmbedElement::rendererIsNeeded(const RenderStyle& style)
 
     // If my parent is an <object> and is not set to use fallback content, I
     // should be ignored and not get a renderer.
-    RefPtr<ContainerNode> parent = parentNode();
+    ContainerNode* parent = parentNode();
     if (is<HTMLObjectElement>(parent)) {
         if (!parent->renderer())
             return false;

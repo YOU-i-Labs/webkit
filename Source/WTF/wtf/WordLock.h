@@ -23,7 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
+#ifndef WTF_WordLock_h
+#define WTF_WordLock_h
 
 #include <wtf/Atomics.h>
 #include <wtf/Compiler.h>
@@ -45,12 +46,7 @@ namespace WTF {
 // PrintStream uses this so that ParkingLot and Lock can use PrintStream. This means that if you
 // try to use dataLog to debug this code, you will have a bad time.
 
-class WordLock {
-    WTF_MAKE_NONCOPYABLE(WordLock);
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    constexpr WordLock() = default;
-
+struct WordLockBase {
     void lock()
     {
         if (LIKELY(m_word.compareExchangeWeak(0, isLockedBit, std::memory_order_acquire))) {
@@ -97,12 +93,26 @@ protected:
         return !m_word.load();
     }
 
-    Atomic<uintptr_t> m_word { 0 };
+    Atomic<uintptr_t> m_word;
 };
 
-using WordLockHolder = Locker<WordLock>;
+class WordLock : public WordLockBase {
+    WTF_MAKE_NONCOPYABLE(WordLock);
+public:
+    WordLock()
+    {
+        m_word.store(0, std::memory_order_relaxed);
+    }
+};
+
+typedef WordLockBase StaticWordLock;
+typedef Locker<WordLockBase> WordLockHolder;
 
 } // namespace WTF
 
 using WTF::WordLock;
 using WTF::WordLockHolder;
+using WTF::StaticWordLock;
+
+#endif // WTF_WordLock_h
+

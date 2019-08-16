@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -20,8 +20,9 @@
 
 #pragma once
 
+#include <wtf/Forward.h>
 #include <wtf/HashTraits.h>
-#include <wtf/NeverDestroyed.h>
+#include <wtf/RefCounted.h>
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
@@ -46,7 +47,7 @@ public:
 
         unsigned computeHash() const;
 
-        mutable unsigned m_existingHash { 0 };
+        mutable unsigned m_existingHash;
         const AtomicString m_prefix;
         const AtomicString m_localName;
         const AtomicString m_namespace;
@@ -55,11 +56,12 @@ public:
 #if ENABLE(JIT)
         static ptrdiff_t localNameMemoryOffset() { return OBJECT_OFFSETOF(QualifiedNameImpl, m_localName); }
         static ptrdiff_t namespaceMemoryOffset() { return OBJECT_OFFSETOF(QualifiedNameImpl, m_namespace); }
-#endif
+#endif // ENABLE(JIT)
 
     private:
         QualifiedNameImpl(const AtomicString& prefix, const AtomicString& localName, const AtomicString& namespaceURI)
-            : m_prefix(prefix)
+            : m_existingHash(0)
+            , m_prefix(prefix)
             , m_localName(localName)
             , m_namespace(namespaceURI)
         {
@@ -79,7 +81,7 @@ public:
 
     bool matches(const QualifiedName& other) const { return m_impl == other.m_impl || (localName() == other.localName() && namespaceURI() == other.namespaceURI()); }
 
-    bool hasPrefix() const { return !m_impl->m_prefix.isNull(); }
+    bool hasPrefix() const { return m_impl->m_prefix != nullAtom; }
     void setPrefix(const AtomicString& prefix) { *this = QualifiedName(prefix, localName(), namespaceURI()); }
 
     const AtomicString& prefix() const { return m_impl->m_prefix; }
@@ -94,10 +96,10 @@ public:
     QualifiedNameImpl* impl() const { return m_impl.get(); }
 #if ENABLE(JIT)
     static ptrdiff_t implMemoryOffset() { return OBJECT_OFFSETOF(QualifiedName, m_impl); }
-#endif
+#endif // ENABLE(JIT)
     
     // Init routine for globals
-    WEBCORE_EXPORT static void init();
+    static void init();
 
 private:
     static QualifiedNameImpl* hashTableDeletedValue() { return RefPtr<QualifiedNameImpl>::hashTableDeletedValue(); }
@@ -105,8 +107,10 @@ private:
     RefPtr<QualifiedNameImpl> m_impl;
 };
 
-extern LazyNeverDestroyed<const QualifiedName> anyName;
+#ifndef WEBCORE_QUALIFIEDNAME_HIDE_GLOBALS
+extern const QualifiedName anyName;
 inline const QualifiedName& anyQName() { return anyName; }
+#endif
 
 const QualifiedName& nullQName();
 
@@ -135,6 +139,9 @@ struct QualifiedNameHash {
 
     static const bool safeToCompareToEmptyOrDeleted = false;
 };
+
+void createQualifiedName(void* targetAddress, StringImpl* name);
+void createQualifiedName(void* targetAddress, StringImpl* name, const AtomicString& nameNamespace);
 
 inline String QualifiedName::toString() const
 {

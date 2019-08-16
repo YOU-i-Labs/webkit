@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2018 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2013-2014, 2016 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,10 +30,8 @@
 #include "InlineCallFrame.h"
 #include "Interpreter.h"
 #include "JSCInlines.h"
-#include "JSWebAssemblyInstance.h"
 #include "VMEntryScope.h"
-#include "WasmContextInlines.h"
-#include "WasmInstance.h"
+#include "WasmContext.h"
 #include <wtf/StringPrintStream.h>
 
 namespace JSC {
@@ -45,7 +43,6 @@ void ExecState::initGlobalExec(ExecState* globalExec, JSCallee* globalCallee)
     globalExec->setReturnPC(0);
     globalExec->setArgumentCountIncludingThis(0);
     globalExec->setCallee(globalCallee);
-    ASSERT(globalExec->isGlobalExec());
 }
 
 bool CallFrame::callSiteBitsAreBytecodeOffset() const
@@ -107,12 +104,12 @@ SUPPRESS_ASAN CallSiteIndex CallFrame::unsafeCallSiteIndex() const
 }
 
 #if USE(JSVALUE32_64)
-const Instruction* CallFrame::currentVPC() const
+Instruction* CallFrame::currentVPC() const
 {
     return bitwise_cast<Instruction*>(callSiteIndex().bits());
 }
 
-void CallFrame::setCurrentVPC(const Instruction* vpc)
+void CallFrame::setCurrentVPC(Instruction* vpc)
 {
     CallSiteIndex callSite(vpc);
     this[CallFrameSlot::argumentCount].tag() = callSite.bits();
@@ -122,19 +119,19 @@ unsigned CallFrame::callSiteBitsAsBytecodeOffset() const
 {
     ASSERT(codeBlock());
     ASSERT(callSiteBitsAreBytecodeOffset());
-    return codeBlock()->bytecodeOffset(currentVPC());     
+    return currentVPC() - codeBlock()->instructions().begin();     
 }
 
 #else // USE(JSVALUE32_64)
-const Instruction* CallFrame::currentVPC() const
+Instruction* CallFrame::currentVPC() const
 {
     ASSERT(callSiteBitsAreBytecodeOffset());
-    return codeBlock()->instructions().at(callSiteBitsAsBytecodeOffset()).ptr();
+    return codeBlock()->instructions().begin() + callSiteBitsAsBytecodeOffset();
 }
 
-void CallFrame::setCurrentVPC(const Instruction* vpc)
+void CallFrame::setCurrentVPC(Instruction* vpc)
 {
-    CallSiteIndex callSite(codeBlock()->bytecodeOffset(vpc));
+    CallSiteIndex callSite(vpc - codeBlock()->instructions().begin());
     this[CallFrameSlot::argumentCount].tag() = static_cast<int32_t>(callSite.bits());
 }
 
@@ -149,7 +146,6 @@ unsigned CallFrame::callSiteBitsAsBytecodeOffset() const
     
 unsigned CallFrame::bytecodeOffset()
 {
-    ASSERT(!callee().isWasm());
     if (!codeBlock())
         return 0;
 #if ENABLE(DFG_JIT)
@@ -188,12 +184,40 @@ Register* CallFrame::topOfFrameInternal()
     return registers() + codeBlock->stackPointerOffset();
 }
 
+JSGlobalObject* CallFrame::vmEntryGlobalObject()
+{
+    RELEASE_ASSERT(callee().isCell());
+    if (callee().asCell()->isObject()) { 
+        if (this == lexicalGlobalObject()->globalExec())
+            return lexicalGlobalObject();
+    }
+    // If we're not an object, we're wasm, and therefore we're executing code and the below is safe.
+
+    // For any ExecState that's not a globalExec, the 
+    // dynamic global object must be set since code is running
+    ASSERT(vm().entryScope);
+    return vm().entryScope->globalObject();
+}
+
+JSGlobalObject* CallFrame::vmEntryGlobalObject(VM& vm)
+{
+    if (callee().isCell() && callee().asCell()->isObject()) {
+        if (this == lexicalGlobalObject()->globalExec())
+            return lexicalGlobalObject();
+    }
+
+    // For any ExecState that's not a globalExec, the 
+    // dynamic global object must be set since code is running
+    ASSERT(vm.entryScope);
+    return vm.entryScope->globalObject();
+}
+
 JSGlobalObject* CallFrame::wasmAwareLexicalGlobalObject(VM& vm)
 {
 #if ENABLE(WEBASSEMBLY)
     if (!callee().isWasm())
         return lexicalGlobalObject();
-    return vm.wasmContext.load()->owner<JSWebAssemblyInstance>()->globalObject(vm);
+    return Wasm::loadContext(vm)->globalObject();
 #else
     UNUSED_PARAM(vm);
     return lexicalGlobalObject();
@@ -213,24 +237,24 @@ bool CallFrame::isAnyWasmCallee()
     return false;
 }
 
-CallFrame* CallFrame::callerFrame(EntryFrame*& currEntryFrame) const
+CallFrame* CallFrame::callerFrame(VMEntryFrame*& currVMEntryFrame)
 {
-    if (callerFrameOrEntryFrame() == currEntryFrame) {
-        VMEntryRecord* currVMEntryRecord = vmEntryRecord(currEntryFrame);
-        currEntryFrame = currVMEntryRecord->prevTopEntryFrame();
+    if (callerFrameOrVMEntryFrame() == currVMEntryFrame) {
+        VMEntryRecord* currVMEntryRecord = vmEntryRecord(currVMEntryFrame);
+        currVMEntryFrame = currVMEntryRecord->prevTopVMEntryFrame();
         return currVMEntryRecord->prevTopCallFrame();
     }
-    return static_cast<CallFrame*>(callerFrameOrEntryFrame());
+    return static_cast<CallFrame*>(callerFrameOrVMEntryFrame());
 }
 
-SUPPRESS_ASAN CallFrame* CallFrame::unsafeCallerFrame(EntryFrame*& currEntryFrame) const
+SUPPRESS_ASAN CallFrame* CallFrame::unsafeCallerFrame(VMEntryFrame*& currVMEntryFrame)
 {
-    if (unsafeCallerFrameOrEntryFrame() == currEntryFrame) {
-        VMEntryRecord* currVMEntryRecord = vmEntryRecord(currEntryFrame);
-        currEntryFrame = currVMEntryRecord->unsafePrevTopEntryFrame();
+    if (unsafeCallerFrameOrVMEntryFrame() == currVMEntryFrame) {
+        VMEntryRecord* currVMEntryRecord = vmEntryRecord(currVMEntryFrame);
+        currVMEntryFrame = currVMEntryRecord->unsafePrevTopVMEntryFrame();
         return currVMEntryRecord->unsafePrevTopCallFrame();
     }
-    return static_cast<CallFrame*>(unsafeCallerFrameOrEntryFrame());
+    return static_cast<CallFrame*>(unsafeCallerFrameOrVMEntryFrame());
 }
 
 SourceOrigin CallFrame::callerSourceOrigin()
@@ -285,11 +309,11 @@ String CallFrame::friendlyFunctionName()
 
     switch (codeBlock->codeType()) {
     case EvalCode:
-        return "eval code"_s;
+        return ASCIILiteral("eval code");
     case ModuleCode:
-        return "module code"_s;
+        return ASCIILiteral("module code");
     case GlobalCode:
-        return "global code"_s;
+        return ASCIILiteral("global code");
     case FunctionCode:
         if (jsCallee())
             return getCalculatedDisplayName(vm(), jsCallee());
@@ -303,7 +327,7 @@ String CallFrame::friendlyFunctionName()
 void CallFrame::dump(PrintStream& out)
 {
     if (CodeBlock* codeBlock = this->codeBlock()) {
-        out.print(codeBlock->inferredName(), "#", codeBlock->hashAsStringIfPossible(), " [", codeBlock->jitType(), " bc#", bytecodeOffset(), "]");
+        out.print(codeBlock->inferredName(), "#", codeBlock->hashAsStringIfPossible(), " [", codeBlock->jitType(), "]");
 
         out.print("(");
         thisValue().dumpForBacktrace(out);
@@ -335,25 +359,6 @@ const char* CallFrame::describeFrame()
     buffer[bufferSize] = '\0';
     
     return buffer;
-}
-
-void CallFrame::convertToStackOverflowFrame(VM& vm, CodeBlock* codeBlockToKeepAliveUntilFrameIsUnwound)
-{
-    ASSERT(!isGlobalExec());
-    ASSERT(codeBlockToKeepAliveUntilFrameIsUnwound->inherits<CodeBlock>(vm));
-
-    EntryFrame* entryFrame = vm.topEntryFrame;
-    CallFrame* throwOriginFrame = this;
-    do {
-        throwOriginFrame = throwOriginFrame->callerFrame(entryFrame);
-    } while (throwOriginFrame && throwOriginFrame->callee().isWasm());
-
-    JSObject* originCallee = throwOriginFrame ? throwOriginFrame->jsCallee() : vmEntryRecord(vm.topEntryFrame)->callee();
-    JSObject* stackOverflowCallee = originCallee->globalObject()->stackOverflowFrameCallee();
-
-    setCodeBlock(codeBlockToKeepAliveUntilFrameIsUnwound);
-    setCallee(stackOverflowCallee);
-    setArgumentCountIncludingThis(0);
 }
 
 } // namespace JSC

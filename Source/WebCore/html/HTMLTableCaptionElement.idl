@@ -21,6 +21,6 @@
 [
     JSGenerateToNativeObject
 ] interface HTMLTableCaptionElement : HTMLElement {
-    [CEReactions=NotNeeded, Reflect] attribute DOMString align;
+    [Reflect] attribute DOMString align;
 };
 

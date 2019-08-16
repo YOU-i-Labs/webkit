@@ -26,6 +26,8 @@
 #include "config.h"
 #include "IndexingType.h"
 
+#include <wtf/StringExtras.h>
+
 namespace JSC {
 
 IndexingType leastUpperBoundOfIndexingTypes(IndexingType a, IndexingType b)
@@ -47,12 +49,10 @@ IndexingType leastUpperBoundOfIndexingTypeAndType(IndexingType indexingType, Spe
     case ALL_INT32_INDEXING_TYPES:
         if (isInt32Speculation(type))
             return (indexingType & ~IndexingShapeMask) | Int32Shape;
-        // FIXME: Should this really say that it wants a double for NaNs.
         if (isFullNumberSpeculation(type))
             return (indexingType & ~IndexingShapeMask) | DoubleShape;
         return (indexingType & ~IndexingShapeMask) | ContiguousShape;
     case ALL_DOUBLE_INDEXING_TYPES:
-        // FIXME: Should this really say that it wants a double for NaNs.
         if (isFullNumberSpeculation(type))
             return indexingType;
         return (indexingType & ~IndexingShapeMask) | ContiguousShape;
@@ -67,7 +67,7 @@ IndexingType leastUpperBoundOfIndexingTypeAndType(IndexingType indexingType, Spe
 
 IndexingType leastUpperBoundOfIndexingTypeAndValue(IndexingType indexingType, JSValue value)
 {
-    return leastUpperBoundOfIndexingTypes(indexingType, indexingTypeForValue(value) | (indexingType & IsArray));
+    return leastUpperBoundOfIndexingTypeAndType(indexingType, speculationFromValue(value));
 }
 
 void dumpIndexingType(PrintStream& out, IndexingType indexingType)
@@ -112,15 +112,6 @@ void dumpIndexingType(PrintStream& out, IndexingType indexingType)
         break;
     case ArrayWithSlowPutArrayStorage:
         basicName = "ArrayWithSlowPutArrayStorage";
-        break;
-    case CopyOnWriteArrayWithInt32:
-        basicName = "CopyOnWriteArrayWithInt32";
-        break;
-    case CopyOnWriteArrayWithDouble:
-        basicName = "CopyOnWriteArrayWithDouble";
-        break;
-    case CopyOnWriteArrayWithContiguous:
-        basicName = "CopyOnWriteArrayWithContiguous";
         break;
     default:
         basicName = "Unknown!";

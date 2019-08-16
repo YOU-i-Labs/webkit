@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.FontResourceContentView = class FontResourceContentView extends WI.ResourceContentView
+WebInspector.FontResourceContentView = class FontResourceContentView extends WebInspector.ResourceContentView
 {
     constructor(resource)
     {
@@ -46,7 +46,7 @@ WI.FontResourceContentView = class FontResourceContentView extends WI.ResourceCo
             return;
 
         // Start at the maximum size and try progressively smaller font sizes until minimum is reached or the preview element is not as wide as the main element.
-        for (var fontSize = WI.FontResourceContentView.MaximumFontSize; fontSize >= WI.FontResourceContentView.MinimumFontSize; fontSize -= 5) {
+        for (var fontSize = WebInspector.FontResourceContentView.MaximumFontSize; fontSize >= WebInspector.FontResourceContentView.MinimumFontSize; fontSize -= 5) {
             this._previewElement.style.fontSize = fontSize + "px";
             if (this._previewElement.offsetWidth <= this.element.offsetWidth)
                 break;
@@ -61,7 +61,7 @@ WI.FontResourceContentView = class FontResourceContentView extends WI.ResourceCo
             return;
         }
 
-        const uniqueFontName = "WebInspectorFontPreview" + (++WI.FontResourceContentView._uniqueFontIdentifier);
+        const uniqueFontName = "WebInspectorFontPreview" + (++WebInspector.FontResourceContentView._uniqueFontIdentifier);
 
         var format = "";
 
@@ -72,7 +72,7 @@ WI.FontResourceContentView = class FontResourceContentView extends WI.ResourceCo
         if (this._styleElement && this._styleElement.parentNode)
             this._styleElement.parentNode.removeChild(this._styleElement);
 
-        this.removeLoadingIndicator();
+        this.element.removeChildren();
 
         this._styleElement = document.createElement("style");
         this._styleElement.textContent = "@font-face { font-family: \"" + uniqueFontName + "\"; src: url(" + this._fontObjectURL + ")" + format + "; }";
@@ -92,7 +92,7 @@ WI.FontResourceContentView = class FontResourceContentView extends WI.ResourceCo
             return metricElement;
         }
 
-        var lines = WI.FontResourceContentView.PreviewLines;
+        var lines = WebInspector.FontResourceContentView.PreviewLines;
         for (var i = 0; i < lines.length; ++i) {
             var lineElement = document.createElement("div");
             lineElement.className = "line";
@@ -148,9 +148,9 @@ WI.FontResourceContentView = class FontResourceContentView extends WI.ResourceCo
     }
 };
 
-WI.FontResourceContentView._uniqueFontIdentifier = 0;
+WebInspector.FontResourceContentView._uniqueFontIdentifier = 0;
 
-WI.FontResourceContentView.PreviewLines = ["ABCDEFGHIJKLM", "NOPQRSTUVWXYZ", "abcdefghijklm", "nopqrstuvwxyz", "1234567890"];
+WebInspector.FontResourceContentView.PreviewLines = ["ABCDEFGHIJKLM", "NOPQRSTUVWXYZ", "abcdefghijklm", "nopqrstuvwxyz", "1234567890"];
 
-WI.FontResourceContentView.MaximumFontSize = 72;
-WI.FontResourceContentView.MinimumFontSize = 12;
+WebInspector.FontResourceContentView.MaximumFontSize = 72;
+WebInspector.FontResourceContentView.MinimumFontSize = 12;

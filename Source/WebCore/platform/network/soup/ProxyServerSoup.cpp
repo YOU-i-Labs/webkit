@@ -28,11 +28,11 @@
 
 #if USE(SOUP)
 
-#include <wtf/URL.h>
+#include "URL.h"
 
 namespace WebCore {
 
-Vector<ProxyServer> proxyServersForURL(const URL&)
+Vector<ProxyServer> proxyServersForURL(const URL&, const NetworkingContext*)
 {
     // FIXME: Implement.
     return Vector<ProxyServer>();

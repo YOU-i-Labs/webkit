@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ResourceTimingPopoverDataGridNode = class ResourceTimingPopoverDataGridNode extends WI.TimelineDataGridNode
+WebInspector.ResourceTimingPopoverDataGridNode = class ResourceTimingPopoverDataGridNode extends WebInspector.TimelineDataGridNode
 {
     constructor(description, startTime, endTime, graphDataSource)
     {
@@ -33,7 +33,7 @@ WI.ResourceTimingPopoverDataGridNode = class ResourceTimingPopoverDataGridNode e
         let duration = Number.secondsToMillisecondsString(endTime - startTime, higherResolution);
 
         this._data = {description, duration};
-        this._record = new WI.TimelineRecord(WI.TimelineRecord.Type.Network, startTime, endTime);
+        this._record = new WebInspector.TimelineRecord(WebInspector.TimelineRecord.Type.Network, startTime, endTime);
     }
 
     // Public

@@ -39,10 +39,15 @@ class TouchEvent final : public MouseRelatedEvent {
 public:
     virtual ~TouchEvent();
 
-    static Ref<TouchEvent> create(TouchList* touches, TouchList* targetTouches, TouchList* changedTouches,
-        const AtomicString& type, RefPtr<WindowProxy>&& view, const IntPoint& globalLocation, OptionSet<Modifier> modifiers)
+    static Ref<TouchEvent> create(TouchList* touches, 
+            TouchList* targetTouches, TouchList* changedTouches, 
+            const AtomicString& type, DOMWindow* view,
+            int screenX, int screenY, int pageX, int pageY,
+            bool ctrlKey, bool altKey, bool shiftKey, bool metaKey)
     {
-        return adoptRef(*new TouchEvent(touches, targetTouches, changedTouches, type, WTFMove(view), globalLocation, modifiers));
+        return adoptRef(*new TouchEvent(touches, targetTouches, changedTouches,
+                type, view, screenX, screenY, pageX, pageY,
+                ctrlKey, altKey, shiftKey, metaKey));
     }
     static Ref<TouchEvent> createForBindings()
     {
@@ -60,8 +65,11 @@ public:
         return adoptRef(*new TouchEvent(type, initializer, isTrusted));
     }
 
-    void initTouchEvent(TouchList* touches, TouchList* targetTouches, TouchList* changedTouches, const AtomicString& type,
-        RefPtr<WindowProxy>&&, int screenX, int screenY, int clientX, int clientY, bool ctrlKey, bool altKey, bool shiftKey, bool metaKey);
+    void initTouchEvent(TouchList* touches, TouchList* targetTouches,
+            TouchList* changedTouches, const AtomicString& type, 
+            DOMWindow*, int screenX, int screenY,
+            int clientX, int clientY,
+            bool ctrlKey, bool altKey, bool shiftKey, bool metaKey);
 
     TouchList* touches() const { return m_touches.get(); }
     TouchList* targetTouches() const { return m_targetTouches.get(); }
@@ -77,8 +85,11 @@ public:
 
 private:
     TouchEvent();
-    TouchEvent(TouchList* touches, TouchList* targetTouches, TouchList* changedTouches, const AtomicString& type,
-        RefPtr<WindowProxy>&&, const IntPoint& globalLocation, OptionSet<Modifier>);
+    TouchEvent(TouchList* touches, TouchList* targetTouches,
+            TouchList* changedTouches, const AtomicString& type,
+            DOMWindow*, int screenX, int screenY, int pageX,
+            int pageY,
+            bool ctrlKey, bool altKey, bool shiftKey, bool metaKey);
     TouchEvent(const AtomicString&, const Init&, IsTrusted);
 
     RefPtr<TouchList> m_touches;

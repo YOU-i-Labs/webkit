@@ -35,7 +35,9 @@ OESTextureHalfFloatLinear::OESTextureHalfFloatLinear(WebGLRenderingContextBase& 
 {
 }
 
-OESTextureHalfFloatLinear::~OESTextureHalfFloatLinear() = default;
+OESTextureHalfFloatLinear::~OESTextureHalfFloatLinear()
+{
+}
 
 WebGLExtension::ExtensionName OESTextureHalfFloatLinear::getName() const
 {

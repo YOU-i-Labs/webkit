@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-int testPingPongStackOverflow(void);
+int testPingPongStackOverflow();
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -38,7 +38,7 @@ public:
         RawResourceType
     };
 
-    virtual ~CachedResourceClient() = default;
+    virtual ~CachedResourceClient() { }
     virtual void notifyFinished(CachedResource&) { }
     virtual void deprecatedDidReceiveCachedResource(CachedResource&) { }
     virtual bool isXMLHttpRequest() const { return false; }
@@ -48,7 +48,7 @@ public:
     virtual bool shouldMarkAsReferenced() const { return true; }
 
 protected:
-    CachedResourceClient() = default;
+    CachedResourceClient() { }
 };
 
 }

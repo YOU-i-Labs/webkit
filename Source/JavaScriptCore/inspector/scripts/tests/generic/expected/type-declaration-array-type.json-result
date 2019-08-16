@@ -31,7 +31,6 @@
 
 // Debugger.
 InspectorBackend.registerEnum("Debugger.Reason", {Died: "Died", Fainted: "Fainted", Hungry: "Hungry"});
-InspectorBackend.activateDomain("Debugger");
 ### End File: InspectorBackendCommands.js
 
 ### Begin File: TestAlternateBackendDispatchers.h
@@ -70,8 +69,8 @@ InspectorBackend.activateDomain("Debugger");
 #if ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
 
 #include "TestProtocolTypes.h"
+#include <inspector/InspectorFrontendRouter.h>
 #include <JavaScriptCore/InspectorBackendDispatcher.h>
-#include <JavaScriptCore/InspectorFrontendRouter.h>
 
 namespace Inspector {
 
@@ -125,7 +124,7 @@ private:
 #pragma once
 
 #include "TestProtocolObjects.h"
-#include <JavaScriptCore/InspectorBackendDispatcher.h>
+#include <inspector/InspectorBackendDispatcher.h>
 #include <wtf/text/WTFString.h>
 
 namespace Inspector {
@@ -171,8 +170,8 @@ typedef String ErrorString;
 #include "config.h"
 #include "TestBackendDispatchers.h"
 
-#include <JavaScriptCore/InspectorFrontendRouter.h>
-#include <wtf/JSONValues.h>
+#include <inspector/InspectorFrontendRouter.h>
+#include <inspector/InspectorValues.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
 
@@ -222,7 +221,7 @@ namespace Inspector {
 #pragma once
 
 #include "TestProtocolObjects.h"
-#include <wtf/JSONValues.h>
+#include <inspector/InspectorValues.h>
 #include <wtf/text/WTFString.h>
 
 namespace Inspector {
@@ -266,7 +265,7 @@ class FrontendRouter;
 #include "config.h"
 #include "TestFrontendDispatchers.h"
 
-#include <JavaScriptCore/InspectorFrontendRouter.h>
+#include "InspectorFrontendRouter.h"
 #include <wtf/text/CString.h>
 
 namespace Inspector {
@@ -308,7 +307,7 @@ namespace Inspector {
 
 #pragma once
 
-#include <JavaScriptCore/InspectorProtocolTypes.h>
+#include <inspector/InspectorProtocolTypes.h>
 #include <wtf/Assertions.h>
 
 namespace Inspector {
@@ -331,11 +330,11 @@ typedef int BreakpointId;
 
 namespace Runtime {
 typedef int ObjectId;
-typedef JSON::ArrayOf<int> LuckyNumbers;
-typedef JSON::ArrayOf<String> BabyNames;
-typedef JSON::ArrayOf<int> NewObjects;
-typedef JSON::ArrayOf<int> OldObjects;
-typedef JSON::ArrayOf<Inspector::Protocol::Debugger::Reason> StopReasons;
+typedef Inspector::Protocol::Array<int> LuckyNumbers;
+typedef Inspector::Protocol::Array<String> BabyNames;
+typedef Inspector::Protocol::Array<Inspector::Protocol::Runtime::ObjectId> NewObjects;
+typedef Inspector::Protocol::Array<Inspector::Protocol::Debugger::BreakpointId> OldObjects;
+typedef Inspector::Protocol::Array<Inspector::Protocol::Debugger::Reason> StopReasons;
 } // Runtime
 // End of typedefs.
 
@@ -364,29 +363,17 @@ enum class Reason {
 namespace TestHelpers {
 
 template<typename ProtocolEnumType>
-Optional<ProtocolEnumType> parseEnumValueFromString(const String&);
+std::optional<ProtocolEnumType> parseEnumValueFromString(const String&);
 
 // Enums in the 'Debugger' Domain
 template<>
-Optional<Inspector::Protocol::Debugger::Reason> parseEnumValueFromString<Inspector::Protocol::Debugger::Reason>(const String&);
+std::optional<Inspector::Protocol::Debugger::Reason> parseEnumValueFromString<Inspector::Protocol::Debugger::Reason>(const String&);
 
 } // namespace TestHelpers
 
 } // namespace Protocol
 
 } // namespace Inspector
-
-namespace WTF {
-
-template<typename T> struct DefaultHash;
-
-// Hash declarations in the 'Debugger' Domain
-template<>
-struct DefaultHash<Inspector::Protocol::Debugger::Reason> {
-    typedef IntHash<Inspector::Protocol::Debugger::Reason> Hash;
-};
-
-} // namespace WTF
 ### End File: TestProtocolObjects.h
 
 ### Begin File: TestProtocolObjects.cpp
@@ -444,7 +431,7 @@ String getEnumConstantValue(int code) {
 
 // Enums in the 'Debugger' Domain
 template<>
-Optional<Inspector::Protocol::Debugger::Reason> parseEnumValueFromString<Inspector::Protocol::Debugger::Reason>(const String& protocolString)
+std::optional<Inspector::Protocol::Debugger::Reason> parseEnumValueFromString<Inspector::Protocol::Debugger::Reason>(const String& protocolString)
 {
     static const size_t constantValues[] = {
         (size_t)Inspector::Protocol::Debugger::Reason::Died,
@@ -455,7 +442,7 @@ Optional<Inspector::Protocol::Debugger::Reason> parseEnumValueFromString<Inspect
         if (protocolString == enum_constant_values[constantValues[i]])
             return (Inspector::Protocol::Debugger::Reason)constantValues[i];
 
-    return WTF::nullopt;
+    return std::nullopt;
 }
 
 
@@ -548,7 +535,7 @@ namespace Inspector {
 
 #include "TestProtocolInternal.h"
 #include "TestProtocolTypeConversions.h"
-#include <wtf/JSONValues.h>
+#include <JavaScriptCore/InspectorValues.h>
 
 namespace Inspector {
 
@@ -697,7 +684,7 @@ using namespace Inspector;
 #import "TestProtocolInternal.h"
 
 #import "TestProtocolTypeConversions.h"
-#import <wtf/JSONValues.h>
+#import <JavaScriptCore/InspectorValues.h>
 
 using namespace Inspector;
 
@@ -799,7 +786,7 @@ typedef NS_ENUM(NSInteger, TestProtocolDebuggerReason) {
 #import "TestProtocol.h"
 #import "TestProtocolJSONObjectPrivate.h"
 #import <JavaScriptCore/AugmentableInspectorController.h>
-#import <wtf/JSONValues.h>
+#import <JavaScriptCore/InspectorValues.h>
 
 
 
@@ -843,24 +830,24 @@ typedef NS_ENUM(NSInteger, TestProtocolDebuggerReason) {
 namespace Inspector {
 
 template<typename ObjCEnumType>
-Optional<ObjCEnumType> fromProtocolString(const String& value);
+std::optional<ObjCEnumType> fromProtocolString(const String& value);
 
 inline String toProtocolString(TestProtocolPlatform value)
 {
     switch(value) {
     case TestProtocolPlatformAll:
-        return "all"_s;
+        return ASCIILiteral("all");
     case TestProtocolPlatformGeneric:
-        return "generic"_s;
+        return ASCIILiteral("generic");
     case TestProtocolPlatformIOS:
-        return "ios"_s;
+        return ASCIILiteral("ios");
     case TestProtocolPlatformMacOS:
-        return "macos"_s;
+        return ASCIILiteral("macos");
     }
 }
 
 template<>
-inline Optional<TestProtocolPlatform> fromProtocolString(const String& value)
+inline std::optional<TestProtocolPlatform> fromProtocolString(const String& value)
 {
     if (value == "all")
         return TestProtocolPlatformAll;
@@ -870,7 +857,7 @@ inline Optional<TestProtocolPlatform> fromProtocolString(const String& value)
         return TestProtocolPlatformIOS;
     if (value == "macos")
         return TestProtocolPlatformMacOS;
-    return WTF::nullopt;
+    return std::nullopt;
 }
 
 
@@ -878,16 +865,16 @@ inline String toProtocolString(TestProtocolDebuggerReason value)
 {
     switch(value) {
     case TestProtocolDebuggerReasonDied:
-        return "Died"_s;
+        return ASCIILiteral("Died");
     case TestProtocolDebuggerReasonFainted:
-        return "Fainted"_s;
+        return ASCIILiteral("Fainted");
     case TestProtocolDebuggerReasonHungry:
-        return "Hungry"_s;
+        return ASCIILiteral("Hungry");
     }
 }
 
 template<>
-inline Optional<TestProtocolDebuggerReason> fromProtocolString(const String& value)
+inline std::optional<TestProtocolDebuggerReason> fromProtocolString(const String& value)
 {
     if (value == "Died")
         return TestProtocolDebuggerReasonDied;
@@ -895,7 +882,7 @@ inline Optional<TestProtocolDebuggerReason> fromProtocolString(const String& val
         return TestProtocolDebuggerReasonFainted;
     if (value == "Hungry")
         return TestProtocolDebuggerReasonHungry;
-    return WTF::nullopt;
+    return std::nullopt;
 }
 
 
@@ -971,7 +958,7 @@ using namespace Inspector;
 + (void)_parseReason:(NSNumber **)outValue fromPayload:(id)payload
 {
     THROW_EXCEPTION_FOR_BAD_TYPE(payload, [NSString class]);
-    Optional<TestProtocolDebuggerReason> result = Inspector::fromProtocolString<TestProtocolDebuggerReason>(payload);
+    std::optional<TestProtocolDebuggerReason> result = Inspector::fromProtocolString<TestProtocolDebuggerReason>(payload);
     THROW_EXCEPTION_FOR_BAD_ENUM_VALUE(result, @"Reason");
     *outValue = @(result.value());
 }
@@ -1055,8 +1042,8 @@ using namespace Inspector;
 
 #import "TestProtocolTypeConversions.h"
 #import <WebInspector/RWIProtocolJSONObjectPrivate.h>
+#import <JavaScriptCore/InspectorValues.h>
 #import <wtf/Assertions.h>
-#import <wtf/JSONValues.h>
 
 using namespace Inspector;
 

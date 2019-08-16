@@ -27,7 +27,7 @@
 
 #if ENABLE(NAVIGATOR_CONTENT_UTILS)
 
-#include <wtf/URL.h>
+#include "URL.h"
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -36,7 +36,7 @@ class Page;
 
 class NavigatorContentUtilsClient {
 public:
-    virtual ~NavigatorContentUtilsClient() = default;
+    virtual ~NavigatorContentUtilsClient() { }
     virtual void registerProtocolHandler(const String& scheme, const URL& baseURL, const URL&, const String& title) = 0;
 
 #if ENABLE(CUSTOM_SCHEME_HANDLER)

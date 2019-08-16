@@ -34,19 +34,20 @@
 
 namespace WebCore {
 
+class URL;
 class SecurityOrigin;
 class URLRegistry;
 
 class URLRegistrable {
 public:
-    virtual ~URLRegistrable() = default;
+    virtual ~URLRegistrable() { }
     virtual URLRegistry& registry() const = 0;
 };
 
 class URLRegistry {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    virtual ~URLRegistry() = default;
+    virtual ~URLRegistry() { }
     virtual void registerURL(SecurityOrigin*, const URL&, URLRegistrable&) = 0;
     virtual void unregisterURL(const URL&) = 0;
 

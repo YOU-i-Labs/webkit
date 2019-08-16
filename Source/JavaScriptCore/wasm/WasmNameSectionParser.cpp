@@ -29,39 +29,25 @@
 #if ENABLE(WEBASSEMBLY)
 
 #include "IdentifierInlines.h"
-#include "WasmNameSection.h"
 
 namespace JSC { namespace Wasm {
 
 auto NameSectionParser::parse() -> Result
 {
-    Ref<NameSection> nameSection = NameSection::create();
-    WASM_PARSER_FAIL_IF(!nameSection->functionNames.tryReserveCapacity(m_info.functionIndexSpaceSize()), "can't allocate enough memory for function names");
-    nameSection->functionNames.resize(m_info.functionIndexSpaceSize());
+    NameSection nameSection;
+    WASM_PARSER_FAIL_IF(!nameSection.functionNames.tryReserveCapacity(m_info.functionIndexSpaceSize()), "can't allocate enough memory for function names");
+    nameSection.functionNames.resize(m_info.functionIndexSpaceSize());
 
     for (size_t payloadNumber = 0; m_offset < length(); ++payloadNumber) {
         uint8_t nameType;
         uint32_t payloadLength;
         WASM_PARSER_FAIL_IF(!parseUInt7(nameType), "can't get name type for payload ", payloadNumber);
+        WASM_PARSER_FAIL_IF(!isValidNameType(nameType), "name type ", nameType, " is invalid for payload ", payloadNumber);
         WASM_PARSER_FAIL_IF(!parseVarUInt32(payloadLength), "can't get payload length for payload ", payloadNumber);
         WASM_PARSER_FAIL_IF(payloadLength > length() - m_offset, "payload length is too big for payload ", payloadNumber);
         const auto payloadStart = m_offset;
-        
-        if (!isValidNameType(nameType)) {
-            // Unknown name section entries are simply ignored. This allows us to support newer toolchains without breaking older features.
-            m_offset += payloadLength;
-            continue;
-        }
 
         switch (static_cast<NameType>(nameType)) {
-        case NameType::Module: {
-            uint32_t nameLen;
-            Name nameString;
-            WASM_PARSER_FAIL_IF(!parseVarUInt32(nameLen), "can't get module's name length for payload ", payloadNumber);
-            WASM_PARSER_FAIL_IF(!consumeUTF8String(nameString, nameLen), "can't get module's name of length ", nameLen, " for payload ", payloadNumber);
-            nameSection->moduleName = WTFMove(nameString);
-            break;
-        }
         case NameType::Function: {
             uint32_t count;
             WASM_PARSER_FAIL_IF(!parseVarUInt32(count), "can't get function count for payload ", payloadNumber);
@@ -73,7 +59,7 @@ auto NameSectionParser::parse() -> Result
                 WASM_PARSER_FAIL_IF(m_info.functionIndexSpaceSize() <= index, "function ", function, " index ", index, " is larger than function index space ", m_info.functionIndexSpaceSize(), " for payload ", payloadNumber);
                 WASM_PARSER_FAIL_IF(!parseVarUInt32(nameLen), "can't get functions ", function, "'s name length for payload ", payloadNumber);
                 WASM_PARSER_FAIL_IF(!consumeUTF8String(nameString, nameLen), "can't get function ", function, "'s name of length ", nameLen, " for payload ", payloadNumber);
-                nameSection->functionNames[index] = WTFMove(nameString);
+                nameSection.functionNames[index] = WTFMove(nameString);
             }
             break;
         }
@@ -96,7 +82,7 @@ auto NameSectionParser::parse() -> Result
         }
         WASM_PARSER_FAIL_IF(payloadStart + payloadLength != m_offset);
     }
-    return WTFMove(nameSection);
+    return nameSection;
 }
 
 } } // namespace JSC::Wasm

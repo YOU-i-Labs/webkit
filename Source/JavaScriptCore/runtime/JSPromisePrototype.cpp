@@ -51,7 +51,6 @@ const ClassInfo JSPromisePrototype::s_info = { "PromisePrototype", &Base::s_info
 @begin promisePrototypeTable
   then         JSBuiltin            DontEnum|Function 2
   catch        JSBuiltin            DontEnum|Function 1
-  finally      JSBuiltin            DontEnum|Function 1
 @end
 */
 
@@ -76,12 +75,12 @@ JSPromisePrototype::JSPromisePrototype(VM& vm, Structure* structure)
 void JSPromisePrototype::finishCreation(VM& vm, Structure*)
 {
     Base::finishCreation(vm);
-    putDirectWithoutTransition(vm, vm.propertyNames->toStringTagSymbol, jsString(&vm, "Promise"), PropertyAttribute::DontEnum | PropertyAttribute::ReadOnly);
+    putDirectWithoutTransition(vm, vm.propertyNames->toStringTagSymbol, jsString(&vm, "Promise"), DontEnum | ReadOnly);
 }
 
 void JSPromisePrototype::addOwnInternalSlots(VM& vm, JSGlobalObject* globalObject)
 {
-    JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().thenPrivateName(), promisePrototypeThenCodeGenerator, PropertyAttribute::DontEnum | PropertyAttribute::DontDelete | PropertyAttribute::ReadOnly);
+    JSC_BUILTIN_FUNCTION_WITHOUT_TRANSITION(vm.propertyNames->builtinNames().thenPrivateName(), promisePrototypeThenCodeGenerator, DontEnum | DontDelete | ReadOnly);
 }
 
 } // namespace JSC

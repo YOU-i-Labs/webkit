@@ -63,22 +63,6 @@ Config::Config()
 {
 }
 
-Config::~Config()
-{
-}
-
-Config::Config(const Config &other) = default;
-
-Config &Config::operator=(const Config &other) = default;
-
-ConfigSet::ConfigSet() = default;
-
-ConfigSet::ConfigSet(const ConfigSet &other) = default;
-
-ConfigSet &ConfigSet::operator=(const ConfigSet &other) = default;
-
-ConfigSet::~ConfigSet() = default;
-
 EGLint ConfigSet::add(const Config &config)
 {
     // Set the config's ID to a small number that starts at 1 ([EGL 1.5] section 3.4)
@@ -181,22 +165,27 @@ class ConfigSorter
     }
 
   private:
-    static bool wantsComponent(const AttributeMap &attributeMap, EGLAttrib component)
+    void scanForWantedComponents(const AttributeMap &attributeMap)
     {
         // [EGL 1.5] section 3.4.1.2 page 30
         // Sorting rule #3: by larger total number of color bits, not considering
         // components that are 0 or don't-care.
-        EGLAttrib value = attributeMap.get(component, 0);
-        return value != 0 && value != EGL_DONT_CARE;
-    }
-
-    void scanForWantedComponents(const AttributeMap &attributeMap)
-    {
-        mWantRed       = wantsComponent(attributeMap, EGL_RED_SIZE);
-        mWantGreen     = wantsComponent(attributeMap, EGL_GREEN_SIZE);
-        mWantBlue      = wantsComponent(attributeMap, EGL_BLUE_SIZE);
-        mWantAlpha     = wantsComponent(attributeMap, EGL_ALPHA_SIZE);
-        mWantLuminance = wantsComponent(attributeMap, EGL_LUMINANCE_SIZE);
+        for (auto attribIter = attributeMap.begin(); attribIter != attributeMap.end(); attribIter++)
+        {
+            EGLAttrib attributeKey   = attribIter->first;
+            EGLAttrib attributeValue = attribIter->second;
+            if (attributeKey != 0 && attributeValue != EGL_DONT_CARE)
+            {
+                switch (attributeKey)
+                {
+                case EGL_RED_SIZE:       mWantRed = true; break;
+                case EGL_GREEN_SIZE:     mWantGreen = true; break;
+                case EGL_BLUE_SIZE:      mWantBlue = true; break;
+                case EGL_ALPHA_SIZE:     mWantAlpha = true; break;
+                case EGL_LUMINANCE_SIZE: mWantLuminance = true; break;
+                }
+            }
+        }
     }
 
     EGLint wantedComponentsSize(const Config &config) const
@@ -233,11 +222,6 @@ std::vector<const Config*> ConfigSet::filter(const AttributeMap &attributeMap) c
         {
             EGLAttrib attributeKey   = attribIter->first;
             EGLAttrib attributeValue = attribIter->second;
-
-            if (attributeValue == EGL_DONT_CARE)
-            {
-                continue;
-            }
 
             switch (attributeKey)
             {

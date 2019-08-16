@@ -29,7 +29,7 @@
  */
 
 #include "config.h"
-#include <wtf/UUID.h>
+#include "UUID.h"
 
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/HexNumber.h>

@@ -26,36 +26,35 @@
 
 #include "GraphicsContext.h"
 #include "HitTestRequest.h"
-#include "HitTestResult.h"
 #include "LayoutRepainter.h"
 #include "RenderIterator.h"
 #include "RenderSVGResourceFilter.h"
-#include "RenderTreeBuilder.h"
 #include "RenderView.h"
 #include "SVGRenderingContext.h"
 #include "SVGResources.h"
 #include "SVGResourcesCache.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGContainer);
-
 RenderSVGContainer::RenderSVGContainer(SVGElement& element, RenderStyle&& style)
     : RenderSVGModelObject(element, WTFMove(style))
+    , m_objectBoundingBoxValid(false)
+    , m_needsBoundariesUpdate(true)
 {
 }
 
-RenderSVGContainer::~RenderSVGContainer() = default;
+RenderSVGContainer::~RenderSVGContainer()
+{
+}
 
 void RenderSVGContainer::layout()
 {
     StackStats::LayoutCheckPoint layoutCheckPoint;
     ASSERT(needsLayout());
 
-    // RenderSVGRoot disables paint offset cache for the SVG rendering tree.
-    ASSERT(!view().frameView().layoutContext().isPaintOffsetCacheEnabled());
+    // RenderSVGRoot disables layoutState for the SVG rendering tree.
+    ASSERT(!view().layoutStateEnabled());
 
     LayoutRepainter repainter(*this, SVGRenderSupport::checkForSVGRepaintDuringLayout(*this) || selfWillPaint());
 
@@ -88,6 +87,19 @@ void RenderSVGContainer::layout()
     clearNeedsLayout();
 }
 
+void RenderSVGContainer::addChild(RenderObject* child, RenderObject* beforeChild)
+{
+    RenderSVGModelObject::addChild(child, beforeChild);
+    SVGResourcesCache::clientWasAddedToTree(*child);
+}
+
+void RenderSVGContainer::removeChild(RenderObject& child)
+{
+    SVGResourcesCache::clientWillBeRemovedFromTree(child);
+    RenderSVGModelObject::removeChild(child);
+}
+
+
 bool RenderSVGContainer::selfWillPaint()
 {
     auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
@@ -118,7 +130,7 @@ void RenderSVGContainer::paint(PaintInfo& paintInfo, const LayoutPoint&)
 
         SVGRenderingContext renderingContext;
         bool continueRendering = true;
-        if (childPaintInfo.phase == PaintPhase::Foreground) {
+        if (childPaintInfo.phase == PaintPhaseForeground) {
             renderingContext.prepareToRenderSVGContent(*this, childPaintInfo);
             continueRendering = renderingContext.isRenderingPrepared();
         }
@@ -134,8 +146,8 @@ void RenderSVGContainer::paint(PaintInfo& paintInfo, const LayoutPoint&)
     // to avoid our clip killing our outline rect. Thus we translate our
     // outline rect into parent coords before drawing.
     // FIXME: This means our focus ring won't share our rotation like it should.
-    // We should instead disable our clip during PaintPhase::Outline
-    if (paintInfo.phase == PaintPhase::SelfOutline && style().outlineWidth() && style().visibility() == Visibility::Visible) {
+    // We should instead disable our clip during PaintPhaseOutline
+    if (paintInfo.phase == PaintPhaseSelfOutline && style().outlineWidth() && style().visibility() == VISIBLE) {
         IntRect paintRectInParent = enclosingIntRect(localToParentTransform().mapRect(repaintRect));
         paintOutline(paintInfo, paintRectInParent);
     }
@@ -161,7 +173,7 @@ bool RenderSVGContainer::nodeAtFloatPoint(const HitTestRequest& request, HitTest
     if (!pointIsInsideViewportClip(pointInParent))
         return false;
 
-    FloatPoint localPoint = localToParentTransform().inverse().valueOr(AffineTransform()).mapPoint(pointInParent);
+    FloatPoint localPoint = localToParentTransform().inverse().value_or(AffineTransform()).mapPoint(pointInParent);
 
     if (!SVGRenderSupport::pointInClippingArea(*this, localPoint))
         return false;
@@ -169,16 +181,14 @@ bool RenderSVGContainer::nodeAtFloatPoint(const HitTestRequest& request, HitTest
     for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {
         if (child->nodeAtFloatPoint(request, result, localPoint, hitTestAction)) {
             updateHitTestResult(result, LayoutPoint(localPoint));
-            if (result.addNodeToListBasedTestResult(child->node(), request, localPoint) == HitTestProgress::Stop)
-                return true;
+            return true;
         }
     }
 
     // Accessibility wants to return SVG containers, if appropriate.
     if (request.type() & HitTestRequest::AccessibilityHitTest && m_objectBoundingBox.contains(localPoint)) {
         updateHitTestResult(result, LayoutPoint(localPoint));
-        if (result.addNodeToListBasedTestResult(&element(), request, localPoint) == HitTestProgress::Stop)
-            return true;
+        return true;
     }
     
     // Spec: Only graphical elements can be targeted by the mouse, period.

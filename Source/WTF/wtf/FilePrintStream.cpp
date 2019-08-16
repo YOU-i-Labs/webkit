@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include <wtf/FilePrintStream.h>
+#include "FilePrintStream.h"
 
 namespace WTF {
 

@@ -28,7 +28,7 @@ bool GetNvidiaDriverVersionWithXNVCtrl(std::string *version)
     int eventBase = 0;
     int errorBase = 0;
 
-    Display *display = XOpenDisplay(nullptr);
+    Display *display = XOpenDisplay(NULL);
 
     if (XNVCTRLQueryExtension(display, &eventBase, &errorBase))
     {

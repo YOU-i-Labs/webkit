@@ -33,6 +33,7 @@
 #include "StyleRule.h"
 #include <utility>
 #include <wtf/Forward.h>
+#include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>

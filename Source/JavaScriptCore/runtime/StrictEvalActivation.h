@@ -29,19 +29,20 @@
 
 namespace JSC {
 
-class StrictEvalActivation final : public JSScope {
+class StrictEvalActivation : public JSScope {
 public:
-    using Base = JSScope;
+    typedef JSScope Base;
+    static const unsigned StructureFlags = Base::StructureFlags | OverridesToThis;
 
     static StrictEvalActivation* create(ExecState* exec, JSScope* currentScope)
     {
-        VM& vm = exec->vm();
-        StrictEvalActivation* lexicalEnvironment = new (NotNull, allocateCell<StrictEvalActivation>(vm.heap)) StrictEvalActivation(exec, currentScope);
-        lexicalEnvironment->finishCreation(vm);
+        StrictEvalActivation* lexicalEnvironment = new (NotNull, allocateCell<StrictEvalActivation>(*exec->heap())) StrictEvalActivation(exec, currentScope);
+        lexicalEnvironment->finishCreation(exec->vm());
         return lexicalEnvironment;
     }
 
     static bool deleteProperty(JSCell*, ExecState*, PropertyName);
+    static JSValue toThis(JSCell*, ExecState*, ECMAMode);
 
     static Structure* createStructure(VM& vm, JSGlobalObject* globalObject, JSValue prototype)
     {

@@ -66,7 +66,7 @@ public:
         ASSERT(m_values->size() == m_wrappers->size());
         ASSERT_WITH_SECURITY_IMPLICATION(itemIndex < m_wrappers->size());
 
-        auto item = m_wrappers->at(itemIndex);
+        RefPtr<ListItemTearOff>& item = m_wrappers->at(itemIndex);
         item->detachWrapper();
         m_wrappers->remove(itemIndex);
         m_values->remove(itemIndex);
@@ -118,6 +118,11 @@ protected:
     {
     }
 
+    virtual ~SVGListPropertyTearOff()
+    {
+        m_animatedProperty->propertyWillBeDeleted(*this);
+    }
+
     bool isReadOnly() const override
     {
         if (m_role == AnimValRole)
@@ -136,7 +141,7 @@ protected:
         unsigned size = m_wrappers->size();
         ASSERT(size == m_values->size());
         for (unsigned i = 0; i < size; ++i) {
-            auto item = m_wrappers->at(i);
+            ListItemTearOff* item = m_wrappers->at(i).get();
             if (!item)
                 continue;
             item->setAnimatedProperty(m_animatedProperty.ptr());
@@ -154,7 +159,7 @@ protected:
 
     bool processIncomingListItemWrapper(Ref<ListItemTearOff>& newItem, unsigned* indexToModify) override
     {
-        auto animatedPropertyOfItem = makeRefPtr(newItem->animatedProperty());
+        SVGAnimatedProperty* animatedPropertyOfItem = newItem->animatedProperty();
 
         // newItem has been created manually, it doesn't belong to any SVGElement.
         // (for example: "textElement.x.baseVal.appendItem(svgsvgElement.createSVGLength())")
@@ -176,7 +181,7 @@ protected:
         // Spec: If newItem is already in a list, it is removed from its previous list before it is inserted into this list.
         // 'newItem' is already living in another list. If it's not our list, synchronize the other lists wrappers after the removal.
         bool livesInOtherList = animatedPropertyOfItem != m_animatedProperty.ptr();
-        AnimatedListPropertyTearOff* propertyTearOff = static_cast<AnimatedListPropertyTearOff*>(animatedPropertyOfItem.get());
+        AnimatedListPropertyTearOff* propertyTearOff = static_cast<AnimatedListPropertyTearOff*>(animatedPropertyOfItem);
         int indexToRemove = propertyTearOff->findItem(newItem.ptr());
         ASSERT(indexToRemove != -1);
 

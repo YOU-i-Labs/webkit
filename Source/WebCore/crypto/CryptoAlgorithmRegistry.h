@@ -31,7 +31,7 @@
 #include <wtf/Noncopyable.h>
 #include <wtf/text/StringHash.h>
 
-#if ENABLE(WEB_CRYPTO)
+#if ENABLE(SUBTLE_CRYPTO)
 
 namespace WebCore {
 
@@ -44,7 +44,7 @@ class CryptoAlgorithmRegistry {
 public:
     static CryptoAlgorithmRegistry& singleton();
 
-    Optional<CryptoAlgorithmIdentifier> identifier(const String&);
+    std::optional<CryptoAlgorithmIdentifier> identifier(const String&);
     String name(CryptoAlgorithmIdentifier);
 
     RefPtr<CryptoAlgorithm> create(CryptoAlgorithmIdentifier);
@@ -68,4 +68,4 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(WEB_CRYPTO)
+#endif // ENABLE(SUBTLE_CRYPTO)

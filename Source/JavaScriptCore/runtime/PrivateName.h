@@ -26,7 +26,6 @@
 #pragma once
 
 #include <wtf/text/SymbolImpl.h>
-#include <wtf/text/WTFString.h>
 
 namespace JSC {
 
@@ -45,12 +44,6 @@ public:
     enum DescriptionTag { Description };
     explicit PrivateName(DescriptionTag, const String& description)
         : m_uid(SymbolImpl::create(*description.impl()))
-    {
-    }
-
-    enum PrivateSymbolTag { PrivateSymbol };
-    explicit PrivateName(PrivateSymbolTag, const String& description)
-        : m_uid(PrivateSymbolImpl::create(*description.impl()))
     {
     }
 

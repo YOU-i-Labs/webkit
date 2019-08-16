@@ -26,7 +26,8 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef AtomicStringHash_h
+#define AtomicStringHash_h
 
 #include <wtf/text/AtomicString.h>
 #include <wtf/HashTraits.h>
@@ -66,3 +67,5 @@ namespace WTF {
 }
 
 using WTF::AtomicStringHash;
+
+#endif

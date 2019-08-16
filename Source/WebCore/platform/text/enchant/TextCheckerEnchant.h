@@ -17,21 +17,25 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#pragma once
+#ifndef TextCheckerEnchant_h
+#define TextCheckerEnchant_h
 
 #if ENABLE(SPELLCHECK)
 
 #include <enchant.h>
-#include <wtf/Forward.h>
+#include <wtf/FastMalloc.h>
 #include <wtf/Vector.h>
+#include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class TextCheckerEnchant {
-    WTF_MAKE_NONCOPYABLE(TextCheckerEnchant); WTF_MAKE_FAST_ALLOCATED;
-    friend class WTF::NeverDestroyed<TextCheckerEnchant>;
+    WTF_MAKE_FAST_ALLOCATED;
+
 public:
-    static TextCheckerEnchant& singleton();
+    TextCheckerEnchant();
+    virtual ~TextCheckerEnchant();
 
     void ignoreWord(const String&);
     void learnWord(const String&);
@@ -43,21 +47,15 @@ public:
     Vector<String> availableSpellCheckingLanguages() const;
 
 private:
-    TextCheckerEnchant();
-    ~TextCheckerEnchant() = delete;
-
-    void checkSpellingOfWord(const String&, int start, int end, int& misspellingLocation, int& misspellingLength);
-
-    struct EnchantDictDeleter {
-        void operator()(EnchantDict*) const;
-    };
-
-    using UniqueEnchantDict = std::unique_ptr<EnchantDict, EnchantDictDeleter>;
+    void freeEnchantBrokerDictionaries();
+    void checkSpellingOfWord(const CString&, int start, int end, int& misspellingLocation, int& misspellingLength);
 
     EnchantBroker* m_broker;
-    Vector<UniqueEnchantDict> m_enchantDictionaries;
+    Vector<EnchantDict*> m_enchantDictionaries;
 };
 
 } // namespace WebCore
 
 #endif // ENABLE(SPELLCHECK)
+
+#endif

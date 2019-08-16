@@ -28,6 +28,7 @@
 #include "Extensions3DOpenGLCommon.h"
 
 #include "GraphicsContext3D.h"
+#include <wtf/HashSet.h>
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
@@ -61,7 +62,7 @@ protected:
     String getExtensions() override;
 
 private:
-#if PLATFORM(GTK) || PLATFORM(WIN) || (PLATFORM(COCOA) && USE(OPENGL_ES))
+#if (PLATFORM(GTK) || PLATFORM(WIN) || PLATFORM(IOS))
     bool isVertexArrayObjectSupported();
 #endif
 };

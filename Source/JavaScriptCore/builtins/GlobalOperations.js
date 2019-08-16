@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2016 Yusuke Suzuki <utatane.tea@gmail.com>.
- * Copyright (C) 2017 Caio Lima <ticaiolima@gmail.com>.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,81 +56,26 @@ function isDictionary(object)
     return object == null || typeof object === "object";
 }
 
+// FIXME: this needs to have it's name changed to "get [Symbol.species]".
+// see: https://bugs.webkit.org/show_bug.cgi?id=151363
 @globalPrivate
-@getter
-@overriddenName="get [Symbol.species]"
 function speciesGetter()
 {
-    "use strict";
     return this;
 }
 
 @globalPrivate
 function speciesConstructor(obj, defaultConstructor)
 {
-    "use strict";
-
     var constructor = obj.constructor;
     if (constructor === @undefined)
         return defaultConstructor;
     if (!@isObject(constructor))
         @throwTypeError("|this|.constructor is not an Object or undefined");
     constructor = constructor.@speciesSymbol;
-    if (@isUndefinedOrNull(constructor))
+    if (constructor == null)
         return defaultConstructor;
     if (@isConstructor(constructor))
         return constructor;
     @throwTypeError("|this|.constructor[Symbol.species] is not a constructor");
-}
-
-@globalPrivate
-function copyDataProperties(target, source, excludedSet)
-{
-    "use strict";
-
-    if (!@isObject(target))
-        @throwTypeError("target needs to be an object");
-
-    if (@isUndefinedOrNull(source))
-        return target;
-
-    let from = @toObject(source);
-    let keys = @Reflect.@ownKeys(from); 
-    let keysLength = keys.length;
-    for (let i = 0; i < keysLength; i++) {
-        let nextKey = keys[i];
-        if (!excludedSet.@has(nextKey)) {
-            if (@propertyIsEnumerable(from, nextKey)) {
-                let propValue = from[nextKey];
-                @defineEnumerableWritableConfigurableDataProperty(target, nextKey, propValue);
-            }
-        }
-    }
-
-    return target;
-}
-
-@globalPrivate
-function copyDataPropertiesNoExclusions(target, source)
-{
-    "use strict";
-
-    if (!@isObject(target))
-        @throwTypeError("target needs to be an object");
-
-    if (@isUndefinedOrNull(source))
-        return target;
-
-    let from = @toObject(source);
-    let keys = @Reflect.@ownKeys(from); 
-    let keysLength = keys.length;
-    for (let i = 0; i < keysLength; i++) {
-        let nextKey = keys[i];
-        if (@propertyIsEnumerable(from, nextKey)) {
-            let propValue = from[nextKey];
-            @defineEnumerableWritableConfigurableDataProperty(target, nextKey, propValue);
-        }
-    }
-
-    return target;
 }

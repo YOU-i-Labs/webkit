@@ -27,11 +27,13 @@
 
 #if ENABLE(VIDEO)
 
+#include "URL.h"
 #include <wtf/MediaTime.h>
-#include <wtf/URL.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
+
+class URL;
 
 class MediaFragmentURIParser final {
 public:

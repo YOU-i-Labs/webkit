@@ -26,6 +26,7 @@
 #include "config.h"
 #include "DOMTokenList.h"
 
+#include "ExceptionCode.h"
 #include "HTMLParserIdioms.h"
 #include "SpaceSplitString.h"
 #include <wtf/HashSet.h>
@@ -35,7 +36,7 @@
 
 namespace WebCore {
 
-DOMTokenList::DOMTokenList(Element& element, const QualifiedName& attributeName, IsSupportedTokenFunction&& isSupportedToken)
+DOMTokenList::DOMTokenList(Element& element, const QualifiedName& attributeName, WTF::Function<bool(StringView)>&& isSupportedToken)
     : m_element(element)
     , m_attributeName(attributeName)
     , m_isSupportedToken(WTFMove(isSupportedToken))
@@ -50,10 +51,10 @@ static inline bool tokenContainsHTMLSpace(const String& token)
 ExceptionOr<void> DOMTokenList::validateToken(const String& token)
 {
     if (token.isEmpty())
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
 
     if (tokenContainsHTMLSpace(token))
-        return Exception { InvalidCharacterError };
+        return Exception { INVALID_CHARACTER_ERR };
 
     return { };
 }
@@ -132,7 +133,7 @@ ExceptionOr<void> DOMTokenList::remove(const AtomicString& token)
     return removeInternal(&token.string(), 1);
 }
 
-ExceptionOr<bool> DOMTokenList::toggle(const AtomicString& token, Optional<bool> force)
+ExceptionOr<bool> DOMTokenList::toggle(const AtomicString& token, std::optional<bool> force)
 {
     auto result = validateToken(token);
     if (result.hasException())
@@ -141,7 +142,7 @@ ExceptionOr<bool> DOMTokenList::toggle(const AtomicString& token, Optional<bool>
     auto& tokens = this->tokens();
 
     if (tokens.contains(token)) {
-        if (!force.valueOr(false)) {
+        if (!force.value_or(false)) {
             tokens.removeFirst(token);
             updateAssociatedAttributeFromTokens();
             return false;
@@ -157,48 +158,33 @@ ExceptionOr<bool> DOMTokenList::toggle(const AtomicString& token, Optional<bool>
     return true;
 }
 
-static inline void replaceInOrderedSet(Vector<AtomicString>& tokens, size_t tokenIndex, const AtomicString& newToken)
-{
-    ASSERT(tokenIndex != notFound);
-    ASSERT(tokenIndex < tokens.size());
-
-    auto newTokenIndex = tokens.find(newToken);
-    if (newTokenIndex == notFound) {
-        tokens[tokenIndex] = newToken;
-        return;
-    }
-
-    if (newTokenIndex == tokenIndex)
-        return;
-
-    if (newTokenIndex > tokenIndex) {
-        tokens[tokenIndex] = newToken;
-        tokens.remove(newTokenIndex);
-    } else
-        tokens.remove(tokenIndex);
-}
-
 // https://dom.spec.whatwg.org/#dom-domtokenlist-replace
-ExceptionOr<bool> DOMTokenList::replace(const AtomicString& token, const AtomicString& newToken)
+ExceptionOr<void> DOMTokenList::replace(const AtomicString& item, const AtomicString& replacement)
 {
-    if (token.isEmpty() || newToken.isEmpty())
-        return Exception { SyntaxError };
+    if (item.isEmpty() || replacement.isEmpty())
+        return Exception { SYNTAX_ERR };
 
-    if (tokenContainsHTMLSpace(token) || tokenContainsHTMLSpace(newToken))
-        return Exception { InvalidCharacterError };
+    if (tokenContainsHTMLSpace(item) || tokenContainsHTMLSpace(replacement))
+        return Exception { INVALID_CHARACTER_ERR };
 
     auto& tokens = this->tokens();
 
-    auto tokenIndex = tokens.find(token);
-    if (tokenIndex == notFound)
-        return false;
+    auto matchesItemOrReplacement = [&](auto& token) {
+        return token == item || token == replacement;
+    };
 
-    replaceInOrderedSet(tokens, tokenIndex, newToken);
-    ASSERT(token == newToken || tokens.find(token) == notFound);
+    size_t index = tokens.findMatching(matchesItemOrReplacement);
+    if (index == notFound)
+        return { };
+
+    tokens[index] = replacement;
+    tokens.removeFirstMatching(matchesItemOrReplacement, index + 1);
+    ASSERT(item == replacement || tokens.find(item) == notFound);
+    ASSERT(tokens.reverseFind(replacement) == index);
 
     updateAssociatedAttributeFromTokens();
 
-    return true;
+    return { };
 }
 
 // https://dom.spec.whatwg.org/#concept-domtokenlist-validation
@@ -206,7 +192,7 @@ ExceptionOr<bool> DOMTokenList::supports(StringView token)
 {
     if (!m_isSupportedToken)
         return Exception { TypeError };
-    return m_isSupportedToken(m_element.document(), token);
+    return m_isSupportedToken(token);
 }
 
 // https://dom.spec.whatwg.org/#dom-domtokenlist-value
@@ -262,9 +248,6 @@ void DOMTokenList::associatedAttributeValueChanged(const AtomicString&)
 void DOMTokenList::updateAssociatedAttributeFromTokens()
 {
     ASSERT(!m_tokensNeedUpdating);
-
-    if (m_tokens.isEmpty() && !m_element.hasAttribute(m_attributeName))
-        return;
 
     // https://dom.spec.whatwg.org/#concept-ordered-set-serializer
     StringBuilder builder;

@@ -46,7 +46,7 @@
 //      <div class="center"></div>
 //  </div>
 
-WI.CircleChart = class CircleChart
+WebInspector.CircleChart = class CircleChart
 {
     constructor({size, innerRadiusRatio})
     {

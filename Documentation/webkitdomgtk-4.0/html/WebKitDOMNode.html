@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitDOMNamedNodeMap.html" title="WebKitDOMNamedNodeMap">
 <link rel="next" href="WebKitDOMNodeIterator.html" title="WebKitDOMNodeIterator">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.25.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -322,14 +322,6 @@
 <a class="link" href="WebKitDOMNode.html#webkit-dom-node-get-local-name" title="webkit_dom_node_get_local_name ()">webkit_dom_node_get_local_name</a> <span class="c_punctuation">()</span>
 </td>
 </tr>
-<tr>
-<td class="function_type">
-<a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="returnvalue">WebKitDOMNode</span></a> *
-</td>
-<td class="function_name">
-<a class="link" href="WebKitDOMNode.html#webkit-dom-node-for-js-value" title="webkit_dom_node_for_js_value ()">webkit_dom_node_for_js_value</a> <span class="c_punctuation">()</span>
-</td>
-</tr>
 </tbody>
 </table></div>
 </div>
@@ -536,10 +528,6 @@ webkit_dom_node_insert_before (<em class="parameter"><code><a class="link" href=
                                <em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *newChild</code></em>,
                                <em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *refChild</code></em>,
                                <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_insert_before</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-insert-before.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -561,7 +549,7 @@ webkit_dom_node_insert_before (<em class="parameter"><code><a class="link" href=
 </tr>
 <tr>
 <td class="parameter_name"><p>refChild</p></td>
-<td class="parameter_description"><p>A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p></td>
+<td class="parameter_description"><p> A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p></td>
 <td class="parameter_annotations"><span class="annotation">[<acronym title="NULL is OK, both for passing and for returning."><span class="acronym">allow-none</span></acronym>]</span></td>
 </tr>
 <tr>
@@ -574,7 +562,7 @@ webkit_dom_node_insert_before (<em class="parameter"><code><a class="link" href=
 </div>
 <div class="refsect3">
 <a name="webkit-dom-node-insert-before.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
+<p> A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
@@ -586,10 +574,6 @@ webkit_dom_node_replace_child (<em class="parameter"><code><a class="link" href=
                                <em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *newChild</code></em>,
                                <em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *oldChild</code></em>,
                                <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_replace_child</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-replace-child.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -624,7 +608,7 @@ webkit_dom_node_replace_child (<em class="parameter"><code><a class="link" href=
 </div>
 <div class="refsect3">
 <a name="webkit-dom-node-replace-child.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
+<p> A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
@@ -635,10 +619,6 @@ webkit_dom_node_replace_child (<em class="parameter"><code><a class="link" href=
 webkit_dom_node_remove_child (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>,
                               <em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *oldChild</code></em>,
                               <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_remove_child</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-remove-child.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -668,7 +648,7 @@ webkit_dom_node_remove_child (<em class="parameter"><code><a class="link" href="
 </div>
 <div class="refsect3">
 <a name="webkit-dom-node-remove-child.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
+<p> A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
@@ -679,10 +659,6 @@ webkit_dom_node_remove_child (<em class="parameter"><code><a class="link" href="
 webkit_dom_node_append_child (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>,
                               <em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *newChild</code></em>,
                               <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_append_child</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-append-child.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -712,7 +688,7 @@ webkit_dom_node_append_child (<em class="parameter"><code><a class="link" href="
 </div>
 <div class="refsect3">
 <a name="webkit-dom-node-append-child.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
+<p> A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
@@ -721,10 +697,6 @@ webkit_dom_node_append_child (<em class="parameter"><code><a class="link" href="
 <a name="webkit-dom-node-has-child-nodes"></a><h3>webkit_dom_node_has_child_nodes ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
 webkit_dom_node_has_child_nodes (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_has_child_nodes</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-has-child-nodes.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -752,10 +724,6 @@ webkit_dom_node_has_child_nodes (<em class="parameter"><code><a class="link" hre
 webkit_dom_node_clone_node_with_error (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>,
                                        <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> deep</code></em>,
                                        <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_clone_node_with_error</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-clone-node-with-error.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -785,7 +753,7 @@ webkit_dom_node_clone_node_with_error (<em class="parameter"><code><a class="lin
 </div>
 <div class="refsect3">
 <a name="webkit-dom-node-clone-node-with-error.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
+<p> A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 <p class="since">Since: 2.14</p>
@@ -795,10 +763,6 @@ webkit_dom_node_clone_node_with_error (<em class="parameter"><code><a class="lin
 <a name="webkit-dom-node-normalize"></a><h3>webkit_dom_node_normalize ()</h3>
 <pre class="programlisting"><span class="returnvalue">void</span>
 webkit_dom_node_normalize (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_normalize</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-normalize.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -822,10 +786,6 @@ webkit_dom_node_normalize (<em class="parameter"><code><a class="link" href="Web
 webkit_dom_node_is_supported (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>,
                               <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *feature</code></em>,
                               <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *version</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_is_supported</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-is-supported.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -864,10 +824,6 @@ webkit_dom_node_is_supported (<em class="parameter"><code><a class="link" href="
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
 webkit_dom_node_is_same_node (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>,
                               <em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *other</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_is_same_node</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-is-same-node.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -901,10 +857,6 @@ webkit_dom_node_is_same_node (<em class="parameter"><code><a class="link" href="
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
 webkit_dom_node_is_equal_node (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>,
                                <em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *other</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_is_equal_node</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-is-equal-node.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -938,10 +890,6 @@ webkit_dom_node_is_equal_node (<em class="parameter"><code><a class="link" href=
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_node_lookup_prefix (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>,
                                <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *namespaceURI</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_lookup_prefix</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-lookup-prefix.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -975,10 +923,6 @@ webkit_dom_node_lookup_prefix (<em class="parameter"><code><a class="link" href=
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_node_lookup_namespace_uri (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>,
                                       <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *prefix</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_lookup_namespace_uri</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-lookup-namespace-uri.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1012,10 +956,6 @@ webkit_dom_node_lookup_namespace_uri (<em class="parameter"><code><a class="link
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
 webkit_dom_node_is_default_namespace (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>,
                                       <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *namespaceURI</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_is_default_namespace</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-is-default-namespace.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1050,10 +990,6 @@ webkit_dom_node_is_default_namespace (<em class="parameter"><code><a class="link
 webkit_dom_node_compare_document_position
                                (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>,
                                 <em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *other</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_compare_document_position</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-compare-document-position.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1087,10 +1023,6 @@ webkit_dom_node_compare_document_position
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
 webkit_dom_node_contains (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>,
                           <em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *other</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_contains</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-contains.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1123,10 +1055,6 @@ webkit_dom_node_contains (<em class="parameter"><code><a class="link" href="WebK
 <a name="webkit-dom-node-get-node-name"></a><h3>webkit_dom_node_get_node_name ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_node_get_node_name (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_get_node_name</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-node-name.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1152,10 +1080,6 @@ webkit_dom_node_get_node_name (<em class="parameter"><code><a class="link" href=
 <a name="webkit-dom-node-get-node-value"></a><h3>webkit_dom_node_get_node_value ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_node_get_node_value (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_get_node_value</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-node-value.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1183,10 +1107,6 @@ webkit_dom_node_get_node_value (<em class="parameter"><code><a class="link" href
 webkit_dom_node_set_node_value (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>,
                                 <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *value</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_set_node_value</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-set-node-value.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1220,10 +1140,6 @@ webkit_dom_node_set_node_value (<em class="parameter"><code><a class="link" href
 <a name="webkit-dom-node-get-node-type"></a><h3>webkit_dom_node_get_node_type ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gushort"><span class="returnvalue">gushort</span></a>
 webkit_dom_node_get_node_type (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_get_node_type</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-node-type.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1249,10 +1165,6 @@ webkit_dom_node_get_node_type (<em class="parameter"><code><a class="link" href=
 <a name="webkit-dom-node-get-parent-node"></a><h3>webkit_dom_node_get_parent_node ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="returnvalue">WebKitDOMNode</span></a> *
 webkit_dom_node_get_parent_node (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_get_parent_node</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-parent-node.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1270,7 +1182,7 @@ webkit_dom_node_get_parent_node (<em class="parameter"><code><a class="link" hre
 </div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-parent-node.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
+<p> A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
@@ -1279,10 +1191,6 @@ webkit_dom_node_get_parent_node (<em class="parameter"><code><a class="link" hre
 <a name="webkit-dom-node-get-child-nodes"></a><h3>webkit_dom_node_get_child_nodes ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitDOMNodeList.html" title="WebKitDOMNodeList"><span class="returnvalue">WebKitDOMNodeList</span></a> *
 webkit_dom_node_get_child_nodes (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_get_child_nodes</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-child-nodes.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1300,7 +1208,7 @@ webkit_dom_node_get_child_nodes (<em class="parameter"><code><a class="link" hre
 </div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-child-nodes.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitDOMNodeList.html" title="WebKitDOMNodeList"><span class="type">WebKitDOMNodeList</span></a>. </p>
+<p> A <a class="link" href="WebKitDOMNodeList.html" title="WebKitDOMNodeList"><span class="type">WebKitDOMNodeList</span></a>. </p>
 <p><span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
 </div>
 </div>
@@ -1309,10 +1217,6 @@ webkit_dom_node_get_child_nodes (<em class="parameter"><code><a class="link" hre
 <a name="webkit-dom-node-get-first-child"></a><h3>webkit_dom_node_get_first_child ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="returnvalue">WebKitDOMNode</span></a> *
 webkit_dom_node_get_first_child (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_get_first_child</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-first-child.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1330,7 +1234,7 @@ webkit_dom_node_get_first_child (<em class="parameter"><code><a class="link" hre
 </div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-first-child.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
+<p> A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
@@ -1339,10 +1243,6 @@ webkit_dom_node_get_first_child (<em class="parameter"><code><a class="link" hre
 <a name="webkit-dom-node-get-last-child"></a><h3>webkit_dom_node_get_last_child ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="returnvalue">WebKitDOMNode</span></a> *
 webkit_dom_node_get_last_child (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_get_last_child</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-last-child.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1360,7 +1260,7 @@ webkit_dom_node_get_last_child (<em class="parameter"><code><a class="link" href
 </div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-last-child.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
+<p> A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
@@ -1369,10 +1269,6 @@ webkit_dom_node_get_last_child (<em class="parameter"><code><a class="link" href
 <a name="webkit-dom-node-get-previous-sibling"></a><h3>webkit_dom_node_get_previous_sibling ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="returnvalue">WebKitDOMNode</span></a> *
 webkit_dom_node_get_previous_sibling (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_get_previous_sibling</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-previous-sibling.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1390,7 +1286,7 @@ webkit_dom_node_get_previous_sibling (<em class="parameter"><code><a class="link
 </div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-previous-sibling.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
+<p> A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
@@ -1399,10 +1295,6 @@ webkit_dom_node_get_previous_sibling (<em class="parameter"><code><a class="link
 <a name="webkit-dom-node-get-next-sibling"></a><h3>webkit_dom_node_get_next_sibling ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="returnvalue">WebKitDOMNode</span></a> *
 webkit_dom_node_get_next_sibling (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_get_next_sibling</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-next-sibling.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1420,7 +1312,7 @@ webkit_dom_node_get_next_sibling (<em class="parameter"><code><a class="link" hr
 </div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-next-sibling.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
+<p> A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
@@ -1429,10 +1321,6 @@ webkit_dom_node_get_next_sibling (<em class="parameter"><code><a class="link" hr
 <a name="webkit-dom-node-get-owner-document"></a><h3>webkit_dom_node_get_owner_document ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitDOMDocument.html" title="WebKitDOMDocument"><span class="returnvalue">WebKitDOMDocument</span></a> *
 webkit_dom_node_get_owner_document (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_get_owner_document</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-owner-document.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1450,7 +1338,7 @@ webkit_dom_node_get_owner_document (<em class="parameter"><code><a class="link" 
 </div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-owner-document.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitDOMDocument.html" title="WebKitDOMDocument"><span class="type">WebKitDOMDocument</span></a>. </p>
+<p> A <a class="link" href="WebKitDOMDocument.html" title="WebKitDOMDocument"><span class="type">WebKitDOMDocument</span></a>. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
@@ -1459,10 +1347,6 @@ webkit_dom_node_get_owner_document (<em class="parameter"><code><a class="link" 
 <a name="webkit-dom-node-get-base-uri"></a><h3>webkit_dom_node_get_base_uri ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_node_get_base_uri (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_get_base_uri</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-base-uri.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1488,10 +1372,6 @@ webkit_dom_node_get_base_uri (<em class="parameter"><code><a class="link" href="
 <a name="webkit-dom-node-get-text-content"></a><h3>webkit_dom_node_get_text_content ()</h3>
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gchar"><span class="returnvalue">gchar</span></a> *
 webkit_dom_node_get_text_content (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_get_text_content</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-text-content.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1519,10 +1399,6 @@ webkit_dom_node_get_text_content (<em class="parameter"><code><a class="link" hr
 webkit_dom_node_set_text_content (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>,
                                   <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *value</code></em>,
                                   <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_set_text_content</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-set-text-content.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1556,10 +1432,6 @@ webkit_dom_node_set_text_content (<em class="parameter"><code><a class="link" hr
 <a name="webkit-dom-node-get-parent-element"></a><h3>webkit_dom_node_get_parent_element ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="returnvalue">WebKitDOMElement</span></a> *
 webkit_dom_node_get_parent_element (<em class="parameter"><code><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> *self</code></em>);</pre>
-<div class="warning">
-<p><code class="literal">webkit_dom_node_get_parent_element</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-parent-element.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -1577,7 +1449,7 @@ webkit_dom_node_get_parent_element (<em class="parameter"><code><a class="link" 
 </div>
 <div class="refsect3">
 <a name="webkit-dom-node-get-parent-element.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a>. </p>
+<p> A <a class="link" href="WebKitDOMElement.html" title="WebKitDOMElement"><span class="type">WebKitDOMElement</span></a>. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
@@ -1621,7 +1493,7 @@ webkit_dom_node_clone_node (<em class="parameter"><code><a class="link" href="We
 </div>
 <div class="refsect3">
 <a name="webkit-dom-node-clone-node.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
+<p> A <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
@@ -1748,36 +1620,6 @@ webkit_dom_node_get_local_name (<em class="parameter"><code><a class="link" href
 <p> A <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a></p>
 </div>
 </div>
-<hr>
-<div class="refsect2">
-<a name="webkit-dom-node-for-js-value"></a><h3>webkit_dom_node_for_js_value ()</h3>
-<pre class="programlisting"><a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="returnvalue">WebKitDOMNode</span></a> *
-webkit_dom_node_for_js_value (<em class="parameter"><code><a href="../jsc-glib-4.0/JSCValue.html#JSCValue-struct"><span class="type">JSCValue</span></a> *value</code></em>);</pre>
-<p>Get the <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a> for the DOM node referenced by <em class="parameter"><code>value</code></em>
-.</p>
-<div class="refsect3">
-<a name="webkit-dom-node-for-js-value.parameters"></a><h4>Parameters</h4>
-<div class="informaltable"><table class="informaltable" width="100%" border="0">
-<colgroup>
-<col width="150px" class="parameters_name">
-<col class="parameters_description">
-<col width="200px" class="parameters_annotations">
-</colgroup>
-<tbody><tr>
-<td class="parameter_name"><p>value</p></td>
-<td class="parameter_description"><p>a <a href="../jsc-glib-4.0/JSCValue.html#JSCValue-struct"><span class="type">JSCValue</span></a></p></td>
-<td class="parameter_annotations"> </td>
-</tr></tbody>
-</table></div>
-</div>
-<div class="refsect3">
-<a name="webkit-dom-node-for-js-value.returns"></a><h4>Returns</h4>
-<p>a <a class="link" href="WebKitDOMNode.html" title="WebKitDOMNode"><span class="type">WebKitDOMNode</span></a>, or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a> if <em class="parameter"><code>value</code></em>
-doesn't reference a DOM node. </p>
-<p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
-</div>
-<p class="since">Since: <a class="link" href="api-index-2-22.html#api-index-2.22">2.22</a></p>
-</div>
 </div>
 <div class="refsect1">
 <a name="WebKitDOMNode.other_details"></a><h2>Types and Values</h2>
@@ -1790,170 +1632,102 @@ doesn't reference a DOM node. </p>
 <a name="WEBKIT-DOM-NODE-ELEMENT-NODE:CAPS"></a><h3>WEBKIT_DOM_NODE_ELEMENT_NODE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_ELEMENT_NODE 1
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_ELEMENT_NODE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-ATTRIBUTE-NODE:CAPS"></a><h3>WEBKIT_DOM_NODE_ATTRIBUTE_NODE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_ATTRIBUTE_NODE 2
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_ATTRIBUTE_NODE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-TEXT-NODE:CAPS"></a><h3>WEBKIT_DOM_NODE_TEXT_NODE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_TEXT_NODE 3
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_TEXT_NODE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-CDATA-SECTION-NODE:CAPS"></a><h3>WEBKIT_DOM_NODE_CDATA_SECTION_NODE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_CDATA_SECTION_NODE 4
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_CDATA_SECTION_NODE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-ENTITY-REFERENCE-NODE:CAPS"></a><h3>WEBKIT_DOM_NODE_ENTITY_REFERENCE_NODE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_ENTITY_REFERENCE_NODE 5
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_ENTITY_REFERENCE_NODE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-ENTITY-NODE:CAPS"></a><h3>WEBKIT_DOM_NODE_ENTITY_NODE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_ENTITY_NODE 6
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_ENTITY_NODE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-PROCESSING-INSTRUCTION-NODE:CAPS"></a><h3>WEBKIT_DOM_NODE_PROCESSING_INSTRUCTION_NODE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_PROCESSING_INSTRUCTION_NODE 7
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_PROCESSING_INSTRUCTION_NODE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-COMMENT-NODE:CAPS"></a><h3>WEBKIT_DOM_NODE_COMMENT_NODE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_COMMENT_NODE 8
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_COMMENT_NODE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-DOCUMENT-NODE:CAPS"></a><h3>WEBKIT_DOM_NODE_DOCUMENT_NODE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_DOCUMENT_NODE 9
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_DOCUMENT_NODE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-DOCUMENT-TYPE-NODE:CAPS"></a><h3>WEBKIT_DOM_NODE_DOCUMENT_TYPE_NODE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_DOCUMENT_TYPE_NODE 10
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_DOCUMENT_TYPE_NODE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-DOCUMENT-FRAGMENT-NODE:CAPS"></a><h3>WEBKIT_DOM_NODE_DOCUMENT_FRAGMENT_NODE</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_DOCUMENT_FRAGMENT_NODE 11
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_DOCUMENT_FRAGMENT_NODE</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-DOCUMENT-POSITION-DISCONNECTED:CAPS"></a><h3>WEBKIT_DOM_NODE_DOCUMENT_POSITION_DISCONNECTED</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_DOCUMENT_POSITION_DISCONNECTED 0x01
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_DOCUMENT_POSITION_DISCONNECTED</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-DOCUMENT-POSITION-PRECEDING:CAPS"></a><h3>WEBKIT_DOM_NODE_DOCUMENT_POSITION_PRECEDING</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_DOCUMENT_POSITION_PRECEDING 0x02
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_DOCUMENT_POSITION_PRECEDING</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-DOCUMENT-POSITION-FOLLOWING:CAPS"></a><h3>WEBKIT_DOM_NODE_DOCUMENT_POSITION_FOLLOWING</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_DOCUMENT_POSITION_FOLLOWING 0x04
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_DOCUMENT_POSITION_FOLLOWING</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-DOCUMENT-POSITION-CONTAINS:CAPS"></a><h3>WEBKIT_DOM_NODE_DOCUMENT_POSITION_CONTAINS</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_DOCUMENT_POSITION_CONTAINS 0x08
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_DOCUMENT_POSITION_CONTAINS</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-DOCUMENT-POSITION-CONTAINED-BY:CAPS"></a><h3>WEBKIT_DOM_NODE_DOCUMENT_POSITION_CONTAINED_BY</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_DOCUMENT_POSITION_CONTAINED_BY 0x10
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_DOCUMENT_POSITION_CONTAINED_BY</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WEBKIT-DOM-NODE-DOCUMENT-POSITION-IMPLEMENTATION-SPECIFIC:CAPS"></a><h3>WEBKIT_DOM_NODE_DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC</h3>
 <pre class="programlisting">#define WEBKIT_DOM_NODE_DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC 0x20
 </pre>
-<div class="warning">
-<p><code class="literal">WEBKIT_DOM_NODE_DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC</code> has been deprecated since version 2.22 and should not be used in newly-written code.</p>
-<p>Use JavaScriptCore API instead</p>
-</div>
 </div>
 </div>
 <div class="refsect1">
@@ -2056,6 +1830,6 @@ doesn't reference a DOM node. </p>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.25.1</div>
 </body>
 </html>

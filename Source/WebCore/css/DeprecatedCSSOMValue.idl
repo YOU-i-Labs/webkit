@@ -23,6 +23,7 @@
     CustomToJSObject,
     ExportToWrappedFunction,
     ImplementationLacksVTable,
+    JSCustomFinalize,
     InterfaceName=CSSValue
 ] interface DeprecatedCSSOMValue {
     // UnitTypes
@@ -31,7 +32,7 @@
     const unsigned short CSS_VALUE_LIST = 2;
     const unsigned short CSS_CUSTOM = 3;
 
-    attribute DOMString? cssText;
+    [SetterMayThrowException] attribute DOMString? cssText;
 
     readonly attribute unsigned short cssValueType;
 };

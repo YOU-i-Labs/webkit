@@ -39,31 +39,23 @@
 #include "RenderMedia.h"
 #include "RenderMediaControlElements.h"
 #include "StyleProperties.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlDivElement);
-WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlInputElement);
-WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlTimeDisplayElement);
-WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlMuteButtonElement);
-WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlSeekButtonElement);
-WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControlVolumeSliderElement);
 
 using namespace HTMLNames;
 
 class Event;
 
-RefPtr<HTMLMediaElement> parentMediaElement(Node* node)
+HTMLMediaElement* parentMediaElement(Node* node)
 {
     if (!node)
         return nullptr;
-    RefPtr<Node> mediaNode = node->shadowHost();
+    Node* mediaNode = node->shadowHost();
     if (!mediaNode)
         mediaNode = node;
     if (!is<HTMLMediaElement>(*mediaNode))
         return nullptr;
-    return downcast<HTMLMediaElement>(mediaNode.get());
+    return downcast<HTMLMediaElement>(mediaNode);
 }
 
 MediaControlElementType mediaControlElementType(Node* node)
@@ -242,7 +234,7 @@ bool MediaControlVolumeSliderElement::willRespondToMouseClickEvents()
 void MediaControlVolumeSliderElement::setVolume(double volume)
 {
     if (value().toDouble() != volume)
-        setValue(String::numberToStringECMAScript(volume));
+        setValue(String::number(volume));
 }
 
 void MediaControlVolumeSliderElement::setClearMutedOnUserInteraction(bool clearMute)

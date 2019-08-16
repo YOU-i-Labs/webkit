@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2017 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,13 +30,12 @@
 #include "SamplingProfiler.h"
 #include "WasmMachineThreads.h"
 #include <thread>
-#include <wtf/StackPointer.h>
 #include <wtf/Threading.h>
 #include <wtf/threads/Signals.h>
 
 namespace JSC {
 
-Lock GlobalJSLock::s_sharedInstanceMutex;
+StaticLock GlobalJSLock::s_sharedInstanceMutex;
 
 GlobalJSLock::GlobalJSLock()
 {
@@ -123,18 +122,15 @@ void JSLock::lock(intptr_t lockCount)
 }
 
 void JSLock::didAcquireLock()
-{  
+{
     // FIXME: What should happen to the per-thread identifier table if we don't have a VM?
     if (!m_vm)
         return;
     
-    Thread& thread = Thread::current();
+    WTFThreadData& threadData = wtfThreadData();
     ASSERT(!m_entryAtomicStringTable);
-    m_entryAtomicStringTable = thread.setCurrentAtomicStringTable(m_vm->atomicStringTable());
+    m_entryAtomicStringTable = threadData.setCurrentAtomicStringTable(m_vm->atomicStringTable());
     ASSERT(m_entryAtomicStringTable);
-
-    m_vm->setLastStackTop(thread.savedLastStackTop());
-    ASSERT(thread.stack().contains(m_vm->lastStackTop()));
 
     if (m_vm->heap.hasAccess())
         m_shouldReleaseHeapAccess = false;
@@ -144,8 +140,10 @@ void JSLock::didAcquireLock()
     }
 
     RELEASE_ASSERT(!m_vm->stackPointerAtVMEntry());
-    void* p = currentStackPointer();
+    void* p = &p; // A proxy for the current stack pointer.
     m_vm->setStackPointerAtVMEntry(p);
+
+    m_vm->setLastStackTop(threadData.savedLastStackTop());
 
     m_vm->heap.machineThreads().addCurrentThread();
 #if ENABLE(WEBASSEMBLY)
@@ -153,15 +151,13 @@ void JSLock::didAcquireLock()
 #endif
 
 #if HAVE(MACH_EXCEPTIONS)
-    registerThreadForMachExceptionHandling(Thread::current());
+    registerThreadForMachExceptionHandling(&Thread::current());
 #endif
 
-    // Note: everything below must come after addCurrentThread().
     m_vm->traps().notifyGrabAllLocks();
-    
-    m_vm->firePrimitiveGigacageEnabledIfNecessary();
 
 #if ENABLE(SAMPLING_PROFILER)
+    // Note: this must come after addCurrentThread().
     if (SamplingProfiler* samplingProfiler = m_vm->samplingProfiler())
         samplingProfiler->noticeJSLockAcquisition();
 #endif
@@ -191,13 +187,10 @@ void JSLock::unlock(intptr_t unlockCount)
 }
 
 void JSLock::willReleaseLock()
-{   
+{
     RefPtr<VM> vm = m_vm;
     if (vm) {
         vm->drainMicrotasks();
-
-        if (!vm->topCallFrame)
-            vm->clearLastException();
 
         vm->heap.releaseDelayedReleasedObjects();
         vm->setStackPointerAtVMEntry(nullptr);
@@ -207,7 +200,7 @@ void JSLock::willReleaseLock()
     }
 
     if (m_entryAtomicStringTable) {
-        Thread::current().setCurrentAtomicStringTable(m_entryAtomicStringTable);
+        wtfThreadData().setCurrentAtomicStringTable(m_entryAtomicStringTable);
         m_entryAtomicStringTable = nullptr;
     }
 }
@@ -232,9 +225,9 @@ unsigned JSLock::dropAllLocks(DropAllLocks* dropper)
 
     dropper->setDropDepth(m_lockDropDepth);
 
-    Thread& thread = Thread::current();
-    thread.setSavedStackPointerAtVMEntry(m_vm->stackPointerAtVMEntry());
-    thread.setSavedLastStackTop(m_vm->lastStackTop());
+    WTFThreadData& threadData = wtfThreadData();
+    threadData.setSavedStackPointerAtVMEntry(m_vm->stackPointerAtVMEntry());
+    threadData.setSavedLastStackTop(m_vm->lastStackTop());
 
     unsigned droppedLockCount = m_lockCount;
     unlock(droppedLockCount);
@@ -253,15 +246,15 @@ void JSLock::grabAllLocks(DropAllLocks* dropper, unsigned droppedLockCount)
 
     while (dropper->dropDepth() != m_lockDropDepth) {
         unlock(droppedLockCount);
-        Thread::yield();
+        std::this_thread::yield();
         lock(droppedLockCount);
     }
 
     --m_lockDropDepth;
 
-    Thread& thread = Thread::current();
-    m_vm->setStackPointerAtVMEntry(thread.savedStackPointerAtVMEntry());
-    m_vm->setLastStackTop(thread.savedLastStackTop());
+    WTFThreadData& threadData = wtfThreadData();
+    m_vm->setStackPointerAtVMEntry(threadData.savedStackPointerAtVMEntry());
+    m_vm->setLastStackTop(threadData.savedLastStackTop());
 }
 
 JSLock::DropAllLocks::DropAllLocks(VM* vm)

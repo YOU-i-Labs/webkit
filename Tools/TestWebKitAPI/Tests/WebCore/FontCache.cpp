@@ -28,7 +28,6 @@
 #include <CoreText/CoreText.h>
 #include <JavaScriptCore/InitializeThreading.h>
 #include <WebCore/FontCache.h>
-#include <WebCore/FontCascadeDescription.h>
 #include <WebCore/FontPlatformData.h>
 #include <wtf/MainThread.h>
 #include <wtf/RunLoop.h>
@@ -38,7 +37,7 @@ using namespace WebCore;
 
 namespace TestWebKitAPI {
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101200 && __MAC_OS_X_VERSION_MIN_REQUIRED < 101300
 
 class FontCacheTest : public testing::Test {
 public:

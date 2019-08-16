@@ -33,36 +33,21 @@
 #include "NodeList.h"
 #include <wtf/text/AtomicString.h>
 
-
-namespace WebCore {
 using namespace JSC;
 
-bool JSNodeListOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, SlotVisitor& visitor, const char** reason)
+namespace WebCore {
+
+bool JSNodeListOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, SlotVisitor& visitor)
 {
     JSNodeList* jsNodeList = jsCast<JSNodeList*>(handle.slot()->asCell());
-    if (!jsNodeList->hasCustomProperties(*jsNodeList->vm()))
+    if (!jsNodeList->hasCustomProperties())
         return false;
-
-    if (jsNodeList->wrapped().isLiveNodeList()) {
-        if (UNLIKELY(reason))
-            *reason = "LiveNodeList owner is opaque root";
-
+    if (jsNodeList->wrapped().isLiveNodeList())
         return visitor.containsOpaqueRoot(root(static_cast<LiveNodeList&>(jsNodeList->wrapped()).ownerNode()));
-    }
-
-    if (jsNodeList->wrapped().isChildNodeList()) {
-        if (UNLIKELY(reason))
-            *reason = "ChildNodeList owner is opaque root";
-
+    if (jsNodeList->wrapped().isChildNodeList())
         return visitor.containsOpaqueRoot(root(static_cast<ChildNodeList&>(jsNodeList->wrapped()).ownerNode()));
-    }
-
-    if (jsNodeList->wrapped().isEmptyNodeList()) {
-        if (UNLIKELY(reason))
-            *reason = "EmptyNodeList owner is opaque root";
-
+    if (jsNodeList->wrapped().isEmptyNodeList())
         return visitor.containsOpaqueRoot(root(static_cast<EmptyNodeList&>(jsNodeList->wrapped()).ownerNode()));
-    }
     return false;
 }
 

@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.RadioButtonNavigationItem = class RadioButtonNavigationItem extends WI.ButtonNavigationItem
+WebInspector.RadioButtonNavigationItem = class RadioButtonNavigationItem extends WebInspector.ButtonNavigationItem
 {
     constructor(identifier, toolTip, image, imageWidth, imageHeight)
     {
@@ -36,41 +36,39 @@ WI.RadioButtonNavigationItem = class RadioButtonNavigationItem extends WI.Button
 
     get selected()
     {
-        return this.element.classList.contains(WI.RadioButtonNavigationItem.SelectedStyleClassName);
+        return this.element.classList.contains(WebInspector.RadioButtonNavigationItem.SelectedStyleClassName);
     }
 
     set selected(flag)
     {
         if (flag) {
-            this.element.classList.add(WI.RadioButtonNavigationItem.SelectedStyleClassName);
+            this.element.classList.add(WebInspector.RadioButtonNavigationItem.SelectedStyleClassName);
             this.element.setAttribute("aria-selected", "true");
         } else {
-            this.element.classList.remove(WI.RadioButtonNavigationItem.SelectedStyleClassName);
+            this.element.classList.remove(WebInspector.RadioButtonNavigationItem.SelectedStyleClassName);
             this.element.setAttribute("aria-selected", "false");
         }
     }
 
     get active()
     {
-        return this.element.classList.contains(WI.RadioButtonNavigationItem.ActiveStyleClassName);
+        return this.element.classList.contains(WebInspector.RadioButtonNavigationItem.ActiveStyleClassName);
     }
 
     set active(flag)
     {
-        this.element.classList.toggle(WI.RadioButtonNavigationItem.ActiveStyleClassName, flag);
+        this.element.classList.toggle(WebInspector.RadioButtonNavigationItem.ActiveStyleClassName, flag);
     }
 
     updateLayout(expandOnly)
     {
-        super.updateLayout(expandOnly);
-
         if (expandOnly)
             return;
 
         var isSelected = this.selected;
 
         if (!isSelected) {
-            this.element.classList.add(WI.RadioButtonNavigationItem.SelectedStyleClassName);
+            this.element.classList.add(WebInspector.RadioButtonNavigationItem.SelectedStyleClassName);
             this.element.setAttribute("aria-selected", "true");
         }
 
@@ -83,7 +81,7 @@ WI.RadioButtonNavigationItem = class RadioButtonNavigationItem extends WI.Button
         }
 
         if (!isSelected) {
-            this.element.classList.remove(WI.RadioButtonNavigationItem.SelectedStyleClassName);
+            this.element.classList.remove(WebInspector.RadioButtonNavigationItem.SelectedStyleClassName);
             this.element.setAttribute("aria-selected", "false");
         }
     }
@@ -96,6 +94,6 @@ WI.RadioButtonNavigationItem = class RadioButtonNavigationItem extends WI.Button
     }
 };
 
-WI.RadioButtonNavigationItem.StyleClassName = "radio";
-WI.RadioButtonNavigationItem.ActiveStyleClassName = "active";
-WI.RadioButtonNavigationItem.SelectedStyleClassName = "selected";
+WebInspector.RadioButtonNavigationItem.StyleClassName = "radio";
+WebInspector.RadioButtonNavigationItem.ActiveStyleClassName = "active";
+WebInspector.RadioButtonNavigationItem.SelectedStyleClassName = "selected";

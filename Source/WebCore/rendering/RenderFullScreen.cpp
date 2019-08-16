@@ -31,34 +31,51 @@
 #include "RenderBlockFlow.h"
 #include "RenderLayer.h"
 #include "RenderLayerCompositor.h"
-#include "RenderTreeBuilder.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderFullScreen);
+class RenderFullScreenPlaceholder final : public RenderBlockFlow {
+public:
+    RenderFullScreenPlaceholder(RenderFullScreen& owner, RenderStyle&& style)
+        : RenderBlockFlow(owner.document(), WTFMove(style))
+        , m_owner(owner) 
+    {
+    }
 
-RenderFullScreenPlaceholder::RenderFullScreenPlaceholder(Document& document, RenderStyle&& style)
-    : RenderBlockFlow(document, WTFMove(style))
+private:
+    bool isRenderFullScreenPlaceholder() const override { return true; }
+    void willBeDestroyed() override;
+    RenderFullScreen& m_owner;
+};
+
+void RenderFullScreenPlaceholder::willBeDestroyed()
 {
+    m_owner.setPlaceholder(0);
+    RenderBlockFlow::willBeDestroyed();
 }
-
-bool RenderFullScreenPlaceholder::isRenderFullScreenPlaceholder() const
-{
-    return true;
-}
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderFullScreenPlaceholder);
 
 RenderFullScreen::RenderFullScreen(Document& document, RenderStyle&& style)
     : RenderFlexibleBox(document, WTFMove(style))
+    , m_placeholder(0)
 {
     setReplaced(false); 
 }
 
-RenderFullScreen::~RenderFullScreen()
+void RenderFullScreen::willBeDestroyed()
 {
-    ASSERT(!m_placeholder);
+    if (m_placeholder) {
+        removeFromParent();
+        if (!m_placeholder->beingDestroyed())
+            m_placeholder->destroy();
+        ASSERT(!m_placeholder);
+    }
+
+    // RenderObjects are unretained, so notify the document (which holds a pointer to a RenderFullScreen)
+    // if it's RenderFullScreen is destroyed.
+    if (document().fullScreenRenderer() == this)
+        document().fullScreenRendererDestroyed();
+
+    RenderFlexibleBox::willBeDestroyed();
 }
 
 static RenderStyle createFullScreenStyle()
@@ -71,12 +88,12 @@ static RenderStyle createFullScreenStyle()
     fullscreenStyle.setFontDescription({ });
     fullscreenStyle.fontCascade().update(nullptr);
 
-    fullscreenStyle.setDisplay(DisplayType::Flex);
-    fullscreenStyle.setJustifyContentPosition(ContentPosition::Center);
-    fullscreenStyle.setAlignItemsPosition(ItemPosition::Center);
-    fullscreenStyle.setFlexDirection(FlexDirection::Column);
+    fullscreenStyle.setDisplay(FLEX);
+    fullscreenStyle.setJustifyContentPosition(ContentPositionCenter);
+    fullscreenStyle.setAlignItemsPosition(ItemPositionCenter);
+    fullscreenStyle.setFlexDirection(FlowColumn);
     
-    fullscreenStyle.setPosition(PositionType::Fixed);
+    fullscreenStyle.setPosition(FixedPosition);
     fullscreenStyle.setWidth(Length(100.0, Percent));
     fullscreenStyle.setHeight(Length(100.0, Percent));
     fullscreenStyle.setLeft(Length(0, WebCore::Fixed));
@@ -87,62 +104,42 @@ static RenderStyle createFullScreenStyle()
     return fullscreenStyle;
 }
 
-RenderPtr<RenderFullScreen> RenderFullScreen::wrapNewRenderer(RenderTreeBuilder& builder, RenderPtr<RenderElement> renderer, RenderElement& parent, Document& document)
+RenderFullScreen* RenderFullScreen::wrapRenderer(RenderObject* object, RenderElement* parent, Document& document)
 {
-    auto newFullscreenRenderer = createRenderer<RenderFullScreen>(document, createFullScreenStyle());
-    newFullscreenRenderer->initializeStyle();
+    RenderFullScreen* fullscreenRenderer = new RenderFullScreen(document, createFullScreenStyle());
+    fullscreenRenderer->initializeStyle();
+    if (parent && !parent->isChildAllowed(*fullscreenRenderer, fullscreenRenderer->style())) {
+        fullscreenRenderer->destroy();
+        return 0;
+    }
+    if (object) {
+        // |object->parent()| can be null if the object is not yet attached
+        // to |parent|.
+        if (RenderElement* parent = object->parent()) {
+            RenderBlock* containingBlock = object->containingBlock();
+            ASSERT(containingBlock);
+            // Since we are moving the |object| to a new parent |fullscreenRenderer|,
+            // the line box tree underneath our |containingBlock| is not longer valid.
+            containingBlock->deleteLines();
 
-    auto& fullscreenRenderer = *newFullscreenRenderer;
-    if (!parent.isChildAllowed(fullscreenRenderer, fullscreenRenderer.style()))
-        return nullptr;
-
-    builder.attach(fullscreenRenderer, WTFMove(renderer));
-    fullscreenRenderer.setNeedsLayoutAndPrefWidthsRecalc();
-
-    document.setFullScreenRenderer(builder, fullscreenRenderer);
-
-    return newFullscreenRenderer;
-}
-
-void RenderFullScreen::wrapExistingRenderer(RenderElement& renderer, Document& document)
-{
-    // FIXME: This should be done by RenderTreeUpdater.
-    RenderTreeBuilder builder(*document.renderView());
-
-    auto newFullscreenRenderer = createRenderer<RenderFullScreen>(document, createFullScreenStyle());
-    newFullscreenRenderer->initializeStyle();
-
-    auto& fullscreenRenderer = *newFullscreenRenderer;
-    auto& parent = *renderer.parent();
-    if (!parent.isChildAllowed(fullscreenRenderer, fullscreenRenderer.style()))
-        return;
-
-    RenderBlock* containingBlock = renderer.containingBlock();
-    ASSERT(containingBlock);
-    // Since we are moving the |object| to a new parent |fullscreenRenderer|,
-    // the line box tree underneath our |containingBlock| is not longer valid.
-    containingBlock->deleteLines();
-
-    builder.attach(parent, WTFMove(newFullscreenRenderer), &renderer);
-
-    auto toMove = builder.detach(parent, renderer);
-
-    // Always just do a full layout to ensure that line boxes get deleted properly.
-    // Because objects moved from |parent| to |fullscreenRenderer|, we want to
-    // make new line boxes instead of leaving the old ones around.
-    parent.setNeedsLayoutAndPrefWidthsRecalc();
-    containingBlock->setNeedsLayoutAndPrefWidthsRecalc();
-
-    builder.attach(fullscreenRenderer, WTFMove(toMove));
-    fullscreenRenderer.setNeedsLayoutAndPrefWidthsRecalc();
-
-    document.setFullScreenRenderer(builder, fullscreenRenderer);
+            parent->addChild(fullscreenRenderer, object);
+            object->removeFromParent();
+            
+            // Always just do a full layout to ensure that line boxes get deleted properly.
+            // Because objects moved from |parent| to |fullscreenRenderer|, we want to
+            // make new line boxes instead of leaving the old ones around.
+            parent->setNeedsLayoutAndPrefWidthsRecalc();
+            containingBlock->setNeedsLayoutAndPrefWidthsRecalc();
+        }
+        fullscreenRenderer->addChild(object);
+        fullscreenRenderer->setNeedsLayoutAndPrefWidthsRecalc();
+    }
+    document.setFullScreenRenderer(fullscreenRenderer);
+    return fullscreenRenderer;
 }
 
 void RenderFullScreen::unwrapRenderer(bool& requiresRenderTreeRebuild)
 {
-    RenderTreeBuilder builder(view());
-
     requiresRenderTreeRebuild = false;
     if (parent()) {
         auto* child = firstChild();
@@ -162,7 +159,8 @@ void RenderFullScreen::unwrapRenderer(bool& requiresRenderTreeRebuild)
                 if (auto* nonAnonymousChild = downcast<RenderBlock>(*child).firstChild())
                     child = nonAnonymousChild;
                 else {
-                    builder.destroy(*child);
+                    child->removeFromParent();
+                    child->destroy();
                     continue;
                 }
             }
@@ -170,17 +168,41 @@ void RenderFullScreen::unwrapRenderer(bool& requiresRenderTreeRebuild)
             // may have set one on the child, and we don't want to leave that
             // lying around on the child.
             if (is<RenderBox>(*child))
-                downcast<RenderBox>(*child).clearOverrideContentSize();
-            auto childToMove = builder.detach(*child->parent(), *child);
-            builder.attach(*parent(), WTFMove(childToMove), this);
+                downcast<RenderBox>(*child).clearOverrideSize();
+            child->removeFromParent();
+            parent()->addChild(child, this);
             parent()->setNeedsLayoutAndPrefWidthsRecalc();
         }
     }
     if (placeholder())
-        builder.destroy(*placeholder());
-    ASSERT(!placeholder());
+        placeholder()->removeFromParent();
+    removeFromParent();
+    document().setFullScreenRenderer(0);
+}
 
-    builder.destroy(*this);
+void RenderFullScreen::setPlaceholder(RenderBlock* placeholder)
+{
+    m_placeholder = placeholder;
+}
+
+void RenderFullScreen::createPlaceholder(std::unique_ptr<RenderStyle> style, const LayoutRect& frameRect)
+{
+    if (style->width().isAuto())
+        style->setWidth(Length(frameRect.width(), Fixed));
+    if (style->height().isAuto())
+        style->setHeight(Length(frameRect.height(), Fixed));
+
+    if (m_placeholder) {
+        m_placeholder->setStyle(WTFMove(*style));
+        return;
+    }
+
+    m_placeholder = new RenderFullScreenPlaceholder(*this, WTFMove(*style));
+    m_placeholder->initializeStyle();
+    if (parent()) {
+        parent()->addChild(m_placeholder, this);
+        parent()->setNeedsLayoutAndPrefWidthsRecalc();
+    }
 }
 
 }

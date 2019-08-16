@@ -66,15 +66,18 @@
 #define AVAILABLE_MAC_OS_X_VERSION_10_10_AND_LATER
 #endif
 
-#endif /* !TARGET_OS_IPHONE && __MAC_OS_X_VERSION_MIN_REQUIRED < 101100 */
+#endif /* __MAC_OS_X_VERSION_MIN_REQUIRED <= 101100 */
 
 #if defined(BUILDING_GTK__)
-#undef JSC_API_AVAILABLE
-#define JSC_API_AVAILABLE(...)
+#undef CF_AVAILABLE
+#define CF_AVAILABLE(_mac, _ios)
+#undef CF_ENUM_AVAILABLE
+#define CF_ENUM_AVAILABLE(_mac, _ios)
 #endif
 
 #else
-#define JSC_API_AVAILABLE(...)
+#define CF_AVAILABLE(_mac, _ios)
+#define CF_ENUM_AVAILABLE(_mac, _ios)
 #endif
 
 #endif /* __WebKitAvailability__ */

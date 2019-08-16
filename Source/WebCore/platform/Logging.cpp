@@ -33,7 +33,6 @@
 
 #if PLATFORM(COCOA)
 #include <notify.h>
-#include <wtf/BlockPtr.h>
 #endif
 
 namespace WebCore {
@@ -69,28 +68,30 @@ void setLogChannelToAccumulate(const String& name)
     logChannelsNeedInitialization = true;
 }
 
-void initializeLogChannelsIfNecessary(Optional<String> logChannelString)
+void initializeLogChannelsIfNecessary()
 {
-    if (!logChannelsNeedInitialization && !logChannelString)
+    if (!logChannelsNeedInitialization)
         return;
 
     logChannelsNeedInitialization = false;
 
-    String enabledChannelsString = logChannelString ? logChannelString.value() : logLevelString();
-    WTFInitializeLogChannelStatesFromString(logChannels, logChannelCount, enabledChannelsString.utf8().data());
+    WTFInitializeLogChannelStatesFromString(logChannels, logChannelCount, logLevelString().utf8().data());
 }
 
-WTFLogChannel* getLogChannel(const String& name)
+#ifndef NDEBUG
+void registerNotifyCallback(const String& notifyID, std::function<void()> callback)
 {
-    return WTFLogChannelByName(logChannels, logChannelCount, name.utf8().data());
-}
-
+#if PLATFORM(COCOA)
+    int token;
+    notify_register_dispatch(notifyID.utf8().data(), &token, dispatch_get_main_queue(), ^(int) {
+        callback();
+    });
 #else
-
-WTFLogChannel* getLogChannel(const String&)
-{
-    return nullptr;
+    UNUSED_PARAM(notifyID);
+    UNUSED_PARAM(callback);
+#endif
 }
+#endif
 
 #endif // !LOG_DISABLED || !RELEASE_LOG_DISABLED
 

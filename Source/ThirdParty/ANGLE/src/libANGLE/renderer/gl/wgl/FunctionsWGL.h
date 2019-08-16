@@ -19,7 +19,6 @@ class FunctionsWGL : angle::NonCopyable
 {
   public:
     FunctionsWGL();
-    ~FunctionsWGL();
 
     // Loads all available wgl functions, may be called multiple times
     void initialize(HMODULE glModule, HDC context);

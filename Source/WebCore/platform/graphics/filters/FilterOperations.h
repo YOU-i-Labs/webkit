@@ -60,13 +60,10 @@ public:
 
     bool hasReferenceFilter() const;
 
-    bool transformColor(Color&) const;
-    bool inverseTransformColor(Color&) const;
-
 private:
     Vector<RefPtr<FilterOperation>> m_operations;
 };
 
-WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const FilterOperations&);
+WEBCORE_EXPORT TextStream& operator<<(TextStream&, const FilterOperations&);
 
 } // namespace WebCore

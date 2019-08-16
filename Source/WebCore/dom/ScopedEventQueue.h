@@ -30,9 +30,9 @@
 
 #pragma once
 
-#include <wtf/Forward.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/Ref.h>
+#include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {

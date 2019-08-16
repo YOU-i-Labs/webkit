@@ -31,6 +31,7 @@
 #ifndef LocaleICU_h
 #define LocaleICU_h
 
+#include "DateComponents.h"
 #include "PlatformLocale.h"
 #include <unicode/udat.h>
 #include <unicode/unum.h>

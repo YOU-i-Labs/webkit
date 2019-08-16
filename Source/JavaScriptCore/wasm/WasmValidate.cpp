@@ -30,6 +30,7 @@
 
 #include "WasmFunctionParser.h"
 #include <wtf/CommaPrinter.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace JSC { namespace Wasm {
 
@@ -76,7 +77,7 @@ public:
         Type m_signature;
     };
     typedef String ErrorType;
-    typedef Unexpected<ErrorType> UnexpectedResult;
+    typedef UnexpectedType<ErrorType> UnexpectedResult;
     typedef Expected<void, ErrorType> Result;
     typedef Type ExpressionType;
     typedef ControlData ControlType;
@@ -89,7 +90,7 @@ public:
     NEVER_INLINE UnexpectedResult WARN_UNUSED_RETURN fail(Args... args) const
     {
         using namespace FailureHelper; // See ADL comment in WasmParser.h.
-        return UnexpectedResult(makeString("WebAssembly.Module doesn't validate: "_s, makeString(args)...));
+        return UnexpectedResult(makeString(ASCIILiteral("WebAssembly.Module doesn't validate: "), makeString(args)...));
     }
 #define WASM_VALIDATOR_FAIL_IF(condition, ...) do { \
         if (UNLIKELY(condition))                    \

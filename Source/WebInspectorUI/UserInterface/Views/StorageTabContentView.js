@@ -23,21 +23,22 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.StorageTabContentView = class StorageTabContentView extends WI.ContentBrowserTabContentView
+WebInspector.StorageTabContentView = class StorageTabContentView extends WebInspector.ContentBrowserTabContentView
 {
     constructor(identifier)
     {
-        let tabBarItem = WI.GeneralTabBarItem.fromTabInfo(WI.StorageTabContentView.tabInfo());
-        let detailsSidebarPanelConstructors = [WI.ApplicationCacheDetailsSidebarPanel, WI.IndexedDatabaseDetailsSidebarPanel];
+        let {image, title} = WebInspector.StorageTabContentView.tabInfo();
+        let tabBarItem = new WebInspector.GeneralTabBarItem(image, title);
+        let detailsSidebarPanelConstructors = [WebInspector.ApplicationCacheDetailsSidebarPanel, WebInspector.IndexedDatabaseDetailsSidebarPanel];
 
-        super(identifier || "storage", "storage", tabBarItem, WI.StorageSidebarPanel, detailsSidebarPanelConstructors);
+        super(identifier || "storage", "storage", tabBarItem, WebInspector.StorageSidebarPanel, detailsSidebarPanelConstructors);
     }
 
     static tabInfo()
     {
         return {
             image: "Images/Storage.svg",
-            title: WI.UIString("Storage"),
+            title: WebInspector.UIString("Storage"),
         };
     }
 
@@ -50,7 +51,7 @@ WI.StorageTabContentView = class StorageTabContentView extends WI.ContentBrowser
 
     get type()
     {
-        return WI.StorageTabContentView.Type;
+        return WebInspector.StorageTabContentView.Type;
     }
 
     get supportsSplitContentBrowser()
@@ -60,11 +61,11 @@ WI.StorageTabContentView = class StorageTabContentView extends WI.ContentBrowser
 
     canShowRepresentedObject(representedObject)
     {
-        return representedObject instanceof WI.DOMStorageObject || representedObject instanceof WI.CookieStorageObject ||
-            representedObject instanceof WI.DatabaseTableObject || representedObject instanceof WI.DatabaseObject ||
-            representedObject instanceof WI.ApplicationCacheFrame || representedObject instanceof WI.IndexedDatabaseObjectStore ||
-            representedObject instanceof WI.IndexedDatabase || representedObject instanceof WI.IndexedDatabaseObjectStoreIndex;
+        return representedObject instanceof WebInspector.DOMStorageObject || representedObject instanceof WebInspector.CookieStorageObject ||
+            representedObject instanceof WebInspector.DatabaseTableObject || representedObject instanceof WebInspector.DatabaseObject ||
+            representedObject instanceof WebInspector.ApplicationCacheFrame || representedObject instanceof WebInspector.IndexedDatabaseObjectStore ||
+            representedObject instanceof WebInspector.IndexedDatabase || representedObject instanceof WebInspector.IndexedDatabaseObjectStoreIndex;
     }
 };
 
-WI.StorageTabContentView.Type = "storage";
+WebInspector.StorageTabContentView.Type = "storage";

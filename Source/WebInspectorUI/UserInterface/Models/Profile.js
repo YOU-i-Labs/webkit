@@ -23,14 +23,16 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.Profile = class Profile
+WebInspector.Profile = class Profile extends WebInspector.Object
 {
     constructor(topDownRootNodes)
     {
+        super();
+
         topDownRootNodes = topDownRootNodes || [];
 
         console.assert(topDownRootNodes instanceof Array);
-        console.assert(topDownRootNodes.reduce(function(previousValue, node) { return previousValue && node instanceof WI.ProfileNode; }, true));
+        console.assert(topDownRootNodes.reduce(function(previousValue, node) { return previousValue && node instanceof WebInspector.ProfileNode; }, true));
 
         this._topDownRootNodes = topDownRootNodes;
     }

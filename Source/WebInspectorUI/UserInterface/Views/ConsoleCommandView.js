@@ -27,7 +27,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.ConsoleCommandView = class ConsoleCommandView extends WI.Object
+WebInspector.ConsoleCommandView = class ConsoleCommandView extends WebInspector.Object
 {
     constructor(commandText, className)
     {
@@ -43,7 +43,7 @@ WI.ConsoleCommandView = class ConsoleCommandView extends WI.Object
     {
         this._element = document.createElement("div");
         this._element.classList.add("console-user-command");
-        this._element.setAttribute("data-labelprefix", WI.UIString("Input: "));
+        this._element.setAttribute("data-labelprefix", WebInspector.UIString("Input: "));
 
         if (this._className)
             this._element.classList.add(this._className);

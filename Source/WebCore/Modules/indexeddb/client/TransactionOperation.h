@@ -51,12 +51,12 @@ class TransactionOperation : public ThreadSafeRefCounted<TransactionOperation> {
 public:
     virtual ~TransactionOperation()
     {
-        ASSERT(m_originThread.ptr() == &Thread::current());
+        ASSERT(m_originThreadID == currentThread());
     }
 
     void perform()
     {
-        ASSERT(m_originThread.ptr() == &Thread::current());
+        ASSERT(m_originThreadID == currentThread());
         ASSERT(m_performFunction);
         m_performFunction();
         m_performFunction = { };
@@ -64,7 +64,7 @@ public:
 
     void transitionToCompleteOnThisThread(const IDBResultData& data)
     {
-        ASSERT(m_originThread.ptr() == &Thread::current());
+        ASSERT(m_originThreadID == currentThread());
         m_transaction->operationCompletedOnServer(data, *this);
     }
 
@@ -72,7 +72,7 @@ public:
     {
         ASSERT(isMainThread());
 
-        if (m_originThread.ptr() == &Thread::current())
+        if (m_originThreadID == currentThread())
             transitionToCompleteOnThisThread(data);
         else {
             m_transaction->performCallbackOnOriginThread(*this, &TransactionOperation::transitionToCompleteOnThisThread, data);
@@ -83,7 +83,7 @@ public:
 
     void doComplete(const IDBResultData& data)
     {
-        ASSERT(m_originThread.ptr() == &Thread::current());
+        ASSERT(m_originThreadID == currentThread());
 
         // Due to race conditions between the server sending an "operation complete" message and the client
         // forcefully aborting an operation, it's unavoidable that this method might be called twice.
@@ -98,13 +98,11 @@ public:
         // so we need to do this trick to null it out without first destroying it.
         WTF::Function<void (const IDBResultData&)> oldCompleteFunction;
         std::swap(m_completeFunction, oldCompleteFunction);
-
-        m_performFunction = { };
     }
 
     const IDBResourceIdentifier& identifier() const { return m_identifier; }
 
-    Thread& originThread() const { return m_originThread.get(); }
+    ThreadIdentifier originThreadID() const { return m_originThreadID; }
 
     IDBRequest* idbRequest() { return m_idbRequest.get(); }
 
@@ -137,7 +135,7 @@ private:
     IDBTransaction& transaction() { return m_transaction.get(); }
     IndexedDB::IndexRecordType indexRecordType() const { return m_indexRecordType; }
 
-    Ref<Thread> m_originThread { Thread::current() };
+    ThreadIdentifier m_originThreadID { currentThread() };
     RefPtr<IDBRequest> m_idbRequest;
     bool m_nextRequestCanGoToServer { true };
 };
@@ -183,37 +181,40 @@ public:
     }
 };
 
-inline Ref<TransactionOperation> createTransactionOperation(
+inline RefPtr<TransactionOperation> createTransactionOperation(
     IDBTransaction& transaction,
     void (IDBTransaction::*complete)(const IDBResultData&),
     void (IDBTransaction::*perform)(TransactionOperation&))
 {
-    return adoptRef(*new TransactionOperationImpl<>(transaction, complete, perform));
+    auto operation = new TransactionOperationImpl<>(transaction, complete, perform);
+    return adoptRef(operation);
 }
 
 template<typename MP1, typename P1>
-Ref<TransactionOperation> createTransactionOperation(
+RefPtr<TransactionOperation> createTransactionOperation(
     IDBTransaction& transaction,
     void (IDBTransaction::*complete)(const IDBResultData&),
     void (IDBTransaction::*perform)(TransactionOperation&, MP1),
     const P1& parameter1)
 {
-    return adoptRef(*new TransactionOperationImpl<MP1>(transaction, complete, perform, parameter1));
+    auto operation = new TransactionOperationImpl<MP1>(transaction, complete, perform, parameter1);
+    return adoptRef(operation);
 }
 
 template<typename MP1, typename P1, typename MP2, typename P2>
-Ref<TransactionOperation> createTransactionOperation(
+RefPtr<TransactionOperation> createTransactionOperation(
     IDBTransaction& transaction,
     void (IDBTransaction::*complete)(const IDBResultData&),
     void (IDBTransaction::*perform)(TransactionOperation&, MP1, MP2),
     const P1& parameter1,
     const P2& parameter2)
 {
-    return adoptRef(*new TransactionOperationImpl<MP1, MP2>(transaction, complete, perform, parameter1, parameter2));
+    auto operation = new TransactionOperationImpl<MP1, MP2>(transaction, complete, perform, parameter1, parameter2);
+    return adoptRef(operation);
 }
 
 template<typename MP1, typename P1, typename MP2, typename P2, typename MP3, typename P3>
-Ref<TransactionOperation> createTransactionOperation(
+RefPtr<TransactionOperation> createTransactionOperation(
     IDBTransaction& transaction,
     void (IDBTransaction::*complete)(const IDBResultData&),
     void (IDBTransaction::*perform)(TransactionOperation&, MP1, MP2, MP3),
@@ -221,22 +222,24 @@ Ref<TransactionOperation> createTransactionOperation(
     const P2& parameter2,
     const P3& parameter3)
 {
-    return adoptRef(*new TransactionOperationImpl<MP1, MP2, MP3>(transaction, complete, perform, parameter1, parameter2, parameter3));
+    auto operation = new TransactionOperationImpl<MP1, MP2, MP3>(transaction, complete, perform, parameter1, parameter2, parameter3);
+    return adoptRef(operation);
 }
 
 template<typename MP1, typename P1>
-Ref<TransactionOperation> createTransactionOperation(
+RefPtr<TransactionOperation> createTransactionOperation(
     IDBTransaction& transaction,
     IDBRequest& request,
     void (IDBTransaction::*complete)(IDBRequest&, const IDBResultData&),
     void (IDBTransaction::*perform)(TransactionOperation&, MP1),
     const P1& parameter1)
 {
-    return adoptRef(*new TransactionOperationImpl<MP1>(transaction, request, complete, perform, parameter1));
+    auto operation = new TransactionOperationImpl<MP1>(transaction, request, complete, perform, parameter1);
+    return adoptRef(operation);
 }
 
 template<typename MP1, typename P1, typename MP2, typename P2>
-Ref<TransactionOperation> createTransactionOperation(
+RefPtr<TransactionOperation> createTransactionOperation(
     IDBTransaction& transaction,
     IDBRequest& request,
     void (IDBTransaction::*complete)(IDBRequest&, const IDBResultData&),
@@ -244,11 +247,12 @@ Ref<TransactionOperation> createTransactionOperation(
     const P1& parameter1,
     const P2& parameter2)
 {
-    return adoptRef(*new TransactionOperationImpl<MP1, MP2>(transaction, request, complete, perform, parameter1, parameter2));
+    auto operation = new TransactionOperationImpl<MP1, MP2>(transaction, request, complete, perform, parameter1, parameter2);
+    return adoptRef(operation);
 }
 
 template<typename MP1, typename MP2, typename MP3, typename P1, typename P2, typename P3>
-Ref<TransactionOperation> createTransactionOperation(
+RefPtr<TransactionOperation> createTransactionOperation(
     IDBTransaction& transaction,
     IDBRequest& request,
     void (IDBTransaction::*complete)(IDBRequest&, const IDBResultData&),
@@ -257,7 +261,8 @@ Ref<TransactionOperation> createTransactionOperation(
     const P2& parameter2,
     const P3& parameter3)
 {
-    return adoptRef(*new TransactionOperationImpl<MP1, MP2, MP3>(transaction, request, complete, perform, parameter1, parameter2, parameter3));
+    auto operation = new TransactionOperationImpl<MP1, MP2, MP3>(transaction, request, complete, perform, parameter1, parameter2, parameter3);
+    return adoptRef(operation);
 }
 
 } // namespace IDBClient

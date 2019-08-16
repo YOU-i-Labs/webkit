@@ -42,8 +42,6 @@ enum TOperator
     EOpPreIncrement,
     EOpPreDecrement,
 
-    EOpArrayLength,
-
     //
     // binary operations (ones with special GLSL syntax are used in TIntermBinary nodes, others in
     // TIntermAggregate nodes)
@@ -165,7 +163,7 @@ enum TOperator
     EOpDot,
     EOpCross,
     EOpNormalize,
-    EOpFaceforward,
+    EOpFaceForward,
     EOpReflect,
     EOpRefract,
 
@@ -204,10 +202,35 @@ enum TOperator
     EOpContinue,
 
     //
-    // Constructor
+    // Constructors
     //
 
-    EOpConstruct,
+    EOpConstructInt,
+    EOpConstructUInt,
+    EOpConstructBool,
+    EOpConstructFloat,
+    EOpConstructVec2,
+    EOpConstructVec3,
+    EOpConstructVec4,
+    EOpConstructBVec2,
+    EOpConstructBVec3,
+    EOpConstructBVec4,
+    EOpConstructIVec2,
+    EOpConstructIVec3,
+    EOpConstructIVec4,
+    EOpConstructUVec2,
+    EOpConstructUVec3,
+    EOpConstructUVec4,
+    EOpConstructMat2,
+    EOpConstructMat2x3,
+    EOpConstructMat2x4,
+    EOpConstructMat3x2,
+    EOpConstructMat3,
+    EOpConstructMat3x4,
+    EOpConstructMat4x2,
+    EOpConstructMat4x3,
+    EOpConstructMat4,
+    EOpConstructStruct,
 
     //
     // moves
@@ -239,11 +262,7 @@ enum TOperator
     EOpMemoryBarrierBuffer,
     EOpMemoryBarrierImage,
     EOpMemoryBarrierShared,
-    EOpGroupMemoryBarrier,
-
-    //  Geometry only
-    EOpEmitVertex,
-    EOpEndPrimitive
+    EOpGroupMemoryBarrier
 };
 
 // Returns the string corresponding to the operator in GLSL

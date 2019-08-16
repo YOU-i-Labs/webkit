@@ -20,15 +20,17 @@
 
 #pragma once
 
-#include "CSSParserContext.h"
+#include "CSSParserMode.h"
 #include "CachePolicy.h"
-#include <wtf/Function.h>
+#include "URL.h"
+#include <functional>
 #include <wtf/HashMap.h>
+#include <wtf/ListHashSet.h>
 #include <wtf/RefCounted.h>
-#include <wtf/URL.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/AtomicStringHash.h>
+#include <wtf/text/TextPosition.h>
 
 namespace WebCore {
 
@@ -43,7 +45,7 @@ class StyleRuleBase;
 class StyleRuleImport;
 class StyleRuleNamespace;
 
-class StyleSheetContents final : public RefCounted<StyleSheetContents>, public CanMakeWeakPtr<StyleSheetContents> {
+class StyleSheetContents final : public RefCounted<StyleSheetContents> {
 public:
     static Ref<StyleSheetContents> create(const CSSParserContext& context = CSSParserContext(HTMLStandardMode))
     {
@@ -86,8 +88,7 @@ public:
     bool loadCompleted() const { return m_loadCompleted; }
 
     URL completeURL(const String& url) const;
-    bool traverseRules(const WTF::Function<bool (const StyleRuleBase&)>& handler) const;
-    bool traverseSubresources(const WTF::Function<bool (const CachedResource&)>& handler) const;
+    bool traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const;
 
     void setIsUserStyleSheet(bool b) { m_isUserStyleSheet = b; }
     bool isUserStyleSheet() const { return m_isUserStyleSheet; }
@@ -144,8 +145,7 @@ public:
 
     void shrinkToFit();
 
-    void setAsOpaque() { m_parserContext.isContentOpaque = true; }
-    bool isContentOpaque() const { return m_parserContext.isContentOpaque; }
+    WeakPtr<StyleSheetContents> createWeakPtr() { return m_weakPtrFactory.createWeakPtr(); }
 
 private:
     WEBCORE_EXPORT StyleSheetContents(StyleRuleImport* ownerRule, const String& originalURL, const CSSParserContext&);
@@ -176,6 +176,8 @@ private:
     CSSParserContext m_parserContext;
 
     Vector<CSSStyleSheet*> m_clients;
+    
+    WeakPtrFactory<StyleSheetContents> m_weakPtrFactory { this };
 };
 
 } // namespace WebCore

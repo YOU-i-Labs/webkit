@@ -26,18 +26,17 @@
 #include "Image.h"
 #include "IntRect.h"
 #include "SVGRenderingContext.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGResourceMasker);
 
 RenderSVGResourceMasker::RenderSVGResourceMasker(SVGMaskElement& element, RenderStyle&& style)
     : RenderSVGResourceContainer(element, WTFMove(style))
 {
 }
 
-RenderSVGResourceMasker::~RenderSVGResourceMasker() = default;
+RenderSVGResourceMasker::~RenderSVGResourceMasker()
+{
+}
 
 void RenderSVGResourceMasker::removeAllClientsFromCache(bool markForInvalidation)
 {
@@ -57,7 +56,7 @@ void RenderSVGResourceMasker::removeClientFromCache(RenderElement& client, bool 
 bool RenderSVGResourceMasker::applyResource(RenderElement& renderer, const RenderStyle&, GraphicsContext*& context, OptionSet<RenderSVGResourceMode> resourceMode)
 {
     ASSERT(context);
-    ASSERT_UNUSED(resourceMode, !resourceMode);
+    ASSERT_UNUSED(resourceMode, resourceMode == RenderSVGResourceMode::ApplyToDefault);
 
     bool missingMaskerData = !m_masker.contains(&renderer);
     if (missingMaskerData)
@@ -69,9 +68,9 @@ bool RenderSVGResourceMasker::applyResource(RenderElement& renderer, const Rende
 
     if (!maskerData->maskImage && !repaintRect.isEmpty()) {
         const SVGRenderStyle& svgStyle = style().svgStyle();
-        ColorSpace colorSpace = svgStyle.colorInterpolation() == ColorInterpolation::LinearRGB ? ColorSpaceLinearRGB : ColorSpaceSRGB;
+        ColorSpace colorSpace = svgStyle.colorInterpolation() == CI_LINEARRGB ? ColorSpaceLinearRGB : ColorSpaceSRGB;
         // FIXME (149470): This image buffer should not be unconditionally unaccelerated. Making it match the context breaks alpha masking, though.
-        maskerData->maskImage = SVGRenderingContext::createImageBuffer(repaintRect, absoluteTransform, colorSpace, Unaccelerated, context);
+        maskerData->maskImage = SVGRenderingContext::createImageBuffer(repaintRect, absoluteTransform, colorSpace, Unaccelerated);
         if (!maskerData->maskImage)
             return false;
 
@@ -94,8 +93,8 @@ bool RenderSVGResourceMasker::drawContentIntoMaskImage(MaskerData* maskerData, C
     AffineTransform maskContentTransformation;
     if (maskElement().maskContentUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
         FloatRect objectBoundingBox = object->objectBoundingBox();
-        maskContentTransformation.translate(objectBoundingBox.location());
-        maskContentTransformation.scale(objectBoundingBox.size());
+        maskContentTransformation.translate(objectBoundingBox.x(), objectBoundingBox.y());
+        maskContentTransformation.scaleNonUniform(objectBoundingBox.width(), objectBoundingBox.height());
         maskImageContext.concatCTM(maskContentTransformation);
     }
 
@@ -107,19 +106,19 @@ bool RenderSVGResourceMasker::drawContentIntoMaskImage(MaskerData* maskerData, C
         if (renderer->needsLayout())
             return false;
         const RenderStyle& style = renderer->style();
-        if (style.display() == DisplayType::None || style.visibility() != Visibility::Visible)
+        if (style.display() == NONE || style.visibility() != VISIBLE)
             continue;
         SVGRenderingContext::renderSubtreeToImageBuffer(maskerData->maskImage.get(), *renderer, maskContentTransformation);
     }
 
 #if !USE(CG)
-    maskerData->maskImage->transformColorSpace(ColorSpaceSRGB, colorSpace);
+    maskerData->maskImage->transformColorSpace(ColorSpaceDeviceRGB, colorSpace);
 #else
     UNUSED_PARAM(colorSpace);
 #endif
 
     // Create the luminance mask.
-    if (style().svgStyle().maskType() == MaskType::Luminance)
+    if (style().svgStyle().maskType() == MT_LUMINANCE)
         maskerData->maskImage->convertToLuminanceMask();
 
     return true;
@@ -132,7 +131,7 @@ void RenderSVGResourceMasker::calculateMaskContentRepaintRect()
         if (!childNode->isSVGElement() || !renderer)
             continue;
         const RenderStyle& style = renderer->style();
-        if (style.display() == DisplayType::None || style.visibility() != Visibility::Visible)
+        if (style.display() == NONE || style.visibility() != VISIBLE)
              continue;
         m_maskContentBoundaries.unite(renderer->localToParentTransform().mapRect(renderer->repaintRectInLocalCoordinates()));
     }
@@ -153,8 +152,8 @@ FloatRect RenderSVGResourceMasker::resourceBoundingBox(const RenderObject& objec
     FloatRect maskRect = m_maskContentBoundaries;
     if (maskElement().maskContentUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
         AffineTransform transform;
-        transform.translate(objectBoundingBox.location());
-        transform.scale(objectBoundingBox.size());
+        transform.translate(objectBoundingBox.x(), objectBoundingBox.y());
+        transform.scaleNonUniform(objectBoundingBox.width(), objectBoundingBox.height());
         maskRect = transform.mapRect(maskRect);
     }
 

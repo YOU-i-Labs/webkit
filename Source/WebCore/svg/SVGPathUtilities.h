@@ -33,11 +33,8 @@ class SVGPathSeg;
 class SVGPathSegListValues;
 
 // String/SVGPathByteStream -> Path
-Path buildPathFromString(const String&);
-Path buildPathFromByteStream(const SVGPathByteStream&);
-
-// Path -> String
-String buildStringFromPath(const Path&);
+bool buildPathFromString(const String&, Path&);
+bool buildPathFromByteStream(const SVGPathByteStream&, Path&);
 
 // SVGPathSegListValues/String -> SVGPathByteStream
 bool buildSVGPathByteStreamFromSVGPathSegListValues(const SVGPathSegListValues&, SVGPathByteStream& result, PathParsingMode);

@@ -28,7 +28,6 @@
 
 #pragma once
 
-#include "ActiveDOMCallback.h"
 #include "CallbackResult.h"
 #include <wtf/ThreadSafeRefCounted.h>
 
@@ -36,10 +35,9 @@ namespace WebCore {
 
 class SQLError;
 
-class SQLTransactionErrorCallback : public ThreadSafeRefCounted<SQLTransactionErrorCallback>, public ActiveDOMCallback {
+class SQLTransactionErrorCallback : public ThreadSafeRefCounted<SQLTransactionErrorCallback> {
 public:
-    using ActiveDOMCallback::ActiveDOMCallback;
-
+    virtual ~SQLTransactionErrorCallback() { }
     virtual CallbackResult<void> handleEvent(SQLError&) = 0;
 };
 

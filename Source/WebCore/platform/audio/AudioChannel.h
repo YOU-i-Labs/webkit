@@ -31,7 +31,6 @@
 
 #include "AudioArray.h"
 #include <memory>
-#include <wtf/Noncopyable.h>
 
 namespace WebCore {
 

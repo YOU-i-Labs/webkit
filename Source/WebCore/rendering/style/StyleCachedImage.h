@@ -23,6 +23,7 @@
 
 #pragma once
 
+#include "CachedImageClient.h"
 #include "CachedResourceHandle.h"
 #include "StyleImage.h"
 
@@ -38,34 +39,33 @@ public:
     static Ref<StyleCachedImage> create(CSSValue& cssValue) { return adoptRef(*new StyleCachedImage(cssValue)); }
     virtual ~StyleCachedImage();
 
-    bool operator==(const StyleImage& other) const final;
+    bool operator==(const StyleImage& other) const override;
 
-    CachedImage* cachedImage() const final;
+    CachedImage* cachedImage() const override;
 
-    WrappedImagePtr data() const final { return m_cachedImage.get(); }
+    WrappedImagePtr data() const override { return m_cachedImage.get(); }
 
-    Ref<CSSValue> cssValue() const final;
+    Ref<CSSValue> cssValue() const override;
     
-    bool canRender(const RenderElement*, float multiplier) const final;
-    bool isPending() const final;
-    void load(CachedResourceLoader&, const ResourceLoaderOptions&) final;
-    bool isLoaded() const final;
-    bool errorOccurred() const final;
-    FloatSize imageSize(const RenderElement*, float multiplier) const final;
-    bool imageHasRelativeWidth() const final;
-    bool imageHasRelativeHeight() const final;
-    void computeIntrinsicDimensions(const RenderElement*, Length& intrinsicWidth, Length& intrinsicHeight, FloatSize& intrinsicRatio) final;
-    bool usesImageContainerSize() const final;
-    void setContainerContextForRenderer(const RenderElement&, const FloatSize&, float) final;
-    void addClient(RenderElement*) final;
-    void removeClient(RenderElement*) final;
-    RefPtr<Image> image(RenderElement*, const FloatSize&) const final;
-    float imageScaleFactor() const final;
-    bool knownToBeOpaque(const RenderElement*) const final;
+    bool canRender(const RenderElement*, float multiplier) const override;
+    bool isPending() const override;
+    void load(CachedResourceLoader&, const ResourceLoaderOptions&) override;
+    bool isLoaded() const override;
+    bool errorOccurred() const override;
+    FloatSize imageSize(const RenderElement*, float multiplier) const override;
+    bool imageHasRelativeWidth() const override;
+    bool imageHasRelativeHeight() const override;
+    void computeIntrinsicDimensions(const RenderElement*, Length& intrinsicWidth, Length& intrinsicHeight, FloatSize& intrinsicRatio) override;
+    bool usesImageContainerSize() const override;
+    void setContainerSizeForRenderer(const RenderElement*, const FloatSize&, float) override;
+    void addClient(RenderElement*) override;
+    void removeClient(RenderElement*) override;
+    RefPtr<Image> image(RenderElement*, const FloatSize&) const override;
+    float imageScaleFactor() const override;
+    bool knownToBeOpaque(const RenderElement*) const override;
 
 private:
     StyleCachedImage(CSSValue&);
-    URL imageURL();
 
     Ref<CSSValue> m_cssValue;
     bool m_isPending { true };

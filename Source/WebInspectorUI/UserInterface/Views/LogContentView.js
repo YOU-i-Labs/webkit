@@ -25,7 +25,7 @@
 
 // FIXME: <https://webkit.org/b/143545> Web Inspector: LogContentView should use higher level objects
 
-WI.LogContentView = class LogContentView extends WI.ContentView
+WebInspector.LogContentView = class LogContentView extends WebInspector.ContentView
 {
     constructor(representedObject)
     {
@@ -49,16 +49,17 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         this.messagesElement.addEventListener("dragstart", this._ondragstart.bind(this), true);
         this.element.appendChild(this.messagesElement);
 
-        this.prompt = WI.quickConsole.prompt;
+        this.prompt = WebInspector.quickConsole.prompt;
 
-        this._keyboardShortcutCommandA = new WI.KeyboardShortcut(WI.KeyboardShortcut.Modifier.CommandOrControl, "A");
-        this._keyboardShortcutEsc = new WI.KeyboardShortcut(null, WI.KeyboardShortcut.Key.Escape);
+        this._keyboardShortcutCommandA = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.CommandOrControl, "A");
+        this._keyboardShortcutEsc = new WebInspector.KeyboardShortcut(null, WebInspector.KeyboardShortcut.Key.Escape);
 
-        this._logViewController = new WI.JavaScriptLogViewController(this.messagesElement, this.element, this.prompt, this, "console-prompt-history");
+        this._logViewController = new WebInspector.JavaScriptLogViewController(this.messagesElement, this.element, this.prompt, this, "console-prompt-history");
         this._lastMessageView = null;
 
         const fixed = true;
-        this._findBanner = new WI.FindBanner(this, "console-find-banner", fixed);
+        this._findBanner = new WebInspector.FindBanner(this, "console-find-banner", fixed);
+        this._findBanner.inputField.placeholder = WebInspector.UIString("Filter Console Log");
         this._findBanner.targetElement = this.element;
 
         this._currentSearchQuery = "";
@@ -66,78 +67,45 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         this._selectedSearchMatch = null;
         this._selectedSearchMatchIsValid = false;
 
-        this._preserveLogNavigationItem = new WI.CheckboxNavigationItem("perserve-log", WI.UIString("Preserve Log"), !WI.settings.clearLogOnNavigate.value);
-        this._preserveLogNavigationItem.tooltip = WI.UIString("Do not clear the console on new page loads");
-        this._preserveLogNavigationItem.addEventListener(WI.CheckboxNavigationItem.Event.CheckedDidChange, () => { WI.settings.clearLogOnNavigate.value = !WI.settings.clearLogOnNavigate.value; });
-        WI.settings.clearLogOnNavigate.addEventListener(WI.Setting.Event.Changed, this._clearLogOnNavigateSettingChanged, this);
-
-        this._checkboxsNavigationItemGroup = new WI.GroupNavigationItem([this._preserveLogNavigationItem, new WI.DividerNavigationItem]);
-
-        let scopeBarItems = [
-            new WI.ScopeBarItem(WI.LogContentView.Scopes.All, WI.UIString("All"), {exclusive: true}),
-            new WI.ScopeBarItem(WI.LogContentView.Scopes.Errors, WI.UIString("Errors"), {className: "errors"}),
-            new WI.ScopeBarItem(WI.LogContentView.Scopes.Warnings, WI.UIString("Warnings"), {className: "warnings"}),
-            new WI.ScopeBarItem(WI.LogContentView.Scopes.Logs, WI.UIString("Logs"), {className: "logs"}),
-            new WI.ScopeBarItem(WI.LogContentView.Scopes.Infos, WI.UIString("Infos"), {className: "infos", hidden: true}),
-            new WI.ScopeBarItem(WI.LogContentView.Scopes.Debugs, WI.UIString("Debugs"), {className: "debugs", hidden: true}),
+        var scopeBarItems = [
+            new WebInspector.ScopeBarItem(WebInspector.LogContentView.Scopes.All, WebInspector.UIString("All"), true),
+            new WebInspector.ScopeBarItem(WebInspector.LogContentView.Scopes.Errors, WebInspector.UIString("Errors"), false, "errors"),
+            new WebInspector.ScopeBarItem(WebInspector.LogContentView.Scopes.Warnings, WebInspector.UIString("Warnings"), false, "warnings"),
+            new WebInspector.ScopeBarItem(WebInspector.LogContentView.Scopes.Logs, WebInspector.UIString("Logs"), false, "logs")
         ];
 
-        this._scopeBar = new WI.ScopeBar("log-scope-bar", scopeBarItems, scopeBarItems[0]);
-        this._scopeBar.addEventListener(WI.ScopeBar.Event.SelectionChanged, this._scopeBarSelectionDidChange, this);
+        this._scopeBar = new WebInspector.ScopeBar("log-scope-bar", scopeBarItems, scopeBarItems[0]);
+        this._scopeBar.addEventListener(WebInspector.ScopeBar.Event.SelectionChanged, this._scopeBarSelectionDidChange, this);
 
-        this._hasNonDefaultLogChannelMessage = false;
-        if (WI.ConsoleManager.supportsLogChannels()) {
-            let messageChannelBarItems = [
-                new WI.ScopeBarItem(WI.LogContentView.Scopes.AllChannels, WI.UIString("All"), {exclusive: true}),
-                new WI.ScopeBarItem(WI.LogContentView.Scopes.Media, WI.UIString("Media"), {className: "media"}),
-                new WI.ScopeBarItem(WI.LogContentView.Scopes.WebRTC, WI.UIString("WebRTC"), {className: "webrtc"}),
-            ];
+        this._garbageCollectNavigationItem = new WebInspector.ButtonNavigationItem("clear-log", WebInspector.UIString("Collect garbage"), "Images/NavigationItemGarbageCollect.svg", 16, 16);
+        this._garbageCollectNavigationItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._garbageCollect, this);
 
-            this._messageSourceBar = new WI.ScopeBar("message-channel-scope-bar", messageChannelBarItems, messageChannelBarItems[0]);
-            this._messageSourceBar.addEventListener(WI.ScopeBar.Event.SelectionChanged, this._messageSourceBarSelectionDidChange, this);
-        }
+        this._clearLogNavigationItem = new WebInspector.ButtonNavigationItem("clear-log", WebInspector.UIString("Clear log (%s or %s)").format(WebInspector.clearKeyboardShortcut.displayName, this._logViewController.messagesAlternateClearKeyboardShortcut.displayName), "Images/NavigationItemClear.svg", 16, 16);
+        this._clearLogNavigationItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._clearLog, this);
 
-        this._garbageCollectNavigationItem = new WI.ButtonNavigationItem("garbage-collect", WI.UIString("Collect garbage"), "Images/NavigationItemGarbageCollect.svg", 16, 16);
-        this._garbageCollectNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
-        this._garbageCollectNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._garbageCollect, this);
-
-        this._clearLogNavigationItem = new WI.ButtonNavigationItem("clear-log", WI.UIString("Clear log (%s or %s)").format(WI.clearKeyboardShortcut.displayName, this._logViewController.messagesAlternateClearKeyboardShortcut.displayName), "Images/NavigationItemTrash.svg", 15, 15);
-        this._clearLogNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
-        this._clearLogNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._clearLog, this);
-
-        this._showConsoleTabNavigationItem = new WI.ButtonNavigationItem("show-tab", WI.UIString("Show Console tab"), "Images/SplitToggleUp.svg", 16, 16);
-        this._showConsoleTabNavigationItem.visibilityPriority = WI.NavigationItem.VisibilityPriority.High;
-        this._showConsoleTabNavigationItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._showConsoleTab, this);
+        this._showConsoleTabNavigationItem = new WebInspector.ButtonNavigationItem("show-tab", WebInspector.UIString("Show Console tab"), "Images/SplitToggleUp.svg", 16, 16);
+        this._showConsoleTabNavigationItem.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._showConsoleTab, this);
 
         this.messagesElement.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this), false);
 
-        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.SessionStarted, this._sessionStarted, this);
-        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.MessageAdded, this._messageAdded, this);
-        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.PreviousMessageRepeatCountUpdated, this._previousMessageRepeatCountUpdated, this);
-        WI.consoleManager.addEventListener(WI.ConsoleManager.Event.Cleared, this._logCleared, this);
+        WebInspector.logManager.addEventListener(WebInspector.LogManager.Event.SessionStarted, this._sessionStarted, this);
+        WebInspector.logManager.addEventListener(WebInspector.LogManager.Event.MessageAdded, this._messageAdded, this);
+        WebInspector.logManager.addEventListener(WebInspector.LogManager.Event.PreviousMessageRepeatCountUpdated, this._previousMessageRepeatCountUpdated, this);
+        WebInspector.logManager.addEventListener(WebInspector.LogManager.Event.Cleared, this._logCleared, this);
 
-        WI.Frame.addEventListener(WI.Frame.Event.ProvisionalLoadStarted, this._provisionalLoadStarted, this);
+        WebInspector.Frame.addEventListener(WebInspector.Frame.Event.ProvisionalLoadStarted, this._provisionalLoadStarted, this);
     }
 
     // Public
 
     get navigationItems()
     {
-        let navigationItems = [this._scopeBar, new WI.DividerNavigationItem];
-
-        if (this._hasNonDefaultLogChannelMessage && this._messageSourceBar)
-            navigationItems.push(this._messageSourceBar, new WI.DividerNavigationItem);
-
-        if (window.HeapAgent && HeapAgent.gc)
+        let navigationItems = [this._findBanner, this._scopeBar];
+        if (HeapAgent.gc)
             navigationItems.push(this._garbageCollectNavigationItem);
-
         navigationItems.push(this._clearLogNavigationItem);
-
-        if (WI.isShowingSplitConsole())
-            navigationItems.push(new WI.DividerNavigationItem, this._showConsoleTabNavigationItem);
-        else if (WI.isShowingConsoleTab())
-            navigationItems.unshift(this._findBanner, this._checkboxsNavigationItemGroup);
-
+        if (WebInspector.isShowingSplitConsole())
+            navigationItems.push(this._showConsoleTabNavigationItem);
         return navigationItems;
     }
 
@@ -168,23 +136,13 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         this._logViewController.renderPendingMessages();
     }
 
-    closed()
-    {
-        // While it may be possible to get here, this is a singleton ContentView instance
-        // that is often re-inserted back into different ContentBrowsers, so we shouldn't
-        // remove the event listeners. The singleton will never go away anyways.
-        console.assert(this === WI.consoleContentView);
-
-        super.closed();
-    }
-
     didAppendConsoleMessageView(messageView)
     {
-        console.assert(messageView instanceof WI.ConsoleMessageView || messageView instanceof WI.ConsoleCommandView);
+        console.assert(messageView instanceof WebInspector.ConsoleMessageView || messageView instanceof WebInspector.ConsoleCommandView);
 
         // Nest the message.
-        var type = messageView instanceof WI.ConsoleCommandView ? null : messageView.message.type;
-        if (this._nestingLevel && type !== WI.ConsoleMessage.MessageType.EndGroup) {
+        var type = messageView instanceof WebInspector.ConsoleCommandView ? null : messageView.message.type;
+        if (this._nestingLevel && type !== WebInspector.ConsoleMessage.MessageType.EndGroup) {
             var x = 16 * this._nestingLevel;
             var messageElement = messageView.element;
             messageElement.style.left = x + "px";
@@ -193,11 +151,11 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
         // Update the nesting level.
         switch (type) {
-        case WI.ConsoleMessage.MessageType.StartGroup:
-        case WI.ConsoleMessage.MessageType.StartGroupCollapsed:
+        case WebInspector.ConsoleMessage.MessageType.StartGroup:
+        case WebInspector.ConsoleMessage.MessageType.StartGroupCollapsed:
             ++this._nestingLevel;
             break;
-        case WI.ConsoleMessage.MessageType.EndGroup:
+        case WebInspector.ConsoleMessage.MessageType.EndGroup:
             if (this._nestingLevel > 0)
                 --this._nestingLevel;
             break;
@@ -207,12 +165,12 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
         // Some results don't populate until further backend dispatches occur (like the DOM tree).
         // We want to remove focusable children after those pending dispatches too.
-        let target = messageView.message ? messageView.message.target : WI.runtimeManager.activeExecutionContext.target;
+        let target = messageView.message ? messageView.message.target : WebInspector.runtimeManager.activeExecutionContext.target;
         target.connection.runAfterPendingDispatches(this._clearFocusableChildren.bind(this));
 
-        if (type && type !== WI.ConsoleMessage.MessageType.EndGroup) {
-            console.assert(messageView.message instanceof WI.ConsoleMessage);
-            if (!(messageView.message instanceof WI.ConsoleCommandResultMessage))
+        if (type && type !== WebInspector.ConsoleMessage.MessageType.EndGroup) {
+            console.assert(messageView.message instanceof WebInspector.ConsoleMessage);
+            if (!(messageView.message instanceof WebInspector.ConsoleCommandResultMessage))
                 this._markScopeBarItemUnread(messageView.message.level);
 
             console.assert(messageView.element instanceof Element);
@@ -226,7 +184,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
     get supportsCustomFindBanner()
     {
-        return WI.isShowingConsoleTab();
+        return WebInspector.isShowingConsoleTab();
     }
 
     showCustomFindBanner()
@@ -242,7 +200,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         if (!this.visible)
             return false;
 
-        if (WI.isShowingSplitConsole())
+        if (WebInspector.isShowingSplitConsole())
             return false;
 
         return true;
@@ -266,27 +224,6 @@ WI.LogContentView = class LogContentView extends WI.ContentView
     handleClearShortcut(event)
     {
         this._logViewController.requestClearMessages();
-    }
-
-    handlePopulateFindShortcut()
-    {
-        let searchQuery = this.searchQueryWithSelection();
-        if (!searchQuery)
-            return;
-
-        this._findBanner.searchQuery = searchQuery;
-
-        this.performSearch(this._findBanner.searchQuery);
-    }
-
-    handleFindNextShortcut()
-    {
-        this.findBannerRevealNextResult(this._findBanner);
-    }
-
-    handleFindPreviousShortcut()
-    {
-        this.findBannerRevealPreviousResult(this._findBanner);
     }
 
     findBannerRevealPreviousResult()
@@ -340,7 +277,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
         if (onlySelected) {
             messages = messages.filter(function(message) {
-                return message.classList.contains(WI.LogContentView.SelectedStyleClassName);
+                return message.classList.contains(WebInspector.LogContentView.SelectedStyleClassName);
             });
         }
 
@@ -362,47 +299,37 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
     _sessionStarted(event)
     {
-        if (WI.settings.clearLogOnNavigate.value) {
+        if (WebInspector.settings.clearLogOnNavigate.value) {
             this._reappendProvisionalMessages();
             return;
         }
 
         const isFirstSession = false;
-        const newSessionReason = event.data.wasReloaded ? WI.ConsoleSession.NewSessionReason.PageReloaded : WI.ConsoleSession.NewSessionReason.PageNavigated;
+        const newSessionReason = event.data.wasReloaded ? WebInspector.ConsoleSession.NewSessionReason.PageReloaded : WebInspector.ConsoleSession.NewSessionReason.PageNavigated;
         this._logViewController.startNewSession(isFirstSession, {newSessionReason, timestamp: event.data.timestamp});
 
         this._clearProvisionalState();
     }
 
-    _scopeFromMessageSource(source)
-    {
-        switch (source) {
-        case WI.ConsoleMessage.MessageSource.Media:
-            return WI.LogContentView.Scopes.Media;
-        case WI.ConsoleMessage.MessageSource.WebRTC:
-            return WI.LogContentView.Scopes.WebRTC;
-        }
-
-        return undefined;
-    }
-
     _scopeFromMessageLevel(level)
     {
-        switch (level) {
-        case WI.ConsoleMessage.MessageLevel.Warning:
-            return WI.LogContentView.Scopes.Warnings;
-        case WI.ConsoleMessage.MessageLevel.Error:
-            return WI.LogContentView.Scopes.Errors;
-        case WI.ConsoleMessage.MessageLevel.Log:
-            return WI.LogContentView.Scopes.Logs;
-        case WI.ConsoleMessage.MessageLevel.Info:
-            return this._hasNonDefaultLogChannelMessage ? WI.LogContentView.Scopes.Infos : WI.LogContentView.Scopes.Logs;
-        case WI.ConsoleMessage.MessageLevel.Debug:
-            return this._hasNonDefaultLogChannelMessage ? WI.LogContentView.Scopes.Debugs : WI.LogContentView.Scopes.Logs;
-        }
-        console.assert(false, "This should not be reached.");
+        var messageLevel;
 
-        return undefined;
+        switch (level) {
+        case WebInspector.ConsoleMessage.MessageLevel.Warning:
+            messageLevel = WebInspector.LogContentView.Scopes.Warnings;
+            break;
+        case WebInspector.ConsoleMessage.MessageLevel.Error:
+            messageLevel = WebInspector.LogContentView.Scopes.Errors;
+            break;
+        case WebInspector.ConsoleMessage.MessageLevel.Log:
+        case WebInspector.ConsoleMessage.MessageLevel.Info:
+        case WebInspector.ConsoleMessage.MessageLevel.Debug:
+            messageLevel = WebInspector.LogContentView.Scopes.Logs;
+            break;
+        }
+
+        return messageLevel;
     }
 
     _markScopeBarItemUnread(level)
@@ -412,24 +339,16 @@ WI.LogContentView = class LogContentView extends WI.ContentView
             return;
 
         let item = this._scopeBar.item(messageLevel);
-        if (item && !item.selected && !this._scopeBar.item(WI.LogContentView.Scopes.All).selected)
+        if (item && !item.selected && !this._scopeBar.item(WebInspector.LogContentView.Scopes.All).selected)
             item.element.classList.add("unread");
     }
 
     _messageAdded(event)
     {
-        let message = event.data.message;
         if (this._startedProvisionalLoad)
-            this._provisionalMessages.push(message);
+            this._provisionalMessages.push(event.data.message);
 
-        if (!this._hasNonDefaultLogChannelMessage && WI.consoleManager.logChannelSources.includes(message.source)) {
-            this._hasNonDefaultLogChannelMessage = true;
-            this.dispatchEventToListeners(WI.ContentView.Event.NavigationItemsDidChange);
-            this._scopeBar.item(WI.LogContentView.Scopes.Infos).hidden = false;
-            this._scopeBar.item(WI.LogContentView.Scopes.Debugs).hidden = false;
-        }
-
-        this._logViewController.appendConsoleMessage(message);
+        this._logViewController.appendConsoleMessage(event.data.message);
     }
 
     _previousMessageRepeatCountUpdated(event)
@@ -448,7 +367,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
         // In the case that there are selected messages, only clear that selection if the right-click
         // is not on the element or descendants of the selected messages.
-        if (this._selectedMessages.length && !this._selectedMessages.some(element => element.contains(event.target))) {
+        if (this._selectedMessages.length && !this._selectedMessages.some(element => event.target.isSelfOrDescendant(element))) {
             this._clearMessagesSelection();
             this._mousedown(event);
         }
@@ -463,16 +382,16 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         if (event.target.enclosingNodeOrSelfWithNodeName("a"))
             return;
 
-        let contextMenu = WI.ContextMenu.createFromEvent(event);
+        let contextMenu = WebInspector.ContextMenu.createFromEvent(event);
 
         if (this._selectedMessages.length) {
-            contextMenu.appendItem(WI.UIString("Copy Selected"), () => {
+            contextMenu.appendItem(WebInspector.UIString("Copy Selected"), () => {
                 InspectorFrontendHost.copyText(this._formatMessagesAsData(true));
             });
 
-            contextMenu.appendItem(WI.UIString("Save Selected"), () => {
+            contextMenu.appendItem(WebInspector.UIString("Save Selected"), () => {
                 const forceSaveAs = true;
-                WI.FileUtilities.save({
+                WebInspector.saveDataToFile({
                     url: "web-inspector:///Console.txt",
                     content: this._formatMessagesAsData(true),
                 }, forceSaveAs);
@@ -481,7 +400,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
             contextMenu.appendSeparator();
         }
 
-        contextMenu.appendItem(WI.UIString("Clear Log"), this._clearLog.bind(this));
+        contextMenu.appendItem(WebInspector.UIString("Clear Log"), this._clearLog.bind(this));
         contextMenu.appendSeparator();
     }
 
@@ -497,7 +416,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
             return;
         }
 
-        this._mouseDownWrapper = event.target.enclosingNodeOrSelfWithClass(WI.LogContentView.ItemWrapperStyleClassName);
+        this._mouseDownWrapper = event.target.enclosingNodeOrSelfWithClass(WebInspector.LogContentView.ItemWrapperStyleClassName);
         this._mouseDownShiftKey = event.shiftKey;
         this._mouseDownCommandKey = event.metaKey;
         this._mouseMoveIsRowSelection = false;
@@ -516,12 +435,12 @@ WI.LogContentView = class LogContentView extends WI.ContentView
     _mousemove(event)
     {
         var selection = window.getSelection();
-        var wrapper = event.target.enclosingNodeOrSelfWithClass(WI.LogContentView.ItemWrapperStyleClassName);
+        var wrapper = event.target.enclosingNodeOrSelfWithClass(WebInspector.LogContentView.ItemWrapperStyleClassName);
 
         if (!wrapper) {
             // No wrapper under the mouse, so look at the selection to try and find one.
             if (!selection.isCollapsed) {
-                wrapper = selection.focusNode.parentNode.enclosingNodeOrSelfWithClass(WI.LogContentView.ItemWrapperStyleClassName);
+                wrapper = selection.focusNode.parentNode.enclosingNodeOrSelfWithClass(WebInspector.LogContentView.ItemWrapperStyleClassName);
                 selection.removeAllRanges();
             }
 
@@ -554,7 +473,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         window.removeEventListener("mouseup", this);
 
         var selection = window.getSelection();
-        var wrapper = event.target.enclosingNodeOrSelfWithClass(WI.LogContentView.ItemWrapperStyleClassName);
+        var wrapper = event.target.enclosingNodeOrSelfWithClass(WebInspector.LogContentView.ItemWrapperStyleClassName);
 
         if (wrapper && (selection.isCollapsed || event.shiftKey)) {
             selection.removeAllRanges();
@@ -582,7 +501,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
     _ondragstart(event)
     {
-        if (event.target.enclosingNodeOrSelfWithClass(WI.DOMTreeOutline.StyleClassName)) {
+        if (event.target.enclosingNodeOrSelfWithClass(WebInspector.DOMTreeOutline.StyleClassName)) {
             event.stopPropagation();
             event.preventDefault();
         }
@@ -608,7 +527,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
         var alreadySelectedMessage = this._selectedMessages.includes(message);
         if (alreadySelectedMessage && this._selectedMessages.length && multipleSelection) {
-            message.classList.remove(WI.LogContentView.SelectedStyleClassName);
+            message.classList.remove(WebInspector.LogContentView.SelectedStyleClassName);
             this._selectedMessages.remove(message);
             return;
         }
@@ -632,18 +551,18 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
             for (var i = startIndex; i <= endIndex; ++i) {
                 var messageInRange = messages[i];
-                if (i >= newRange[0] && i <= newRange[1] && !messageInRange.classList.contains(WI.LogContentView.SelectedStyleClassName)) {
-                    messageInRange.classList.add(WI.LogContentView.SelectedStyleClassName);
+                if (i >= newRange[0] && i <= newRange[1] && !messageInRange.classList.contains(WebInspector.LogContentView.SelectedStyleClassName)) {
+                    messageInRange.classList.add(WebInspector.LogContentView.SelectedStyleClassName);
                     this._selectedMessages.push(messageInRange);
-                } else if (i < newRange[0] || i > newRange[1] && messageInRange.classList.contains(WI.LogContentView.SelectedStyleClassName)) {
-                    messageInRange.classList.remove(WI.LogContentView.SelectedStyleClassName);
+                } else if (i < newRange[0] || i > newRange[1] && messageInRange.classList.contains(WebInspector.LogContentView.SelectedStyleClassName)) {
+                    messageInRange.classList.remove(WebInspector.LogContentView.SelectedStyleClassName);
                     this._selectedMessages.remove(messageInRange);
                 }
             }
 
             this._selectionRange = newRange;
         } else {
-            message.classList.add(WI.LogContentView.SelectedStyleClassName);
+            message.classList.add(WebInspector.LogContentView.SelectedStyleClassName);
             this._selectedMessages.push(message);
         }
 
@@ -687,10 +606,10 @@ WI.LogContentView = class LogContentView extends WI.ContentView
     {
         var node = message;
 
-        if (node.classList.contains(WI.LogContentView.FilteredOutStyleClassName))
+        if (node.classList.contains(WebInspector.LogContentView.FilteredOutStyleClassName))
             return false;
 
-        if (this.hasPerformedSearch && node.classList.contains(WI.LogContentView.FilteredOutBySearchStyleClassName))
+        if (this.hasPerformedSearch && node.classList.contains(WebInspector.LogContentView.FilteredOutBySearchStyleClassName))
             return false;
 
         if (message.classList.contains("console-group-title"))
@@ -707,13 +626,13 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
     _isMessageSelected(message)
     {
-        return message.classList.contains(WI.LogContentView.SelectedStyleClassName);
+        return message.classList.contains(WebInspector.LogContentView.SelectedStyleClassName);
     }
 
     _clearMessagesSelection()
     {
         this._selectedMessages.forEach(function(message) {
-            message.classList.remove(WI.LogContentView.SelectedStyleClassName);
+            message.classList.remove(WebInspector.LogContentView.SelectedStyleClassName);
         });
         this._selectedMessages = [];
         delete this._referenceMessageForRangeSelection;
@@ -726,7 +645,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         var messages = this._visibleMessageElements();
         for (var i = 0; i < messages.length; ++i) {
             var message = messages[i];
-            message.classList.add(WI.LogContentView.SelectedStyleClassName);
+            message.classList.add(WebInspector.LogContentView.SelectedStyleClassName);
             this._selectedMessages.push(message);
         }
     }
@@ -739,7 +658,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
     _unfilteredMessageElements()
     {
         return this._allMessageElements().filter(function(message) {
-            return !message.classList.contains(WI.LogContentView.FilteredOutStyleClassName);
+            return !message.classList.contains(WebInspector.LogContentView.FilteredOutStyleClassName);
         });
     }
 
@@ -751,7 +670,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
             return unfilteredMessages;
 
         return unfilteredMessages.filter(function(message) {
-            return !message.classList.contains(WI.LogContentView.FilteredOutBySearchStyleClassName);
+            return !message.classList.contains(WebInspector.LogContentView.FilteredOutBySearchStyleClassName);
         });
     }
 
@@ -769,89 +688,65 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
     _showConsoleTab()
     {
-        WI.showConsoleTab();
+        WebInspector.showConsoleTab();
     }
 
     _clearLog()
     {
-        WI.consoleManager.requestClearMessages();
+        WebInspector.logManager.requestClearMessages();
     }
 
     _garbageCollect()
     {
         // COMPATIBILITY (iOS 10.3): Worker targets did not support HeapAgent.
-        for (let target of WI.targets) {
+        for (let target of WebInspector.targets) {
             if (target.HeapAgent)
                 target.HeapAgent.gc();
         }
     }
 
-    _messageShouldBeVisible(message)
-    {
-        let messageSource = this._messageSourceBar && this._scopeFromMessageSource(message.source);
-        if (messageSource && !this._messageSourceBar.item(messageSource).selected && !this._messageSourceBar.item(WI.LogContentView.Scopes.AllChannels).selected)
-            return false;
-
-        let messageLevel = this._scopeFromMessageLevel(message.level);
-        if (messageLevel)
-            return this._scopeBar.item(messageLevel).selected || this._scopeBar.item(WI.LogContentView.Scopes.All).selected;
-
-        return true;
-    }
-
-    _messageSourceBarSelectionDidChange(event)
-    {
-        let selectedItem = this._messageSourceBar.selectedItems[0];
-        if (selectedItem.id === WI.LogContentView.Scopes.AllChannels) {
-            for (let item of this._messageSourceBar.items)
-                item.element.classList.remove("unread");
-        } else
-            selectedItem.element.classList.remove("unread");
-
-        this._filterMessageElements(this._allMessageElements());
-    }
-
     _scopeBarSelectionDidChange(event)
     {
-        let selectedItem = this._scopeBar.selectedItems[0];
+        var item = this._scopeBar.selectedItems[0];
 
-        if (selectedItem.id === WI.LogContentView.Scopes.All) {
-            for (let item of this._scopeBar.items)
+        if (item.id === WebInspector.LogContentView.Scopes.All) {
+            for (var item of this._scopeBar.items)
                 item.element.classList.remove("unread");
         } else
-            selectedItem.element.classList.remove("unread");
+            item.element.classList.remove("unread");
 
         this._filterMessageElements(this._allMessageElements());
     }
 
     _filterMessageElements(messageElements)
     {
-        messageElements.forEach(function(messageElement) {
-            let visible = messageElement.__commandView instanceof WI.ConsoleCommandView || messageElement.__message instanceof WI.ConsoleCommandResultMessage;
-            if (!visible)
-                visible = this._messageShouldBeVisible(messageElement.__message);
+        var showsAll = this._scopeBar.item(WebInspector.LogContentView.Scopes.All).selected;
 
-            let classList = messageElement.classList;
+        messageElements.forEach(function(messageElement) {
+            var visible = showsAll || messageElement.__commandView instanceof WebInspector.ConsoleCommandView || messageElement.__message instanceof WebInspector.ConsoleCommandResultMessage;
+            if (!visible) {
+                var messageLevel = this._scopeFromMessageLevel(messageElement.__message.level);
+
+                if (messageLevel)
+                    visible = this._scopeBar.item(messageLevel).selected;
+            }
+
+            var classList = messageElement.classList;
             if (visible)
-                classList.remove(WI.LogContentView.FilteredOutStyleClassName);
+                classList.remove(WebInspector.LogContentView.FilteredOutStyleClassName);
             else {
                 this._selectedMessages.remove(messageElement);
-                classList.remove(WI.LogContentView.SelectedStyleClassName);
-                classList.add(WI.LogContentView.FilteredOutStyleClassName);
+                classList.remove(WebInspector.LogContentView.SelectedStyleClassName);
+                classList.add(WebInspector.LogContentView.FilteredOutStyleClassName);
             }
         }, this);
 
         this.performSearch(this._currentSearchQuery);
     }
 
-    _clearLogOnNavigateSettingChanged()
-    {
-        this._preserveLogNavigationItem.checked = !WI.settings.clearLogOnNavigate.value;
-    }
-
     _keyDown(event)
     {
-        let isRTL = WI.resolvedLayoutDirection() === WI.LayoutDirection.RTL;
+        let isRTL = WebInspector.resolvedLayoutDirection() === WebInspector.LayoutDirection.RTL;
 
         if (this._keyboardShortcutCommandA.matchesEvent(event))
             this._commandAWasPressed(event);
@@ -1028,7 +923,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
     performSearch(searchQuery)
     {
         if (!isEmptyObject(this._searchHighlightDOMChanges))
-            WI.revertDOMChanges(this._searchHighlightDOMChanges);
+            WebInspector.revertDomChanges(this._searchHighlightDOMChanges);
 
         this._currentSearchQuery = searchQuery;
         this._searchHighlightDOMChanges = [];
@@ -1038,12 +933,12 @@ WI.LogContentView = class LogContentView extends WI.ContentView
         let numberOfResults = 0;
 
         if (this._currentSearchQuery === "") {
-            this.element.classList.remove(WI.LogContentView.SearchInProgressStyleClassName);
-            this.dispatchEventToListeners(WI.ContentView.Event.NumberOfSearchResultsDidChange);
+            this.element.classList.remove(WebInspector.LogContentView.SearchInProgressStyleClassName);
+            this.dispatchEventToListeners(WebInspector.ContentView.Event.NumberOfSearchResultsDidChange);
             return;
         }
 
-        this.element.classList.add(WI.LogContentView.SearchInProgressStyleClassName);
+        this.element.classList.add(WebInspector.LogContentView.SearchInProgressStyleClassName);
 
         let searchRegex = new RegExp(this._currentSearchQuery.escapeForRegExp(), "gi");
         this._unfilteredMessageElements().forEach(function(message) {
@@ -1060,25 +955,20 @@ WI.LogContentView = class LogContentView extends WI.ContentView
                 this._highlightRanges(message, matchRanges);
 
             let classList = message.classList;
-            if (!isEmptyObject(matchRanges) || message.__commandView instanceof WI.ConsoleCommandView || message.__message instanceof WI.ConsoleCommandResultMessage)
-                classList.remove(WI.LogContentView.FilteredOutBySearchStyleClassName);
+            if (!isEmptyObject(matchRanges) || message.__commandView instanceof WebInspector.ConsoleCommandView || message.__message instanceof WebInspector.ConsoleCommandResultMessage)
+                classList.remove(WebInspector.LogContentView.FilteredOutBySearchStyleClassName);
             else
-                classList.add(WI.LogContentView.FilteredOutBySearchStyleClassName);
+                classList.add(WebInspector.LogContentView.FilteredOutBySearchStyleClassName);
         }, this);
 
-        this.dispatchEventToListeners(WI.ContentView.Event.NumberOfSearchResultsDidChange);
+        this.dispatchEventToListeners(WebInspector.ContentView.Event.NumberOfSearchResultsDidChange);
 
         this._findBanner.numberOfResults = numberOfResults;
 
         if (!this._selectedSearchMatchIsValid && this._selectedSearchMatch) {
-            this._selectedSearchMatch.highlight.classList.remove(WI.LogContentView.SelectedStyleClassName);
+            this._selectedSearchMatch.highlight.classList.remove(WebInspector.LogContentView.SelectedStyleClassName);
             this._selectedSearchMatch = null;
         }
-    }
-
-    searchHidden()
-    {
-        this.searchCleared();
     }
 
     searchCleared()
@@ -1088,7 +978,7 @@ WI.LogContentView = class LogContentView extends WI.ContentView
 
     _highlightRanges(message, matchRanges)
     {
-        var highlightedElements = WI.highlightRangesWithStyleClass(message, matchRanges, WI.LogContentView.HighlightedStyleClassName, this._searchHighlightDOMChanges);
+        var highlightedElements = WebInspector.highlightRangesWithStyleClass(message, matchRanges, WebInspector.LogContentView.HighlightedStyleClassName, this._searchHighlightDOMChanges);
 
         console.assert(highlightedElements.length === matchRanges.length);
 
@@ -1118,10 +1008,10 @@ WI.LogContentView = class LogContentView extends WI.ContentView
             index = this._searchMatches.length - 1;
 
         if (this._selectedSearchMatch)
-            this._selectedSearchMatch.highlight.classList.remove(WI.LogContentView.SelectedStyleClassName);
+            this._selectedSearchMatch.highlight.classList.remove(WebInspector.LogContentView.SelectedStyleClassName);
 
         this._selectedSearchMatch = this._searchMatches[index];
-        this._selectedSearchMatch.highlight.classList.add(WI.LogContentView.SelectedStyleClassName);
+        this._selectedSearchMatch.highlight.classList.add(WebInspector.LogContentView.SelectedStyleClassName);
 
         this._ensureMessageIsVisible(this._selectedSearchMatch.message);
     }
@@ -1151,21 +1041,16 @@ WI.LogContentView = class LogContentView extends WI.ContentView
     }
 };
 
-WI.LogContentView.Scopes = {
+WebInspector.LogContentView.Scopes = {
     All: "log-all",
     Errors: "log-errors",
     Warnings: "log-warnings",
-    Logs: "log-logs",
-    Infos: "log-infos",
-    Debugs: "log-debugs",
-    AllChannels: "log-all-channels",
-    Media: "log-media",
-    WebRTC: "log-webrtc",
+    Logs: "log-logs"
 };
 
-WI.LogContentView.ItemWrapperStyleClassName = "console-item";
-WI.LogContentView.FilteredOutStyleClassName = "filtered-out";
-WI.LogContentView.SelectedStyleClassName = "selected";
-WI.LogContentView.SearchInProgressStyleClassName = "search-in-progress";
-WI.LogContentView.FilteredOutBySearchStyleClassName = "filtered-out-by-search";
-WI.LogContentView.HighlightedStyleClassName = "highlighted";
+WebInspector.LogContentView.ItemWrapperStyleClassName = "console-item";
+WebInspector.LogContentView.FilteredOutStyleClassName = "filtered-out";
+WebInspector.LogContentView.SelectedStyleClassName = "selected";
+WebInspector.LogContentView.SearchInProgressStyleClassName = "search-in-progress";
+WebInspector.LogContentView.FilteredOutBySearchStyleClassName = "filtered-out-by-search";
+WebInspector.LogContentView.HighlightedStyleClassName = "highlighted";

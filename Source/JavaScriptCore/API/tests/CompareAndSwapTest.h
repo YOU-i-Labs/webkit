@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 /* Regression test for webkit.org/b/142513 */
-void testCompareAndSwap(void);
+void testCompareAndSwap();
 
 #ifdef __cplusplus
 } /* extern "C" */

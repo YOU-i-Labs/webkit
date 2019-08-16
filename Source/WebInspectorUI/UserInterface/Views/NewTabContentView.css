@@ -88,9 +88,3 @@
     display: block;
     margin-top: 8px;
 }
-
-@media (prefers-color-scheme: dark) {
-    .new-tab.tab.content-view {
-        background-color: var(--background-color-content);
-    }
-}

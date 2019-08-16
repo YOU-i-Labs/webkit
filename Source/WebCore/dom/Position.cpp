@@ -32,13 +32,11 @@
 #include "HTMLBodyElement.h"
 #include "HTMLHtmlElement.h"
 #include "HTMLNames.h"
-#include "HTMLParserIdioms.h"
 #include "HTMLTableElement.h"
 #include "InlineElementBox.h"
 #include "InlineIterator.h"
 #include "InlineTextBox.h"
 #include "Logging.h"
-#include "NodeTraversal.h"
 #include "PositionIterator.h"
 #include "RenderBlock.h"
 #include "RenderFlexibleBox.h"
@@ -50,11 +48,11 @@
 #include "RuntimeEnabledFeatures.h"
 #include "Text.h"
 #include "TextIterator.h"
+#include "TextStream.h"
 #include "VisiblePosition.h"
 #include "VisibleUnits.h"
 #include <stdio.h>
 #include <wtf/text/CString.h>
-#include <wtf/text/TextStream.h>
 #include <wtf/unicode/CharacterNames.h>
 
 #if ENABLE(TREE_DEBUGGING)
@@ -238,7 +236,7 @@ Position Position::parentAnchoredEquivalent() const
         return Position(m_anchorNode.get(), 0, PositionIsOffsetInAnchor);
     }
 
-    if (!m_anchorNode->isCharacterDataNode()
+    if (!m_anchorNode->offsetInCharacters()
         && (m_anchorType == PositionIsAfterAnchor || m_anchorType == PositionIsAfterChildren || static_cast<unsigned>(m_offset) == m_anchorNode->countChildNodes())
         && (editingIgnoresContent(*m_anchorNode) || isRenderedTable(m_anchorNode.get()))
         && containerNode()) {
@@ -246,20 +244,6 @@ Position Position::parentAnchoredEquivalent() const
     }
 
     return { containerNode(), computeOffsetInContainerNode(), PositionIsOffsetInAnchor };
-}
-
-RefPtr<Node> Position::firstNode() const
-{
-    auto container = makeRefPtr(containerNode());
-    if (!container)
-        return nullptr;
-    if (is<CharacterData>(*container))
-        return container;
-    if (auto* node = computeNodeAfterPosition())
-        return node;
-    if (!computeOffsetInContainerNode())
-        return container;
-    return NodeTraversal::nextSkippingChildren(*container);
 }
 
 Node* Position::computeNodeBeforePosition() const
@@ -700,7 +684,7 @@ Position Position::upstream(EditingBoundaryCrossingRule rule) const
 
         // skip position in unrendered or invisible node
         RenderObject* renderer = currentNode.renderer();
-        if (!renderer || renderer->style().visibility() != Visibility::Visible)
+        if (!renderer || renderer->style().visibility() != VISIBLE)
             continue;
         ensureLineBoxesIfNeeded(*renderer);
         if (rule == CanCrossEditingBoundary && boundaryCrossed) {
@@ -835,7 +819,7 @@ Position Position::downstream(EditingBoundaryCrossingRule rule) const
 
         // skip position in unrendered or invisible node
         auto* renderer = currentNode.renderer();
-        if (!renderer || renderer->style().visibility() != Visibility::Visible)
+        if (!renderer || renderer->style().visibility() != VISIBLE)
             continue;
         ensureLineBoxesIfNeeded(*renderer);
         if (rule == CanCrossEditingBoundary && boundaryCrossed) {
@@ -969,13 +953,13 @@ bool Position::hasRenderedNonAnonymousDescendantsWithHeight(const RenderElement&
 
 bool Position::nodeIsUserSelectNone(Node* node)
 {
-    return node && node->renderer() && node->renderer()->style().userSelect() == UserSelect::None;
+    return node && node->renderer() && node->renderer()->style().userSelect() == SELECT_NONE;
 }
 
 #if ENABLE(USERSELECT_ALL)
 bool Position::nodeIsUserSelectAll(const Node* node)
 {
-    return node && node->renderer() && node->renderer()->style().userSelect() == UserSelect::All;
+    return node && node->renderer() && node->renderer()->style().userSelect() == SELECT_ALL;
 }
 
 Node* Position::rootUserSelectAllForNode(Node* node)
@@ -1010,7 +994,7 @@ bool Position::isCandidate() const
     if (!renderer)
         return false;
 
-    if (renderer->style().visibility() != Visibility::Visible)
+    if (renderer->style().visibility() != VISIBLE)
         return false;
 
     if (renderer->isBR()) {
@@ -1073,7 +1057,7 @@ bool Position::rendersInDifferentPosition(const Position& position) const
     if (!positionRenderer)
         return false;
 
-    if (renderer->style().visibility() != Visibility::Visible || positionRenderer->style().visibility() != Visibility::Visible)
+    if (renderer->style().visibility() != VISIBLE || positionRenderer->style().visibility() != VISIBLE)
         return false;
     
     if (deprecatedNode() == position.deprecatedNode()) {
@@ -1157,11 +1141,11 @@ Position Position::leadingWhitespacePosition(EAffinity affinity, bool considerNo
 
     Position prev = previousCharacterPosition(affinity);
     if (prev != *this && inSameEnclosingBlockFlowElement(deprecatedNode(), prev.deprecatedNode()) && is<Text>(*prev.deprecatedNode())) {
-        UChar c = downcast<Text>(*prev.deprecatedNode()).data()[prev.deprecatedEditingOffset()];
-        if (considerNonCollapsibleWhitespace ? (isHTMLSpace(c) || c == noBreakSpace) : deprecatedIsCollapsibleWhitespace(c)) {
+        String string = downcast<Text>(*prev.deprecatedNode()).data();
+        UChar c = string[prev.deprecatedEditingOffset()];
+        if (considerNonCollapsibleWhitespace ? (isSpaceOrNewline(c) || c == noBreakSpace) : deprecatedIsCollapsibleWhitespace(c))
             if (isEditablePosition(prev))
                 return prev;
-        }
     }
 
     return { };
@@ -1178,7 +1162,7 @@ Position Position::trailingWhitespacePosition(EAffinity, bool considerNonCollaps
     UChar c = v.characterAfter();
     // The space must not be in another paragraph and it must be editable.
     if (!isEndOfParagraph(v) && v.next(CannotCrossEditingBoundary).isNotNull())
-        if (considerNonCollapsibleWhitespace ? (isHTMLSpace(c) || c == noBreakSpace) : deprecatedIsCollapsibleWhitespace(c))
+        if (considerNonCollapsibleWhitespace ? (isSpaceOrNewline(c) || c == noBreakSpace) : deprecatedIsCollapsibleWhitespace(c))
             return *this;
     
     return { };
@@ -1403,10 +1387,10 @@ void Position::getInlineBoxAndOffset(EAffinity affinity, TextDirection primaryDi
 TextDirection Position::primaryDirection() const
 {
     if (!m_anchorNode->renderer())
-        return TextDirection::LTR;
+        return LTR;
     if (auto* blockFlow = lineageOfType<RenderBlockFlow>(*m_anchorNode->renderer()).first())
         return blockFlow->style().direction();
-    return TextDirection::LTR;
+    return LTR;
 }
 
 #if ENABLE(TREE_DEBUGGING)
@@ -1414,9 +1398,9 @@ TextDirection Position::primaryDirection() const
 void Position::debugPosition(const char* msg) const
 {
     if (isNull())
-        fprintf(stderr, "Position [%s]: null\n", msg);
+        WTFLogAlways("Position [%s]: null\n", msg);
     else
-        fprintf(stderr, "Position [%s]: %s [%p] at %d\n", msg, deprecatedNode()->nodeName().utf8().data(), deprecatedNode(), m_offset);
+        WTFLogAlways("Position [%s]: %s [%p] at %d\n", msg, deprecatedNode()->nodeName().utf8().data(), deprecatedNode(), m_offset);
 }
 
 void Position::formatForDebugger(char* buffer, unsigned length) const
@@ -1458,7 +1442,7 @@ void Position::showAnchorTypeAndOffset() const
         fputs("after", stderr);
         break;
     }
-    fprintf(stderr, ", offset:%d\n", m_offset);
+    WTFLogAlways(", offset:%d\n", m_offset);
 }
 
 void Position::showTreeForThis() const
@@ -1599,18 +1583,6 @@ TextStream& operator<<(TextStream& stream, const Position& position)
     stream.dumpProperty("anchor type", position.anchorType());
 
     return stream;
-}
-
-RefPtr<Node> commonShadowIncludingAncestor(const Position& a, const Position& b)
-{
-    auto* commonScope = commonTreeScope(a.containerNode(), b.containerNode());
-    if (!commonScope)
-        return nullptr;
-    auto* nodeA = commonScope->ancestorNodeInThisScope(a.containerNode());
-    ASSERT(nodeA);
-    auto* nodeB = commonScope->ancestorNodeInThisScope(b.containerNode());
-    ASSERT(nodeB);
-    return Range::commonAncestorContainer(nodeA, nodeB);
 }
 
 } // namespace WebCore

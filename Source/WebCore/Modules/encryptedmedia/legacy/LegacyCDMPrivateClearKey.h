@@ -31,25 +31,25 @@
 
 namespace WebCore {
 
-class LegacyCDM;
+class CDM;
 
-class LegacyCDMPrivateClearKey : public CDMPrivateInterface {
+class CDMPrivateClearKey : public CDMPrivateInterface {
 public:
-    explicit LegacyCDMPrivateClearKey(LegacyCDM* cdm)
+    explicit CDMPrivateClearKey(CDM* cdm)
         : m_cdm(cdm)
     {
     }
 
-    virtual ~LegacyCDMPrivateClearKey() = default;
+    virtual ~CDMPrivateClearKey() { }
 
     static bool supportsKeySystem(const String&);
     static bool supportsKeySystemAndMimeType(const String& keySystem, const String& mimeType);
 
     bool supportsMIMEType(const String& mimeType) override;
-    std::unique_ptr<LegacyCDMSession> createSession(LegacyCDMSessionClient*) override;
+    std::unique_ptr<CDMSession> createSession(CDMSessionClient*) override;
 
 protected:
-    LegacyCDM* m_cdm;
+    CDM* m_cdm;
 };
 
 } // namespace WebCore

@@ -31,15 +31,16 @@
 
 #pragma once
 
+#if ENABLE(WEB_TIMING)
+
 #include "LoadTiming.h"
 #include "NetworkLoadMetrics.h"
 #include "PerformanceEntry.h"
-#include <wtf/Ref.h>
+#include <wtf/RefPtr.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-class PerformanceServerTiming;
 class ResourceTiming;
 
 class PerformanceResourceTiming final : public PerformanceEntry {
@@ -61,7 +62,6 @@ public:
     double requestStart() const;
     double responseStart() const;
     double responseEnd() const;
-    const Vector<Ref<PerformanceServerTiming>>& serverTiming() const { return m_serverTiming; }
 
 private:
     PerformanceResourceTiming(MonotonicTime timeOrigin, ResourceTiming&&);
@@ -74,7 +74,6 @@ private:
     LoadTiming m_loadTiming;
     NetworkLoadMetrics m_networkLoadMetrics;
     bool m_shouldReportDetails;
-    Vector<Ref<PerformanceServerTiming>> m_serverTiming;
 };
 
 } // namespace WebCore
@@ -82,3 +81,5 @@ private:
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::PerformanceResourceTiming)
     static bool isType(const WebCore::PerformanceEntry& entry) { return entry.isResource(); }
 SPECIALIZE_TYPE_TRAITS_END()
+
+#endif // ENABLE(WEB_TIMING)

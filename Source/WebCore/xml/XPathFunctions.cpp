@@ -669,7 +669,7 @@ struct FunctionMapValue {
     Interval argumentCountInterval;
 };
 
-static HashMap<String, FunctionMapValue> createFunctionMap()
+static void populateFunctionMap(HashMap<String, FunctionMapValue>& functionMap)
 {
     struct FunctionMapping {
         const char* name;
@@ -706,15 +706,15 @@ static HashMap<String, FunctionMapValue> createFunctionMap()
         { "true", { createFunctionTrue, 0 } },
     };
 
-    HashMap<String, FunctionMapValue> map;
     for (auto& function : functions)
-        map.add(function.name, function.function);
-    return map;
+        functionMap.add(function.name, function.function);
 }
 
 std::unique_ptr<Function> Function::create(const String& name, unsigned numArguments)
 {
-    static const auto functionMap = makeNeverDestroyed(createFunctionMap());
+    static NeverDestroyed<HashMap<String, FunctionMapValue>> functionMap;
+    if (functionMap.get().isEmpty())
+        populateFunctionMap(functionMap);
 
     auto it = functionMap.get().find(name);
     if (it == functionMap.get().end())
@@ -733,7 +733,7 @@ std::unique_ptr<Function> Function::create(const String& name)
 
 std::unique_ptr<Function> Function::create(const String& name, Vector<std::unique_ptr<Expression>> arguments)
 {
-    auto function = create(name, arguments.size());
+    std::unique_ptr<Function> function = create(name, arguments.size());
     if (function)
         function->setArguments(name, WTFMove(arguments));
     return function;

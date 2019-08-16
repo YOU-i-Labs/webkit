@@ -26,7 +26,7 @@ class HTMLElement;
 
 class FormNamedItem {
 public:
-    virtual ~FormNamedItem() = default;
+    virtual ~FormNamedItem() { }
     virtual HTMLElement& asHTMLElement() = 0;
     virtual const HTMLElement& asHTMLElement() const = 0;
     virtual bool isFormAssociatedElement() const = 0;

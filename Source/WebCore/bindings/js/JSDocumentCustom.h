@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2015 Apple Inc. All rights reserved.
- * Copyright (C) 2018 Yusuke Suzuki <utatane.tea@gmail.com>.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,22 +28,13 @@
 #include "JSDOMBinding.h"
 #include "JSDocument.h"
 
-namespace JSC {
-namespace JSCastingHelpers {
-
-template<>
-struct InheritsTraits<WebCore::JSDocument> {
-    template<typename From>
-    static inline bool inherits(VM&, From* from)
-    {
-        return from->type() == WebCore::JSDocumentWrapperType;
-    }
-};
-
-} // namespace JSCastingHelpers
-} // namespace JSC
-
 namespace WebCore {
+
+template<typename From>
+ALWAYS_INLINE JSDynamicCastResult<JSDocument, From> jsDocumentCast(From* value)
+{
+    return value->type() == JSDocumentWrapperType ? JSC::jsCast<JSDynamicCastResult<JSDocument, From>>(value) : nullptr;
+}
 
 JSC::JSObject* cachedDocumentWrapper(JSC::ExecState&, JSDOMGlobalObject&, Document&);
 void reportMemoryForDocumentIfFrameless(JSC::ExecState&, Document&);

@@ -22,6 +22,7 @@
 #include "config.h"
 #include "SVGAngleValue.h"
 
+#include "ExceptionCode.h"
 #include "SVGParserUtilities.h"
 #include <wtf/MathExtras.h>
 #include <wtf/text/StringView.h>
@@ -112,11 +113,11 @@ ExceptionOr<void> SVGAngleValue::setValueAsString(const String& value)
 
     float valueInSpecifiedUnits = 0;
     if (!parseNumber(ptr, end, valueInSpecifiedUnits, false))
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
 
     auto unitType = parseAngleType(ptr, end);
     if (unitType == SVG_ANGLETYPE_UNKNOWN)
-        return Exception { SyntaxError };
+        return Exception { SYNTAX_ERR };
 
     m_unitType = unitType;
     m_valueInSpecifiedUnits = valueInSpecifiedUnits;
@@ -126,7 +127,7 @@ ExceptionOr<void> SVGAngleValue::setValueAsString(const String& value)
 ExceptionOr<void> SVGAngleValue::newValueSpecifiedUnits(unsigned short unitType, float valueInSpecifiedUnits)
 {
     if (unitType == SVG_ANGLETYPE_UNKNOWN || unitType > SVG_ANGLETYPE_GRAD)
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
     m_unitType = static_cast<Type>(unitType);
     m_valueInSpecifiedUnits = valueInSpecifiedUnits;
@@ -136,7 +137,7 @@ ExceptionOr<void> SVGAngleValue::newValueSpecifiedUnits(unsigned short unitType,
 ExceptionOr<void> SVGAngleValue::convertToSpecifiedUnits(unsigned short unitType)
 {
     if (unitType == SVG_ANGLETYPE_UNKNOWN || m_unitType == SVG_ANGLETYPE_UNKNOWN || unitType > SVG_ANGLETYPE_GRAD)
-        return Exception { NotSupportedError };
+        return Exception { NOT_SUPPORTED_ERR };
 
     if (unitType == m_unitType)
         return { };

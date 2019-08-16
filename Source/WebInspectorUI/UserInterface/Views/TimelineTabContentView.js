@@ -23,55 +23,54 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrowserTabContentView
+WebInspector.TimelineTabContentView = class TimelineTabContentView extends WebInspector.ContentBrowserTabContentView
 {
     constructor(identifier)
     {
-        let tabBarItem = WI.GeneralTabBarItem.fromTabInfo(WI.TimelineTabContentView.tabInfo());
-        let detailsSidebarPanelConstructors = [WI.ResourceDetailsSidebarPanel, WI.ProbeDetailsSidebarPanel];
+        let {image, title} = WebInspector.TimelineTabContentView.tabInfo();
+        let tabBarItem = new WebInspector.GeneralTabBarItem(image, title);
+        let detailsSidebarPanelConstructors = [WebInspector.ResourceDetailsSidebarPanel, WebInspector.ProbeDetailsSidebarPanel];
 
         super(identifier || "timeline", "timeline", tabBarItem, null, detailsSidebarPanelConstructors);
 
         // Maintain an invisible tree outline containing tree elements for all recordings.
         // The visible recording's tree element is selected when the content view changes.
         this._recordingTreeElementMap = new Map;
-        this._recordingsTreeOutline = new WI.TreeOutline;
-        this._recordingsTreeOutline.addEventListener(WI.TreeOutline.Event.SelectionDidChange, this._recordingsTreeSelectionDidChange, this);
+        this._recordingsTreeOutline = new WebInspector.TreeOutline;
+        this._recordingsTreeOutline.addEventListener(WebInspector.TreeOutline.Event.SelectionDidChange, this._recordingsTreeSelectionDidChange, this);
 
-        this._toggleRecordingShortcut = new WI.KeyboardShortcut(null, WI.KeyboardShortcut.Key.Space, this._toggleRecordingOnSpacebar.bind(this));
+        this._toggleRecordingShortcut = new WebInspector.KeyboardShortcut(null, WebInspector.KeyboardShortcut.Key.Space, this._toggleRecordingOnSpacebar.bind(this));
         this._toggleRecordingShortcut.implicitlyPreventsDefault = false;
         this._toggleRecordingShortcut.disabled = true;
 
-        this._toggleNewRecordingShortcut = new WI.KeyboardShortcut(WI.KeyboardShortcut.Modifier.Shift, WI.KeyboardShortcut.Key.Space, this._toggleNewRecordingOnSpacebar.bind(this));
+        this._toggleNewRecordingShortcut = new WebInspector.KeyboardShortcut(WebInspector.KeyboardShortcut.Modifier.Shift, WebInspector.KeyboardShortcut.Key.Space, this._toggleNewRecordingOnSpacebar.bind(this));
         this._toggleNewRecordingShortcut.implicitlyPreventsDefault = false;
         this._toggleNewRecordingShortcut.disabled = true;
 
-        let toolTip = WI.UIString("Start recording (%s)\nCreate new recording (%s)").format(this._toggleRecordingShortcut.displayName, this._toggleNewRecordingShortcut.displayName);
-        let altToolTip = WI.UIString("Stop recording (%s)").format(this._toggleRecordingShortcut.displayName);
-        this._recordButton = new WI.ToggleButtonNavigationItem("record-start-stop", toolTip, altToolTip, "Images/Record.svg", "Images/Stop.svg", 13, 13);
-        this._recordButton.visibilityPriority = WI.NavigationItem.VisibilityPriority.Low;
-        this._recordButton.addEventListener(WI.ButtonNavigationItem.Event.Clicked, this._recordButtonClicked, this);
+        let toolTip = WebInspector.UIString("Start recording (%s)\nCreate new recording (%s)").format(this._toggleRecordingShortcut.displayName, this._toggleNewRecordingShortcut.displayName);
+        let altToolTip = WebInspector.UIString("Stop recording (%s)").format(this._toggleRecordingShortcut.displayName);
+        this._recordButton = new WebInspector.ToggleButtonNavigationItem("record-start-stop", toolTip, altToolTip, "Images/Record.svg", "Images/Stop.svg", 13, 13);
+        this._recordButton.addEventListener(WebInspector.ButtonNavigationItem.Event.Clicked, this._recordButtonClicked, this);
 
         this.contentBrowser.navigationBar.insertNavigationItem(this._recordButton, 0);
 
-        if (WI.FPSInstrument.supported()) {
-            let timelinesNavigationItem = new WI.RadioButtonNavigationItem(WI.TimelineOverview.ViewMode.Timelines, WI.UIString("Events"));
-            let renderingFramesNavigationItem = new WI.RadioButtonNavigationItem(WI.TimelineOverview.ViewMode.RenderingFrames, WI.UIString("Frames"));
+        if (WebInspector.FPSInstrument.supported()) {
+            let timelinesNavigationItem = new WebInspector.RadioButtonNavigationItem(WebInspector.TimelineOverview.ViewMode.Timelines, WebInspector.UIString("Events"));
+            let renderingFramesNavigationItem = new WebInspector.RadioButtonNavigationItem(WebInspector.TimelineOverview.ViewMode.RenderingFrames, WebInspector.UIString("Frames"));
 
-            let viewModeGroup = new WI.GroupNavigationItem([timelinesNavigationItem, renderingFramesNavigationItem]);
-            viewModeGroup.visibilityPriority = WI.NavigationItem.VisibilityPriority.High;
+            this.contentBrowser.navigationBar.insertNavigationItem(timelinesNavigationItem, 1);
+            this.contentBrowser.navigationBar.insertNavigationItem(renderingFramesNavigationItem, 2);
 
-            this.contentBrowser.navigationBar.insertNavigationItem(viewModeGroup, 1);
-            this.contentBrowser.navigationBar.addEventListener(WI.NavigationBar.Event.NavigationItemSelected, this._viewModeSelected, this);
+            this.contentBrowser.navigationBar.addEventListener(WebInspector.NavigationBar.Event.NavigationItemSelected, this._viewModeSelected, this);
         }
 
-        WI.timelineManager.addEventListener(WI.TimelineManager.Event.RecordingCreated, this._recordingCreated, this);
-        WI.timelineManager.addEventListener(WI.TimelineManager.Event.RecordingLoaded, this._recordingLoaded, this);
+        WebInspector.timelineManager.addEventListener(WebInspector.TimelineManager.Event.RecordingCreated, this._recordingCreated, this);
+        WebInspector.timelineManager.addEventListener(WebInspector.TimelineManager.Event.RecordingLoaded, this._recordingLoaded, this);
 
-        WI.timelineManager.addEventListener(WI.TimelineManager.Event.CapturingStarted, this._capturingStartedOrStopped, this);
-        WI.timelineManager.addEventListener(WI.TimelineManager.Event.CapturingStopped, this._capturingStartedOrStopped, this);
+        WebInspector.timelineManager.addEventListener(WebInspector.TimelineManager.Event.CapturingStarted, this._capturingStartedOrStopped, this);
+        WebInspector.timelineManager.addEventListener(WebInspector.TimelineManager.Event.CapturingStopped, this._capturingStartedOrStopped, this);
 
-        WI.notifications.addEventListener(WI.Notification.VisibilityStateDidChange, this._inspectorVisibilityChanged, this);
+        WebInspector.notifications.addEventListener(WebInspector.Notification.VisibilityStateDidChange, this._inspectorVisibilityChanged, this);
 
         this._displayedRecording = null;
         this._displayedContentView = null;
@@ -79,9 +78,9 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
         this._previousSelectedTimelineType = null;
 
         const selectedByUser = false;
-        this._changeViewMode(WI.TimelineOverview.ViewMode.Timelines, selectedByUser);
+        this._changeViewMode(WebInspector.TimelineOverview.ViewMode.Timelines, selectedByUser);
 
-        for (let recording of WI.timelineManager.recordings)
+        for (let recording of WebInspector.timelineManager.recordings)
             this._addRecording(recording);
 
         this._recordingCountChanged();
@@ -96,7 +95,7 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
     {
         return {
             image: "Images/Timeline.svg",
-            title: WI.UIString("Timelines"),
+            title: WebInspector.UIString("Timelines"),
         };
     }
 
@@ -108,20 +107,18 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
     static displayNameForTimelineType(timelineType)
     {
         switch (timelineType) {
-        case WI.TimelineRecord.Type.Network:
-            return WI.UIString("Network Requests");
-        case WI.TimelineRecord.Type.Layout:
-            return WI.UIString("Layout & Rendering");
-        case WI.TimelineRecord.Type.Script:
-            return WI.UIString("JavaScript & Events");
-        case WI.TimelineRecord.Type.RenderingFrame:
-            return WI.UIString("Rendering Frames");
-        case WI.TimelineRecord.Type.Memory:
-            return WI.UIString("Memory");
-        case WI.TimelineRecord.Type.HeapAllocations:
-            return WI.UIString("JavaScript Allocations");
-        case WI.TimelineRecord.Type.Media:
-            return WI.UIString("Media");
+        case WebInspector.TimelineRecord.Type.Network:
+            return WebInspector.UIString("Network Requests");
+        case WebInspector.TimelineRecord.Type.Layout:
+            return WebInspector.UIString("Layout & Rendering");
+        case WebInspector.TimelineRecord.Type.Script:
+            return WebInspector.UIString("JavaScript & Events");
+        case WebInspector.TimelineRecord.Type.RenderingFrame:
+            return WebInspector.UIString("Rendering Frames");
+        case WebInspector.TimelineRecord.Type.Memory:
+            return WebInspector.UIString("Memory");
+        case WebInspector.TimelineRecord.Type.HeapAllocations:
+            return WebInspector.UIString("JavaScript Allocations");
         default:
             console.error("Unknown Timeline type:", timelineType);
         }
@@ -132,20 +129,18 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
     static iconClassNameForTimelineType(timelineType)
     {
         switch (timelineType) {
-        case WI.TimelineRecord.Type.Network:
+        case WebInspector.TimelineRecord.Type.Network:
             return "network-icon";
-        case WI.TimelineRecord.Type.Layout:
+        case WebInspector.TimelineRecord.Type.Layout:
             return "layout-icon";
-        case WI.TimelineRecord.Type.Memory:
+        case WebInspector.TimelineRecord.Type.Memory:
             return "memory-icon";
-        case WI.TimelineRecord.Type.HeapAllocations:
+        case WebInspector.TimelineRecord.Type.HeapAllocations:
             return "heap-allocations-icon";
-        case WI.TimelineRecord.Type.Script:
+        case WebInspector.TimelineRecord.Type.Script:
             return "script-icon";
-        case WI.TimelineRecord.Type.RenderingFrame:
+        case WebInspector.TimelineRecord.Type.RenderingFrame:
             return "rendering-frame-icon";
-        case WI.TimelineRecord.Type.Media:
-            return "media-icon";
         default:
             console.error("Unknown Timeline type:", timelineType);
         }
@@ -156,20 +151,18 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
     static genericClassNameForTimelineType(timelineType)
     {
         switch (timelineType) {
-        case WI.TimelineRecord.Type.Network:
+        case WebInspector.TimelineRecord.Type.Network:
             return "network";
-        case WI.TimelineRecord.Type.Layout:
+        case WebInspector.TimelineRecord.Type.Layout:
             return "colors";
-        case WI.TimelineRecord.Type.Memory:
+        case WebInspector.TimelineRecord.Type.Memory:
             return "memory";
-        case WI.TimelineRecord.Type.HeapAllocations:
+        case WebInspector.TimelineRecord.Type.HeapAllocations:
             return "heap-allocations";
-        case WI.TimelineRecord.Type.Script:
+        case WebInspector.TimelineRecord.Type.Script:
             return "script";
-        case WI.TimelineRecord.Type.RenderingFrame:
+        case WebInspector.TimelineRecord.Type.RenderingFrame:
             return "rendering-frame";
-        case WI.TimelineRecord.Type.Media:
-            return "media";
         default:
             console.error("Unknown Timeline type:", timelineType);
         }
@@ -180,75 +173,62 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
     static iconClassNameForRecord(timelineRecord)
     {
         switch (timelineRecord.type) {
-        case WI.TimelineRecord.Type.Layout:
+        case WebInspector.TimelineRecord.Type.Layout:
             switch (timelineRecord.eventType) {
-            case WI.LayoutTimelineRecord.EventType.InvalidateStyles:
-            case WI.LayoutTimelineRecord.EventType.RecalculateStyles:
-                return WI.TimelineRecordTreeElement.StyleRecordIconStyleClass;
-            case WI.LayoutTimelineRecord.EventType.InvalidateLayout:
-            case WI.LayoutTimelineRecord.EventType.ForcedLayout:
-            case WI.LayoutTimelineRecord.EventType.Layout:
-                return WI.TimelineRecordTreeElement.LayoutRecordIconStyleClass;
-            case WI.LayoutTimelineRecord.EventType.Paint:
-                return WI.TimelineRecordTreeElement.PaintRecordIconStyleClass;
-            case WI.LayoutTimelineRecord.EventType.Composite:
-                return WI.TimelineRecordTreeElement.CompositeRecordIconStyleClass;
+            case WebInspector.LayoutTimelineRecord.EventType.InvalidateStyles:
+            case WebInspector.LayoutTimelineRecord.EventType.RecalculateStyles:
+                return WebInspector.TimelineRecordTreeElement.StyleRecordIconStyleClass;
+            case WebInspector.LayoutTimelineRecord.EventType.InvalidateLayout:
+            case WebInspector.LayoutTimelineRecord.EventType.ForcedLayout:
+            case WebInspector.LayoutTimelineRecord.EventType.Layout:
+                return WebInspector.TimelineRecordTreeElement.LayoutRecordIconStyleClass;
+            case WebInspector.LayoutTimelineRecord.EventType.Paint:
+                return WebInspector.TimelineRecordTreeElement.PaintRecordIconStyleClass;
+            case WebInspector.LayoutTimelineRecord.EventType.Composite:
+                return WebInspector.TimelineRecordTreeElement.CompositeRecordIconStyleClass;
             default:
                 console.error("Unknown LayoutTimelineRecord eventType: " + timelineRecord.eventType, timelineRecord);
             }
 
             break;
 
-        case WI.TimelineRecord.Type.Script:
+        case WebInspector.TimelineRecord.Type.Script:
             switch (timelineRecord.eventType) {
-            case WI.ScriptTimelineRecord.EventType.APIScriptEvaluated:
-                return WI.TimelineRecordTreeElement.APIRecordIconStyleClass;
-            case WI.ScriptTimelineRecord.EventType.ScriptEvaluated:
-                return WI.TimelineRecordTreeElement.EvaluatedRecordIconStyleClass;
-            case WI.ScriptTimelineRecord.EventType.MicrotaskDispatched:
-            case WI.ScriptTimelineRecord.EventType.EventDispatched:
-            case WI.ScriptTimelineRecord.EventType.ObserverCallback:
-                return WI.TimelineRecordTreeElement.EventRecordIconStyleClass;
-            case WI.ScriptTimelineRecord.EventType.ProbeSampleRecorded:
-                return WI.TimelineRecordTreeElement.ProbeRecordIconStyleClass;
-            case WI.ScriptTimelineRecord.EventType.ConsoleProfileRecorded:
-                return WI.TimelineRecordTreeElement.ConsoleProfileIconStyleClass;
-            case WI.ScriptTimelineRecord.EventType.GarbageCollected:
-                return WI.TimelineRecordTreeElement.GarbageCollectionIconStyleClass;
-            case WI.ScriptTimelineRecord.EventType.TimerInstalled:
-                return WI.TimelineRecordTreeElement.TimerRecordIconStyleClass;
-            case WI.ScriptTimelineRecord.EventType.TimerFired:
-            case WI.ScriptTimelineRecord.EventType.TimerRemoved:
-                return WI.TimelineRecordTreeElement.TimerRecordIconStyleClass;
-            case WI.ScriptTimelineRecord.EventType.AnimationFrameFired:
-            case WI.ScriptTimelineRecord.EventType.AnimationFrameRequested:
-            case WI.ScriptTimelineRecord.EventType.AnimationFrameCanceled:
-                return WI.TimelineRecordTreeElement.AnimationRecordIconStyleClass;
+            case WebInspector.ScriptTimelineRecord.EventType.APIScriptEvaluated:
+                return WebInspector.TimelineRecordTreeElement.APIRecordIconStyleClass;
+            case WebInspector.ScriptTimelineRecord.EventType.ScriptEvaluated:
+                return WebInspector.TimelineRecordTreeElement.EvaluatedRecordIconStyleClass;
+            case WebInspector.ScriptTimelineRecord.EventType.MicrotaskDispatched:
+            case WebInspector.ScriptTimelineRecord.EventType.EventDispatched:
+                return WebInspector.TimelineRecordTreeElement.EventRecordIconStyleClass;
+            case WebInspector.ScriptTimelineRecord.EventType.ProbeSampleRecorded:
+                return WebInspector.TimelineRecordTreeElement.ProbeRecordIconStyleClass;
+            case WebInspector.ScriptTimelineRecord.EventType.ConsoleProfileRecorded:
+                return WebInspector.TimelineRecordTreeElement.ConsoleProfileIconStyleClass;
+            case WebInspector.ScriptTimelineRecord.EventType.GarbageCollected:
+                return WebInspector.TimelineRecordTreeElement.GarbageCollectionIconStyleClass;
+            case WebInspector.ScriptTimelineRecord.EventType.TimerInstalled:
+                return WebInspector.TimelineRecordTreeElement.TimerRecordIconStyleClass;
+            case WebInspector.ScriptTimelineRecord.EventType.TimerFired:
+            case WebInspector.ScriptTimelineRecord.EventType.TimerRemoved:
+                return WebInspector.TimelineRecordTreeElement.TimerRecordIconStyleClass;
+            case WebInspector.ScriptTimelineRecord.EventType.AnimationFrameFired:
+            case WebInspector.ScriptTimelineRecord.EventType.AnimationFrameRequested:
+            case WebInspector.ScriptTimelineRecord.EventType.AnimationFrameCanceled:
+                return WebInspector.TimelineRecordTreeElement.AnimationRecordIconStyleClass;
             default:
                 console.error("Unknown ScriptTimelineRecord eventType: " + timelineRecord.eventType, timelineRecord);
             }
 
             break;
 
-        case WI.TimelineRecord.Type.RenderingFrame:
-            return WI.TimelineRecordTreeElement.RenderingFrameRecordIconStyleClass;
+        case WebInspector.TimelineRecord.Type.RenderingFrame:
+            return WebInspector.TimelineRecordTreeElement.RenderingFrameRecordIconStyleClass;
 
-        case WI.TimelineRecord.Type.HeapAllocations:
+        case WebInspector.TimelineRecord.Type.HeapAllocations:
             return "heap-snapshot-record";
 
-        case WI.TimelineRecord.Type.Media:
-            switch (timelineRecord.eventType) {
-            case WI.MediaTimelineRecord.EventType.DOMEvent:
-                return "dom-event-record";
-            case WI.MediaTimelineRecord.EventType.LowPower:
-                return "low-power-record";
-            default:
-                console.error("Unknown MediaTimelineRecord eventType: " + timelineRecord.eventType, timelineRecord);
-            }
-
-            break;
-
-        case WI.TimelineRecord.Type.Memory:
+        case WebInspector.TimelineRecord.Type.Memory:
             // Not used. Fall through to error just in case.
 
         default:
@@ -261,21 +241,19 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
     static displayNameForRecord(timelineRecord, includeDetailsInMainTitle)
     {
         switch (timelineRecord.type) {
-        case WI.TimelineRecord.Type.Network:
-            return WI.displayNameForURL(timelineRecord.resource.url, timelineRecord.resource.urlComponents);
-        case WI.TimelineRecord.Type.Layout:
-            return WI.LayoutTimelineRecord.displayNameForEventType(timelineRecord.eventType);
-        case WI.TimelineRecord.Type.Script:
-            return WI.ScriptTimelineRecord.EventType.displayName(timelineRecord.eventType, timelineRecord.details, includeDetailsInMainTitle);
-        case WI.TimelineRecord.Type.RenderingFrame:
-            return WI.UIString("Frame %d").format(timelineRecord.frameNumber);
-        case WI.TimelineRecord.Type.HeapAllocations:
+        case WebInspector.TimelineRecord.Type.Network:
+            return WebInspector.displayNameForURL(timelineRecord.resource.url, timelineRecord.resource.urlComponents);
+        case WebInspector.TimelineRecord.Type.Layout:
+            return WebInspector.LayoutTimelineRecord.displayNameForEventType(timelineRecord.eventType);
+        case WebInspector.TimelineRecord.Type.Script:
+            return WebInspector.ScriptTimelineRecord.EventType.displayName(timelineRecord.eventType, timelineRecord.details, includeDetailsInMainTitle);
+        case WebInspector.TimelineRecord.Type.RenderingFrame:
+            return WebInspector.UIString("Frame %d").format(timelineRecord.frameNumber);
+        case WebInspector.TimelineRecord.Type.HeapAllocations:
             if (timelineRecord.heapSnapshot.title)
-                return WI.UIString("Snapshot %d \u2014 %s").format(timelineRecord.heapSnapshot.identifier, timelineRecord.heapSnapshot.title);
-            return WI.UIString("Snapshot %d").format(timelineRecord.heapSnapshot.identifier);
-        case WI.TimelineRecord.Type.Media:
-            return timelineRecord.displayName;
-        case WI.TimelineRecord.Type.Memory:
+                return WebInspector.UIString("Snapshot %d \u2014 %s").format(timelineRecord.heapSnapshot.identifier, timelineRecord.heapSnapshot.title);
+            return WebInspector.UIString("Snapshot %d").format(timelineRecord.heapSnapshot.identifier);
+        case WebInspector.TimelineRecord.Type.Memory:
             // Not used. Fall through to error just in case.
         default:
             console.error("Unknown TimelineRecord type: " + timelineRecord.type, timelineRecord);
@@ -288,7 +266,7 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
 
     get type()
     {
-        return WI.TimelineTabContentView.Type;
+        return WebInspector.TimelineTabContentView.Type;
     }
 
     shown()
@@ -298,8 +276,8 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
         this._toggleRecordingShortcut.disabled = false;
         this._toggleNewRecordingShortcut.disabled = false;
 
-        if (WI.visible)
-            WI.timelineManager.autoCaptureOnPageLoad = true;
+        if (WebInspector.visible)
+            WebInspector.timelineManager.autoCaptureOnPageLoad = true;
     }
 
     hidden()
@@ -309,23 +287,23 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
         this._toggleRecordingShortcut.disabled = true;
         this._toggleNewRecordingShortcut.disabled = true;
 
-        WI.timelineManager.autoCaptureOnPageLoad = false;
+        WebInspector.timelineManager.autoCaptureOnPageLoad = false;
     }
 
     closed()
     {
         super.closed();
 
-        if (WI.FPSInstrument.supported())
+        if (WebInspector.FPSInstrument.supported())
             this.contentBrowser.navigationBar.removeEventListener(null, null, this);
 
-        WI.timelineManager.removeEventListener(null, null, this);
-        WI.notifications.removeEventListener(null, null, this);
+        WebInspector.timelineManager.removeEventListener(null, null, this);
+        WebInspector.notifications.removeEventListener(null, null, this);
     }
 
     canShowRepresentedObject(representedObject)
     {
-        return representedObject instanceof WI.TimelineRecording;
+        return representedObject instanceof WebInspector.TimelineRecording;
     }
 
     // Protected
@@ -334,20 +312,20 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
     {
         console.assert(cookie);
 
-        this._restoredShowingTimelineRecordingContentView = cookie[WI.TimelineTabContentView.ShowingTimelineRecordingContentViewCookieKey];
+        this._restoredShowingTimelineRecordingContentView = cookie[WebInspector.TimelineTabContentView.ShowingTimelineRecordingContentViewCookieKey];
         if (!this._restoredShowingTimelineRecordingContentView) {
             if (!this.contentBrowser.currentContentView) {
                 // If this is the first time opening the tab, render the currently active recording.
-                if (!this._displayedRecording && WI.timelineManager.activeRecording)
+                if (!this._displayedRecording && WebInspector.timelineManager.activeRecording)
                     this._recordingLoaded();
 
-                this._showTimelineViewForType(WI.TimelineTabContentView.OverviewTimelineIdentifierCookieValue);
+                this._showTimelineViewForType(WebInspector.TimelineTabContentView.OverviewTimelineIdentifierCookieValue);
             }
             return;
         }
 
-        let selectedTimelineViewIdentifier = cookie[WI.TimelineTabContentView.SelectedTimelineViewIdentifierCookieKey];
-        if (selectedTimelineViewIdentifier === WI.TimelineRecord.Type.RenderingFrame && !WI.FPSInstrument.supported())
+        let selectedTimelineViewIdentifier = cookie[WebInspector.TimelineTabContentView.SelectedTimelineViewIdentifierCookieKey];
+        if (selectedTimelineViewIdentifier === WebInspector.TimelineRecord.Type.RenderingFrame && !WebInspector.FPSInstrument.supported())
             selectedTimelineViewIdentifier = null;
 
         this._showTimelineViewForType(selectedTimelineViewIdentifier);
@@ -359,16 +337,16 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
     {
         console.assert(cookie);
 
-        cookie[WI.TimelineTabContentView.ShowingTimelineRecordingContentViewCookieKey] = this.contentBrowser.currentContentView instanceof WI.TimelineRecordingContentView;
+        cookie[WebInspector.TimelineTabContentView.ShowingTimelineRecordingContentViewCookieKey] = this.contentBrowser.currentContentView instanceof WebInspector.TimelineRecordingContentView;
 
-        if (this._viewMode === WI.TimelineOverview.ViewMode.RenderingFrames)
-            cookie[WI.TimelineTabContentView.SelectedTimelineViewIdentifierCookieKey] = WI.TimelineRecord.Type.RenderingFrame;
+        if (this._viewMode === WebInspector.TimelineOverview.ViewMode.RenderingFrames)
+            cookie[WebInspector.TimelineTabContentView.SelectedTimelineViewIdentifierCookieKey] = WebInspector.TimelineRecord.Type.RenderingFrame;
         else {
             let selectedTimeline = this._getTimelineForCurrentContentView();
             if (selectedTimeline)
-                cookie[WI.TimelineTabContentView.SelectedTimelineViewIdentifierCookieKey] = selectedTimeline.type;
+                cookie[WebInspector.TimelineTabContentView.SelectedTimelineViewIdentifierCookieKey] = selectedTimeline.type;
             else
-                cookie[WI.TimelineTabContentView.SelectedTimelineViewIdentifierCookieKey] = WI.TimelineTabContentView.OverviewTimelineIdentifierCookieValue;
+                cookie[WebInspector.TimelineTabContentView.SelectedTimelineViewIdentifierCookieKey] = WebInspector.TimelineTabContentView.OverviewTimelineIdentifierCookieValue;
         }
 
         super.saveToCookie(cookie);
@@ -380,7 +358,7 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
         if (!this._recordingTreeElementMap)
             return null;
 
-        if (representedObject instanceof WI.TimelineRecording)
+        if (representedObject instanceof WebInspector.TimelineRecording)
             return this._recordingTreeElementMap.get(representedObject);
 
         return null;
@@ -390,18 +368,18 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
 
     _capturingStartedOrStopped(event)
     {
-        let isCapturing = WI.timelineManager.isCapturing();
+        let isCapturing = WebInspector.timelineManager.isCapturing();
         this._recordButton.toggled = isCapturing;
     }
 
     _inspectorVisibilityChanged(event)
     {
-        WI.timelineManager.autoCaptureOnPageLoad = !!this.visible && !!WI.visible;
+        WebInspector.timelineManager.autoCaptureOnPageLoad = !!this.visible && !!WebInspector.visible;
     }
 
     _toggleRecordingOnSpacebar(event)
     {
-        if (WI.isEventTargetAnEditableField(event))
+        if (WebInspector.isEventTargetAnEditableField(event))
             return;
 
         this._toggleRecording();
@@ -411,7 +389,7 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
 
     _toggleNewRecordingOnSpacebar(event)
     {
-        if (WI.isEventTargetAnEditableField(event))
+        if (WebInspector.isEventTargetAnEditableField(event))
             return;
 
         this._toggleRecording(true);
@@ -421,13 +399,13 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
 
     _toggleRecording(shouldCreateRecording)
     {
-        let isCapturing = WI.timelineManager.isCapturing();
+        let isCapturing = WebInspector.timelineManager.isCapturing();
         this._recordButton.toggled = isCapturing;
 
         if (isCapturing)
-            WI.timelineManager.stopCapturing();
+            WebInspector.timelineManager.stopCapturing();
         else {
-            WI.timelineManager.startCapturing(shouldCreateRecording);
+            WebInspector.timelineManager.startCapturing(shouldCreateRecording);
             // Show the timeline to which events will be appended.
             this._recordingLoaded();
         }
@@ -436,17 +414,17 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
     _recordButtonClicked(event)
     {
         let shouldCreateNewRecording = window.event ? window.event.shiftKey : false;
-        this._recordButton.toggled = !WI.timelineManager.isCapturing();
+        this._recordButton.toggled = !WebInspector.timelineManager.isCapturing();
         this._toggleRecording(shouldCreateNewRecording);
     }
 
     _recordingsTreeSelectionDidChange(event)
     {
-        let treeElement = this._recordingsTreeOutline.selectedTreeElement;
+        let treeElement = event.data.selectedElement;
         if (!treeElement)
             return;
 
-        console.assert(treeElement.representedObject instanceof WI.TimelineRecording);
+        console.assert(treeElement.representedObject instanceof WebInspector.TimelineRecording);
 
         this._recordingSelected(treeElement.representedObject);
     }
@@ -459,9 +437,9 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
 
     _addRecording(recording)
     {
-        console.assert(recording instanceof WI.TimelineRecording, recording);
+        console.assert(recording instanceof WebInspector.TimelineRecording, recording);
 
-        let recordingTreeElement = new WI.GeneralTreeElement(WI.TimelineTabContentView.StopwatchIconStyleClass, recording.displayName, null, recording);
+        let recordingTreeElement = new WebInspector.GeneralTreeElement(WebInspector.TimelineTabContentView.StopwatchIconStyleClass, recording.displayName, null, recording);
         this._recordingTreeElementMap.set(recording, recordingTreeElement);
         this._recordingsTreeOutline.appendChild(recordingTreeElement);
     }
@@ -481,7 +459,7 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
 
     _recordingSelected(recording)
     {
-        console.assert(recording instanceof WI.TimelineRecording, recording);
+        console.assert(recording instanceof WebInspector.TimelineRecording, recording);
 
         this._displayedRecording = recording;
 
@@ -490,17 +468,17 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
         this.saveToCookie(cookie);
 
         if (this._displayedContentView)
-            this._displayedContentView.removeEventListener(WI.ContentView.Event.NavigationItemsDidChange, this._displayedContentViewNavigationItemsDidChange, this);
+            this._displayedContentView.removeEventListener(WebInspector.ContentView.Event.NavigationItemsDidChange, this._displayedContentViewNavigationItemsDidChange, this);
 
         // Try to get the recording content view if it exists already, if it does we don't want to restore the cookie.
         let onlyExisting = true;
         this._displayedContentView = this.contentBrowser.contentViewForRepresentedObject(this._displayedRecording, onlyExisting);
         if (this._displayedContentView) {
-            this._displayedContentView.addEventListener(WI.ContentView.Event.NavigationItemsDidChange, this._displayedContentViewNavigationItemsDidChange, this);
+            this._displayedContentView.addEventListener(WebInspector.ContentView.Event.NavigationItemsDidChange, this._displayedContentViewNavigationItemsDidChange, this);
 
             // Show the timeline that was being shown to update the sidebar tree state.
             let currentTimelineView = this._displayedContentView.currentTimelineView;
-            let timelineType = currentTimelineView && currentTimelineView.representedObject instanceof WI.Timeline ? currentTimelineView.representedObject.type : null;
+            let timelineType = currentTimelineView && currentTimelineView.representedObject instanceof WebInspector.Timeline ? currentTimelineView.representedObject.type : null;
             this._showTimelineViewForType(timelineType);
 
             return;
@@ -509,7 +487,7 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
         onlyExisting = false;
         this._displayedContentView = this.contentBrowser.contentViewForRepresentedObject(this._displayedRecording, onlyExisting);
         if (this._displayedContentView)
-            this._displayedContentView.addEventListener(WI.ContentView.Event.NavigationItemsDidChange, this._displayedContentViewNavigationItemsDidChange, this);
+            this._displayedContentView.addEventListener(WebInspector.ContentView.Event.NavigationItemsDidChange, this._displayedContentViewNavigationItemsDidChange, this);
 
         // Restore the cookie to carry over the previous recording view state to the new recording.
         this.restoreFromCookie(cookie);
@@ -517,7 +495,7 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
 
     _recordingLoaded(event)
     {
-        this._recordingSelected(WI.timelineManager.activeRecording);
+        this._recordingSelected(WebInspector.timelineManager.activeRecording);
     }
 
     _viewModeSelected(event)
@@ -549,10 +527,10 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
             return;
 
         let timelineType = this._previousSelectedTimelineType;
-        if (this._viewMode === WI.TimelineOverview.ViewMode.RenderingFrames) {
+        if (this._viewMode === WebInspector.TimelineOverview.ViewMode.RenderingFrames) {
             let timeline = this._getTimelineForCurrentContentView();
             this._previousSelectedTimelineType = timeline ? timeline.type : null;
-            timelineType = WI.TimelineRecord.Type.RenderingFrame;
+            timelineType = WebInspector.TimelineRecord.Type.RenderingFrame;
         }
 
         this._showTimelineViewForType(timelineType);
@@ -576,9 +554,9 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
     _displayedContentViewNavigationItemsDidChange(event)
     {
         let timeline = this._getTimelineForCurrentContentView();
-        let newViewMode = WI.TimelineOverview.ViewMode.Timelines;
-        if (timeline && timeline.type === WI.TimelineRecord.Type.RenderingFrame)
-            newViewMode = WI.TimelineOverview.ViewMode.RenderingFrames;
+        let newViewMode = WebInspector.TimelineOverview.ViewMode.Timelines;
+        if (timeline && timeline.type === WebInspector.TimelineRecord.Type.RenderingFrame)
+            newViewMode = WebInspector.TimelineOverview.ViewMode.RenderingFrames;
 
         const selectedByUser = false;
         this._changeViewMode(newViewMode, selectedByUser);
@@ -587,17 +565,17 @@ WI.TimelineTabContentView = class TimelineTabContentView extends WI.ContentBrows
     _getTimelineForCurrentContentView()
     {
         let currentContentView = this.contentBrowser.currentContentView;
-        if (!(currentContentView instanceof WI.TimelineRecordingContentView))
+        if (!(currentContentView instanceof WebInspector.TimelineRecordingContentView))
             return null;
 
         let timelineView = currentContentView.currentTimelineView;
-        return (timelineView && timelineView.representedObject instanceof WI.Timeline) ? timelineView.representedObject : null;
+        return (timelineView && timelineView.representedObject instanceof WebInspector.Timeline) ? timelineView.representedObject : null;
     }
 };
 
-WI.TimelineTabContentView.Type = "timeline";
+WebInspector.TimelineTabContentView.Type = "timeline";
 
-WI.TimelineTabContentView.ShowingTimelineRecordingContentViewCookieKey = "timeline-sidebar-panel-showing-timeline-recording-content-view";
-WI.TimelineTabContentView.SelectedTimelineViewIdentifierCookieKey = "timeline-sidebar-panel-selected-timeline-view-identifier";
-WI.TimelineTabContentView.OverviewTimelineIdentifierCookieValue = "overview";
-WI.TimelineTabContentView.StopwatchIconStyleClass = "stopwatch-icon";
+WebInspector.TimelineTabContentView.ShowingTimelineRecordingContentViewCookieKey = "timeline-sidebar-panel-showing-timeline-recording-content-view";
+WebInspector.TimelineTabContentView.SelectedTimelineViewIdentifierCookieKey = "timeline-sidebar-panel-selected-timeline-view-identifier";
+WebInspector.TimelineTabContentView.OverviewTimelineIdentifierCookieValue = "overview";
+WebInspector.TimelineTabContentView.StopwatchIconStyleClass = "stopwatch-icon";

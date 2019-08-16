@@ -23,7 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef RAMSize_h
+#define RAMSize_h
 
 namespace WTF {
 
@@ -32,3 +33,5 @@ WTF_EXPORT_PRIVATE size_t ramSize();
 }
 
 using WTF::ramSize;
+
+#endif // RAMSize_h

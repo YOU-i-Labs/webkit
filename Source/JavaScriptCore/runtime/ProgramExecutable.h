@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2010, 2013-2016 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "ExecutableToCodeBlockEdge.h"
 #include "ScriptExecutable.h"
 
 namespace JSC {
@@ -36,17 +35,10 @@ public:
     typedef ScriptExecutable Base;
     static const unsigned StructureFlags = Base::StructureFlags | StructureIsImmortal;
 
-    template<typename CellType>
-    static IsoSubspace* subspaceFor(VM& vm)
-    {
-        return &vm.programExecutableSpace.space;
-    }
-
     static ProgramExecutable* create(ExecState* exec, const SourceCode& source)
     {
-        VM& vm = exec->vm();
-        ProgramExecutable* executable = new (NotNull, allocateCell<ProgramExecutable>(vm.heap)) ProgramExecutable(exec, source);
-        executable->finishCreation(vm);
+        ProgramExecutable* executable = new (NotNull, allocateCell<ProgramExecutable>(*exec->heap())) ProgramExecutable(exec, source);
+        executable->finishCreation(exec->vm());
         return executable;
     }
 
@@ -56,8 +48,10 @@ public:
 
     ProgramCodeBlock* codeBlock()
     {
-        return bitwise_cast<ProgramCodeBlock*>(ExecutableToCodeBlockEdge::unwrap(m_programCodeBlock.get()));
+        return m_programCodeBlock.get();
     }
+
+    JSObject* checkSyntax(ExecState*);
 
     Ref<JITCode> generatedJITCode()
     {
@@ -82,7 +76,7 @@ private:
     static void visitChildren(JSCell*, SlotVisitor&);
 
     WriteBarrier<UnlinkedProgramCodeBlock> m_unlinkedProgramCodeBlock;
-    WriteBarrier<ExecutableToCodeBlockEdge> m_programCodeBlock;
+    WriteBarrier<ProgramCodeBlock> m_programCodeBlock;
 };
 
 } // namespace JSC

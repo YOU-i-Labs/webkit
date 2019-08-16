@@ -67,7 +67,7 @@ FloatSize ScrollingMomentumCalculator::predictedDestinationOffset()
     return { initialOffsetX, initialOffsetY };
 }
 
-#if !PLATFORM(MAC)
+#if !HAVE(NSSCROLLING_FILTERS)
 
 std::unique_ptr<ScrollingMomentumCalculator> ScrollingMomentumCalculator::create(const FloatSize& viewportSize, const FloatSize& contentSize, const FloatPoint& initialOffset, const FloatSize& initialDelta, const FloatSize& initialVelocity)
 {

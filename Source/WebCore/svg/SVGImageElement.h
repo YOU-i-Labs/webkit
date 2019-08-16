@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,6 +20,7 @@
 
 #pragma once
 
+#include "SVGAnimatedBoolean.h"
 #include "SVGAnimatedLength.h"
 #include "SVGAnimatedPreserveAspectRatio.h"
 #include "SVGExternalResourcesRequired.h"
@@ -30,55 +30,46 @@
 
 namespace WebCore {
 
-class SVGImageElement final : public SVGGraphicsElement, public SVGExternalResourcesRequired, public SVGURIReference {
-    WTF_MAKE_ISO_ALLOCATED(SVGImageElement);
+class SVGImageElement final : public SVGGraphicsElement,
+                              public SVGExternalResourcesRequired,
+                              public SVGURIReference {
 public:
     static Ref<SVGImageElement> create(const QualifiedName&, Document&);
 
     bool hasSingleSecurityOrigin() const;
-    const AtomicString& imageSourceURL() const final;
-
-    const SVGLengthValue& x() const { return m_x.currentValue(attributeOwnerProxy()); }
-    const SVGLengthValue& y() const { return m_y.currentValue(attributeOwnerProxy()); }
-    const SVGLengthValue& width() const { return m_width.currentValue(attributeOwnerProxy()); }
-    const SVGLengthValue& height() const { return m_height.currentValue(attributeOwnerProxy()); }
-    const SVGPreserveAspectRatioValue& preserveAspectRatio() const { return m_preserveAspectRatio.currentValue(attributeOwnerProxy()); }
-
-    RefPtr<SVGAnimatedLength> xAnimated() { return m_x.animatedProperty(attributeOwnerProxy()); }
-    RefPtr<SVGAnimatedLength> yAnimated() { return m_y.animatedProperty(attributeOwnerProxy()); }
-    RefPtr<SVGAnimatedLength> widthAnimated() { return m_width.animatedProperty(attributeOwnerProxy()); }
-    RefPtr<SVGAnimatedLength> heightAnimated() { return m_height.animatedProperty(attributeOwnerProxy()); }
-    RefPtr<SVGAnimatedPreserveAspectRatio> preserveAspectRatioAnimated() { return m_preserveAspectRatio.animatedProperty(attributeOwnerProxy()); }
 
 private:
     SVGImageElement(const QualifiedName&, Document&);
     
-    using AttributeOwnerProxy = SVGAttributeOwnerProxyImpl<SVGImageElement, SVGGraphicsElement, SVGExternalResourcesRequired, SVGURIReference>;
-    static AttributeOwnerProxy::AttributeRegistry& attributeRegistry() { return AttributeOwnerProxy::attributeRegistry(); }
-    static bool isKnownAttribute(const QualifiedName& attributeName) { return AttributeOwnerProxy::isKnownAttribute(attributeName); }
-    static void registerAttributes();
+    bool isValid() const final { return SVGTests::isValid(); }
 
-    const SVGAttributeOwnerProxy& attributeOwnerProxy() const final { return m_attributeOwnerProxy; }
+    static bool isSupportedAttribute(const QualifiedName&);
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
     void svgAttributeChanged(const QualifiedName&) final;
 
     void didAttachRenderers() final;
-    InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) final;
+    InsertionNotificationRequest insertedInto(ContainerNode&) final;
+
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
 
+    const AtomicString& imageSourceURL() const final;
     void addSubresourceAttributeURLs(ListHashSet<URL>&) const final;
+
     bool haveLoadedRequiredResources() final;
 
-    bool isValid() const final { return SVGTests::isValid(); }
     bool selfHasRelativeLengths() const final { return true; }
     void didMoveToNewDocument(Document& oldDocument, Document& newDocument) final;
 
-    AttributeOwnerProxy m_attributeOwnerProxy { *this };
-    SVGAnimatedLengthAttribute m_x { LengthModeWidth };
-    SVGAnimatedLengthAttribute m_y { LengthModeHeight };
-    SVGAnimatedLengthAttribute m_width { LengthModeWidth };
-    SVGAnimatedLengthAttribute m_height { LengthModeHeight };
-    SVGAnimatedPreserveAspectRatioAttribute m_preserveAspectRatio;
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGImageElement)
+        DECLARE_ANIMATED_LENGTH(X, x)
+        DECLARE_ANIMATED_LENGTH(Y, y)
+        DECLARE_ANIMATED_LENGTH(Width, width)
+        DECLARE_ANIMATED_LENGTH(Height, height)
+        DECLARE_ANIMATED_PRESERVEASPECTRATIO(PreserveAspectRatio, preserveAspectRatio)
+        DECLARE_ANIMATED_STRING_OVERRIDE(Href, href)
+        DECLARE_ANIMATED_BOOLEAN_OVERRIDE(ExternalResourcesRequired, externalResourcesRequired)
+    END_DECLARE_ANIMATED_PROPERTIES
+
     SVGImageLoader m_imageLoader;
 };
 

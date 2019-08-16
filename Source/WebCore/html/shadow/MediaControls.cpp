@@ -30,16 +30,11 @@
 #include "MediaControls.h"
 
 #include "EventNames.h"
-#include "MouseEvent.h"
 #include "Page.h"
 #include "RenderElement.h"
-#include "RenderTheme.h"
 #include "Settings.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(MediaControls);
 
 MediaControls::MediaControls(Document& document)
     : HTMLDivElement(HTMLNames::divTag, document)
@@ -363,8 +358,10 @@ bool MediaControls::containsRelatedTarget(Event& event)
 {
     if (!is<MouseEvent>(event))
         return false;
-    auto relatedTarget = downcast<MouseEvent>(event).relatedTarget();
-    return is<Node>(relatedTarget) && contains(&downcast<Node>(*relatedTarget));
+    EventTarget* relatedTarget = downcast<MouseEvent>(event).relatedTarget();
+    if (!relatedTarget)
+        return false;
+    return contains(relatedTarget->toNode());
 }
 
 #if ENABLE(VIDEO_TRACK)
@@ -411,12 +408,6 @@ void MediaControls::textTrackPreferencesChanged()
     closedCaptionTracksChanged();
     if (m_textDisplayContainer)
         m_textDisplayContainer->updateSizes(true);
-}
-
-void MediaControls::clearTextDisplayContainer()
-{
-    if (m_textDisplayContainer)
-        m_textDisplayContainer->removeChildren();
 }
 
 #endif

@@ -26,7 +26,7 @@
 #include "config.h"
 #include "RegisterAtOffset.h"
 
-#if ENABLE(ASSEMBLER)
+#if ENABLE(JIT)
 
 namespace JSC {
 
@@ -41,5 +41,5 @@ void RegisterAtOffset::dump(PrintStream& out) const
 
 } // namespace JSC
 
-#endif // ENABLE(ASSEMBLER)
+#endif // ENABLE(JIT)
 

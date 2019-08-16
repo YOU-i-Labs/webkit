@@ -31,7 +31,7 @@ namespace gl
 {
 class Buffer;
 
-class VertexArrayState final : angle::NonCopyable
+class VertexArrayState final : public angle::NonCopyable
 {
   public:
     VertexArrayState(size_t maxAttribs, size_t maxBindings);
@@ -75,8 +75,7 @@ class VertexArray final : public LabeledObject
 {
   public:
     VertexArray(rx::GLImplFactory *factory, GLuint id, size_t maxAttribs, size_t maxAttribBindings);
-
-    void onDestroy(const Context *context);
+    ~VertexArray();
 
     GLuint id() const;
 
@@ -90,44 +89,31 @@ class VertexArray final : public LabeledObject
         return mState.getBindingFromAttribIndex(attribIndex);
     }
 
-    void detachBuffer(const Context *context, GLuint bufferName);
-    void setVertexAttribDivisor(const Context *context, size_t index, GLuint divisor);
+    void detachBuffer(GLuint bufferName);
+    void setVertexAttribDivisor(size_t index, GLuint divisor);
     void enableAttribute(size_t attribIndex, bool enabledState);
-    void setVertexAttribPointer(const Context *context,
-                                size_t attribIndex,
-                                Buffer *boundBuffer,
-                                GLint size,
-                                GLenum type,
-                                bool normalized,
-                                bool pureInteger,
-                                GLsizei stride,
-                                const void *pointer);
+    void setAttributeState(size_t attribIndex,
+                           Buffer *boundBuffer,
+                           GLint size,
+                           GLenum type,
+                           bool normalized,
+                           bool pureInteger,
+                           GLsizei stride,
+                           const void *pointer);
     void setVertexAttribFormat(size_t attribIndex,
                                GLint size,
                                GLenum type,
                                bool normalized,
                                bool pureInteger,
-                               GLuint relativeOffset);
-    void bindVertexBuffer(const Context *context,
-                          size_t bindingIndex,
+                               GLintptr relativeOffset);
+    void bindVertexBuffer(size_t bindingIndex,
                           Buffer *boundBuffer,
                           GLintptr offset,
                           GLsizei stride);
-    void setVertexAttribBinding(const Context *context, size_t attribIndex, GLuint bindingIndex);
+    void setVertexAttribBinding(size_t attribIndex, size_t bindingIndex);
     void setVertexBindingDivisor(size_t bindingIndex, GLuint divisor);
-    void setVertexAttribFormatImpl(size_t attribIndex,
-                                   GLint size,
-                                   GLenum type,
-                                   bool normalized,
-                                   bool pureInteger,
-                                   GLuint relativeOffset);
-    void bindVertexBufferImpl(const Context *context,
-                              size_t bindingIndex,
-                              Buffer *boundBuffer,
-                              GLintptr offset,
-                              GLsizei stride);
 
-    void setElementArrayBuffer(const Context *context, Buffer *buffer);
+    void setElementArrayBuffer(Buffer *buffer);
 
     const BindingPointer<Buffer> &getElementArrayBuffer() const
     {
@@ -182,16 +168,14 @@ class VertexArray final : public LabeledObject
         DIRTY_BIT_MAX     = DIRTY_BIT_UNKNOWN,
     };
 
-    using DirtyBits = angle::BitSet<DIRTY_BIT_MAX>;
+    typedef std::bitset<DIRTY_BIT_MAX> DirtyBits;
 
-    static size_t GetVertexIndexFromDirtyBit(size_t dirtyBit);
+    static size_t GetAttribIndex(unsigned long dirtyBit);
 
-    void syncState(const Context *context);
+    void syncImplState(const Context *context);
     bool hasAnyDirtyBit() const { return mDirtyBits.any(); }
 
   private:
-    ~VertexArray() override;
-
     GLuint mId;
 
     VertexArrayState mState;

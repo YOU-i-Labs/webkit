@@ -23,40 +23,34 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef BinarySemaphore_h
+#define BinarySemaphore_h
 
-#include <wtf/Condition.h>
-#include <wtf/Lock.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/ThreadingPrimitives.h>
 #include <wtf/TimeWithDynamicClockType.h>
 
 namespace WTF {
 
 class BinarySemaphore {
     WTF_MAKE_NONCOPYABLE(BinarySemaphore);
-    WTF_MAKE_FAST_ALLOCATED;
+
 public:
-    constexpr BinarySemaphore() = default;
+    WTF_EXPORT_PRIVATE BinarySemaphore();
+    WTF_EXPORT_PRIVATE ~BinarySemaphore();
 
     WTF_EXPORT_PRIVATE void signal();
-    WTF_EXPORT_PRIVATE bool waitUntil(const TimeWithDynamicClockType&);
-
-    bool waitFor(Seconds relativeTimeout)
-    {
-        return waitUntil(MonotonicTime::now() + relativeTimeout);
-    }
-
-    void wait()
-    {
-        waitUntil(ParkingLot::Time::infinity());
-    }
+    WTF_EXPORT_PRIVATE bool wait(TimeWithDynamicClockType);
 
 private:
-    bool m_isSet { false };
-    Lock m_lock;
-    Condition m_condition;
+    bool m_isSet;
+
+    Mutex m_mutex;
+    ThreadCondition m_condition;
 };
 
 } // namespace WTF
 
 using WTF::BinarySemaphore;
+
+#endif // BinarySemaphore_h

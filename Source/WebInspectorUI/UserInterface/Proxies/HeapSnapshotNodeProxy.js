@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.HeapSnapshotNodeProxy = class HeapSnapshotNodeProxy
+WebInspector.HeapSnapshotNodeProxy = class HeapSnapshotNodeProxy
 {
     constructor(snapshotObjectId, identifier, className, size, retainedSize, internal, gcRoot, dead, dominatorNodeIdentifier, hasChildren)
     {
@@ -45,24 +45,24 @@ WI.HeapSnapshotNodeProxy = class HeapSnapshotNodeProxy
     static deserialize(objectId, serializedNode)
     {
         let {id, className, size, retainedSize, internal, gcRoot, dead, dominatorNodeIdentifier, hasChildren} = serializedNode;
-        return new WI.HeapSnapshotNodeProxy(objectId, id, className, size, retainedSize, internal, gcRoot, dead, dominatorNodeIdentifier, hasChildren);
+        return new WebInspector.HeapSnapshotNodeProxy(objectId, id, className, size, retainedSize, internal, gcRoot, dead, dominatorNodeIdentifier, hasChildren);
     }
 
     // Proxied
 
     shortestGCRootPath(callback)
     {
-        WI.HeapSnapshotWorkerProxy.singleton().callMethod(this._proxyObjectId, "shortestGCRootPath", this.id, (serializedPath) => {
+        WebInspector.HeapSnapshotWorkerProxy.singleton().callMethod(this._proxyObjectId, "shortestGCRootPath", this.id, (serializedPath) => {
             let isNode = false;
             let path = serializedPath.map((component) => {
                 isNode = !isNode;
                 if (isNode)
-                    return WI.HeapSnapshotNodeProxy.deserialize(this._proxyObjectId, component);
-                return WI.HeapSnapshotEdgeProxy.deserialize(this._proxyObjectId, component);
+                    return WebInspector.HeapSnapshotNodeProxy.deserialize(this._proxyObjectId, component);
+                return WebInspector.HeapSnapshotEdgeProxy.deserialize(this._proxyObjectId, component);
             });
 
             for (let i = 1; i < path.length; i += 2) {
-                console.assert(path[i] instanceof WI.HeapSnapshotEdgeProxy);
+                console.assert(path[i] instanceof WebInspector.HeapSnapshotEdgeProxy);
                 let edge = path[i];
                 edge.from = path[i - 1];
                 edge.to = path[i + 1];
@@ -74,25 +74,25 @@ WI.HeapSnapshotNodeProxy = class HeapSnapshotNodeProxy
 
     dominatedNodes(callback)
     {
-        WI.HeapSnapshotWorkerProxy.singleton().callMethod(this._proxyObjectId, "dominatedNodes", this.id, (serializedNodes) => {
-            callback(serializedNodes.map(WI.HeapSnapshotNodeProxy.deserialize.bind(null, this._proxyObjectId)));
+        WebInspector.HeapSnapshotWorkerProxy.singleton().callMethod(this._proxyObjectId, "dominatedNodes", this.id, (serializedNodes) => {
+            callback(serializedNodes.map(WebInspector.HeapSnapshotNodeProxy.deserialize.bind(null, this._proxyObjectId)));
         });
     }
 
     retainedNodes(callback)
     {
-        WI.HeapSnapshotWorkerProxy.singleton().callMethod(this._proxyObjectId, "retainedNodes", this.id, ({retainedNodes: serializedNodes, edges: serializedEdges}) => {
-            let deserializedNodes = serializedNodes.map(WI.HeapSnapshotNodeProxy.deserialize.bind(null, this._proxyObjectId));
-            let deserializedEdges = serializedEdges.map(WI.HeapSnapshotEdgeProxy.deserialize.bind(null, this._proxyObjectId));
+        WebInspector.HeapSnapshotWorkerProxy.singleton().callMethod(this._proxyObjectId, "retainedNodes", this.id, ({retainedNodes: serializedNodes, edges: serializedEdges}) => {
+            let deserializedNodes = serializedNodes.map(WebInspector.HeapSnapshotNodeProxy.deserialize.bind(null, this._proxyObjectId));
+            let deserializedEdges = serializedEdges.map(WebInspector.HeapSnapshotEdgeProxy.deserialize.bind(null, this._proxyObjectId));
             callback(deserializedNodes, deserializedEdges);
         });
     }
 
     retainers(callback)
     {
-        WI.HeapSnapshotWorkerProxy.singleton().callMethod(this._proxyObjectId, "retainers", this.id, ({retainers: serializedNodes, edges: serializedEdges}) => {
-            let deserializedNodes = serializedNodes.map(WI.HeapSnapshotNodeProxy.deserialize.bind(null, this._proxyObjectId));
-            let deserializedEdges = serializedEdges.map(WI.HeapSnapshotEdgeProxy.deserialize.bind(null, this._proxyObjectId));
+        WebInspector.HeapSnapshotWorkerProxy.singleton().callMethod(this._proxyObjectId, "retainers", this.id, ({retainers: serializedNodes, edges: serializedEdges}) => {
+            let deserializedNodes = serializedNodes.map(WebInspector.HeapSnapshotNodeProxy.deserialize.bind(null, this._proxyObjectId));
+            let deserializedEdges = serializedEdges.map(WebInspector.HeapSnapshotEdgeProxy.deserialize.bind(null, this._proxyObjectId));
             callback(deserializedNodes, deserializedEdges);
         });
     }

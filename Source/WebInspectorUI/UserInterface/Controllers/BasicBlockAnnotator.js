@@ -24,7 +24,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.BasicBlockAnnotator = class BasicBlockAnnotator extends WI.Annotator
+WebInspector.BasicBlockAnnotator = class BasicBlockAnnotator extends WebInspector.Annotator
 {
     constructor(sourceCodeTextEditor, script)
     {
@@ -46,49 +46,13 @@ WI.BasicBlockAnnotator = class BasicBlockAnnotator extends WI.Annotator
     {
         if (!this.isActive())
             return;
-        this._script.requestContent().then(this._annotateBasicBlockExecutionRanges.bind(this));
+        this._annotateBasicBlockExecutionRanges();
     }
 
     // Private
 
-    _calculateBasicBlockPositions(basicBlocks, content)
-    {
-        if (!basicBlocks || !basicBlocks.length)
-            return;
-
-        let lineEndings = [];
-        let lineEndingLengths = [];
-        let pattern = /\r\n?|\n/g;
-        let match = pattern.exec(content);
-        while (match) {
-            lineEndings.push(match.index);
-            lineEndingLengths.push(match[0].length);
-            match = pattern.exec(content);
-        }
-
-        function offsetToPosition(offset) {
-            let lineNumber = lineEndings.upperBound(offset - 1);
-            if (lineNumber) {
-                let previousLine = lineNumber - 1;
-                var columnNumber = offset - lineEndings[previousLine] - lineEndingLengths[previousLine];
-            } else
-                var columnNumber = offset;
-            return new WI.SourceCodePosition(lineNumber, columnNumber);
-        }
-
-        for (let block of basicBlocks) {
-            block.startPosition = offsetToPosition(block.startOffset);
-            block.endPosition = offsetToPosition(block.endOffset);
-        }
-    }
-
     _annotateBasicBlockExecutionRanges()
     {
-        let content = this._script.content;
-        console.assert(content, "Missing script content for basic block annotations.");
-        if (!content)
-            return;
-
         var sourceID = this._script.id;
         var startTime = Date.now();
 
@@ -101,18 +65,16 @@ WI.BasicBlockAnnotator = class BasicBlockAnnotator extends WI.Annotator
             if (!this.isActive())
                 return;
 
-            this._calculateBasicBlockPositions(basicBlocks, content);
-
-            let {startPosition, endPosition} = this.sourceCodeTextEditor.visibleRangePositions();
+            var {startOffset, endOffset} = this.sourceCodeTextEditor.visibleRangeOffsets();
             basicBlocks = basicBlocks.filter(function(block) {
                 // Viewport: [--]
                 // Block:         [--]
-                if (block.startPosition.isAfter(endPosition))
+                if (block.startOffset > endOffset)
                     return false;
 
                 // Viewport:      [--]
                 // Block:    [--]
-                if (block.endPosition.isBefore(startPosition))
+                if (block.endOffset < startOffset)
                     return false;
 
                 return true;
@@ -141,12 +103,13 @@ WI.BasicBlockAnnotator = class BasicBlockAnnotator extends WI.Annotator
         console.assert(basicBlock.startOffset <= basicBlock.endOffset && basicBlock.startOffset >= 0 && basicBlock.endOffset >= 0, "" + basicBlock.startOffset + ":" + basicBlock.endOffset);
         console.assert(!basicBlock.hasExecuted);
 
-        let startPosition = this.sourceCodeTextEditor.originalPositionToCurrentPosition(basicBlock.startPosition);
-        let endPosition = this.sourceCodeTextEditor.originalPositionToCurrentPosition(basicBlock.endPosition);
+        var startPosition = this.sourceCodeTextEditor.originalOffsetToCurrentPosition(basicBlock.startOffset);
+        var endPosition = this.sourceCodeTextEditor.originalOffsetToCurrentPosition(basicBlock.endOffset);
         if (this._isTextRangeOnlyClosingBrace(startPosition, endPosition))
             return null;
 
-        return this.sourceCodeTextEditor.addStyleToTextRange(startPosition, endPosition, WI.BasicBlockAnnotator.HasNotExecutedClassName);
+        var marker = this.sourceCodeTextEditor.addStyleToTextRange(startPosition, endPosition, WebInspector.BasicBlockAnnotator.HasNotExecutedClassName);
+        return marker;
     }
 
     _isTextRangeOnlyClosingBrace(startPosition, endPosition)
@@ -165,4 +128,4 @@ WI.BasicBlockAnnotator = class BasicBlockAnnotator extends WI.Annotator
     }
 };
 
-WI.BasicBlockAnnotator.HasNotExecutedClassName = "basic-block-has-not-executed";
+WebInspector.BasicBlockAnnotator.HasNotExecutedClassName = "basic-block-has-not-executed";

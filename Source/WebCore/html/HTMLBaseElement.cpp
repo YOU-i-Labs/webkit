@@ -27,11 +27,8 @@
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "TextResourceDecoder.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLBaseElement);
 
 using namespace HTMLNames;
 
@@ -54,18 +51,18 @@ void HTMLBaseElement::parseAttribute(const QualifiedName& name, const AtomicStri
         HTMLElement::parseAttribute(name, value);
 }
 
-Node::InsertedIntoAncestorResult HTMLBaseElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
+Node::InsertionNotificationRequest HTMLBaseElement::insertedInto(ContainerNode& insertionPoint)
 {
-    HTMLElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
-    if (insertionType.connectedToDocument)
+    HTMLElement::insertedInto(insertionPoint);
+    if (insertionPoint.isConnected())
         document().processBaseElement();
-    return InsertedIntoAncestorResult::Done;
+    return InsertionDone;
 }
 
-void HTMLBaseElement::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
+void HTMLBaseElement::removedFrom(ContainerNode& insertionPoint)
 {
-    HTMLElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
-    if (removalType.disconnectedFromDocument)
+    HTMLElement::removedFrom(insertionPoint);
+    if (insertionPoint.isConnected())
         document().processBaseElement();
 }
 
@@ -89,8 +86,9 @@ URL HTMLBaseElement::href() const
     if (attributeValue.isNull())
         return document().url();
 
-    auto* encoding = document().decoder() ? document().decoder()->encodingForURLParsing() : nullptr;
-    URL url(document().url(), stripLeadingAndTrailingHTMLSpaces(attributeValue), encoding);
+    URL url = !document().decoder() ?
+        URL(document().url(), stripLeadingAndTrailingHTMLSpaces(attributeValue)) :
+        URL(document().url(), stripLeadingAndTrailingHTMLSpaces(attributeValue), document().decoder()->encoding());
 
     if (!url.isValid())
         return URL();

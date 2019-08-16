@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2017 Yusuke Suzuki <utatane.tea@gmail.com>.
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,61 +27,44 @@
 
 #include "GPRInfo.h"
 #include "LLIntPCRanges.h"
-#include "MacroAssemblerCodeRef.h"
-#include <wtf/Optional.h>
 #include <wtf/PlatformRegisters.h>
-#include <wtf/PointerPreparations.h>
 #include <wtf/StdLibExtras.h>
 
 namespace JSC {
 namespace MachineContext {
 
-template<typename T = void*> T stackPointer(const PlatformRegisters&);
+void* stackPointer(const PlatformRegisters&);
 
 #if OS(WINDOWS) || HAVE(MACHINE_CONTEXT)
-template<typename T = void*> void setStackPointer(PlatformRegisters&, T);
-template<typename T = void*> T framePointer(const PlatformRegisters&);
-template<typename T = void*> void setFramePointer(PlatformRegisters&, T);
-inline MacroAssemblerCodePtr<PlatformRegistersLRPtrTag> linkRegister(const PlatformRegisters&);
-inline void setLinkRegister(PlatformRegisters&, MacroAssemblerCodePtr<CFunctionPtrTag>);
-inline Optional<MacroAssemblerCodePtr<PlatformRegistersPCPtrTag>> instructionPointer(const PlatformRegisters&);
-inline void setInstructionPointer(PlatformRegisters&, MacroAssemblerCodePtr<CFunctionPtrTag>);
-
+void*& stackPointer(PlatformRegisters&);
+void*& framePointer(PlatformRegisters&);
+void* framePointer(const PlatformRegisters&);
+void*& instructionPointer(PlatformRegisters&);
+void* instructionPointer(const PlatformRegisters&);
 template<size_t N> void*& argumentPointer(PlatformRegisters&);
 template<size_t N> void* argumentPointer(const PlatformRegisters&);
-#if !ENABLE(C_LOOP)
+#if ENABLE(JIT)
 void*& llintInstructionPointer(PlatformRegisters&);
 void* llintInstructionPointer(const PlatformRegisters&);
-#endif // !ENABLE(C_LOOP)
-
+#endif // ENABLE(JIT)
 #if HAVE(MACHINE_CONTEXT)
-
-#if !USE(PLATFORM_REGISTERS_WITH_PROFILE)
-static inline void*& stackPointerImpl(mcontext_t&);
-static inline void*& framePointerImpl(mcontext_t&);
-static inline void*& instructionPointerImpl(mcontext_t&);
-#endif // !USE(PLATFORM_REGISTERS_WITH_PROFILE)
-
-template<typename T = void*> T stackPointer(const mcontext_t&);
-template<typename T = void*> void setStackPointer(mcontext_t&, T);
-template<typename T = void*> T framePointer(const mcontext_t&);
-template<typename T = void*> void setFramePointer(mcontext_t&, T);
-inline MacroAssemblerCodePtr<PlatformRegistersPCPtrTag> instructionPointer(const mcontext_t&);
-inline void setInstructionPointer(mcontext_t&, MacroAssemblerCodePtr<CFunctionPtrTag>);
-
+void*& stackPointer(mcontext_t&);
+void* stackPointer(const mcontext_t&);
+void*& framePointer(mcontext_t&);
+void* framePointer(const mcontext_t&);
+void*& instructionPointer(mcontext_t&);
+void* instructionPointer(const mcontext_t&);
 template<size_t N> void*& argumentPointer(mcontext_t&);
 template<size_t N> void* argumentPointer(const mcontext_t&);
-#if !ENABLE(C_LOOP)
+#if ENABLE(JIT)
 void*& llintInstructionPointer(mcontext_t&);
 void* llintInstructionPointer(const mcontext_t&);
-#endif // !ENABLE(C_LOOP)
+#endif // ENABLE(JIT)
 #endif // HAVE(MACHINE_CONTEXT)
 #endif // OS(WINDOWS) || HAVE(MACHINE_CONTEXT)
 
 #if OS(WINDOWS) || HAVE(MACHINE_CONTEXT)
-
-#if !USE(PLATFORM_REGISTERS_WITH_PROFILE)
-static inline void*& stackPointerImpl(PlatformRegisters& regs)
+inline void*& stackPointer(PlatformRegisters& regs)
 {
 #if OS(DARWIN)
 #if __DARWIN_UNIX03
@@ -128,50 +110,26 @@ static inline void*& stackPointerImpl(PlatformRegisters& regs)
 #endif
 
 #elif HAVE(MACHINE_CONTEXT)
-    return stackPointerImpl(regs.machineContext);
+    return stackPointer(regs.machineContext);
 #endif
 }
-#endif // !USE(PLATFORM_REGISTERS_WITH_PROFILE)
 
-template<typename T>
-inline T stackPointer(const PlatformRegisters& regs)
+inline void* stackPointer(const PlatformRegisters& regs)
 {
-#if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    void* value = WTF_READ_PLATFORM_REGISTERS_SP_WITH_PROFILE(regs);
-    assertIsNotTagged(value);
-    return bitwise_cast<T>(value);
-#else
-    return bitwise_cast<T>(stackPointerImpl(const_cast<PlatformRegisters&>(regs)));
-#endif
+    return stackPointer(const_cast<PlatformRegisters&>(regs));
 }
-
-template<typename T>
-inline void setStackPointer(PlatformRegisters& regs, T value)
-{
-#if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    assertIsNotTagged(bitwise_cast<void*>(value));
-    WTF_WRITE_PLATFORM_REGISTERS_SP_WITH_PROFILE(regs, bitwise_cast<void*>(value));
-#else
-    stackPointerImpl(regs) = bitwise_cast<void*>(value);
-#endif
-}
-
 #else // not OS(WINDOWS) || HAVE(MACHINE_CONTEXT)
-
-template<typename T>
-inline T stackPointer(const PlatformRegisters& regs)
+inline void* stackPointer(const PlatformRegisters& regs)
 {
-    return bitwise_cast<T>(regs.stackPointer);
+    return regs.stackPointer;
 }
 #endif // OS(WINDOWS) || HAVE(MACHINE_CONTEXT)
 
 #if HAVE(MACHINE_CONTEXT)
-
-#if !USE(PLATFORM_REGISTERS_WITH_PROFILE)
-static inline void*& stackPointerImpl(mcontext_t& machineContext)
+inline void*& stackPointer(mcontext_t& machineContext)
 {
 #if OS(DARWIN)
-    return stackPointerImpl(machineContext->__ss);
+    return stackPointer(machineContext->__ss);
 #elif OS(FREEBSD)
 
 #if CPU(X86)
@@ -188,7 +146,7 @@ static inline void*& stackPointerImpl(mcontext_t& machineContext)
 #error Unknown Architecture
 #endif
 
-#elif OS(FUCHSIA) || defined(__GLIBC__) || defined(__BIONIC__)
+#elif defined(__GLIBC__)
 
 #if CPU(X86)
     return reinterpret_cast<void*&>((uintptr_t&) machineContext.gregs[REG_ESP]);
@@ -205,37 +163,16 @@ static inline void*& stackPointerImpl(mcontext_t& machineContext)
 #endif
 #endif
 }
-#endif // !USE(PLATFORM_REGISTERS_WITH_PROFILE)
 
-template<typename T>
-inline T stackPointer(const mcontext_t& machineContext)
+inline void* stackPointer(const mcontext_t& machineContext)
 {
-#if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    void* value = WTF_READ_MACHINE_CONTEXT_SP_WITH_PROFILE(machineContext);
-    assertIsNotTagged(value);
-    return bitwise_cast<T>(value);
-#else
-    return bitwise_cast<T>(stackPointerImpl(const_cast<mcontext_t&>(machineContext)));
-#endif
-}
-
-template<typename T>
-inline void setStackPointer(mcontext_t& machineContext, T value)
-{
-#if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    assertIsNotTagged(bitwise_cast<void*>(value));
-    WTF_WRITE_MACHINE_CONTEXT_SP_WITH_PROFILE(machineContext, bitwise_cast<void*>(value));
-#else
-    stackPointerImpl(machineContext) = bitwise_cast<void*>(value);
-#endif
+    return stackPointer(const_cast<mcontext_t&>(machineContext));
 }
 #endif // HAVE(MACHINE_CONTEXT)
 
 
 #if OS(WINDOWS) || HAVE(MACHINE_CONTEXT)
-
-#if !USE(PLATFORM_REGISTERS_WITH_PROFILE)
-static inline void*& framePointerImpl(PlatformRegisters& regs)
+inline void*& framePointer(PlatformRegisters& regs)
 {
 #if OS(DARWIN)
 
@@ -282,43 +219,22 @@ static inline void*& framePointerImpl(PlatformRegisters& regs)
 #endif
 
 #elif HAVE(MACHINE_CONTEXT)
-    return framePointerImpl(regs.machineContext);
-#endif
-}
-#endif // !USE(PLATFORM_REGISTERS_WITH_PROFILE)
-
-template<typename T>
-inline T framePointer(const PlatformRegisters& regs)
-{
-#if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    void* value = WTF_READ_PLATFORM_REGISTERS_FP_WITH_PROFILE(regs);
-    assertIsNotTagged(value);
-    return bitwise_cast<T>(value);
-#else
-    return bitwise_cast<T>(framePointerImpl(const_cast<PlatformRegisters&>(regs)));
+    return framePointer(regs.machineContext);
 #endif
 }
 
-template<typename T>
-inline void setFramePointer(PlatformRegisters& regs, T value)
+inline void* framePointer(const PlatformRegisters& regs)
 {
-#if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    assertIsNotTagged(bitwise_cast<void*>(value));
-    WTF_WRITE_PLATFORM_REGISTERS_FP_WITH_PROFILE(regs, bitwise_cast<void*>(value));
-#else
-    framePointerImpl(regs) = bitwise_cast<void*>(value);
-#endif
+    return framePointer(const_cast<PlatformRegisters&>(regs));
 }
 #endif // OS(WINDOWS) || HAVE(MACHINE_CONTEXT)
 
 
 #if HAVE(MACHINE_CONTEXT)
-
-#if !USE(PLATFORM_REGISTERS_WITH_PROFILE)
-static inline void*& framePointerImpl(mcontext_t& machineContext)
+inline void*& framePointer(mcontext_t& machineContext)
 {
 #if OS(DARWIN)
-    return framePointerImpl(machineContext->__ss);
+    return framePointer(machineContext->__ss);
 #elif OS(FREEBSD)
 
 #if CPU(X86)
@@ -335,7 +251,7 @@ static inline void*& framePointerImpl(mcontext_t& machineContext)
 #error Unknown Architecture
 #endif
 
-#elif OS(FUCHSIA) || defined(__GLIBC__) || defined(__BIONIC__)
+#elif defined(__GLIBC__)
 
 // The following sequence depends on glibc's sys/ucontext.h.
 #if CPU(X86)
@@ -356,37 +272,16 @@ static inline void*& framePointerImpl(mcontext_t& machineContext)
 #error Need a way to get the frame pointer for another thread on this platform
 #endif
 }
-#endif // !USE(PLATFORM_REGISTERS_WITH_PROFILE)
 
-template<typename T>
-inline T framePointer(const mcontext_t& machineContext)
+inline void* framePointer(const mcontext_t& machineContext)
 {
-#if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    void* value = WTF_READ_MACHINE_CONTEXT_FP_WITH_PROFILE(machineContext);
-    assertIsNotTagged(value);
-    return bitwise_cast<T>(value);
-#else
-    return bitwise_cast<T>(framePointerImpl(const_cast<mcontext_t&>(machineContext)));
-#endif
-}
-
-template<typename T>
-inline void setFramePointer(mcontext_t& machineContext, T value)
-{
-#if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    assertIsNotTagged(bitwise_cast<void*>(value));
-    WTF_WRITE_MACHINE_CONTEXT_FP_WITH_PROFILE(machineContext, bitwise_cast<void*>(value));
-#else
-    framePointerImpl(machineContext) = bitwise_cast<void*>(value);
-#endif
+    return framePointer(const_cast<mcontext_t&>(machineContext));
 }
 #endif // HAVE(MACHINE_CONTEXT)
 
 
 #if OS(WINDOWS) || HAVE(MACHINE_CONTEXT)
-
-#if !USE(PLATFORM_REGISTERS_WITH_PROFILE)
-static inline void*& instructionPointerImpl(PlatformRegisters& regs)
+inline void*& instructionPointer(PlatformRegisters& regs)
 {
 #if OS(DARWIN)
 #if __DARWIN_UNIX03
@@ -427,45 +322,22 @@ static inline void*& instructionPointerImpl(PlatformRegisters& regs)
 #endif
 
 #elif HAVE(MACHINE_CONTEXT)
-    return instructionPointerImpl(regs.machineContext);
+    return instructionPointer(regs.machineContext);
 #endif
 }
-#endif // !USE(PLATFORM_REGISTERS_WITH_PROFILE)
 
-inline Optional<MacroAssemblerCodePtr<PlatformRegistersPCPtrTag>> instructionPointer(const PlatformRegisters& regs)
+inline void* instructionPointer(const PlatformRegisters& regs)
 {
-#if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    void* value = WTF_READ_PLATFORM_REGISTERS_PC_WITH_PROFILE(regs);
-#else
-    void* value = instructionPointerImpl(const_cast<PlatformRegisters&>(regs));
-#endif
-    if (!value)
-        return MacroAssemblerCodePtr<PlatformRegistersPCPtrTag>(nullptr);
-    if (!usesPointerTagging())
-        return MacroAssemblerCodePtr<PlatformRegistersPCPtrTag>(value);
-    if (isTaggedWith(value, PlatformRegistersPCPtrTag))
-        return MacroAssemblerCodePtr<PlatformRegistersPCPtrTag>(value);
-    return WTF::nullopt;
-}
-
-inline void setInstructionPointer(PlatformRegisters& regs, MacroAssemblerCodePtr<CFunctionPtrTag> value)
-{
-#if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    WTF_WRITE_PLATFORM_REGISTERS_PC_WITH_PROFILE(regs, value.executableAddress());
-#else
-    instructionPointerImpl(regs) = value.executableAddress();
-#endif
+    return instructionPointer(const_cast<PlatformRegisters&>(regs));
 }
 #endif // OS(WINDOWS) || HAVE(MACHINE_CONTEXT)
 
 
 #if HAVE(MACHINE_CONTEXT)
-
-#if !USE(PLATFORM_REGISTERS_WITH_PROFILE)
-static inline void*& instructionPointerImpl(mcontext_t& machineContext)
+inline void*& instructionPointer(mcontext_t& machineContext)
 {
 #if OS(DARWIN)
-    return instructionPointerImpl(machineContext->__ss);
+    return instructionPointer(machineContext->__ss);
 #elif OS(FREEBSD)
 
 #if CPU(X86)
@@ -482,7 +354,7 @@ static inline void*& instructionPointerImpl(mcontext_t& machineContext)
 #error Unknown Architecture
 #endif
 
-#elif OS(FUCHSIA) || defined(__GLIBC__) || defined(__BIONIC__)
+#elif defined(__GLIBC__)
 
 // The following sequence depends on glibc's sys/ucontext.h.
 #if CPU(X86)
@@ -503,60 +375,15 @@ static inline void*& instructionPointerImpl(mcontext_t& machineContext)
 #error Need a way to get the instruction pointer for another thread on this platform
 #endif
 }
-#endif // !USE(PLATFORM_REGISTERS_WITH_PROFILE)
 
-inline MacroAssemblerCodePtr<PlatformRegistersPCPtrTag> instructionPointer(const mcontext_t& machineContext)
+inline void* instructionPointer(const mcontext_t& machineContext)
 {
-#if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    void* value = WTF_READ_MACHINE_CONTEXT_PC_WITH_PROFILE(machineContext);
-#else
-    void* value = instructionPointerImpl(const_cast<mcontext_t&>(machineContext));
-#endif
-    return MacroAssemblerCodePtr<PlatformRegistersPCPtrTag>(value);
-}
-
-inline void setInstructionPointer(mcontext_t& machineContext, MacroAssemblerCodePtr<CFunctionPtrTag> value)
-{
-#if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    WTF_WRITE_MACHINE_CONTEXT_PC_WITH_PROFILE(machineContext, value.executableAddress());
-#else
-    instructionPointerImpl(machineContext) = value.executableAddress();
-#endif
+    return instructionPointer(const_cast<mcontext_t&>(machineContext));
 }
 #endif // HAVE(MACHINE_CONTEXT)
 
 
 #if OS(WINDOWS) || HAVE(MACHINE_CONTEXT)
-
-#if OS(DARWIN) && __DARWIN_UNIX03 && CPU(ARM64)
-#if !USE(PLATFORM_REGISTERS_WITH_PROFILE)
-inline void*& linkRegisterImpl(PlatformRegisters& regs)
-{
-    return reinterpret_cast<void*&>(regs.__lr);
-}
-#endif // USE(PLATFORM_REGISTERS_WITH_PROFILE)
-
-
-inline MacroAssemblerCodePtr<PlatformRegistersLRPtrTag> linkRegister(const PlatformRegisters& regs)
-{
-#if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    void* value = WTF_READ_PLATFORM_REGISTERS_LR_WITH_PROFILE(regs);
-#else
-    void* value = linkRegisterImpl(const_cast<PlatformRegisters&>(regs));
-#endif
-    return MacroAssemblerCodePtr<PlatformRegistersLRPtrTag>(value);
-}
-
-inline void setLinkRegister(PlatformRegisters& regs, MacroAssemblerCodePtr<CFunctionPtrTag> value)
-{
-#if USE(PLATFORM_REGISTERS_WITH_PROFILE)
-    WTF_WRITE_PLATFORM_REGISTERS_PC_WITH_PROFILE(regs, value.executableAddress());
-#else
-    linkRegisterImpl(regs) = value.executableAddress();
-#endif
-}
-#endif // OS(DARWIN) && __DARWIN_UNIX03 && CPU(ARM64)
-
 #if HAVE(MACHINE_CONTEXT)
 template<> void*& argumentPointer<1>(mcontext_t&);
 #endif
@@ -639,7 +466,7 @@ inline void*& argumentPointer<1>(mcontext_t& machineContext)
 #error Unknown Architecture
 #endif
 
-#elif OS(FUCHSIA) || defined(__GLIBC__) || defined(__BIONIC__)
+#elif defined(__GLIBC__)
 
 // The following sequence depends on glibc's sys/ucontext.h.
 #if CPU(X86)
@@ -668,7 +495,7 @@ inline void* argumentPointer(const mcontext_t& machineContext)
 }
 #endif // HAVE(MACHINE_CONTEXT)
 
-#if !ENABLE(C_LOOP)
+#if ENABLE(JIT)
 #if OS(WINDOWS) || HAVE(MACHINE_CONTEXT)
 inline void*& llintInstructionPointer(PlatformRegisters& regs)
 {
@@ -756,7 +583,7 @@ inline void*& llintInstructionPointer(mcontext_t& machineContext)
 #error Unknown Architecture
 #endif
 
-#elif OS(FUCHSIA) || defined(__GLIBC__) || defined(__BIONIC__)
+#elif defined(__GLIBC__)
 
 // The following sequence depends on glibc's sys/ucontext.h.
 #if CPU(X86)
@@ -783,7 +610,7 @@ inline void* llintInstructionPointer(const mcontext_t& machineContext)
     return llintInstructionPointer(const_cast<mcontext_t&>(machineContext));
 }
 #endif // HAVE(MACHINE_CONTEXT)
-#endif // !ENABLE(C_LOOP)
+#endif // ENABLE(JIT)
 
 }
 }

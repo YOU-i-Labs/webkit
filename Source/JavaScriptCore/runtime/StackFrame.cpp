@@ -33,24 +33,6 @@
 
 namespace JSC {
 
-StackFrame::StackFrame(VM& vm, JSCell* owner, JSCell* callee)
-    : m_callee(vm, owner, callee)
-{
-}
-
-StackFrame::StackFrame(VM& vm, JSCell* owner, JSCell* callee, CodeBlock* codeBlock, unsigned bytecodeOffset)
-    : m_callee(vm, owner, callee)
-    , m_codeBlock(vm, owner, codeBlock)
-    , m_bytecodeOffset(bytecodeOffset)
-{
-}
-
-StackFrame::StackFrame(Wasm::IndexOrName indexOrName)
-    : m_wasmFunctionIndexOrName(indexOrName)
-    , m_isWasmFrame(true)
-{
-}
-
 intptr_t StackFrame::sourceID() const
 {
     if (!m_codeBlock)
@@ -61,10 +43,10 @@ intptr_t StackFrame::sourceID() const
 String StackFrame::sourceURL() const
 {
     if (m_isWasmFrame)
-        return "[wasm code]"_s;
+        return ASCIILiteral("[wasm code]");
 
     if (!m_codeBlock) {
-        return "[native code]"_s;
+        return ASCIILiteral("[native code]");
     }
 
     String sourceURL = m_codeBlock->ownerScriptExecutable()->sourceURL();
@@ -75,19 +57,22 @@ String StackFrame::sourceURL() const
 
 String StackFrame::functionName(VM& vm) const
 {
-    if (m_isWasmFrame)
-        return makeString(m_wasmFunctionIndexOrName);
+    if (m_isWasmFrame) {
+        if (m_wasmFunctionIndexOrName.isEmpty())
+            return ASCIILiteral("wasm function");
+        return makeString("wasm function: ", makeString(m_wasmFunctionIndexOrName));
+    }
 
     if (m_codeBlock) {
         switch (m_codeBlock->codeType()) {
         case EvalCode:
-            return "eval code"_s;
+            return ASCIILiteral("eval code");
         case ModuleCode:
-            return "module code"_s;
+            return ASCIILiteral("module code");
         case FunctionCode:
             break;
         case GlobalCode:
-            return "global code"_s;
+            return ASCIILiteral("global code");
         default:
             ASSERT_NOT_REACHED();
         }
@@ -140,14 +125,6 @@ String StackFrame::toString(VM& vm) const
         }
     }
     return traceBuild.toString().impl();
-}
-
-void StackFrame::visitChildren(SlotVisitor& visitor)
-{
-    if (m_callee)
-        visitor.append(m_callee);
-    if (m_codeBlock)
-        visitor.append(m_codeBlock);
 }
 
 } // namespace JSC

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2017 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,6 @@
 
 #if ENABLE(B3_JIT)
 
-#include "AirArg.h"
 #include "B3BasicBlockInlines.h"
 #include "B3BlockInsertionSet.h"
 #include "B3CCallValue.h"
@@ -40,15 +39,11 @@
 
 namespace JSC { namespace B3 {
 
-using Arg = Air::Arg;
-using Code = Air::Code;
-using Tmp = Air::Tmp;
-
 namespace {
 
-class LowerMacrosAfterOptimizations {
+class LowerMacros {
 public:
-    LowerMacrosAfterOptimizations(Procedure& proc)
+    LowerMacros(Procedure& proc)
         : m_proc(proc)
         , m_blockInsertionSet(proc)
         , m_insertionSet(proc)
@@ -99,9 +94,9 @@ private:
                 Value* functionAddress = nullptr;
                 if (m_value->type() == Double) {
                     double (*ceilDouble)(double) = ceil;
-                    functionAddress = m_insertionSet.insert<ConstPtrValue>(m_index, m_origin, tagCFunctionPtr(ceilDouble, B3CCallPtrTag));
+                    functionAddress = m_insertionSet.insert<ConstPtrValue>(m_index, m_origin, ceilDouble);
                 } else if (m_value->type() == Float)
-                    functionAddress = m_insertionSet.insert<ConstPtrValue>(m_index, m_origin, tagCFunctionPtr(ceilf, B3CCallPtrTag));
+                    functionAddress = m_insertionSet.insert<ConstPtrValue>(m_index, m_origin, ceilf);
                 else
                     RELEASE_ASSERT_NOT_REACHED();
 
@@ -121,9 +116,9 @@ private:
                 Value* functionAddress = nullptr;
                 if (m_value->type() == Double) {
                     double (*floorDouble)(double) = floor;
-                    functionAddress = m_insertionSet.insert<ConstPtrValue>(m_index, m_origin, tagCFunctionPtr(floorDouble, B3CCallPtrTag));
+                    functionAddress = m_insertionSet.insert<ConstPtrValue>(m_index, m_origin, floorDouble);
                 } else if (m_value->type() == Float)
-                    functionAddress = m_insertionSet.insert<ConstPtrValue>(m_index, m_origin, tagCFunctionPtr(floorf, B3CCallPtrTag));
+                    functionAddress = m_insertionSet.insert<ConstPtrValue>(m_index, m_origin, floorf);
                 else
                     RELEASE_ASSERT_NOT_REACHED();
 
@@ -188,7 +183,7 @@ private:
 
 bool lowerMacrosImpl(Procedure& proc)
 {
-    LowerMacrosAfterOptimizations lowerMacros(proc);
+    LowerMacros lowerMacros(proc);
     return lowerMacros.run();
 }
 

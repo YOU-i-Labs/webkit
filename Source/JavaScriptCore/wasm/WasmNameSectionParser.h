@@ -29,11 +29,10 @@
 
 #include "WasmFormat.h"
 #include "WasmParser.h"
-#include <wtf/RefPtr.h>
 
 namespace JSC { namespace Wasm {
 
-class NameSectionParser : public Parser<Ref<NameSection>> {
+class NameSectionParser : public Parser<NameSection> {
 public:
     NameSectionParser(const uint8_t* sourceBuffer, size_t sourceLength, const ModuleInformation& info)
         : Parser(sourceBuffer, sourceLength)

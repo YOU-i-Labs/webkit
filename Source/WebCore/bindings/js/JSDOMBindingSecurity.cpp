@@ -25,15 +25,14 @@
 #include "DOMWindow.h"
 #include "Document.h"
 #include "Frame.h"
-#include "HTTPParsers.h"
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMWindowBase.h"
 #include "SecurityOrigin.h"
 #include <wtf/text/WTFString.h>
 
+using namespace JSC;
 
 namespace WebCore {
-using namespace JSC;
 
 void printErrorMessageForFrame(Frame* frame, const String& message)
 {
@@ -57,10 +56,10 @@ static inline bool canAccessDocument(JSC::ExecState* state, Document* targetDocu
 
     switch (reportingOption) {
     case ThrowSecurityError:
-        throwSecurityError(*state, scope, targetDocument->domWindow()->crossDomainAccessErrorMessage(active, IncludeTargetOrigin::No));
+        throwSecurityError(*state, scope, targetDocument->domWindow()->crossDomainAccessErrorMessage(active));
         break;
     case LogSecurityError:
-        printErrorMessageForFrame(targetDocument->frame(), targetDocument->domWindow()->crossDomainAccessErrorMessage(active, IncludeTargetOrigin::Yes));
+        printErrorMessageForFrame(targetDocument->frame(), targetDocument->domWindow()->crossDomainAccessErrorMessage(active));
         break;
     case DoNotReportSecurityError:
         break;
@@ -73,31 +72,21 @@ bool BindingSecurity::shouldAllowAccessToFrame(ExecState& state, Frame& frame, S
 {
     if (BindingSecurity::shouldAllowAccessToFrame(&state, &frame, DoNotReportSecurityError))
         return true;
-    message = frame.document()->domWindow()->crossDomainAccessErrorMessage(activeDOMWindow(state), IncludeTargetOrigin::No);
+    message = frame.document()->domWindow()->crossDomainAccessErrorMessage(activeDOMWindow(state));
     return false;
-}
-
-bool BindingSecurity::shouldAllowAccessToDOMWindow(ExecState& state, DOMWindow* globalObject, String& message)
-{
-    return globalObject && shouldAllowAccessToDOMWindow(state, *globalObject, message);
 }
 
 bool BindingSecurity::shouldAllowAccessToDOMWindow(ExecState& state, DOMWindow& globalObject, String& message)
 {
     if (BindingSecurity::shouldAllowAccessToDOMWindow(&state, globalObject, DoNotReportSecurityError))
         return true;
-    message = globalObject.crossDomainAccessErrorMessage(activeDOMWindow(state), IncludeTargetOrigin::No);
+    message = globalObject.crossDomainAccessErrorMessage(activeDOMWindow(state));
     return false;
 }
 
 bool BindingSecurity::shouldAllowAccessToDOMWindow(JSC::ExecState* state, DOMWindow& target, SecurityReportingOption reportingOption)
 {
     return canAccessDocument(state, target.document(), reportingOption);
-}
-
-bool BindingSecurity::shouldAllowAccessToDOMWindow(JSC::ExecState* state, DOMWindow* target, SecurityReportingOption reportingOption)
-{
-    return target && shouldAllowAccessToDOMWindow(state, *target, reportingOption);
 }
 
 bool BindingSecurity::shouldAllowAccessToFrame(JSC::ExecState* state, Frame* target, SecurityReportingOption reportingOption)

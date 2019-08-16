@@ -25,6 +25,7 @@
 #pragma once
 
 #include <cmath>
+#include <wtf/CurrentTime.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/RefCounted.h>
 
@@ -41,52 +42,52 @@ public:
     void start();
     void stop();
 
-    Seconds elapsedTime();
-    Seconds elapsedTimeSince(MonotonicTime);
+    double elapsedTime();
+    double elapsedTimeSince(MonotonicTime);
 
     bool isActive() const { return !std::isnan(m_lastStartTime); }
 private:
     Stopwatch() { reset(); }
 
-    Seconds m_elapsedTime;
-    MonotonicTime m_lastStartTime;
+    double m_elapsedTime;
+    double m_lastStartTime;
 };
 
 inline void Stopwatch::reset()
 {
-    m_elapsedTime = 0_s;
-    m_lastStartTime = MonotonicTime::nan();
+    m_elapsedTime = 0.0;
+    m_lastStartTime = NAN;
 }
 
 inline void Stopwatch::start()
 {
     ASSERT_WITH_MESSAGE(std::isnan(m_lastStartTime), "Tried to start the stopwatch, but it is already running.");
 
-    m_lastStartTime = MonotonicTime::now();
+    m_lastStartTime = monotonicallyIncreasingTime();
 }
 
 inline void Stopwatch::stop()
 {
     ASSERT_WITH_MESSAGE(!std::isnan(m_lastStartTime), "Tried to stop the stopwatch, but it is not running.");
 
-    m_elapsedTime += MonotonicTime::now() - m_lastStartTime;
-    m_lastStartTime = MonotonicTime::nan();
+    m_elapsedTime += monotonicallyIncreasingTime() - m_lastStartTime;
+    m_lastStartTime = NAN;
 }
 
-inline Seconds Stopwatch::elapsedTime()
+inline double Stopwatch::elapsedTime()
 {
     if (!isActive())
         return m_elapsedTime;
 
-    return m_elapsedTime + (MonotonicTime::now() - m_lastStartTime);
+    return m_elapsedTime + (monotonicallyIncreasingTime() - m_lastStartTime);
 }
 
-inline Seconds Stopwatch::elapsedTimeSince(MonotonicTime timeStamp)
+inline double Stopwatch::elapsedTimeSince(MonotonicTime timeStamp)
 {
     if (!isActive())
         return m_elapsedTime;
 
-    return m_elapsedTime + (timeStamp - m_lastStartTime);
+    return m_elapsedTime + (timeStamp.secondsSinceEpoch().seconds() - m_lastStartTime);
 }
 
 } // namespace WTF

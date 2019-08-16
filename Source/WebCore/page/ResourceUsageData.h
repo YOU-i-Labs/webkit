@@ -32,31 +32,22 @@
 
 namespace WebCore {
 
-// v(name, id, subcategory)
-#define WEBCORE_EACH_MEMORY_CATEGORIES(v) \
-    v(bmalloc, 0, false) \
-    v(LibcMalloc, 1, false) \
-    v(JSJIT, 2, false) \
-    v(WebAssembly, 3, false) \
-    v(Images, 4, false) \
-    v(GCHeap, 5, true) \
-    v(GCOwned, 6, true) \
-    v(Other, 7, false) \
-    v(Layers, 8, false) \
-
 namespace MemoryCategory {
-#define WEBCORE_DEFINE_MEMORY_CATEGORY(name, id, subcategory) static constexpr unsigned name = id;
-WEBCORE_EACH_MEMORY_CATEGORIES(WEBCORE_DEFINE_MEMORY_CATEGORY)
-#undef WEBCORE_DEFINE_MEMORY_CATEGORY
-
-#define WEBCORE_DEFINE_MEMORY_CATEGORY(name, id, subcategory) + 1
-static constexpr unsigned NumberOfCategories = 0 WEBCORE_EACH_MEMORY_CATEGORIES(WEBCORE_DEFINE_MEMORY_CATEGORY);
-#undef WEBCORE_DEFINE_MEMORY_CATEGORY
+static const unsigned bmalloc = 0;
+static const unsigned LibcMalloc = 1;
+static const unsigned JSJIT = 2;
+static const unsigned WebAssembly = 3;
+static const unsigned Images = 4;
+static const unsigned GCHeap = 5;
+static const unsigned GCOwned = 6;
+static const unsigned Other = 7;
+static const unsigned Layers = 8;
+static const unsigned NumberOfCategories = 9;
 }
 
 struct MemoryCategoryInfo {
-    constexpr MemoryCategoryInfo() = default; // Needed for std::array.
-    constexpr MemoryCategoryInfo(unsigned category, bool subcategory = false)
+    MemoryCategoryInfo() { } // Needed for std::array.
+    MemoryCategoryInfo(unsigned category, bool subcategory = false)
         : isSubcategory(subcategory)
         , type(category)
     {
@@ -72,16 +63,13 @@ struct MemoryCategoryInfo {
 };
 
 struct ResourceUsageData {
-    constexpr ResourceUsageData() = default;
+    ResourceUsageData();
+    ResourceUsageData(const ResourceUsageData& data);
 
     float cpu { 0 };
     size_t totalDirtySize { 0 };
     size_t totalExternalSize { 0 };
-    std::array<MemoryCategoryInfo, MemoryCategory::NumberOfCategories> categories { {
-#define WEBCORE_DEFINE_MEMORY_CATEGORY(name, id, subcategory) MemoryCategoryInfo { MemoryCategory::name, subcategory },
-WEBCORE_EACH_MEMORY_CATEGORIES(WEBCORE_DEFINE_MEMORY_CATEGORY)
-#undef WEBCORE_DEFINE_MEMORY_CATEGORY
-    } };
+    std::array<MemoryCategoryInfo, MemoryCategory::NumberOfCategories> categories;
     MonotonicTime timeOfNextEdenCollection { MonotonicTime::nan() };
     MonotonicTime timeOfNextFullCollection { MonotonicTime::nan() };
 };

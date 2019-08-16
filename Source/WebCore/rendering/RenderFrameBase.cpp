@@ -30,12 +30,8 @@
 #include "FrameView.h"
 #include "HTMLFrameElementBase.h"
 #include "RenderView.h"
-#include "ScriptDisallowedScope.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderFrameBase);
 
 RenderFrameBase::RenderFrameBase(HTMLFrameElementBase& element, RenderStyle&& style)
     : RenderWidget(element, WTFMove(style))
@@ -74,15 +70,13 @@ RenderView* RenderFrameBase::childRenderView() const
 
 void RenderFrameBase::performLayoutWithFlattening(bool hasFixedWidth, bool hasFixedHeight)
 {
-    // FIXME: Refactor frame flattening code so that we don't need to disable assertions here.
-    ScriptDisallowedScope::DisableAssertionsInScope scope;
     if (!childRenderView())
         return;
 
     if (!shouldExpandFrame(width(), height(), hasFixedWidth, hasFixedHeight)) {
         if (updateWidgetPosition() == ChildWidgetState::Destroyed)
             return;
-        childView()->layoutContext().layout();
+        childView()->layout();
         return;
     }
 
@@ -106,7 +100,7 @@ void RenderFrameBase::performLayoutWithFlattening(bool hasFixedWidth, bool hasFi
         // update again to pass the new width to the child frame
         if (updateWidgetPosition() == ChildWidgetState::Destroyed)
             return;
-        childView()->layoutContext().layout();
+        childView()->layout();
     }
 
     ASSERT(childView());
@@ -119,7 +113,7 @@ void RenderFrameBase::performLayoutWithFlattening(bool hasFixedWidth, bool hasFi
     if (updateWidgetPosition() == ChildWidgetState::Destroyed)
         return;
 
-    ASSERT(!childView()->layoutContext().isLayoutPending());
+    ASSERT(!childView()->layoutPending());
     ASSERT(!childRenderView()->needsLayout());
     ASSERT(!childRenderView()->firstChild() || !childRenderView()->firstChild()->firstChildSlow() || !childRenderView()->firstChild()->firstChildSlow()->needsLayout());
 }

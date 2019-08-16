@@ -26,7 +26,6 @@
 
 #if ENABLE(WEB_AUDIO)
 
-#include "ActiveDOMCallback.h"
 #include "CallbackResult.h"
 #include <wtf/RefCounted.h>
 
@@ -34,10 +33,9 @@ namespace WebCore {
 
 class AudioBuffer;
 
-class AudioBufferCallback : public RefCounted<AudioBufferCallback>, public ActiveDOMCallback {
+class AudioBufferCallback : public RefCounted<AudioBufferCallback> {
 public:
-    using ActiveDOMCallback::ActiveDOMCallback;
-
+    virtual ~AudioBufferCallback() { }
     virtual CallbackResult<void> handleEvent(AudioBuffer*) = 0;
 };
 

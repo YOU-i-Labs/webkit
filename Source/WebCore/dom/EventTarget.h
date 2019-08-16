@@ -40,7 +40,9 @@
 
 namespace WebCore {
 
+class DOMWindow;
 class DOMWrapperWorld;
+class Node;
 
 struct EventTargetData {
     WTF_MAKE_NONCOPYABLE(EventTargetData); WTF_MAKE_FAST_ALLOCATED;
@@ -48,6 +50,14 @@ public:
     EventTargetData() = default;
     EventListenerMap eventListenerMap;
     bool isFiringEventListeners { false };
+};
+
+enum EventTargetInterface {
+
+#define DOM_EVENT_INTERFACE_DECLARE(name) name##EventTargetInterfaceType,
+DOM_EVENT_TARGET_INTERFACES_FOR_EACH(DOM_EVENT_INTERFACE_DECLARE)
+#undef DOM_EVENT_INTERFACE_DECLARE
+
 };
 
 class EventTarget : public ScriptWrappable {
@@ -58,26 +68,27 @@ public:
     virtual EventTargetInterface eventTargetInterface() const = 0;
     virtual ScriptExecutionContext* scriptExecutionContext() const = 0;
 
-    virtual bool isNode() const;
-    virtual bool isPaymentRequest() const;
+    virtual Node* toNode();
+    virtual DOMWindow* toDOMWindow();
+    virtual bool isMessagePort() const;
 
     struct ListenerOptions {
         ListenerOptions(bool capture = false)
             : capture(capture)
         { }
 
-        bool capture { false };
+        bool capture;
     };
 
     struct AddEventListenerOptions : ListenerOptions {
-        AddEventListenerOptions(bool capture = false, Optional<bool> passive = WTF::nullopt, bool once = false)
+        AddEventListenerOptions(bool capture = false, bool passive = false, bool once = false)
             : ListenerOptions(capture)
             , passive(passive)
             , once(once)
         { }
 
-        Optional<bool> passive;
-        bool once { false };
+        bool passive;
+        bool once;
     };
 
     using AddEventListenerOptionsOrBoolean = Variant<AddEventListenerOptions, bool>;
@@ -90,7 +101,7 @@ public:
     virtual bool removeEventListener(const AtomicString& eventType, EventListener&, const ListenerOptions&);
 
     virtual void removeAllEventListeners();
-    virtual void dispatchEvent(Event&);
+    virtual bool dispatchEvent(Event&);
     virtual void uncaughtExceptionInEventHandler();
 
     // Used for legacy "onevent" attributes.
@@ -103,8 +114,7 @@ public:
     bool hasActiveEventListeners(const AtomicString& eventType) const;
     const EventListenerVector& eventListeners(const AtomicString& eventType);
 
-    enum class EventInvokePhase { Capturing, Bubbling };
-    void fireEventListeners(Event&, EventInvokePhase);
+    bool fireEventListeners(Event&);
     bool isFiringEventListeners() const;
 
     void visitJSEventListeners(JSC::SlotVisitor&);
@@ -122,7 +132,7 @@ private:
     virtual void refEventTarget() = 0;
     virtual void derefEventTarget() = 0;
     
-    void innerInvokeEventListeners(Event&, EventListenerVector, EventInvokePhase);
+    void fireEventListeners(Event&, EventListenerVector);
 
     friend class EventListenerIterator;
 };

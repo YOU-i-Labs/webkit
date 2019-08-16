@@ -29,6 +29,8 @@
 
 namespace WebCore {
 
+class MainFrame;
+
 class MockPageOverlay : public RefCounted<MockPageOverlay> {
 public:
     static Ref<MockPageOverlay> create(PageOverlay*);

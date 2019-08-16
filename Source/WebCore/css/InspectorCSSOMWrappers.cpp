@@ -32,6 +32,7 @@
 #include "CSSDefaultStyleSheets.h"
 #include "CSSImportRule.h"
 #include "CSSMediaRule.h"
+#include "CSSNamespaceRule.h"
 #include "CSSRule.h"
 #include "CSSStyleRule.h"
 #include "CSSStyleSheet.h"
@@ -39,6 +40,7 @@
 #include "ExtensionStyleSheets.h"
 #include "StyleScope.h"
 #include "StyleSheetContents.h"
+#include "WebKitCSSRegionRule.h"
 
 namespace WebCore {
 
@@ -66,6 +68,11 @@ void InspectorCSSOMWrappers::collect(ListType* listType)
         case CSSRule::SUPPORTS_RULE:
             collect(downcast<CSSSupportsRule>(cssRule));
             break;
+#if ENABLE(CSS_REGIONS)
+        case CSSRule::WEBKIT_REGION_RULE:
+            collect(downcast<WebKitCSSRegionRule>(cssRule));
+            break;
+#endif
         case CSSRule::STYLE_RULE:
             m_styleRuleToCSSOMWrapperMap.add(&downcast<CSSStyleRule>(*cssRule).styleRule(), downcast<CSSStyleRule>(cssRule));
             break;
@@ -79,9 +86,9 @@ void InspectorCSSOMWrappers::collectFromStyleSheetContents(StyleSheetContents* s
 {
     if (!styleSheet)
         return;
-    auto styleSheetWrapper = CSSStyleSheet::create(*styleSheet);
-    m_styleSheetCSSOMWrapperSet.add(styleSheetWrapper.copyRef());
-    collect(styleSheetWrapper.ptr());
+    RefPtr<CSSStyleSheet> styleSheetWrapper = CSSStyleSheet::create(*styleSheet);
+    m_styleSheetCSSOMWrapperSet.add(styleSheetWrapper);
+    collect(styleSheetWrapper.get());
 }
 
 void InspectorCSSOMWrappers::collectFromStyleSheets(const Vector<RefPtr<CSSStyleSheet>>& sheets)
@@ -110,14 +117,7 @@ void InspectorCSSOMWrappers::collectDocumentWrappers(ExtensionStyleSheets& exten
         collectFromStyleSheetContents(CSSDefaultStyleSheets::mathMLStyleSheet);
         collectFromStyleSheetContents(CSSDefaultStyleSheets::mediaControlsStyleSheet);
         collectFromStyleSheetContents(CSSDefaultStyleSheets::fullscreenStyleSheet);
-#if ENABLE(DATALIST_ELEMENT)
-        collectFromStyleSheetContents(CSSDefaultStyleSheets::dataListStyleSheet);
-#endif
-#if ENABLE(INPUT_TYPE_COLOR)
-        collectFromStyleSheetContents(CSSDefaultStyleSheets::colorInputStyleSheet);
-#endif
         collectFromStyleSheetContents(CSSDefaultStyleSheets::plugInsStyleSheet);
-        collectFromStyleSheetContents(CSSDefaultStyleSheets::mediaQueryStyleSheet);
 
         collect(extensionStyleSheets.pageUserSheet());
         collectFromStyleSheets(extensionStyleSheets.injectedUserStyleSheets());

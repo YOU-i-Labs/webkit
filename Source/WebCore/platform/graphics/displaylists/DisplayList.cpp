@@ -28,8 +28,8 @@
 
 #include "DisplayListItems.h"
 #include "Logging.h"
+#include "TextStream.h"
 #include <wtf/StdLibExtras.h>
-#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 namespace DisplayList {
@@ -38,13 +38,13 @@ namespace DisplayList {
 WTF::CString DisplayList::description() const
 {
     TextStream ts;
-    ts << this;
+    ts << *this;
     return ts.release().utf8();
 }
 
 void DisplayList::dump() const
 {
-    fprintf(stderr, "%s", description().data());
+    WTFLogAlways("%s", description().data());
 }
 #endif
 

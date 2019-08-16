@@ -31,7 +31,6 @@
 #pragma once
 
 #include "BasicShapes.h"
-#include "RenderStyleConstants.h"
 #include "StyleImage.h"
 
 namespace WebCore {
@@ -95,7 +94,7 @@ private:
     Type m_type;
     RefPtr<BasicShape> m_shape;
     RefPtr<StyleImage> m_image;
-    CSSBoxType m_cssBox { CSSBoxType::BoxMissing };
+    CSSBoxType m_cssBox { BoxMissing };
 };
 
 }

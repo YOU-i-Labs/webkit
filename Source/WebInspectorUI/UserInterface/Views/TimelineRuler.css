@@ -61,9 +61,7 @@ body[dir=rtl] .timeline-ruler > .markers > :matches(.divider, .marker) {
     top: 0;
     left: 0;
     right: 0;
-    height: var(--timeline-ruler-height);
-
-    --timeline-ruler-height: 23px;
+    height: 23px;
 }
 
 
@@ -120,15 +118,15 @@ body[dir=rtl] .timeline-ruler > .header > .divider > .label {
     bottom: 0;
     pointer-events: all;
 
-    border: 0 solid hsla(0, 0%, 50%, 0.5);
+    --timeline-ruler-marker-border-start: 1px solid hsla(0, 0%, 50%, 0.5);
 }
 
 body[dir=ltr] .timeline-ruler > .markers > .marker {
-    border-left-width: 1px;
+    border-left: var(--timeline-ruler-marker-border-start);
 }
 
 body[dir=rtl] .timeline-ruler > .markers > .marker {
-    border-right-width: 1px;
+    border-right: var(--timeline-ruler-marker-border-start);
 }
 
 /* Larger tooltip area */
@@ -155,8 +153,12 @@ body[dir=rtl] .timeline-ruler > .markers > .marker::before {
     right: var(--timeline-ruler-marker-before-offset-start);
 }
 
-.timeline-ruler > .markers > .marker.current-time {
-    border-color: red;
+body[dir=ltr] .timeline-ruler > .markers > .marker.current-time {
+    border-left-color: red;
+}
+
+body[dir=rtl] .timeline-ruler > .markers > .marker.current-time {
+    border-right-color: red;
 }
 
 .timeline-ruler > .markers > .marker.current-time::before {
@@ -172,15 +174,18 @@ body[dir=rtl] .timeline-ruler > .markers > .marker::before {
 }
 
 .timeline-ruler > .markers > .marker.load-event {
-    border-color: hsla(0, 100%, 50%, 0.25);
+    border-left-color: hsl(0, 100%, 50%);
+    opacity: 0.25;
 }
 
 .timeline-ruler > .markers > .marker.dom-content-event {
-    border-color: hsla(240, 100%, 50%, 0.25);
+    border-left-color: hsl(240, 100%, 50%);
+    opacity: 0.25;
 }
 
 .timeline-ruler > .markers > .marker.timestamp {
-    border-color: hsla(119, 100%, 21%, 0.25);
+    border-left-color: hsl(119, 100%, 21%);
+    opacity: 0.25;
 }
 
 .timeline-ruler > .selection-drag {

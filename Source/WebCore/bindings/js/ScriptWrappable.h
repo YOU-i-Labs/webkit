@@ -31,7 +31,7 @@
 
 #pragma once
 
-#include <JavaScriptCore/Weak.h>
+#include <heap/Weak.h>
 
 namespace JSC {
 class WeakHandleOwner;
@@ -51,7 +51,7 @@ public:
     static ptrdiff_t offsetOfWrapper() { return CAST_OFFSET(Derived*, ScriptWrappable*) + OBJECT_OFFSETOF(ScriptWrappable, m_wrapper); }
 
 protected:
-    ~ScriptWrappable() = default;
+    ~ScriptWrappable() { }
 
 private:
     JSC::Weak<JSDOMObject> m_wrapper;

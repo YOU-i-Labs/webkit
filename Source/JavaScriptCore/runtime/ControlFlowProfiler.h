@@ -28,6 +28,7 @@
 
 #include "BasicBlockLocation.h"
 #include <wtf/HashMap.h>
+#include <wtf/HashMethod.h>
 
 namespace JSC {
 

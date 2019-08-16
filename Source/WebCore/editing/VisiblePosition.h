@@ -27,10 +27,7 @@
 
 #include "EditingBoundary.h"
 #include "Position.h"
-
-namespace WTF {
-class TextStream;
-}
+#include "TextFlags.h"
 
 namespace WebCore {
 
@@ -49,6 +46,7 @@ namespace WebCore {
 
 class InlineBox;
 class Node;
+class TextStream;
 
 class VisiblePosition {
 public:
@@ -165,8 +163,8 @@ WEBCORE_EXPORT Element* enclosingBlockFlowElement(const VisiblePosition&);
 bool isFirstVisiblePositionInNode(const VisiblePosition&, const Node*);
 bool isLastVisiblePositionInNode(const VisiblePosition&, const Node*);
 
-WTF::TextStream& operator<<(WTF::TextStream&, EAffinity);
-WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const VisiblePosition&);
+TextStream& operator<<(TextStream&, EAffinity);
+TextStream& operator<<(TextStream&, const VisiblePosition&);
 
 } // namespace WebCore
 

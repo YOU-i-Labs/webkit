@@ -25,16 +25,6 @@
 
 // @conditional=ENABLE(STREAMS_API)
 
-function initializeReadableStreamBYOBRequest(controller, view)
-{
-    "use strict";
-
-    if (arguments.length !== 3 && arguments[2] !== @isReadableStream)
-        @throwTypeError("ReadableStreamBYOBRequest constructor should not be called directly");
-
-    return @privateInitializeReadableStreamBYOBRequest.@call(this, controller, view);
-}
-
 function respond(bytesWritten)
 {
     "use strict";
@@ -42,10 +32,10 @@ function respond(bytesWritten)
     if (!@isReadableStreamBYOBRequest(this))
         throw @makeThisTypeError("ReadableStreamBYOBRequest", "respond");
 
-    if (@getByIdDirectPrivate(this, "associatedReadableByteStreamController") === @undefined)
+    if (this.@associatedReadableByteStreamController === @undefined)
         @throwTypeError("ReadableStreamBYOBRequest.associatedReadableByteStreamController is undefined");
 
-    return @readableByteStreamControllerRespond(@getByIdDirectPrivate(this, "associatedReadableByteStreamController"), bytesWritten);
+    return @readableByteStreamControllerRespond(this.@associatedReadableByteStreamController, bytesWritten);
 }
 
 function respondWithNewView(view)
@@ -55,7 +45,7 @@ function respondWithNewView(view)
     if (!@isReadableStreamBYOBRequest(this))
         throw @makeThisTypeError("ReadableStreamBYOBRequest", "respond");
 
-    if (@getByIdDirectPrivate(this, "associatedReadableByteStreamController") === @undefined)
+    if (this.@associatedReadableByteStreamController === @undefined)
         @throwTypeError("ReadableStreamBYOBRequest.associatedReadableByteStreamController is undefined");
 
     if (!@isObject(view))
@@ -64,10 +54,9 @@ function respondWithNewView(view)
     if (!@ArrayBuffer.@isView(view))
         @throwTypeError("Provided view is not an ArrayBufferView");
 
-    return @readableByteStreamControllerRespondWithNewView(@getByIdDirectPrivate(this, "associatedReadableByteStreamController"), view);
+    return @readableByteStreamControllerRespondWithNewView(this.@associatedReadableByteStreamController, view);
 }
 
-@getter
 function view()
 {
     "use strict";
@@ -75,5 +64,5 @@ function view()
     if (!@isReadableStreamBYOBRequest(this))
         throw @makeGetterTypeError("ReadableStreamBYOBRequest", "view");
 
-    return @getByIdDirectPrivate(this, "view");
+    return this.@view;
 }

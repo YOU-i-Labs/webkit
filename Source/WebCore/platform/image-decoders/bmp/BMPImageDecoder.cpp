@@ -41,7 +41,7 @@ namespace WebCore {
 static const size_t sizeOfFileHeader = 14;
 
 BMPImageDecoder::BMPImageDecoder(AlphaOption alphaOption, GammaAndColorProfileOption gammaAndColorProfileOption)
-    : ScalableImageDecoder(alphaOption, gammaAndColorProfileOption)
+    : ImageDecoder(alphaOption, gammaAndColorProfileOption)
     , m_decodedOffset(0)
 {
 }
@@ -51,20 +51,20 @@ void BMPImageDecoder::setData(SharedBuffer& data, bool allDataReceived)
     if (failed())
         return;
 
-    ScalableImageDecoder::setData(data, allDataReceived);
+    ImageDecoder::setData(data, allDataReceived);
     if (m_reader)
         m_reader->setData(&data);
 }
 
-ScalableImageDecoderFrame* BMPImageDecoder::frameBufferAtIndex(size_t index)
+ImageFrame* BMPImageDecoder::frameBufferAtIndex(size_t index)
 {
     if (index)
         return 0;
 
     if (m_frameBufferCache.isEmpty())
-        m_frameBufferCache.grow(1);
+        m_frameBufferCache.resize(1);
 
-    auto* buffer = &m_frameBufferCache.first();
+    ImageFrame* buffer = &m_frameBufferCache.first();
     if (!buffer->isComplete())
         decode(false, isAllDataReceived());
     return buffer;
@@ -73,7 +73,7 @@ ScalableImageDecoderFrame* BMPImageDecoder::frameBufferAtIndex(size_t index)
 bool BMPImageDecoder::setFailed()
 {
     m_reader = nullptr;
-    return ScalableImageDecoder::setFailed();
+    return ImageDecoder::setFailed();
 }
 
 void BMPImageDecoder::decode(bool onlySize, bool allDataReceived)

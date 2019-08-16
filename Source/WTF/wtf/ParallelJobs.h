@@ -25,9 +25,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
+#ifndef ParallelJobs_h
+#define ParallelJobs_h
 
 #include <wtf/Assertions.h>
+#include <wtf/Noncopyable.h>
+#include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
 // Usage:
@@ -98,3 +101,5 @@ private:
 } // namespace WTF
 
 using WTF::ParallelJobs;
+
+#endif // ParallelJobs_h

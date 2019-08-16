@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.CookieStorageObject = class CookieStorageObject
+WebInspector.CookieStorageObject = class CookieStorageObject
 {
     constructor(host)
     {
@@ -35,7 +35,7 @@ WI.CookieStorageObject = class CookieStorageObject
     static cookieMatchesResourceURL(cookie, resourceURL)
     {
         var parsedURL = parseURL(resourceURL);
-        if (!parsedURL || !WI.CookieStorageObject.cookieDomainMatchesResourceDomain(cookie.domain, parsedURL.host))
+        if (!parsedURL || !WebInspector.CookieStorageObject.cookieDomainMatchesResourceDomain(cookie.domain, parsedURL.host))
             return false;
 
         return parsedURL.path.startsWith(cookie.path)
@@ -60,9 +60,9 @@ WI.CookieStorageObject = class CookieStorageObject
     saveIdentityToCookie(cookie)
     {
         // FIXME <https://webkit.org/b/151413>: This class should actually store cookie data for this host.
-        cookie[WI.CookieStorageObject.CookieHostCookieKey] = this.host;
+        cookie[WebInspector.CookieStorageObject.CookieHostCookieKey] = this.host;
     }
 };
 
-WI.CookieStorageObject.TypeIdentifier = "cookie-storage";
-WI.CookieStorageObject.CookieHostCookieKey = "cookie-storage-host";
+WebInspector.CookieStorageObject.TypeIdentifier = "cookie-storage";
+WebInspector.CookieStorageObject.CookieHostCookieKey = "cookie-storage-host";

@@ -27,7 +27,7 @@
 #include "TransformOperation.h"
 
 #include "IdentityTransformOperation.h"
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 

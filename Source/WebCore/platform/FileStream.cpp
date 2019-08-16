@@ -38,7 +38,7 @@
 namespace WebCore {
 
 FileStream::FileStream()
-    : m_handle(FileSystem::invalidPlatformFileHandle)
+    : m_handle(invalidPlatformFileHandle)
     , m_bytesProcessed(0)
     , m_totalBytesToRead(0)
 {
@@ -49,20 +49,20 @@ FileStream::~FileStream()
     close();
 }
 
-long long FileStream::getSize(const String& path, Optional<WallTime> expectedModificationTime)
+long long FileStream::getSize(const String& path, double expectedModificationTime)
 {
     // Check the modification time for the possible file change.
-    auto modificationTime = FileSystem::getFileModificationTime(path);
-    if (!modificationTime)
+    time_t modificationTime;
+    if (!getFileModificationTime(path, modificationTime))
         return -1;
-    if (expectedModificationTime) {
-        if (expectedModificationTime->secondsSinceEpoch().secondsAs<time_t>() != modificationTime->secondsSinceEpoch().secondsAs<time_t>())
+    if (isValidFileTime(expectedModificationTime)) {
+        if (static_cast<time_t>(expectedModificationTime) != modificationTime)
             return -1;
     }
 
     // Now get the file size.
     long long length;
-    if (!FileSystem::getFileSize(path, length))
+    if (!getFileSize(path, length))
         return -1;
 
     return length;
@@ -70,17 +70,17 @@ long long FileStream::getSize(const String& path, Optional<WallTime> expectedMod
 
 bool FileStream::openForRead(const String& path, long long offset, long long length)
 {
-    if (FileSystem::isHandleValid(m_handle))
+    if (isHandleValid(m_handle))
         return true;
 
     // Open the file.
-    m_handle = FileSystem::openFile(path, FileSystem::FileOpenMode::Read);
-    if (!FileSystem::isHandleValid(m_handle))
+    m_handle = openFile(path, OpenForRead);
+    if (!isHandleValid(m_handle))
         return false;
 
     // Jump to the beginning position if the file has been sliced.
     if (offset > 0) {
-        if (FileSystem::seekFile(m_handle, offset, FileSystem::FileSeekOrigin::Beginning) < 0)
+        if (seekFile(m_handle, offset, SeekFromBeginning) < 0)
             return false;
     }
 
@@ -92,22 +92,22 @@ bool FileStream::openForRead(const String& path, long long offset, long long len
 
 void FileStream::close()
 {
-    if (FileSystem::isHandleValid(m_handle)) {
-        FileSystem::closeFile(m_handle);
-        m_handle = FileSystem::invalidPlatformFileHandle;
+    if (isHandleValid(m_handle)) {
+        closeFile(m_handle);
+        m_handle = invalidPlatformFileHandle;
     }
 }
 
 int FileStream::read(char* buffer, int bufferSize)
 {
-    if (!FileSystem::isHandleValid(m_handle))
+    if (!isHandleValid(m_handle))
         return -1;
 
     long long remaining = m_totalBytesToRead - m_bytesProcessed;
     int bytesToRead = (remaining < bufferSize) ? static_cast<int>(remaining) : bufferSize;
     int bytesRead = 0;
     if (bytesToRead > 0)
-        bytesRead = FileSystem::readFromFile(m_handle, buffer, bytesToRead);
+        bytesRead = readFromFile(m_handle, buffer, bytesToRead);
     if (bytesRead < 0)
         return -1;
     if (bytesRead > 0)

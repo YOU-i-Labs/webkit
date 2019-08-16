@@ -37,12 +37,14 @@
 namespace WebCore {
 
 DOMWindowIndexedDatabase::DOMWindowIndexedDatabase(DOMWindow* window)
-    : DOMWindowProperty(window)
+    : DOMWindowProperty(window->frame())
     , m_window(window)
 {
 }
 
-DOMWindowIndexedDatabase::~DOMWindowIndexedDatabase() = default;
+DOMWindowIndexedDatabase::~DOMWindowIndexedDatabase()
+{
+}
 
 const char* DOMWindowIndexedDatabase::supplementName()
 {
@@ -60,15 +62,15 @@ DOMWindowIndexedDatabase* DOMWindowIndexedDatabase::from(DOMWindow* window)
     return supplement;
 }
 
-void DOMWindowIndexedDatabase::suspendForPageCache()
+void DOMWindowIndexedDatabase::disconnectFrameForDocumentSuspension()
 {
     m_suspendedIDBFactory = WTFMove(m_idbFactory);
-    DOMWindowProperty::suspendForPageCache();
+    DOMWindowProperty::disconnectFrameForDocumentSuspension();
 }
 
-void DOMWindowIndexedDatabase::resumeFromPageCache()
+void DOMWindowIndexedDatabase::reconnectFrameFromDocumentSuspension(Frame* frame)
 {
-    DOMWindowProperty::resumeFromPageCache();
+    DOMWindowProperty::reconnectFrameFromDocumentSuspension(frame);
     m_idbFactory = WTFMove(m_suspendedIDBFactory);
 }
 

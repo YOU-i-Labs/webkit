@@ -31,13 +31,18 @@ typedef struct _cairo_scaled_font cairo_scaled_font_t;
 typedef struct _cairo_pattern cairo_pattern_t;
 typedef struct _cairo_region cairo_region_t;
 
+#if USE(FREETYPE)
+typedef struct _FcPattern FcPattern;
+typedef struct _FcConfig FcConfig;
+#endif
+
 namespace WTF {
 
 template<> void refIfNotNull(cairo_t* ptr);
-template<> WEBCORE_EXPORT void derefIfNotNull(cairo_t* ptr);
+template<> void derefIfNotNull(cairo_t* ptr);
 
 template<> void refIfNotNull(cairo_surface_t* ptr);
-template<> WEBCORE_EXPORT void derefIfNotNull(cairo_surface_t* ptr);
+template<> void derefIfNotNull(cairo_surface_t* ptr);
 
 template<> void refIfNotNull(cairo_font_face_t* ptr);
 template<> void derefIfNotNull(cairo_font_face_t* ptr);
@@ -50,6 +55,14 @@ template<> void derefIfNotNull(cairo_pattern_t*);
 
 template<> void refIfNotNull(cairo_region_t*);
 template<> void derefIfNotNull(cairo_region_t*);
+
+#if USE(FREETYPE)
+template<> void refIfNotNull(FcPattern* ptr);
+template<> void derefIfNotNull(FcPattern* ptr);
+
+template<> void refIfNotNull(FcConfig* ptr);
+template<> void derefIfNotNull(FcConfig* ptr);
+#endif
 
 } // namespace WTF
 

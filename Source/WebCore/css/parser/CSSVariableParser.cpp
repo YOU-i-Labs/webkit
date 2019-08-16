@@ -31,7 +31,7 @@
 #include "CSSVariableParser.h"
 
 #include "CSSCustomPropertyValue.h"
-#include "CSSParserContext.h"
+#include "CSSParserMode.h"
 #include "CSSParserTokenRange.h"
 
 namespace WebCore {
@@ -70,7 +70,7 @@ static bool classifyBlock(CSSParserTokenRange range, bool& hasReferences, bool& 
                 hasReferences = true;
                 continue;
             }
-            if (token.functionId() == CSSValueEnv && parserContext.constantPropertiesEnabled) {
+            if (token.functionId() == CSSValueConstant && parserContext.constantPropertiesEnabled) {
                 if (!isValidConstantReference(block, hasAtApplyRule, parserContext))
                     return false; // Bail if any references are invalid
                 hasReferences = true;
@@ -189,8 +189,8 @@ RefPtr<CSSCustomPropertyValue> CSSVariableParser::parseDeclarationValue(const At
     if (type == CSSValueInvalid)
         return nullptr;
     if (type == CSSValueInternalVariableValue)
-        return CSSCustomPropertyValue::createUnresolved(variableName, CSSVariableReferenceValue::create(range));
-    return CSSCustomPropertyValue::createUnresolved(variableName, type);
+        return CSSCustomPropertyValue::createWithVariableData(variableName, CSSVariableData::create(range, hasReferences || hasAtApplyRule));
+    return CSSCustomPropertyValue::createWithID(variableName, type);
 }
 
 } // namespace WebCore

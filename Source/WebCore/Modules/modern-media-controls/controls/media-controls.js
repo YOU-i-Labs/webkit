@@ -86,9 +86,6 @@ class MediaControls extends LayoutNode
 
         if (flag)
             this.layout();
-
-        if (this.delegate && typeof this.delegate.mediaControlsVisibilityDidChange === "function")
-            this.delegate.mediaControlsVisibilityDidChange();
     }
 
     get faded()
@@ -116,7 +113,6 @@ class MediaControls extends LayoutNode
 
     set usesLTRUserInterfaceLayoutDirection(flag)
     {
-        this.needsLayout = this.usesLTRUserInterfaceLayoutDirection !== flag;
         this.element.classList.toggle("uses-ltr-user-interface-layout-direction", flag);
     }
 
@@ -190,12 +186,12 @@ class MediaControls extends LayoutNode
 
         let shouldFadeControlsBar = true;
         if (window.event instanceof MouseEvent)
-            shouldFadeControlsBar = !this.isPointInControls(new DOMPoint(event.clientX, event.clientY), true);
+            shouldFadeControlsBar = !this.isPointInControls(new DOMPoint(event.clientX, event.clientY));
 
         this.tracksButton.on = false;
         this.tracksButton.element.focus();
         this.autoHideController.hasSecondaryUIAttached = false;
-        this.faded = this.autoHideController.fadesWhileIdle && shouldFadeControlsBar;
+        this.faded = shouldFadeControlsBar;
         this.tracksPanel.hide();
     }
 
@@ -204,7 +200,7 @@ class MediaControls extends LayoutNode
         this.element.classList.add("fade-in");
     }
 
-    isPointInControls(point, includeContainer)
+    isPointInControls(point)
     {
         let ancestor = this.element.parentNode;
         while (ancestor && !(ancestor instanceof ShadowRoot))
@@ -215,10 +211,6 @@ class MediaControls extends LayoutNode
             return false;
 
         const tappedElement = shadowRoot.elementFromPoint(point.x, point.y);
-
-        if (includeContainer && this.element === tappedElement)
-            return true;
-
         return this.children.some(child => child.element.contains(tappedElement));
     }
 

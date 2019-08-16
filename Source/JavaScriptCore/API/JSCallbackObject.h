@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2016 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,11 +27,9 @@
 #ifndef JSCallbackObject_h
 #define JSCallbackObject_h
 
-#include "JSCPoison.h"
 #include "JSObjectRef.h"
 #include "JSValueRef.h"
 #include "JSObject.h"
-#include <wtf/PoisonedUniquePtr.h>
 
 namespace JSC {
 
@@ -124,7 +122,7 @@ public:
 
     
 template <class Parent>
-class JSCallbackObject final : public Parent {
+class JSCallbackObject : public Parent {
 protected:
     JSCallbackObject(ExecState*, Structure*, JSClassRef, void* data);
     JSCallbackObject(VM&, JSClassRef, Structure*);
@@ -134,16 +132,14 @@ protected:
 
 public:
     typedef Parent Base;
-    static const unsigned StructureFlags = Base::StructureFlags | ProhibitsPropertyCaching | OverridesGetOwnPropertySlot | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | ImplementsHasInstance | OverridesGetPropertyNames | OverridesGetCallData;
-    static_assert(!(StructureFlags & ImplementsDefaultHasInstance), "using customHasInstance");
+    static const unsigned StructureFlags = Base::StructureFlags | ProhibitsPropertyCaching | OverridesGetOwnPropertySlot | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | ImplementsHasInstance | OverridesGetPropertyNames | TypeOfShouldCallGetCallData;
 
     ~JSCallbackObject();
 
     static JSCallbackObject* create(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, JSClassRef classRef, void* data)
     {
-        VM& vm = exec->vm();
         ASSERT_UNUSED(globalObject, !structure->globalObject() || structure->globalObject() == globalObject);
-        JSCallbackObject* callbackObject = new (NotNull, allocateCell<JSCallbackObject>(vm.heap)) JSCallbackObject(exec, structure, classRef, data);
+        JSCallbackObject* callbackObject = new (NotNull, allocateCell<JSCallbackObject>(*exec->heap())) JSCallbackObject(exec, structure, classRef, data);
         callbackObject->finishCreation(exec);
         return callbackObject;
     }
@@ -159,9 +155,18 @@ public:
     void* getPrivate();
 
     // FIXME: We should fix the warnings for extern-template in JSObject template classes: https://bugs.webkit.org/show_bug.cgi?id=161979
-    IGNORE_CLANG_WARNINGS_BEGIN("undefined-var-template")
+#if COMPILER(CLANG)
+#if __has_warning("-Wundefined-var-template")
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wundefined-var-template"
+#endif
+#endif
     DECLARE_INFO;
-    IGNORE_CLANG_WARNINGS_END
+#if COMPILER(CLANG)
+#if __has_warning("-Wundefined-var-template")
+#pragma clang diagnostic pop
+#endif
+#endif
 
     JSClassRef classRef() const { return m_callbackObjectData->jsClass; }
     bool inherits(JSClassRef) const;
@@ -186,8 +191,7 @@ public:
     using Parent::methodTable;
 
 private:
-    static String className(const JSObject*, VM&);
-    static String toStringName(const JSObject*, ExecState*);
+    static String className(const JSObject*);
 
     static JSValue defaultValue(const JSObject*, ExecState*, PreferredPrimitiveType);
 
@@ -227,8 +231,8 @@ private:
     static EncodedJSValue staticFunctionGetter(ExecState*, EncodedJSValue, PropertyName);
     static EncodedJSValue callbackGetter(ExecState*, EncodedJSValue, PropertyName);
 
-    WTF::PoisonedUniquePtr<JSCallbackObjectPoison, JSCallbackObjectData> m_callbackObjectData;
-    PoisonedClassInfoPtr m_classInfo;
+    std::unique_ptr<JSCallbackObjectData> m_callbackObjectData;
+    const ClassInfo* m_classInfo;
 };
 
 } // namespace JSC

@@ -2,7 +2,7 @@
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2005-2008, 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *
  * This library is free software; you can redistribute it and/or
@@ -22,7 +22,8 @@
  *
  */
 
-#pragma once
+#ifndef RotateTransformOperation_h
+#define RotateTransformOperation_h
 
 #include "TransformOperation.h"
 #include <wtf/Ref.h>
@@ -43,7 +44,7 @@ public:
 
     Ref<TransformOperation> clone() const override
     {
-        return adoptRef(*new RotateTransformOperation(m_x, m_y, m_z, m_angle, type()));
+        return adoptRef(*new RotateTransformOperation(m_x, m_y, m_z, m_angle, m_type));
     }
 
     double x() const { return m_x; }
@@ -54,7 +55,9 @@ public:
 private:
     bool isIdentity() const override { return m_angle == 0; }
     bool isAffectedByTransformOrigin() const override { return !isIdentity(); }
-    bool isRepresentableIn2D() const final { return (!m_x && !m_y) || !m_angle; }
+
+    OperationType type() const override { return m_type; }
+    bool isSameType(const TransformOperation& o) const override { return o.type() == m_type; }
 
     bool operator==(const TransformOperation&) const override;
 
@@ -66,14 +69,14 @@ private:
 
     Ref<TransformOperation> blend(const TransformOperation* from, double progress, bool blendToIdentity = false) override;
 
-    void dump(WTF::TextStream&) const final;
+    void dump(TextStream&) const final;
 
     RotateTransformOperation(double x, double y, double z, double angle, OperationType type)
-        : TransformOperation(type)
-        , m_x(x)
+        : m_x(x)
         , m_y(y)
         , m_z(z)
         , m_angle(angle)
+        , m_type(type)
     {
         ASSERT(isRotateTransformOperationType());
     }
@@ -82,8 +85,11 @@ private:
     double m_y;
     double m_z;
     double m_angle;
+    OperationType m_type;
 };
 
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_TRANSFORMOPERATION(WebCore::RotateTransformOperation, isRotateTransformOperationType())
+
+#endif // RotateTransformOperation_h

@@ -1,9 +1,9 @@
-#! /usr/bin/env perl
+#! /usr/bin/perl
 #
 #   This file is part of the WebKit project
 #
 #   Copyright (C) 1999 Waldo Bastian (bastian@kde.org)
-#   Copyright (C) 2007-2018 Apple Inc. All rights reserved.
+#   Copyright (C) 2007-2016 Apple Inc. All rights reserved.
 #   Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
 #   Copyright (C) 2010 Andras Becsi (abecsi@inf.u-szeged.hu), University of Szeged
 #   Copyright (C) 2013 Google Inc. All rights reserved.
@@ -243,15 +243,18 @@ print GPERF << "EOF";
 #include \"CSSProperty.h\"
 #include \"CSSPropertyNames.h\"
 #include \"HashTools.h\"
+#include <string.h>
+
 #include <wtf/ASCIICType.h>
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/WTFString.h>
-#include <string.h>
 
-IGNORE_WARNINGS_BEGIN(\"implicit-fallthrough\")
-
-// Older versions of gperf like to use the `register` keyword.
-#define register
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored \"-Wunknown-pragmas\"
+#pragma clang diagnostic ignored \"-Wdeprecated-register\"
+#pragma clang diagnostic ignored \"-Wimplicit-fallthrough\"
+#endif
 
 namespace WebCore {
 
@@ -333,10 +336,10 @@ const char* getPropertyName(CSSPropertyID id)
 const AtomicString& getPropertyNameAtomicString(CSSPropertyID id)
 {
     if (id < firstCSSProperty)
-        return nullAtom();
+        return nullAtom;
     int index = id - firstCSSProperty;
     if (index >= numCSSProperties)
-        return nullAtom();
+        return nullAtom;
 
     static AtomicString* propertyStrings = new AtomicString[numCSSProperties]; // Intentionally never destroyed.
     AtomicString& propertyString = propertyStrings[index];
@@ -396,28 +399,11 @@ bool CSSProperty::isInheritedProperty(CSSPropertyID id)
     return isInheritedPropertyTable[id];
 }
 
-Vector<String> CSSProperty::aliasesForProperty(CSSPropertyID id)
-{
-    switch (id) {
-EOF
-
-for my $name (@names) {
-    if (!$nameToAliases{$name}) {
-        next;
-    }
-    print GPERF "    case CSSPropertyID::CSSProperty" . $nameToId{$name} . ":\n";
-    print GPERF "        return { \"" . join("\"_s, \"", @{$nameToAliases{$name}}) . "\"_s };\n";
-}
-
-print GPERF << "EOF";
-    default:
-        return { };
-    }
-}
-
 } // namespace WebCore
 
-IGNORE_WARNINGS_END
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 EOF
 
 close GPERF;
@@ -429,9 +415,13 @@ print HEADER << "EOF";
 #pragma once
 
 #include <string.h>
-#include <wtf/Forward.h>
 #include <wtf/HashFunctions.h>
 #include <wtf/HashTraits.h>
+
+namespace WTF {
+class AtomicString;
+class String;
+}
 
 namespace WebCore {
 
@@ -482,6 +472,7 @@ namespace WTF {
 template<> struct DefaultHash<WebCore::CSSPropertyID> { typedef IntHash<unsigned> Hash; };
 template<> struct HashTraits<WebCore::CSSPropertyID> : GenericHashTraits<WebCore::CSSPropertyID> {
     static const bool emptyValueIsZero = true;
+    static const bool needsDestruction = false;
     static void constructDeletedValue(WebCore::CSSPropertyID& slot) { slot = static_cast<WebCore::CSSPropertyID>(WebCore::lastCSSProperty + 1); }
     static bool isDeletedValue(WebCore::CSSPropertyID value) { return value == (WebCore::lastCSSProperty + 1); }
 };
@@ -587,8 +578,8 @@ sub getLayersAccessorFunction {
 sub getFillLayerType {
 my $name = shift;
 
-  return "FillLayerType::Background" if $name =~ /background-/;
-  return "FillLayerType::Mask" if $name =~ /mask-/;
+  return "BackgroundFillLayer" if $name =~ /background-/;
+  return "MaskFillLayer" if $name =~ /mask-/;
 }
 
 sub getFillLayerMapfunction {
@@ -864,7 +855,7 @@ sub generateInitialValueSetter {
   } elsif (exists $propertiesWithStyleBuilderOptions{$name}{"font-property"}) {
     $setterContent .= $indent . "    auto fontDescription = styleResolver.fontDescription();\n";
     $setterContent .= $indent . "    fontDescription." . $setter . "(FontCascadeDescription::" . $initial . "());\n";
-    $setterContent .= $indent . "    styleResolver.setFontDescription(WTFMove(fontDescription));\n";
+    $setterContent .= $indent . "    styleResolver.setFontDescription(fontDescription);\n";
   } elsif (exists $propertiesWithStyleBuilderOptions{$name}{"fill-layer-property"}) {
     $setterContent .= generateFillLayerPropertyInitialValueSetter($name, $indent . "    ");
   } else {
@@ -908,7 +899,7 @@ sub generateInheritValueSetter {
   } elsif (exists $propertiesWithStyleBuilderOptions{$name}{"font-property"}) {
     $setterContent .= $indent . "    auto fontDescription = styleResolver.fontDescription();\n";
     $setterContent .= $indent . "    fontDescription." . $setter . "(styleResolver.parentFontDescription()." . $getter . "());\n";
-    $setterContent .= $indent . "    styleResolver.setFontDescription(WTFMove(fontDescription));\n";
+    $setterContent .= $indent . "    styleResolver.setFontDescription(fontDescription);\n";
     $didCallSetValue = 1;
   } elsif (exists $propertiesWithStyleBuilderOptions{$name}{"fill-layer-property"}) {
     $setterContent .= generateFillLayerPropertyInheritValueSetter($name, $indent . "    ");
@@ -962,7 +953,7 @@ sub generateValueSetter {
   } elsif (exists $propertiesWithStyleBuilderOptions{$name}{"font-property"}) {
     $setterContent .= $indent . "    auto fontDescription = styleResolver.fontDescription();\n";
     $setterContent .= $indent . "    fontDescription." . $setter . "(" . $convertedValue . ");\n";
-    $setterContent .= $indent . "    styleResolver.setFontDescription(WTFMove(fontDescription));\n";
+    $setterContent .= $indent . "    styleResolver.setFontDescription(fontDescription);\n";
     $didCallSetValue = 1;
   } elsif (exists $propertiesWithStyleBuilderOptions{$name}{"fill-layer-property"}) {
     $setterContent .= generateFillLayerPropertyValueSetter($name, $indent . "    ");
@@ -1021,21 +1012,12 @@ foreach my $name (@names) {
 print STYLEBUILDER << "EOF";
 };
 
-void StyleBuilder::applyProperty(CSSPropertyID property, StyleResolver& styleResolver, CSSValue& value, bool isInitial, bool isInherit, const CSSRegisteredCustomProperty* registered)
+void StyleBuilder::applyProperty(CSSPropertyID property, StyleResolver& styleResolver, CSSValue& value, bool isInitial, bool isInherit)
 {
     switch (property) {
     case CSSPropertyInvalid:
+    case CSSPropertyCustom:
         break;
-    case CSSPropertyCustom: {
-        auto& customProperty = downcast<CSSCustomPropertyValue>(value);
-        if (isInitial)
-            StyleBuilderCustom::applyInitialCustomProperty(styleResolver, registered, customProperty.name());
-        else if (isInherit)
-            StyleBuilderCustom::applyInheritCustomProperty(styleResolver, registered, customProperty.name());
-        else
-            StyleBuilderCustom::applyValueCustomProperty(styleResolver, registered, customProperty);
-        break;
-    }
 EOF
 
 foreach my $name (@names) {
@@ -1064,9 +1046,9 @@ EOF
 close STYLEBUILDER;
 
 # Generate StylePropertyShorthandsFunctions.
-open SHORTHANDS_H, ">", "StylePropertyShorthandFunctions.h" or die "Could not open StylePropertyShorthandFunctions.h for writing\n";
+open SHORTHANDS_H, ">StylePropertyShorthandFunctions.h" || die "Could not open StylePropertyShorthandFunctions.h for writing";
 print SHORTHANDS_H << "EOF";
-// This file is automatically generated from $inputFile by the makeprop.pl script. Do not edit it.
+/* This file is automatically generated from $inputFile by makeprop, do not edit */
 
 #pragma once
 
@@ -1090,14 +1072,15 @@ EOF
 
 close SHORTHANDS_H;
 
-open SHORTHANDS_CPP, ">", "StylePropertyShorthandFunctions.cpp" or die "Could not open StylePropertyShorthandFunctions.cpp for writing\n";
+open SHORTHANDS_CPP, ">StylePropertyShorthandFunctions.cpp" || die "Could not open StylePropertyShorthandFunctions.cpp for writing";
 print SHORTHANDS_CPP << "EOF";
-// This file is automatically generated from $inputFile by the makeprop.pl script. Do not edit it.
+/* This file is automatically generated from $inputFile by makeprop, do not edit */
 
 #include "config.h"
 #include "StylePropertyShorthandFunctions.h"
 
 #include "StylePropertyShorthand.h"
+#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 
@@ -1138,6 +1121,8 @@ foreach my $name (@names) {
 print SHORTHANDS_CPP << "EOF";
 StylePropertyShorthand shorthandForProperty(CSSPropertyID propertyID)
 {
+    static NeverDestroyed<StylePropertyShorthand> emptyShorthand;
+
     switch (propertyID) {
 EOF
 
@@ -1151,7 +1136,7 @@ foreach my $name (@names) {
 
 print SHORTHANDS_CPP << "EOF";
     default:
-        return { };
+        return emptyShorthand;
     }
 }
 EOF

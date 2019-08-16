@@ -26,7 +26,7 @@
 #include "config.h"
 #include "LengthSize.h"
 
-#include <wtf/text/TextStream.h>
+#include "TextStream.h"
 
 namespace WebCore {
 

@@ -22,7 +22,7 @@
 namespace gl
 {
 struct VertexAttribute;
-class VertexBinding;
+struct VertexBinding;
 struct VertexAttribCurrentValueData;
 }
 
@@ -104,7 +104,7 @@ class StreamingVertexBufferInterface : public VertexBufferInterface
 {
   public:
     StreamingVertexBufferInterface(BufferFactoryD3D *factory, std::size_t initialSize);
-    ~StreamingVertexBufferInterface() override;
+    ~StreamingVertexBufferInterface();
 
     gl::Error storeDynamicAttribute(const gl::VertexAttribute &attrib,
                                     const gl::VertexBinding &binding,
@@ -131,7 +131,7 @@ class StaticVertexBufferInterface : public VertexBufferInterface
 {
   public:
     explicit StaticVertexBufferInterface(BufferFactoryD3D *factory);
-    ~StaticVertexBufferInterface() override;
+    ~StaticVertexBufferInterface();
 
     // Warning: you should ensure binding really matches attrib.bindingIndex before using these
     // functions.

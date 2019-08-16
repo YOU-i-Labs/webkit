@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2014 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,15 +39,6 @@ AudioSession& AudioSession::sharedSession()
     return session;
 }
 
-bool AudioSession::tryToSetActive(bool active)
-{
-    if (!tryToSetActiveInternal(active))
-        return false;
-
-    m_active = active;
-    return true;
-}
-
 #if !PLATFORM(COCOA)
 class AudioSessionPrivate {
 };
@@ -58,7 +49,9 @@ AudioSession::AudioSession()
     notImplemented();
 }
 
-AudioSession::~AudioSession() = default;
+AudioSession::~AudioSession()
+{
+}
 
 void AudioSession::setCategory(CategoryType)
 {
@@ -100,7 +93,7 @@ size_t AudioSession::numberOfOutputChannels() const
     return 0;
 }
 
-bool AudioSession::tryToSetActiveInternal(bool)
+bool AudioSession::tryToSetActive(bool)
 {
     notImplemented();
     return true;
@@ -116,17 +109,6 @@ void AudioSession::setPreferredBufferSize(size_t)
 {
     notImplemented();
 }
-
-RouteSharingPolicy AudioSession::routeSharingPolicy() const
-{
-    return RouteSharingPolicy::Default;
-}
-
-String AudioSession::routingContextUID() const
-{
-    return emptyString();
-}
-
 #endif // !PLATFORM(COCOA)
 
 }

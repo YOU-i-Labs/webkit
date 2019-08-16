@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
- * Copyright (C) 2018 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,47 +20,36 @@
 
 #pragma once
 
+#include "SVGAnimatedBoolean.h"
 #include "SVGAnimatedLength.h"
 #include "SVGExternalResourcesRequired.h"
-#include "SVGGeometryElement.h"
-#include "SVGNames.h"
+#include "SVGGraphicsElement.h"
 
 namespace WebCore {
 
-class SVGCircleElement final : public SVGGeometryElement, public SVGExternalResourcesRequired {
-    WTF_MAKE_ISO_ALLOCATED(SVGCircleElement);
+class SVGCircleElement final : public SVGGraphicsElement,
+                               public SVGExternalResourcesRequired {
 public:
     static Ref<SVGCircleElement> create(const QualifiedName&, Document&);
-
-    const SVGLengthValue& cx() const { return m_cx.currentValue(attributeOwnerProxy()); }
-    const SVGLengthValue& cy() const { return m_cy.currentValue(attributeOwnerProxy()); }
-    const SVGLengthValue& r() const { return m_r.currentValue(attributeOwnerProxy()); }
-
-    RefPtr<SVGAnimatedLength> cxAnimated() { return m_cx.animatedProperty(attributeOwnerProxy()); }
-    RefPtr<SVGAnimatedLength> cyAnimated() { return m_cy.animatedProperty(attributeOwnerProxy()); }
-    RefPtr<SVGAnimatedLength> rAnimated() { return m_r.animatedProperty(attributeOwnerProxy()); }
 
 private:
     SVGCircleElement(const QualifiedName&, Document&);
 
-    using AttributeOwnerProxy = SVGAttributeOwnerProxyImpl<SVGCircleElement, SVGGeometryElement, SVGExternalResourcesRequired>;
-    static auto& attributeRegistry() { return AttributeOwnerProxy::attributeRegistry(); }
-    static bool isKnownAttribute(const QualifiedName& attributeName) { return AttributeOwnerProxy::isKnownAttribute(attributeName); }
-    static void registerAttributes();
+    bool isValid() const final { return SVGTests::isValid(); }
 
-    const SVGAttributeOwnerProxy& attributeOwnerProxy() const final { return m_attributeOwnerProxy; }
     void parseAttribute(const QualifiedName&, const AtomicString&) final;
     void svgAttributeChanged(const QualifiedName&) final;
 
-    bool isValid() const final { return SVGTests::isValid(); }
     bool selfHasRelativeLengths() const final { return true; }
 
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) final;
 
-    AttributeOwnerProxy m_attributeOwnerProxy { *this };
-    SVGAnimatedLengthAttribute m_cx { LengthModeWidth };
-    SVGAnimatedLengthAttribute m_cy { LengthModeHeight };
-    SVGAnimatedLengthAttribute m_r { LengthModeOther };
+    BEGIN_DECLARE_ANIMATED_PROPERTIES(SVGCircleElement)
+        DECLARE_ANIMATED_LENGTH(Cx, cx)
+        DECLARE_ANIMATED_LENGTH(Cy, cy)
+        DECLARE_ANIMATED_LENGTH(R, r)
+        DECLARE_ANIMATED_BOOLEAN_OVERRIDE(ExternalResourcesRequired, externalResourcesRequired)
+    END_DECLARE_ANIMATED_PROPERTIES
 };
 
 } // namespace WebCore

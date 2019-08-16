@@ -26,9 +26,8 @@
 #ifndef BlobDataFileReference_h
 #define BlobDataFileReference_h
 
-#include <wtf/Markable.h>
+#include "FileSystem.h"
 #include <wtf/RefCounted.h>
-#include <wtf/WallTime.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -46,7 +45,7 @@ public:
 
     const String& path();
     unsigned long long size();
-    Optional<WallTime> expectedModificationTime();
+    double expectedModificationTime();
 
     virtual void prepareForFileAccess();
     virtual void revokeFileAccess();
@@ -62,10 +61,10 @@ private:
     String m_path;
 #if ENABLE(FILE_REPLACEMENT)
     String m_replacementPath;
-    bool m_replacementShouldBeGenerated { false };
+    bool m_replacementShouldBeGenerated;
 #endif
-    unsigned long long m_size { 0 };
-    Markable<WallTime, WallTime::MarkableTraits> m_expectedModificationTime;
+    unsigned long long m_size;
+    double m_expectedModificationTime;
 };
 
 }

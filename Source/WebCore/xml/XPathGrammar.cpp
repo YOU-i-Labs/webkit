@@ -156,6 +156,7 @@ using namespace WebCore;
 using namespace XPath;
 
 
+
 /* Enabling traces.  */
 #ifndef YYDEBUG
 # define YYDEBUG 0
@@ -2154,10 +2155,15 @@ yyerrorlab:
   /* Pacify compilers like GCC when the user code never invokes
      YYERROR and the label yyerrorlab therefore never appears in user
      code.  */
-  IGNORE_CLANG_WARNINGS_BEGIN("unreachable-code")
+#if COMPILER(CLANG)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunreachable-code"
+#endif
   if (/*CONSTCOND*/ 0)
      goto yyerrorlab;
-  IGNORE_CLANG_WARNINGS_END
+#if COMPILER(CLANG)
+#pragma clang diagnostic pop
+#endif
 
   /* Do not reclaim the symbols of the rule which action triggered
      this YYERROR.  */

@@ -27,7 +27,6 @@
 #include "UserGestureIndicator.h"
 
 #include "Document.h"
-#include "Frame.h"
 #include "ResourceLoadObserver.h"
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
@@ -36,7 +35,6 @@ namespace WebCore {
 
 static RefPtr<UserGestureToken>& currentToken()
 {
-    ASSERT(isMainThread());
     static NeverDestroyed<RefPtr<UserGestureToken>> token;
     return token;
 }
@@ -47,36 +45,28 @@ UserGestureToken::~UserGestureToken()
         observer(*this);
 }
 
-UserGestureIndicator::UserGestureIndicator(Optional<ProcessingUserGestureState> state, Document* document, UserGestureType gestureType, ProcessInteractionStyle processInteractionStyle)
-    : m_previousToken { currentToken() }
-{
-    ASSERT(isMainThread());
-
-    if (state)
-        currentToken() = UserGestureToken::create(state.value(), gestureType);
-
-    if (document && currentToken()->processingUserGesture()) {
-        document->updateLastHandledUserGestureTimestamp(MonotonicTime::now());
-        if (processInteractionStyle == ProcessInteractionStyle::Immediate)
-            ResourceLoadObserver::shared().logUserInteractionWithReducedTimeResolution(document->topDocument());
-        document->topDocument().setUserDidInteractWithPage(true);
-        if (auto* frame = document->frame()) {
-            if (!frame->hasHadUserInteraction()) {
-                for (; frame; frame = frame->tree().parent())
-                    frame->setHasHadUserInteraction();
-            }
-        }
-    }
-}
-
-UserGestureIndicator::UserGestureIndicator(RefPtr<UserGestureToken> token)
+UserGestureIndicator::UserGestureIndicator(std::optional<ProcessingUserGestureState> state, Document* document)
+    : m_previousToken(currentToken())
 {
     // Silently ignore UserGestureIndicators on non main threads.
     if (!isMainThread())
         return;
 
-    // It is only safe to use currentToken() on the main thread.
-    m_previousToken = currentToken();
+    if (state)
+        currentToken() = UserGestureToken::create(state.value());
+
+    if (document && currentToken()->processingUserGesture()) {
+        document->updateLastHandledUserGestureTimestamp(MonotonicTime::now());
+        ResourceLoadObserver::sharedObserver().logUserInteractionWithReducedTimeResolution(*document);
+        document->topDocument().setUserDidInteractWithPage(true);
+    }
+}
+
+UserGestureIndicator::UserGestureIndicator(RefPtr<UserGestureToken> token)
+    : m_previousToken(currentToken())
+{
+    if (!isMainThread())
+        return;
 
     if (token)
         currentToken() = token;

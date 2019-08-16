@@ -26,27 +26,25 @@
 #include "HTMLKeygenElement.h"
 
 #include "Attribute.h"
-#include "DOMFormData.h"
 #include "Document.h"
 #include "ElementChildIterator.h"
+#include "FormDataList.h"
 #include "HTMLNames.h"
 #include "HTMLSelectElement.h"
 #include "HTMLOptionElement.h"
 #include "SSLKeyGenerator.h"
 #include "ShadowRoot.h"
 #include "Text.h"
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StdLibExtras.h>
 
-namespace WebCore {
+using namespace WebCore;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLKeygenElement);
+namespace WebCore {
 
 using namespace HTMLNames;
 
 class KeygenSelectElement final : public HTMLSelectElement {
-    WTF_MAKE_ISO_ALLOCATED_INLINE(KeygenSelectElement);
 public:
     static Ref<KeygenSelectElement> create(Document& document)
     {
@@ -114,18 +112,18 @@ void HTMLKeygenElement::setKeytype(const AtomicString& value)
 
 String HTMLKeygenElement::keytype() const
 {
-    return isKeytypeRSA() ? "rsa"_s : emptyString();
+    return isKeytypeRSA() ? ASCIILiteral("rsa") : emptyString();
 }
 
-bool HTMLKeygenElement::appendFormData(DOMFormData& formData, bool)
+bool HTMLKeygenElement::appendFormData(FormDataList& encoded_values, bool)
 {
     // Only RSA is supported at this time.
     if (!isKeytypeRSA())
         return false;
-    auto value = document().signedPublicKeyAndChallengeString(shadowSelect()->selectedIndex(), attributeWithoutSynchronization(challengeAttr), document().baseURL());
+    String value = signedPublicKeyAndChallengeString(shadowSelect()->selectedIndex(), attributeWithoutSynchronization(challengeAttr), document().baseURL());
     if (value.isNull())
         return false;
-    formData.append(name(), value);
+    encoded_values.appendData(name(), value.utf8());
     return true;
 }
 
@@ -147,7 +145,7 @@ bool HTMLKeygenElement::shouldSaveAndRestoreFormControlState() const
 
 HTMLSelectElement* HTMLKeygenElement::shadowSelect() const
 {
-    auto root = userAgentShadowRoot();
+    ShadowRoot* root = userAgentShadowRoot();
     if (!root)
         return nullptr;
 

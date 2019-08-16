@@ -39,7 +39,7 @@
 #include "RenderTheme.h"
 #include "TextTrack.h"
 #include "TextTrackList.h"
-#include <JavaScriptCore/JSCJSValueInlines.h>
+#include <runtime/JSCJSValueInlines.h>
 #include <wtf/UUID.h>
 
 namespace WebCore {
@@ -80,7 +80,9 @@ MediaControlsHost::MediaControlsHost(HTMLMediaElement* mediaElement)
     ASSERT(mediaElement);
 }
 
-MediaControlsHost::~MediaControlsHost() = default;
+MediaControlsHost::~MediaControlsHost()
+{
+}
 
 Vector<RefPtr<TextTrack>> MediaControlsHost::sortedTrackListForMenu(TextTrackList& trackList)
 {
@@ -100,7 +102,7 @@ Vector<RefPtr<AudioTrack>> MediaControlsHost::sortedTrackListForMenu(AudioTrackL
     return page->group().captionPreferences().sortedTrackListForMenu(&trackList);
 }
 
-String MediaControlsHost::displayNameForTrack(const Optional<TextOrAudioTrack>& track)
+String MediaControlsHost::displayNameForTrack(const std::optional<TextOrAudioTrack>& track)
 {
     if (!track)
         return emptyString();
@@ -128,7 +130,7 @@ AtomicString MediaControlsHost::captionDisplayMode() const
 {
     Page* page = m_mediaElement->document().page();
     if (!page)
-        return emptyAtom();
+        return emptyAtom;
 
     switch (page->group().captionPreferences().captionDisplayMode()) {
     case CaptionUserPreferences::Automatic:
@@ -141,7 +143,7 @@ AtomicString MediaControlsHost::captionDisplayMode() const
         return manualKeyword();
     default:
         ASSERT_NOT_REACHED();
-        return emptyAtom();
+        return emptyAtom;
     }
 }
 
@@ -185,7 +187,7 @@ void MediaControlsHost::updateCaptionDisplaySizes()
     
 bool MediaControlsHost::allowsInlineMediaPlayback() const
 {
-    return !m_mediaElement->mediaSession().requiresFullscreenForVideoPlayback();
+    return !m_mediaElement->mediaSession().requiresFullscreenForVideoPlayback(*m_mediaElement);
 }
 
 bool MediaControlsHost::supportsFullscreen() const
@@ -210,7 +212,7 @@ void MediaControlsHost::setPreparedToReturnVideoLayerToInline(bool value)
 
 bool MediaControlsHost::userGestureRequired() const
 {
-    return !m_mediaElement->mediaSession().playbackPermitted();
+    return !m_mediaElement->mediaSession().playbackPermitted(*m_mediaElement);
 }
 
 bool MediaControlsHost::shouldForceControlsDisplay() const
@@ -221,7 +223,7 @@ bool MediaControlsHost::shouldForceControlsDisplay() const
 String MediaControlsHost::externalDeviceDisplayName() const
 {
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
-    auto player = m_mediaElement->player();
+    MediaPlayer* player = m_mediaElement->player();
     if (!player) {
         LOG(Media, "MediaControlsHost::externalDeviceDisplayName - returning \"\" because player is NULL");
         return emptyString();
@@ -241,7 +243,7 @@ auto MediaControlsHost::externalDeviceType() const -> DeviceType
 #if !ENABLE(WIRELESS_PLAYBACK_TARGET)
     return DeviceType::None;
 #else
-    auto player = m_mediaElement->player();
+    MediaPlayer* player = m_mediaElement->player();
     if (!player) {
         LOG(Media, "MediaControlsHost::externalDeviceType - returning \"none\" because player is NULL");
         return DeviceType::None;
@@ -283,24 +285,8 @@ String MediaControlsHost::shadowRootCSSText() const
 
 String MediaControlsHost::base64StringForIconNameAndType(const String& iconName, const String& iconType) const
 {
+
     return RenderTheme::singleton().mediaControlsBase64StringForIconNameAndType(iconName, iconType);
-}
-
-String MediaControlsHost::formattedStringForDuration(double durationInSeconds) const
-{
-    return RenderTheme::singleton().mediaControlsFormattedStringForDuration(durationInSeconds);
-}
-
-bool MediaControlsHost::compactMode() const
-{
-    if (m_simulateCompactMode)
-        return true;
-
-#if PLATFORM(WATCHOS)
-    return true;
-#else
-    return false;
-#endif
 }
 
 }

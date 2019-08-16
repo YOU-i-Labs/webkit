@@ -21,7 +21,6 @@
 #pragma once
 
 #include "CSSValue.h"
-#include <wtf/Function.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -69,7 +68,7 @@ public:
     bool equals(const CSSValueList&) const;
     bool equals(const CSSValue&) const;
 
-    bool traverseSubresources(const WTF::Function<bool (const CachedResource&)>& handler) const;
+    bool traverseSubresources(const std::function<bool (const CachedResource&)>& handler) const;
 
     unsigned separator() const { return m_valueListSeparator; }
 

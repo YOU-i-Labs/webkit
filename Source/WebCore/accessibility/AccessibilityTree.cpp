@@ -45,7 +45,9 @@ AccessibilityTree::AccessibilityTree(RenderObject* renderer)
 {
 }
     
-AccessibilityTree::~AccessibilityTree() = default;
+AccessibilityTree::~AccessibilityTree()
+{
+}
     
 Ref<AccessibilityTree> AccessibilityTree::create(RenderObject* renderer)
 {
@@ -59,10 +61,10 @@ bool AccessibilityTree::computeAccessibilityIsIgnored() const
 
 AccessibilityRole AccessibilityTree::determineAccessibilityRole()
 {
-    if ((m_ariaRole = determineAriaRoleAttribute()) != AccessibilityRole::Tree)
+    if ((m_ariaRole = determineAriaRoleAttribute()) != TreeRole)
         return AccessibilityRenderObject::determineAccessibilityRole();
 
-    return isTreeValid() ? AccessibilityRole::Tree : AccessibilityRole::Group;
+    return isTreeValid() ? TreeRole : GroupRole;
 }
 
 bool AccessibilityTree::nodeHasTreeItemChild(Node& node) const

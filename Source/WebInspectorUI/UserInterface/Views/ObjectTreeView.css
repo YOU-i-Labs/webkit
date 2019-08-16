@@ -26,7 +26,7 @@
 .object-tree {
     position: relative;
     display: inline-block;
-    color: var(--text-color);
+    color: black;
     font-family: Menlo, monospace;
     font-size: 11px;
 }
@@ -49,10 +49,6 @@
     content: "";
 }
 
-body[dir=rtl] .object-tree > :matches(.title, .object-preview)::before {
-    transform: scaleX(-1);
-}
-
 .object-tree:not(.lossless-preview) > :matches(.title, .object-preview) {
     margin-left: 0;
 }
@@ -67,10 +63,6 @@ body[dir=rtl] .object-tree > :matches(.title, .object-preview)::before {
 
 .object-tree.expanded .object-preview {
     font-style: normal;
-}
-
-.object-tree.expanded > .title {
-    line-height: 16px;
 }
 
 .object-tree.lossless-preview > :matches(.title, .object-preview)::before {
@@ -129,7 +121,7 @@ body[dir=rtl] .object-tree > :matches(.title, .object-preview)::before {
 .tree-outline.object li .empty-message {
     color: hsl(0, 0%, 60%);
     margin-left: 15px;
-    font-family: -webkit-system-font, sans-serif;
+    font-family: -apple-system, sans-serif;
     font-size: 12px;
 }
 

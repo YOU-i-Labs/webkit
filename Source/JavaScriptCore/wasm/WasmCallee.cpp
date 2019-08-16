@@ -35,14 +35,14 @@ namespace JSC { namespace Wasm {
 Callee::Callee(Entrypoint&& entrypoint)
     : m_entrypoint(WTFMove(entrypoint))
 {
-    registerCode(m_entrypoint.compilation->codeRef().executableMemory()->start().untaggedPtr(), m_entrypoint.compilation->codeRef().executableMemory()->end().untaggedPtr());
+    registerCode(m_entrypoint.compilation->codeRef().executableMemory()->start(), m_entrypoint.compilation->codeRef().executableMemory()->end());
 }
 
-Callee::Callee(Entrypoint&& entrypoint, size_t index, std::pair<const Name*, RefPtr<NameSection>>&& name)
+Callee::Callee(Entrypoint&& entrypoint, size_t index, const Name* name)
     : m_entrypoint(WTFMove(entrypoint))
-    , m_indexOrName(index, WTFMove(name))
+    , m_indexOrName(index, name)
 {
-    registerCode(m_entrypoint.compilation->codeRef().executableMemory()->start().untaggedPtr(), m_entrypoint.compilation->codeRef().executableMemory()->end().untaggedPtr());
+    registerCode(m_entrypoint.compilation->codeRef().executableMemory()->start(), m_entrypoint.compilation->codeRef().executableMemory()->end());
 }
 
 } } // namespace JSC::Wasm

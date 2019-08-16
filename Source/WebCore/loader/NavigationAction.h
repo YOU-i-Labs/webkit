@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2016 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,129 +28,55 @@
 
 #pragma once
 
-#include "BackForwardItemIdentifier.h"
+#include "Event.h"
 #include "FrameLoaderTypes.h"
-#include "LayoutPoint.h"
+#include "URL.h"
 #include "ResourceRequest.h"
-#include "SecurityOrigin.h"
 #include "UserGestureIndicator.h"
 #include <wtf/Forward.h>
 
 namespace WebCore {
 
-class Document;
-class Event;
-class HistoryItem;
-class MouseEvent;
-class UIEventWithKeyState;
-
-// NavigationAction should never hold a strong reference to the originating document either directly
-// or indirectly as doing so prevents its destruction even after navigating away from it because
-// DocumentLoader keeps around the NavigationAction for the last navigation.
 class NavigationAction {
 public:
-    NavigationAction();
-    WEBCORE_EXPORT NavigationAction(Document&, const ResourceRequest&, InitiatedByMainFrame, NavigationType = NavigationType::Other, ShouldOpenExternalURLsPolicy = ShouldOpenExternalURLsPolicy::ShouldNotAllow, Event* = nullptr, const AtomicString& downloadAttribute = nullAtom());
-    NavigationAction(Document&, const ResourceRequest&, InitiatedByMainFrame, FrameLoadType, bool isFormSubmission, Event* = nullptr, ShouldOpenExternalURLsPolicy = ShouldOpenExternalURLsPolicy::ShouldNotAllow, const AtomicString& downloadAttribute = nullAtom());
+    WEBCORE_EXPORT NavigationAction();
+    WEBCORE_EXPORT explicit NavigationAction(const ResourceRequest&);
+    WEBCORE_EXPORT NavigationAction(const ResourceRequest&, NavigationType);
+    WEBCORE_EXPORT NavigationAction(const ResourceRequest&, FrameLoadType, bool isFormSubmission);
 
-    WEBCORE_EXPORT ~NavigationAction();
-
-    WEBCORE_EXPORT NavigationAction(const NavigationAction&);
-    NavigationAction& operator=(const NavigationAction&);
-
-    NavigationAction(NavigationAction&&);
-    NavigationAction& operator=(NavigationAction&&);
-
-    using PageIDAndFrameIDPair = std::pair<uint64_t /* pageID */, uint64_t /* frameID */>;
-    class Requester {
-    public:
-        Requester(const Document&);
-
-        const URL& url() const { return m_url; }
-        const SecurityOrigin& securityOrigin() const { return *m_origin; }
-        uint64_t pageID() const { return m_pageIDAndFrameIDPair.first; }
-        uint64_t frameID() const { return m_pageIDAndFrameIDPair.second; }
-    private:
-        URL m_url;
-        RefPtr<SecurityOrigin> m_origin;
-        PageIDAndFrameIDPair m_pageIDAndFrameIDPair;
-    };
-    const Optional<Requester>& requester() const { return m_requester; }
-
-    struct UIEventWithKeyStateData {
-        UIEventWithKeyStateData(const UIEventWithKeyState&);
-
-        bool isTrusted;
-        bool shiftKey;
-        bool ctrlKey;
-        bool altKey;
-        bool metaKey;
-    };
-    struct MouseEventData : UIEventWithKeyStateData {
-        MouseEventData(const MouseEvent&);
-
-        LayoutPoint absoluteLocation;
-        FloatPoint locationInRootViewCoordinates;
-        unsigned short button;
-        unsigned short syntheticClickType;
-        bool buttonDown;
-    };
-    const Optional<UIEventWithKeyStateData>& keyStateEventData() const { return m_keyStateEventData; }
-    const Optional<MouseEventData>& mouseEventData() const { return m_mouseEventData; }
+    NavigationAction(const ResourceRequest&, ShouldOpenExternalURLsPolicy);
+    NavigationAction(const ResourceRequest&, NavigationType, Event*);
+    NavigationAction(const ResourceRequest&, NavigationType, Event*, ShouldOpenExternalURLsPolicy);
+    NavigationAction(const ResourceRequest&, NavigationType, Event*, ShouldOpenExternalURLsPolicy, const AtomicString& downloadAttribute);
+    NavigationAction(const ResourceRequest&, NavigationType, ShouldOpenExternalURLsPolicy);
+    NavigationAction(const ResourceRequest&, FrameLoadType, bool isFormSubmission, Event*);
+    NavigationAction(const ResourceRequest&, FrameLoadType, bool isFormSubmission, Event*, ShouldOpenExternalURLsPolicy);
+    NavigationAction(const ResourceRequest&, FrameLoadType, bool isFormSubmission, Event*, ShouldOpenExternalURLsPolicy, const AtomicString& downloadAttribute);
 
     NavigationAction copyWithShouldOpenExternalURLsPolicy(ShouldOpenExternalURLsPolicy) const;
 
-    bool isEmpty() const { return !m_requester || m_requester->url().isEmpty() || m_resourceRequest.url().isEmpty(); }
+    bool isEmpty() const { return m_resourceRequest.url().isEmpty(); }
 
     URL url() const { return m_resourceRequest.url(); }
     const ResourceRequest& resourceRequest() const { return m_resourceRequest; }
 
     NavigationType type() const { return m_type; }
+    const Event* event() const { return m_event.get(); }
 
     bool processingUserGesture() const { return m_userGestureToken ? m_userGestureToken->processingUserGesture() : false; }
     RefPtr<UserGestureToken> userGestureToken() const { return m_userGestureToken; }
 
     ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy() const { return m_shouldOpenExternalURLsPolicy; }
-    void setShouldOpenExternalURLsPolicy(ShouldOpenExternalURLsPolicy policy) {  m_shouldOpenExternalURLsPolicy = policy; }
-    InitiatedByMainFrame initiatedByMainFrame() const { return m_initiatedByMainFrame; }
 
     const AtomicString& downloadAttribute() const { return m_downloadAttribute; }
 
-    bool treatAsSameOriginNavigation() const { return m_treatAsSameOriginNavigation; }
-
-    bool hasOpenedFrames() const { return m_hasOpenedFrames; }
-    void setHasOpenedFrames(bool value) { m_hasOpenedFrames = value; }
-
-    bool openedByDOMWithOpener() const { return m_openedByDOMWithOpener; }
-    void setOpenedByDOMWithOpener() { m_openedByDOMWithOpener = true; }
-
-    void setTargetBackForwardItem(HistoryItem&);
-    const Optional<BackForwardItemIdentifier>& targetBackForwardItemIdentifier() const { return m_targetBackForwardItemIdentifier; }
-
-    LockHistory lockHistory() const { return m_lockHistory; }
-    void setLockHistory(LockHistory lockHistory) { m_lockHistory = lockHistory; }
-
-    LockBackForwardList lockBackForwardList() const { return m_lockBackForwardList; }
-    void setLockBackForwardList(LockBackForwardList lockBackForwardList) { m_lockBackForwardList = lockBackForwardList; }
-
 private:
-    // Do not add a strong reference to the originating document or a subobject that holds the
-    // originating document. See comment above the class for more details.
-    Optional<Requester> m_requester;
     ResourceRequest m_resourceRequest;
-    NavigationType m_type;
-    ShouldOpenExternalURLsPolicy m_shouldOpenExternalURLsPolicy;
-    InitiatedByMainFrame m_initiatedByMainFrame;
-    Optional<UIEventWithKeyStateData> m_keyStateEventData;
-    Optional<MouseEventData> m_mouseEventData;
-    RefPtr<UserGestureToken> m_userGestureToken { UserGestureIndicator::currentUserGesture() };
+    NavigationType m_type { NavigationType::Other };
+    RefPtr<Event> m_event;
+    RefPtr<UserGestureToken> m_userGestureToken;
+    ShouldOpenExternalURLsPolicy m_shouldOpenExternalURLsPolicy { ShouldOpenExternalURLsPolicy::ShouldNotAllow };
     AtomicString m_downloadAttribute;
-    bool m_treatAsSameOriginNavigation;
-    bool m_hasOpenedFrames { false };
-    bool m_openedByDOMWithOpener { false };
-    Optional<BackForwardItemIdentifier> m_targetBackForwardItemIdentifier;
-    LockHistory m_lockHistory { LockHistory::No };
-    LockBackForwardList m_lockBackForwardList { LockBackForwardList::No };
 };
 
 } // namespace WebCore

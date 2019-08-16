@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,9 +23,11 @@
 #include "Text.h"
 
 #include "Event.h"
+#include "ExceptionCode.h"
 #include "RenderCombineText.h"
 #include "RenderSVGInlineText.h"
 #include "RenderText.h"
+#include "RenderTreeUpdater.h"
 #include "SVGElement.h"
 #include "SVGNames.h"
 #include "ScopedEventQueue.h"
@@ -35,13 +37,10 @@
 #include "StyleUpdate.h"
 #include "TextNodeTraversal.h"
 #include <wtf/CheckedArithmetic.h>
-#include <wtf/IsoMallocInlines.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(Text);
 
 Ref<Text> Text::create(Document& document, const String& data)
 {
@@ -53,12 +52,14 @@ Ref<Text> Text::createEditingText(Document& document, const String& data)
     return adoptRef(*new Text(document, data, CreateEditingText));
 }
 
-Text::~Text() = default;
+Text::~Text()
+{
+}
 
 ExceptionOr<Ref<Text>> Text::splitText(unsigned offset)
 {
     if (offset > length())
-        return Exception { IndexSizeError };
+        return Exception { INDEX_SIZE_ERR };
 
     EventQueueScope scope;
     auto oldData = data();
@@ -153,7 +154,7 @@ RefPtr<Text> Text::replaceWholeText(const String& newText)
 
 String Text::nodeName() const
 {
-    return "#text"_s;
+    return ASCIILiteral("#text");
 }
 
 Node::NodeType Text::nodeType() const
@@ -218,7 +219,14 @@ void Text::updateRendererAfterContentChange(unsigned offsetOfReplacedData, unsig
     if (styleValidity() >= Style::Validity::SubtreeAndRenderersInvalid)
         return;
 
-    document().updateTextRenderer(*this, offsetOfReplacedData, lengthOfReplacedData);
+    auto textUpdate = std::make_unique<Style::Update>(document());
+    textUpdate->addText(*this);
+
+    RenderTreeUpdater renderTreeUpdater(document());
+    renderTreeUpdater.commit(WTFMove(textUpdate));
+
+    if (auto* renderer = this->renderer())
+        renderer->setTextWithOffset(data(), offsetOfReplacedData, lengthOfReplacedData);
 }
 
 #if ENABLE(TREE_DEBUGGING)

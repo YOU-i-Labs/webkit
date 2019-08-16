@@ -75,8 +75,8 @@ InspectorBackend.activateDomain("Network3");
 #if ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
 
 #include "TestProtocolTypes.h"
+#include <inspector/InspectorFrontendRouter.h>
 #include <JavaScriptCore/InspectorBackendDispatcher.h>
-#include <JavaScriptCore/InspectorFrontendRouter.h>
 
 namespace Inspector {
 
@@ -136,7 +136,7 @@ public:
 #pragma once
 
 #include "TestProtocolObjects.h"
-#include <JavaScriptCore/InspectorBackendDispatcher.h>
+#include <inspector/InspectorBackendDispatcher.h>
 #include <wtf/text/WTFString.h>
 
 namespace Inspector {
@@ -162,9 +162,9 @@ protected:
 class Network1BackendDispatcher final : public SupplementalBackendDispatcher {
 public:
     static Ref<Network1BackendDispatcher> create(BackendDispatcher&, Network1BackendDispatcherHandler*);
-    void dispatch(long requestId, const String& method, Ref<JSON::Object>&& message) override;
+    void dispatch(long requestId, const String& method, Ref<InspectorObject>&& message) override;
 private:
-    void loadResource(long requestId, RefPtr<JSON::Object>&& parameters);
+    void loadResource(long requestId, RefPtr<InspectorObject>&& parameters);
 #if ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
 public:
     void setAlternateDispatcher(AlternateNetwork1BackendDispatcher* alternateDispatcher) { m_alternateDispatcher = alternateDispatcher; }
@@ -214,8 +214,8 @@ private:
 #include "config.h"
 #include "TestBackendDispatchers.h"
 
-#include <JavaScriptCore/InspectorFrontendRouter.h>
-#include <wtf/JSONValues.h>
+#include <inspector/InspectorFrontendRouter.h>
+#include <inspector/InspectorValues.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
 
@@ -239,23 +239,23 @@ Network1BackendDispatcher::Network1BackendDispatcher(BackendDispatcher& backendD
     : SupplementalBackendDispatcher(backendDispatcher)
     , m_agent(agent)
 {
-    m_backendDispatcher->registerDispatcherForDomain("Network1"_s, this);
+    m_backendDispatcher->registerDispatcherForDomain(ASCIILiteral("Network1"), this);
 }
 
-void Network1BackendDispatcher::dispatch(long requestId, const String& method, Ref<JSON::Object>&& message)
+void Network1BackendDispatcher::dispatch(long requestId, const String& method, Ref<InspectorObject>&& message)
 {
     Ref<Network1BackendDispatcher> protect(*this);
 
-    RefPtr<JSON::Object> parameters;
-    message->getObject("params"_s, parameters);
+    RefPtr<InspectorObject> parameters;
+    message->getObject(ASCIILiteral("params"), parameters);
 
     if (method == "loadResource")
         loadResource(requestId, WTFMove(parameters));
     else
-        m_backendDispatcher->reportProtocolError(BackendDispatcher::MethodNotFound, "'Network1." + method + "' was not found");
+        m_backendDispatcher->reportProtocolError(BackendDispatcher::MethodNotFound, makeString('\'', "Network1", '.', method, "' was not found"));
 }
 
-void Network1BackendDispatcher::loadResource(long requestId, RefPtr<JSON::Object>&&)
+void Network1BackendDispatcher::loadResource(long requestId, RefPtr<InspectorObject>&&)
 {
 #if ENABLE(INSPECTOR_ALTERNATE_DISPATCHERS)
     if (m_alternateDispatcher) {
@@ -265,11 +265,11 @@ void Network1BackendDispatcher::loadResource(long requestId, RefPtr<JSON::Object
 #endif
 
     ErrorString error;
-    Ref<JSON::Object> result = JSON::Object::create();
+    Ref<InspectorObject> result = InspectorObject::create();
     m_agent->loadResource(error);
 
     if (!error.length())
-        m_backendDispatcher->sendResponse(requestId, WTFMove(result), false);
+        m_backendDispatcher->sendResponse(requestId, WTFMove(result));
     else
         m_backendDispatcher->reportProtocolError(BackendDispatcher::ServerError, WTFMove(error));
 }
@@ -313,7 +313,7 @@ void Network1BackendDispatcher::loadResource(long requestId, RefPtr<JSON::Object
 #pragma once
 
 #include "TestProtocolObjects.h"
-#include <wtf/JSONValues.h>
+#include <inspector/InspectorValues.h>
 #include <wtf/text/WTFString.h>
 
 namespace Inspector {
@@ -367,7 +367,7 @@ private:
 #include "config.h"
 #include "TestFrontendDispatchers.h"
 
-#include <JavaScriptCore/InspectorFrontendRouter.h>
+#include "InspectorFrontendRouter.h"
 #include <wtf/text/CString.h>
 
 namespace Inspector {
@@ -375,8 +375,8 @@ namespace Inspector {
 #if PLATFORM(WEB_EVENTS)
 void Network3FrontendDispatcher::resourceLoaded()
 {
-    Ref<JSON::Object> jsonMessage = JSON::Object::create();
-    jsonMessage->setString("method"_s, "Network3.resourceLoaded"_s);
+    Ref<InspectorObject> jsonMessage = InspectorObject::create();
+    jsonMessage->setString(ASCIILiteral("method"), ASCIILiteral("Network3.resourceLoaded"));
 
     m_frontendRouter.sendEvent(jsonMessage->toJSONString());
 }
@@ -419,7 +419,7 @@ void Network3FrontendDispatcher::resourceLoaded()
 
 #pragma once
 
-#include <JavaScriptCore/InspectorProtocolTypes.h>
+#include <inspector/InspectorProtocolTypes.h>
 #include <wtf/Assertions.h>
 
 namespace Inspector {
@@ -441,7 +441,7 @@ class NetworkError;
 
 #if PLATFORM(WEB_TYPES)
 namespace Network2 {
-class NetworkError : public JSON::ObjectBase {
+class NetworkError : public Inspector::InspectorObjectBase {
 public:
     enum {
         NoFieldsSet = 0,
@@ -453,14 +453,14 @@ public:
     template<int STATE>
     class Builder {
     private:
-        RefPtr<JSON::Object> m_result;
+        RefPtr<InspectorObject> m_result;
 
         template<int STEP> Builder<STATE | STEP>& castState()
         {
             return *reinterpret_cast<Builder<STATE | STEP>*>(this);
         }
 
-        Builder(Ref</*NetworkError*/JSON::Object>&& object)
+        Builder(Ref</*NetworkError*/InspectorObject>&& object)
             : m_result(WTFMove(object))
         {
             COMPILE_ASSERT(STATE == NoFieldsSet, builder_created_in_non_init_state);
@@ -471,23 +471,23 @@ public:
         Builder<STATE | MessageSet>& setMessage(const String& value)
         {
             COMPILE_ASSERT(!(STATE & MessageSet), property_message_already_set);
-            m_result->setString("message"_s, value);
+            m_result->setString(ASCIILiteral("message"), value);
             return castState<MessageSet>();
         }
 
         Builder<STATE | CodeSet>& setCode(int value)
         {
             COMPILE_ASSERT(!(STATE & CodeSet), property_code_already_set);
-            m_result->setInteger("code"_s, value);
+            m_result->setInteger(ASCIILiteral("code"), value);
             return castState<CodeSet>();
         }
 
         Ref<NetworkError> release()
         {
             COMPILE_ASSERT(STATE == AllFieldsSet, result_is_not_ready);
-            COMPILE_ASSERT(sizeof(NetworkError) == sizeof(JSON::Object), cannot_cast);
+            COMPILE_ASSERT(sizeof(NetworkError) == sizeof(InspectorObject), cannot_cast);
 
-            Ref<JSON::Object> result = m_result.releaseNonNull();
+            Ref<InspectorObject> result = m_result.releaseNonNull();
             return WTFMove(*reinterpret_cast<Ref<NetworkError>*>(&result));
         }
     };
@@ -501,7 +501,7 @@ public:
      */
     static Builder<NoFieldsSet> create()
     {
-        return Builder<NoFieldsSet>(JSON::Object::create());
+        return Builder<NoFieldsSet>(InspectorObject::create());
     }
 };
 
@@ -653,7 +653,7 @@ private:
 
 #include "TestProtocolInternal.h"
 #include "TestProtocolTypeConversions.h"
-#include <wtf/JSONValues.h>
+#include <JavaScriptCore/InspectorValues.h>
 
 namespace Inspector {
 
@@ -666,7 +666,7 @@ void ObjCInspectorNetwork1BackendDispatcher::loadResource(long requestId)
     };
 
     id successCallback = ^{
-        backendDispatcher()->sendResponse(requestId, JSON::Object::create(), false);
+        backendDispatcher()->sendResponse(requestId, InspectorObject::create());
     };
 
     [m_delegate loadResourceWithErrorCallback:errorCallback successCallback:successCallback];
@@ -795,7 +795,7 @@ using namespace Inspector;
     _network1Handler = [handler retain];
 
     auto alternateDispatcher = std::make_unique<ObjCInspectorNetwork1BackendDispatcher>(handler);
-    auto alternateAgent = std::make_unique<AlternateDispatchableAgent<Network1BackendDispatcher, AlternateNetwork1BackendDispatcher>>("Network1"_s, *_controller, WTFMove(alternateDispatcher));
+    auto alternateAgent = std::make_unique<AlternateDispatchableAgent<Network1BackendDispatcher, AlternateNetwork1BackendDispatcher>>(ASCIILiteral("Network1"), *_controller, WTFMove(alternateDispatcher));
     _controller->appendExtraAgent(WTFMove(alternateAgent));
 }
 
@@ -850,7 +850,7 @@ using namespace Inspector;
 #import "TestProtocolInternal.h"
 
 #import "TestProtocolTypeConversions.h"
-#import <wtf/JSONValues.h>
+#import <JavaScriptCore/InspectorValues.h>
 
 using namespace Inspector;
 
@@ -873,8 +873,8 @@ using namespace Inspector;
 {
     const FrontendRouter& router = _controller->frontendRouter();
 
-    Ref<JSON::Object> jsonMessage = JSON::Object::create();
-    jsonMessage->setString("method"_s, "Network3.resourceLoaded"_s);
+    Ref<InspectorObject> jsonMessage = InspectorObject::create();
+    jsonMessage->setString(ASCIILiteral("method"), ASCIILiteral("Network3.resourceLoaded"));
     router.sendEvent(jsonMessage->toJSONString());
 }
 
@@ -934,7 +934,7 @@ typedef NS_ENUM(NSInteger, TestProtocolPlatform) {
 __attribute__((visibility ("default")))
 @interface TestProtocolNetwork2NetworkError : RWIProtocolJSONObject
 - (instancetype)initWithPayload:(NSDictionary<NSString *, id> *)payload;
-- (instancetype)initWithProtocolObject:(RWIProtocolJSONObject *)jsonObject;
+- (instancetype)initWithJSONObject:(RWIProtocolJSONObject *)jsonObject;
 - (instancetype)initWithMessage:(NSString *)message code:(int)code;
 /* required */ @property (nonatomic, copy) NSString *message;
 /* required */ @property (nonatomic, assign) int code;
@@ -942,7 +942,7 @@ __attribute__((visibility ("default")))
 
 @protocol TestProtocolNetwork1DomainHandler <NSObject>
 @required
-- (void)loadResourceWithErrorCallback:(void(^)(NSString *error))errorCallback successCallback:(void(^)(void))successCallback;
+- (void)loadResourceWithErrorCallback:(void(^)(NSString *error))errorCallback successCallback:(void(^)())successCallback;
 @end
 
 __attribute__((visibility ("default")))
@@ -987,7 +987,7 @@ __attribute__((visibility ("default")))
 #import "TestProtocol.h"
 #import "TestProtocolJSONObjectPrivate.h"
 #import <JavaScriptCore/AugmentableInspectorController.h>
-#import <wtf/JSONValues.h>
+#import <JavaScriptCore/InspectorValues.h>
 
 @interface TestProtocolNetwork3DomainEventDispatcher (Private)
 - (instancetype)initWithController:(Inspector::AugmentableInspectorController*)controller;
@@ -1033,24 +1033,24 @@ __attribute__((visibility ("default")))
 namespace Inspector {
 
 template<typename ObjCEnumType>
-Optional<ObjCEnumType> fromProtocolString(const String& value);
+std::optional<ObjCEnumType> fromProtocolString(const String& value);
 
 inline String toProtocolString(TestProtocolPlatform value)
 {
     switch(value) {
     case TestProtocolPlatformAll:
-        return "all"_s;
+        return ASCIILiteral("all");
     case TestProtocolPlatformGeneric:
-        return "generic"_s;
+        return ASCIILiteral("generic");
     case TestProtocolPlatformIOS:
-        return "ios"_s;
+        return ASCIILiteral("ios");
     case TestProtocolPlatformMacOS:
-        return "macos"_s;
+        return ASCIILiteral("macos");
     }
 }
 
 template<>
-inline Optional<TestProtocolPlatform> fromProtocolString(const String& value)
+inline std::optional<TestProtocolPlatform> fromProtocolString(const String& value)
 {
     if (value == "all")
         return TestProtocolPlatformAll;
@@ -1060,7 +1060,7 @@ inline Optional<TestProtocolPlatform> fromProtocolString(const String& value)
         return TestProtocolPlatformIOS;
     if (value == "macos")
         return TestProtocolPlatformMacOS;
-    return WTF::nullopt;
+    return std::nullopt;
 }
 
 
@@ -1162,8 +1162,8 @@ using namespace Inspector;
 
 #import "TestProtocolTypeConversions.h"
 #import <WebInspector/RWIProtocolJSONObjectPrivate.h>
+#import <JavaScriptCore/InspectorValues.h>
 #import <wtf/Assertions.h>
-#import <wtf/JSONValues.h>
 
 using namespace Inspector;
 
@@ -1183,9 +1183,9 @@ using namespace Inspector;
 
     return self;
 }
-- (instancetype)initWithProtocolObject:(RWIProtocolJSONObject *)object
+- (instancetype)initWithJSONObject:(RWIProtocolJSONObject *)jsonObject
 {
-    if (!(self = [super initWithJSONObject:[object toJSONObject].get()]))
+    if (!(self = [super initWithInspectorObject:[jsonObject toInspectorObject].get()]))
         return nil;
 
     return self;

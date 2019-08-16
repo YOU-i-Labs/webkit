@@ -30,9 +30,10 @@
 #include "B3Common.h"
 #include <wtf/StdLibExtras.h>
 
-#if ASSERT_DISABLED
-IGNORE_RETURN_TYPE_WARNINGS_BEGIN
-#endif
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wreturn-type"
+#endif // COMPILER(GCC) && ASSERT_DISABLED
 
 namespace JSC { namespace B3 {
 
@@ -86,8 +87,8 @@ void printInternal(PrintStream&, JSC::B3::Type);
 
 } // namespace WTF
 
-#if ASSERT_DISABLED
-IGNORE_RETURN_TYPE_WARNINGS_END
-#endif
+#if COMPILER(GCC) && ASSERT_DISABLED
+#pragma GCC diagnostic pop
+#endif // COMPILER(GCC) && ASSERT_DISABLED
 
 #endif // ENABLE(B3_JIT)

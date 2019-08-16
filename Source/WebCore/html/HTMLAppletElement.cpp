@@ -35,27 +35,22 @@
 #include "Settings.h"
 #include "SubframeLoader.h"
 #include "Widget.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLAppletElement);
-
 using namespace HTMLNames;
 
-inline HTMLAppletElement::HTMLAppletElement(const QualifiedName& tagName, Document& document)
-    : HTMLPlugInImageElement(tagName, document)
+HTMLAppletElement::HTMLAppletElement(const QualifiedName& tagName, Document& document, bool createdByParser)
+    : HTMLPlugInImageElement(tagName, document, createdByParser)
 {
     ASSERT(hasTagName(appletTag));
 
-    m_serviceType = "application/x-java-applet"_s;
+    m_serviceType = "application/x-java-applet";
 }
 
-Ref<HTMLAppletElement> HTMLAppletElement::create(const QualifiedName& tagName, Document& document)
+Ref<HTMLAppletElement> HTMLAppletElement::create(const QualifiedName& tagName, Document& document, bool createdByParser)
 {
-    auto result = adoptRef(*new HTMLAppletElement(tagName, document));
-    result->finishCreating();
-    return result;
+    return adoptRef(*new HTMLAppletElement(tagName, document, createdByParser));
 }
 
 void HTMLAppletElement::parseAttribute(const QualifiedName& name, const AtomicString& value)
@@ -109,22 +104,22 @@ RenderWidget* HTMLAppletElement::renderWidgetLoadingPlugin() const
 
 void HTMLAppletElement::updateWidget(CreatePlugins createPlugins)
 {
+    setNeedsWidgetUpdate(false);
     // FIXME: This should ASSERT isFinishedParsingChildren() instead.
-    if (!isFinishedParsingChildren()) {
-        setNeedsWidgetUpdate(false);
+    if (!isFinishedParsingChildren())
         return;
-    }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS)
     UNUSED_PARAM(createPlugins);
 #else
     // FIXME: It's sadness that we have this special case here.
     //        See http://trac.webkit.org/changeset/25128 and
     //        plugins/netscape-plugin-setwindow-size.html
-    if (createPlugins == CreatePlugins::No)
+    if (createPlugins == CreatePlugins::No) {
+        // Ensure updateWidget() is called again during layout to create the plug-in.
+        setNeedsWidgetUpdate(true);
         return;
-
-    setNeedsWidgetUpdate(false);
+    }
 
     RenderEmbeddedObject* renderer = renderEmbeddedObject();
 
@@ -141,7 +136,7 @@ void HTMLAppletElement::updateWidget(CreatePlugins createPlugins)
 
     const AtomicString& codeBase = attributeWithoutSynchronization(codebaseAttr);
     if (!codeBase.isNull()) {
-        paramNames.append("codeBase"_s);
+        paramNames.append(ASCIILiteral("codeBase"));
         paramValues.append(codeBase.string());
     }
 
@@ -153,16 +148,16 @@ void HTMLAppletElement::updateWidget(CreatePlugins createPlugins)
 
     const AtomicString& archive = attributeWithoutSynchronization(archiveAttr);
     if (!archive.isNull()) {
-        paramNames.append("archive"_s);
+        paramNames.append(ASCIILiteral("archive"));
         paramValues.append(archive.string());
     }
 
-    paramNames.append("baseURL"_s);
+    paramNames.append(ASCIILiteral("baseURL"));
     paramValues.append(document().baseURL().string());
 
     const AtomicString& mayScript = attributeWithoutSynchronization(mayscriptAttr);
     if (!mayScript.isNull()) {
-        paramNames.append("mayScript"_s);
+        paramNames.append(ASCIILiteral("mayScript"));
         paramValues.append(mayScript.string());
     }
 
@@ -174,11 +169,11 @@ void HTMLAppletElement::updateWidget(CreatePlugins createPlugins)
         paramValues.append(param.value());
     }
 
-    RefPtr<Frame> frame = document().frame();
+    Frame* frame = document().frame();
     ASSERT(frame);
 
     renderer->setWidget(frame->loader().subframeLoader().createJavaAppletWidget(roundedIntSize(LayoutSize(contentWidth, contentHeight)), *this, paramNames, paramValues));
-#endif // !PLATFORM(IOS_FAMILY)
+#endif // !PLATFORM(IOS)
 }
 
 bool HTMLAppletElement::canEmbedJava() const

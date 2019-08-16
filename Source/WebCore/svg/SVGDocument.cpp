@@ -24,18 +24,15 @@
 
 #include "SVGSVGElement.h"
 #include "SVGViewSpec.h"
-#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(SVGDocument);
 
 SVGDocument::SVGDocument(Frame* frame, const URL& url)
     : XMLDocument(frame, url, SVGDocumentClass)
 {
 }
 
-RefPtr<SVGSVGElement> SVGDocument::rootElement(const Document& document)
+SVGSVGElement* SVGDocument::rootElement(const Document& document)
 {
     auto* element = document.documentElement();
     if (!is<SVGSVGElement>(element))
@@ -45,7 +42,7 @@ RefPtr<SVGSVGElement> SVGDocument::rootElement(const Document& document)
 
 bool SVGDocument::zoomAndPanEnabled() const
 {
-    auto element = rootElement(*this);
+    auto* element = rootElement(*this);
     if (!element)
         return false;
     return (element->useCurrentView() ? element->currentView().zoomAndPan() : element->zoomAndPan()) == SVGZoomAndPanMagnify;
@@ -53,7 +50,7 @@ bool SVGDocument::zoomAndPanEnabled() const
 
 void SVGDocument::startPan(const FloatPoint& start)
 {
-    auto element = rootElement(*this);
+    auto* element = rootElement(*this);
     if (!element)
         return;
     m_panningOffset = start - element->currentTranslateValue();
@@ -61,7 +58,7 @@ void SVGDocument::startPan(const FloatPoint& start)
 
 void SVGDocument::updatePan(const FloatPoint& position) const
 {
-    auto element = rootElement(*this);
+    auto* element = rootElement(*this);
     if (!element)
         return;
     element->setCurrentTranslate(position - m_panningOffset);

@@ -24,12 +24,11 @@
 #pragma once
 
 #include "HTMLElement.h"
-#include <wtf/UniqueArray.h>
+#include <memory>
 
 namespace WebCore {
 
 class HTMLFrameSetElement final : public HTMLElement {
-    WTF_MAKE_ISO_ALLOCATED(HTMLFrameSetElement);
 public:
     static Ref<HTMLFrameSetElement> create(const QualifiedName&, Document&);
 
@@ -45,10 +44,10 @@ public:
     const Length* rowLengths() const { return m_rowLengths.get(); }
     const Length* colLengths() const { return m_colLengths.get(); }
 
-    static RefPtr<HTMLFrameSetElement> findContaining(Element* descendant);
+    static HTMLFrameSetElement* findContaining(Element* descendant);
     
     Vector<AtomicString> supportedPropertyNames() const;
-    WindowProxy* namedItem(const AtomicString&);
+    DOMWindow* namedItem(const AtomicString&);
 
 private:
     HTMLFrameSetElement(const QualifiedName&, Document&);
@@ -65,11 +64,11 @@ private:
 
     void willRecalcStyle(Style::Change) final;
 
-    InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) final;
-    void removedFromAncestor(RemovalType, ContainerNode&) final;
+    InsertionNotificationRequest insertedInto(ContainerNode&) final;
+    void removedFrom(ContainerNode&) final;
 
-    UniqueArray<Length> m_rowLengths;
-    UniqueArray<Length> m_colLengths;
+    std::unique_ptr<Length[]> m_rowLengths;
+    std::unique_ptr<Length[]> m_colLengths;
 
     int m_totalRows;
     int m_totalCols;

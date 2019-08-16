@@ -23,12 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.RuntimeObserver = class RuntimeObserver
+WebInspector.RuntimeObserver = class RuntimeObserver
 {
     // Events defined by the "Runtime" domain.
 
     executionContextCreated(contextPayload)
     {
-        WI.networkManager.executionContextCreated(contextPayload);
+        WebInspector.frameResourceManager.executionContextCreated(contextPayload);
     }
 };

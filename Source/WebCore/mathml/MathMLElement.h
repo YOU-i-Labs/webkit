@@ -36,7 +36,6 @@
 namespace WebCore {
 
 class MathMLElement : public StyledElement {
-    WTF_MAKE_ISO_ALLOCATED(MathMLElement);
 public:
     static Ref<MathMLElement> create(const QualifiedName& tagName, Document&);
 
@@ -85,8 +84,8 @@ public:
         Stretched = 18
     };
 
-    virtual Optional<bool> specifiedDisplayStyle() { return WTF::nullopt; }
-    virtual Optional<MathVariant> specifiedMathVariant() { return WTF::nullopt; }
+    virtual std::optional<bool> specifiedDisplayStyle() { return std::nullopt; }
+    virtual std::optional<MathVariant> specifiedMathVariant() { return std::nullopt; }
 
     virtual void updateSelectedChild() { }
 
@@ -106,7 +105,8 @@ protected:
 
 private:
     bool canStartSelection() const final;
-    bool isKeyboardFocusable(KeyboardEvent*) const final;
+    bool isFocusable() const final;
+    bool isKeyboardFocusable(KeyboardEvent&) const final;
     bool isMouseFocusable() const final;
     bool isURLAttribute(const Attribute&) const final;
     bool supportsFocus() const final;

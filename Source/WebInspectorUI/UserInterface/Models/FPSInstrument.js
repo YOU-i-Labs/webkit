@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.FPSInstrument = class FPSInstrument extends WI.Instrument
+WebInspector.FPSInstrument = class FPSInstrument extends WebInspector.Instrument
 {
     constructor()
     {
         super();
 
-        console.assert(WI.FPSInstrument.supported());
+        console.assert(WebInspector.FPSInstrument.supported());
     }
 
     // Static
@@ -44,6 +44,6 @@ WI.FPSInstrument = class FPSInstrument extends WI.Instrument
 
     get timelineRecordType()
     {
-        return WI.TimelineRecord.Type.RenderingFrame;
+        return WebInspector.TimelineRecord.Type.RenderingFrame;
     }
 };

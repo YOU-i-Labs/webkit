@@ -104,19 +104,10 @@ void printInternal(PrintStream& out, UseKind useKind)
         out.print("DerivedArray");
         return;
     case MapObjectUse:
-        out.print("MapObject");
+        out.print("MapObjectUse");
         return;
     case SetObjectUse:
-        out.print("SetObject");
-        return;
-    case WeakMapObjectUse:
-        out.print("WeakMapObject");
-        return;
-    case WeakSetObjectUse:
-        out.print("WeakSetObject");
-        return;
-    case DataViewObjectUse:
-        out.print("DataViewObject");
+        out.print("SetObjectUse");
         return;
     case ObjectOrOtherUse:
         out.print("ObjectOrOther");
@@ -139,9 +130,6 @@ void printInternal(PrintStream& out, UseKind useKind)
     case SymbolUse:
         out.print("Symbol");
         return;
-    case BigIntUse:
-        out.print("BigInt");
-        return;
     case StringObjectUse:
         out.print("StringObject");
         return;
@@ -151,14 +139,8 @@ void printInternal(PrintStream& out, UseKind useKind)
     case NotStringVarUse:
         out.print("NotStringVar");
         return;
-    case NotSymbolUse:
-        out.print("NotSymbol");
-        return;
     case NotCellUse:
         out.print("NotCell");
-        return;
-    case KnownOtherUse:
-        out.print("KnownOther");
         return;
     case OtherUse:
         out.print("Other");

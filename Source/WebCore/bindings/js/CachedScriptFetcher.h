@@ -26,17 +26,18 @@
 #pragma once
 
 #include "CachedResourceHandle.h"
-#include <JavaScriptCore/ScriptFetcher.h>
+#include <runtime/ScriptFetcher.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class CachedScript;
 class Document;
+class URL;
 
 class CachedScriptFetcher : public JSC::ScriptFetcher {
 public:
-    virtual CachedResourceHandle<CachedScript> requestModuleScript(Document&, const URL& sourceURL, String&& integrity) const;
+    virtual CachedResourceHandle<CachedScript> requestModuleScript(Document&, const URL& sourceURL) const;
 
     static Ref<CachedScriptFetcher> create(const String& charset);
 
@@ -54,7 +55,7 @@ protected:
     {
     }
 
-    CachedResourceHandle<CachedScript> requestScriptWithCache(Document&, const URL& sourceURL, const String& crossOriginMode, String&& integrity) const;
+    CachedResourceHandle<CachedScript> requestScriptWithCache(Document&, const URL& sourceURL, const String& crossOriginMode) const;
 
 private:
     String m_nonce;

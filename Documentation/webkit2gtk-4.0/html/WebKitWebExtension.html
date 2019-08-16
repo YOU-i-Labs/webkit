@@ -8,7 +8,7 @@
 <link rel="up" href="ch02.html" title="Web Extensions">
 <link rel="prev" href="ch02.html" title="Web Extensions">
 <link rel="next" href="WebKitWebPage.html" title="WebKitWebPage">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.25.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -133,23 +133,23 @@ web process is initialized.</p>
 15
 16
 17</pre></td>
-        <td class="listing_code"><pre class="programlisting"><span class="gtkdoc kwb">static void</span>
-<span class="function">web_page_created_callback</span> <span class="gtkdoc opt">(</span>WebKitWebExtension <span class="gtkdoc opt">*</span>extension<span class="gtkdoc opt">,</span>
-                           WebKitWebPage      <span class="gtkdoc opt">*</span>web_page<span class="gtkdoc opt">,</span>
-                           gpointer            user_data<span class="gtkdoc opt">)</span>
-<span class="gtkdoc opt">{</span>
-    <span class="function"><a href="../glib/glib-Warnings-and-Assertions.html#g-print">g_print</a></span> <span class="gtkdoc opt">(</span><span class="string">&quot;Page %d created for %s</span><span class="gtkdoc esc">\n</span><span class="string">&quot;</span><span class="gtkdoc opt">,</span>
-             <span class="function"><a href="WebKitWebPage.html#webkit-web-page-get-id">webkit_web_page_get_id</a></span> <span class="gtkdoc opt">(</span>web_page<span class="gtkdoc opt">),</span>
-             <span class="function"><a href="WebKitWebPage.html#webkit-web-page-get-uri">webkit_web_page_get_uri</a></span> <span class="gtkdoc opt">(</span>web_page<span class="gtkdoc opt">));</span>
-<span class="gtkdoc opt">}</span>
+        <td class="listing_code"><pre class="programlisting"><span class="type">static</span> <span class="type">void</span>
+web_page_created_callback (WebKitWebExtension *extension,
+                           WebKitWebPage      *web_page,
+                           gpointer            user_data)
+{
+    g_print (<span class="number">&quot;Page </span><span class="symbol">%d</span><span class="number"> created for </span><span class="symbol">%s</span><span class="symbol">\n</span><span class="number">&quot;</span>,
+             webkit_web_page_get_id (web_page),
+             webkit_web_page_get_uri (web_page));
+}
 
-G_MODULE_EXPORT <span class="gtkdoc kwb">void</span>
-<span class="function">webkit_web_extension_initialize</span> <span class="gtkdoc opt">(</span>WebKitWebExtension <span class="gtkdoc opt">*</span>extension<span class="gtkdoc opt">)</span>
-<span class="gtkdoc opt">{</span>
-    <span class="function"><a href="../gobject/gobject-Signals.html#g-signal-connect">g_signal_connect</a></span> <span class="gtkdoc opt">(</span>extension<span class="gtkdoc opt">,</span> <span class="string">&quot;page-created&quot;</span><span class="gtkdoc opt">,</span>
-                      <span class="function"><a href="../gobject/gobject-Closures.html#G-CALLBACK:CAPS">G_CALLBACK</a></span> <span class="gtkdoc opt">(</span>web_page_created_callback<span class="gtkdoc opt">),</span>
-                      NULL<span class="gtkdoc opt">);</span>
-<span class="gtkdoc opt">}</span></pre></td>
+G_MODULE_EXPORT <span class="type">void</span>
+webkit_web_extension_initialize (WebKitWebExtension *extension)
+{
+    g_signal_connect (extension, <span class="number">&quot;page-created&quot;</span>,
+                      G_CALLBACK (web_page_created_callback),
+                      <span class="number">NULL</span>);
+}</pre></td>
       </tr>
     </tbody>
   </table>
@@ -193,32 +193,32 @@ the desired data as parameter. You can see an example of this in the following p
 24
 25
 26</pre></td>
-        <td class="listing_code"><pre class="programlisting"><span class="gtkdoc ppc">#define WEB_EXTENSIONS_DIRECTORY</span> <span class="comment">/* ... */</span><span class="gtkdoc ppc"></span>
+        <td class="listing_code"><pre class="programlisting"><span class="preproc">#define WEB_EXTENSIONS_DIRECTORY </span><span class="comment">/*</span><span class="comment"> ... </span><span class="comment">*/</span>
 
-<span class="gtkdoc kwb">static void</span>
-<span class="function">initialize_web_extensions</span> <span class="gtkdoc opt">(</span>WebKitWebContext <span class="gtkdoc opt">*</span>context<span class="gtkdoc opt">,</span>
-                           gpointer          user_data<span class="gtkdoc opt">)</span>
-<span class="gtkdoc opt">{</span>
-  <span class="comment">/* Web Extensions get a different ID for each Web Process */</span>
-  <span class="gtkdoc kwb">static</span> guint32 unique_id <span class="gtkdoc opt">=</span> <span class="number">0</span><span class="gtkdoc opt">;</span>
+<span class="type">static</span> <span class="type">void</span>
+initialize_web_extensions (WebKitWebContext *context,
+                           gpointer          user_data)
+{
+  <span class="comment">/*</span><span class="comment"> Web Extensions get a different ID for each Web Process </span><span class="comment">*/</span>
+  <span class="type">static</span> guint32 unique_id = <span class="number">0</span>;
 
-  <span class="function"><a href="WebKitWebContext.html#webkit-web-context-set-web-extensions-directory">webkit_web_context_set_web_extensions_directory</a></span> <span class="gtkdoc opt">(</span>
-     context<span class="gtkdoc opt">,</span> WEB_EXTENSIONS_DIRECTORY<span class="gtkdoc opt">);</span>
-  <span class="function"><a href="WebKitWebContext.html#webkit-web-context-set-web-extensions-initialization-user-data">webkit_web_context_set_web_extensions_initialization_user_data</a></span> <span class="gtkdoc opt">(</span>
-     context<span class="gtkdoc opt">,</span> <span class="function"><a href="../glib/glib-GVariant.html#g-variant-new-uint32">g_variant_new_uint32</a></span> <span class="gtkdoc opt">(</span>unique_id<span class="gtkdoc opt">++));</span>
-<span class="gtkdoc opt">}</span>
+  webkit_web_context_set_web_extensions_directory (
+     context, WEB_EXTENSIONS_DIRECTORY);
+  webkit_web_context_set_web_extensions_initialization_user_data (
+     context, g_variant_new_uint32 (unique_id++));
+}
 
-<span class="gtkdoc kwb">int</span> <span class="function">main</span> <span class="gtkdoc opt">(</span><span class="gtkdoc kwb">int</span> argc<span class="gtkdoc opt">,</span> <span class="gtkdoc kwb">char</span> <span class="gtkdoc opt">**</span>argv<span class="gtkdoc opt">)</span>
-<span class="gtkdoc opt">{</span>
-  <span class="function"><a href="../gobject/gobject-Signals.html#g-signal-connect">g_signal_connect</a></span> <span class="gtkdoc opt">(</span><span class="function"><a href="WebKitWebContext.html#webkit-web-context-get-default">webkit_web_context_get_default</a></span> <span class="gtkdoc opt">(),</span>
-                   <span class="string">&quot;initialize-web-extensions&quot;</span><span class="gtkdoc opt">,</span>
-                    <span class="function"><a href="../gobject/gobject-Closures.html#G-CALLBACK:CAPS">G_CALLBACK</a></span> <span class="gtkdoc opt">(</span>initialize_web_extensions<span class="gtkdoc opt">),</span>
-                    NULL<span class="gtkdoc opt">);</span>
+<span class="type">int</span> main (<span class="type">int</span> argc, <span class="type">char</span> **argv)
+{
+  g_signal_connect (webkit_web_context_get_default (),
+                   <span class="number">&quot;initialize-web-extensions&quot;</span>,
+                    G_CALLBACK (initialize_web_extensions),
+                    <span class="number">NULL</span>);
 
-  GtkWidget <span class="gtkdoc opt">*</span>view <span class="gtkdoc opt">=</span> <span class="function"><a href="WebKitWebView.html#webkit-web-view-new">webkit_web_view_new</a></span> <span class="gtkdoc opt">();</span>
+  GtkWidget *view = webkit_web_view_new ();
 
-  <span class="comment">/* ... */</span>
-<span class="gtkdoc opt">}</span></pre></td>
+  <span class="comment">/*</span><span class="comment"> ... </span><span class="comment">*/</span>
+}</pre></td>
       </tr>
     </tbody>
   </table>
@@ -317,7 +317,7 @@ webkit_web_extension_get_page (<em class="parameter"><code><a class="link" href=
 </div>
 <div class="refsect3">
 <a name="webkit-web-extension-get-page.returns"></a><h4>Returns</h4>
-<p>the <a class="link" href="WebKitWebPage.html" title="WebKitWebPage"><span class="type">WebKitWebPage</span></a> for the given <em class="parameter"><code>page_id</code></em>
+<p> the <a class="link" href="WebKitWebPage.html" title="WebKitWebPage"><span class="type">WebKitWebPage</span></a> for the given <em class="parameter"><code>page_id</code></em>
 , or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a> if the
 identifier doesn't correspond to an existing web page. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
@@ -373,6 +373,6 @@ the Web Process.</p>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.25.1</div>
 </body>
 </html>

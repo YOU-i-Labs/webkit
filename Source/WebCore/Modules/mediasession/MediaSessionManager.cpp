@@ -30,7 +30,6 @@
 
 #include "MediaSession.h"
 #include "MediaSessionInterruptionProviderMac.h"
-#include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
 

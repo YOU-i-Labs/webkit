@@ -33,6 +33,7 @@
 typedef double DOMHighResTimeStamp;
 
 [
+    Conditional=WEB_TIMING,
     CustomToJSObject,
     EnabledAtRuntime=PerformanceTimeline,
     Exposed=(Window,Worker),

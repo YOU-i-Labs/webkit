@@ -26,7 +26,7 @@
 #pragma once
 
 #include "CachedResource.h"
-#include <wtf/URL.h>
+#include "URL.h"
 
 namespace WebCore {
 

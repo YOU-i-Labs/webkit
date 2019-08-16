@@ -24,10 +24,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.BackForwardEntry = class BackForwardEntry
+WebInspector.BackForwardEntry = class BackForwardEntry extends WebInspector.Object
 {
     constructor(contentView, cookie)
     {
+        super();
+
         this._contentView = contentView;
 
         // ContentViews may be shared across multiple ContentViewContainers.
@@ -46,7 +48,7 @@ WI.BackForwardEntry = class BackForwardEntry
 
     makeCopy(newCookie)
     {
-        let copy = new WI.BackForwardEntry(this._contentView, newCookie || this.cookie);
+        let copy = new WebInspector.BackForwardEntry(this._contentView, newCookie || this.cookie);
         copy._tombstone = this._tombstone;
         copy._scrollPositions = this._scrollPositions.slice();
         return copy;
@@ -93,11 +95,6 @@ WI.BackForwardEntry = class BackForwardEntry
         this.contentView.hidden();
 
         this._saveScrollPositions();
-
-        if (this._contentView.shouldSaveStateWhenHidden) {
-            this._cookie = {};
-            this._contentView.saveToCookie(this._cookie);
-        }
     }
 
     isEqual(other)

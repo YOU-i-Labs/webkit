@@ -34,29 +34,23 @@
 #include "JSVTTCue.h"
 #include "TextTrack.h"
 
-
-namespace WebCore {
 using namespace JSC;
 
-bool JSTextTrackCueOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, SlotVisitor& visitor, const char** reason)
+namespace WebCore {
+
+bool JSTextTrackCueOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, SlotVisitor& visitor)
 {
     JSTextTrackCue* jsTextTrackCue = jsCast<JSTextTrackCue*>(handle.slot()->asCell());
     TextTrackCue& textTrackCue = jsTextTrackCue->wrapped();
 
     // If the cue is firing event listeners, its wrapper is reachable because
     // the wrapper is responsible for marking those event listeners.
-    if (textTrackCue.isFiringEventListeners()) {
-        if (UNLIKELY(reason))
-            *reason = "TextTrackCue is firing event listeners";
+    if (textTrackCue.isFiringEventListeners())
         return true;
-    }
 
     // If the cue is not associated with a track, it is not reachable.
     if (!textTrackCue.track())
         return false;
-
-    if (UNLIKELY(reason))
-        *reason = "TextTrack is an opaque root";
 
     return visitor.containsOpaqueRoot(root(textTrackCue.track()));
 }

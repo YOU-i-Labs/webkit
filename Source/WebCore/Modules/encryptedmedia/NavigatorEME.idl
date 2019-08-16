@@ -28,8 +28,7 @@
 
 [
     Conditional=ENCRYPTED_MEDIA,
-    EnabledAtRuntime=EncryptedMediaAPI,
-    DisabledByQuirk=hasBrokenEncryptedMediaAPISupport,
+    EnabledAtRuntime=EncryptedMediaAPI
 ] partial interface Navigator {
     [CallWith=Document] Promise<MediaKeySystemAccess> requestMediaKeySystemAccess(DOMString keySystem, sequence<MediaKeySystemConfiguration> supportedConfiguration);
 };
