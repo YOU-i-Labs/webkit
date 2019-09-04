@@ -29,8 +29,6 @@ hunter_add_package(ICU)
 find_package(ICU CONFIG REQUIRED)
 set(ICU_INCLUDE_DIRS "")
 set(ICU_DATA_LIBRARIES ICU::data)
-set(ICU_I18N_LIBRARIES ICU::i18n)
-set(ICU_LIBRARIES ICU::uc) 
 
 find_package(JPEG REQUIRED)
 find_package(LibSoup 2.42.0 REQUIRED)
