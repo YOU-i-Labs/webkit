@@ -87,9 +87,7 @@ endif ()
 hunter_add_package(ICU)
 find_package(ICU CONFIG REQUIRED)
 set(ICU_INCLUDE_DIRS "")
-set(ICU_DATA_LIBRARIES ICU::data)
 set(ICU_I18N_LIBRARIES ICU::i18n)
-set(ICU_LIBRARIES ICU::uc) 
 
 # From OptionsGTK.cmake
 if (CMAKE_MAJOR_VERSION LESS 3)
