@@ -483,12 +483,21 @@ hunter_add_package(ICU)
 find_package(ICU CONFIG REQUIRED)
 set(ICU_INCLUDE_DIRS "")
 set(ICU_DATA_LIBRARY ICU::data)
+if (WEBOS OR BLUESKY)
+    set(ICU_I18N_LIBRARY)
+    set(ICU_LIBRARY)
+else()
+    set(ICU_I18N_LIBRARY ICU::i18n)
+    set(ICU_LIBRARY ICU::uc)
+endif()
 
 set(WTF_SYSTEM_INCLUDE_DIRECTORIES
     ${ICU_INCLUDE_DIRS}
 )
 list(APPEND WTF_LIBRARIES
     ${ICU_DATA_LIBRARIES}
+    ${ICU_I18N_LIBRARIES}
+    ${ICU_LIBRARIES}
 )
 
 if (WIN32)
