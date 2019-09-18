@@ -53,6 +53,14 @@ if (USE_CAPSTONE)
     list(APPEND JavaScriptCore_PRIVATE_INCLUDE_DIRECTORIES "${THIRDPARTY_DIR}/capstone/Source/include")
 endif ()
 
+if (WEBOS OR BLUESKY)
+    find_package(ICU CONFIG REQUIRED)
+    get_target_property(_INC_DIR ICU::i18n INTERFACE_INCLUDE_DIRECTORIES)
+    set(ICU_INCLUDE_DIRS "${_INC_DIR}")
+    set(ICU_I18N_LIBRARY)
+    set(ICU_LIBRARY)
+endif()
+
 set(JavaScriptCore_SYSTEM_INCLUDE_DIRECTORIES
     "${ICU_INCLUDE_DIRS}"
 )

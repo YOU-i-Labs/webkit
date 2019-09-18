@@ -93,8 +93,12 @@ endif ()
 hunter_add_package(ICU)
 find_package(ICU CONFIG REQUIRED)
 set(ICU_INCLUDE_DIRS "")
-set(ICU_DATA_LIBRARIES ICU::data)
 if (NOT WEBOS AND NOT BLUESKY)
     set(ICU_I18N_LIBRARIES ICU::i18n)
     set(ICU_LIBRARIES ICU::uc)
+    set(ICU_DATA_LIBRARIES ICU::data)
+    
+    get_target_property(_INC_DIR ICU::i18n INTERFACE_INCLUDE_DIRECTORIES)
+    set(ICU_INCLUDE_DIRS "${_INC_DIR}")
+
 endif()
