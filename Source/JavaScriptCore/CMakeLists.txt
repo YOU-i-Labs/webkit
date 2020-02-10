@@ -1299,6 +1299,12 @@ endif ()
 
 include(GNUInstallDirs)
 
+if (WEBOS OR BLUESKY)
+    set_property(TARGET JavaScriptCore APPEND PROPERTY INTERFACE_LINK_LIBRARIES ICU::i18n)
+    set_property(TARGET JavaScriptCore APPEND PROPERTY INTERFACE_LINK_LIBRARIES ICU::uc)
+    set_property(TARGET JavaScriptCore APPEND PROPERTY INTERFACE_LINK_LIBRARIES ICU::data)
+endif()
+
 install(
     TARGETS JavaScriptCore
     EXPORT "${TARGETS_EXPORT_NAME}"
