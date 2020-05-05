@@ -54,6 +54,18 @@ if (USE_CAPSTONE)
     list(APPEND JavaScriptCore_PRIVATE_INCLUDE_DIRECTORIES "${THIRDPARTY_DIR}/capstone/Source/include")
 endif ()
 
+#if (WEBOS OR BLUESKY)
+#    find_package(ICU CONFIG REQUIRED)
+#    get_target_property(_INC_DIR ICU::i18n INTERFACE_INCLUDE_DIRECTORIES)
+#    set(ICU_INCLUDE_DIRS "${_INC_DIR}")
+#    set(ICU_I18N_LIBRARY)
+#    set(ICU_LIBRARY)
+#endif()
+
+#set(JavaScriptCore_SYSTEM_INCLUDE_DIRECTORIES
+#    "${ICU_INCLUDE_DIRS}"
+#)
+
 set(JavaScriptCore_OBJECT_LUT_SOURCES
     runtime/ArrayConstructor.cpp
     runtime/AsyncFromSyncIteratorPrototype.cpp
@@ -305,6 +317,8 @@ target_link_libraries(LLIntSettingsExtractor WebKit::WTF)
 add_dependencies(LLIntSettingsExtractor JavaScriptCore_CopyHeaders)
 target_link_libraries(LLIntOffsetsExtractor WebKit::WTF)
 add_dependencies(LLIntOffsetsExtractor JavaScriptCore_CopyHeaders)
+
+set_target_properties(LLIntOffsetsExtractor PROPERTIES XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO")
 
 # The build system will execute asm.rb every time LLIntOffsetsExtractor's mtime is newer than
 # LLIntAssembly.h's mtime. The problem we have here is: asm.rb has some built-in optimization
@@ -1353,7 +1367,9 @@ target_include_directories(LLIntOffsetsExtractor PRIVATE
 )
 target_include_directories(LLIntOffsetsExtractor SYSTEM PRIVATE ${JavaScriptCore_SYSTEM_INCLUDE_DIRECTORIES})
 
-add_subdirectory(shell)
+if(WEBKIT_BUILD_JSC AND NOT ORBIS)
+     add_subdirectory(shell)
+endif()
 
 WEBKIT_COMPUTE_SOURCES(JavaScriptCore)
 WEBKIT_WRAP_SOURCELIST(${JavaScriptCore_SOURCES})
@@ -1367,6 +1383,33 @@ if (NOT "${PORT}" STREQUAL "Mac")
         install(TARGETS JavaScriptCore DESTINATION "${LIB_INSTALL_DIR}")
     endif ()
 endif ()
+
+include(GNUInstallDirs)
+
+if (WEBOS OR BLUESKY)
+    set_property(TARGET JavaScriptCore APPEND PROPERTY INTERFACE_LINK_LIBRARIES ICU::i18n)
+    set_property(TARGET JavaScriptCore APPEND PROPERTY INTERFACE_LINK_LIBRARIES ICU::uc)
+    set_property(TARGET JavaScriptCore APPEND PROPERTY INTERFACE_LINK_LIBRARIES ICU::data)
+endif()
+
+install(
+    TARGETS JavaScriptCore
+    EXPORT "${TARGETS_EXPORT_NAME}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+
+install(
+    DIRECTORY ${DERIVED_SOURCES_DIR}/ForwardingHeaders/
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+
+install(
+    DIRECTORY ${JAVASCRIPTCORE_DIR}/API
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/JavaScriptCore"
+)
 
 # Force staging of shared scripts, even if they aren't directly used to build JavaScriptCore.
 

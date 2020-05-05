@@ -160,9 +160,30 @@ WEBKIT_WRAP_SOURCELIST(${bmalloc_SOURCES})
 WEBKIT_FRAMEWORK(bmalloc)
 WEBKIT_FRAMEWORK_TARGET(bmalloc)
 
+#WEBKIT_WRAP_SOURCELIST(${bmalloc_SOURCES})
+#include_directories(${bmalloc_INCLUDE_DIRECTORIES})
+#add_library(bmalloc ${bmalloc_SOURCES})
+#target_link_libraries(bmalloc PUBLIC ${bmalloc_LIBRARIES})
+#set_target_properties(bmalloc PROPERTIES COMPILE_DEFINITIONS "BUILDING_bmalloc")
+
 if (DEVELOPER_MODE)
     add_library(mbmalloc SHARED bmalloc/mbmalloc.cpp)
     target_include_directories(mbmalloc PRIVATE ${bmalloc_PRIVATE_INCLUDE_DIRECTORIES})
     target_link_libraries(mbmalloc ${CMAKE_THREAD_LIBS_INIT} ${mbmalloc_LIBRARIES} ${bmalloc_LIBRARIES})
     set_target_properties(mbmalloc PROPERTIES COMPILE_DEFINITIONS "BUILDING_mbmalloc")
 endif ()
+
+include(GNUInstallDirs)
+
+install(
+    TARGETS bmalloc
+    EXPORT "${TARGETS_EXPORT_NAME}"
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+    INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+
+add_library(mbmalloc SHARED bmalloc/mbmalloc.cpp)
+target_link_libraries(mbmalloc bmalloc ${CMAKE_THREAD_LIBS_INIT} ${bmalloc_LIBRARIES})
+set_target_properties(mbmalloc PROPERTIES COMPILE_DEFINITIONS "BUILDING_mbmalloc")

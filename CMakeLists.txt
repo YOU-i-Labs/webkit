@@ -10,6 +10,12 @@
 
 cmake_minimum_required(VERSION 3.10)
 
+include("cmake/HunterGate.cmake")
+HunterGate(
+    URL "https://github.com/ruslo/hunter/archive/v0.20.50.tar.gz"
+    SHA1 "f119fdbbab3638472840464abb68b440ce5883da"
+)
+
 project(WebKit)
 
 if (NOT CMAKE_BUILD_TYPE)
@@ -19,7 +25,10 @@ else ()
     message(STATUS "The CMake build type is: ${CMAKE_BUILD_TYPE}")
 endif ()
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/Source/cmake")
+option(WEBKIT_BUILD_JSC "Build jsc executable" OFF) 
+option(DEVELOPER_MODE "Wether to build test libs and such" OFF) 
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/Source/cmake")
 
 set(ENABLE_WEBCORE ON)
 
@@ -30,6 +39,44 @@ endif ()
 if (NOT DEFINED ENABLE_TOOLS AND EXISTS "${CMAKE_SOURCE_DIR}/Tools")
     set(ENABLE_TOOLS ON)
 endif ()
+
+### Installation (https://github.com/forexample/package-example) {
+
+# Introduce variables:
+# * CMAKE_INSTALL_LIBDIR
+# * CMAKE_INSTALL_BINDIR
+# * CMAKE_INSTALL_INCLUDEDIR
+include(GNUInstallDirs)
+
+set(config_install_dir "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
+set(project_config "${generated_dir}/${PROJECT_NAME}Config.cmake")
+set(TARGETS_EXPORT_NAME "${PROJECT_NAME}Targets")
+set(namespace "${PROJECT_NAME}::")
+
+include(CMakePackageConfigHelpers)
+
+# Use:
+# * TARGETS_EXPORT_NAME
+# * PROJECT_NAME
+configure_package_config_file(
+    "cmake/template/Config.cmake.in"
+    "${project_config}"
+    INSTALL_DESTINATION "${config_install_dir}"
+)
+
+install(
+    FILES "${project_config}"
+    DESTINATION "${config_install_dir}"
+)
+
+install(
+    EXPORT "${TARGETS_EXPORT_NAME}"
+    NAMESPACE "${namespace}"
+    DESTINATION "${config_install_dir}"
+)
+
+### }
 
 # -----------------------------------------------------------------------------
 # Determine which port will be built
@@ -185,14 +232,6 @@ add_subdirectory(Source)
 # -----------------------------------------------------------------------------
 if (ENABLE_TOOLS)
     add_subdirectory(Tools)
-endif ()
-
-if ("${PORT}" STREQUAL "GTK" OR "${PORT}" STREQUAL "WPE")
-    if (DEVELOPER_MODE)
-        add_subdirectory(PerformanceTests)
-    endif ()
-else ()
-    add_subdirectory(PerformanceTests)
 endif ()
 
 # -----------------------------------------------------------------------------
