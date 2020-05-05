@@ -29,20 +29,21 @@
 #include "GraphicsLayerTransform.h"
 #include "Image.h"
 #include "IntSize.h"
+#include "NicosiaAnimatedBackingStoreClient.h"
+#include "NicosiaAnimation.h"
 #include "NicosiaBuffer.h"
 #include "NicosiaPlatformLayer.h"
-#include "TextureMapperAnimation.h"
 #include "TransformationMatrix.h"
 #include <wtf/RunLoop.h>
 #include <wtf/text/StringHash.h>
 
 namespace Nicosia {
+class Animations;
 class PaintingEngine;
 }
 
 namespace WebCore {
 class CoordinatedGraphicsLayer;
-class TextureMapperAnimations;
 
 class CoordinatedGraphicsLayerClient {
 public:
@@ -72,8 +73,11 @@ public:
     bool replaceChild(GraphicsLayer*, Ref<GraphicsLayer>&&) override;
     void removeFromParent() override;
     void setPosition(const FloatPoint&) override;
+    void syncPosition(const FloatPoint&) override;
     void setAnchorPoint(const FloatPoint3D&) override;
     void setSize(const FloatSize&) override;
+    void setBoundsOrigin(const FloatPoint&) override;
+    void syncBoundsOrigin(const FloatPoint&) override;
     void setTransform(const TransformationMatrix&) override;
     void setChildrenTransform(const TransformationMatrix&) override;
     void setPreserves3D(bool) override;
@@ -108,6 +112,10 @@ public:
     void resumeAnimations() override;
     bool usesContentsLayer() const override;
 
+#if USE(NICOSIA)
+    PlatformLayer* platformLayer() const override;
+#endif
+
     void syncPendingStateChangesIncludingSubLayers();
     void updateContentBuffersIncludingSubLayers();
 
@@ -124,15 +132,44 @@ public:
 
     const RefPtr<Nicosia::CompositionLayer>& compositionLayer() const;
 
+    class AnimatedBackingStoreHost : public ThreadSafeRefCounted<AnimatedBackingStoreHost> {
+    public:
+        static Ref<AnimatedBackingStoreHost> create(CoordinatedGraphicsLayer& layer)
+        {
+            return adoptRef(*new AnimatedBackingStoreHost(layer));
+        }
+
+        void requestBackingStoreUpdate()
+        {
+            if (m_layer)
+                m_layer->requestBackingStoreUpdate();
+        }
+
+        void layerWillBeDestroyed() { m_layer = nullptr; }
+    private:
+        explicit AnimatedBackingStoreHost(CoordinatedGraphicsLayer& layer)
+            : m_layer(&layer)
+        { }
+
+        CoordinatedGraphicsLayer* m_layer;
+    };
+
+    void requestBackingStoreUpdate();
+
 private:
-    bool isCoordinatedGraphicsLayer() const;
+    enum class FlushNotification {
+        Required,
+        NotRequired,
+    };
+
+    bool isCoordinatedGraphicsLayer() const override;
 
     void updatePlatformLayer();
 
     void setDebugBorder(const Color&, float width) override;
 
     void didChangeAnimations();
-    void didChangeGeometry();
+    void didChangeGeometry(FlushNotification = FlushNotification::Required);
     void didChangeChildren();
     void didChangeFilters();
     void didUpdateTileBuffers();
@@ -168,7 +205,6 @@ private:
     bool m_isPurging;
 #endif
     bool m_shouldUpdateVisibleRect: 1;
-    bool m_shouldSyncLayerState: 1;
     bool m_movingVisibleRect : 1;
     bool m_pendingContentsScaleAdjustment : 1;
     bool m_pendingVisibleRectAdjustment : 1;
@@ -186,7 +222,7 @@ private:
 
     Timer m_animationStartedTimer;
     RunLoop::Timer<CoordinatedGraphicsLayer> m_requestPendingTileCreationTimer;
-    TextureMapperAnimations m_animations;
+    Nicosia::Animations m_animations;
     MonotonicTime m_lastAnimationStartTime;
 
     struct {
@@ -199,7 +235,10 @@ private:
         RefPtr<Nicosia::BackingStore> backingStore;
         RefPtr<Nicosia::ContentLayer> contentLayer;
         RefPtr<Nicosia::ImageBacking> imageBacking;
+        RefPtr<Nicosia::AnimatedBackingStoreClient> animatedBackingStoreClient;
     } m_nicosia;
+
+    RefPtr<AnimatedBackingStoreHost> m_animatedBackingStoreHost;
 };
 
 } // namespace WebCore

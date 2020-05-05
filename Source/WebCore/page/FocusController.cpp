@@ -331,7 +331,7 @@ static inline int shadowAdjustedTabIndex(Element& element, KeyboardEvent* event)
         if (!element.tabIndexSetExplicitly())
             return 0; // Treat a shadow host without tabindex if it has tabindex=0 even though HTMLElement::tabIndex returns -1 on such an element.
     }
-    return element.tabIndex();
+    return element.shouldBeIgnoredInSequentialFocusNavigation() ? -1 : element.tabIndexSetExplicitly().valueOr(0);
 }
 
 FocusController::FocusController(Page& page, OptionSet<ActivityState::Flag> activityState)
@@ -620,7 +620,7 @@ static Element* nextElementWithGreaterTabIndex(const FocusNavigationScope& scope
         if (!is<Element>(*node))
             continue;
         Element& candidate = downcast<Element>(*node);
-        int candidateTabIndex = candidate.tabIndex();
+        int candidateTabIndex = shadowAdjustedTabIndex(candidate, event);
         if (isFocusableElementOrScopeOwner(candidate, event) && candidateTabIndex > tabIndex && (!winner || candidateTabIndex < winningTabIndex)) {
             winner = &candidate;
             winningTabIndex = candidateTabIndex;
@@ -774,7 +774,7 @@ static void clearSelectionIfNeeded(Frame* oldFocusedFrame, Frame* newFocusedFram
     }
 
     if (Node* mousePressNode = newFocusedFrame->eventHandler().mousePressNode()) {
-        if (mousePressNode->renderer() && !mousePressNode->canStartSelection()) {
+        if (!mousePressNode->canStartSelection()) {
             // Don't clear the selection for contentEditable elements, but do clear it for input and textarea. See bug 38696.
             auto* root = selection.rootEditableElement();
             if (!root)
@@ -835,14 +835,14 @@ bool FocusController::setFocusedElement(Element* element, Frame& newFocusedFrame
     if (!element) {
         if (oldDocument)
             oldDocument->setFocusedElement(nullptr);
-        m_page.editorClient().setInputMethodState(false);
+        m_page.editorClient().setInputMethodState(nullptr);
         return true;
     }
 
     Ref<Document> newDocument(element->document());
 
     if (newDocument->focusedElement() == element) {
-        m_page.editorClient().setInputMethodState(element->shouldUseInputMethod());
+        m_page.editorClient().setInputMethodState(element);
         return true;
     }
     
@@ -862,7 +862,7 @@ bool FocusController::setFocusedElement(Element* element, Frame& newFocusedFrame
         return false;
 
     if (newDocument->focusedElement() == element)
-        m_page.editorClient().setInputMethodState(element->shouldUseInputMethod());
+        m_page.editorClient().setInputMethodState(element);
 
     m_focusSetTime = MonotonicTime::now();
     m_focusRepaintTimer.stop();
@@ -967,7 +967,7 @@ static void updateFocusCandidateIfNeeded(FocusDirection direction, const FocusCa
         // If 2 nodes are intersecting, do hit test to find which node in on top.
         LayoutUnit x = intersectionRect.x() + intersectionRect.width() / 2;
         LayoutUnit y = intersectionRect.y() + intersectionRect.height() / 2;
-        HitTestResult result = candidate.visibleNode->document().page()->mainFrame().eventHandler().hitTestResultAtPoint(IntPoint(x, y), HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::IgnoreClipping | HitTestRequest::DisallowUserAgentShadowContent);
+        HitTestResult result = candidate.visibleNode->document().page()->mainFrame().eventHandler().hitTestResultAtPoint(IntPoint(x, y), HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::IgnoreClipping | HitTestRequest::DisallowUserAgentShadowContent | HitTestRequest::AllowChildFrameContent);
         if (candidate.visibleNode->contains(result.innerNode())) {
             closest = candidate;
             return;

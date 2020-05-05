@@ -26,33 +26,58 @@
 #pragma once
 
 #include "Connection.h"
+#include "MessageSender.h"
 #include "ProcessThrottler.h"
 #include "WebBackForwardListItem.h"
-#include <WebCore/SecurityOriginData.h>
+#include "WebPageProxyMessagesReplies.h"
+#include <WebCore/FrameIdentifier.h>
 #include <wtf/RefCounted.h>
 #include <wtf/WeakPtr.h>
 
+namespace WebCore {
+class RegistrableDomain;
+}
+
 namespace WebKit {
 
+class WebBackForwardCache;
 class WebPageProxy;
+class WebProcessPool;
 class WebProcessProxy;
+class WebsiteDataStore;
 
-class SuspendedPageProxy final: public IPC::MessageReceiver, public CanMakeWeakPtr<SuspendedPageProxy> {
+#if HAVE(VISIBILITY_PROPAGATION_VIEW)
+using LayerHostingContextID = uint32_t;
+#endif
+
+enum class ShouldDelayClosingUntilEnteringAcceleratedCompositingMode : bool { No, Yes };
+
+class SuspendedPageProxy final: public IPC::MessageReceiver, public IPC::MessageSender, public CanMakeWeakPtr<SuspendedPageProxy> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    SuspendedPageProxy(WebPageProxy&, Ref<WebProcessProxy>&&, WebBackForwardListItem&, uint64_t mainFrameID);
+    SuspendedPageProxy(WebPageProxy&, Ref<WebProcessProxy>&&, WebCore::FrameIdentifier mainFrameID, ShouldDelayClosingUntilEnteringAcceleratedCompositingMode);
     ~SuspendedPageProxy();
 
-    WebPageProxy& page() const { return m_page; }
-    WebProcessProxy& process() { return m_process.get(); }
-    uint64_t mainFrameID() const { return m_mainFrameID; }
-    const String& registrableDomain() const { return m_registrableDomain; }
+    static RefPtr<WebProcessProxy> findReusableSuspendedPageProcess(WebProcessPool&, const WebCore::RegistrableDomain&, WebsiteDataStore&);
 
-    bool failedToSuspend() const { return m_suspensionState == SuspensionState::FailedToSuspend; }
+    WebPageProxy& page() const { return m_page; }
+    WebCore::PageIdentifier webPageID() const { return m_webPageID; }
+    WebProcessProxy& process() const { return m_process.get(); }
+    WebCore::FrameIdentifier mainFrameID() const { return m_mainFrameID; }
+
+    WebBackForwardCache& backForwardCache() const;
+
+    bool pageIsClosedOrClosing() const;
 
     void waitUntilReadyToUnsuspend(CompletionHandler<void(SuspendedPageProxy*)>&&);
     void unsuspend();
-    void close();
+
+    void pageEnteredAcceleratedCompositingMode();
+    void closeWithoutFlashing();
+
+#if HAVE(VISIBILITY_PROPAGATION_VIEW)
+    LayerHostingContextID contextIDForVisibilityPropagation() const { return m_contextIDForVisibilityPropagation; }
+#endif
 
 #if !LOG_DISABLED
     const char* loggingString() const;
@@ -61,21 +86,35 @@ public:
 private:
     enum class SuspensionState : uint8_t { Suspending, FailedToSuspend, Suspended, Resumed };
     void didProcessRequestToSuspend(SuspensionState);
+    void suspensionTimedOut();
+
+    void close();
 
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
     void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&) final;
 
+    // IPC::MessageSender
+    IPC::Connection* messageSenderConnection() const final;
+    uint64_t messageSenderDestinationID() const final;
+    bool sendMessage(std::unique_ptr<IPC::Encoder>, OptionSet<IPC::SendOption>, Optional<std::pair<CompletionHandler<void(IPC::Decoder*)>, uint64_t>>&&) final;
+
     WebPageProxy& m_page;
+    WebCore::PageIdentifier m_webPageID;
     Ref<WebProcessProxy> m_process;
-    uint64_t m_mainFrameID;
-    String m_registrableDomain;
+    WebCore::FrameIdentifier m_mainFrameID;
     bool m_isClosed { false };
+    ShouldDelayClosingUntilEnteringAcceleratedCompositingMode m_shouldDelayClosingUntilEnteringAcceleratedCompositingMode { ShouldDelayClosingUntilEnteringAcceleratedCompositingMode::No };
+    bool m_shouldCloseWhenEnteringAcceleratedCompositingMode { false };
 
     SuspensionState m_suspensionState { SuspensionState::Suspending };
     CompletionHandler<void(SuspendedPageProxy*)> m_readyToUnsuspendHandler;
+    RunLoop::Timer<SuspendedPageProxy> m_suspensionTimeoutTimer;
 #if PLATFORM(IOS_FAMILY)
-    ProcessThrottler::BackgroundActivityToken m_suspensionToken;
+    std::unique_ptr<ProcessThrottler::BackgroundActivity> m_suspensionActivity;
+#endif
+#if HAVE(VISIBILITY_PROPAGATION_VIEW)
+    LayerHostingContextID m_contextIDForVisibilityPropagation { 0 };
 #endif
 };
 

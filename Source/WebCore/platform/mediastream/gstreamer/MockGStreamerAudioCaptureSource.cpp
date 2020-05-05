@@ -39,12 +39,17 @@ static const double s_BopFrequency = 500;
 static const double s_HumFrequency = 150;
 static const double s_HumVolume = 0.1;
 
+// FIXME: Add noise of frequency 3000 in case echoCancellation is false.
 class WrappedMockRealtimeAudioSource : public MockRealtimeAudioSource {
 public:
-    WrappedMockRealtimeAudioSource(String&& deviceID, String&& name, String&& hashSalt)
-        : MockRealtimeAudioSource(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt))
-        , m_src(nullptr)
+    static Ref<WrappedMockRealtimeAudioSource> create(String&& deviceID, String&& name, String&& hashSalt)
     {
+        return adoptRef(*new WrappedMockRealtimeAudioSource(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt)));
+    }
+
+    RealtimeMediaSource& asRealtimeMediaSource()
+    {
+        return *this;
     }
 
     void start(GRefPtr<GstElement> src)
@@ -57,6 +62,10 @@ public:
 
     void addHum(float amplitude, float frequency, float sampleRate, uint64_t start, float *p, uint64_t count)
     {
+        if (echoCancellation()) {
+            GST_DEBUG("echo cancel..., no hum");
+            return;
+        }
         float humPeriod = sampleRate / frequency;
         for (uint64_t i = start, end = start + count; i < end; ++i) {
             float a = amplitude * sin(i * s_Tau / humPeriod);
@@ -68,6 +77,9 @@ public:
     void render(Seconds delta)
     {
         ASSERT(m_src);
+
+        if (!m_bipBopBuffer.size())
+            reconfigure();
 
         uint32_t totalFrameCount = GST_ROUND_UP_16(static_cast<size_t>(delta.seconds() * sampleRate()));
         uint32_t frameCount = std::min(totalFrameCount, m_maximiumFrameCount);
@@ -94,30 +106,34 @@ public:
         }
     }
 
+    void reconfigure()
+    {
+        GstAudioInfo info;
+        auto rate = sampleRate();
+        size_t sampleCount = 2 * rate;
+
+        m_maximiumFrameCount = WTF::roundUpToPowerOfTwo(renderInterval().seconds() * sampleRate());
+        gst_audio_info_set_format(&info, GST_AUDIO_FORMAT_F32LE, rate, 1, nullptr);
+        m_streamFormat = GStreamerAudioStreamDescription(info);
+
+        if (m_src)
+            gst_app_src_set_caps(GST_APP_SRC(m_src.get()), m_streamFormat->caps());
+
+        m_bipBopBuffer.resize(sampleCount);
+        m_bipBopBuffer.fill(0);
+
+        size_t bipBopSampleCount = ceil(s_BipBopDuration * rate);
+        size_t bipStart = 0;
+        size_t bopStart = rate;
+
+        addHum(s_BipBopVolume, s_BipFrequency, rate, 0, static_cast<float*>(m_bipBopBuffer.data() + bipStart), bipBopSampleCount);
+        addHum(s_BipBopVolume, s_BopFrequency, rate, 0, static_cast<float*>(m_bipBopBuffer.data() + bopStart), bipBopSampleCount);
+    }
+
     void settingsDidChange(OptionSet<RealtimeMediaSourceSettings::Flag> settings)
     {
-        if (settings.contains(RealtimeMediaSourceSettings::Flag::SampleRate)) {
-            GstAudioInfo info;
-            auto rate = sampleRate();
-            size_t sampleCount = 2 * rate;
-
-            m_maximiumFrameCount = WTF::roundUpToPowerOfTwo(renderInterval().seconds() * sampleRate());
-            gst_audio_info_set_format(&info, GST_AUDIO_FORMAT_F32LE, rate, 1, nullptr);
-            m_streamFormat = GStreamerAudioStreamDescription(info);
-
-            if (m_src)
-                gst_app_src_set_caps(GST_APP_SRC(m_src.get()), m_streamFormat->caps());
-
-            m_bipBopBuffer.grow(sampleCount);
-            m_bipBopBuffer.fill(0);
-
-            size_t bipBopSampleCount = ceil(s_BipBopDuration * rate);
-            size_t bipStart = 0;
-            size_t bopStart = rate;
-
-            addHum(s_BipBopVolume, s_BipFrequency, rate, 0, static_cast<float*>(m_bipBopBuffer.data() + bipStart), bipBopSampleCount);
-            addHum(s_BipBopVolume, s_BopFrequency, rate, 0, static_cast<float*>(m_bipBopBuffer.data() + bopStart), bipBopSampleCount);
-        }
+        if (settings.contains(RealtimeMediaSourceSettings::Flag::SampleRate))
+            reconfigure();
 
         MockRealtimeAudioSource::settingsDidChange(settings);
     }
@@ -128,6 +144,12 @@ public:
     uint32_t m_maximiumFrameCount;
     uint64_t m_samplesEmitted { 0 };
     uint64_t m_samplesRendered { 0 };
+
+private:
+    WrappedMockRealtimeAudioSource(String&& deviceID, String&& name, String&& hashSalt)
+        : MockRealtimeAudioSource(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt))
+    {
+    }
 };
 
 CaptureSourceOrError MockRealtimeAudioSource::create(String&& deviceID,
@@ -154,7 +176,7 @@ void MockGStreamerAudioCaptureSource::applyConstraints(const MediaConstraints& c
 
 MockGStreamerAudioCaptureSource::MockGStreamerAudioCaptureSource(String&& deviceID, String&& name, String&& hashSalt)
     : GStreamerAudioCaptureSource(String { deviceID }, String { name }, String { hashSalt })
-    , m_wrappedSource(std::make_unique<WrappedMockRealtimeAudioSource>(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt)))
+    , m_wrappedSource(WrappedMockRealtimeAudioSource::create(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt)))
 {
     m_wrappedSource->addObserver(*this);
 }
@@ -174,19 +196,19 @@ void MockGStreamerAudioCaptureSource::stopProducingData()
 void MockGStreamerAudioCaptureSource::startProducingData()
 {
     GStreamerAudioCaptureSource::startProducingData();
-    static_cast<WrappedMockRealtimeAudioSource*>(m_wrappedSource.get())->start(capturer()->source());
+    static_cast<WrappedMockRealtimeAudioSource&>(m_wrappedSource.get()).start(capturer()->source());
 }
 
 const RealtimeMediaSourceSettings& MockGStreamerAudioCaptureSource::settings()
 {
-    return m_wrappedSource->settings();
+    return m_wrappedSource->asRealtimeMediaSource().settings();
 }
 
 const RealtimeMediaSourceCapabilities& MockGStreamerAudioCaptureSource::capabilities()
 {
-    m_capabilities = m_wrappedSource->capabilities();
-    m_currentSettings = m_wrappedSource->settings();
-    return m_wrappedSource->capabilities();
+    m_capabilities = m_wrappedSource->asRealtimeMediaSource().capabilities();
+    m_currentSettings = m_wrappedSource->asRealtimeMediaSource().settings();
+    return m_wrappedSource->asRealtimeMediaSource().capabilities();
 }
 
 void MockGStreamerAudioCaptureSource::captureFailed()

@@ -37,6 +37,8 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
 
     encoder << store;
     encoder.encodeEnum(drawingAreaType);
+    encoder << drawingAreaIdentifier;
+    encoder << webPageProxyIdentifier;
     encoder << pageGroupData;
     encoder << isEditable;
     encoder << underlayColor;
@@ -51,10 +53,8 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << paginationLineGridEnabled;
     encoder << userAgent;
     encoder << itemStates;
-    encoder << sessionID;
-    encoder << userContentControllerID.toUInt64();
+    encoder << userContentControllerID;
     encoder << visitedLinkTableID;
-    encoder << websiteDataStoreID;
     encoder << canRunBeforeUnloadConfirmPanel;
     encoder << canRunModal;
     encoder << deviceScaleFactor;
@@ -65,7 +65,8 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << mediaVolume;
     encoder << muted;
     encoder << mayStartMediaWhenInWindow;
-    encoder << viewLayoutSize;
+    encoder << mediaPlaybackIsSuspended;
+    encoder << minimumSizeForAutoLayout;
     encoder << autoSizingShouldExpandToViewHeight;
     encoder << viewportSizeForCSSViewportUnits;
     encoder.encodeEnum(scrollPinningBehavior);
@@ -76,28 +77,40 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << controlledByAutomation;
     encoder << isProcessSwap;
     encoder << useDarkAppearance;
+    encoder << useElevatedUserInterfaceLevel;
+    encoder << hasResourceLoadClient;
 
 #if PLATFORM(MAC)
     encoder << colorSpace;
     encoder << useSystemAppearance;
 #endif
+
+#if ENABLE(META_VIEWPORT)
+    encoder << ignoresViewportScaleLimits;
+    encoder << viewportConfigurationViewLayoutSize;
+    encoder << viewportConfigurationLayoutSizeScaleFactor;
+    encoder << viewportConfigurationMinimumEffectiveDeviceWidth;
+    encoder << viewportConfigurationViewSize;
+    encoder << overrideViewportArguments;
+    encoder << frontboardExtensionHandle;
+    encoder << iconServicesExtensionHandle;
+#endif
+
 #if PLATFORM(IOS_FAMILY)
     encoder << screenSize;
     encoder << availableScreenSize;
     encoder << overrideScreenSize;
     encoder << textAutosizingWidth;
-    encoder << ignoresViewportScaleLimits;
-    encoder << viewportConfigurationViewLayoutSize;
-    encoder << viewportConfigurationLayoutSizeScaleFactor;
-    encoder << viewportConfigurationViewSize;
     encoder << maximumUnobscuredSize;
     encoder << deviceOrientation;
+    encoder << keyboardIsAttached;
+    encoder << canShowWhileLocked;
 #endif
 #if PLATFORM(COCOA)
     encoder << smartInsertDeleteEnabled;
     encoder << additionalSupportedImageTypes;
 #endif
-#if PLATFORM(WPE)
+#if USE(WPE_RENDERER)
     encoder << hostFileDescriptor;
 #endif
     encoder << appleMailPaginationQuirkEnabled;
@@ -111,9 +124,6 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
 #if ENABLE(APPLICATION_MANIFEST)
     encoder << applicationManifest;
 #endif
-#if ENABLE(SERVICE_WORKER)
-    encoder << hasRegisteredServiceWorkers;
-#endif
     encoder << needsFontAttributes;
     encoder << iceCandidateFilteringEnabled;
     encoder << enumeratingAllNetworkInterfacesEnabled;
@@ -125,11 +135,25 @@ void WebPageCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << contentRuleLists;
 #endif
     encoder << backgroundColor;
+    encoder << oldPageID;
+    encoder << overriddenMediaType;
+    encoder << corsDisablingPatterns;
+
+    encoder << shouldCaptureAudioInUIProcess;
+    encoder << shouldCaptureAudioInGPUProcess;
+    encoder << shouldCaptureVideoInUIProcess;
+    encoder << shouldCaptureVideoInGPUProcess;
+    encoder << shouldCaptureDisplayInUIProcess;
+
+#if PLATFORM(GTK)
+    encoder << themeName;
+#endif
 }
 
 Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decoder& decoder)
 {
     WebPageCreationParameters parameters;
+
     if (!decoder.decode(parameters.viewSize))
         return WTF::nullopt;
     if (!decoder.decode(parameters.activityState))
@@ -138,6 +162,16 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
     if (!decoder.decodeEnum(parameters.drawingAreaType))
         return WTF::nullopt;
+    Optional<DrawingAreaIdentifier> drawingAreaIdentifier;
+    decoder >> drawingAreaIdentifier;
+    if (!drawingAreaIdentifier)
+        return WTF::nullopt;
+    parameters.drawingAreaIdentifier = *drawingAreaIdentifier;
+    Optional<WebPageProxyIdentifier> webPageProxyIdentifier;
+    decoder >> webPageProxyIdentifier;
+    if (!webPageProxyIdentifier)
+        return WTF::nullopt;
+    parameters.webPageProxyIdentifier = WTFMove(*webPageProxyIdentifier);
     Optional<WebPageGroupData> pageGroupData;
     decoder >> pageGroupData;
     if (!pageGroupData)
@@ -178,18 +212,13 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
     parameters.itemStates = WTFMove(*itemStates);
 
-    if (!decoder.decode(parameters.sessionID))
-        return WTF::nullopt;
-
-    Optional<uint64_t> userContentControllerIdentifier;
+    Optional<UserContentControllerIdentifier> userContentControllerIdentifier;
     decoder >> userContentControllerIdentifier;
     if (!userContentControllerIdentifier)
         return WTF::nullopt;
-    parameters.userContentControllerID = makeObjectIdentifier<UserContentControllerIdentifierType>(*userContentControllerIdentifier);
+    parameters.userContentControllerID = *userContentControllerIdentifier;
 
     if (!decoder.decode(parameters.visitedLinkTableID))
-        return WTF::nullopt;
-    if (!decoder.decode(parameters.websiteDataStoreID))
         return WTF::nullopt;
     if (!decoder.decode(parameters.canRunBeforeUnloadConfirmPanel))
         return WTF::nullopt;
@@ -211,7 +240,9 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
     if (!decoder.decode(parameters.mayStartMediaWhenInWindow))
         return WTF::nullopt;
-    if (!decoder.decode(parameters.viewLayoutSize))
+    if (!decoder.decode(parameters.mediaPlaybackIsSuspended))
+        return WTF::nullopt;
+    if (!decoder.decode(parameters.minimumSizeForAutoLayout))
         return WTF::nullopt;
     if (!decoder.decode(parameters.autoSizingShouldExpandToViewHeight))
         return WTF::nullopt;
@@ -238,12 +269,50 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
     if (!decoder.decode(parameters.useDarkAppearance))
         return WTF::nullopt;
+    if (!decoder.decode(parameters.useElevatedUserInterfaceLevel))
+        return WTF::nullopt;
+
+    Optional<bool> hasResourceLoadClient;
+    decoder >> hasResourceLoadClient;
+    if (!hasResourceLoadClient)
+        return WTF::nullopt;
+    parameters.hasResourceLoadClient = WTFMove(*hasResourceLoadClient);
 
 #if PLATFORM(MAC)
     if (!decoder.decode(parameters.colorSpace))
         return WTF::nullopt;
     if (!decoder.decode(parameters.useSystemAppearance))
         return WTF::nullopt;
+#endif
+
+#if ENABLE(META_VIEWPORT)
+    if (!decoder.decode(parameters.ignoresViewportScaleLimits))
+        return WTF::nullopt;
+    if (!decoder.decode(parameters.viewportConfigurationViewLayoutSize))
+        return WTF::nullopt;
+    if (!decoder.decode(parameters.viewportConfigurationLayoutSizeScaleFactor))
+        return WTF::nullopt;
+    if (!decoder.decode(parameters.viewportConfigurationMinimumEffectiveDeviceWidth))
+        return WTF::nullopt;
+    if (!decoder.decode(parameters.viewportConfigurationViewSize))
+        return WTF::nullopt;
+    Optional<Optional<WebCore::ViewportArguments>> overrideViewportArguments;
+    decoder >> overrideViewportArguments;
+    if (!overrideViewportArguments)
+        return WTF::nullopt;
+    parameters.overrideViewportArguments = WTFMove(*overrideViewportArguments);
+
+    Optional<Optional<SandboxExtension::Handle>> frontboardExtensionHandle;
+    decoder >> frontboardExtensionHandle;
+    if (!frontboardExtensionHandle)
+        return WTF::nullopt;
+    parameters.frontboardExtensionHandle = WTFMove(*frontboardExtensionHandle);
+
+    Optional<Optional<SandboxExtension::Handle>> iconServicesExtensionHandle;
+    decoder >> iconServicesExtensionHandle;
+    if (!iconServicesExtensionHandle)
+        return WTF::nullopt;
+    parameters.iconServicesExtensionHandle = WTFMove(*iconServicesExtensionHandle);
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -255,17 +324,13 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
     if (!decoder.decode(parameters.textAutosizingWidth))
         return WTF::nullopt;
-    if (!decoder.decode(parameters.ignoresViewportScaleLimits))
-        return WTF::nullopt;
-    if (!decoder.decode(parameters.viewportConfigurationViewLayoutSize))
-        return WTF::nullopt;
-    if (!decoder.decode(parameters.viewportConfigurationLayoutSizeScaleFactor))
-        return WTF::nullopt;
-    if (!decoder.decode(parameters.viewportConfigurationViewSize))
-        return WTF::nullopt;
     if (!decoder.decode(parameters.maximumUnobscuredSize))
         return WTF::nullopt;
     if (!decoder.decode(parameters.deviceOrientation))
+        return WTF::nullopt;
+    if (!decoder.decode(parameters.keyboardIsAttached))
+        return WTF::nullopt;
+    if (!decoder.decode(parameters.canShowWhileLocked))
         return WTF::nullopt;
 #endif
 
@@ -276,7 +341,7 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
 #endif
 
-#if PLATFORM(WPE)
+#if USE(WPE_RENDERER)
     if (!decoder.decode(parameters.hostFileDescriptor))
         return WTF::nullopt;
 #endif
@@ -314,11 +379,6 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
     parameters.applicationManifest = WTFMove(*applicationManifest);
 #endif
-#if ENABLE(SERVICE_WORKER)
-    if (!decoder.decode(parameters.hasRegisteredServiceWorkers))
-        return WTF::nullopt;
-#endif
-
     if (!decoder.decode(parameters.needsFontAttributes))
         return WTF::nullopt;
 
@@ -328,7 +388,7 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
     if (!decoder.decode(parameters.enumeratingAllNetworkInterfacesEnabled))
         return WTF::nullopt;
 
-    Optional<Vector<std::pair<uint64_t, String>>> userContentWorlds;
+    Optional<Vector<std::pair<ContentWorldIdentifier, String>>> userContentWorlds;
     decoder >> userContentWorlds;
     if (!userContentWorlds)
         return WTF::nullopt;
@@ -366,7 +426,42 @@ Optional<WebPageCreationParameters> WebPageCreationParameters::decode(IPC::Decod
         return WTF::nullopt;
     parameters.backgroundColor = WTFMove(*backgroundColor);
 
-    return WTFMove(parameters);
+    Optional<Optional<WebCore::PageIdentifier>> oldPageID;
+    decoder >> oldPageID;
+    if (!oldPageID)
+        return WTF::nullopt;
+    parameters.oldPageID = WTFMove(*oldPageID);
+
+    if (!decoder.decode(parameters.overriddenMediaType))
+        return WTF::nullopt;
+
+    Optional<Vector<String>> corsDisablingPatterns;
+    decoder >> corsDisablingPatterns;
+    if (!corsDisablingPatterns)
+        return WTF::nullopt;
+    parameters.corsDisablingPatterns = WTFMove(*corsDisablingPatterns);
+
+    if (!decoder.decode(parameters.shouldCaptureAudioInUIProcess))
+        return WTF::nullopt;
+
+    if (!decoder.decode(parameters.shouldCaptureAudioInGPUProcess))
+        return WTF::nullopt;
+
+    if (!decoder.decode(parameters.shouldCaptureVideoInUIProcess))
+        return WTF::nullopt;
+
+    if (!decoder.decode(parameters.shouldCaptureVideoInGPUProcess))
+        return WTF::nullopt;
+
+    if (!decoder.decode(parameters.shouldCaptureDisplayInUIProcess))
+        return WTF::nullopt;
+
+#if PLATFORM(GTK)
+    if (!decoder.decode(parameters.themeName))
+        return WTF::nullopt;
+#endif
+
+    return parameters;
 }
 
 } // namespace WebKit

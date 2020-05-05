@@ -72,10 +72,10 @@ void InjectedBundleController::initialize(WKBundleRef bundle, WKTypeRef initiali
     assert(WKGetTypeID(initializationUserData) == WKDictionaryGetTypeID());
     WKDictionaryRef initializationDictionary = static_cast<WKDictionaryRef>(initializationUserData);
 
-    WKRetainPtr<WKStringRef> testNameKey(AdoptWK, WKStringCreateWithUTF8CString("TestName"));
+    WKRetainPtr<WKStringRef> testNameKey = adoptWK(WKStringCreateWithUTF8CString("TestName"));
     WKStringRef testName = static_cast<WKStringRef>(WKDictionaryGetItemForKey(initializationDictionary, testNameKey.get()));
 
-    WKRetainPtr<WKStringRef> userDataKey(AdoptWK, WKStringCreateWithUTF8CString("UserData"));
+    WKRetainPtr<WKStringRef> userDataKey = adoptWK(WKStringCreateWithUTF8CString("UserData"));
     WKTypeRef userData = WKDictionaryGetItemForKey(initializationDictionary, userDataKey.get());
     initializeTestNamed(bundle, Util::toSTD(testName), userData);
 }
@@ -139,6 +139,12 @@ void InjectedBundleController::registerCreateInjectedBundleTestFunction(const st
 {
     m_createInjectedBundleTestFunctions[identifier] = function;
 }
+
+#if !PLATFORM(COCOA)
+void InjectedBundleController::platformInitialize()
+{
+}
+#endif
 
 } // namespace TestWebKitAPI
 

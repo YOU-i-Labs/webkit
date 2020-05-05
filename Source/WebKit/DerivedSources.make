@@ -22,6 +22,10 @@
 
 VPATH = \
     $(WebKit2) \
+    $(WebKit2)/GPUProcess \
+    $(WebKit2)/GPUProcess/mac \
+    $(WebKit2)/GPUProcess/media \
+    $(WebKit2)/GPUProcess/webrtc \
     $(WebKit2)/NetworkProcess \
     $(WebKit2)/NetworkProcess/Cookies \
     $(WebKit2)/NetworkProcess/cache \
@@ -30,11 +34,13 @@ VPATH = \
     $(WebKit2)/NetworkProcess/webrtc \
     $(WebKit2)/NetworkProcess/IndexedDB \
     $(WebKit2)/NetworkProcess/ServiceWorker \
+    $(WebKit2)/NetworkProcess/WebStorage \
     $(WebKit2)/PluginProcess \
     $(WebKit2)/PluginProcess/mac \
     $(WebKit2)/Shared/Plugins \
     $(WebKit2)/Shared \
     $(WebKit2)/Shared/API/Cocoa \
+    $(WebKit2)/Shared/ApplePay \
     $(WebKit2)/Shared/Authentication \
     $(WebKit2)/Shared/mac \
     $(WebKit2)/WebProcess/ApplePay \
@@ -44,7 +50,11 @@ VPATH = \
     $(WebKit2)/WebProcess/Databases/IndexedDB \
     $(WebKit2)/WebProcess/FullScreen \
     $(WebKit2)/WebProcess/Geolocation \
+    $(WebKit2)/WebProcess/GPU \
+    $(WebKit2)/WebProcess/GPU/media \
+    $(WebKit2)/WebProcess/GPU/webrtc \
     $(WebKit2)/WebProcess/IconDatabase \
+    $(WebKit2)/WebProcess/Inspector \
     $(WebKit2)/WebProcess/MediaCache \
     $(WebKit2)/WebProcess/MediaStream \
     $(WebKit2)/WebProcess/Network \
@@ -58,17 +68,19 @@ VPATH = \
     $(WebKit2)/WebProcess/WebAuthentication \
     $(WebKit2)/WebProcess/WebCoreSupport \
     $(WebKit2)/WebProcess/WebPage \
+    $(WebKit2)/WebProcess/WebPage/Cocoa \
     $(WebKit2)/WebProcess/WebPage/RemoteLayerTree \
     $(WebKit2)/WebProcess/WebStorage \
     $(WebKit2)/WebProcess/cocoa \
     $(WebKit2)/WebProcess/ios \
     $(WebKit2)/WebProcess \
     $(WebKit2)/UIProcess \
-    $(WebKit2)/UIProcess/ApplePay \
     $(WebKit2)/UIProcess/Automation \
     $(WebKit2)/UIProcess/Cocoa \
     $(WebKit2)/UIProcess/Databases \
     $(WebKit2)/UIProcess/Downloads \
+    $(WebKit2)/UIProcess/GPU \
+    $(WebKit2)/UIProcess/Inspector \
     $(WebKit2)/UIProcess/MediaStream \
     $(WebKit2)/UIProcess/Network \
     $(WebKit2)/UIProcess/Network/CustomProtocols \
@@ -78,7 +90,6 @@ VPATH = \
     $(WebKit2)/UIProcess/Storage \
     $(WebKit2)/UIProcess/UserContent \
     $(WebKit2)/UIProcess/WebAuthentication \
-    $(WebKit2)/UIProcess/WebStorage \
     $(WebKit2)/UIProcess/mac \
     $(WebKit2)/UIProcess/ios \
     $(WEBKITADDITIONS_HEADER_SEARCH_PATHS) \
@@ -102,8 +113,15 @@ MESSAGE_RECEIVERS = \
     DrawingAreaProxy \
     EditableImageController \
     EventDispatcher \
+    GPUProcess \
+    GPUProcessProxy \
+    GPUProcessConnection \
+    GPUConnectionToWebProcess \
     LegacyCustomProtocolManager \
     LegacyCustomProtocolManagerProxy \
+    LibWebRTCCodecs \
+    LibWebRTCCodecsProxy \
+    MediaPlayerPrivateRemote \
     NPObjectMessageReceiver \
     NetworkConnectionToWebProcess \
     NetworkContentRuleListManager \
@@ -115,6 +133,7 @@ MESSAGE_RECEIVERS = \
     NetworkRTCProvider \
     NetworkRTCSocket \
     NetworkResourceLoader \
+    NetworkSocketChannel \
     NetworkSocketStream \
     PlaybackSessionManager \
     PlaybackSessionManagerProxy \
@@ -124,16 +143,28 @@ MESSAGE_RECEIVERS = \
     PluginProcessConnectionManager \
     PluginProcessProxy \
     PluginProxy \
+    RemoteAudioMediaStreamTrackRendererManager \
+    RemoteAudioMediaStreamTrackRenderer \
     RemoteLayerTreeDrawingAreaProxy \
+    RemoteMediaPlayerManager \
+    RemoteMediaPlayerManagerProxy \
+    RemoteMediaPlayerProxy \
+    RemoteMediaRecorder \
+    RemoteMediaRecorderManager \
+    RemoteMediaResourceManager \
     RemoteObjectRegistry \
+    RemoteSampleBufferDisplayLayer \
+    RemoteSampleBufferDisplayLayerManager \
     RemoteScrollingCoordinator \
     RemoteWebInspectorProxy \
     RemoteWebInspectorUI \
+    SampleBufferDisplayLayer \
     SecItemShimProxy \
-    ServiceWorkerClientFetch \
+    ServiceWorkerFetchTask \
     SmartMagnificationController \
     StorageAreaMap \
-    StorageManager \
+    StorageManagerSet \
+    TextCheckingControllerProxy \
     UserMediaCaptureManager \
     UserMediaCaptureManagerProxy \
     VideoFullscreenManager \
@@ -143,11 +174,9 @@ MESSAGE_RECEIVERS = \
     ViewUpdateDispatcher \
     VisitedLinkStore \
     VisitedLinkTableController \
-    WebAuthenticatorCoordinator \
     WebAuthenticatorCoordinatorProxy \
     WebAutomationSession \
     WebAutomationSessionProxy \
-    WebCacheStorageConnection \
     WebConnection \
     WebCookieManager \
     WebCookieManagerProxy \
@@ -155,8 +184,8 @@ MESSAGE_RECEIVERS = \
     WebFullScreenManagerProxy \
     WebGeolocationManager \
     WebGeolocationManagerProxy \
-    WebIDBConnectionToClient \
     WebIDBConnectionToServer \
+    WebIDBServer \
     WebInspector \
     WebInspectorInterruptDispatcher \
     WebInspectorProxy \
@@ -175,12 +204,14 @@ MESSAGE_RECEIVERS = \
     WebRTCMonitor \
     WebRTCResolver \
     WebRTCSocket \
-    WebResourceLoadStatisticsStore \
     WebResourceLoader \
     WebSWClientConnection \
     WebSWContextManagerConnection \
     WebSWServerConnection \
     WebSWServerToContextConnection \
+    WebDeviceOrientationUpdateProvider \
+    WebDeviceOrientationUpdateProviderProxy \
+    WebSocketChannel \
     WebSocketStream \
     WebUserContentController \
     WebUserContentControllerProxy \
@@ -188,7 +219,6 @@ MESSAGE_RECEIVERS = \
 
 SCRIPTS = \
     $(WebKit2)/Scripts/generate-message-receiver.py \
-    $(WebKit2)/Scripts/generate-messages-header.py \
     $(WebKit2)/Scripts/webkit/__init__.py \
     $(WebKit2)/Scripts/webkit/messages.py \
     $(WebKit2)/Scripts/webkit/model.py \
@@ -205,15 +235,12 @@ HEADER_FLAGS = $(shell echo $(BUILT_PRODUCTS_DIR) $(HEADER_SEARCH_PATHS) $(SYSTE
 all : \
     $(MESSAGE_RECEIVERS:%=%MessageReceiver.cpp) \
     $(MESSAGE_RECEIVERS:%=%Messages.h) \
+    $(MESSAGE_RECEIVERS:%=%MessagesReplies.h) \
 #
 
-%MessageReceiver.cpp : %.messages.in $(SCRIPTS)
+%MessageReceiver.cpp %Messages.h %MessagesReplies.h : %.messages.in $(SCRIPTS)
 	@echo Generating message receiver for $*...
-	@python $(WebKit2)/Scripts/generate-message-receiver.py $< > $@
-
-%Messages.h : %.messages.in $(SCRIPTS)
-	@echo Generating messages header for $*...
-	@python $(WebKit2)/Scripts/generate-messages-header.py $< > $@
+	@python $(WebKit2)/Scripts/generate-message-receiver.py $< --implementation $*MessageReceiver.cpp --header $*Messages.h --reply-header $*MessagesReplies.h
 
 TEXT_PREPROCESSOR_FLAGS=-E -P -w
 
@@ -229,7 +256,8 @@ endif
 SANDBOX_PROFILES = \
 	com.apple.WebProcess.sb \
 	com.apple.WebKit.plugin-common.sb \
-	com.apple.WebKit.NetworkProcess.sb
+	com.apple.WebKit.NetworkProcess.sb \
+	com.apple.WebKit.GPUProcess.sb
 
 all : $(SANDBOX_PROFILES)
 
@@ -267,7 +295,7 @@ AUTOMATION_PROTOCOL_OUTPUT_FILES = \
 AUTOMATION_PROTOCOL_OUTPUT_PATTERNS = $(subst .,%,$(AUTOMATION_PROTOCOL_OUTPUT_FILES))
 
 ifeq ($(OS),MACOS)
-ifeq ($(shell $(CC) -std=gnu++14 -x c++ -E -P -dM $(SDK_FLAGS) $(TARGET_TRIPLE_FLAGS) $(FRAMEWORK_FLAGS) $(HEADER_FLAGS) -include "wtf/Platform.h" /dev/null | grep ' WTF_PLATFORM_IOS_FAMILY ' | cut -d' ' -f3), 1)
+ifeq ($(shell $(CC) -std=gnu++1z -x c++ -E -P -dM $(SDK_FLAGS) $(TARGET_TRIPLE_FLAGS) $(FRAMEWORK_FLAGS) $(HEADER_FLAGS) -include "wtf/Platform.h" /dev/null | grep ' WTF_PLATFORM_IOS_FAMILY ' | cut -d' ' -f3), 1)
 	AUTOMATION_BACKEND_PLATFORM_ARGUMENTS = --platform iOS
 else
 	AUTOMATION_BACKEND_PLATFORM_ARGUMENTS = --platform macOS
@@ -316,7 +344,10 @@ $(WEB_PREFERENCES_COMBINED_INPUT_FILE) : $(WEB_PREFERENCES_INPUT_FILES)
 $(WEB_PREFERENCES_PATTERNS) : $(WebKit2)/Scripts/GeneratePreferences.rb $(WEB_PREFERENCES_TEMPLATES) $(WEB_PREFERENCES_COMBINED_INPUT_FILE)
 	$(RUBY) $< --input $(WEB_PREFERENCES_COMBINED_INPUT_FILE)
 
-VPATH += $(WebKit2)/Shared/HTTPSUpgrade/
+# FIXME: We should switch to the internal HTTPSUpgradeList.txt once the feature is ready.
+# VPATH += $(WebKit2)/Shared/HTTPSUpgrade/
+VPATH := $(WebKit2)/Shared/HTTPSUpgrade/ $(VPATH)
+
 all : HTTPSUpgradeList.db
 HTTPSUpgradeList.db : HTTPSUpgradeList.txt $(WebKit2)/Scripts/generate-https-upgrade-database.sh
 	sh $(WebKit2)/Scripts/generate-https-upgrade-database.sh $< $@

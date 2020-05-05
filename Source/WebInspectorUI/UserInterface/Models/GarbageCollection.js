@@ -39,10 +39,28 @@ WI.GarbageCollection = class GarbageCollection
     static fromPayload(payload)
     {
         let type = WI.GarbageCollection.Type.Full;
-        if (payload.type === HeapAgent.GarbageCollectionType.Partial)
+        if (payload.type === InspectorBackend.Enum.Heap.GarbageCollectionType.Partial)
             type = WI.GarbageCollection.Type.Partial;
 
         return new WI.GarbageCollection(type, payload.startTime, payload.endTime);
+    }
+
+    // Import / Export
+
+    static fromJSON(json)
+    {
+        let {type, startTime, endTime} = json;
+        return new WI.GarbageCollection(type, startTime, endTime);
+    }
+
+    toJSON()
+    {
+        return {
+            __type: "GarbageCollection",
+            type: this.type,
+            startTime: this.startTime,
+            endTime: this.endTime,
+        };
     }
 
     // Public
@@ -58,6 +76,6 @@ WI.GarbageCollection = class GarbageCollection
 };
 
 WI.GarbageCollection.Type = {
-    Partial: Symbol("Partial"),
-    Full: Symbol("Full")
+    Partial: "partial",
+    Full: "full",
 };

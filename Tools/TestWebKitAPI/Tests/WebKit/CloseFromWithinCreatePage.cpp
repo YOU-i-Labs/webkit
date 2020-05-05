@@ -42,11 +42,11 @@ static void runJavaScriptAlert(WKPageRef page, WKStringRef alertText, WKFrameRef
     testDone = true;
 }
 
-static WKPageRef createNewPage(WKPageRef page, WKURLRequestRef urlRequest, WKDictionaryRef features, WKEventModifiers modifiers, WKEventMouseButton mouseButton, const void *clientInfo)
+static WKPageRef createNewPageThenClose(WKPageRef page, WKURLRequestRef urlRequest, WKDictionaryRef features, WKEventModifiers modifiers, WKEventMouseButton mouseButton, const void *clientInfo)
 {
     EXPECT_TRUE(openedWebView == nullptr);
 
-    openedWebView = std::make_unique<PlatformWebView>(page);
+    openedWebView = makeUnique<PlatformWebView>(page);
 
     WKPageUIClientV5 uiClient;
     memset(&uiClient, 0, sizeof(uiClient));
@@ -63,7 +63,52 @@ static WKPageRef createNewPage(WKPageRef page, WKURLRequestRef urlRequest, WKDic
 
 TEST(WebKit, CloseFromWithinCreatePage)
 {
-    WKRetainPtr<WKContextRef> context(AdoptWK, WKContextCreateWithConfiguration(nullptr));
+    WKRetainPtr<WKContextRef> context = adoptWK(WKContextCreateWithConfiguration(nullptr));
+
+    PlatformWebView webView(context.get());
+
+    WKPageUIClientV5 uiClient;
+    memset(&uiClient, 0, sizeof(uiClient));
+
+    uiClient.base.version = 5;
+    uiClient.createNewPage = createNewPageThenClose;
+    uiClient.runJavaScriptAlert = runJavaScriptAlert;
+    WKPageSetPageUIClient(webView.page(), &uiClient.base);
+
+    // Allow file URLs to load non-file resources
+    WKRetainPtr<WKPreferencesRef> preferences = adoptWK(WKPreferencesCreate());
+    WKPageGroupRef pageGroup = WKPageGetPageGroup(webView.page());
+    WKPreferencesSetUniversalAccessFromFileURLsAllowed(preferences.get(), true);
+    WKPageGroupSetPreferences(pageGroup, preferences.get());
+    
+    WKRetainPtr<WKURLRef> url = adoptWK(Util::createURLForResource("close-from-within-create-page", "html"));
+    WKPageLoadURL(webView.page(), url.get());
+
+    Util::run(&testDone);
+
+    openedWebView = nullptr;
+}
+
+static WKPageRef createNewPage(WKPageRef page, WKURLRequestRef urlRequest, WKDictionaryRef features, WKEventModifiers modifiers, WKEventMouseButton mouseButton, const void *clientInfo)
+{
+    EXPECT_TRUE(openedWebView == nullptr);
+
+    openedWebView = makeUnique<PlatformWebView>(page);
+
+    WKPageUIClientV5 uiClient;
+    memset(&uiClient, 0, sizeof(uiClient));
+
+    uiClient.base.version = 5;
+    uiClient.runJavaScriptAlert = runJavaScriptAlert;
+    WKPageSetPageUIClient(openedWebView->page(), &uiClient.base);
+
+    WKRetain(openedWebView->page());
+    return openedWebView->page();
+}
+
+TEST(WebKit, CreatePageThenDocumentOpenMIMEType)
+{
+    WKRetainPtr<WKContextRef> context = adoptWK(WKContextCreateWithConfiguration(nullptr));
 
     PlatformWebView webView(context.get());
 
@@ -76,15 +121,19 @@ TEST(WebKit, CloseFromWithinCreatePage)
     WKPageSetPageUIClient(webView.page(), &uiClient.base);
 
     // Allow file URLs to load non-file resources
-    WKRetainPtr<WKPreferencesRef> preferences(AdoptWK, WKPreferencesCreate());
+    WKRetainPtr<WKPreferencesRef> preferences = adoptWK(WKPreferencesCreate());
     WKPageGroupRef pageGroup = WKPageGetPageGroup(webView.page());
     WKPreferencesSetUniversalAccessFromFileURLsAllowed(preferences.get(), true);
     WKPageGroupSetPreferences(pageGroup, preferences.get());
-    
-    WKRetainPtr<WKURLRef> url(AdoptWK, Util::createURLForResource("close-from-within-create-page", "html"));
-    WKPageLoadURL(webView.page(), url.get());
 
+    testDone = false;
+    WKRetainPtr<WKURLRef> url = adoptWK(Util::createURLForResource("window-open-then-document-open", "html"));
+    WKPageLoadURL(webView.page(), url.get());
     Util::run(&testDone);
+
+    auto page = openedWebView->page();
+    auto mainFrame = WKPageGetMainFrame(page);
+    EXPECT_TRUE(WKFrameIsDisplayingMarkupDocument(mainFrame));
 
     openedWebView = nullptr;
 }

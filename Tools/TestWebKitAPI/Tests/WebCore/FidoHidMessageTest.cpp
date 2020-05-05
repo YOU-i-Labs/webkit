@@ -35,6 +35,7 @@
 #include <WebCore/FidoHidMessage.h>
 #include <WebCore/FidoHidPacket.h>
 #include <wtf/Deque.h>
+#include <wtf/Optional.h>
 #include <wtf/Vector.h>
 
 namespace TestWebKitAPI {
@@ -47,29 +48,28 @@ TEST(FidoHidMessageTest, TestPacketSize)
     uint32_t channelId = 0x05060708;
     Vector<uint8_t> data;
 
-    auto initPacket = std::make_unique<FidoHidInitPacket>(channelId, FidoHidDeviceCommand::kInit, Vector<uint8_t>(data), data.size());
+    auto initPacket = makeUnique<FidoHidInitPacket>(channelId, FidoHidDeviceCommand::kInit, Vector<uint8_t>(data), data.size());
     EXPECT_EQ(64u, initPacket->getSerializedData().size());
 
-    auto continuationPacket = std::make_unique<FidoHidContinuationPacket>(channelId, 0, WTFMove(data));
+    auto continuationPacket = makeUnique<FidoHidContinuationPacket>(channelId, 0, WTFMove(data));
     EXPECT_EQ(64u, continuationPacket->getSerializedData().size());
 }
 
 /*
- * U2f Init Packets are of the format:
- * Byte 0:    0
- * Byte 1-4:  Channel ID
- * Byte 5:    Command byte
- * Byte 6-7:  Big Endian size of data
- * Byte 8-n:  Data block
+ * CTAP HID Init Packets are of the format:
+ * Byte 0-3:  Channel ID
+ * Byte 4:    Command byte
+ * Byte 5-6:  Big Endian size of data
+ * Byte 7-n:  Data block
  *
  * Remaining buffer is padded with 0
  */
-TEST(FidoHidMessageTest, TestPacketData)
+TEST(FidoHidMessageTest, TestPacketData1)
 {
     uint32_t channelId = 0xF5060708;
     Vector<uint8_t> data {10, 11};
     FidoHidDeviceCommand cmd = FidoHidDeviceCommand::kWink;
-    auto initPacket = std::make_unique<FidoHidInitPacket>(channelId, cmd, Vector<uint8_t>(data), data.size());
+    auto initPacket = makeUnique<FidoHidInitPacket>(channelId, cmd, Vector<uint8_t>(data), data.size());
     size_t index = 0;
 
     Vector<uint8_t> serialized = initPacket->getSerializedData();
@@ -87,13 +87,41 @@ TEST(FidoHidMessageTest, TestPacketData)
         EXPECT_EQ(0, serialized[index]) << "mismatch at index " << index;
 }
 
+/*
+ * CTAP HID Continuation Packets are of the format:
+ * Byte 0-3:  Channel ID
+ * Byte 4:    SEQ
+ * Byte 5-n:  Data block
+ *
+ * Remaining buffer is padded with 0
+ */
+TEST(FidoHidMessageTest, TestPacketData2)
+{
+    uint32_t channelId = 0xF5060708;
+    Vector<uint8_t> data {10, 11};
+    auto initPacket = makeUnique<FidoHidContinuationPacket>(channelId, 0, Vector<uint8_t>(data));
+    size_t index = 0;
+
+    Vector<uint8_t> serialized = initPacket->getSerializedData();
+    EXPECT_EQ((channelId >> 24) & 0xff, serialized[index++]);
+    EXPECT_EQ((channelId >> 16) & 0xff, serialized[index++]);
+    EXPECT_EQ((channelId >> 8) & 0xff, serialized[index++]);
+    EXPECT_EQ(channelId & 0xff, serialized[index++]);
+    EXPECT_EQ(0, serialized[index++]);
+
+    EXPECT_EQ(data[0], serialized[index++]);
+    EXPECT_EQ(data[1], serialized[index++]);
+    for (; index < serialized.size(); index++)
+        EXPECT_EQ(0, serialized[index]) << "mismatch at index " << index;
+}
+
 TEST(FidoHidMessageTest, TestPacketConstructors)
 {
     uint32_t channelId = 0x05060708;
     Vector<uint8_t> data {10, 11};
     FidoHidDeviceCommand cmd = FidoHidDeviceCommand::kWink;
     size_t length = data.size();
-    auto origPacket = std::make_unique<FidoHidInitPacket>(channelId, cmd, WTFMove(data), length);
+    auto origPacket = makeUnique<FidoHidInitPacket>(channelId, cmd, WTFMove(data), length);
 
     size_t payloadLength = static_cast<size_t>(origPacket->payloadLength());
     Vector<uint8_t> origData = origPacket->getSerializedData();
@@ -206,6 +234,16 @@ TEST(FidoHidMessageTest, TestDeserialize)
         EXPECT_EQ(buf, origList.first());
         origList.removeFirst();
     }
+}
+
+TEST(FidoHidMessageTest, TestProperties)
+{
+    uint32_t channelId = 0x05060708;
+    Vector<uint8_t> data;
+
+    auto message = FidoHidMessage::create(channelId, FidoHidDeviceCommand::kCancel, data);
+    EXPECT_EQ(channelId, message->channelId());
+    EXPECT_EQ(FidoHidDeviceCommand::kCancel, message->cmd());
 }
 
 } // namespace TestWebKitAPI

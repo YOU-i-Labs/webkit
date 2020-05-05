@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2011 The ANGLE Project Authors. All rights reserved.
+// Copyright 2011 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -9,6 +9,9 @@
 
 #include <cstddef>
 #include <vector>
+
+namespace angle
+{
 
 namespace pp
 {
@@ -50,5 +53,7 @@ class Input
 };
 
 }  // namespace pp
+
+}  // namespace angle
 
 #endif  // COMPILER_PREPROCESSOR_INPUT_H_

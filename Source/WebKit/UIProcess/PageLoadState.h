@@ -27,6 +27,7 @@
 #define PageLoadState_h
 
 #include "WebCertificateInfo.h"
+#include <wtf/URL.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
@@ -60,6 +61,9 @@ public:
 
         virtual void willChangeHasOnlySecureContent() = 0;
         virtual void didChangeHasOnlySecureContent() = 0;
+
+        virtual void willChangeNegotiatedLegacyTLS() { };
+        virtual void didChangeNegotiatedLegacyTLS() { };
 
         virtual void willChangeEstimatedProgress() = 0;
         virtual void didChangeEstimatedProgress() = 0;
@@ -96,20 +100,25 @@ public:
         class Token {
         public:
             Token(Transaction& transaction)
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
                 : m_pageLoadState(*transaction.m_pageLoadState)
 #endif
             {
                 transaction.m_pageLoadState->m_mayHaveUncommittedChanges = true;
             }
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
             PageLoadState& m_pageLoadState;
 #endif
         };
 
         RefPtr<WebPageProxy> m_webPageProxy;
         PageLoadState* m_pageLoadState;
+    };
+
+    struct PendingAPIRequest {
+        uint64_t navigationID { 0 };
+        String url;
     };
 
     void addObserver(Observer&);
@@ -125,6 +134,8 @@ public:
     bool isCommitted() const { return m_committedState.state == State::Committed; }
     bool isFinished() const { return m_committedState.state == State::Finished; }
 
+    bool hasUncommittedLoad() const;
+
     const String& provisionalURL() const { return m_committedState.provisionalURL; }
     const String& url() const { return m_committedState.url; }
     const String& unreachableURL() const { return m_committedState.unreachableURL; }
@@ -132,21 +143,27 @@ public:
     String activeURL() const;
 
     bool hasOnlySecureContent() const;
+    bool hasNegotiatedLegacyTLS() const;
+    void negotiatedLegacyTLS(const Transaction::Token&);
 
     double estimatedProgress() const;
     bool networkRequestsInProgress() const { return m_committedState.networkRequestsInProgress; }
 
     WebCertificateInfo* certificateInfo() const { return m_committedState.certificateInfo.get(); }
 
+    const URL& resourceDirectoryURL() const;
+
     const String& pendingAPIRequestURL() const;
-    void setPendingAPIRequestURL(const Transaction::Token&, const String&);
-    void clearPendingAPIRequestURL(const Transaction::Token&);
+    const PendingAPIRequest& pendingAPIRequest() const;
+    void setPendingAPIRequest(const Transaction::Token&, PendingAPIRequest&& pendingAPIRequest, const URL& resourceDirectoryPath = { });
+    void clearPendingAPIRequest(const Transaction::Token&);
 
     void didStartProvisionalLoad(const Transaction::Token&, const String& url, const String& unreachableURL);
+    void didExplicitOpen(const Transaction::Token&, const String& url);
     void didReceiveServerRedirectForProvisionalLoad(const Transaction::Token&, const String& url);
     void didFailProvisionalLoad(const Transaction::Token&);
 
-    void didCommitLoad(const Transaction::Token&, WebCertificateInfo&, bool hasInsecureContent);
+    void didCommitLoad(const Transaction::Token&, WebCertificateInfo&, bool hasInsecureContent, bool usedLegacyTLS);
     void didFinishLoad(const Transaction::Token&);
     void didFailLoad(const Transaction::Token&);
 
@@ -188,20 +205,11 @@ private:
     Vector<Observer*> m_observers;
 
     struct Data {
-        Data()
-            : state(State::Finished)
-            , hasInsecureContent(false)
-            , canGoBack(false)
-            , canGoForward(false)
-            , estimatedProgress(0)
-            , networkRequestsInProgress(false)
-        {
-        }
+        State state { State::Finished };
+        bool hasInsecureContent { false };
+        bool negotiatedLegacyTLS { false };
 
-        State state;
-        bool hasInsecureContent;
-
-        String pendingAPIRequestURL;
+        PendingAPIRequest pendingAPIRequest;
 
         String provisionalURL;
         String url;
@@ -210,11 +218,13 @@ private:
 
         String title;
 
-        bool canGoBack;
-        bool canGoForward;
+        URL resourceDirectoryURL;
 
-        double estimatedProgress;
-        bool networkRequestsInProgress;
+        bool canGoBack { false };
+        bool canGoForward { false };
+
+        double estimatedProgress { 0 };
+        bool networkRequestsInProgress { false };
 
         RefPtr<WebCertificateInfo> certificateInfo;
     };

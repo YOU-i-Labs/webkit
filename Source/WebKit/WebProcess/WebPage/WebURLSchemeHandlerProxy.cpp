@@ -30,6 +30,7 @@
 #include "URLSchemeTaskParameters.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebErrors.h"
+#include "WebFrame.h"
 #include "WebLoaderStrategy.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
@@ -53,25 +54,22 @@ WebURLSchemeHandlerProxy::~WebURLSchemeHandlerProxy()
     ASSERT(m_tasks.isEmpty());
 }
 
-void WebURLSchemeHandlerProxy::startNewTask(ResourceLoader& loader)
+void WebURLSchemeHandlerProxy::startNewTask(ResourceLoader& loader, WebFrame& webFrame)
 {
-    auto result = m_tasks.add(loader.identifier(), WebURLSchemeTaskProxy::create(*this, loader));
+    auto result = m_tasks.add(loader.identifier(), WebURLSchemeTaskProxy::create(*this, loader, webFrame));
     ASSERT(result.isNewEntry);
 
     WebProcess::singleton().webLoaderStrategy().addURLSchemeTaskProxy(*result.iterator->value);
     result.iterator->value->startLoading();
 }
 
-void WebURLSchemeHandlerProxy::loadSynchronously(ResourceLoadIdentifier loadIdentifier, const ResourceRequest& request, ResourceResponse& response, ResourceError& error, Vector<char>& data)
+void WebURLSchemeHandlerProxy::loadSynchronously(ResourceLoadIdentifier loadIdentifier, WebFrame& webFrame, const ResourceRequest& request, ResourceResponse& response, ResourceError& error, Vector<char>& data)
 {
-    IPC::DataReference dataReference;
-    if (!m_webPage.sendSync(Messages::WebPageProxy::LoadSynchronousURLSchemeTask(URLSchemeTaskParameters { m_identifier, loadIdentifier, request }), Messages::WebPageProxy::LoadSynchronousURLSchemeTask::Reply(response, error, dataReference))) {
+    data.shrink(0);
+    if (!m_webPage.sendSync(Messages::WebPageProxy::LoadSynchronousURLSchemeTask(URLSchemeTaskParameters { m_identifier, loadIdentifier, request, webFrame.info() }), Messages::WebPageProxy::LoadSynchronousURLSchemeTask::Reply(response, error, data))) {
         error = failedCustomProtocolSyncLoad(request);
         return;
     }
-    
-    data.resize(dataReference.size());
-    memcpy(data.data(), dataReference.data(), dataReference.size());
 }
 
 void WebURLSchemeHandlerProxy::stopAllTasks()

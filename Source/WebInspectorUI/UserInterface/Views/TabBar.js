@@ -48,7 +48,6 @@ WI.TabBar = class TabBar extends WI.View
 
         this._tabPickerTabBarItem = new WI.PinnedTabBarItem("Images/TabPicker.svg", WI.UIString("Show hidden tabs"));
         this._tabPickerTabBarItem.element.classList.add("tab-picker", "hidden");
-        this._tabPickerTabBarItem.element.addEventListener("contextmenu", this._handleTabPickerTabContextMenu.bind(this));
         this.addTabBarItem(this._tabPickerTabBarItem, {suppressAnimations: true});
     }
 
@@ -336,6 +335,11 @@ WI.TabBar = class TabBar extends WI.View
 
     set selectedTabBarItem(tabBarItemOrIndex)
     {
+        this.selectTabBarItem(tabBarItemOrIndex);
+    }
+
+    selectTabBarItem(tabBarItemOrIndex, options = {})
+    {
         let tabBarItem = this._findTabBarItem(tabBarItemOrIndex);
         if (tabBarItem === this._tabPickerTabBarItem) {
             // Get the last normal tab item if the item is not selectable.
@@ -344,6 +348,8 @@ WI.TabBar = class TabBar extends WI.View
 
         if (this._selectedTabBarItem === tabBarItem)
             return;
+
+        let previousTabBarItem = this._selectedTabBarItem;
 
         if (this._selectedTabBarItem)
             this._selectedTabBarItem.selected = false;
@@ -356,7 +362,8 @@ WI.TabBar = class TabBar extends WI.View
                 this.needsLayout();
         }
 
-        this.dispatchEventToListeners(WI.TabBar.Event.TabBarItemSelected);
+        let initiatorHint = options.initiatorHint || WI.TabBrowser.TabNavigationInitiator.Unknown;
+        this.dispatchEventToListeners(WI.TabBar.Event.TabBarItemSelected, {previousTabBarItem, initiatorHint});
     }
 
     get tabBarItems()
@@ -558,7 +565,7 @@ WI.TabBar = class TabBar extends WI.View
         if (event.button !== 0 || event.ctrlKey)
             return;
 
-        let itemElement = event.target.enclosingNodeOrSelfWithClass(WI.TabBarItem.StyleClassName);
+        let itemElement = event.target.closest("." + WI.TabBarItem.StyleClassName);
         if (!itemElement)
             return;
 
@@ -573,19 +580,35 @@ WI.TabBar = class TabBar extends WI.View
             if (!this._hiddenTabBarItems.length)
                 return;
 
+            if (this._ignoreTabPickerMouseDown)
+                return;
+
+            this._ignoreTabPickerMouseDown = true;
+
             let contextMenu = WI.ContextMenu.createFromEvent(event);
-            for (let item of this._hiddenTabBarItems)
-                contextMenu.appendItem(item.title, () => this.selectedTabBarItem = item);
+            contextMenu.addBeforeShowCallback(() => {
+                this._ignoreTabPickerMouseDown = false;
+            });
+
+            for (let item of this._hiddenTabBarItems) {
+                contextMenu.appendItem(item.title, () => {
+                    this.selectTabBarItem(item, {
+                        initiator: WI.TabBrowser.TabNavigationInitiator.ContextMenu
+                    });
+                });
+            }
 
             contextMenu.show();
             return;
         }
 
-        let closeButtonElement = event.target.enclosingNodeOrSelfWithClass(WI.TabBarItem.CloseButtonStyleClassName);
+        let closeButtonElement = event.target.closest("." + WI.TabBarItem.CloseButtonStyleClassName);
         if (closeButtonElement)
             return;
 
-        this.selectedTabBarItem = tabBarItem;
+        this.selectTabBarItem(tabBarItem, {
+            initiatorHint: WI.TabBrowser.TabNavigationInitiator.TabClick
+        });
 
         if (tabBarItem instanceof WI.PinnedTabBarItem || !this._hasMoreThanOneNormalTab())
             return;
@@ -614,7 +637,7 @@ WI.TabBar = class TabBar extends WI.View
 
     _handleClick(event)
     {
-        var itemElement = event.target.enclosingNodeOrSelfWithClass(WI.TabBarItem.StyleClassName);
+        var itemElement = event.target.closest("." + WI.TabBarItem.StyleClassName);
         if (!itemElement)
             return;
 
@@ -627,14 +650,18 @@ WI.TabBar = class TabBar extends WI.View
 
         const clickedMiddleButton = event.button === 1;
 
-        var closeButtonElement = event.target.enclosingNodeOrSelfWithClass(WI.TabBarItem.CloseButtonStyleClassName);
+        var closeButtonElement = event.target.closest("." + WI.TabBarItem.CloseButtonStyleClassName);
         if (closeButtonElement || clickedMiddleButton) {
             // Disallow closing the only tab.
             if (this.element.classList.contains("single-tab"))
                 return;
 
             if (!event.altKey) {
-                this.removeTabBarItem(tabBarItem, {suppressExpansion: true});
+                let options = {
+                    suppressExpansion: true,
+                    initiatorHint: WI.TabBrowser.TabNavigationInitiator.TabClick,
+                };
+                this.removeTabBarItem(tabBarItem, options);
                 return;
             }
 
@@ -796,19 +823,6 @@ WI.TabBar = class TabBar extends WI.View
                 else
                     WI.createNewTabWithType(tabClass.Type, {shouldShowNewTab: true});
             }, checked, disabled);
-        }
-    }
-
-    _handleTabPickerTabContextMenu(event)
-    {
-        if (!this._hiddenTabBarItems.length)
-            return;
-
-        let contextMenu = WI.ContextMenu.createFromEvent(event);
-        for (let item of this._hiddenTabBarItems) {
-            contextMenu.appendItem(item.title, () => {
-                this.selectedTabBarItem = item;
-            });
         }
     }
 };

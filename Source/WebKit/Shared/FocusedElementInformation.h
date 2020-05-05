@@ -29,6 +29,8 @@
 #include <WebCore/AutocapitalizeTypes.h>
 #include <WebCore/Autofill.h>
 #include <WebCore/Color.h>
+#include <WebCore/ElementContext.h>
+#include <WebCore/EnterKeyHint.h>
 #include <WebCore/GraphicsLayer.h>
 #include <WebCore/InputMode.h>
 #include <WebCore/IntRect.h>
@@ -96,7 +98,8 @@ struct OptionItem {
 using FocusedElementIdentifier = uint64_t;
 
 struct FocusedElementInformation {
-    WebCore::IntRect elementRect;
+    WebCore::IntRect interactionRect;
+    WebCore::ElementContext elementContext;
     WebCore::IntPoint lastInteractionLocation;
     double minimumScaleFactor { -INFINITY };
     double maximumScaleFactor { INFINITY };
@@ -116,6 +119,7 @@ struct FocusedElementInformation {
     AutocapitalizeType autocapitalizeType { AutocapitalizeTypeDefault };
     InputType elementType { InputType::None };
     WebCore::InputMode inputMode { WebCore::InputMode::Unspecified };
+    WebCore::EnterKeyHint enterKeyHint { WebCore::EnterKeyHint::Unspecified };
     String formAction;
     Vector<OptionItem> selectOptions;
     int selectedIndex { -1 };
@@ -124,7 +128,6 @@ struct FocusedElementInformation {
     String title;
     bool acceptsAutofilledLoginCredentials { false };
     bool isAutofillableUsernameField { false };
-    bool elementIsTransparentOrFullyClipped { false };
     URL representingPageURL;
     WebCore::AutofillFieldName autofillFieldName { WebCore::AutofillFieldName::None };
     String placeholder;
@@ -137,6 +140,11 @@ struct FocusedElementInformation {
     Vector<WebCore::Color> suggestedColors;
 #endif
 #endif
+    bool shouldSynthesizeKeyEventsForEditing { false };
+    bool isSpellCheckingEnabled { true };
+    bool shouldAvoidResizingWhenInputViewBoundsChange { false };
+    bool shouldAvoidScrollingWhenFocusedContentIsVisible { false };
+    bool shouldUseLegacySelectPopoverDismissalBehaviorInDataActivation { false };
 
     FocusedElementIdentifier focusedElementIdentifier { 0 };
 

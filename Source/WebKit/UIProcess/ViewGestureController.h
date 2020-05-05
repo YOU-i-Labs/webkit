@@ -27,6 +27,7 @@
 
 #include "MessageReceiver.h"
 #include "SameDocumentNavigationType.h"
+#include "WebPageProxyIdentifier.h"
 #include <WebCore/Color.h>
 #include <WebCore/FloatRect.h>
 #include <wtf/MonotonicTime.h>
@@ -41,6 +42,7 @@
 #if PLATFORM(GTK)
 #include <WebCore/CairoUtilities.h>
 #include <gtk/gtk.h>
+#include <wtf/glib/GRefPtr.h>
 #endif
 
 #if PLATFORM(COCOA)
@@ -135,6 +137,7 @@ public:
     bool isNavigationSwipeGestureRecognizer(UIGestureRecognizer *) const;
     void installSwipeHandler(UIView *gestureRecognizerView, UIView *swipingView);
     void beginSwipeGesture(_UINavigationInteractiveTransitionBase *, SwipeDirection);
+    void willEndSwipeGesture(WebBackForwardListItem& targetItem, bool cancelled);
     void endSwipeGesture(WebBackForwardListItem* targetItem, _UIViewControllerTransitionContext *, bool cancelled);
     void willCommitPostSwipeTransitionLayerTree(bool);
     void setRenderTreeSize(uint64_t);
@@ -164,6 +167,7 @@ public:
     bool isSwipeGestureEnabled() { return m_swipeGestureEnabled; }
 
 #if PLATFORM(GTK)
+    void cancelSwipe();
     void draw(cairo_t*, cairo_pattern_t*);
 #endif
 
@@ -175,7 +179,7 @@ private:
     // IPC::MessageReceiver.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
-    static ViewGestureController* controllerForGesture(uint64_t pageID, GestureID);
+    static ViewGestureController* controllerForGesture(WebPageProxyIdentifier, GestureID);
 
     static GestureID takeNextGestureID();
     void willBeginGesture(ViewGestureType);
@@ -191,7 +195,8 @@ private:
             RepaintAfterNavigation = 1 << 2,
             MainFrameLoad = 1 << 3,
             SubresourceLoads = 1 << 4,
-            ScrollPositionRestoration = 1 << 5
+            ScrollPositionRestoration = 1 << 5,
+            SwipeAnimationEnd = 1 << 6
         };
         typedef uint8_t Events;
 
@@ -205,7 +210,8 @@ private:
         bool isPaused() const { return m_paused; }
         bool hasRemovalCallback() const { return !!m_removalCallback; }
 
-        bool eventOccurred(Events);
+        enum class ShouldIgnoreEventIfPaused : bool { No, Yes };
+        bool eventOccurred(Events, ShouldIgnoreEventIfPaused = ShouldIgnoreEventIfPaused::Yes);
         bool cancelOutstandingEvent(Events);
         bool hasOutstandingEvent(Event);
 
@@ -222,7 +228,7 @@ private:
         void fireRemovalCallbackIfPossible();
         void watchdogTimerFired();
 
-        bool stopWaitingForEvent(Events, const String& logReason);
+        bool stopWaitingForEvent(Events, const String& logReason, ShouldIgnoreEventIfPaused = ShouldIgnoreEventIfPaused::Yes);
 
         Events m_outstandingEvents { 0 };
         WTF::Function<void()> m_removalCallback;
@@ -303,6 +309,10 @@ private:
     };
 #endif
 
+#if PLATFORM(GTK)
+    GRefPtr<GtkStyleContext> createStyleContext(const char*);
+#endif
+
     WebPageProxy& m_webPageProxy;
     ViewGestureType m_activeGestureType { ViewGestureType::None };
 
@@ -357,6 +367,7 @@ private:
     RetainPtr<WKSwipeTransitionController> m_swipeInteractiveTransitionDelegate;
     RetainPtr<_UIViewControllerOneToOneTransitionContext> m_swipeTransitionContext;
     uint64_t m_snapshotRemovalTargetRenderTreeSize { 0 };
+    bool m_didCallWillEndSwipeGesture { false };
 #endif
 
 #if PLATFORM(GTK)
@@ -386,12 +397,13 @@ private:
 
         State m_state { State::None };
 
-        SwipeDirection m_direction;
+        SwipeDirection m_direction { SwipeDirection::Back };
         RefPtr<WebBackForwardListItem> m_targetItem;
         unsigned m_tickCallbackID { 0 };
 
         Seconds m_prevTime;
         double m_velocity { 0 };
+        double m_distance { 0 };
 
         Seconds m_startTime;
         Seconds m_endTime;
@@ -408,9 +420,23 @@ private:
     SwipeProgressTracker m_swipeProgressTracker;
 
     RefPtr<cairo_pattern_t> m_currentSwipeSnapshotPattern;
+    RefPtr<cairo_pattern_t> m_swipeDimmingPattern;
+    RefPtr<cairo_pattern_t> m_swipeShadowPattern;
+    RefPtr<cairo_pattern_t> m_swipeBorderPattern;
+    RefPtr<cairo_pattern_t> m_swipeOutlinePattern;
+    int m_swipeShadowSize;
+    int m_swipeBorderSize;
+    int m_swipeOutlineSize;
+    GRefPtr<GtkCssProvider> m_cssProvider;
+
+    bool m_isSimulatedSwipe { false };
 #endif
 
     bool m_isConnectedToProcess { false };
+    bool m_didStartProvisionalLoad { false };
+
+    bool m_didCallEndSwipeGesture { false };
+    bool m_removeSnapshotImmediatelyWhenGestureEnds { false };
 
     SnapshotRemovalTracker m_snapshotRemovalTracker;
     WTF::Function<void()> m_loadCallback;

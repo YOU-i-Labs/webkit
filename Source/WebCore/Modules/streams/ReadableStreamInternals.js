@@ -113,6 +113,8 @@ function readableStreamPipeTo(stream, sink)
                 return;
             }
             doPipe();
+        }, function(e) {
+            sink.error(e);
         });
     }
     doPipe();
@@ -295,7 +297,8 @@ function readableStreamError(stream, error)
     }
 
     @getByIdDirectPrivate(reader, "closedPromiseCapability").@reject.@call(@undefined, error);
-    @putByIdDirectPrivate(@getByIdDirectPrivate(reader, "closedPromiseCapability").@promise, "promiseIsHandled", true);
+    const promise = @getByIdDirectPrivate(reader, "closedPromiseCapability").@promise;
+    @putPromiseInternalField(promise, @promiseFieldFlags, @getPromiseInternalField(promise, @promiseFieldFlags) | @promiseFlagsIsHandled);
 }
 
 function readableStreamDefaultControllerCallPullIfNeeded(controller)
@@ -514,11 +517,12 @@ function readableStreamReaderGenericRelease(reader)
     @assert(@getByIdDirectPrivate(@getByIdDirectPrivate(reader, "ownerReadableStream"), "reader") === reader);
 
     if (@getByIdDirectPrivate(@getByIdDirectPrivate(reader, "ownerReadableStream"), "state") === @streamReadable)
-        @getByIdDirectPrivate(reader, "closedPromiseCapability").@reject.@call(@undefined, new @TypeError("releasing lock of reader whose stream is still in readable state"));
+        @getByIdDirectPrivate(reader, "closedPromiseCapability").@reject.@call(@undefined, @makeTypeError("releasing lock of reader whose stream is still in readable state"));
     else
-        @putByIdDirectPrivate(reader, "closedPromiseCapability", { @promise: @newHandledRejectedPromise(new @TypeError("reader released lock")) });
+        @putByIdDirectPrivate(reader, "closedPromiseCapability", { @promise: @newHandledRejectedPromise(@makeTypeError("reader released lock")) });
 
-    @putByIdDirectPrivate(@getByIdDirectPrivate(reader, "closedPromiseCapability").@promise, "promiseIsHandled", true);
+    const promise = @getByIdDirectPrivate(reader, "closedPromiseCapability").@promise;
+    @putPromiseInternalField(promise, @promiseFieldFlags, @getPromiseInternalField(promise, @promiseFieldFlags) | @promiseFlagsIsHandled);
     @putByIdDirectPrivate(@getByIdDirectPrivate(reader, "ownerReadableStream"), "reader", @undefined);
     @putByIdDirectPrivate(reader, "ownerReadableStream", @undefined);
 }

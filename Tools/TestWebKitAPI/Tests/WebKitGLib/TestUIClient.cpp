@@ -24,11 +24,11 @@
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/text/StringHash.h>
 
-static const char* kAlertDialogMessage = "WebKitGTK+ alert dialog message";
-static const char* kConfirmDialogMessage = "WebKitGTK+ confirm dialog message";
-static const char* kPromptDialogMessage = "WebKitGTK+ prompt dialog message";
-static const char* kPromptDialogReturnedText = "WebKitGTK+ prompt dialog returned text";
-static const char* kBeforeUnloadConfirmDialogMessage = "WebKitGTK+ beforeunload dialog message";
+static const char* kAlertDialogMessage = "WebKitGTK alert dialog message";
+static const char* kConfirmDialogMessage = "WebKitGTK confirm dialog message";
+static const char* kPromptDialogMessage = "WebKitGTK prompt dialog message";
+static const char* kPromptDialogReturnedText = "WebKitGTK prompt dialog returned text";
+static const char* kBeforeUnloadConfirmDialogMessage = "WebKitGTK beforeunload dialog message";
 
 class UIClientTest: public WebViewTest {
 public:
@@ -218,7 +218,8 @@ public:
 
         test->m_mouseTargetHitTestResult = hitTestResult;
         test->m_mouseTargetModifiers = modifiers;
-        g_main_loop_quit(test->m_mainLoop);
+        if (test->m_waitingForMouseTargetChange)
+            g_main_loop_quit(test->m_mainLoop);
     }
 
     static gboolean permissionRequested(WebKitWebView*, WebKitPermissionRequest* request, UIClientTest* test)
@@ -308,8 +309,10 @@ public:
 
     WebKitHitTestResult* moveMouseAndWaitUntilMouseTargetChanged(int x, int y, unsigned mouseModifiers = 0)
     {
+        m_waitingForMouseTargetChange = true;
         mouseMoveTo(x, y, mouseModifiers);
         g_main_loop_run(m_mainLoop);
+        m_waitingForMouseTargetChange = false;
         return m_mouseTargetHitTestResult.get();
     }
 
@@ -330,7 +333,7 @@ public:
         g_assert_true(webView == m_webView);
         g_assert_nonnull(navigation);
 
-        auto* newWebView = Test::createWebView(webkit_web_view_get_context(webView));
+        auto* newWebView = Test::createWebView(webView);
 #if PLATFORM(GTK)
         g_object_ref_sink(newWebView);
 #endif
@@ -384,6 +387,7 @@ public:
     GRefPtr<WebKitHitTestResult> m_mouseTargetHitTestResult;
     unsigned m_mouseTargetModifiers;
     GUniquePtr<char> m_permissionResult;
+    bool m_waitingForMouseTargetChange { false };
 };
 
 static void testWebViewCreateReadyClose(UIClientTest* test, gconstpointer)
@@ -479,7 +483,7 @@ static void testWebViewCreateNavigationData(CreateNavigationDataTest* test, gcon
     test->loadHTML("<html><body onLoad=\"window.open();\"></html>");
     test->waitUntilMainLoopFinishes();
 
-    g_assert_cmpstr(webkit_uri_request_get_uri(webkit_navigation_action_get_request(test->m_navigation)), ==, "about:blank");
+    g_assert_cmpstr(webkit_uri_request_get_uri(webkit_navigation_action_get_request(test->m_navigation)), ==, "");
     g_assert_cmpuint(webkit_navigation_action_get_navigation_type(test->m_navigation), ==, WEBKIT_NAVIGATION_TYPE_OTHER);
     g_assert_cmpuint(webkit_navigation_action_get_mouse_button(test->m_navigation), ==, 0);
     g_assert_cmpuint(webkit_navigation_action_get_modifiers(test->m_navigation), ==, 0);
@@ -527,6 +531,7 @@ static void testWebViewAllowModalDialogs(ModalDialogsTest* test, gconstpointer)
 {
     WebKitSettings* settings = webkit_web_view_get_settings(test->m_webView);
     webkit_settings_set_allow_modal_dialogs(settings, TRUE);
+    webkit_settings_set_allow_top_navigation_to_data_urls(settings, TRUE);
 
     test->loadHtml("<html><body onload=\"window.showModalDialog('data:text/html,<html><body/><script>window.close();</script></html>')\"></body></html>", 0);
     test->waitUntilMainLoopFinishes();
@@ -686,9 +691,9 @@ static void testWebViewMouseTarget(UIClientTest* test, gconstpointer)
         "    }"
         " </script>"
         "</head><body>"
-        " <a style='position:absolute; left:1; top:1' href='http://www.webkitgtk.org' title='WebKitGTK+ Title'>WebKitGTK+ Website</a>"
+        " <a style='position:absolute; left:1; top:1' href='http://www.webkitgtk.org' title='WebKitGTK Title'>WebKitGTK Website</a>"
         " <img style='position:absolute; left:1; top:10' src='0xdeadbeef' width=5 height=5></img>"
-        " <a style='position:absolute; left:1; top:20' href='http://www.webkitgtk.org/logo' title='WebKitGTK+ Logo'><img src='0xdeadbeef' width=5 height=5></img></a>"
+        " <a style='position:absolute; left:1; top:20' href='http://www.webkitgtk.org/logo' title='WebKitGTK Logo'><img src='0xdeadbeef' width=5 height=5></img></a>"
         " <input style='position:absolute; left:1; top:30' size='10'></input>"
         " <video style='position:absolute; left:1; top:100' width='300' height='300' controls='controls' preload='none'><source src='movie.ogg' type='video/ogg' /></video>"
         " <p style='position:absolute; left:1; top:120' id='text_to_select'>Lorem ipsum.</p>"
@@ -705,8 +710,8 @@ static void testWebViewMouseTarget(UIClientTest* test, gconstpointer)
     g_assert_false(webkit_hit_test_result_context_is_editable(hitTestResult));
     g_assert_false(webkit_hit_test_result_context_is_selection(hitTestResult));
     g_assert_cmpstr(webkit_hit_test_result_get_link_uri(hitTestResult), ==, "http://www.webkitgtk.org/");
-    g_assert_cmpstr(webkit_hit_test_result_get_link_title(hitTestResult), ==, "WebKitGTK+ Title");
-    g_assert_cmpstr(webkit_hit_test_result_get_link_label(hitTestResult), ==, "WebKitGTK+ Website");
+    g_assert_cmpstr(webkit_hit_test_result_get_link_title(hitTestResult), ==, "WebKitGTK Title");
+    g_assert_cmpstr(webkit_hit_test_result_get_link_label(hitTestResult), ==, "WebKitGTK Website");
     g_assert_cmpuint(test->m_mouseTargetModifiers, ==, 0);
 
     // Move out of the link.
@@ -739,7 +744,7 @@ static void testWebViewMouseTarget(UIClientTest* test, gconstpointer)
     g_assert_false(webkit_hit_test_result_context_is_selection(hitTestResult));
     g_assert_cmpstr(webkit_hit_test_result_get_link_uri(hitTestResult), ==, "http://www.webkitgtk.org/logo");
     g_assert_cmpstr(webkit_hit_test_result_get_image_uri(hitTestResult), ==, "file:///0xdeadbeef");
-    g_assert_cmpstr(webkit_hit_test_result_get_link_title(hitTestResult), ==, "WebKitGTK+ Logo");
+    g_assert_cmpstr(webkit_hit_test_result_get_link_title(hitTestResult), ==, "WebKitGTK Logo");
     g_assert_false(webkit_hit_test_result_get_link_label(hitTestResult));
     g_assert_cmpuint(test->m_mouseTargetModifiers, ==, 0);
 
@@ -786,13 +791,12 @@ static void testWebViewMouseTarget(UIClientTest* test, gconstpointer)
 }
 #endif // PLATFORM(GTK)
 
-#if ENABLE(GEOLOCATION)
 static void testWebViewGeolocationPermissionRequests(UIClientTest* test, gconstpointer)
 {
     // Some versions of geoclue give a runtime warning because it tries
     // to register the error quark twice. See https://bugs.webkit.org/show_bug.cgi?id=89858.
     // Make warnings non-fatal for this test to make it pass.
-    test->removeLogFatalFlag(G_LOG_LEVEL_WARNING);
+    Test::removeLogFatalFlag(G_LOG_LEVEL_WARNING);
 #if PLATFORM(GTK)
     test->showInWindowAndWaitUntilMapped();
 #endif
@@ -809,12 +813,12 @@ static void testWebViewGeolocationPermissionRequests(UIClientTest* test, gconstp
         "</html>";
 
     // Geolocation is not allowed from insecure connections like HTTP,
-    // POSITION_UNAVAILABLE ('2') is returned in that case without even
+    // PERMISSION_DENIED ('1') is returned in that case without even
     // asking the API layer.
     test->m_allowPermissionRequests = false;
     test->loadHtml(geolocationRequestHTML, "http://foo.com/bar");
     const gchar* result = test->waitUntilPermissionResultMessageReceived();
-    g_assert_cmpstr(result, ==, "2");
+    g_assert_cmpstr(result, ==, "1");
 
     // Test denying a permission request. PERMISSION_DENIED ('1') is
     // returned in this case.
@@ -829,9 +833,8 @@ static void testWebViewGeolocationPermissionRequests(UIClientTest* test, gconstp
     test->loadHtml(geolocationRequestHTML, "https://foo.com/bar");
     result = test->waitUntilPermissionResultMessageReceived();
     g_assert_cmpstr(result, !=, "1");
-    test->addLogFatalFlag(G_LOG_LEVEL_WARNING);
+    Test::addLogFatalFlag(G_LOG_LEVEL_WARNING);
 }
-#endif // ENABLE(GEOLOCATION)
 
 #if ENABLE(MEDIA_STREAM)
 static void testWebViewUserMediaEnumerateDevicesPermissionCheck(UIClientTest* test, gconstpointer)
@@ -948,6 +951,44 @@ static void testWebViewAudioOnlyUserMediaPermissionRequests(UIClientTest* test, 
     webkit_settings_set_enable_media_stream(settings, enabled);
 }
 #endif // ENABLE(MEDIA_STREAM)
+
+#if ENABLE(POINTER_LOCK)
+static void testWebViewPointerLockPermissionRequest(UIClientTest* test, gconstpointer)
+{
+#if PLATFORM(GTK)
+    test->showInWindowAndWaitUntilMapped(GTK_WINDOW_TOPLEVEL);
+#endif
+
+    static const char* pointerLockRequestHTML =
+        "<html>"
+        "  <script>"
+        "  function runTest()"
+        "  {"
+        "    document.onpointerlockchange = function () { document.title = \"Locked\" };"
+        "    document.onpointerlockerror = function () { document.title = \"Error\" };"
+        "    document.getElementById('target').requestPointerLock();"
+        "  }"
+        "  </script>"
+        "  <body>"
+        "   <input style='position:absolute; left:0; top:0; margin:0; padding:0' type='button' value='click to lock pointer' onclick='runTest()'/>"
+        "   <div id='target'></div>"
+        "  </body>"
+        "</html>";
+
+    test->loadHtml(pointerLockRequestHTML, nullptr);
+    test->waitUntilLoadFinished();
+
+    // Test denying a permission request.
+    test->m_allowPermissionRequests = false;
+    test->clickMouseButton(5, 5, 1);
+    test->waitUntilTitleChangedTo("Error");
+
+    // Test allowing a permission request.
+    test->m_allowPermissionRequests = true;
+    test->clickMouseButton(5, 5, 1);
+    test->waitUntilTitleChangedTo("Locked");
+}
+#endif
 
 #if PLATFORM(GTK)
 class FileChooserTest: public UIClientTest {
@@ -1193,9 +1234,7 @@ void beforeAll()
 #if PLATFORM(GTK)
     UIClientTest::add("WebKitWebView", "mouse-target", testWebViewMouseTarget);
 #endif
-#if ENABLE(GEOLOCATION)
     UIClientTest::add("WebKitWebView", "geolocation-permission-requests", testWebViewGeolocationPermissionRequests);
-#endif
 #if ENABLE(MEDIA_STREAM)
     UIClientTest::add("WebKitWebView", "usermedia-enumeratedevices-permission-check", testWebViewUserMediaEnumerateDevicesPermissionCheck);
     UIClientTest::add("WebKitWebView", "usermedia-permission-requests", testWebViewUserMediaPermissionRequests);
@@ -1207,6 +1246,9 @@ void beforeAll()
 #endif
 #if PLATFORM(GTK)
     ColorChooserTest::add("WebKitWebView", "color-chooser-request", testWebViewColorChooserRequest);
+#endif
+#if ENABLE(POINTER_LOCK)
+    UIClientTest::add("WebKitWebView", "pointer-lock-permission-request", testWebViewPointerLockPermissionRequest);
 #endif
 }
 

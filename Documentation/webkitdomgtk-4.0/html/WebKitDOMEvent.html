@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitDOMElement.html" title="WebKitDOMElement">
 <link rel="next" href="WebKitDOMKeyboardEvent.html" title="WebKitDOMKeyboardEvent">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.32.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -37,8 +37,8 @@
 <a name="WebKitDOMEvent.functions"></a><h2>Functions</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="functions_return">
-<col class="functions_name">
+<col width="150px" class="functions_proto_type">
+<col class="functions_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -234,8 +234,8 @@
 <a name="WebKitDOMEvent.other"></a><h2>Types and Values</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="name">
-<col class="description">
+<col width="150px" class="other_proto_type">
+<col class="other_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -797,7 +797,6 @@ webkit_dom_event_set_cancel_bubble (<em class="parameter"><code><a class="link" 
 <div class="refsect2">
 <a name="WebKitDOMEvent-struct"></a><h3>struct WebKitDOMEvent</h3>
 <pre class="programlisting">struct WebKitDOMEvent;</pre>
-<div class="warning"><p><code class="literal">WebKitDOMEvent</code> is deprecated and should not be used in newly-written code.</p></div>
 </div>
 <hr>
 <div class="refsect2">
@@ -1006,6 +1005,7 @@ webkit_dom_event_set_cancel_bubble (<em class="parameter"><code><a class="link" 
 <a name="WebKitDOMEvent--bubbles"></a><h3>The <code class="literal">“bubbles”</code> property</h3>
 <pre class="programlisting">  “bubbles”                  <a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></pre>
 <p>read-only gboolean Event:bubbles.</p>
+<p>Owner: WebKitDOMEvent</p>
 <p>Flags: Read</p>
 <p>Default value: FALSE</p>
 </div>
@@ -1014,6 +1014,7 @@ webkit_dom_event_set_cancel_bubble (<em class="parameter"><code><a class="link" 
 <a name="WebKitDOMEvent--cancel-bubble"></a><h3>The <code class="literal">“cancel-bubble”</code> property</h3>
 <pre class="programlisting">  “cancel-bubble”            <a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></pre>
 <p>read-write gboolean Event:cancel-bubble.</p>
+<p>Owner: WebKitDOMEvent</p>
 <p>Flags: Read / Write</p>
 <p>Default value: FALSE</p>
 </div>
@@ -1022,6 +1023,7 @@ webkit_dom_event_set_cancel_bubble (<em class="parameter"><code><a class="link" 
 <a name="WebKitDOMEvent--cancelable"></a><h3>The <code class="literal">“cancelable”</code> property</h3>
 <pre class="programlisting">  “cancelable”               <a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></pre>
 <p>read-only gboolean Event:cancelable.</p>
+<p>Owner: WebKitDOMEvent</p>
 <p>Flags: Read</p>
 <p>Default value: FALSE</p>
 </div>
@@ -1030,6 +1032,7 @@ webkit_dom_event_set_cancel_bubble (<em class="parameter"><code><a class="link" 
 <a name="WebKitDOMEvent--current-target"></a><h3>The <code class="literal">“current-target”</code> property</h3>
 <pre class="programlisting">  “current-target”           <span class="type">WebKitDOMEventTarget</span> *</pre>
 <p>read-only WebKitDOMEventTarget* Event:current-target.</p>
+<p>Owner: WebKitDOMEvent</p>
 <p>Flags: Read</p>
 </div>
 <hr>
@@ -1037,6 +1040,7 @@ webkit_dom_event_set_cancel_bubble (<em class="parameter"><code><a class="link" 
 <a name="WebKitDOMEvent--event-phase"></a><h3>The <code class="literal">“event-phase”</code> property</h3>
 <pre class="programlisting">  “event-phase”              <a href="../glib/glib-Basic-Types.html#guint"><span class="type">guint</span></a></pre>
 <p>read-only gushort Event:event-phase.</p>
+<p>Owner: WebKitDOMEvent</p>
 <p>Flags: Read</p>
 <p>Default value: 0</p>
 </div>
@@ -1045,6 +1049,7 @@ webkit_dom_event_set_cancel_bubble (<em class="parameter"><code><a class="link" 
 <a name="WebKitDOMEvent--return-value"></a><h3>The <code class="literal">“return-value”</code> property</h3>
 <pre class="programlisting">  “return-value”             <a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></pre>
 <p>read-write gboolean Event:return-value.</p>
+<p>Owner: WebKitDOMEvent</p>
 <p>Flags: Read / Write</p>
 <p>Default value: FALSE</p>
 </div>
@@ -1053,6 +1058,7 @@ webkit_dom_event_set_cancel_bubble (<em class="parameter"><code><a class="link" 
 <a name="WebKitDOMEvent--src-element"></a><h3>The <code class="literal">“src-element”</code> property</h3>
 <pre class="programlisting">  “src-element”              <span class="type">WebKitDOMEventTarget</span> *</pre>
 <p>read-only WebKitDOMEventTarget* Event:src-element.</p>
+<p>Owner: WebKitDOMEvent</p>
 <p>Flags: Read</p>
 </div>
 <hr>
@@ -1060,6 +1066,7 @@ webkit_dom_event_set_cancel_bubble (<em class="parameter"><code><a class="link" 
 <a name="WebKitDOMEvent--target"></a><h3>The <code class="literal">“target”</code> property</h3>
 <pre class="programlisting">  “target”                   <span class="type">WebKitDOMEventTarget</span> *</pre>
 <p>read-only WebKitDOMEventTarget* Event:target.</p>
+<p>Owner: WebKitDOMEvent</p>
 <p>Flags: Read</p>
 </div>
 <hr>
@@ -1067,6 +1074,7 @@ webkit_dom_event_set_cancel_bubble (<em class="parameter"><code><a class="link" 
 <a name="WebKitDOMEvent--time-stamp"></a><h3>The <code class="literal">“time-stamp”</code> property</h3>
 <pre class="programlisting">  “time-stamp”               <a href="../glib/glib-Basic-Types.html#guint"><span class="type">guint</span></a></pre>
 <p>read-only guint32 Event:time-stamp.</p>
+<p>Owner: WebKitDOMEvent</p>
 <p>Flags: Read</p>
 <p>Default value: 0</p>
 </div>
@@ -1075,12 +1083,13 @@ webkit_dom_event_set_cancel_bubble (<em class="parameter"><code><a class="link" 
 <a name="WebKitDOMEvent--type"></a><h3>The <code class="literal">“type”</code> property</h3>
 <pre class="programlisting">  “type”                     <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</pre>
 <p>read-only gchar* Event:type.</p>
+<p>Owner: WebKitDOMEvent</p>
 <p>Flags: Read</p>
 <p>Default value: ""</p>
 </div>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.32.1</div>
 </body>
 </html>

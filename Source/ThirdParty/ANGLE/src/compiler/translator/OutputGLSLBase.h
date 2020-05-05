@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2002-2013 The ANGLE Project Authors. All rights reserved.
+// Copyright 2002 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -11,7 +11,7 @@
 
 #include "compiler/translator/HashNames.h"
 #include "compiler/translator/InfoSink.h"
-#include "compiler/translator/IntermTraverse.h"
+#include "compiler/translator/tree_util/IntermTraverse.h"
 
 namespace sh
 {
@@ -32,22 +32,28 @@ class TOutputGLSLBase : public TIntermTraverser
     ShShaderOutput getShaderOutput() const { return mOutput; }
 
     // Return the original name if hash function pointer is NULL;
-    // otherwise return the hashed name. Has special handling for internal names, which are not
-    // hashed.
-    TString hashName(const TName &name);
+    // otherwise return the hashed name. Has special handling for internal names and built-ins,
+    // which are not hashed.
+    ImmutableString hashName(const TSymbol *symbol);
 
   protected:
     TInfoSinkBase &objSink() { return mObjSink; }
     void writeFloat(TInfoSinkBase &out, float f);
     void writeTriplet(Visit visit, const char *preStr, const char *inStr, const char *postStr);
+    std::string getCommonLayoutQualifiers(TIntermTyped *variable);
+    std::string getMemoryQualifiers(const TType &type);
     virtual void writeLayoutQualifier(TIntermTyped *variable);
+    void writeFieldLayoutQualifier(const TField *field);
     void writeInvariantQualifier(const TType &type);
-    void writeVariableType(const TType &type);
+    void writePreciseQualifier(const TType &type);
+    virtual void writeVariableType(const TType &type,
+                                   const TSymbol *symbol,
+                                   bool isFunctionArgument);
     virtual bool writeVariablePrecision(TPrecision precision) = 0;
-    void writeFunctionParameters(const TIntermSequence &args);
+    void writeFunctionParameters(const TFunction *func);
     const TConstantUnion *writeConstantUnion(const TType &type, const TConstantUnion *pConstUnion);
     void writeConstructorTriplet(Visit visit, const TType &type);
-    TString getTypeName(const TType &type);
+    ImmutableString getTypeName(const TType &type);
 
     void visitSymbol(TIntermSymbol *node) override;
     void visitConstantUnion(TIntermConstantUnion *node) override;
@@ -58,34 +64,42 @@ class TOutputGLSLBase : public TIntermTraverser
     bool visitIfElse(Visit visit, TIntermIfElse *node) override;
     bool visitSwitch(Visit visit, TIntermSwitch *node) override;
     bool visitCase(Visit visit, TIntermCase *node) override;
-    bool visitFunctionPrototype(Visit visit, TIntermFunctionPrototype *node) override;
+    void visitFunctionPrototype(TIntermFunctionPrototype *node) override;
     bool visitFunctionDefinition(Visit visit, TIntermFunctionDefinition *node) override;
     bool visitAggregate(Visit visit, TIntermAggregate *node) override;
     bool visitBlock(Visit visit, TIntermBlock *node) override;
-    bool visitInvariantDeclaration(Visit visit, TIntermInvariantDeclaration *node) override;
+    bool visitGlobalQualifierDeclaration(Visit visit,
+                                         TIntermGlobalQualifierDeclaration *node) override;
     bool visitDeclaration(Visit visit, TIntermDeclaration *node) override;
     bool visitLoop(Visit visit, TIntermLoop *node) override;
     bool visitBranch(Visit visit, TIntermBranch *node) override;
+    void visitPreprocessorDirective(TIntermPreprocessorDirective *node) override;
 
     void visitCodeBlock(TIntermBlock *node);
 
-    // Same as hashName(), but without hashing built-in variables.
-    TString hashVariableName(const TName &name);
-    // Same as hashName(), but without hashing internal functions or "main".
-    TString hashFunctionNameIfNeeded(const TFunctionSymbolInfo &info);
+    ImmutableString hashFieldName(const TField *field);
+    // Same as hashName(), but without hashing "main".
+    ImmutableString hashFunctionNameIfNeeded(const TFunction *func);
     // Used to translate function names for differences between ESSL and GLSL
-    virtual TString translateTextureFunction(const TString &name) { return name; }
+    virtual ImmutableString translateTextureFunction(const ImmutableString &name,
+                                                     const ShCompileOptions &option)
+    {
+        return name;
+    }
+
+    void declareStruct(const TStructure *structure);
+    void writeQualifier(TQualifier qualifier, const TType &type, const TSymbol *symbol);
+    bool structDeclared(const TStructure *structure) const;
+
+    const char *mapQualifierToString(TQualifier qualifier);
+
+    sh::GLenum getShaderType() { return mShaderType; }
 
   private:
-    bool structDeclared(const TStructure *structure) const;
-    void declareStruct(const TStructure *structure);
-
     void declareInterfaceBlockLayout(const TInterfaceBlock *interfaceBlock);
     void declareInterfaceBlock(const TInterfaceBlock *interfaceBlock);
 
     void writeBuiltInFunctionTriplet(Visit visit, TOperator op, bool useEmulatedFunction);
-
-    const char *mapQualifierToString(TQualifier qialifier);
 
     TInfoSinkBase &mObjSink;
     bool mDeclaringVariable;

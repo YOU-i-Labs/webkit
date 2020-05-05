@@ -8,7 +8,7 @@
 <link rel="up" href="ch02.html" title="Web Extensions">
 <link rel="prev" href="ch02.html" title="Web Extensions">
 <link rel="next" href="WebKitWebPage.html" title="WebKitWebPage">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.32.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -37,8 +37,8 @@
 <a name="WebKitWebExtension.functions"></a><h2>Functions</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="functions_return">
-<col class="functions_name">
+<col width="150px" class="functions_proto_type">
+<col class="functions_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -65,6 +65,22 @@
 <a class="link" href="WebKitWebExtension.html#webkit-web-extension-get-page" title="webkit_web_extension_get_page ()">webkit_web_extension_get_page</a> <span class="c_punctuation">()</span>
 </td>
 </tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">void</span>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitWebExtension.html#webkit-web-extension-send-message-to-context" title="webkit_web_extension_send_message_to_context ()">webkit_web_extension_send_message_to_context</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<a class="link" href="WebKitUserMessage.html" title="WebKitUserMessage"><span class="returnvalue">WebKitUserMessage</span></a> *
+</td>
+<td class="function_name">
+<a class="link" href="WebKitWebExtension.html#webkit-web-extension-send-message-to-context-finish" title="webkit_web_extension_send_message_to_context_finish ()">webkit_web_extension_send_message_to_context_finish</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
 </tbody>
 </table></div>
 </div>
@@ -72,23 +88,30 @@
 <a name="WebKitWebExtension.signals"></a><h2>Signals</h2>
 <div class="informaltable"><table class="informaltable" border="0">
 <colgroup>
-<col width="150px" class="signals_return">
-<col width="300px" class="signals_name">
-<col width="200px" class="signals_flags">
+<col width="150px" class="signal_proto_type">
+<col width="300px" class="signal_proto_name">
+<col width="200px" class="signal_proto_flags">
 </colgroup>
-<tbody><tr>
+<tbody>
+<tr>
 <td class="signal_type"><span class="returnvalue">void</span></td>
 <td class="signal_name"><a class="link" href="WebKitWebExtension.html#WebKitWebExtension-page-created" title="The “page-created” signal">page-created</a></td>
 <td class="signal_flags"><a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></td>
-</tr></tbody>
+</tr>
+<tr>
+<td class="signal_type"><span class="returnvalue">void</span></td>
+<td class="signal_name"><a class="link" href="WebKitWebExtension.html#WebKitWebExtension-user-message-received" title="The “user-message-received” signal">user-message-received</a></td>
+<td class="signal_flags"><a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></td>
+</tr>
+</tbody>
 </table></div>
 </div>
 <div class="refsect1">
 <a name="WebKitWebExtension.other"></a><h2>Types and Values</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="name">
-<col class="description">
+<col width="150px" class="other_proto_type">
+<col class="other_proto_name">
 </colgroup>
 <tbody><tr>
 <td class="datatype_keyword">struct</td>
@@ -133,23 +156,23 @@ web process is initialized.</p>
 15
 16
 17</pre></td>
-        <td class="listing_code"><pre class="programlisting"><span class="gtkdoc kwb">static void</span>
-<span class="function">web_page_created_callback</span> <span class="gtkdoc opt">(</span>WebKitWebExtension <span class="gtkdoc opt">*</span>extension<span class="gtkdoc opt">,</span>
-                           WebKitWebPage      <span class="gtkdoc opt">*</span>web_page<span class="gtkdoc opt">,</span>
-                           gpointer            user_data<span class="gtkdoc opt">)</span>
-<span class="gtkdoc opt">{</span>
-    <span class="function"><a href="../glib/glib-Warnings-and-Assertions.html#g-print">g_print</a></span> <span class="gtkdoc opt">(</span><span class="string">&quot;Page %d created for %s</span><span class="gtkdoc esc">\n</span><span class="string">&quot;</span><span class="gtkdoc opt">,</span>
-             <span class="function"><a href="WebKitWebPage.html#webkit-web-page-get-id">webkit_web_page_get_id</a></span> <span class="gtkdoc opt">(</span>web_page<span class="gtkdoc opt">),</span>
-             <span class="function"><a href="WebKitWebPage.html#webkit-web-page-get-uri">webkit_web_page_get_uri</a></span> <span class="gtkdoc opt">(</span>web_page<span class="gtkdoc opt">));</span>
-<span class="gtkdoc opt">}</span>
+        <td class="listing_code"><pre class="programlisting"><span class="k">static</span> <span class="kt">void</span>
+<span class="nf">web_page_created_callback</span> <span class="p">(</span><span class="n">WebKitWebExtension</span> <span class="o">*</span><span class="n">extension</span><span class="p">,</span>
+                           <span class="n">WebKitWebPage</span>      <span class="o">*</span><span class="n">web_page</span><span class="p">,</span>
+                           <span class="n">gpointer</span>            <span class="n">user_data</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">g_print</span> <span class="p">(</span><span class="s">&quot;Page %d created for %s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span>
+             <span class="n">webkit_web_page_get_id</span> <span class="p">(</span><span class="n">web_page</span><span class="p">),</span>
+             <span class="n">webkit_web_page_get_uri</span> <span class="p">(</span><span class="n">web_page</span><span class="p">));</span>
+<span class="p">}</span>
 
-G_MODULE_EXPORT <span class="gtkdoc kwb">void</span>
-<span class="function">webkit_web_extension_initialize</span> <span class="gtkdoc opt">(</span>WebKitWebExtension <span class="gtkdoc opt">*</span>extension<span class="gtkdoc opt">)</span>
-<span class="gtkdoc opt">{</span>
-    <span class="function"><a href="../gobject/gobject-Signals.html#g-signal-connect">g_signal_connect</a></span> <span class="gtkdoc opt">(</span>extension<span class="gtkdoc opt">,</span> <span class="string">&quot;page-created&quot;</span><span class="gtkdoc opt">,</span>
-                      <span class="function"><a href="../gobject/gobject-Closures.html#G-CALLBACK:CAPS">G_CALLBACK</a></span> <span class="gtkdoc opt">(</span>web_page_created_callback<span class="gtkdoc opt">),</span>
-                      NULL<span class="gtkdoc opt">);</span>
-<span class="gtkdoc opt">}</span></pre></td>
+<span class="n">G_MODULE_EXPORT</span> <span class="kt">void</span>
+<span class="nf">webkit_web_extension_initialize</span> <span class="p">(</span><span class="n">WebKitWebExtension</span> <span class="o">*</span><span class="n">extension</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">g_signal_connect</span> <span class="p">(</span><span class="n">extension</span><span class="p">,</span> <span class="s">&quot;page-created&quot;</span><span class="p">,</span>
+                      <span class="n">G_CALLBACK</span> <span class="p">(</span><span class="n">web_page_created_callback</span><span class="p">),</span>
+                      <span class="nb">NULL</span><span class="p">);</span>
+<span class="p">}</span></pre></td>
       </tr>
     </tbody>
   </table>
@@ -193,32 +216,32 @@ the desired data as parameter. You can see an example of this in the following p
 24
 25
 26</pre></td>
-        <td class="listing_code"><pre class="programlisting"><span class="gtkdoc ppc">#define WEB_EXTENSIONS_DIRECTORY</span> <span class="comment">/* ... */</span><span class="gtkdoc ppc"></span>
+        <td class="listing_code"><pre class="programlisting"><span class="cp">#define WEB_EXTENSIONS_DIRECTORY </span><span class="cm">/* ... */</span><span class="cp"></span>
 
-<span class="gtkdoc kwb">static void</span>
-<span class="function">initialize_web_extensions</span> <span class="gtkdoc opt">(</span>WebKitWebContext <span class="gtkdoc opt">*</span>context<span class="gtkdoc opt">,</span>
-                           gpointer          user_data<span class="gtkdoc opt">)</span>
-<span class="gtkdoc opt">{</span>
-  <span class="comment">/* Web Extensions get a different ID for each Web Process */</span>
-  <span class="gtkdoc kwb">static</span> guint32 unique_id <span class="gtkdoc opt">=</span> <span class="number">0</span><span class="gtkdoc opt">;</span>
+<span class="k">static</span> <span class="kt">void</span>
+<span class="nf">initialize_web_extensions</span> <span class="p">(</span><span class="n">WebKitWebContext</span> <span class="o">*</span><span class="n">context</span><span class="p">,</span>
+                           <span class="n">gpointer</span>          <span class="n">user_data</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="cm">/* Web Extensions get a different ID for each Web Process */</span>
+  <span class="k">static</span> <span class="n">guint32</span> <span class="n">unique_id</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
 
-  <span class="function"><a href="WebKitWebContext.html#webkit-web-context-set-web-extensions-directory">webkit_web_context_set_web_extensions_directory</a></span> <span class="gtkdoc opt">(</span>
-     context<span class="gtkdoc opt">,</span> WEB_EXTENSIONS_DIRECTORY<span class="gtkdoc opt">);</span>
-  <span class="function"><a href="WebKitWebContext.html#webkit-web-context-set-web-extensions-initialization-user-data">webkit_web_context_set_web_extensions_initialization_user_data</a></span> <span class="gtkdoc opt">(</span>
-     context<span class="gtkdoc opt">,</span> <span class="function"><a href="../glib/glib-GVariant.html#g-variant-new-uint32">g_variant_new_uint32</a></span> <span class="gtkdoc opt">(</span>unique_id<span class="gtkdoc opt">++));</span>
-<span class="gtkdoc opt">}</span>
+  <span class="n">webkit_web_context_set_web_extensions_directory</span> <span class="p">(</span>
+     <span class="n">context</span><span class="p">,</span> <span class="n">WEB_EXTENSIONS_DIRECTORY</span><span class="p">);</span>
+  <span class="n">webkit_web_context_set_web_extensions_initialization_user_data</span> <span class="p">(</span>
+     <span class="n">context</span><span class="p">,</span> <span class="n">g_variant_new_uint32</span> <span class="p">(</span><span class="n">unique_id</span><span class="o">++</span><span class="p">));</span>
+<span class="p">}</span>
 
-<span class="gtkdoc kwb">int</span> <span class="function">main</span> <span class="gtkdoc opt">(</span><span class="gtkdoc kwb">int</span> argc<span class="gtkdoc opt">,</span> <span class="gtkdoc kwb">char</span> <span class="gtkdoc opt">**</span>argv<span class="gtkdoc opt">)</span>
-<span class="gtkdoc opt">{</span>
-  <span class="function"><a href="../gobject/gobject-Signals.html#g-signal-connect">g_signal_connect</a></span> <span class="gtkdoc opt">(</span><span class="function"><a href="WebKitWebContext.html#webkit-web-context-get-default">webkit_web_context_get_default</a></span> <span class="gtkdoc opt">(),</span>
-                   <span class="string">&quot;initialize-web-extensions&quot;</span><span class="gtkdoc opt">,</span>
-                    <span class="function"><a href="../gobject/gobject-Closures.html#G-CALLBACK:CAPS">G_CALLBACK</a></span> <span class="gtkdoc opt">(</span>initialize_web_extensions<span class="gtkdoc opt">),</span>
-                    NULL<span class="gtkdoc opt">);</span>
+<span class="kt">int</span> <span class="nf">main</span> <span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="n">g_signal_connect</span> <span class="p">(</span><span class="n">webkit_web_context_get_default</span> <span class="p">(),</span>
+                   <span class="s">&quot;initialize-web-extensions&quot;</span><span class="p">,</span>
+                    <span class="n">G_CALLBACK</span> <span class="p">(</span><span class="n">initialize_web_extensions</span><span class="p">),</span>
+                    <span class="nb">NULL</span><span class="p">);</span>
 
-  GtkWidget <span class="gtkdoc opt">*</span>view <span class="gtkdoc opt">=</span> <span class="function"><a href="WebKitWebView.html#webkit-web-view-new">webkit_web_view_new</a></span> <span class="gtkdoc opt">();</span>
+  <span class="n">GtkWidget</span> <span class="o">*</span><span class="n">view</span> <span class="o">=</span> <span class="n">webkit_web_view_new</span> <span class="p">();</span>
 
-  <span class="comment">/* ... */</span>
-<span class="gtkdoc opt">}</span></pre></td>
+  <span class="cm">/* ... */</span>
+<span class="p">}</span></pre></td>
       </tr>
     </tbody>
   </table>
@@ -323,6 +346,107 @@ identifier doesn't correspond to an existing web page. </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
 </div>
+<hr>
+<div class="refsect2">
+<a name="webkit-web-extension-send-message-to-context"></a><h3>webkit_web_extension_send_message_to_context ()</h3>
+<pre class="programlisting"><span class="returnvalue">void</span>
+webkit_web_extension_send_message_to_context
+                               (<em class="parameter"><code><a class="link" href="WebKitWebExtension.html" title="WebKitWebExtension"><span class="type">WebKitWebExtension</span></a> *extension</code></em>,
+                                <em class="parameter"><code><a class="link" href="WebKitUserMessage.html" title="WebKitUserMessage"><span class="type">WebKitUserMessage</span></a> *message</code></em>,
+                                <em class="parameter"><code><a href="../gio/GCancellable.html#GCancellable-struct"><span class="type">GCancellable</span></a> *cancellable</code></em>,
+                                <em class="parameter"><code><a href="../gio/GAsyncResult.html#GAsyncReadyCallback"><span class="type">GAsyncReadyCallback</span></a> callback</code></em>,
+                                <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gpointer"><span class="type">gpointer</span></a> user_data</code></em>);</pre>
+<p>Send <em class="parameter"><code>message</code></em>
+ to the <a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> corresponding to <em class="parameter"><code>extension</code></em>
+. If <em class="parameter"><code>message</code></em>
+ is floating, it's consumed.</p>
+<p>If you don't expect any reply, or you simply want to ignore it, you can pass <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a> as <em class="parameter"><code>calback</code></em>
+.
+When the operation is finished, <em class="parameter"><code>callback</code></em>
+ will be called. You can then call
+<a class="link" href="WebKitWebExtension.html#webkit-web-extension-send-message-to-context-finish" title="webkit_web_extension_send_message_to_context_finish ()"><code class="function">webkit_web_extension_send_message_to_context_finish()</code></a> to get the message reply.</p>
+<div class="refsect3">
+<a name="webkit-web-extension-send-message-to-context.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="parameter_name"><p>extension</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitWebExtension.html" title="WebKitWebExtension"><span class="type">WebKitWebExtension</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>message</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitUserMessage.html" title="WebKitUserMessage"><span class="type">WebKitUserMessage</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>cancellable</p></td>
+<td class="parameter_description"><p>a <a href="../gio/GCancellable.html#GCancellable-struct"><span class="type">GCancellable</span></a> or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a> to ignore. </p></td>
+<td class="parameter_annotations"><span class="annotation">[<acronym title="NULL may be passed as the value in, out, in-out; or as a return value."><span class="acronym">nullable</span></acronym>]</span></td>
+</tr>
+<tr>
+<td class="parameter_name"><p>callback</p></td>
+<td class="parameter_description"><p>(nullable): A <a href="../gio/GAsyncResult.html#GAsyncReadyCallback"><span class="type">GAsyncReadyCallback</span></a> to call when the request is satisfied or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a>. </p></td>
+<td class="parameter_annotations"><span class="annotation">[<acronym title="The callback is valid until first called."><span class="acronym">scope async</span></acronym>]</span></td>
+</tr>
+<tr>
+<td class="parameter_name"><p>user_data</p></td>
+<td class="parameter_description"><p>the data to pass to callback function. </p></td>
+<td class="parameter_annotations"><span class="annotation">[<acronym title="This parameter is a 'user_data', for callbacks; many bindings can pass NULL here."><span class="acronym">closure</span></acronym>]</span></td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-28.html#api-index-2.28">2.28</a></p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-web-extension-send-message-to-context-finish"></a><h3>webkit_web_extension_send_message_to_context_finish ()</h3>
+<pre class="programlisting"><a class="link" href="WebKitUserMessage.html" title="WebKitUserMessage"><span class="returnvalue">WebKitUserMessage</span></a> *
+webkit_web_extension_send_message_to_context_finish
+                               (<em class="parameter"><code><a class="link" href="WebKitWebExtension.html" title="WebKitWebExtension"><span class="type">WebKitWebExtension</span></a> *extension</code></em>,
+                                <em class="parameter"><code><a href="../gio/GAsyncResult.html#GAsyncResult-struct"><span class="type">GAsyncResult</span></a> *result</code></em>,
+                                <em class="parameter"><code><a href="../glib/glib-Error-Reporting.html#GError"><span class="type">GError</span></a> **error</code></em>);</pre>
+<p>Finish an asynchronous operation started with <a class="link" href="WebKitWebExtension.html#webkit-web-extension-send-message-to-context" title="webkit_web_extension_send_message_to_context ()"><code class="function">webkit_web_extension_send_message_to_context()</code></a>.</p>
+<div class="refsect3">
+<a name="webkit-web-extension-send-message-to-context-finish.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="parameter_name"><p>extension</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitWebExtension.html" title="WebKitWebExtension"><span class="type">WebKitWebExtension</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>result</p></td>
+<td class="parameter_description"><p>a <a href="../gio/GAsyncResult.html#GAsyncResult-struct"><span class="type">GAsyncResult</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>error</p></td>
+<td class="parameter_description"><p>return location for error or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a> to ignor</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="webkit-web-extension-send-message-to-context-finish.returns"></a><h4>Returns</h4>
+<p>a <a class="link" href="WebKitUserMessage.html" title="WebKitUserMessage"><span class="type">WebKitUserMessage</span></a> with the reply or <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a> in case of error. </p>
+<p><span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-28.html#api-index-2.28">2.28</a></p>
+</div>
 </div>
 <div class="refsect1">
 <a name="WebKitWebExtension.other_details"></a><h2>Types and Values</h2>
@@ -370,9 +494,51 @@ the Web Process.</p>
 </div>
 <p>Flags: <a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></p>
 </div>
+<hr>
+<div class="refsect2">
+<a name="WebKitWebExtension-user-message-received"></a><h3>The <code class="literal">“user-message-received”</code> signal</h3>
+<pre class="programlisting"><span class="returnvalue">void</span>
+user_function (<a class="link" href="WebKitWebExtension.html" title="WebKitWebExtension"><span class="type">WebKitWebExtension</span></a> *extension,
+               <a class="link" href="WebKitUserMessage.html" title="WebKitUserMessage"><span class="type">WebKitUserMessage</span></a>  *message,
+               <a href="../glib/glib-Basic-Types.html#gpointer"><span class="type">gpointer</span></a>            user_data)</pre>
+<p>This signal is emitted when a <a class="link" href="WebKitUserMessage.html" title="WebKitUserMessage"><span class="type">WebKitUserMessage</span></a> is received from the
+<a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> corresponding to <em class="parameter"><code>extension</code></em>
+. Messages sent by <a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a>
+are always broadcasted to all <a class="link" href="WebKitWebExtension.html" title="WebKitWebExtension"><span class="type">WebKitWebExtension</span></a>s and they can't be
+replied to. Calling <a class="link" href="WebKitUserMessage.html#webkit-user-message-send-reply" title="webkit_user_message_send_reply ()"><code class="function">webkit_user_message_send_reply()</code></a> will do nothing.</p>
+<div class="refsect3">
+<a name="WebKitWebExtension-user-message-received.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="parameter_name"><p>extension</p></td>
+<td class="parameter_description"><p>the <a class="link" href="WebKitWebExtension.html" title="WebKitWebExtension"><span class="type">WebKitWebExtension</span></a> on which the signal is emitted</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>message</p></td>
+<td class="parameter_description"><p>the <a class="link" href="WebKitUserMessage.html" title="WebKitUserMessage"><span class="type">WebKitUserMessage</span></a> received</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>user_data</p></td>
+<td class="parameter_description"><p>user data set when the signal handler was connected.</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<p>Flags: <a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></p>
+<p class="since">Since: <a class="link" href="api-index-2-28.html#api-index-2.28">2.28</a></p>
+</div>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.32.1</div>
 </body>
 </html>

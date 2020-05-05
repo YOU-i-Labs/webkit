@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2013 The ANGLE Project Authors. All rights reserved.
+// Copyright 2013 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -10,6 +10,8 @@
 #define LIBANGLE_VERTEXATTRIBUTE_H_
 
 #include "libANGLE/Buffer.h"
+#include "libANGLE/angletypes.h"
+#include "libANGLE/renderer/Format.h"
 
 namespace gl
 {
@@ -23,6 +25,7 @@ class VertexBinding final : angle::NonCopyable
 {
   public:
     VertexBinding();
+    explicit VertexBinding(GLuint boundAttribute);
     VertexBinding(VertexBinding &&binding);
     ~VertexBinding();
     VertexBinding &operator=(VertexBinding &&binding);
@@ -37,7 +40,22 @@ class VertexBinding final : angle::NonCopyable
     void setOffset(GLintptr offsetIn) { mOffset = offsetIn; }
 
     const BindingPointer<Buffer> &getBuffer() const { return mBuffer; }
-    void setBuffer(const gl::Context *context, Buffer *bufferIn) { mBuffer.set(context, bufferIn); }
+
+    ANGLE_INLINE void setBuffer(const gl::Context *context, Buffer *bufferIn)
+    {
+        mBuffer.set(context, bufferIn);
+    }
+
+    // Skips ref counting for better inlined performance.
+    ANGLE_INLINE void assignBuffer(Buffer *bufferIn) { mBuffer.assign(bufferIn); }
+
+    void onContainerBindingChanged(const Context *context, int incr) const;
+
+    const AttributesMask &getBoundAttributesMask() const { return mBoundAttributesMask; }
+
+    void setBoundAttribute(size_t index) { mBoundAttributesMask.set(index); }
+
+    void resetBoundAttribute(size_t index) { mBoundAttributesMask.reset(index); }
 
   private:
     GLuint mStride;
@@ -45,6 +63,9 @@ class VertexBinding final : angle::NonCopyable
     GLintptr mOffset;
 
     BindingPointer<Buffer> mBuffer;
+
+    // Mapping from this binding to all of the attributes that are using this binding.
+    AttributesMask mBoundAttributesMask;
 };
 
 //
@@ -53,23 +74,35 @@ class VertexBinding final : angle::NonCopyable
 struct VertexAttribute final : private angle::NonCopyable
 {
     explicit VertexAttribute(GLuint bindingIndex);
-    explicit VertexAttribute(VertexAttribute &&attrib);
+    VertexAttribute(VertexAttribute &&attrib);
     VertexAttribute &operator=(VertexAttribute &&attrib);
 
+    // Called from VertexArray.
+    void updateCachedElementLimit(const VertexBinding &binding);
+    GLint64 getCachedElementLimit() const { return mCachedElementLimit; }
+
     bool enabled;  // For glEnable/DisableVertexAttribArray
-    GLenum type;
-    GLuint size;
-    bool normalized;
-    bool pureInteger;
+    const angle::Format *format;
 
     const void *pointer;
     GLuint relativeOffset;
 
     GLuint vertexAttribArrayStride;  // ONLY for queries of VERTEX_ATTRIB_ARRAY_STRIDE
     GLuint bindingIndex;
+
+    // Special value for the cached element limit on the integer overflow case.
+    static constexpr GLint64 kIntegerOverflow = std::numeric_limits<GLint64>::min();
+
+  private:
+    // This is kept in sync by the VertexArray. It is used to optimize draw call validation.
+    GLint64 mCachedElementLimit;
 };
 
-size_t ComputeVertexAttributeTypeSize(const VertexAttribute &attrib);
+ANGLE_INLINE size_t ComputeVertexAttributeTypeSize(const VertexAttribute &attrib)
+{
+    ASSERT(attrib.format);
+    return attrib.format->pixelBytes;
+}
 
 // Warning: you should ensure binding really matches attrib.bindingIndex before using this function.
 size_t ComputeVertexAttributeStride(const VertexAttribute &attrib, const VertexBinding &binding);
@@ -79,16 +112,15 @@ GLintptr ComputeVertexAttributeOffset(const VertexAttribute &attrib, const Verte
 
 size_t ComputeVertexBindingElementCount(GLuint divisor, size_t drawCount, size_t instanceCount);
 
-GLenum GetVertexAttributeBaseType(const VertexAttribute &attrib);
-
 struct VertexAttribCurrentValueData
 {
-    union {
+    union
+    {
         GLfloat FloatValues[4];
         GLint IntValues[4];
         GLuint UnsignedIntValues[4];
-    };
-    GLenum Type;
+    } Values;
+    VertexAttribType Type;
 
     VertexAttribCurrentValueData();
 
@@ -102,6 +134,6 @@ bool operator!=(const VertexAttribCurrentValueData &a, const VertexAttribCurrent
 
 }  // namespace gl
 
-#include "VertexAttribute.inl"
+#include "VertexAttribute.inc"
 
 #endif  // LIBANGLE_VERTEXATTRIBUTE_H_

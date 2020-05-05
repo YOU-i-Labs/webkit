@@ -37,39 +37,28 @@ WI.MediaTimelineView = class MediaTimelineView extends WI.TimelineView
         const columns = {
             name: {
                 title: WI.UIString("Name"),
-                width: "10%",
+                width: "200px",
                 icon: true,
                 sortable: true,
                 locked: true,
             },
             element: {
                 title: WI.UIString("Element"),
-                width: "10%",
-                sortable: true,
-            },
-            time: {
-                title: WI.UIString("Time"),
-                width: "10%",
+                width: "150px",
                 sortable: true,
                 locked: true,
             },
-            originator: {
-                title: WI.UIString("Originator"),
-                width: "10%",
-                sortable: true,
-                hidden: true,
-            },
             graph: {
                 headerView: this._timelineRuler,
+                sortable: true,
                 locked: true,
             },
         };
 
         this._dataGrid = new WI.TimelineDataGrid(columns);
         this._dataGrid.sortDelegate = this;
-        this._dataGrid.sortColumnIdentifier = "time";
+        this._dataGrid.sortColumnIdentifier = "graph";
         this._dataGrid.sortOrder = WI.DataGrid.SortOrder.Ascending;
-        this._dataGrid.setColumnVisible("originator", false);
         this._dataGrid.createSettings("media-timeline-view");
         this.setupDataGrid(this._dataGrid);
         this.addSubview(this._dataGrid);
@@ -79,6 +68,9 @@ WI.MediaTimelineView = class MediaTimelineView extends WI.TimelineView
         timeline.addEventListener(WI.Timeline.Event.RecordAdded, this._handleRecordAdded, this);
 
         this._pendingRecords = [];
+
+        for (let record of timeline.records)
+            this._processRecord(record);
     }
 
     // Public
@@ -95,18 +87,36 @@ WI.MediaTimelineView = class MediaTimelineView extends WI.TimelineView
         return [pathComponent];
     }
 
+    shown()
+    {
+        super.shown();
+
+        this._dataGrid.shown();
+    }
+
+    hidden()
+    {
+        this._dataGrid.hidden();
+
+        super.hidden();
+    }
+
     closed()
     {
-        this.representedObject.removeEventListener(null, null, this);
+        this.representedObject.removeEventListener(WI.Timeline.Event.RecordAdded, this._handleRecordAdded, this);
+
+        this._dataGrid.closed();
 
         super.closed();
     }
 
     reset()
     {
-        super.reset();
+        this._dataGrid.reset();
 
         this._pendingRecords = [];
+
+        super.reset();
     }
 
     // TimelineDataGrid delegate
@@ -120,7 +130,7 @@ WI.MediaTimelineView = class MediaTimelineView extends WI.TimelineView
                 return 1;
             if (!a && !b)
                 return 0;
-            return a.id - b.id;
+            return a.displayName.extendedLocaleCompare(b.displayName);
         }
 
         if (sortColumnIdentifier === "name") {
@@ -132,17 +142,8 @@ WI.MediaTimelineView = class MediaTimelineView extends WI.TimelineView
         if (sortColumnIdentifier === "element")
             return compareDOMNodes(node1.record.domNode, node2.record.domNode) * sortDirection;
 
-        if (sortColumnIdentifier === "time")
+        if (sortColumnIdentifier === "graph")
             return (node1.record.startTime - node2.record.startTime) * sortDirection;
-
-        if (sortColumnIdentifier === "originator") {
-            function getOriginator(record) {
-                if (record.eventType !== WI.MediaTimelineRecord.EventType.DOMEvent || !record.domEvent)
-                    return null;
-                return record.domEvent.originator;
-            }
-            return compareDOMNodes(getOriginator(node1.record), getOriginator(node2.record)) * sortDirection;
-        }
 
         return null;
     }
@@ -180,10 +181,9 @@ WI.MediaTimelineView = class MediaTimelineView extends WI.TimelineView
             return;
 
         for (let timelineRecord of this._pendingRecords) {
-            if (timelineRecord.domEvent && timelineRecord.domEvent.originator)
-                this._dataGrid.setColumnVisible("originator", true);
-
-            this._dataGrid.addRowInSortOrder(new WI.MediaTimelineDataGridNode(timelineRecord, this));
+            this._dataGrid.addRowInSortOrder(new WI.MediaTimelineDataGridNode(timelineRecord, {
+                graphDataSource: this,
+            }));
         }
 
         this._pendingRecords = [];
@@ -191,12 +191,17 @@ WI.MediaTimelineView = class MediaTimelineView extends WI.TimelineView
 
     _handleRecordAdded(event)
     {
-        let record = event.data.record;
-        console.assert(record instanceof WI.MediaTimelineRecord);
+        let mediaTimelineRecord = event.data.record;
+        console.assert(mediaTimelineRecord instanceof WI.MediaTimelineRecord);
 
-        this._pendingRecords.push(record);
+        this._processRecord(mediaTimelineRecord);
 
         this.needsLayout();
+    }
+
+    _processRecord(mediaTimelineRecord)
+    {
+        this._pendingRecords.push(mediaTimelineRecord);
     }
 
     _handleSelectionPathComponentSiblingSelected(event)

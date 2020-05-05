@@ -33,11 +33,7 @@ list(APPEND WebKit_UNIFIED_SOURCE_LIST_FILES
 )
 
 list(APPEND WebKit_MESSAGES_IN_FILES
-    NetworkProcess/CustomProtocols/LegacyCustomProtocolManager.messages.in
-
     UIProcess/ViewGestureController.messages.in
-
-    UIProcess/Network/CustomProtocols/LegacyCustomProtocolManagerProxy.messages.in
 
     WebProcess/WebPage/ViewGestureGeometryCollector.messages.in
 )
@@ -53,6 +49,8 @@ list(APPEND WebKit_DERIVED_SOURCES
 if (ENABLE_WAYLAND_TARGET)
     list(APPEND WebKit_DERIVED_SOURCES
         ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitWaylandClientProtocol.c
+        ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/pointer-constraints-unstable-v1-protocol.c
+        ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/relative-pointer-unstable-v1-protocol.c
     )
 endif ()
 
@@ -82,8 +80,10 @@ set(WebKit2GTK_INSTALLED_HEADERS
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitFindController.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitFormSubmissionRequest.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitForwardDeclarations.h
+    ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitGeolocationManager.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitGeolocationPermissionRequest.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitHitTestResult.h
+    ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitInputMethodContext.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitInstallMissingMediaPluginsPermissionRequest.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitJavascriptResult.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitMimeInfo.h
@@ -96,6 +96,7 @@ set(WebKit2GTK_INSTALLED_HEADERS
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitOptionMenuItem.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitPermissionRequest.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitPlugin.h
+    ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitPointerLockPermissionRequest.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitPolicyDecision.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitPrintCustomWidget.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitPrintOperation.h
@@ -112,6 +113,7 @@ set(WebKit2GTK_INSTALLED_HEADERS
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitUserContentFilterStore.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitUserContentManager.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitUserMediaPermissionRequest.h
+    ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitUserMessage.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitWebContext.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitWebInspector.h
     ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitWebResource.h
@@ -371,11 +373,9 @@ list(APPEND WebKit_INCLUDE_DIRECTORIES
     "${DERIVED_SOURCES_JAVASCRIPCOREGTK_DIR}"
     "${FORWARDING_HEADERS_DIR}/JavaScriptCore/"
     "${FORWARDING_HEADERS_DIR}/JavaScriptCore/glib"
-    "${WEBKIT_DIR}/PluginProcess/unix"
-    "${WEBKIT_DIR}/NetworkProcess/CustomProtocols/soup"
+    "${WEBKIT_DIR}/NetworkProcess/glib"
     "${WEBKIT_DIR}/NetworkProcess/gtk"
     "${WEBKIT_DIR}/NetworkProcess/soup"
-    "${WEBKIT_DIR}/NetworkProcess/unix"
     "${WEBKIT_DIR}/Platform/IPC/glib"
     "${WEBKIT_DIR}/Platform/IPC/unix"
     "${WEBKIT_DIR}/Platform/classifier"
@@ -388,14 +388,15 @@ list(APPEND WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/Shared/gtk"
     "${WEBKIT_DIR}/Shared/linux"
     "${WEBKIT_DIR}/Shared/soup"
-    "${WEBKIT_DIR}/Shared/unix"
     "${WEBKIT_DIR}/UIProcess/API/C/cairo"
     "${WEBKIT_DIR}/UIProcess/API/C/gtk"
     "${WEBKIT_DIR}/UIProcess/API/glib"
     "${WEBKIT_DIR}/UIProcess/API/gtk"
     "${WEBKIT_DIR}/UIProcess/CoordinatedGraphics"
-    "${WEBKIT_DIR}/UIProcess/Network/CustomProtocols/soup"
+    "${WEBKIT_DIR}/UIProcess/Inspector/glib"
+    "${WEBKIT_DIR}/UIProcess/Inspector/gtk"
     "${WEBKIT_DIR}/UIProcess/Plugins/gtk"
+    "${WEBKIT_DIR}/UIProcess/geoclue"
     "${WEBKIT_DIR}/UIProcess/glib"
     "${WEBKIT_DIR}/UIProcess/gstreamer"
     "${WEBKIT_DIR}/UIProcess/gtk"
@@ -405,11 +406,11 @@ list(APPEND WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/WebProcess/InjectedBundle/API/glib/DOM"
     "${WEBKIT_DIR}/WebProcess/InjectedBundle/API/gtk"
     "${WEBKIT_DIR}/WebProcess/InjectedBundle/API/gtk/DOM"
+    "${WEBKIT_DIR}/WebProcess/Inspector/gtk"
     "${WEBKIT_DIR}/WebProcess/Plugins/Netscape/unix"
     "${WEBKIT_DIR}/WebProcess/Plugins/Netscape/x11"
     "${WEBKIT_DIR}/WebProcess/gtk"
     "${WEBKIT_DIR}/WebProcess/soup"
-    "${WEBKIT_DIR}/WebProcess/unix"
     "${WEBKIT_DIR}/WebProcess/WebCoreSupport/gtk"
     "${WEBKIT_DIR}/WebProcess/WebCoreSupport/soup"
     "${WEBKIT_DIR}/WebProcess/WebPage/CoordinatedGraphics"
@@ -420,11 +421,23 @@ list(APPEND WebKit_INCLUDE_DIRECTORIES
 list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
     ${CAIRO_INCLUDE_DIRS}
     ${ENCHANT_INCLUDE_DIRS}
+    ${GLIB_INCLUDE_DIRS}
     ${GSTREAMER_INCLUDE_DIRS}
     ${GSTREAMER_PBUTILS_INCLUDE_DIRS}
-    ${HARFBUZZ_INCLUDE_DIRS}
+    ${GTK_INCLUDE_DIRS}
+    ${GTK_UNIX_PRINT_INCLUDE_DIRS}
     ${LIBSOUP_INCLUDE_DIRS}
 )
+
+if (USE_WPE_RENDERER)
+    list(APPEND WebKit_INCLUDE_DIRECTORIES
+        "${WEBKIT_DIR}/WebProcess/WebPage/libwpe"
+    )
+    list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
+        ${WPE_INCLUDE_DIRS}
+        ${WPEBACKEND_FDO_INCLUDE_DIRS}
+    )
+endif ()
 
 if (USE_LIBNOTIFY)
 list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
@@ -435,12 +448,6 @@ endif ()
 set(WebKitCommonIncludeDirectories ${WebKit_INCLUDE_DIRECTORIES})
 set(WebKitCommonSystemIncludeDirectories ${WebKit_SYSTEM_INCLUDE_DIRECTORIES})
 
-list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
-    ${GLIB_INCLUDE_DIRS}
-    ${GTK_INCLUDE_DIRS}
-    ${GTK_UNIX_PRINT_INCLUDE_DIRS}
-)
-
 list(APPEND WebProcess_SOURCES
     WebProcess/EntryPoint/unix/WebProcessMain.cpp
 )
@@ -449,30 +456,28 @@ list(APPEND NetworkProcess_SOURCES
     NetworkProcess/EntryPoint/unix/NetworkProcessMain.cpp
 )
 
-set(SharedWebKitLibraries
-    ${WebKit_LIBRARIES}
-)
-
 list(APPEND WebKit_LIBRARIES
-    PRIVATE
-        WebCorePlatformGTK
-        ${GTK_UNIX_PRINT_LIBRARIES}
+    ${GTK_UNIX_PRINT_LIBRARIES}
 )
 
-# WebCore should be specifed before and after WebCorePlatformGTK
-list(APPEND WebKit_LIBRARIES PRIVATE WebCore)
+if (USE_WPE_RENDERER)
+    list(APPEND WebKit_LIBRARIES
+      ${WPE_LIBRARIES}
+      ${WPEBACKEND_FDO_LIBRARIES}
+    )
+endif ()
 
 if (LIBNOTIFY_FOUND)
-list(APPEND WebKit_LIBRARIES
-    PRIVATE ${LIBNOTIFY_LIBRARIES}
-)
+    list(APPEND WebKit_PRIVATE_LIBRARIES
+        ${LIBNOTIFY_LIBRARIES}
+    )
 endif ()
 
 if (USE_LIBWEBRTC)
-list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
-    "${THIRDPARTY_DIR}/libwebrtc/Source/"
-    "${THIRDPARTY_DIR}/libwebrtc/Source/webrtc"
-)
+    list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
+        "${THIRDPARTY_DIR}/libwebrtc/Source/"
+        "${THIRDPARTY_DIR}/libwebrtc/Source/webrtc"
+    )
 endif ()
 
 # To generate WebKitEnumTypes.h we want to use all installed headers, except WebKitEnumTypes.h itself.
@@ -505,18 +510,13 @@ add_custom_command(
 WEBKIT_BUILD_INSPECTOR_GRESOURCES(${DERIVED_SOURCES_WEBKIT2GTK_DIR})
 
 set(WebKitResources
+    "        <file alias=\"css/gtk-theme.css\">gtk-theme.css</file>\n"
     "        <file alias=\"images/missingImage\">missingImage.png</file>\n"
     "        <file alias=\"images/missingImage@2x\">missingImage@2x.png</file>\n"
     "        <file alias=\"images/panIcon\">panIcon.png</file>\n"
     "        <file alias=\"images/textAreaResizeCorner\">textAreaResizeCorner.png</file>\n"
     "        <file alias=\"images/textAreaResizeCorner@2x\">textAreaResizeCorner@2x.png</file>\n"
 )
-
-if (ENABLE_ICONDATABASE)
-    list(APPEND WebKitResources
-        "        <file alias=\"images/urlIcon\">urlIcon.png</file>\n"
-    )
-endif ()
 
 if (ENABLE_WEB_AUDIO)
     list(APPEND WebKitResources
@@ -536,7 +536,7 @@ file(WRITE ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitResourcesGResourceBundle.xml
 add_custom_command(
     OUTPUT ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitResourcesGResourceBundle.c
     DEPENDS ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitResourcesGResourceBundle.xml
-    COMMAND glib-compile-resources --generate --sourcedir=${CMAKE_SOURCE_DIR}/Source/WebCore/Resources --sourcedir=${CMAKE_SOURCE_DIR}/Source/WebCore/platform/audio/resources --target=${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitResourcesGResourceBundle.c ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitResourcesGResourceBundle.xml
+    COMMAND glib-compile-resources --generate --sourcedir=${CMAKE_SOURCE_DIR}/Source/WebCore/Resources --sourcedir=${CMAKE_SOURCE_DIR}/Source/WebCore/platform/audio/resources --sourcedir=${CMAKE_SOURCE_DIR}/Source/WebKit/Resources/gtk --target=${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitResourcesGResourceBundle.c ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitResourcesGResourceBundle.xml
     VERBATIM
 )
 
@@ -545,147 +545,28 @@ if (ENABLE_WAYLAND_TARGET)
     add_custom_command(
         OUTPUT ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitWaylandClientProtocol.c
         DEPENDS ${WEBKIT_DIR}/Shared/gtk/WebKitWaylandProtocol.xml
-        COMMAND wayland-scanner server-header < ${WEBKIT_DIR}/Shared/gtk/WebKitWaylandProtocol.xml > ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitWaylandServerProtocol.h
-        COMMAND wayland-scanner client-header < ${WEBKIT_DIR}/Shared/gtk/WebKitWaylandProtocol.xml > ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitWaylandClientProtocol.h
-        COMMAND wayland-scanner code < ${WEBKIT_DIR}/Shared/gtk/WebKitWaylandProtocol.xml > ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitWaylandClientProtocol.c
+        COMMAND ${WAYLAND_SCANNER} server-header ${WEBKIT_DIR}/Shared/gtk/WebKitWaylandProtocol.xml ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitWaylandServerProtocol.h
+        COMMAND ${WAYLAND_SCANNER} client-header ${WEBKIT_DIR}/Shared/gtk/WebKitWaylandProtocol.xml ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitWaylandClientProtocol.h
+        COMMAND ${WAYLAND_SCANNER} code ${WEBKIT_DIR}/Shared/gtk/WebKitWaylandProtocol.xml ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/WebKitWaylandClientProtocol.c
+        VERBATIM
+    )
+
+    add_custom_command(
+        OUTPUT ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/pointer-constraints-unstable-v1-protocol.c
+        DEPENDS ${WAYLAND_PROTOCOLS_DATADIR}/unstable/pointer-constraints/pointer-constraints-unstable-v1.xml
+        COMMAND ${WAYLAND_SCANNER} code ${WAYLAND_PROTOCOLS_DATADIR}/unstable/pointer-constraints/pointer-constraints-unstable-v1.xml ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/pointer-constraints-unstable-v1-protocol.c
+        COMMAND ${WAYLAND_SCANNER} client-header ${WAYLAND_PROTOCOLS_DATADIR}/unstable/pointer-constraints/pointer-constraints-unstable-v1.xml ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/pointer-constraints-unstable-v1-client-protocol.h
+        VERBATIM
+    )
+
+    add_custom_command(
+        OUTPUT ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/relative-pointer-unstable-v1-protocol.c
+        DEPENDS ${WAYLAND_PROTOCOLS_DATADIR}/unstable/relative-pointer/relative-pointer-unstable-v1.xml
+        COMMAND ${WAYLAND_SCANNER} code ${WAYLAND_PROTOCOLS_DATADIR}/unstable/relative-pointer/relative-pointer-unstable-v1.xml ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/relative-pointer-unstable-v1-protocol.c
+        COMMAND ${WAYLAND_SCANNER} client-header ${WAYLAND_PROTOCOLS_DATADIR}/unstable/relative-pointer/relative-pointer-unstable-v1.xml ${DERIVED_SOURCES_WEBKIT2GTK_DIR}/relative-pointer-unstable-v1-client-protocol.h
+        VERBATIM
     )
 endif ()
-
-if (ENABLE_PLUGIN_PROCESS_GTK2)
-    set(PluginProcessGTK2_EXECUTABLE_NAME WebKitPluginProcess2)
-
-    # FIXME: We should remove WebKitPluginProcess2 in 2020, once Flash is no longer supported.
-    list(APPEND PluginProcessGTK2_SOURCES
-        Platform/Logging.cpp
-        Platform/Module.cpp
-
-        Platform/IPC/ArgumentCoders.cpp
-        Platform/IPC/Attachment.cpp
-        Platform/IPC/Connection.cpp
-        Platform/IPC/DataReference.cpp
-        Platform/IPC/Decoder.cpp
-        Platform/IPC/Encoder.cpp
-        Platform/IPC/MessageReceiverMap.cpp
-        Platform/IPC/MessageSender.cpp
-        Platform/IPC/StringReference.cpp
-
-        Platform/IPC/glib/GSocketMonitor.cpp
-        Platform/IPC/unix/AttachmentUnix.cpp
-        Platform/IPC/unix/ConnectionUnix.cpp
-
-        Platform/glib/ModuleGlib.cpp
-
-        Platform/unix/LoggingUnix.cpp
-        Platform/unix/SharedMemoryUnix.cpp
-
-        PluginProcess/PluginControllerProxy.cpp
-        PluginProcess/PluginCreationParameters.cpp
-        PluginProcess/PluginProcess.cpp
-        PluginProcess/WebProcessConnection.cpp
-
-        PluginProcess/EntryPoint/unix/PluginProcessMain.cpp
-
-        PluginProcess/unix/PluginControllerProxyUnix.cpp
-        PluginProcess/unix/PluginProcessMainUnix.cpp
-        PluginProcess/unix/PluginProcessUnix.cpp
-
-        Shared/ActivityAssertion.cpp
-        Shared/AuxiliaryProcess.cpp
-        Shared/BlobDataFileReferenceWithSandboxExtension.cpp
-        Shared/ShareableBitmap.cpp
-        Shared/WebCoreArgumentCoders.cpp
-        Shared/WebEvent.cpp
-        Shared/WebKeyboardEvent.cpp
-        Shared/WebKit2Initialize.cpp
-        Shared/WebMouseEvent.cpp
-        Shared/WebPlatformTouchPoint.cpp
-        Shared/WebTouchEvent.cpp
-        Shared/WebWheelEvent.cpp
-
-        Shared/Plugins/NPIdentifierData.cpp
-        Shared/Plugins/NPObjectMessageReceiver.cpp
-        Shared/Plugins/NPObjectProxy.cpp
-        Shared/Plugins/NPRemoteObjectMap.cpp
-        Shared/Plugins/NPVariantData.cpp
-        Shared/Plugins/PluginProcessCreationParameters.cpp
-
-        Shared/Plugins/Netscape/NetscapePluginModule.cpp
-        Shared/Plugins/Netscape/NetscapePluginModuleNone.cpp
-
-        Shared/Plugins/Netscape/unix/NetscapePluginModuleUnix.cpp
-
-        Shared/cairo/ShareableBitmapCairo.cpp
-
-        Shared/glib/ProcessExecutablePathGLib.cpp
-
-        Shared/gtk/NativeWebKeyboardEventGtk.cpp
-        Shared/gtk/NativeWebMouseEventGtk.cpp
-        Shared/gtk/NativeWebTouchEventGtk.cpp
-        Shared/gtk/NativeWebWheelEventGtk.cpp
-        Shared/gtk/WebEventFactory.cpp
-
-        Shared/soup/WebCoreArgumentCodersSoup.cpp
-
-        Shared/unix/AuxiliaryProcessMain.cpp
-
-        UIProcess/Launcher/ProcessLauncher.cpp
-
-        UIProcess/Launcher/glib/ProcessLauncherGLib.cpp
-
-        UIProcess/Plugins/unix/PluginProcessProxyUnix.cpp
-
-        WebProcess/Plugins/Plugin.cpp
-
-        WebProcess/Plugins/Netscape/NPRuntimeUtilities.cpp
-        WebProcess/Plugins/Netscape/NetscapeBrowserFuncs.cpp
-        WebProcess/Plugins/Netscape/NetscapePlugin.cpp
-        WebProcess/Plugins/Netscape/NetscapePluginNone.cpp
-        WebProcess/Plugins/Netscape/NetscapePluginStream.cpp
-
-        WebProcess/Plugins/Netscape/unix/NetscapePluginUnix.cpp
-        WebProcess/Plugins/Netscape/x11/NetscapePluginX11.cpp
-
-        ${DERIVED_SOURCES_WEBKIT_DIR}/AuxiliaryProcessMessageReceiver.cpp
-        ${DERIVED_SOURCES_WEBKIT_DIR}/PluginControllerProxyMessageReceiver.cpp
-        ${DERIVED_SOURCES_WEBKIT_DIR}/PluginProcessMessageReceiver.cpp
-        ${DERIVED_SOURCES_WEBKIT_DIR}/NPObjectMessageReceiverMessageReceiver.cpp
-        ${DERIVED_SOURCES_WEBKIT_DIR}/WebProcessConnectionMessageReceiver.cpp
-    )
-
-    add_executable(WebKitPluginProcess2 ${PluginProcessGTK2_SOURCES})
-    ADD_WEBKIT_PREFIX_HEADER(WebKitPluginProcess2)
-
-    # We need ENABLE_PLUGIN_PROCESS for all targets in this directory, but
-    # we only want GTK_API_VERSION_2 for the plugin process target.
-    set_property(
-        TARGET WebKitPluginProcess2
-        APPEND
-        PROPERTY COMPILE_DEFINITIONS GTK_API_VERSION_2=1
-    )
-    target_include_directories(WebKitPluginProcess2 PRIVATE
-        ${WebKitCommonIncludeDirectories}
-    )
-    target_include_directories(WebKitPluginProcess2 SYSTEM PRIVATE
-         ${WebKitCommonSystemIncludeDirectories}
-         ${GTK2_INCLUDE_DIRS}
-         ${GDK2_INCLUDE_DIRS}
-    )
-
-    set(WebKitPluginProcess2_LIBRARIES
-        ${SharedWebKitLibraries}
-        PRIVATE WebCorePlatformGTK2
-    )
-    ADD_WHOLE_ARCHIVE_TO_LIBRARIES(WebKitPluginProcess2_LIBRARIES)
-    target_link_libraries(WebKitPluginProcess2 ${WebKitPluginProcess2_LIBRARIES})
-
-    add_dependencies(WebKitPluginProcess2 WebKit)
-
-    install(TARGETS WebKitPluginProcess2 DESTINATION "${LIBEXEC_INSTALL_DIR}")
-
-    if (COMPILER_IS_GCC_OR_CLANG)
-        WEBKIT_ADD_TARGET_CXX_FLAGS(WebKitPluginProcess2 -Wno-unused-parameter)
-    endif ()
-endif () # ENABLE_PLUGIN_PROCESS_GTK2
 
 # GTK3 PluginProcess
 list(APPEND PluginProcess_SOURCES
@@ -829,12 +710,14 @@ if (ENABLE_INTROSPECTION)
             ${WEBKIT_DIR}/Shared/API/glib/WebKitContextMenu.cpp
             ${WEBKIT_DIR}/Shared/API/glib/WebKitContextMenuItem.cpp
             ${WEBKIT_DIR}/Shared/API/glib/WebKitHitTestResult.cpp
+            ${WEBKIT_DIR}/Shared/API/glib/WebKitUserMessage.cpp
             ${WEBKIT_DIR}/Shared/API/glib/WebKitURIRequest.cpp
             ${WEBKIT_DIR}/Shared/API/glib/WebKitURIResponse.cpp
             ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitContextMenu.h
             ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitContextMenuActions.h
             ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitContextMenuItem.h
             ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitHitTestResult.h
+            ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitUserMessage.h
             ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitURIRequest.h
             ${WEBKIT_DIR}/UIProcess/API/gtk/WebKitURIResponse.h
             ${WEBKIT_DIR}/WebProcess/InjectedBundle/API/glib/*.cpp

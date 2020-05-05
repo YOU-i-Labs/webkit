@@ -31,15 +31,20 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/Deque.h>
 
+namespace WebCore {
+class StorageQuotaManager;
+}
+
 namespace WebKit {
 
 namespace CacheStorage {
 
 class Engine;
 
-class Caches : public RefCounted<Caches> {
+class Caches final : public RefCounted<Caches> {
 public:
-    static Ref<Caches> create(Engine& engine, WebCore::ClientOrigin&& origin, String&& rootPath, uint64_t quota) { return adoptRef(*new Caches { engine, WTFMove(origin), WTFMove(rootPath), quota }); }
+    static String cachesSizeFilename(const String& cachesRootsPath);
+    static Ref<Caches> create(Engine&, WebCore::ClientOrigin&&, String&& rootPath);
     ~Caches();
 
     static void retrieveOriginFromDirectory(const String& folderPath, WorkQueue&, WTF::CompletionHandler<void(Optional<WebCore::ClientOrigin>&&)>&&);
@@ -60,8 +65,6 @@ public:
     void readRecordsList(Cache&, NetworkCache::Storage::TraverseHandler&&);
     void readRecord(const NetworkCache::Key&, WTF::Function<void(Expected<WebCore::DOMCacheEngine::Record, WebCore::DOMCacheEngine::Error>&&)>&&);
 
-    bool hasEnoughSpace(uint64_t spaceRequired) const { return m_quota >= m_size + spaceRequired; }
-    bool isRequestingSpace() const { return m_isRequestingSpace; }
     void requestSpace(uint64_t spaceRequired, WebCore::DOMCacheEngine::CompletionCallback&&);
     void writeRecord(const Cache&, const RecordInformation&, WebCore::DOMCacheEngine::Record&&, uint64_t previousRecordSize, WebCore::DOMCacheEngine::CompletionCallback&&);
 
@@ -77,9 +80,10 @@ public:
     void clearMemoryRepresentation();
 
     uint64_t storageSize() const;
+    void updateSizeFile(CompletionHandler<void()>&&);
 
 private:
-    Caches(Engine&, WebCore::ClientOrigin&&, String&& rootPath, uint64_t quota);
+    Caches(Engine&, WebCore::ClientOrigin&&, String&& rootPath);
 
     void initializeSize();
     void readCachesFromDisk(WTF::Function<void(Expected<Vector<Cache>, WebCore::DOMCacheEngine::Error>&&)>&&);
@@ -94,17 +98,13 @@ private:
     void makeDirty() { ++m_updateCounter; }
     bool isDirty(uint64_t updateCounter) const;
 
-    void notifyCachesOfRequestSpaceEnd();
-
     bool hasActiveCache() const;
 
     bool m_isInitialized { false };
-    bool m_isRequestingSpace { false };
     Engine* m_engine { nullptr };
     uint64_t m_updateCounter { 0 };
     WebCore::ClientOrigin m_origin;
     String m_rootPath;
-    uint64_t m_quota { 0 };
     uint64_t m_size { 0 };
     Vector<Cache> m_caches;
     Vector<Cache> m_removedCaches;

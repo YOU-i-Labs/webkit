@@ -26,107 +26,38 @@
 #include "config.h"
 #include "WKKeyValueStorageManager.h"
 
-#include "APIArray.h"
-#include "APIDictionary.h"
-#include "APIWebsiteDataStore.h"
-#include "StorageManager.h"
-#include "WKAPICast.h"
-#include "WebsiteDataStore.h"
-#include <wtf/RunLoop.h>
-
-using namespace WebKit;
-
 WKTypeID WKKeyValueStorageManagerGetTypeID()
 {
-    return toAPI(API::WebsiteDataStore::APIType);
+    return 0;
 }
 
 WKStringRef WKKeyValueStorageManagerGetOriginKey()
 {
-    static API::String& key = API::String::create("WebKeyValueStorageManagerStorageDetailsOriginKey").leakRef();
-    return toAPI(&key);
+    return nullptr;
 }
 
 WKStringRef WKKeyValueStorageManagerGetCreationTimeKey()
 {
-    static API::String& key = API::String::create("WebKeyValueStorageManagerStorageDetailsCreationTimeKey").leakRef();
-    return toAPI(&key);
+    return nullptr;
 }
 
 WKStringRef WKKeyValueStorageManagerGetModificationTimeKey()
 {
-    static API::String& key = API::String::create("WebKeyValueStorageManagerStorageDetailsModificationTimeKey").leakRef();
-    return toAPI(&key);
+    return nullptr;
 }
 
-void WKKeyValueStorageManagerGetKeyValueStorageOrigins(WKKeyValueStorageManagerRef keyValueStorageManager, void* context, WKKeyValueStorageManagerGetKeyValueStorageOriginsFunction callback)
-
+void WKKeyValueStorageManagerGetKeyValueStorageOrigins(WKKeyValueStorageManagerRef, void*, WKKeyValueStorageManagerGetKeyValueStorageOriginsFunction)
 {
-    StorageManager* storageManager = toImpl(reinterpret_cast<WKWebsiteDataStoreRef>(keyValueStorageManager))->websiteDataStore().storageManager();
-    if (!storageManager) {
-        RunLoop::main().dispatch([context, callback] {
-            callback(toAPI(API::Array::create().ptr()), nullptr, context);
-        });
-        return;
-    }
-
-    storageManager->getLocalStorageOrigins([context, callback](auto&& securityOrigins) {
-        Vector<RefPtr<API::Object>> webSecurityOrigins;
-        webSecurityOrigins.reserveInitialCapacity(securityOrigins.size());
-        for (auto& origin : securityOrigins)
-            webSecurityOrigins.uncheckedAppend(API::SecurityOrigin::create(origin.securityOrigin()));
-
-        callback(toAPI(API::Array::create(WTFMove(webSecurityOrigins)).ptr()), nullptr, context);
-    });
 }
 
-void WKKeyValueStorageManagerGetStorageDetailsByOrigin(WKKeyValueStorageManagerRef keyValueStorageManager, void* context, WKKeyValueStorageManagerGetStorageDetailsByOriginFunction callback)
+void WKKeyValueStorageManagerGetStorageDetailsByOrigin(WKKeyValueStorageManagerRef, void*, WKKeyValueStorageManagerGetStorageDetailsByOriginFunction)
 {
-    StorageManager* storageManager = toImpl(reinterpret_cast<WKWebsiteDataStoreRef>(keyValueStorageManager))->websiteDataStore().storageManager();
-    if (!storageManager) {
-        RunLoop::main().dispatch([context, callback] {
-            callback(toAPI(API::Array::create().ptr()), nullptr, context);
-        });
-        return;
-    }
-
-    storageManager->getLocalStorageOriginDetails([context, callback](auto storageDetails) {
-        HashMap<String, RefPtr<API::Object>> detailsMap;
-        Vector<RefPtr<API::Object>> result;
-        result.reserveInitialCapacity(storageDetails.size());
-
-        for (const auto& originDetails : storageDetails) {
-            HashMap<String, RefPtr<API::Object>> detailsMap;
-
-            RefPtr<API::Object> origin = API::SecurityOrigin::create(WebCore::SecurityOriginData::fromDatabaseIdentifier(originDetails.originIdentifier)->securityOrigin());
-
-            detailsMap.set(toImpl(WKKeyValueStorageManagerGetOriginKey())->string(), origin);
-            if (originDetails.creationTime)
-                detailsMap.set(toImpl(WKKeyValueStorageManagerGetCreationTimeKey())->string(), API::Double::create(originDetails.creationTime->secondsSinceEpoch().value()));
-            if (originDetails.modificationTime)
-                detailsMap.set(toImpl(WKKeyValueStorageManagerGetModificationTimeKey())->string(), API::Double::create(originDetails.modificationTime->secondsSinceEpoch().value()));
-
-            result.uncheckedAppend(API::Dictionary::create(WTFMove(detailsMap)));
-        }
-
-        callback(toAPI(API::Array::create(WTFMove(result)).ptr()), nullptr, context);
-    });
 }
 
-void WKKeyValueStorageManagerDeleteEntriesForOrigin(WKKeyValueStorageManagerRef keyValueStorageManager, WKSecurityOriginRef origin)
+void WKKeyValueStorageManagerDeleteEntriesForOrigin(WKKeyValueStorageManagerRef, WKSecurityOriginRef)
 {
-    StorageManager* storageManager = toImpl(reinterpret_cast<WKWebsiteDataStoreRef>(keyValueStorageManager))->websiteDataStore().storageManager();
-    if (!storageManager)
-        return;
-
-    storageManager->deleteLocalStorageEntriesForOrigin(toImpl(origin)->securityOrigin().data());
 }
 
-void WKKeyValueStorageManagerDeleteAllEntries(WKKeyValueStorageManagerRef keyValueStorageManager)
+void WKKeyValueStorageManagerDeleteAllEntries(WKKeyValueStorageManagerRef)
 {
-    StorageManager* storageManager = toImpl(reinterpret_cast<WKWebsiteDataStoreRef>(keyValueStorageManager))->websiteDataStore().storageManager();
-    if (!storageManager)
-        return;
-
-    storageManager->deleteLocalStorageOriginsModifiedSince(-WallTime::infinity(), [] { });
 }

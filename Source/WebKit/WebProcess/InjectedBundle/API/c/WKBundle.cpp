@@ -55,7 +55,7 @@ WKTypeID WKBundleGetTypeID()
 
 void WKBundleSetClient(WKBundleRef bundleRef, WKBundleClientBase *wkClient)
 {
-    WebKit::toImpl(bundleRef)->setClient(std::make_unique<WebKit::InjectedBundleClient>(wkClient));
+    WebKit::toImpl(bundleRef)->setClient(makeUnique<WebKit::InjectedBundleClient>(wkClient));
 }
 
 void WKBundleSetServiceWorkerProxyCreationCallback(WKBundleRef bundleRef, void (*callback)(uint64_t))
@@ -161,24 +161,9 @@ void WKBundleSetFrameFlatteningEnabled(WKBundleRef bundleRef, WKBundlePageGroupR
     WebKit::toImpl(bundleRef)->setFrameFlatteningEnabled(WebKit::toImpl(pageGroupRef), enabled);
 }
 
-void WKBundleSetAsyncFrameScrollingEnabled(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
-{
-    WebKit::toImpl(bundleRef)->setAsyncFrameScrollingEnabled(WebKit::toImpl(pageGroupRef), enabled);
-}
-
 void WKBundleSetJavaScriptCanAccessClipboard(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
 {
     WebKit::toImpl(bundleRef)->setJavaScriptCanAccessClipboard(WebKit::toImpl(pageGroupRef), enabled);
-}
-
-void WKBundleSetPrivateBrowsingEnabled(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
-{
-    WebKit::toImpl(bundleRef)->setPrivateBrowsingEnabled(WebKit::toImpl(pageGroupRef), enabled);
-}
-
-void WKBundleSetUseDashboardCompatibilityMode(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
-{
-    WebKit::toImpl(bundleRef)->setUseDashboardCompatibilityMode(WebKit::toImpl(pageGroupRef), enabled);
 }
 
 void WKBundleSetPopupBlockingEnabled(WKBundleRef bundleRef, WKBundlePageGroupRef pageGroupRef, bool enabled)
@@ -253,7 +238,7 @@ void WKBundleClearAllDatabases(WKBundleRef)
 void WKBundleSetDatabaseQuota(WKBundleRef bundleRef, uint64_t quota)
 {
     // Historically, we've used the following (somewhat nonsensical) string for the databaseIdentifier of local files.
-    WebCore::DatabaseTracker::singleton().setQuota(*WebKit::SecurityOriginData::fromDatabaseIdentifier("file__0"), quota);
+    WebCore::DatabaseTracker::singleton().setQuota(*WebCore::SecurityOriginData::fromDatabaseIdentifier("file__0"), quota);
 }
 
 void WKBundleReleaseMemory(WKBundleRef)
@@ -321,15 +306,19 @@ void WKBundleClearResourceLoadStatistics(WKBundleRef)
     WebCore::ResourceLoadObserver::shared().clearState();
 }
 
-void WKBundleResourceLoadStatisticsNotifyObserver(WKBundleRef)
+bool WKBundleResourceLoadStatisticsNotifyObserver(WKBundleRef)
 {
-    WebCore::ResourceLoadObserver::shared().notifyObserver();
+    if (!WebCore::ResourceLoadObserver::shared().hasStatistics())
+        return false;
+
+    WebCore::ResourceLoadObserver::shared().updateCentralStatisticsStore();
+    return true;
 }
 
 
 void WKBundleExtendClassesForParameterCoder(WKBundleRef bundle, WKArrayRef classes)
 {
-#if PLATFORM(COCOA) && WK_API_ENABLED
+#if PLATFORM(COCOA)
     auto classList = WebKit::toImpl(classes);
     if (!classList)
         return;

@@ -27,11 +27,7 @@
 #include "cmakeconfig.h"
 #endif
 
-#include <JavaScriptCore/JSExportMacros.h>
-#ifndef BUILDING_JSCONLY__
-#include <WebCore/PlatformExportMacros.h>
-#include <pal/ExportMacros.h>
-#endif
+#include <wtf/Platform.h>
 
 #if defined(__APPLE__) && __APPLE__
 #ifdef __OBJC__
@@ -43,11 +39,48 @@
 #endif
 #endif
 
-#include <stdint.h>
+#if defined(BUILDING_WITH_CMAKE)
 
-#if !PLATFORM(IOS_FAMILY) && !defined(BUILDING_JSCONLY__) && (!PLATFORM(WIN) || PLATFORM(WIN_CAIRO))
+// CMake path
+#if defined(BUILDING_TestJSC)
+#include <JavaScriptCore/JSExportMacros.h>
+#endif
+
+#if defined(BUILDING_TestWebCore)
+#include <JavaScriptCore/JSExportMacros.h>
+#include <WebCore/PlatformExportMacros.h>
+#include <pal/ExportMacros.h>
+#endif
+
+#if defined(BUILDING_TestWebKit)
+#include <JavaScriptCore/JSExportMacros.h>
+#include <WebCore/PlatformExportMacros.h>
+#include <pal/ExportMacros.h>
 #include <WebKit/WebKit2_C.h>
 #endif
+
+#else
+
+// XCode path
+#include <JavaScriptCore/JSExportMacros.h>
+#include <WebCore/PlatformExportMacros.h>
+#include <pal/ExportMacros.h>
+#if !PLATFORM(IOS_FAMILY)
+#include <WebKit/WebKit2_C.h>
+#endif
+#if PLATFORM(COCOA) && defined(__OBJC__)
+#import <WebKit/WebKit.h>
+#if PLATFORM(MACCATALYST)
+// Many tests depend on WebKitLegacy.h being implicitly included; however,
+// on macCatalyst, WebKit.h does not include WebKitLegacy.h, so we need
+// to do it explicitly here.
+#import <WebKit/WebKitLegacy.h>
+#endif
+#endif
+
+#endif
+
+#include <stdint.h>
 
 #ifdef __clang__
 // Work around the less strict coding standards of the gtest framework.
@@ -70,13 +103,26 @@
 #pragma clang diagnostic pop
 #endif
 
-#if PLATFORM(COCOA) && defined(__OBJC__)
-// FIXME: Get Cocoa tests working with CMake on Mac.
-#if !defined(BUILDING_WITH_CMAKE)
-#import <WebKit/WebKit.h>
-#endif
-#endif
-
 #if !PLATFORM(IOS_FAMILY) && !defined(BUILDING_JSCONLY__)
 #define WK_HAVE_C_SPI 1
+#endif
+
+#if !PLATFORM(APPLETV) && !PLATFORM(MACCATALYST)
+#define HAVE_SSL 1
+#endif
+
+#if PLATFORM(MAC) || PLATFORM(IOS)
+#define HAVE_PDFKIT 1
+#endif
+
+#if (PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)) || (PLATFORM(MACCATALYST) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101600)
+#define HAVE_UIWEBVIEW 1
+#endif
+
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400) || PLATFORM(IOS)
+#define HAVE_NETWORK_FRAMEWORK 1
+#endif
+
+#if PLATFORM(COCOA) && !(PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101500)
+#define HAVE_TLS_PROTOCOL_VERSION_T 1
 #endif

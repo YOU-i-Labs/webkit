@@ -36,6 +36,8 @@ WI.DOMNode = class DOMNode extends WI.Object
     {
         super();
 
+        this._destroyed = false;
+
         this._domManager = domManager;
         this._isInShadowTree = isInShadowTree;
 
@@ -56,6 +58,19 @@ WI.DOMNode = class DOMNode extends WI.Object
         else
             this.ownerDocument = doc;
 
+        this._frame = null;
+
+        // COMPATIBILITY (iOS 12.2): DOM.Node.frameId was changed to represent the owner frame, not the content frame.
+        // Since support can't be tested directly, check for Audit (iOS 13.0+).
+        // FIXME: Use explicit version checking once https://webkit.org/b/148680 is fixed.
+        if (InspectorBackend.hasDomain("Audit")) {
+            if (payload.frameId)
+                this._frame = WI.networkManager.frameForIdentifier(payload.frameId);
+        }
+
+        if (!this._frame && this.ownerDocument)
+            this._frame = WI.networkManager.frameForIdentifier(this.ownerDocument.frameIdentifier);
+
         this._attributes = [];
         this._attributesMap = new Map;
         if (payload.attributes)
@@ -63,8 +78,6 @@ WI.DOMNode = class DOMNode extends WI.Object
 
         this._childNodeCount = payload.childNodeCount;
         this._children = null;
-        this._filteredChildren = null;
-        this._filteredChildrenNeedsUpdating = true;
 
         this._nextSibling = null;
         this._previousSibling = null;
@@ -116,9 +129,6 @@ WI.DOMNode = class DOMNode extends WI.Object
             this._renumber();
         }
 
-        if (payload.frameId)
-            this._frameIdentifier = payload.frameId;
-
         if (this._nodeType === Node.ELEMENT_NODE) {
             // HTML and BODY from internal iframes should not overwrite top-level ones.
             if (this.ownerDocument && !this.ownerDocument.documentElement && this._nodeName === "HTML")
@@ -139,9 +149,9 @@ WI.DOMNode = class DOMNode extends WI.Object
         }
 
         this._domEvents = [];
-        this._lowPowerRanges = [];
+        this._powerEfficientPlaybackRanges = [];
 
-        if (this._shouldListenForEventListeners())
+        if (this.isMediaElement())
             WI.DOMNode.addEventListener(WI.DOMNode.Event.DidFireEvent, this._handleDOMNodeDidFireEvent, this);
     }
 
@@ -178,37 +188,24 @@ WI.DOMNode = class DOMNode extends WI.Object
 
     // Public
 
+    get destroyed() { return this._destroyed; }
+    get frame() { return this._frame; }
+    get nextSibling() { return this._nextSibling; }
+    get previousSibling() { return this._previousSibling; }
+    get children() { return this._children; }
     get domEvents() { return this._domEvents; }
-    get lowPowerRanges() { return this._lowPowerRanges; }
+    get powerEfficientPlaybackRanges() { return this._powerEfficientPlaybackRanges; }
 
-    get frameIdentifier()
+    get attached()
     {
-        return this._frameIdentifier || this.ownerDocument.frameIdentifier;
-    }
+        if (this._destroyed)
+            return false;
 
-    get frame()
-    {
-        if (!this._frame)
-            this._frame = WI.networkManager.frameForIdentifier(this.frameIdentifier);
-        return this._frame;
-    }
-
-    get children()
-    {
-        if (!this._children)
-            return null;
-
-        if (WI.settings.showShadowDOM.value)
-            return this._children;
-
-        if (this._filteredChildrenNeedsUpdating) {
-            this._filteredChildrenNeedsUpdating = false;
-            this._filteredChildren = this._children.filter(function(node) {
-                return !node._isInShadowTree;
-            });
+        for (let node = this; node; node = node.parentNode) {
+            if (node.ownerDocument === node)
+                return true;
         }
-
-        return this._filteredChildren;
+        return false;
     }
 
     get firstChild()
@@ -231,49 +228,24 @@ WI.DOMNode = class DOMNode extends WI.Object
         return null;
     }
 
-    get nextSibling()
-    {
-        if (WI.settings.showShadowDOM.value)
-            return this._nextSibling;
-
-        var node = this._nextSibling;
-        while (node) {
-            if (!node._isInShadowTree)
-                return node;
-            node = node._nextSibling;
-        }
-        return null;
-    }
-
-    get previousSibling()
-    {
-        if (WI.settings.showShadowDOM.value)
-            return this._previousSibling;
-
-        var node = this._previousSibling;
-        while (node) {
-            if (!node._isInShadowTree)
-                return node;
-            node = node._previousSibling;
-        }
-        return null;
-    }
-
     get childNodeCount()
     {
         var children = this.children;
         if (children)
             return children.length;
 
-        if (WI.settings.showShadowDOM.value)
-            return this._childNodeCount + this._shadowRoots.length;
-
-        return this._childNodeCount;
+        return this._childNodeCount + this._shadowRoots.length;
     }
 
     set childNodeCount(count)
     {
         this._childNodeCount = count;
+    }
+
+    markDestroyed()
+    {
+        console.assert(!this._destroyed, this);
+        this._destroyed = true;
     }
 
     computedRole()
@@ -370,7 +342,14 @@ WI.DOMNode = class DOMNode extends WI.Object
 
     setNodeName(name, callback)
     {
-        DOMAgent.setNodeName(this.id, name, this._makeUndoableCallback(callback));
+        console.assert(!this._destroyed, this);
+        if (this._destroyed) {
+            callback("ERROR: node is destroyed");
+            return;
+        }
+
+        let target = WI.assumingMainTarget();
+        target.DOMAgent.setNodeName(this.id, name, this._makeUndoableCallback(callback));
     }
 
     localName()
@@ -425,7 +404,14 @@ WI.DOMNode = class DOMNode extends WI.Object
 
     setNodeValue(value, callback)
     {
-        DOMAgent.setNodeValue(this.id, value, this._makeUndoableCallback(callback));
+        console.assert(!this._destroyed, this);
+        if (this._destroyed) {
+            callback("ERROR: node is destroyed");
+            return;
+        }
+
+        let target = WI.assumingMainTarget();
+        target.DOMAgent.setNodeValue(this.id, value, this._makeUndoableCallback(callback));
     }
 
     getAttribute(name)
@@ -436,12 +422,26 @@ WI.DOMNode = class DOMNode extends WI.Object
 
     setAttribute(name, text, callback)
     {
-        DOMAgent.setAttributesAsText(this.id, text, name, this._makeUndoableCallback(callback));
+        console.assert(!this._destroyed, this);
+        if (this._destroyed) {
+            callback("ERROR: node is destroyed");
+            return;
+        }
+
+        let target = WI.assumingMainTarget();
+        target.DOMAgent.setAttributesAsText(this.id, text, name, this._makeUndoableCallback(callback));
     }
 
     setAttributeValue(name, value, callback)
     {
-        DOMAgent.setAttributeValue(this.id, name, value, this._makeUndoableCallback(callback));
+        console.assert(!this._destroyed, this);
+        if (this._destroyed) {
+            callback("ERROR: node is destroyed");
+            return;
+        }
+
+        let target = WI.assumingMainTarget();
+        target.DOMAgent.setAttributeValue(this.id, name, value, this._makeUndoableCallback(callback));
     }
 
     attributes()
@@ -451,6 +451,12 @@ WI.DOMNode = class DOMNode extends WI.Object
 
     removeAttribute(name, callback)
     {
+        console.assert(!this._destroyed, this);
+        if (this._destroyed) {
+            callback("ERROR: node is destroyed");
+            return;
+        }
+
         function mycallback(error, success)
         {
             if (!error) {
@@ -465,7 +471,9 @@ WI.DOMNode = class DOMNode extends WI.Object
 
             this._makeUndoableCallback(callback)(error);
         }
-        DOMAgent.removeAttribute(this.id, name, mycallback.bind(this));
+
+        let target = WI.assumingMainTarget();
+        target.DOMAgent.removeAttribute(this.id, name, mycallback.bind(this));
     }
 
     toggleClass(className, flag)
@@ -491,6 +499,60 @@ WI.DOMNode = class DOMNode extends WI.Object
         });
     }
 
+    querySelector(selector, callback)
+    {
+        console.assert(!this._destroyed, this);
+
+        let target = WI.assumingMainTarget();
+
+        if (typeof callback !== "function") {
+            if (this._destroyed)
+                return Promise.reject("ERROR: node is destroyed");
+            return target.DOMAgent.querySelector(this.id, selector).then(({nodeId}) => nodeId);
+        }
+
+        if (this._destroyed) {
+            callback("ERROR: node is destroyed");
+            return;
+        }
+
+        target.DOMAgent.querySelector(this.id, selector, WI.DOMManager.wrapClientCallback(callback));
+    }
+
+    querySelectorAll(selector, callback)
+    {
+        console.assert(!this._destroyed, this);
+
+        let target = WI.assumingMainTarget();
+
+        if (typeof callback !== "function") {
+            if (this._destroyed)
+                return Promise.reject("ERROR: node is destroyed");
+            return target.DOMAgent.querySelectorAll(this.id, selector).then(({nodeIds}) => nodeIds);
+        }
+
+        if (this._destroyed) {
+            callback("ERROR: node is destroyed");
+            return;
+        }
+
+        target.DOMAgent.querySelectorAll(this.id, selector, WI.DOMManager.wrapClientCallback(callback));
+    }
+
+    highlight(mode)
+    {
+        if (this._destroyed)
+            return;
+
+        if (this._hideDOMNodeHighlightTimeout) {
+            clearTimeout(this._hideDOMNodeHighlightTimeout);
+            this._hideDOMNodeHighlightTimeout = undefined;
+        }
+
+        let target = WI.assumingMainTarget();
+        target.DOMAgent.highlightNode(WI.DOMManager.buildHighlightConfig(mode), this.id);
+    }
+
     scrollIntoView()
     {
         WI.RemoteObject.resolveNode(this).then((object) => {
@@ -511,42 +573,82 @@ WI.DOMNode = class DOMNode extends WI.Object
             return;
         }
 
+        if (this._destroyed) {
+            callback(this.children);
+            return;
+        }
+
         function mycallback(error) {
             if (!error && callback)
                 callback(this.children);
         }
 
-        DOMAgent.requestChildNodes(this.id, mycallback.bind(this));
+        let target = WI.assumingMainTarget();
+        target.DOMAgent.requestChildNodes(this.id, mycallback.bind(this));
     }
 
     getSubtree(depth, callback)
     {
+        if (this._destroyed) {
+            callback(this.children);
+            return;
+        }
+
         function mycallback(error)
         {
             if (callback)
                 callback(error ? null : this.children);
         }
 
-        DOMAgent.requestChildNodes(this.id, depth, mycallback.bind(this));
+        let target = WI.assumingMainTarget();
+        target.DOMAgent.requestChildNodes(this.id, depth, mycallback.bind(this));
     }
 
     getOuterHTML(callback)
     {
-        DOMAgent.getOuterHTML(this.id, callback);
+        console.assert(!this._destroyed, this);
+
+        let target = WI.assumingMainTarget();
+
+        if (typeof callback !== "function") {
+            if (this._destroyed)
+                return Promise.reject("ERROR: node is destroyed");
+            return target.DOMAgent.getOuterHTML(this.id).then(({outerHTML}) => outerHTML);
+        }
+
+        if (this._destroyed) {
+            callback("ERROR: node is destroyed");
+            return;
+        }
+
+        target.DOMAgent.getOuterHTML(this.id, callback);
     }
 
     setOuterHTML(html, callback)
     {
-        DOMAgent.setOuterHTML(this.id, html, this._makeUndoableCallback(callback));
+        console.assert(!this._destroyed, this);
+        if (this._destroyed) {
+            callback("ERROR: node is destroyed");
+            return;
+        }
+
+        let target = WI.assumingMainTarget();
+        target.DOMAgent.setOuterHTML(this.id, html, this._makeUndoableCallback(callback));
     }
 
     insertAdjacentHTML(position, html)
     {
+        console.assert(!this._destroyed, this);
+        if (this._destroyed)
+            return;
+
         if (this.nodeType() !== Node.ELEMENT_NODE)
             return;
 
+        let target = WI.assumingMainTarget();
+
         // COMPATIBILITY (iOS 11.0): DOM.insertAdjacentHTML did not exist.
-        if (!DOMAgent.insertAdjacentHTML) {
+        if (!target.hasCommand("DOM.insertAdjacentHTML")) {
             WI.RemoteObject.resolveNode(this).then((object) => {
                 function inspectedPage_node_insertAdjacentHTML(position, html) {
                     this.insertAdjacentHTML(position, html);
@@ -558,31 +660,43 @@ WI.DOMNode = class DOMNode extends WI.Object
             return;
         }
 
-        DOMAgent.insertAdjacentHTML(this.id, position, html, this._makeUndoableCallback());
+        target.DOMAgent.insertAdjacentHTML(this.id, position, html, this._makeUndoableCallback());
     }
 
     removeNode(callback)
     {
-        DOMAgent.removeNode(this.id, this._makeUndoableCallback(callback));
-    }
-
-    copyNode()
-    {
-        function copy(error, text)
-        {
-            if (!error)
-                InspectorFrontendHost.copyText(text);
+        console.assert(!this._destroyed, this);
+        if (this._destroyed) {
+            callback("ERROR: node is destroyed");
+            return;
         }
-        DOMAgent.getOuterHTML(this.id, copy);
+
+        let target = WI.assumingMainTarget();
+        target.DOMAgent.removeNode(this.id, this._makeUndoableCallback(callback));
     }
 
     getEventListeners(callback)
     {
-        DOMAgent.getEventListenersForNode(this.id, callback);
+        console.assert(!this._destroyed, this);
+        if (this._destroyed) {
+            callback("ERROR: node is destroyed");
+            return;
+        }
+
+        console.assert(WI.domManager.inspectedNode === this);
+
+        let target = WI.assumingMainTarget();
+        target.DOMAgent.getEventListenersForNode(this.id, callback);
     }
 
     accessibilityProperties(callback)
     {
+        console.assert(!this._destroyed, this);
+        if (this._destroyed) {
+            callback({});
+            return;
+        }
+
         function accessibilityPropertiesCallback(error, accessibilityProperties)
         {
             if (!error && callback && accessibilityProperties) {
@@ -624,7 +738,9 @@ WI.DOMNode = class DOMNode extends WI.Object
                 });
             }
         }
-        DOMAgent.getAccessibilityPropertiesForNode(this.id, accessibilityPropertiesCallback.bind(this));
+
+        let target = WI.assumingMainTarget();
+        target.DOMAgent.getAccessibilityPropertiesForNode(this.id, accessibilityPropertiesCallback.bind(this));
     }
 
     path()
@@ -739,6 +855,12 @@ WI.DOMNode = class DOMNode extends WI.Object
         return !!this.ownerSVGElement;
     }
 
+    isMediaElement()
+    {
+        let lowerCaseName = this.localName() || this.nodeName().toLowerCase();
+        return lowerCaseName === "video" || lowerCaseName === "audio";
+    }
+
     didFireEvent(eventName, timestamp, data)
     {
         // Called from WI.DOMManager.
@@ -750,30 +872,30 @@ WI.DOMNode = class DOMNode extends WI.Object
         });
     }
 
-    videoLowPowerChanged(timestamp, isLowPower)
+    powerEfficientPlaybackStateChanged(timestamp, isPowerEfficient)
     {
         // Called from WI.DOMManager.
 
-        console.assert(this.canEnterLowPowerMode());
+        console.assert(this.canEnterPowerEfficientPlaybackState());
 
-        let lastValue = this._lowPowerRanges.lastValue;
+        let lastValue = this._powerEfficientPlaybackRanges.lastValue;
 
-        if (isLowPower) {
+        if (isPowerEfficient) {
             console.assert(!lastValue || lastValue.endTimestamp);
             if (!lastValue || lastValue.endTimestamp)
-                this._lowPowerRanges.push({startTimestamp: timestamp});
+                this._powerEfficientPlaybackRanges.push({startTimestamp: timestamp});
         } else {
             console.assert(!lastValue || lastValue.startTimestamp);
             if (!lastValue)
-                this._lowPowerRanges.push({endTimestamp: timestamp});
+                this._powerEfficientPlaybackRanges.push({endTimestamp: timestamp});
             else if (lastValue.startTimestamp)
                 lastValue.endTimestamp = timestamp;
         }
 
-        this.dispatchEventToListeners(WI.DOMNode.Event.LowPowerChanged, {isLowPower, timestamp});
+        this.dispatchEventToListeners(DOMNode.Event.PowerEfficientPlaybackStateChanged, {isPowerEfficient, timestamp});
     }
 
-    canEnterLowPowerMode()
+    canEnterPowerEfficientPlaybackState()
     {
         return this.localName() === "video" || this.nodeName().toLowerCase() === "video";
     }
@@ -794,12 +916,6 @@ WI.DOMNode = class DOMNode extends WI.Object
         this._domEvents.push(domEvent);
 
         this.dispatchEventToListeners(WI.DOMNode.Event.DidFireEvent, {domEvent});
-    }
-
-    _shouldListenForEventListeners()
-    {
-        let lowerCaseName = this.localName() || this.nodeName().toLowerCase();
-        return lowerCaseName === "video" || lowerCaseName === "audio";
     }
 
     _setAttributesPayload(attrs)
@@ -854,8 +970,6 @@ WI.DOMNode = class DOMNode extends WI.Object
 
     _renumber()
     {
-        this._filteredChildrenNeedsUpdating = true;
-
         var childNodeCount = this._children.length;
         if (childNodeCount === 0)
             return;
@@ -896,7 +1010,14 @@ WI.DOMNode = class DOMNode extends WI.Object
 
     moveTo(targetNode, anchorNode, callback)
     {
-        DOMAgent.moveTo(this.id, targetNode.id, anchorNode ? anchorNode.id : undefined, this._makeUndoableCallback(callback));
+        console.assert(!this._destroyed, this);
+        if (this._destroyed) {
+            callback("ERROR: node is destroyed");
+            return;
+        }
+
+        let target = WI.assumingMainTarget();
+        target.DOMAgent.moveTo(this.id, targetNode.id, anchorNode ? anchorNode.id : undefined, this._makeUndoableCallback(callback));
     }
 
     isXMLNode()
@@ -928,18 +1049,20 @@ WI.DOMNode = class DOMNode extends WI.Object
                 this.dispatchEventToListeners(WI.DOMNode.Event.EnabledPseudoClassesChanged);
         }
 
-        CSSAgent.forcePseudoState(this.id, pseudoClasses, changed.bind(this));
+        let target = WI.assumingMainTarget();
+        target.CSSAgent.forcePseudoState(this.id, pseudoClasses, changed.bind(this));
     }
 
     _makeUndoableCallback(callback)
     {
-        return function(error)
-        {
-            if (!error)
-                DOMAgent.markUndoableState();
+        return (...args) => {
+            if (!args[0]) { // error
+                let target = WI.assumingMainTarget();
+                target.DOMAgent.markUndoableState();
+            }
 
             if (callback)
-                callback.apply(null, arguments);
+                callback.apply(null, args);
         };
     }
 };
@@ -950,7 +1073,7 @@ WI.DOMNode.Event = {
     AttributeRemoved: "dom-node-attribute-removed",
     EventListenersChanged: "dom-node-event-listeners-changed",
     DidFireEvent: "dom-node-did-fire-event",
-    LowPowerChanged: "dom-node-video-low-power-changed",
+    PowerEfficientPlaybackStateChanged: "dom-node-power-efficient-playback-state-changed",
 };
 
 WI.DOMNode.PseudoElementType = {

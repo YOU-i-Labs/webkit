@@ -23,6 +23,7 @@
 #include "WebKitDOMNodePrivate.h"
 #include "WebKitFramePrivate.h"
 #include "WebKitScriptWorldPrivate.h"
+#include <JavaScriptCore/JSGlobalObjectInlines.h>
 #include <JavaScriptCore/JSLock.h>
 #include <WebCore/Frame.h>
 #include <WebCore/JSNode.h>
@@ -56,6 +57,25 @@ WebKitFrame* webkitFrameCreate(WebFrame* webFrame)
 WebFrame* webkitFrameGetWebFrame(WebKitFrame* frame)
 {
     return frame->priv->webFrame.get();
+}
+
+/**
+ * webkit_frame_get_id:
+ * @frame: a #WebKitFrame
+ *
+ * Gets the process-unique identifier of this #WebKitFrame. No other
+ * frame in the same web process will have the same ID; however, frames
+ * in other web processes may.
+ *
+ * Returns: the identifier of @frame
+ *
+ * Since: 2.26
+ */
+guint64 webkit_frame_get_id(WebKitFrame* frame)
+{
+    g_return_val_if_fail(WEBKIT_IS_FRAME(frame), 0);
+
+    return frame->priv->webFrame->frameID().toUInt64();
 }
 
 /**
@@ -215,12 +235,11 @@ JSCValue* webkit_frame_get_js_value_for_dom_object_in_script_world(WebKitFrame* 
     auto* wkWorld = webkitScriptWorldGetInjectedBundleScriptWorld(world);
     auto jsContext = jscContextGetOrCreate(frame->priv->webFrame->jsContextForWorld(wkWorld));
     JSDOMWindow* globalObject = frame->priv->webFrame->coreFrame()->script().globalObject(wkWorld->coreWorld());
-    JSC::ExecState* exec = globalObject->globalExec();
     JSValueRef jsValue = nullptr;
     {
-        JSC::JSLockHolder lock(exec);
+        JSC::JSLockHolder lock(globalObject);
         if (WEBKIT_DOM_IS_NODE(domObject))
-            jsValue = toRef(exec, toJS(exec, globalObject, WebKit::core(WEBKIT_DOM_NODE(domObject))));
+            jsValue = toRef(globalObject, toJS(globalObject, globalObject, WebKit::core(WEBKIT_DOM_NODE(domObject))));
     }
 
     return jsValue ? jscContextGetOrCreateValue(jsContext.get(), jsValue).leakRef() : nullptr;

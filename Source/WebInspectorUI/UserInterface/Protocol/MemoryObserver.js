@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.MemoryObserver = class MemoryObserver
+WI.MemoryObserver = class MemoryObserver extends InspectorBackend.Dispatcher
 {
     // Events defined by the "Memory" domain.
 
@@ -42,8 +42,8 @@ WI.MemoryObserver = class MemoryObserver
         WI.timelineManager.memoryTrackingUpdated(event);
     }
 
-    trackingComplete()
+    trackingComplete(timestamp)
     {
-        WI.timelineManager.memoryTrackingCompleted();
+        WI.timelineManager.memoryTrackingCompleted(timestamp);
     }
 };

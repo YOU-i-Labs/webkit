@@ -111,6 +111,10 @@ struct FrameState {
 #endif
 
     Vector<FrameState> children;
+
+    // This is only used to help debug <rdar://problem/48634553>.
+    bool isDestructed { false };
+    ~FrameState() { isDestructed = true; }
 };
 
 struct PageState {
@@ -133,6 +137,7 @@ struct BackForwardListItemState {
 #if PLATFORM(COCOA) || PLATFORM(GTK)
     RefPtr<ViewSnapshot> snapshot;
 #endif
+    bool hasCachedPage { false };
 };
 
 struct BackForwardListState {

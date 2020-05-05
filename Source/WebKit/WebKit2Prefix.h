@@ -32,32 +32,36 @@
 
 #if PLATFORM(COCOA)
 
-#define ENABLE_SANDBOX_EXTENSIONS 1
-
-#define ENABLE_WEB_PROCESS_SANDBOX 1
-
-#define ENABLE_MEMORY_SAMPLER 1
-
-#define ENABLE_SHAREABLE_RESOURCE 1
-
 #define _WKImmediateActionType _WKImmediateActionType
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreGraphics/CoreGraphics.h>
 
 #ifdef __OBJC__
+#if !USE(APPLE_INTERNAL_SDK)
+/* SecTask.h declares SecTaskGetCodeSignStatus(...) to
+ * be unavailable on macOS, so do not include that header. */
+#define _SECURITY_SECTASK_H_
+#endif
 #import <Foundation/Foundation.h>
 #if USE(APPKIT)
 #import <Cocoa/Cocoa.h>
-#import <wtf/mac/AppKitCompatibilityDeclarations.h>
 #endif
-#endif
+#endif // __OBJC__
 
+#ifdef BUILDING_WITH_CMAKE
+#ifndef JSC_API_AVAILABLE
+#define JSC_API_AVAILABLE(...)
 #endif
+#ifndef JSC_CLASS_AVAILABLE
+#define JSC_CLASS_AVAILABLE(...) JS_EXPORT
+#endif
+#ifndef JSC_API_DEPRECATED
+#define JSC_API_DEPRECATED(...)
+#endif
+#endif // BUILDING_WITH_CMAKE
 
-#if PLATFORM(GTK) || PLATFORM(WPE)
-#define ENABLE_SHAREABLE_RESOURCE 1
-#endif
+#endif // PLATFORM(COCOA)
 
 /* When C++ exceptions are disabled, the C++ library defines |try| and |catch|
 * to allow C++ code that expects exceptions to build. These definitions
@@ -77,4 +81,3 @@
 #define new ("if you use new/delete make sure to include config.h at the top of the file"()) 
 #define delete ("if you use new/delete make sure to include config.h at the top of the file"()) 
 #endif
-

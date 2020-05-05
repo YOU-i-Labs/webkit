@@ -88,10 +88,8 @@ WI.BreakpointPopoverController = class BreakpointPopoverController extends WI.Ob
         if (!breakpoint.autoContinue && !breakpoint.disabled && breakpoint.actions.length)
             contextMenu.appendItem(WI.UIString("Set to Automatically Continue"), toggleAutoContinue);
 
-        if (WI.debuggerManager.isBreakpointRemovable(breakpoint)) {
-            contextMenu.appendSeparator();
+        if (WI.debuggerManager.isBreakpointRemovable(breakpoint))
             contextMenu.appendItem(WI.UIString("Delete Breakpoint"), removeBreakpoint);
-        }
 
         if (breakpoint._sourceCodeLocation.hasMappedLocation()) {
             contextMenu.appendSeparator();
@@ -170,10 +168,10 @@ WI.BreakpointPopoverController = class BreakpointPopoverController extends WI.Ob
             this._conditionCodeMirror.focus();
         }, 0);
 
-        // COMPATIBILITY (iOS 9): Legacy backends don't support breakpoint ignore count. Since support
-        // can't be tested directly, check for CSS.getSupportedSystemFontFamilyNames.
+        // COMPATIBILITY (iOS 9): Legacy backends don't support breakpoint ignore count.
+        // Since support can't be tested directly, check for Runtime.run (iOS 9.3) or Console.heapSnapshot (iOS 10.0+).
         // FIXME: Use explicit version checking once https://webkit.org/b/148680 is fixed.
-        if (InspectorBackend.domains.CSS.getSupportedSystemFontFamilyNames) {
+        if (InspectorBackend.hasCommand("Console.heapSnapshot") || InspectorBackend.hasCommand("Runtime.run")) {
             let ignoreCountRow = table.appendChild(document.createElement("tr"));
             let ignoreCountHeader = ignoreCountRow.appendChild(document.createElement("th"));
             let ignoreCountLabel = ignoreCountHeader.appendChild(document.createElement("label"));
@@ -211,8 +209,12 @@ WI.BreakpointPopoverController = class BreakpointPopoverController extends WI.Ob
         let optionsRow = this._popoverOptionsRowElement = table.appendChild(document.createElement("tr"));
         if (!this._breakpoint.actions.length)
             optionsRow.classList.add(WI.BreakpointPopoverController.HiddenStyleClassName);
+
         let optionsHeader = optionsRow.appendChild(document.createElement("th"));
+
         let optionsData = optionsRow.appendChild(document.createElement("td"));
+        optionsData.className = "options";
+
         let optionsLabel = optionsHeader.appendChild(document.createElement("label"));
         let optionsCheckbox = this._popoverOptionsCheckboxElement = optionsData.appendChild(document.createElement("input"));
         let optionsCheckboxLabel = optionsData.appendChild(document.createElement("label"));
@@ -223,6 +225,8 @@ WI.BreakpointPopoverController = class BreakpointPopoverController extends WI.Ob
         optionsLabel.textContent = WI.UIString("Options");
         optionsCheckboxLabel.setAttribute("for", optionsCheckbox.id);
         optionsCheckboxLabel.textContent = WI.UIString("Automatically continue after evaluating");
+
+        optionsData.appendChild(WI.createReferencePageLink("javascript-breakpoints", "configuration"));
 
         this._popoverContentElement.appendChild(checkboxLabel);
         this._popoverContentElement.appendChild(table);
@@ -284,6 +288,8 @@ WI.BreakpointPopoverController = class BreakpointPopoverController extends WI.Ob
         let addActionButton = this._actionsContainer.appendChild(document.createElement("button"));
         addActionButton.textContent = WI.UIString("Add Action");
         addActionButton.addEventListener("click", this._popoverActionsAddActionButtonClicked.bind(this));
+
+        this._actionsContainer.appendChild(WI.createReferencePageLink("javascript-breakpoints", "configuration"));
     }
 
     _popoverActionsAddActionButtonClicked(event)
@@ -291,7 +297,7 @@ WI.BreakpointPopoverController = class BreakpointPopoverController extends WI.Ob
         this._popoverContentElement.classList.add(WI.BreakpointPopoverController.WidePopoverClassName);
         this._actionsContainer.removeChildren();
 
-        let newAction = this._breakpoint.createAction(WI.Breakpoint.DefaultBreakpointActionType);
+        let newAction = this._breakpoint.createAction(WI.BreakpointAction.Type.Log);
         let newBreakpointActionView = new WI.BreakpointActionView(newAction, this);
         this._popoverActionsInsertBreakpointActionView(newBreakpointActionView, -1);
         this._popoverOptionsRowElement.classList.remove(WI.BreakpointPopoverController.HiddenStyleClassName);

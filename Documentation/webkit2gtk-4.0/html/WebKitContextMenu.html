@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="webkit2gtk-4.0-WebKitVersion.html" title="WebKitVersion">
 <link rel="next" href="WebKitContextMenuItem.html" title="WebKitContextMenuItem">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.32.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -28,7 +28,7 @@
 <div class="refnamediv"><table width="100%"><tr>
 <td valign="top">
 <h2><span class="refentrytitle"><a name="WebKitContextMenu.top_of_page"></a>WebKitContextMenu</span></h2>
-<p>WebKitContextMenu — Represents the context menu in a <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a></p>
+<p>WebKitContextMenu — Represents the context menu in a <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a></p>
 </td>
 <td class="gallery_image" valign="top" align="right"></td>
 </tr></table></div>
@@ -36,8 +36,8 @@
 <a name="WebKitContextMenu.functions"></a><h2>Functions</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="functions_return">
-<col class="functions_name">
+<col width="150px" class="functions_proto_type">
+<col class="functions_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -167,8 +167,8 @@
 <a name="WebKitContextMenu.other"></a><h2>Types and Values</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="name">
-<col class="description">
+<col width="150px" class="other_proto_type">
+<col class="other_proto_name">
 </colgroup>
 <tbody><tr>
 <td class="datatype_keyword"> </td>
@@ -185,8 +185,8 @@
 <div class="refsect1">
 <a name="WebKitContextMenu.description"></a><h2>Description</h2>
 <p><a class="link" href="WebKitContextMenu.html" title="WebKitContextMenu"><span class="type">WebKitContextMenu</span></a> represents a context menu containing
-<a class="link" href="WebKitContextMenuItem.html" title="WebKitContextMenuItem"><span class="type">WebKitContextMenuItem</span></a>s in a <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a>.</p>
-<p>When a <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> is about to display the context menu, it
+<a class="link" href="WebKitContextMenuItem.html" title="WebKitContextMenuItem"><span class="type">WebKitContextMenuItem</span></a>s in a <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a>.</p>
+<p>When a <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a> is about to display the context menu, it
 emits the <a class="link" href="WebKitWebView.html#WebKitWebView-context-menu" title="The “context-menu” signal"><span class="type">“context-menu”</span></a> signal, which has the
 <a class="link" href="WebKitContextMenu.html" title="WebKitContextMenu"><span class="type">WebKitContextMenu</span></a> as an argument. You can modify it, adding new
 submenus that you can create with <a class="link" href="WebKitContextMenu.html#webkit-context-menu-new" title="webkit_context_menu_new ()"><code class="function">webkit_context_menu_new()</code></a>, adding
@@ -202,7 +202,7 @@ existing ones with <a class="link" href="WebKitContextMenu.html#webkit-context-m
 <pre class="programlisting"><a class="link" href="WebKitContextMenu.html" title="WebKitContextMenu"><span class="returnvalue">WebKitContextMenu</span></a> *
 webkit_context_menu_new (<em class="parameter"><code><span class="type">void</span></code></em>);</pre>
 <p>Creates a new <a class="link" href="WebKitContextMenu.html" title="WebKitContextMenu"><span class="type">WebKitContextMenu</span></a> object to be used as a submenu of an existing
-<a class="link" href="WebKitContextMenu.html" title="WebKitContextMenu"><span class="type">WebKitContextMenu</span></a>. The context menu of a <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> is created by the view
+<a class="link" href="WebKitContextMenu.html" title="WebKitContextMenu"><span class="type">WebKitContextMenu</span></a>. The context menu of a <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a> is created by the view
 and passed as an argument of <a class="link" href="WebKitWebView.html#WebKitWebView-context-menu" title="The “context-menu” signal"><span class="type">“context-menu”</span></a> signal.
 To add items to the menu use <a class="link" href="WebKitContextMenu.html#webkit-context-menu-prepend" title="webkit_context_menu_prepend ()"><code class="function">webkit_context_menu_prepend()</code></a>,
 <a class="link" href="WebKitContextMenu.html#webkit-context-menu-append" title="webkit_context_menu_append ()"><code class="function">webkit_context_menu_append()</code></a> or <a class="link" href="WebKitContextMenu.html#webkit-context-menu-insert" title="webkit_context_menu_insert ()"><code class="function">webkit_context_menu_insert()</code></a>.
@@ -685,6 +685,6 @@ doesn't have user data. </p>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.32.1</div>
 </body>
 </html>

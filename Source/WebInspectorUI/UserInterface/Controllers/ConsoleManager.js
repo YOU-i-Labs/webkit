@@ -34,6 +34,7 @@ WI.ConsoleManager = class ConsoleManager extends WI.Object
 
         this._clearMessagesRequested = false;
         this._isNewPageOrReload = false;
+        this._remoteObjectsToRelease = null;
 
         WI.Frame.addEventListener(WI.Frame.Event.MainResourceDidChange, this._mainResourceDidChange, this);
 
@@ -45,7 +46,7 @@ WI.ConsoleManager = class ConsoleManager extends WI.Object
 
     static supportsLogChannels()
     {
-        return !!ConsoleAgent.getLoggingChannels;
+        return InspectorBackend.hasCommand("Console.getLoggingChannels");
     }
 
     static issueMatchSourceCode(issue, sourceCode)
@@ -77,10 +78,17 @@ WI.ConsoleManager = class ConsoleManager extends WI.Object
         return issues;
     }
 
+    releaseRemoteObjectWithConsoleClear(remoteObject)
+    {
+        if (!this._remoteObjectsToRelease)
+            this._remoteObjectsToRelease = new Set;
+        this._remoteObjectsToRelease.add(remoteObject);
+    }
+
+    // ConsoleObserver
+
     messageWasAdded(target, source, level, text, type, url, line, column, repeatCount, parameters, stackTrace, requestId)
     {
-        // Called from WI.ConsoleObserver.
-
         // FIXME: Get a request from request ID.
 
         if (parameters)
@@ -100,7 +108,11 @@ WI.ConsoleManager = class ConsoleManager extends WI.Object
 
     messagesCleared()
     {
-        // Called from WI.ConsoleObserver.
+        if (this._remoteObjectsToRelease) {
+            for (let remoteObject of this._remoteObjectsToRelease)
+                remoteObject.release();
+            this._remoteObjectsToRelease = null;
+        }
 
         WI.ConsoleCommandResultMessage.clearMaximumSavedResultIndex();
 
@@ -120,6 +132,43 @@ WI.ConsoleManager = class ConsoleManager extends WI.Object
         }
     }
 
+    messageRepeatCountUpdated(count)
+    {
+        this.dispatchEventToListeners(WI.ConsoleManager.Event.PreviousMessageRepeatCountUpdated, {count});
+    }
+
+    requestClearMessages()
+    {
+        this._clearMessagesRequested = true;
+
+        for (let target of WI.targets)
+            target.ConsoleAgent.clearMessages();
+    }
+
+    initializeLogChannels(target)
+    {
+        console.assert(target.hasDomain("Console"));
+
+        if (!WI.ConsoleManager.supportsLogChannels())
+            return;
+
+        if (this._loggingChannelSources.length)
+            return;
+
+        this._loggingChannelSources = [WI.ConsoleMessage.MessageSource.Media, WI.ConsoleMessage.MessageSource.WebRTC, WI.ConsoleMessage.MessageSource.MediaSource];
+
+        target.ConsoleAgent.getLoggingChannels((error, channels) => {
+            if (error)
+                return;
+
+            console.assert(channels.every((channel) => this._loggingChannelSources.includes(channel.source)));
+
+            this._customLoggingChannels = channels.map(WI.LoggingChannel.fromPayload);
+        });
+    }
+
+    // Private
+
     _delayedMessagesCleared()
     {
         if (this._isNewPageOrReload) {
@@ -134,45 +183,6 @@ WI.ConsoleManager = class ConsoleManager extends WI.Object
         // A console.clear() or command line clear() happened.
         this.dispatchEventToListeners(WI.ConsoleManager.Event.Cleared);
     }
-
-    messageRepeatCountUpdated(count)
-    {
-        // Called from WI.ConsoleObserver.
-
-        this.dispatchEventToListeners(WI.ConsoleManager.Event.PreviousMessageRepeatCountUpdated, {count});
-    }
-
-    requestClearMessages()
-    {
-        this._clearMessagesRequested = true;
-
-        for (let target of WI.targets)
-            target.ConsoleAgent.clearMessages();
-    }
-
-    initializeLogChannels(target)
-    {
-        console.assert(target.ConsoleAgent);
-
-        if (!WI.ConsoleManager.supportsLogChannels())
-            return;
-
-        if (this._loggingChannelSources.length)
-            return;
-
-        this._loggingChannelSources = [WI.ConsoleMessage.MessageSource.Media, WI.ConsoleMessage.MessageSource.WebRTC];
-
-        target.ConsoleAgent.getLoggingChannels((error, channels) => {
-            if (error)
-                return;
-
-            console.assert(channels.every((channel) => this._loggingChannelSources.includes(channel.source)));
-
-            this._customLoggingChannels = channels.map(WI.LoggingChannel.fromPayload);
-        });
-    }
-
-    // Private
 
     _mainResourceDidChange(event)
     {

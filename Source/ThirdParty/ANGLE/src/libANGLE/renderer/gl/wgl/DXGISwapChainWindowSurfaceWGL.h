@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2015 The ANGLE Project Authors. All rights reserved.
+// Copyright 2015 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -21,13 +21,12 @@ class FunctionsGL;
 class FunctionsWGL;
 class DisplayWGL;
 class StateManagerGL;
-struct WorkaroundsGL;
 
 class DXGISwapChainWindowSurfaceWGL : public SurfaceWGL
 {
   public:
     DXGISwapChainWindowSurfaceWGL(const egl::SurfaceState &state,
-                                  RendererGL *renderer,
+                                  StateManagerGL *stateManager,
                                   EGLNativeWindowType window,
                                   ID3D11Device *device,
                                   HANDLE deviceHandle,
@@ -38,7 +37,7 @@ class DXGISwapChainWindowSurfaceWGL : public SurfaceWGL
     ~DXGISwapChainWindowSurfaceWGL() override;
 
     egl::Error initialize(const egl::Display *display) override;
-    egl::Error makeCurrent() override;
+    egl::Error makeCurrent(const gl::Context *context) override;
 
     egl::Error swap(const gl::Context *context) override;
     egl::Error postSubBuffer(const gl::Context *context,
@@ -47,8 +46,10 @@ class DXGISwapChainWindowSurfaceWGL : public SurfaceWGL
                              EGLint width,
                              EGLint height) override;
     egl::Error querySurfacePointerANGLE(EGLint attribute, void **value) override;
-    egl::Error bindTexImage(gl::Texture *texture, EGLint buffer) override;
-    egl::Error releaseTexImage(EGLint buffer) override;
+    egl::Error bindTexImage(const gl::Context *context,
+                            gl::Texture *texture,
+                            EGLint buffer) override;
+    egl::Error releaseTexImage(const gl::Context *context, EGLint buffer) override;
     void setSwapInterval(EGLint interval) override;
 
     EGLint getWidth() const override;
@@ -57,7 +58,8 @@ class DXGISwapChainWindowSurfaceWGL : public SurfaceWGL
     EGLint isPostSubBufferSupported() const override;
     EGLint getSwapBehavior() const override;
 
-    FramebufferImpl *createDefaultFramebuffer(const gl::FramebufferState &data) override;
+    FramebufferImpl *createDefaultFramebuffer(const gl::Context *context,
+                                              const gl::FramebufferState &data) override;
 
     HDC getDC() const override;
 
@@ -70,8 +72,6 @@ class DXGISwapChainWindowSurfaceWGL : public SurfaceWGL
     EGLNativeWindowType mWindow;
 
     StateManagerGL *mStateManager;
-    const WorkaroundsGL &mWorkarounds;
-    RendererGL *mRenderer;
     const FunctionsGL *mFunctionsGL;
     const FunctionsWGL *mFunctionsWGL;
 
@@ -92,8 +92,6 @@ class DXGISwapChainWindowSurfaceWGL : public SurfaceWGL
     HANDLE mRenderbufferBufferHandle;
 
     GLuint mDepthRenderbufferID;
-
-    GLuint mFramebufferID;
 
     GLuint mTextureID;
     HANDLE mTextureHandle;

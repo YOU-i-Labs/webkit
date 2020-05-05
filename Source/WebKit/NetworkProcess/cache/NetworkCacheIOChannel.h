@@ -42,7 +42,7 @@ namespace NetworkCache {
 class IOChannel : public ThreadSafeRefCounted<IOChannel> {
 public:
     enum class Type { Read, Write, Create };
-    static Ref<IOChannel> open(const String& file, Type);
+    static Ref<IOChannel> open(const String& file, Type type, Optional<WorkQueue::QOS> qos = { }) { return adoptRef(*new IOChannel(file, type, qos)); }
 
     // Using nullptr as queue submits the result to the main queue.
     // FIXME: We should add WorkQueue::main() instead.
@@ -52,12 +52,16 @@ public:
     const String& path() const { return m_path; }
     Type type() const { return m_type; }
 
-    int fileDescriptor() const { return m_fileDescriptor; }
+#if !USE(SOUP)
+    bool isOpened() const { return FileSystem::isHandleValid(m_fileDescriptor); }
+#else
+    bool isOpened() const { return true; }
+#endif
 
     ~IOChannel();
 
 private:
-    IOChannel(const String& filePath, IOChannel::Type);
+    IOChannel(const String& filePath, IOChannel::Type, Optional<WorkQueue::QOS>);
 
 #if USE(SOUP)
     void readSyncInThread(size_t offset, size_t, WorkQueue*, Function<void (Data&, int error)>&&);
@@ -66,7 +70,9 @@ private:
     String m_path;
     Type m_type;
 
-    int m_fileDescriptor { 0 };
+#if !USE(SOUP)
+    FileSystem::PlatformFileHandle m_fileDescriptor { FileSystem::invalidPlatformFileHandle };
+#endif
     std::atomic<bool> m_wasDeleted { false }; // Try to narrow down a crash, https://bugs.webkit.org/show_bug.cgi?id=165659
 #if PLATFORM(COCOA)
     OSObjectPtr<dispatch_io_t> m_dispatchIO;

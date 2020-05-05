@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef APIObject_h
-#define APIObject_h
+#pragma once
 
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -37,7 +36,7 @@
 #endif
 #endif
 
-#define DELEGATE_REF_COUNTING_TO_COCOA (PLATFORM(COCOA) && WK_API_ENABLED)
+#define DELEGATE_REF_COUNTING_TO_COCOA PLATFORM(COCOA)
 
 #if DELEGATE_REF_COUNTING_TO_COCOA
 OBJC_CLASS NSObject;
@@ -72,6 +71,7 @@ public:
         ProtectionSpace,
         RenderLayer,
         RenderObject,
+        ResourceLoadInfo,
         SecurityOrigin,
         SessionState,
         SerializedScriptValue,
@@ -89,6 +89,7 @@ public:
         Boolean,
         Double,
         UInt64,
+        Int64,
         
         // Geometry types
         Point,
@@ -107,10 +108,17 @@ public:
         CacheManager,
         ColorPickerResultListener,
         ContentRuleList,
+        ContentRuleListAction,
         ContentRuleListStore,
+        ContentWorld,
+#if PLATFORM(IOS_FAMILY)
+        ContextMenuElementInfo,
+#endif
         ContextMenuListener,
         CookieManager,
+        CustomHeaderFields,
         InternalDebugFeature,
+        DebuggableInfo,
         Download,
         ExperimentalFeature,
         FormSubmissionListener,
@@ -128,6 +136,7 @@ public:
         Inspector,
         KeyValueStorageManager,
         MediaCacheManager,
+        MessageListener,
         Navigation,
         NavigationAction,
         NavigationData,
@@ -147,6 +156,8 @@ public:
         Preferences,
         RequestStorageAccessConfirmResultListener,
         ResourceLoadStatisticsStore,
+        ResourceLoadStatisticsFirstParty,
+        ResourceLoadStatisticsThirdParty,
         RunBeforeUnloadConfirmPanelResultListener,
         RunJavaScriptAlertResultListener,
         RunJavaScriptConfirmResultListener,
@@ -170,6 +181,11 @@ public:
 #if ENABLE(MEDIA_SESSION)
         MediaSessionFocusManager,
         MediaSessionMetadata,
+#endif
+
+#if ENABLE(WEB_AUTHN)
+        WebAuthenticationAssertionResponse,
+        WebAuthenticationPanel,
 #endif
 
         // Bundle types
@@ -225,7 +241,7 @@ public:
     static void* wrap(API::Object*);
     static API::Object* unwrap(void*);
 
-#if PLATFORM(COCOA) && WK_API_ENABLED && defined(__OBJC__)
+#if PLATFORM(COCOA) && defined(__OBJC__)
     static API::Object& fromWKObjectExtraSpace(id <WKObject>);
 #endif
 
@@ -282,5 +298,3 @@ inline API::Object* Object::unwrap(void* object)
 } // namespace Object
 
 #undef DELEGATE_REF_COUNTING_TO_COCOA
-
-#endif // APIObject_h

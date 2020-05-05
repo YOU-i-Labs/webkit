@@ -47,7 +47,7 @@ void WebDragClient::willPerformDragSourceAction(DragSourceAction, const IntPoint
 
 DragSourceAction WebDragClient::dragSourceActionMaskForPoint(const IntPoint&)
 {
-    return DragSourceActionAny;
+    return m_page->allowedDragSourceActions();
 }
 
 #if !PLATFORM(COCOA) && !PLATFORM(GTK)
@@ -59,11 +59,6 @@ void WebDragClient::didConcludeEditDrag()
 {
 }
 #endif
-
-void WebDragClient::dragControllerDestroyed()
-{
-    delete this;
-}
 
 } // namespace WebKit
 

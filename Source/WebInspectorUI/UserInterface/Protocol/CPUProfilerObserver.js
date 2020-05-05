@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.CPUProfilerObserver = class CPUProfilerObserver
+WI.CPUProfilerObserver = class CPUProfilerObserver extends InspectorBackend.Dispatcher
 {
     // Events defined by the "CPUProfiler" domain.
 
@@ -37,8 +37,8 @@ WI.CPUProfilerObserver = class CPUProfilerObserver
         WI.timelineManager.cpuProfilerTrackingUpdated(event);
     }
 
-    trackingComplete(samples)
+    trackingComplete(timestamp)
     {
-        WI.timelineManager.cpuProfilerTrackingCompleted(samples);
+        WI.timelineManager.cpuProfilerTrackingCompleted(timestamp);
     }
 };

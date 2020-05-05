@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2002-2013 The ANGLE Project Authors. All rights reserved.
+// Copyright 2002 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -14,16 +14,6 @@
 namespace sh
 {
 
-void InsertBuiltInFunctions(sh::GLenum type,
-                            ShShaderSpec spec,
-                            const ShBuiltInResources &resources,
-                            TSymbolTable &table);
-
-void IdentifyBuiltIns(sh::GLenum type,
-                      ShShaderSpec spec,
-                      const ShBuiltInResources &resources,
-                      TSymbolTable &symbolTable);
-
 void InitExtensionBehavior(const ShBuiltInResources &resources,
                            TExtensionBehavior &extensionBehavior);
 
@@ -31,7 +21,9 @@ void InitExtensionBehavior(const ShBuiltInResources &resources,
 // undefined state. These extensions will only be those initially supported in
 // the ShBuiltInResources object for this compiler instance. All other
 // extensions will remain unsupported.
-void ResetExtensionBehavior(TExtensionBehavior &extensionBehavior);
+void ResetExtensionBehavior(const ShBuiltInResources &resources,
+                            TExtensionBehavior &extensionBehavior,
+                            const ShCompileOptions compileOptions);
 
 }  // namespace sh
 

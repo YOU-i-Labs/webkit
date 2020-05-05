@@ -25,7 +25,7 @@
 
 WI.DataGrid = class DataGrid extends WI.View
 {
-    constructor(columnsData, editCallback, deleteCallback, preferredColumnOrder)
+    constructor(columnsData, {editCallback, copyCallback, deleteCallback, preferredColumnOrder} = {})
     {
         super();
 
@@ -109,6 +109,9 @@ WI.DataGrid = class DataGrid extends WI.View
             this._editCallback = editCallback;
         }
 
+        if (copyCallback)
+            this._copyCallback = copyCallback;
+
         if (deleteCallback)
             this._deleteCallback = deleteCallback;
 
@@ -168,13 +171,13 @@ WI.DataGrid = class DataGrid extends WI.View
             };
         }
 
-        var dataGrid = new WI.DataGrid(columnsData, undefined, undefined, columnNames);
+        let dataGrid = new WI.DataGrid(columnsData, {preferredColumnOrder: columnNames});
         for (var i = 0; i < values.length / numColumns; ++i) {
             var data = {};
             for (var j = 0; j < columnNames.length; ++j)
                 data[columnNames[j]] = values[numColumns * i + j];
 
-            var node = new WI.DataGridNode(data, false);
+            var node = new WI.DataGridNode(data);
             dataGrid.appendChild(node);
         }
 
@@ -386,6 +389,15 @@ WI.DataGrid = class DataGrid extends WI.View
         }
     }
 
+    startEditingNode(node)
+    {
+        console.assert(this._editCallback);
+        if (this._editing || this._editingNode)
+            return;
+
+        this._startEditingNodeAtColumnIndex(node, 0);
+    }
+
     _updateScrollListeners()
     {
         if (this._inline || this._variableHeightRows) {
@@ -513,22 +525,29 @@ WI.DataGrid = class DataGrid extends WI.View
     {
         console.assert(node, "Invalid argument: must provide DataGridNode to edit.");
 
+        this.updateLayoutIfNeeded();
+
         this._editing = true;
         this._editingNode = node;
         this._editingNode.select();
 
-        var element = this._editingNode._element.children[columnIndex];
+        var element = this._editingNode.element.children[columnIndex];
         WI.startEditing(element, this._startEditingConfig(element));
+
         window.getSelection().setBaseAndExtent(element, 0, element, 1);
     }
 
     _startEditing(target)
     {
-        var element = target.enclosingNodeOrSelfWithNodeName("td");
+        let element = target.closest("td");
         if (!element)
             return;
 
-        this._editingNode = this.dataGridNodeFromNode(target);
+        let node = this.dataGridNodeFromNode(target);
+        if (!node.editable)
+            return;
+
+        this._editingNode = node;
         if (!this._editingNode) {
             if (!this.placeholderNode)
                 return;
@@ -556,7 +575,9 @@ WI.DataGrid = class DataGrid extends WI.View
         var columnIndex = this.orderedColumns.indexOf(columnIdentifier);
 
         var textBeforeEditing = this._editingNode.data[columnIdentifier] || "";
+
         var currentEditingNode = this._editingNode;
+        currentEditingNode.data[columnIdentifier] = newText.trim();
 
         // Returns an object with the next node and column index to edit, and whether it
         // is an appropriate time to re-sort the table rows. When editing, we want to
@@ -595,8 +616,6 @@ WI.DataGrid = class DataGrid extends WI.View
 
         this._editingCancelled(element);
 
-        // Update table's data model, and delegate to the callback to update other models.
-        currentEditingNode.data[columnIdentifier] = newText.trim();
         this._editCallback(currentEditingNode, columnIdentifier, textBeforeEditing, newText, moveDirection);
 
         var textDidChange = textBeforeEditing.trim() !== newText.trim();
@@ -605,7 +624,7 @@ WI.DataGrid = class DataGrid extends WI.View
 
     _editingCancelled(element)
     {
-        console.assert(this._editingNode.element === element.enclosingNodeOrSelfWithNodeName("tr"));
+        console.assert(this._editingNode.element === element.closest("tr"));
 
         this._editingNode.refresh();
 
@@ -1123,7 +1142,8 @@ WI.DataGrid = class DataGrid extends WI.View
             this._bottomDataTableMarginElement.style.height = marginBottom + "px";
         }
 
-        this._dataTableElement.classList.toggle("odd-first-zebra-stripe", !!(topHiddenRowCount % 2));
+        // If there are an odd number of rows hidden, the first visible row must be an even row.
+        this._dataTableElement.classList.toggle("even-first-zebra-stripe", !!(topHiddenRowCount % 2));
 
         this.dataTableBodyElement.removeChildren();
 
@@ -1396,7 +1416,7 @@ WI.DataGrid = class DataGrid extends WI.View
         } else if (isEnterKey(event)) {
             if (this._editCallback) {
                 handled = true;
-                this._startEditing(this.selectedNode._element.children[0]);
+                this._startEditing(this.selectedNode.element.children[0]);
             }
         }
 
@@ -1438,20 +1458,20 @@ WI.DataGrid = class DataGrid extends WI.View
 
     dataGridNodeFromNode(target)
     {
-        var rowElement = target.enclosingNodeOrSelfWithNodeName("tr");
+        var rowElement = target.closest("tr");
         return rowElement && rowElement._dataGridNode;
     }
 
     dataGridNodeFromPoint(x, y)
     {
         var node = this._dataTableElement.ownerDocument.elementFromPoint(x, y);
-        var rowElement = node.enclosingNodeOrSelfWithNodeName("tr");
+        var rowElement = node.closest("tr");
         return rowElement && rowElement._dataGridNode;
     }
 
     _headerCellClicked(event)
     {
-        let cell = event.target.enclosingNodeOrSelfWithNodeName("th");
+        let cell = event.target.closest("th");
         if (!cell || !cell.columnIdentifier || !cell.classList.contains(WI.DataGrid.SortableColumnStyleClassName))
             return;
 
@@ -1461,7 +1481,7 @@ WI.DataGrid = class DataGrid extends WI.View
 
     _mouseoverColumnCollapser(event)
     {
-        var cell = event.target.enclosingNodeOrSelfWithNodeName("th");
+        var cell = event.target.closest("th");
         if (!cell || !cell.collapsesGroup)
             return;
 
@@ -1470,7 +1490,7 @@ WI.DataGrid = class DataGrid extends WI.View
 
     _mouseoutColumnCollapser(event)
     {
-        var cell = event.target.enclosingNodeOrSelfWithNodeName("th");
+        var cell = event.target.closest("th");
         if (!cell || !cell.collapsesGroup)
             return;
 
@@ -1479,7 +1499,7 @@ WI.DataGrid = class DataGrid extends WI.View
 
     _clickInColumnCollapser(event)
     {
-        var cell = event.target.enclosingNodeOrSelfWithNodeName("th");
+        var cell = event.target.closest("th");
         if (!cell || !cell.collapsesGroup)
             return;
 
@@ -1578,7 +1598,7 @@ WI.DataGrid = class DataGrid extends WI.View
         if (this._hasCopyableData())
             contextMenu.appendItem(WI.UIString("Copy Table"), this._copyTable.bind(this));
 
-        let headerCellElement = event.target.enclosingNodeOrSelfWithNodeName("th");
+        let headerCellElement = event.target.closest("th");
         if (!headerCellElement)
             return;
 
@@ -1646,15 +1666,15 @@ WI.DataGrid = class DataGrid extends WI.View
                 if (this.dataGrid._editCallback) {
                     if (gridNode === this.placeholderNode)
                         contextMenu.appendItem(WI.UIString("Add New"), this._startEditing.bind(this, event.target));
-                    else {
-                        let element = event.target.enclosingNodeOrSelfWithNodeName("td");
+                    else if (gridNode.editable) {
+                        let element = event.target.closest("td");
                         let columnIdentifier = element.__columnIdentifier;
                         let columnTitle = this.dataGrid.columns.get(columnIdentifier)["title"];
                         contextMenu.appendItem(WI.UIString("Edit \u201C%s\u201D").format(columnTitle), this._startEditing.bind(this, event.target));
                     }
                 }
 
-                if (this.dataGrid._deleteCallback && gridNode !== this.placeholderNode)
+                if (this.dataGrid._deleteCallback && gridNode !== this.placeholderNode && gridNode.editable)
                     contextMenu.appendItem(WI.UIString("Delete"), this._deleteCallback.bind(this, gridNode));
             }
 
@@ -1697,7 +1717,12 @@ WI.DataGrid = class DataGrid extends WI.View
 
     _copyTextForDataGridNode(node)
     {
-        let fields = node.dataGrid.orderedColumns.map((identifier) => this.textForDataGridNodeColumn(node, identifier));
+        let fields = node.dataGrid.orderedColumns.map((identifier) => {
+            let text = this.textForDataGridNodeColumn(node, identifier);
+            if (this._copyCallback)
+                text = this._copyCallback(node, identifier, text);
+            return text;
+        });
         return fields.join(this._copyTextDelimiter);
     }
 
@@ -1843,20 +1868,24 @@ WI.DataGrid = class DataGrid extends WI.View
         if (!this._rows.length)
             return;
 
-        this._textFilterRegex = simpleGlobStringToRegExp(this._filterText, "i");
+        this._textFilterRegex = this._filterText ? WI.SearchUtilities.regExpForString(this._filterText, WI.SearchUtilities.defaultSettings) : null;
 
         if (this._applyFilterToNodesTask && this._applyFilterToNodesTask.processing)
             this._applyFilterToNodesTask.cancel();
 
         function *createIteratorForNodesToBeFiltered()
         {
-            // Don't populate if we don't have any active filters.
-            // We only need to populate when a filter needs to reveal.
-            let dontPopulate = !this.hasFilters();
+            let hasFilters = this.hasFilters();
 
             let currentNode = this._rows[0];
             while (currentNode && !currentNode.root) {
                 yield currentNode;
+
+                // Don't populate if we don't have any active filters.
+                // We only need to populate when a filter needs to reveal.
+                let dontPopulate = !hasFilters;
+                if (hasFilters && this._filterDelegate && this._filterDelegate.dataGridMatchShouldPopulateWhenFilteringNode)
+                    dontPopulate = this._filterDelegate.dataGridMatchShouldPopulateWhenFilteringNode(currentNode);
                 currentNode = currentNode.traverseNextNode(false, null, dontPopulate);
             }
         }

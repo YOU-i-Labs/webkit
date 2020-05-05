@@ -27,12 +27,12 @@
 #include "WKWebsitePolicies.h"
 
 #include "APIDictionary.h"
-#include "APIWebsiteDataStore.h"
 #include "APIWebsitePolicies.h"
 #include "WKAPICast.h"
 #include "WKArray.h"
 #include "WKDictionary.h"
 #include "WKRetainPtr.h"
+#include "WebsiteDataStore.h"
 
 using namespace WebKit;
 
@@ -59,7 +59,7 @@ bool WKWebsitePoliciesGetContentBlockersEnabled(WKWebsitePoliciesRef websitePoli
 WK_EXPORT WKDictionaryRef WKWebsitePoliciesCopyCustomHeaderFields(WKWebsitePoliciesRef websitePolicies)
 {
     HashMap<WTF::String, RefPtr<API::Object>> fields;
-    for (const auto& field : toImpl(websitePolicies)->customHeaderFields())
+    for (const auto& field : toImpl(websitePolicies)->legacyCustomHeaderFields())
         fields.add(field.name(), API::String::create(field.value()));
     return toAPI(API::Dictionary::create(WTFMove(fields)).ptr());
 }
@@ -76,7 +76,7 @@ WK_EXPORT void WKWebsitePoliciesSetCustomHeaderFields(WKWebsitePoliciesRef websi
         if (field && startsWithLettersIgnoringASCIICase(field->name(), "x-"))
             fields.uncheckedAppend(WTFMove(*field));
     }
-    toImpl(websitePolicies)->setCustomHeaderFields(WTFMove(fields));
+    toImpl(websitePolicies)->setLegacyCustomHeaderFields(WTFMove(fields));
 }
 
 void WKWebsitePoliciesSetAllowedAutoplayQuirks(WKWebsitePoliciesRef websitePolicies, WKWebsiteAutoplayQuirk allowedQuirks)

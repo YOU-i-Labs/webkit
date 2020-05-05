@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitPolicyDecision.html" title="WebKitPolicyDecision">
 <link rel="next" href="WebKitResponsePolicyDecision.html" title="WebKitResponsePolicyDecision">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.32.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -37,8 +37,8 @@
 <a name="WebKitNavigationPolicyDecision.functions"></a><h2>Functions</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="functions_return">
-<col class="functions_name">
+<col width="150px" class="functions_proto_type">
+<col class="functions_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -140,8 +140,8 @@
 <a name="WebKitNavigationPolicyDecision.other"></a><h2>Types and Values</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="name">
-<col class="description">
+<col width="150px" class="other_proto_type">
+<col class="other_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -428,6 +428,7 @@ webkit_navigation_policy_decision_get_request
 the name of that frame. For example if the decision was triggered by clicking a
 link with a target attribute equal to "_blank", this property will contain the
 value of that attribute. In all other cases, this value will be <a href="../glib/glib-Standard-Macros.html#NULL:CAPS"><code class="literal">NULL</code></a>.</p>
+<p>Owner: WebKitNavigationPolicyDecision</p>
 <p>Flags: Read</p>
 <p>Default value: NULL</p>
 </div>
@@ -444,6 +445,7 @@ were active, the value of this property will be zero.</p>
 <p><code class="literal">WebKitNavigationPolicyDecision:modifiers</code> has been deprecated since version 2.6 and should not be used in newly-written code.</p>
 <p>Use <a class="link" href="WebKitNavigationPolicyDecision.html#WebKitNavigationPolicyDecision--navigation-action" title="The “navigation-action” property"><span class="type">“navigation-action”</span></a> instead</p>
 </div>
+<p>Owner: WebKitNavigationPolicyDecision</p>
 <p>Flags: Read</p>
 <p>Default value: 0</p>
 </div>
@@ -460,6 +462,7 @@ property will be 0.</p>
 <p><code class="literal">WebKitNavigationPolicyDecision:mouse-button</code> has been deprecated since version 2.6 and should not be used in newly-written code.</p>
 <p>Use <a class="link" href="WebKitNavigationPolicyDecision.html#WebKitNavigationPolicyDecision--navigation-action" title="The “navigation-action” property"><span class="type">“navigation-action”</span></a> instead</p>
 </div>
+<p>Owner: WebKitNavigationPolicyDecision</p>
 <p>Flags: Read</p>
 <p>Default value: 0</p>
 </div>
@@ -468,6 +471,7 @@ property will be 0.</p>
 <a name="WebKitNavigationPolicyDecision--navigation-action"></a><h3>The <code class="literal">“navigation-action”</code> property</h3>
 <pre class="programlisting">  “navigation-action”        <a class="link" href="WebKitNavigationAction.html" title="WebKitNavigationAction"><span class="type">WebKitNavigationAction</span></a> *</pre>
 <p>The <a class="link" href="WebKitNavigationAction.html" title="WebKitNavigationAction"><span class="type">WebKitNavigationAction</span></a> that triggered this policy decision.</p>
+<p>Owner: WebKitNavigationPolicyDecision</p>
 <p>Flags: Read</p>
 <p class="since">Since: <a class="link" href="api-index-2-6.html#api-index-2.6">2.6</a></p>
 </div>
@@ -482,6 +486,7 @@ action caused the navigation.</p>
 <p><code class="literal">WebKitNavigationPolicyDecision:navigation-type</code> has been deprecated since version 2.6 and should not be used in newly-written code.</p>
 <p>Use <a class="link" href="WebKitNavigationPolicyDecision.html#WebKitNavigationPolicyDecision--navigation-action" title="The “navigation-action” property"><span class="type">“navigation-action”</span></a> instead</p>
 </div>
+<p>Owner: WebKitNavigationPolicyDecision</p>
 <p>Flags: Read</p>
 <p>Default value: WEBKIT_NAVIGATION_TYPE_LINK_CLICKED</p>
 </div>
@@ -495,15 +500,16 @@ navigation.</p>
 <p><code class="literal">WebKitNavigationPolicyDecision:request</code> has been deprecated since version 2.6 and should not be used in newly-written code.</p>
 <p>Use <a class="link" href="WebKitNavigationPolicyDecision.html#WebKitNavigationPolicyDecision--navigation-action" title="The “navigation-action” property"><span class="type">“navigation-action”</span></a> instead</p>
 </div>
+<p>Owner: WebKitNavigationPolicyDecision</p>
 <p>Flags: Read</p>
 </div>
 </div>
 <div class="refsect1">
 <a name="WebKitNavigationPolicyDecision.see-also"></a><h2>See Also</h2>
-<p><a class="link" href="WebKitPolicyDecision.html" title="WebKitPolicyDecision"><span class="type">WebKitPolicyDecision</span></a>, <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a></p>
+<p><a class="link" href="WebKitPolicyDecision.html" title="WebKitPolicyDecision"><span class="type">WebKitPolicyDecision</span></a>, <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a></p>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.32.1</div>
 </body>
 </html>

@@ -26,20 +26,22 @@
 #include "config.h"
 #include "RemoteScrollingTree.h"
 
-#if ENABLE(ASYNC_SCROLLING)
+#if ENABLE(UI_SIDE_COMPOSITING)
 
 #include "RemoteLayerTreeHost.h"
 #include "RemoteScrollingCoordinatorProxy.h"
 #include <WebCore/ScrollingTreeFixedNode.h>
 #include <WebCore/ScrollingTreeFrameHostingNode.h>
+#include <WebCore/ScrollingTreeOverflowScrollProxyNode.h>
+#include <WebCore/ScrollingTreePositionedNode.h>
 #include <WebCore/ScrollingTreeStickyNode.h>
 
 #if PLATFORM(IOS_FAMILY)
 #include "ScrollingTreeFrameScrollingNodeRemoteIOS.h"
 #include "ScrollingTreeOverflowScrollingNodeIOS.h"
-#include <WebCore/ScrollingTreeFrameScrollingNodeIOS.h>
 #else
 #include "ScrollingTreeFrameScrollingNodeRemoteMac.h"
+#include "ScrollingTreeOverflowScrollingNodeRemoteMac.h"
 #endif
 
 namespace WebKit {
@@ -79,11 +81,6 @@ void RemoteScrollingTree::handleWheelEventPhase(PlatformWheelEventPhase phase)
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-WebCore::FloatRect RemoteScrollingTree::fixedPositionRect()
-{
-    return m_scrollingCoordinatorProxy.customFixedPositionRect();
-}
-
 void RemoteScrollingTree::scrollingTreeNodeWillStartPanGesture()
 {
     m_scrollingCoordinatorProxy.scrollingTreeNodeWillStartPanGesture();
@@ -101,14 +98,18 @@ void RemoteScrollingTree::scrollingTreeNodeDidEndScroll()
 
 #endif
 
-void RemoteScrollingTree::scrollingTreeNodeDidScroll(ScrollingNodeID nodeID, const FloatPoint& scrollPosition, const Optional<FloatPoint>& layoutViewportOrigin, ScrollingLayerPositionAction scrollingLayerPositionAction)
+void RemoteScrollingTree::scrollingTreeNodeDidScroll(ScrollingTreeScrollingNode& node, ScrollingLayerPositionAction scrollingLayerPositionAction)
 {
-    m_scrollingCoordinatorProxy.scrollingTreeNodeDidScroll(nodeID, scrollPosition, layoutViewportOrigin, scrollingLayerPositionAction);
+    Optional<FloatPoint> layoutViewportOrigin;
+    if (is<ScrollingTreeFrameScrollingNode>(node))
+        layoutViewportOrigin = downcast<ScrollingTreeFrameScrollingNode>(node).layoutViewport().location();
+
+    m_scrollingCoordinatorProxy.scrollingTreeNodeDidScroll(node.scrollingNodeID(), node.currentScrollPosition(), layoutViewportOrigin, scrollingLayerPositionAction);
 }
 
-void RemoteScrollingTree::scrollingTreeNodeRequestsScroll(ScrollingNodeID nodeID, const FloatPoint& scrollPosition, bool representsProgrammaticScroll)
+void RemoteScrollingTree::scrollingTreeNodeRequestsScroll(ScrollingNodeID nodeID, const FloatPoint& scrollPosition, ScrollType scrollType, ScrollClamping clamping)
 {
-    m_scrollingCoordinatorProxy.scrollingTreeNodeRequestsScroll(nodeID, scrollPosition, representsProgrammaticScroll);
+    m_scrollingCoordinatorProxy.scrollingTreeNodeRequestsScroll(nodeID, scrollPosition, scrollType, clamping);
 }
 
 Ref<ScrollingTreeNode> RemoteScrollingTree::createScrollingTreeNode(ScrollingNodeType nodeType, ScrollingNodeID nodeID)
@@ -127,13 +128,16 @@ Ref<ScrollingTreeNode> RemoteScrollingTree::createScrollingTreeNode(ScrollingNod
 #if PLATFORM(IOS_FAMILY)
         return ScrollingTreeOverflowScrollingNodeIOS::create(*this, nodeID);
 #else
-        ASSERT_NOT_REACHED();
-        break;
+        return ScrollingTreeOverflowScrollingNodeRemoteMac::create(*this, nodeID);
 #endif
+    case ScrollingNodeType::OverflowProxy:
+        return ScrollingTreeOverflowScrollProxyNode::create(*this, nodeID);
     case ScrollingNodeType::Fixed:
         return ScrollingTreeFixedNode::create(*this, nodeID);
     case ScrollingNodeType::Sticky:
         return ScrollingTreeStickyNode::create(*this, nodeID);
+    case ScrollingNodeType::Positioned:
+        return ScrollingTreePositionedNode::create(*this, nodeID);
     }
     ASSERT_NOT_REACHED();
     return ScrollingTreeFixedNode::create(*this, nodeID);
@@ -146,7 +150,9 @@ void RemoteScrollingTree::currentSnapPointIndicesDidChange(ScrollingNodeID nodeI
 
 void RemoteScrollingTree::handleMouseEvent(const WebCore::PlatformMouseEvent& event)
 {
-#if ENABLE(ASYNC_SCROLLING) && PLATFORM(MAC)
+#if PLATFORM(MAC)
+    if (!rootNode())
+        return;
     static_cast<ScrollingTreeFrameScrollingNodeRemoteMac&>(*rootNode()).handleMouseEvent(event);
 #else
     UNUSED_PARAM(event);
@@ -155,4 +161,4 @@ void RemoteScrollingTree::handleMouseEvent(const WebCore::PlatformMouseEvent& ev
 
 } // namespace WebKit
 
-#endif // ENABLE(ASYNC_SCROLLING)
+#endif // ENABLE(UI_SIDE_COMPOSITING)

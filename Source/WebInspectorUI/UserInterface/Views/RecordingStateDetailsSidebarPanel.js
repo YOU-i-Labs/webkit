@@ -58,6 +58,8 @@ WI.RecordingStateDetailsSidebarPanel = class RecordingStateDetailsSidebarPanel e
 
         for (let subview of this.contentView.subviews)
             this.contentView.removeSubview(subview);
+
+        this._dataGrids = [];
     }
 
     set action(action)
@@ -166,8 +168,7 @@ WI.RecordingStateDetailsSidebarPanel = class RecordingStateDetailsSidebarPanel e
                 if (name.startsWith("webkit"))
                     classNames.push("non-standard");
 
-                const hasChildren = false;
-                dataGrid.appendChild(new WI.DataGridNode({name, value}, hasChildren, classNames));
+                dataGrid.appendChild(new WI.DataGridNode({name, value}, {classNames}));
             }
 
             dataGrid.updateLayoutIfNeeded();

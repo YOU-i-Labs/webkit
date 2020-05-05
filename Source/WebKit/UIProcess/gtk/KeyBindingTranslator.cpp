@@ -60,6 +60,14 @@ static void toggleOverwriteCallback(GtkWidget* widget, KeyBindingTranslator* tra
     translator->addPendingEditorCommand("OverWrite");
 }
 
+#if GTK_CHECK_VERSION(3, 24, 0)
+static void insertEmojiCallback(GtkWidget* widget, KeyBindingTranslator* translator)
+{
+    g_signal_stop_emission_by_name(widget, "insert-emoji");
+    translator->addPendingEditorCommand("GtkInsertEmoji");
+}
+#endif
+
 // GTK+ will still send these signals to the web view. So we can safely stop signal
 // emission without breaking accessibility.
 static void popupMenuCallback(GtkWidget* widget, KeyBindingTranslator*)
@@ -173,6 +181,9 @@ KeyBindingTranslator::KeyBindingTranslator()
     g_signal_connect(m_nativeWidget.get(), "toggle-overwrite", G_CALLBACK(toggleOverwriteCallback), this);
     g_signal_connect(m_nativeWidget.get(), "popup-menu", G_CALLBACK(popupMenuCallback), this);
     g_signal_connect(m_nativeWidget.get(), "show-help", G_CALLBACK(showHelpCallback), this);
+#if GTK_CHECK_VERSION(3, 24, 0)
+    g_signal_connect(m_nativeWidget.get(), "insert-emoji", G_CALLBACK(insertEmojiCallback), this);
+#endif
 }
 
 struct KeyCombinationEntry {
@@ -182,28 +193,35 @@ struct KeyCombinationEntry {
 };
 
 static const KeyCombinationEntry customKeyBindings[] = {
-    { GDK_KEY_b,         GDK_CONTROL_MASK,               "ToggleBold"    },
-    { GDK_KEY_i,         GDK_CONTROL_MASK,               "ToggleItalic"  },
-    { GDK_KEY_Escape,    0,                              "Cancel"        },
-    { GDK_KEY_greater,   GDK_CONTROL_MASK,               "Cancel"        },
-    { GDK_KEY_Tab,       0,                              "InsertTab"     },
-    { GDK_KEY_Tab,       GDK_SHIFT_MASK,                 "InsertBacktab" },
+    { GDK_KEY_b,         GDK_CONTROL_MASK, "ToggleBold"      },
+    { GDK_KEY_i,         GDK_CONTROL_MASK, "ToggleItalic"    },
+    { GDK_KEY_Escape,    0,                "Cancel"          },
+    { GDK_KEY_greater,   GDK_CONTROL_MASK, "Cancel"          },
+    { GDK_KEY_Tab,       0,                "InsertTab"       },
+    { GDK_KEY_Tab,       GDK_SHIFT_MASK,   "InsertBacktab"   },
+    { GDK_KEY_Return,    0,                "InsertNewLine"   },
+    { GDK_KEY_KP_Enter,  0,                "InsertNewLine"   },
+    { GDK_KEY_ISO_Enter, 0,                "InsertNewLine"   },
+    { GDK_KEY_Return,    GDK_SHIFT_MASK,   "InsertLineBreak" },
+    { GDK_KEY_KP_Enter,  GDK_SHIFT_MASK,   "InsertLineBreak" },
+    { GDK_KEY_ISO_Enter, GDK_SHIFT_MASK,   "InsertLineBreak" },
 };
 
 Vector<String> KeyBindingTranslator::commandsForKeyEvent(GdkEventKey* event)
 {
     ASSERT(m_pendingEditorCommands.isEmpty());
 
+    guint keyval;
+    GdkModifierType state;
+    gdk_event_get_keyval(reinterpret_cast<GdkEvent*>(event), &keyval);
+    gdk_event_get_state(reinterpret_cast<GdkEvent*>(event), &state);
+
     gtk_bindings_activate_event(G_OBJECT(m_nativeWidget.get()), event);
     if (!m_pendingEditorCommands.isEmpty())
         return WTFMove(m_pendingEditorCommands);
 
-    // Special-case enter keys for we want them to work regardless of modifier.
-    if ((event->keyval == GDK_KEY_Return || event->keyval == GDK_KEY_KP_Enter || event->keyval == GDK_KEY_ISO_Enter))
-        return { "InsertNewLine" };
-
     // For keypress events, we want charCode(), but keyCode() does that.
-    unsigned mapKey = event->state << 16 | event->keyval;
+    unsigned mapKey = (state & (GDK_SHIFT_MASK | GDK_CONTROL_MASK | GDK_MOD1_MASK)) << 16 | keyval;
     if (!mapKey)
         return { };
 

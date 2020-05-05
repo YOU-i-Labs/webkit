@@ -24,6 +24,9 @@
  */
 
 #include "config.h"
+
+#if ENABLE(UI_SIDE_COMPOSITING)
+
 #include "VisibleContentRectUpdateInfo.h"
 
 #include "WebCoreArgumentCoders.h"
@@ -40,15 +43,12 @@ void VisibleContentRectUpdateInfo::encode(IPC::Encoder& encoder) const
     encoder << m_contentInsets;
     encoder << m_unobscuredContentRectRespectingInputViewBounds;
     encoder << m_unobscuredRectInScrollViewCoordinates;
-    encoder << m_customFixedPositionRect;
+    encoder << m_layoutViewportRect;
     encoder << m_obscuredInsets;
     encoder << m_unobscuredSafeAreaInsets;
+    encoder << m_scrollVelocity;
     encoder << m_lastLayerTreeTransactionID;
     encoder << m_scale;
-    encoder << m_timestamp;
-    encoder << m_horizontalVelocity;
-    encoder << m_verticalVelocity;
-    encoder << m_scaleChangeRate;
     encoder << m_inStableState;
     encoder << m_isFirstUpdateForNewViewSize;
     encoder << m_isChangingObscuredInsetsInteractively;
@@ -68,23 +68,17 @@ bool VisibleContentRectUpdateInfo::decode(IPC::Decoder& decoder, VisibleContentR
         return false;
     if (!decoder.decode(result.m_unobscuredRectInScrollViewCoordinates))
         return false;
-    if (!decoder.decode(result.m_customFixedPositionRect))
+    if (!decoder.decode(result.m_layoutViewportRect))
         return false;
     if (!decoder.decode(result.m_obscuredInsets))
         return false;
     if (!decoder.decode(result.m_unobscuredSafeAreaInsets))
         return false;
+    if (!decoder.decode(result.m_scrollVelocity))
+        return false;
     if (!decoder.decode(result.m_lastLayerTreeTransactionID))
         return false;
     if (!decoder.decode(result.m_scale))
-        return false;
-    if (!decoder.decode(result.m_timestamp))
-        return false;
-    if (!decoder.decode(result.m_horizontalVelocity))
-        return false;
-    if (!decoder.decode(result.m_verticalVelocity))
-        return false;
-    if (!decoder.decode(result.m_scaleChangeRate))
         return false;
     if (!decoder.decode(result.m_inStableState))
         return false;
@@ -120,7 +114,7 @@ TextStream& operator<<(TextStream& ts, const VisibleContentRectUpdateInfo& info)
     ts.dumpProperty("contentInsets", info.contentInsets());
     ts.dumpProperty("unobscuredContentRectRespectingInputViewBounds", info.unobscuredContentRectRespectingInputViewBounds());
     ts.dumpProperty("unobscuredRectInScrollViewCoordinates", info.unobscuredRectInScrollViewCoordinates());
-    ts.dumpProperty("customFixedPositionRect", info.customFixedPositionRect());
+    ts.dumpProperty("layoutViewportRect", info.layoutViewportRect());
     ts.dumpProperty("obscuredInsets", info.obscuredInsets());
     ts.dumpProperty("unobscuredSafeAreaInsets", info.unobscuredSafeAreaInsets());
 
@@ -132,16 +126,12 @@ TextStream& operator<<(TextStream& ts, const VisibleContentRectUpdateInfo& info)
     if (info.enclosedInScrollableAncestorView())
         ts.dumpProperty("enclosedInScrollableAncestorView", info.enclosedInScrollableAncestorView());
 
-    ts.dumpProperty("timestamp", info.timestamp().secondsSinceEpoch().value());
     ts.dumpProperty("allowShrinkToFit", info.allowShrinkToFit());
-    if (info.horizontalVelocity())
-        ts.dumpProperty("horizontalVelocity", info.horizontalVelocity());
-    if (info.verticalVelocity())
-        ts.dumpProperty("verticalVelocity", info.verticalVelocity());
-    if (info.scaleChangeRate())
-        ts.dumpProperty("scaleChangeRate", info.scaleChangeRate());
+    ts.dumpProperty("scrollVelocity", info.scrollVelocity());
 
     return ts;
 }
 
 } // namespace WebKit
+
+#endif // ENABLE(UI_SIDE_COMPOSITING)

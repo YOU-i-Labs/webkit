@@ -7,8 +7,8 @@
 <link rel="home" href="index.html" title="WebKitGTK Reference Manual">
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="ch01.html" title="Class Overview">
-<link rel="next" href="WebKitWebView.html" title="WebKitWebView">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<link rel="next" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL.">
+<meta name="generator" content="GTK-Doc V1.32.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -30,7 +30,7 @@
 <div class="refnamediv"><table width="100%"><tr>
 <td valign="top">
 <h2><span class="refentrytitle"><a name="WebKitWebContext.top_of_page"></a>WebKitWebContext</span></h2>
-<p>WebKitWebContext — Manages aspects common to all <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a>s</p>
+<p>WebKitWebContext — Manages aspects common to all <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a>s</p>
 </td>
 <td class="gallery_image" valign="top" align="right"></td>
 </tr></table></div>
@@ -38,8 +38,8 @@
 <a name="WebKitWebContext.functions"></a><h2>Functions</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="functions_return">
-<col class="functions_name">
+<col width="150px" class="functions_proto_type">
+<col class="functions_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -172,6 +172,14 @@
 </tr>
 <tr>
 <td class="function_type">
+<a class="link" href="webkit2gtk-4.0-Geolocation-manager.html#WebKitGeolocationManager"><span class="returnvalue">WebKitGeolocationManager</span></a> *
+</td>
+<td class="function_name">
+<a class="link" href="WebKitWebContext.html#webkit-web-context-get-geolocation-manager" title="webkit_web_context_get_geolocation_manager ()">webkit_web_context_get_geolocation_manager</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
 <a class="link" href="WebKitFaviconDatabase.html" title="WebKitFaviconDatabase"><span class="returnvalue">WebKitFaviconDatabase</span></a> *
 </td>
 <td class="function_name">
@@ -223,6 +231,30 @@
 </td>
 <td class="function_name">
 <a class="link" href="WebKitWebContext.html#webkit-web-context-get-plugins-finish" title="webkit_web_context_get_plugins_finish ()">webkit_web_context_get_plugins_finish</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitWebContext.html#webkit-web-context-get-sandbox-enabled" title="webkit_web_context_get_sandbox_enabled ()">webkit_web_context_get_sandbox_enabled</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">void</span>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitWebContext.html#webkit-web-context-set-sandbox-enabled" title="webkit_web_context_set_sandbox_enabled ()">webkit_web_context_set_sandbox_enabled</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">void</span>
+</td>
+<td class="function_name">
+<a class="link" href="WebKitWebContext.html#webkit-web-context-add-path-to-sandbox" title="webkit_web_context_add_path_to_sandbox ()">webkit_web_context_add_path_to_sandbox</a> <span class="c_punctuation">()</span>
 </td>
 </tr>
 <tr>
@@ -349,6 +381,14 @@
 <span class="returnvalue">void</span>
 </td>
 <td class="function_name">
+<a class="link" href="WebKitWebContext.html#webkit-web-context-send-message-to-all-extensions" title="webkit_web_context_send_message_to_all_extensions ()">webkit_web_context_send_message_to_all_extensions</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">void</span>
+</td>
+<td class="function_name">
 <span class="c_punctuation">(</span><a class="link" href="WebKitWebContext.html#WebKitURISchemeRequestCallback" title="WebKitURISchemeRequestCallback ()">*WebKitURISchemeRequestCallback</a><span class="c_punctuation">)</span> <span class="c_punctuation">()</span>
 </td>
 </tr>
@@ -376,13 +416,18 @@
 <td class="property_type">
 <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</td>
 <td class="property_name"><a class="link" href="WebKitWebContext.html#WebKitWebContext--local-storage-directory" title="The “local-storage-directory” property">local-storage-directory</a></td>
-<td class="property_flags">Read / Write / Construct Only</td>
+<td class="property_flags">Read / Write / Construct Only</td>
+</tr>
+<tr>
+<td class="property_type"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></td>
+<td class="property_name"><a class="link" href="WebKitWebContext.html#WebKitWebContext--process-swap-on-cross-site-navigation-enabled" title="The “process-swap-on-cross-site-navigation-enabled” property">process-swap-on-cross-site-navigation-enabled</a></td>
+<td class="property_flags">Read / Write / Construct Only</td>
 </tr>
 <tr>
 <td class="property_type">
 <a class="link" href="WebKitWebsiteDataManager.html" title="WebKitWebsiteDataManager"><span class="type">WebKitWebsiteDataManager</span></a> *</td>
 <td class="property_name"><a class="link" href="WebKitWebContext.html#WebKitWebContext--website-data-manager" title="The “website-data-manager” property">website-data-manager</a></td>
-<td class="property_flags">Read / Write / Construct Only</td>
+<td class="property_flags">Read / Write / Construct Only</td>
 </tr>
 </tbody>
 </table></div>
@@ -391,9 +436,9 @@
 <a name="WebKitWebContext.signals"></a><h2>Signals</h2>
 <div class="informaltable"><table class="informaltable" border="0">
 <colgroup>
-<col width="150px" class="signals_return">
-<col width="300px" class="signals_name">
-<col width="200px" class="signals_flags">
+<col width="150px" class="signal_proto_type">
+<col width="300px" class="signal_proto_name">
+<col width="200px" class="signal_proto_flags">
 </colgroup>
 <tbody>
 <tr>
@@ -416,6 +461,11 @@
 <td class="signal_name"><a class="link" href="WebKitWebContext.html#WebKitWebContext-initialize-web-extensions" title="The “initialize-web-extensions” signal">initialize-web-extensions</a></td>
 <td class="signal_flags"><a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></td>
 </tr>
+<tr>
+<td class="signal_type"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a></td>
+<td class="signal_name"><a class="link" href="WebKitWebContext.html#WebKitWebContext-user-message-received" title="The “user-message-received” signal">user-message-received</a></td>
+<td class="signal_flags"><a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></td>
+</tr>
 </tbody>
 </table></div>
 </div>
@@ -423,8 +473,8 @@
 <a name="WebKitWebContext.other"></a><h2>Types and Values</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="name">
-<col class="description">
+<col width="150px" class="other_proto_type">
+<col class="other_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -459,7 +509,7 @@
 <div class="refsect1">
 <a name="WebKitWebContext.description"></a><h2>Description</h2>
 <p>The <a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> manages all aspects common to all
-<a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a>s.</p>
+<a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a>s.</p>
 <p>You can define the <a class="link" href="WebKitWebContext.html#WebKitCacheModel" title="enum WebKitCacheModel"><span class="type">WebKitCacheModel</span></a> and <a class="link" href="WebKitWebContext.html#WebKitProcessModel" title="enum WebKitProcessModel"><span class="type">WebKitProcessModel</span></a> with
 <a class="link" href="WebKitWebContext.html#webkit-web-context-set-cache-model" title="webkit_web_context_set_cache_model ()"><code class="function">webkit_web_context_set_cache_model()</code></a> and
 <a class="link" href="WebKitWebContext.html#webkit-web-context-set-process-model" title="webkit_web_context_set_process_model ()"><code class="function">webkit_web_context_set_process_model()</code></a>, depending on the needs of
@@ -513,7 +563,7 @@ webkit_web_context_new_ephemeral (<em class="parameter"><code><span class="type"
 <p>Create a new ephemeral <a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a>. An ephemeral <a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> is a context
 created with an ephemeral <a class="link" href="WebKitWebsiteDataManager.html" title="WebKitWebsiteDataManager"><span class="type">WebKitWebsiteDataManager</span></a>. This is just a convenient method
 to create ephemeral contexts without having to create your own <a class="link" href="WebKitWebsiteDataManager.html" title="WebKitWebsiteDataManager"><span class="type">WebKitWebsiteDataManager</span></a>.
-All <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a>s associated with this context will also be ephemeral. Websites will
+All <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a>s associated with this context will also be ephemeral. Websites will
 not store any data in the client storage.
 This is normally used to implement private instances.</p>
 <div class="refsect3">
@@ -758,8 +808,10 @@ specifying <a class="link" href="WebKitWebContext.html#WEBKIT-CACHE-MODEL-DOCUME
 <pre class="programlisting"><a href="../glib/glib-Basic-Types.html#guint"><span class="returnvalue">guint</span></a>
 webkit_web_context_get_web_process_count_limit
                                (<em class="parameter"><code><a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> *context</code></em>);</pre>
+<div class="warning"><p><code class="literal">webkit_web_context_get_web_process_count_limit</code> has been deprecated since version 2.26 and should not be used in newly-written code.</p></div>
 <p>Gets the maximum number of web processes that can be created at the same time for the <em class="parameter"><code>context</code></em>
 .</p>
+<p>This function is now deprecated and always returns 0 (no limit). See also <a class="link" href="WebKitWebContext.html#webkit-web-context-set-web-process-count-limit" title="webkit_web_context_set_web_process_count_limit ()"><code class="function">webkit_web_context_set_web_process_count_limit()</code></a>.</p>
 <div class="refsect3">
 <a name="webkit-web-context-get-web-process-count-limit.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -788,12 +840,11 @@ webkit_web_context_get_web_process_count_limit
 webkit_web_context_set_web_process_count_limit
                                (<em class="parameter"><code><a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> *context</code></em>,
                                 <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#guint"><span class="type">guint</span></a> limit</code></em>);</pre>
+<div class="warning"><p><code class="literal">webkit_web_context_set_web_process_count_limit</code> has been deprecated since version 2.26 and should not be used in newly-written code.</p></div>
 <p>Sets the maximum number of web processes that can be created at the same time for the <em class="parameter"><code>context</code></em>
 .
 The default value is 0 and means no limit.</p>
-<p>This method **must be called before any web process has been created**,
-as early as possible in your application. Calling it later will make
-your application crash.</p>
+<p>This function is now deprecated and does nothing for security reasons.</p>
 <div class="refsect3">
 <a name="webkit-web-context-set-web-process-count-limit.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -897,8 +948,8 @@ a valid <a class="link" href="WebKitNetworkProxySettings.html" title="WebKitNetw
 webkit_web_context_download_uri (<em class="parameter"><code><a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> *context</code></em>,
                                  <em class="parameter"><code>const <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *uri</code></em>);</pre>
 <p>Requests downloading of the specified URI string. The download operation
-will not be associated to any <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a>, if you are interested in
-starting a download from a particular <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> use
+will not be associated to any <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a>, if you are interested in
+starting a download from a particular <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a> use
 <a class="link" href="WebKitWebView.html#webkit-web-view-download-uri" title="webkit_web_view_download_uri ()"><code class="function">webkit_web_view_download_uri()</code></a> instead.</p>
 <div class="refsect3">
 <a name="webkit-web-context-download-uri.parameters"></a><h4>Parameters</h4>
@@ -957,6 +1008,37 @@ webkit_web_context_get_cookie_manager (<em class="parameter"><code><a class="lin
 . </p>
 <p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
 </div>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-web-context-get-geolocation-manager"></a><h3>webkit_web_context_get_geolocation_manager ()</h3>
+<pre class="programlisting"><a class="link" href="webkit2gtk-4.0-Geolocation-manager.html#WebKitGeolocationManager"><span class="returnvalue">WebKitGeolocationManager</span></a> *
+webkit_web_context_get_geolocation_manager
+                               (<em class="parameter"><code><a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> *context</code></em>);</pre>
+<p>Get the <a class="link" href="webkit2gtk-4.0-Geolocation-manager.html#WebKitGeolocationManager"><span class="type">WebKitGeolocationManager</span></a> of <em class="parameter"><code>context</code></em>
+.</p>
+<div class="refsect3">
+<a name="webkit-web-context-get-geolocation-manager.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>context</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="webkit-web-context-get-geolocation-manager.returns"></a><h4>Returns</h4>
+<p>the <a class="link" href="webkit2gtk-4.0-Geolocation-manager.html#WebKitGeolocationManager"><span class="type">WebKitGeolocationManager</span></a> of <em class="parameter"><code>context</code></em>
+. </p>
+<p><span class="annotation">[<acronym title="Don't free data after the code is done."><span class="acronym">transfer none</span></acronym>]</span></p>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-26.html#api-index-2.26">2.26</a></p>
 </div>
 <hr>
 <div class="refsect2">
@@ -1214,6 +1296,113 @@ webkit_web_context_get_plugins_finish (<em class="parameter"><code><a class="lin
 <a href="../glib/glib-Doubly-Linked-Lists.html#g-list-free"><code class="function">g_list_free()</code></a> and unref the <a class="link" href="WebKitPlugin.html" title="WebKitPlugin"><span class="type">WebKitPlugin</span></a>s with <a href="../gobject/gobject-The-Base-Object-Type.html#g-object-unref"><code class="function">g_object_unref()</code></a> when you're done with them. </p>
 <p><span class="annotation">[<acronym title="Generics and defining elements of containers and arrays."><span class="acronym">element-type</span></acronym> WebKitPlugin][<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
 </div>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-web-context-get-sandbox-enabled"></a><h3>webkit_web_context_get_sandbox_enabled ()</h3>
+<pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
+webkit_web_context_get_sandbox_enabled
+                               (<em class="parameter"><code><a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> *context</code></em>);</pre>
+<p>Get whether sandboxing is currently enabled.</p>
+<div class="refsect3">
+<a name="webkit-web-context-get-sandbox-enabled.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>context</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="webkit-web-context-get-sandbox-enabled.returns"></a><h4>Returns</h4>
+<p> <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS"><code class="literal">TRUE</code></a> if sandboxing is enabled, or <a href="../glib/glib-Standard-Macros.html#FALSE:CAPS"><code class="literal">FALSE</code></a> otherwise.</p>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-26.html#api-index-2.26">2.26</a></p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-web-context-set-sandbox-enabled"></a><h3>webkit_web_context_set_sandbox_enabled ()</h3>
+<pre class="programlisting"><span class="returnvalue">void</span>
+webkit_web_context_set_sandbox_enabled
+                               (<em class="parameter"><code><a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> *context</code></em>,
+                                <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> enabled</code></em>);</pre>
+<p>Set whether WebKit subprocesses will be sandboxed, limiting access to the system.</p>
+<p>This method **must be called before any web process has been created**,
+as early as possible in your application. Calling it later is a fatal error.</p>
+<p>This is only implemented on Linux and is a no-op otherwise.</p>
+<div class="refsect3">
+<a name="webkit-web-context-set-sandbox-enabled.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="parameter_name"><p>context</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>enabled</p></td>
+<td class="parameter_description"><p>if <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS"><code class="literal">TRUE</code></a> enable sandboxing</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-26.html#api-index-2.26">2.26</a></p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-web-context-add-path-to-sandbox"></a><h3>webkit_web_context_add_path_to_sandbox ()</h3>
+<pre class="programlisting"><span class="returnvalue">void</span>
+webkit_web_context_add_path_to_sandbox
+                               (<em class="parameter"><code><a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> *context</code></em>,
+                                <em class="parameter"><code>const <span class="type">char</span> *path</code></em>,
+                                <em class="parameter"><code><a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a> read_only</code></em>);</pre>
+<p>Adds a path to be mounted in the sandbox. <em class="parameter"><code>path</code></em>
+ must exist before any web process
+has been created otherwise it will be silently ignored. It is a fatal error to
+add paths after a web process has been spawned.</p>
+<p>Paths in directories such as <code class="literal">/sys</code>, <code class="literal">/proc</code>, and <code class="literal">/dev</code> or all of <code class="literal">/</code>
+are not valid.</p>
+<p>See also <a class="link" href="WebKitWebContext.html#webkit-web-context-set-sandbox-enabled" title="webkit_web_context_set_sandbox_enabled ()"><code class="function">webkit_web_context_set_sandbox_enabled()</code></a></p>
+<div class="refsect3">
+<a name="webkit-web-context-add-path-to-sandbox.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="parameter_name"><p>context</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>path</p></td>
+<td class="parameter_description"><p>an absolute path to mount in the sandbox. </p></td>
+<td class="parameter_annotations"><span class="annotation">[<acronym title="Override the parsed C type with given type."><span class="acronym">type</span></acronym> filename]</span></td>
+</tr>
+<tr>
+<td class="parameter_name"><p>read_only</p></td>
+<td class="parameter_description"><p>if <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS"><code class="literal">TRUE</code></a> the path will be read-only</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-26.html#api-index-2.26">2.26</a></p>
 </div>
 <hr>
 <div class="refsect2">
@@ -1661,19 +1850,16 @@ see <a class="link" href="WebKitWebContext.html#webkit-web-context-set-process-m
 webkit_web_context_set_process_model (<em class="parameter"><code><a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> *context</code></em>,
                                       <em class="parameter"><code><a class="link" href="WebKitWebContext.html#WebKitProcessModel" title="enum WebKitProcessModel"><span class="type">WebKitProcessModel</span></a> process_model</code></em>);</pre>
 <p>Specifies a process model for WebViews, which WebKit will use to
-determine how auxiliary processes are handled. The default setting
-(<a class="link" href="WebKitWebContext.html#WEBKIT-PROCESS-MODEL-SHARED-SECONDARY-PROCESS:CAPS"><code class="literal">WEBKIT_PROCESS_MODEL_SHARED_SECONDARY_PROCESS</code></a>) is suitable for most
-applications which embed a small amount of WebViews, or are used to
-display documents which are considered safe — like local files.</p>
-<p>Applications which may potentially use a large amount of WebViews
-—for example a multi-tabbed web browser— may want to use
-<a class="link" href="WebKitWebContext.html#WEBKIT-PROCESS-MODEL-MULTIPLE-SECONDARY-PROCESSES:CAPS"><code class="literal">WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES</code></a>, which will use
+determine how auxiliary processes are handled.</p>
+<p><a class="link" href="WebKitWebContext.html#WEBKIT-PROCESS-MODEL-MULTIPLE-SECONDARY-PROCESSES:CAPS"><code class="literal">WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES</code></a> will use
 one process per view most of the time, while still allowing for web
 views to share a process when needed (for example when different
 views interact with each other). Using this model, when a process
 hangs or crashes, only the WebViews using it stop working, while
 the rest of the WebViews in the application will still function
 normally.</p>
+<p><a class="link" href="WebKitWebContext.html#WEBKIT-PROCESS-MODEL-SHARED-SECONDARY-PROCESS:CAPS"><code class="literal">WEBKIT_PROCESS_MODEL_SHARED_SECONDARY_PROCESS</code></a> is deprecated since 2.26,
+using it has no effect for security reasons.</p>
 <p>This method **must be called before any web process has been created**,
 as early as possible in your application. Calling it later will make
 your application crash.</p>
@@ -1756,6 +1942,42 @@ permissions.</p>
 </table></div>
 </div>
 <p class="since">Since: <a class="link" href="api-index-2-16.html#api-index-2.16">2.16</a></p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="webkit-web-context-send-message-to-all-extensions"></a><h3>webkit_web_context_send_message_to_all_extensions ()</h3>
+<pre class="programlisting"><span class="returnvalue">void</span>
+webkit_web_context_send_message_to_all_extensions
+                               (<em class="parameter"><code><a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a> *context</code></em>,
+                                <em class="parameter"><code><a class="link" href="WebKitUserMessage.html" title="WebKitUserMessage"><span class="type">WebKitUserMessage</span></a> *message</code></em>);</pre>
+<p>Send <em class="parameter"><code>message</code></em>
+ to all <a class="link" href="WebKitWebExtension.html" title="WebKitWebExtension"><span class="type">WebKitWebExtension</span></a>s associated to <em class="parameter"><code>context</code></em>
+.
+If <em class="parameter"><code>message</code></em>
+ is floating, it's consumed.</p>
+<div class="refsect3">
+<a name="webkit-web-context-send-message-to-all-extensions.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="parameter_name"><p>context</p></td>
+<td class="parameter_description"><p>the <a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>message</p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitUserMessage.html" title="WebKitUserMessage"><span class="type">WebKitUserMessage</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<p class="since">Since: <a class="link" href="api-index-2-28.html#api-index-2.28">2.28</a></p>
 </div>
 <hr>
 <div class="refsect2">
@@ -1844,38 +2066,38 @@ when the data of the request is available or
 30
 31
 32</pre></td>
-        <td class="listing_code"><pre class="programlisting"><span class="gtkdoc kwb">static void</span>
-<span class="function">about_uri_scheme_request_cb</span> <span class="gtkdoc opt">(</span>WebKitURISchemeRequest <span class="gtkdoc opt">*</span>request<span class="gtkdoc opt">,</span>
-                             gpointer                user_data<span class="gtkdoc opt">)</span>
-<span class="gtkdoc opt">{</span>
-    GInputStream <span class="gtkdoc opt">*</span>stream<span class="gtkdoc opt">;</span>
-    gsize         stream_length<span class="gtkdoc opt">;</span>
-    <span class="gtkdoc kwb">const</span> gchar  <span class="gtkdoc opt">*</span>path<span class="gtkdoc opt">;</span>
+        <td class="listing_code"><pre class="programlisting"><span class="k">static</span> <span class="kt">void</span>
+<span class="nf">about_uri_scheme_request_cb</span> <span class="p">(</span><span class="n">WebKitURISchemeRequest</span> <span class="o">*</span><span class="n">request</span><span class="p">,</span>
+                             <span class="n">gpointer</span>                <span class="n">user_data</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">GInputStream</span> <span class="o">*</span><span class="n">stream</span><span class="p">;</span>
+    <span class="n">gsize</span>         <span class="n">stream_length</span><span class="p">;</span>
+    <span class="k">const</span> <span class="n">gchar</span>  <span class="o">*</span><span class="n">path</span><span class="p">;</span>
 
-    path <span class="gtkdoc opt">=</span> <span class="function"><a href="WebKitURISchemeRequest.html#webkit-uri-scheme-request-get-path">webkit_uri_scheme_request_get_path</a></span> <span class="gtkdoc opt">(</span>request<span class="gtkdoc opt">);</span>
-    <span class="keyword">if</span> <span class="gtkdoc opt">(!</span><span class="function"><a href="../glib/glib-String-Utility-Functions.html#g-strcmp0">g_strcmp0</a></span> <span class="gtkdoc opt">(</span>path<span class="gtkdoc opt">,</span> <span class="string">&quot;plugins&quot;</span><span class="gtkdoc opt">)) {</span>
-        <span class="comment">/* Create a GInputStream with the contents of plugins about page, and set its length to stream_length */</span>
-    <span class="gtkdoc opt">}</span> <span class="keyword">else if</span> <span class="gtkdoc opt">(!</span><span class="function"><a href="../glib/glib-String-Utility-Functions.html#g-strcmp0">g_strcmp0</a></span> <span class="gtkdoc opt">(</span>path<span class="gtkdoc opt">,</span> <span class="string">&quot;memory&quot;</span><span class="gtkdoc opt">)) {</span>
-        <span class="comment">/* Create a GInputStream with the contents of memory about page, and set its length to stream_length */</span>
-    <span class="gtkdoc opt">}</span> <span class="keyword">else if</span> <span class="gtkdoc opt">(!</span><span class="function"><a href="../glib/glib-String-Utility-Functions.html#g-strcmp0">g_strcmp0</a></span> <span class="gtkdoc opt">(</span>path<span class="gtkdoc opt">,</span> <span class="string">&quot;applications&quot;</span><span class="gtkdoc opt">)) {</span>
-        <span class="comment">/* Create a GInputStream with the contents of applications about page, and set its length to stream_length */</span>
-    <span class="gtkdoc opt">}</span> <span class="keyword">else if</span> <span class="gtkdoc opt">(!</span><span class="function"><a href="../glib/glib-String-Utility-Functions.html#g-strcmp0">g_strcmp0</a></span> <span class="gtkdoc opt">(</span>path<span class="gtkdoc opt">,</span> <span class="string">&quot;example&quot;</span><span class="gtkdoc opt">)) {</span>
-        gchar <span class="gtkdoc opt">*</span>contents<span class="gtkdoc opt">;</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="n">webkit_uri_scheme_request_get_path</span> <span class="p">(</span><span class="n">request</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">g_strcmp0</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s">&quot;plugins&quot;</span><span class="p">))</span> <span class="p">{</span>
+        <span class="cm">/* Create a GInputStream with the contents of plugins about page, and set its length to stream_length */</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">g_strcmp0</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s">&quot;memory&quot;</span><span class="p">))</span> <span class="p">{</span>
+        <span class="cm">/* Create a GInputStream with the contents of memory about page, and set its length to stream_length */</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">g_strcmp0</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s">&quot;applications&quot;</span><span class="p">))</span> <span class="p">{</span>
+        <span class="cm">/* Create a GInputStream with the contents of applications about page, and set its length to stream_length */</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">g_strcmp0</span> <span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s">&quot;example&quot;</span><span class="p">))</span> <span class="p">{</span>
+        <span class="n">gchar</span> <span class="o">*</span><span class="n">contents</span><span class="p">;</span>
 
-        contents <span class="gtkdoc opt">=</span> <span class="function"><a href="../glib/glib-String-Utility-Functions.html#g-strdup-printf">g_strdup_printf</a></span> <span class="gtkdoc opt">(</span><span class="string">&quot;&lt;html&gt;&lt;body&gt;&lt;p&gt;Example about page&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;&quot;</span><span class="gtkdoc opt">);</span>
-        stream_length <span class="gtkdoc opt">=</span> <span class="function">strlen</span> <span class="gtkdoc opt">(</span>contents<span class="gtkdoc opt">);</span>
-        stream <span class="gtkdoc opt">=</span> <span class="function"><a href="../gio/GMemoryInputStream.html#g-memory-input-stream-new-from-data">g_memory_input_stream_new_from_data</a></span> <span class="gtkdoc opt">(</span>contents<span class="gtkdoc opt">,</span> stream_length<span class="gtkdoc opt">,</span> g_free<span class="gtkdoc opt">);</span>
-    <span class="gtkdoc opt">}</span> <span class="keyword">else</span> <span class="gtkdoc opt">{</span>
-        GError <span class="gtkdoc opt">*</span>error<span class="gtkdoc opt">;</span>
+        <span class="n">contents</span> <span class="o">=</span> <span class="n">g_strdup_printf</span> <span class="p">(</span><span class="s">&quot;&lt;html&gt;&lt;body&gt;&lt;p&gt;Example about page&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;&quot;</span><span class="p">);</span>
+        <span class="n">stream_length</span> <span class="o">=</span> <span class="n">strlen</span> <span class="p">(</span><span class="n">contents</span><span class="p">);</span>
+        <span class="n">stream</span> <span class="o">=</span> <span class="n">g_memory_input_stream_new_from_data</span> <span class="p">(</span><span class="n">contents</span><span class="p">,</span> <span class="n">stream_length</span><span class="p">,</span> <span class="n">g_free</span><span class="p">);</span>
+    <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+        <span class="n">GError</span> <span class="o">*</span><span class="n">error</span><span class="p">;</span>
 
-        error <span class="gtkdoc opt">=</span> <span class="function"><a href="../glib/glib-Error-Reporting.html#g-error-new">g_error_new</a></span> <span class="gtkdoc opt">(</span>ABOUT_HANDLER_ERROR<span class="gtkdoc opt">,</span> ABOUT_HANDLER_ERROR_INVALID<span class="gtkdoc opt">,</span> <span class="string">&quot;Invalid about:%s page.&quot;</span><span class="gtkdoc opt">,</span> path<span class="gtkdoc opt">);</span>
-        <span class="function"><a href="WebKitURISchemeRequest.html#webkit-uri-scheme-request-finish-error">webkit_uri_scheme_request_finish_error</a></span> <span class="gtkdoc opt">(</span>request<span class="gtkdoc opt">,</span> error<span class="gtkdoc opt">);</span>
-        <span class="function"><a href="../glib/glib-Error-Reporting.html#g-error-free">g_error_free</a></span> <span class="gtkdoc opt">(</span>error<span class="gtkdoc opt">);</span>
-        <span class="keyword">return</span><span class="gtkdoc opt">;</span>
-    <span class="gtkdoc opt">}</span>
-    <span class="function"><a href="WebKitURISchemeRequest.html#webkit-uri-scheme-request-finish">webkit_uri_scheme_request_finish</a></span> <span class="gtkdoc opt">(</span>request<span class="gtkdoc opt">,</span> stream<span class="gtkdoc opt">,</span> stream_length<span class="gtkdoc opt">,</span> <span class="string">&quot;text/html&quot;</span><span class="gtkdoc opt">);</span>
-    <span class="function"><a href="../gobject/gobject-The-Base-Object-Type.html#g-object-unref">g_object_unref</a></span> <span class="gtkdoc opt">(</span>stream<span class="gtkdoc opt">);</span>
-<span class="gtkdoc opt">}</span></pre></td>
+        <span class="n">error</span> <span class="o">=</span> <span class="n">g_error_new</span> <span class="p">(</span><span class="n">ABOUT_HANDLER_ERROR</span><span class="p">,</span> <span class="n">ABOUT_HANDLER_ERROR_INVALID</span><span class="p">,</span> <span class="s">&quot;Invalid about:%s page.&quot;</span><span class="p">,</span> <span class="n">path</span><span class="p">);</span>
+        <span class="n">webkit_uri_scheme_request_finish_error</span> <span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">error</span><span class="p">);</span>
+        <span class="n">g_error_free</span> <span class="p">(</span><span class="n">error</span><span class="p">);</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="n">webkit_uri_scheme_request_finish</span> <span class="p">(</span><span class="n">request</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="n">stream_length</span><span class="p">,</span> <span class="s">&quot;text/html&quot;</span><span class="p">);</span>
+    <span class="n">g_object_unref</span> <span class="p">(</span><span class="n">stream</span><span class="p">);</span>
+<span class="p">}</span></pre></td>
       </tr>
     </tbody>
   </table>
@@ -1944,9 +2166,9 @@ when the data of the request is available or
 <td class="enum_member_name"><p><a name="WEBKIT-CACHE-MODEL-DOCUMENT-VIEWER:CAPS"></a>WEBKIT_CACHE_MODEL_DOCUMENT_VIEWER</p></td>
 <td class="enum_member_description">
 <p>Disable the cache completely, which
-  substantially reduces memory usage. Useful for applications that only
-  access a single local file, with no navigation to other pages. No remote
-  resources will be cached.</p>
+substantially reduces memory usage. Useful for applications that only
+access a single local file, with no navigation to other pages. No remote
+resources will be cached.</p>
 </td>
 <td class="enum_member_annotations"> </td>
 </tr>
@@ -1954,7 +2176,7 @@ when the data of the request is available or
 <td class="enum_member_name"><p><a name="WEBKIT-CACHE-MODEL-WEB-BROWSER:CAPS"></a>WEBKIT_CACHE_MODEL_WEB_BROWSER</p></td>
 <td class="enum_member_description">
 <p>Improve document load speed substantially
-  by caching a very large number of resources and previously viewed content.</p>
+by caching a very large number of resources and previously viewed content.</p>
 </td>
 <td class="enum_member_annotations"> </td>
 </tr>
@@ -1962,8 +2184,8 @@ when the data of the request is available or
 <td class="enum_member_name"><p><a name="WEBKIT-CACHE-MODEL-DOCUMENT-BROWSER:CAPS"></a>WEBKIT_CACHE_MODEL_DOCUMENT_BROWSER</p></td>
 <td class="enum_member_description">
 <p>A cache model optimized for viewing
-  a series of local files -- for example, a documentation viewer or a website
-  designer. WebKit will cache a moderate number of resources.</p>
+a series of local files -- for example, a documentation viewer or a website
+designer. WebKit will cache a moderate number of resources.</p>
 </td>
 <td class="enum_member_annotations"> </td>
 </tr>
@@ -1987,11 +2209,7 @@ when the data of the request is available or
 <tr>
 <td class="enum_member_name"><p><a name="WEBKIT-PROCESS-MODEL-SHARED-SECONDARY-PROCESS:CAPS"></a>WEBKIT_PROCESS_MODEL_SHARED_SECONDARY_PROCESS</p></td>
 <td class="enum_member_description">
-<p>Use a single process to
-  perform content rendering. The process is shared among all the
-  <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> instances created by the application: if the process
-  hangs or crashes all the web views in the application will be affected.
-  This is the default process model, and it should suffice for most cases.</p>
+<p>Deprecated 2.26.</p>
 </td>
 <td class="enum_member_annotations"> </td>
 </tr>
@@ -1999,14 +2217,14 @@ when the data of the request is available or
 <td class="enum_member_name"><p><a name="WEBKIT-PROCESS-MODEL-MULTIPLE-SECONDARY-PROCESSES:CAPS"></a>WEBKIT_PROCESS_MODEL_MULTIPLE_SECONDARY_PROCESSES</p></td>
 <td class="enum_member_description">
 <p>Use one process
-  for each <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a>, while still allowing for some of them to
-  share a process in certain situations. The main advantage
-  of this process model is that the rendering process for a web view
-  can crash while the rest of the views keep working normally. This
-  process model is indicated for applications which may use a number
-  of web views and the content of in each must not interfere with the
-  rest — for example a full-fledged web browser with support for
-  multiple tabs.</p>
+for each <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a>, while still allowing for some of them to
+share a process in certain situations. The main advantage
+of this process model is that the rendering process for a web view
+can crash while the rest of the views keep working normally. This
+process model is indicated for applications which may use a number
+of web views and the content of in each must not interfere with the
+rest — for example a full-fledged web browser with support for
+multiple tabs.</p>
 </td>
 <td class="enum_member_annotations"> </td>
 </tr>
@@ -2039,9 +2257,9 @@ when the data of the request is available or
 <td class="enum_member_name"><p><a name="WEBKIT-TLS-ERRORS-POLICY-FAIL:CAPS"></a>WEBKIT_TLS_ERRORS_POLICY_FAIL</p></td>
 <td class="enum_member_description">
 <p>TLS errors will emit
-  <a class="link" href="WebKitWebView.html#WebKitWebView-load-failed-with-tls-errors" title="The “load-failed-with-tls-errors” signal"><span class="type">“load-failed-with-tls-errors”</span></a> and, if the signal is handled,
-  finish the load. In case the signal is not handled,
-  <a class="link" href="WebKitWebView.html#WebKitWebView-load-failed" title="The “load-failed” signal"><span class="type">“load-failed”</span></a> is emitted before the load finishes.</p>
+<a class="link" href="WebKitWebView.html#WebKitWebView-load-failed-with-tls-errors" title="The “load-failed-with-tls-errors” signal"><span class="type">“load-failed-with-tls-errors”</span></a> and, if the signal is handled,
+finish the load. In case the signal is not handled,
+<a class="link" href="WebKitWebView.html#WebKitWebView-load-failed" title="The “load-failed” signal"><span class="type">“load-failed”</span></a> is emitted before the load finishes.</p>
 </td>
 <td class="enum_member_annotations"> </td>
 </tr>
@@ -2099,16 +2317,33 @@ when the data of the request is available or
 <p><code class="literal">WebKitWebContext:local-storage-directory</code> has been deprecated since version 2.10. and should not be used in newly-written code.</p>
 <p>Use <a class="link" href="WebKitWebsiteDataManager.html#WebKitWebsiteDataManager--local-storage-directory" title="The “local-storage-directory” property"><span class="type">“local-storage-directory”</span></a> instead.</p>
 </div>
-<p>Flags: Read / Write / Construct Only</p>
+<p>Owner: WebKitWebContext</p>
+<p>Flags: Read / Write / Construct Only</p>
 <p>Default value: NULL</p>
 <p class="since">Since: <a class="link" href="api-index-2-8.html#api-index-2.8">2.8</a></p>
+</div>
+<hr>
+<div class="refsect2">
+<a name="WebKitWebContext--process-swap-on-cross-site-navigation-enabled"></a><h3>The <code class="literal">“process-swap-on-cross-site-navigation-enabled”</code> property</h3>
+<pre class="programlisting">  “process-swap-on-cross-site-navigation-enabled” <a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></pre>
+<p>Whether swap Web processes on cross-site navigations is enabled.</p>
+<p>When enabled, pages from each security origin will be handled by
+their own separate Web processes, which are started (and
+terminated) on demand as the user navigates across different
+domains. This is an important security measure which helps prevent
+websites stealing data from other visited pages.</p>
+<p>Owner: WebKitWebContext</p>
+<p>Flags: Read / Write / Construct Only</p>
+<p>Default value: FALSE</p>
+<p class="since">Since: <a class="link" href="api-index-2-28.html#api-index-2.28">2.28</a></p>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WebKitWebContext--website-data-manager"></a><h3>The <code class="literal">“website-data-manager”</code> property</h3>
 <pre class="programlisting">  “website-data-manager”     <a class="link" href="WebKitWebsiteDataManager.html" title="WebKitWebsiteDataManager"><span class="type">WebKitWebsiteDataManager</span></a> *</pre>
 <p>The <a class="link" href="WebKitWebsiteDataManager.html" title="WebKitWebsiteDataManager"><span class="type">WebKitWebsiteDataManager</span></a> associated with this context.</p>
-<p>Flags: Read / Write / Construct Only</p>
+<p>Owner: WebKitWebContext</p>
+<p>Flags: Read / Write / Construct Only</p>
 <p class="since">Since: <a class="link" href="api-index-2-10.html#api-index-2.10">2.10</a></p>
 </div>
 </div>
@@ -2265,9 +2500,56 @@ and <a class="link" href="WebKitWebContext.html#webkit-web-context-set-web-exten
 <p>Flags: <a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></p>
 <p class="since">Since: <a class="link" href="api-index-2-4.html#api-index-2.4">2.4</a></p>
 </div>
+<hr>
+<div class="refsect2">
+<a name="WebKitWebContext-user-message-received"></a><h3>The <code class="literal">“user-message-received”</code> signal</h3>
+<pre class="programlisting"><a href="../glib/glib-Basic-Types.html#gboolean"><span class="returnvalue">gboolean</span></a>
+user_function (<a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a>  *context,
+               <a class="link" href="WebKitUserMessage.html" title="WebKitUserMessage"><span class="type">WebKitUserMessage</span></a> *message,
+               <a href="../glib/glib-Basic-Types.html#gpointer"><span class="type">gpointer</span></a>           user_data)</pre>
+<p>This signal is emitted when a <a class="link" href="WebKitUserMessage.html" title="WebKitUserMessage"><span class="type">WebKitUserMessage</span></a> is received from a
+<a class="link" href="WebKitWebExtension.html" title="WebKitWebExtension"><span class="type">WebKitWebExtension</span></a>. You can reply to the message using
+<a class="link" href="WebKitUserMessage.html#webkit-user-message-send-reply" title="webkit_user_message_send_reply ()"><code class="function">webkit_user_message_send_reply()</code></a>.</p>
+<p>You can handle the user message asynchronously by calling <a href="../gobject/gobject-The-Base-Object-Type.html#g-object-ref"><code class="function">g_object_ref()</code></a> on
+<em class="parameter"><code>message</code></em>
+ and returning <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS"><code class="literal">TRUE</code></a>.</p>
+<div class="refsect3">
+<a name="WebKitWebContext-user-message-received.parameters"></a><h4>Parameters</h4>
+<div class="informaltable"><table class="informaltable" width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody>
+<tr>
+<td class="parameter_name"><p>context</p></td>
+<td class="parameter_description"><p>the <a class="link" href="WebKitWebContext.html" title="WebKitWebContext"><span class="type">WebKitWebContext</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>message</p></td>
+<td class="parameter_description"><p>the <a class="link" href="WebKitUserMessage.html" title="WebKitUserMessage"><span class="type">WebKitUserMessage</span></a> received</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>user_data</p></td>
+<td class="parameter_description"><p>user data set when the signal handler was connected.</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="WebKitWebContext-user-message-received.returns"></a><h4>Returns</h4>
+<p> <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS"><code class="literal">TRUE</code></a> if the message was handled, or <a href="../glib/glib-Standard-Macros.html#FALSE:CAPS"><code class="literal">FALSE</code></a> otherwise.</p>
+</div>
+<p>Flags: <a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></p>
+<p class="since">Since: <a class="link" href="api-index-2-28.html#api-index-2.28">2.28</a></p>
+</div>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.32.1</div>
 </body>
 </html>

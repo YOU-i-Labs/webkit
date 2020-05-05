@@ -38,9 +38,15 @@ namespace WebCore {
 #endif
 
 #define WEBCORE_LOG_CHANNELS(M) \
+    M(AdClickAttribution) \
     M(Animations) \
+    M(ApplePay) \
     M(Archives) \
+    M(BackForwardCache) \
+    M(Calc) \
+    M(ClipRects) \
     M(Compositing) \
+    M(CompositingOverlap) \
     M(ContentFiltering) \
     M(ContentObservation) \
     M(DatabaseTracker) \
@@ -76,7 +82,6 @@ namespace WebCore {
     M(MessagePorts) \
     M(Network) \
     M(NotYetImplemented) \
-    M(PageCache) \
     M(PerformanceLogging) \
     M(PlatformLeaks) \
     M(Plugins) \
@@ -92,6 +97,7 @@ namespace WebCore {
     M(ServiceWorker) \
     M(SpellingAndGrammar) \
     M(SQLDatabase) \
+    M(Storage) \
     M(StorageAPI) \
     M(SVG) \
     M(TextAutosizing) \
@@ -102,10 +108,9 @@ namespace WebCore {
     M(WebAudio) \
     M(WebGL) \
     M(WebGPU) \
-    M(WebMetal) \
     M(WebRTC) \
     M(WebRTCStats) \
-    M(WheelEventTestTriggers) \
+    M(WheelEventTestMonitor) \
 
 #undef DECLARE_LOG_CHANNEL
 #define DECLARE_LOG_CHANNEL(name) \
@@ -115,7 +120,6 @@ WEBCORE_LOG_CHANNELS(DECLARE_LOG_CHANNEL)
 
 String logLevelString();
 bool isLogChannelEnabled(const String& name);
-WEBCORE_EXPORT void setLogChannelToAccumulate(const String& name);
 
 #endif // !LOG_DISABLED || !RELEASE_LOG_DISABLED
 

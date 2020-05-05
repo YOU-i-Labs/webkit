@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2015 The ANGLE Project Authors. All rights reserved.
+// Copyright 2015 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -22,7 +22,6 @@ class WindowSurfaceWGL : public SurfaceWGL
 {
   public:
     WindowSurfaceWGL(const egl::SurfaceState &state,
-                     RendererGL *renderer,
                      EGLNativeWindowType window,
                      int pixelFormat,
                      const FunctionsWGL *functions,
@@ -30,7 +29,7 @@ class WindowSurfaceWGL : public SurfaceWGL
     ~WindowSurfaceWGL() override;
 
     egl::Error initialize(const egl::Display *display) override;
-    egl::Error makeCurrent() override;
+    egl::Error makeCurrent(const gl::Context *context) override;
 
     egl::Error swap(const gl::Context *context) override;
     egl::Error postSubBuffer(const gl::Context *context,
@@ -39,8 +38,10 @@ class WindowSurfaceWGL : public SurfaceWGL
                              EGLint width,
                              EGLint height) override;
     egl::Error querySurfacePointerANGLE(EGLint attribute, void **value) override;
-    egl::Error bindTexImage(gl::Texture *texture, EGLint buffer) override;
-    egl::Error releaseTexImage(EGLint buffer) override;
+    egl::Error bindTexImage(const gl::Context *context,
+                            gl::Texture *texture,
+                            EGLint buffer) override;
+    egl::Error releaseTexImage(const gl::Context *context, EGLint buffer) override;
     void setSwapInterval(EGLint interval) override;
 
     EGLint getWidth() const override;
@@ -62,6 +63,6 @@ class WindowSurfaceWGL : public SurfaceWGL
     EGLint mSwapBehavior;
 };
 
-}
+}  // namespace rx
 
-#endif // LIBANGLE_RENDERER_GL_WGL_WINDOWSURFACEWGL_H_
+#endif  // LIBANGLE_RENDERER_GL_WGL_WINDOWSURFACEWGL_H_

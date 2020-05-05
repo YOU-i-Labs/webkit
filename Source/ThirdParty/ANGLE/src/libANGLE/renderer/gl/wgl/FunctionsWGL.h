@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2015 The ANGLE Project Authors. All rights reserved.
+// Copyright 2015 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -90,6 +90,6 @@ class FunctionsWGL : angle::NonCopyable
     PFNWGLDXUNLOCKOBJECTSNVPROC dxUnlockObjectsNV;
 };
 
-}
+}  // namespace rx
 
-#endif // LIBANGLE_RENDERER_GL_WGL_FUNCTIONS_WGL
+#endif  // LIBANGLE_RENDERER_GL_WGL_FUNCTIONS_WGL

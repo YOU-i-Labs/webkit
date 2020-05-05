@@ -24,6 +24,7 @@
 #if USE(GLIB)
 
 #include <gio/gio.h>
+#include <utility>
 #include <wtf/Noncopyable.h>
 
 namespace WTF {
@@ -45,7 +46,8 @@ using GUniquePtr = std::unique_ptr<T, GPtrDeleter<T>>;
     macro(GTimer, g_timer_destroy) \
     macro(GKeyFile, g_key_file_free) \
     macro(char*, g_strfreev) \
-    macro(GVariantIter, g_variant_iter_free)
+    macro(GVariantIter, g_variant_iter_free) \
+    macro(GVariantType, g_variant_type_free)
 
 #define WTF_DEFINE_GPTR_DELETER(typeName, deleterFunc) \
     template<> struct GPtrDeleter<typeName> \
@@ -78,11 +80,9 @@ public:
         return m_ptr;
     }
 
-    GUniquePtr<T> release()
+    T* release()
     {
-        GUniquePtr<T> ptr(m_ptr);
-        m_ptr = nullptr;
-        return ptr;
+        return std::exchange(m_ptr, nullptr);
     }
 
     T& operator*() const

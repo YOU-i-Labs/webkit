@@ -4,28 +4,31 @@ list(APPEND WTF_PUBLIC_HEADERS
     glib/GLibUtilities.h
     glib/GMutexLocker.h
     glib/GRefPtr.h
+    glib/GSocketMonitor.h
     glib/GTypedefs.h
     glib/GUniquePtr.h
     glib/RunLoopSourcePriority.h
+    glib/SocketConnection.h
     glib/WTFGType.h
 )
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
     list(APPEND WTF_PUBLIC_HEADERS
+        linux/ProcessMemoryFootprint.h
         linux/CurrentProcessMemoryStatus.h
     )
 endif ()
 
 list(APPEND WTF_SOURCES
-    UniStdExtras.cpp
-
     generic/MainThreadGeneric.cpp
     generic/WorkQueueGeneric.cpp
 
     glib/FileSystemGlib.cpp
     glib/GLibUtilities.cpp
     glib/GRefPtr.cpp
+    glib/GSocketMonitor.cpp
     glib/RunLoopGLib.cpp
+    glib/SocketConnection.cpp
     glib/URLGLib.cpp
 
     posix/OSAllocatorPOSIX.cpp
@@ -35,6 +38,7 @@ list(APPEND WTF_SOURCES
 
     unix/CPUTimeUnix.cpp
     unix/LanguageUnix.cpp
+    unix/UniStdExtrasUnix.cpp
 )
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")

@@ -55,8 +55,7 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
 
         this.addSubview(this._navigationBar);
 
-        const suppressFiltering = true;
-        this._canvasTreeOutline = this.createContentTreeOutline(suppressFiltering);
+        this._canvasTreeOutline = this.createContentTreeOutline({suppressFiltering: true});
         this._canvasTreeOutline.element.classList.add("canvas");
 
         this._recordingNavigationBar = new WI.NavigationBar;
@@ -115,17 +114,15 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
         if (recording === this._recording)
             return;
 
-        if (this._recording) {
-            this._recording.removeEventListener(WI.Recording.Event.ProcessedAction, this._handleRecordingProcessedAction, this);
-            this._recording.removeEventListener(WI.Recording.Event.StartProcessingFrame, this._handleRecordingStartProcessingFrame, this);
-        }
+        if (this._recording)
+            this._recording.removeEventListener(null, null, this);
 
         if (recording)
             this.canvas = recording.source;
 
         this._recording = recording;
 
-        if (this._recording) {
+        if (this._recording && !this._recording.ready) {
             this._recording.addEventListener(WI.Recording.Event.ProcessedAction, this._handleRecordingProcessedAction, this);
             this._recording.addEventListener(WI.Recording.Event.StartProcessingFrame, this._handleRecordingStartProcessingFrame, this);
         }
@@ -177,6 +174,10 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
         let canvas = objects.find((object) => object instanceof WI.Canvas);
         if (canvas) {
             this.canvas = canvas;
+            let treeElement = this._canvasTreeOutline.findTreeElement(canvas);
+            const omitFocus = false;
+            const selectedByUser = false;
+            treeElement.revealAndSelect(omitFocus, selectedByUser);
             return;
         }
 
@@ -213,6 +214,18 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
 
         this.contentBrowser.addEventListener(WI.ContentBrowser.Event.CurrentRepresentedObjectsDidChange, this.updateRepresentedObjects, this);
         this.updateRepresentedObjects();
+
+        if (this._recording) {
+            this._recordingTreeOutline.updateVirtualizedElementsDebouncer.force();
+
+            let action = this._recording[WI.CanvasSidebarPanel.SelectedActionSymbol];
+            let treeElement = this._recordingTreeOutline.findTreeElement(action);
+            if (treeElement) {
+                const omitFocus = false;
+                const selectedByUser = false;
+                treeElement.revealAndSelect(omitFocus, selectedByUser);
+            }
+        }
     }
 
     hidden()
@@ -224,10 +237,8 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
 
     canShowRepresentedObject(representedObject)
     {
-        if (representedObject instanceof WI.CanvasCollection)
-            return false;
-
-        return super.canShowRepresentedObject(representedObject);
+        return representedObject instanceof WI.Canvas
+            || representedObject instanceof WI.Recording;
     }
 
     // Protected
@@ -309,7 +320,7 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
 
     _handleImportButtonNavigationItemClicked(event)
     {
-        WI.FileUtilities.importJSON((result) => WI.canvasManager.processJSON(result));
+        WI.FileUtilities.importJSON((result) => WI.canvasManager.processJSON(result), {multiple: true});
     }
 
     _treeSelectionDidChange(event)
@@ -364,7 +375,7 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
         const selectedByUser = false;
         canvasTreeElement.revealAndSelect(omitFocus, selectedByUser);
 
-        if (WI.Canvas.ContextType.Canvas2D || this._canvas.contextType === WI.Canvas.ContextType.WebGL)
+        if (WI.Canvas.ContextType.Canvas2D || this._canvas.contextType === WI.Canvas.ContextType.WebGL || this._canvas.contextType === WI.Canvas.ContextType.WebGL2)
             this._recordButtonNavigationItem.enabled = true;
 
         this.recording = null;
@@ -373,6 +384,8 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
     _recordingChanged()
     {
         this._recordingTreeOutline.removeChildren();
+
+        this._selectedRecordingActionIndex = NaN;
 
         if (this._recordingProcessingOptionsContainer) {
             this._recordingProcessingOptionsContainer.remove();
@@ -461,7 +474,7 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
 
     _updateRecordNavigationItem()
     {
-        if (!this._canvas || !(this._canvas.contextType === WI.Canvas.ContextType.Canvas2D || this._canvas.contextType === WI.Canvas.ContextType.WebGL)) {
+        if (!this._canvas || !(this._canvas.contextType === WI.Canvas.ContextType.Canvas2D || this._canvas.contextType === WI.Canvas.ContextType.WebGL || this._canvas.contextType === WI.Canvas.ContextType.WebGL2)) {
             this._recordButtonNavigationItem.enabled = false;
             return;
         }
@@ -483,6 +496,7 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
 
         let hasRecordings = this._recording || (this._canvas && this._canvas.recordingCollection.size);
         this.element.classList.toggle("has-recordings", hasRecordings);
+        this.element.classList.toggle("showing-recording", !!this._recording);
         if (!hasRecordings)
             return;
 
@@ -516,7 +530,7 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
             scopeBarItems.unshift(this._placeholderScopeBarItem);
         }
 
-        this._scopeBar = new WI.ScopeBar("canvas-recordinga-scope-bar", scopeBarItems, selectedScopeBarItem, true);
+        this._scopeBar = new WI.ScopeBar("canvas-recording-scope-bar", scopeBarItems, selectedScopeBarItem, true);
         this._scopeBar.addEventListener(WI.ScopeBar.Event.SelectionChanged, this._scopeBarSelectionChanged, this);
         this._recordingNavigationBar.insertNavigationItem(this._scopeBar, 0);
     }
@@ -578,12 +592,18 @@ WI.CanvasSidebarPanel = class CanvasSidebarPanel extends WI.NavigationSidebarPan
         console.assert(isInitialStateAction || this._recordingTreeOutline.children.lastValue instanceof WI.FolderTreeElement, "There should be a WI.FolderTreeElement for the frame for this action.");
         this._createRecordingActionTreeElement(action, index, isInitialStateAction ? this._recordingTreeOutline : this._recordingTreeOutline.children.lastValue);
 
-        if (isInitialStateAction && !this._recording[WI.CanvasSidebarPanel.SelectedActionSymbol])
-            this.action = action;
+        if (!this._recording[WI.CanvasSidebarPanel.SelectedActionSymbol]) {
+            console.assert(action === this._recording.actions[0]);
+            this.action = this._recording.actions[0];
+        }
 
-        if (action === this._recording.actions.lastValue && this._recordingProcessingOptionsContainer) {
-            this._recordingProcessingOptionsContainer.remove();
-            this._recordingProcessingOptionsContainer = null;
+        if (this._recording.ready) {
+            this._recording.removeEventListener(null, null, this);
+
+            if (this._recordingProcessingOptionsContainer) {
+                this._recordingProcessingOptionsContainer.remove();
+                this._recordingProcessingOptionsContainer = null;
+            }
         }
     }
 

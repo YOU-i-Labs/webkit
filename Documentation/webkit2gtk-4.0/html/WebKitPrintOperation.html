@@ -6,9 +6,9 @@
 <meta name="generator" content="DocBook XSL Stylesheets V1.79.1">
 <link rel="home" href="index.html" title="WebKitGTK Reference Manual">
 <link rel="up" href="ch01.html" title="Class Overview">
-<link rel="prev" href="WebKitPrintCustomWidget.html" title="WebKitPrintCustomWidget">
+<link rel="prev" href="webkit2gtk-4.0-The-title-of-the-custom-widget..html" title="The title of the custom widget.">
 <link rel="next" href="WebKitWebResource.html" title="WebKitWebResource">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.32.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -22,7 +22,7 @@
 </td>
 <td><a accesskey="h" href="index.html"><img src="home.png" width="16" height="16" border="0" alt="Home"></a></td>
 <td><a accesskey="u" href="ch01.html"><img src="up.png" width="16" height="16" border="0" alt="Up"></a></td>
-<td><a accesskey="p" href="WebKitPrintCustomWidget.html"><img src="left.png" width="16" height="16" border="0" alt="Prev"></a></td>
+<td><a accesskey="p" href="webkit2gtk-4.0-The-title-of-the-custom-widget..html"><img src="left.png" width="16" height="16" border="0" alt="Prev"></a></td>
 <td><a accesskey="n" href="WebKitWebResource.html"><img src="right.png" width="16" height="16" border="0" alt="Next"></a></td>
 </tr></table>
 <div class="refentry">
@@ -38,8 +38,8 @@
 <a name="WebKitPrintOperation.functions"></a><h2>Functions</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="functions_return">
-<col class="functions_name">
+<col width="150px" class="functions_proto_type">
+<col class="functions_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -124,9 +124,9 @@
 </tr>
 <tr>
 <td class="property_type">
-<a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> *</td>
+<a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a> *</td>
 <td class="property_name"><a class="link" href="WebKitPrintOperation.html#WebKitPrintOperation--web-view" title="The “web-view” property">web-view</a></td>
-<td class="property_flags">Read / Write / Construct Only</td>
+<td class="property_flags">Read / Write / Construct Only</td>
 </tr>
 </tbody>
 </table></div>
@@ -135,14 +135,14 @@
 <a name="WebKitPrintOperation.signals"></a><h2>Signals</h2>
 <div class="informaltable"><table class="informaltable" border="0">
 <colgroup>
-<col width="150px" class="signals_return">
-<col width="300px" class="signals_name">
-<col width="200px" class="signals_flags">
+<col width="150px" class="signal_proto_type">
+<col width="300px" class="signal_proto_name">
+<col width="200px" class="signal_proto_flags">
 </colgroup>
 <tbody>
 <tr>
 <td class="signal_type">
-<a class="link" href="WebKitPrintCustomWidget.html" title="WebKitPrintCustomWidget"><span class="returnvalue">WebKitPrintCustomWidget</span></a>*</td>
+<a class="link" href="webkit2gtk-4.0-The-title-of-the-custom-widget..html#WebKitPrintCustomWidget"><span class="returnvalue">WebKitPrintCustomWidget</span></a>*</td>
 <td class="signal_name"><a class="link" href="WebKitPrintOperation.html#WebKitPrintOperation-create-custom-widget" title="The “create-custom-widget” signal">create-custom-widget</a></td>
 <td class="signal_flags"><a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></td>
 </tr>
@@ -163,8 +163,8 @@
 <a name="WebKitPrintOperation.other"></a><h2>Types and Values</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="name">
-<col class="description">
+<col width="150px" class="other_proto_type">
+<col class="other_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -196,7 +196,7 @@ display the print dialog with <a class="link" href="WebKitPrintOperation.html#we
 <div class="refsect2">
 <a name="webkit-print-operation-new"></a><h3>webkit_print_operation_new ()</h3>
 <pre class="programlisting"><a class="link" href="WebKitPrintOperation.html" title="WebKitPrintOperation"><span class="returnvalue">WebKitPrintOperation</span></a> *
-webkit_print_operation_new (<em class="parameter"><code><a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> *web_view</code></em>);</pre>
+webkit_print_operation_new (<em class="parameter"><code><a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a> *web_view</code></em>);</pre>
 <p>Create a new <a class="link" href="WebKitPrintOperation.html" title="WebKitPrintOperation"><span class="type">WebKitPrintOperation</span></a> to print <em class="parameter"><code>web_view</code></em>
  contents.</p>
 <div class="refsect3">
@@ -209,7 +209,7 @@ webkit_print_operation_new (<em class="parameter"><code><a class="link" href="We
 </colgroup>
 <tbody><tr>
 <td class="parameter_name"><p>web_view</p></td>
-<td class="parameter_description"><p>a <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a></p></td>
+<td class="parameter_description"><p>a <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a></p></td>
 <td class="parameter_annotations"> </td>
 </tr></tbody>
 </table></div>
@@ -469,6 +469,7 @@ operation finishes. If an error occurs while printing the signal
 <a name="WebKitPrintOperation--page-setup"></a><h3>The <code class="literal">“page-setup”</code> property</h3>
 <pre class="programlisting">  “page-setup”               <a href="../gtk3/GtkPageSetup.html#GtkPageSetup-struct"><span class="type">GtkPageSetup</span></a> *</pre>
 <p>The initial <a href="../gtk3/GtkPageSetup.html#GtkPageSetup-struct"><span class="type">GtkPageSetup</span></a> for the print operation.</p>
+<p>Owner: WebKitPrintOperation</p>
 <p>Flags: Read / Write</p>
 </div>
 <hr>
@@ -476,28 +477,30 @@ operation finishes. If an error occurs while printing the signal
 <a name="WebKitPrintOperation--print-settings"></a><h3>The <code class="literal">“print-settings”</code> property</h3>
 <pre class="programlisting">  “print-settings”           <a href="../gtk3/GtkPrintSettings.html#GtkPrintSettings-struct"><span class="type">GtkPrintSettings</span></a> *</pre>
 <p>The initial <a href="../gtk3/GtkPrintSettings.html#GtkPrintSettings-struct"><span class="type">GtkPrintSettings</span></a> for the print operation.</p>
+<p>Owner: WebKitPrintOperation</p>
 <p>Flags: Read / Write</p>
 </div>
 <hr>
 <div class="refsect2">
 <a name="WebKitPrintOperation--web-view"></a><h3>The <code class="literal">“web-view”</code> property</h3>
-<pre class="programlisting">  “web-view”                 <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> *</pre>
-<p>The <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> that will be printed.</p>
-<p>Flags: Read / Write / Construct Only</p>
+<pre class="programlisting">  “web-view”                 <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a> *</pre>
+<p>The <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a> that will be printed.</p>
+<p>Owner: WebKitPrintOperation</p>
+<p>Flags: Read / Write / Construct Only</p>
 </div>
 </div>
 <div class="refsect1">
 <a name="WebKitPrintOperation.signal-details"></a><h2>Signal Details</h2>
 <div class="refsect2">
 <a name="WebKitPrintOperation-create-custom-widget"></a><h3>The <code class="literal">“create-custom-widget”</code> signal</h3>
-<pre class="programlisting"><a class="link" href="WebKitPrintCustomWidget.html" title="WebKitPrintCustomWidget"><span class="returnvalue">WebKitPrintCustomWidget</span></a>*
+<pre class="programlisting"><a class="link" href="webkit2gtk-4.0-The-title-of-the-custom-widget..html#WebKitPrintCustomWidget"><span class="returnvalue">WebKitPrintCustomWidget</span></a>*
 user_function (<a class="link" href="WebKitPrintOperation.html" title="WebKitPrintOperation"><span class="type">WebKitPrintOperation</span></a> *print_operation,
                <a href="../glib/glib-Basic-Types.html#gpointer"><span class="type">gpointer</span></a>              user_data)</pre>
 <p>Emitted when displaying the print dialog with <a class="link" href="WebKitPrintOperation.html#webkit-print-operation-run-dialog" title="webkit_print_operation_run_dialog ()"><code class="function">webkit_print_operation_run_dialog()</code></a>.
-The returned <a class="link" href="WebKitPrintCustomWidget.html" title="WebKitPrintCustomWidget"><span class="type">WebKitPrintCustomWidget</span></a> will be added to the print dialog and
+The returned <a class="link" href="webkit2gtk-4.0-The-title-of-the-custom-widget..html#WebKitPrintCustomWidget"><span class="type">WebKitPrintCustomWidget</span></a> will be added to the print dialog and
 it will be owned by the <em class="parameter"><code>print_operation</code></em>
 . However, the object is guaranteed
-to be alive until the <a class="link" href="WebKitPrintCustomWidget.html#WebKitPrintCustomWidget-apply" title="The “apply” signal"><span class="type">“apply”</span></a> is emitted.</p>
+to be alive until the <a class="link" href="webkit2gtk-4.0-The-title-of-the-custom-widget..html#WebKitPrintCustomWidget-apply" title="The “apply” signal"><span class="type">“apply”</span></a> is emitted.</p>
 <div class="refsect3">
 <a name="WebKitPrintOperation-create-custom-widget.parameters"></a><h4>Parameters</h4>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
@@ -522,7 +525,7 @@ to be alive until the <a class="link" href="WebKitPrintCustomWidget.html#WebKitP
 </div>
 <div class="refsect3">
 <a name="WebKitPrintOperation-create-custom-widget.returns"></a><h4>Returns</h4>
-<p>A <a class="link" href="WebKitPrintCustomWidget.html" title="WebKitPrintCustomWidget"><span class="type">WebKitPrintCustomWidget</span></a> that will be embedded in the dialog. </p>
+<p>A <a class="link" href="webkit2gtk-4.0-The-title-of-the-custom-widget..html#WebKitPrintCustomWidget"><span class="type">WebKitPrintCustomWidget</span></a> that will be embedded in the dialog. </p>
 <p><span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
 </div>
 <p>Flags: <a href="../gobject/gobject-Signals.html#G-SIGNAL-RUN-LAST:CAPS">Run Last</a></p>
@@ -603,6 +606,6 @@ required for printing.</p>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.32.1</div>
 </body>
 </html>

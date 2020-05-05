@@ -55,6 +55,7 @@
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/LayoutMilestone.h>
+#include <WebCore/PlatformMouseEvent.h>
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/UserContentTypes.h>
 #include <WebCore/UserScriptTypes.h>
@@ -312,6 +313,28 @@ inline WKEventMouseButton toAPI(WebMouseEvent::Button mouseButton)
         wkMouseButton = kWKEventMouseButtonMiddleButton;
         break;
     case WebMouseEvent::RightButton:
+        wkMouseButton = kWKEventMouseButtonRightButton;
+        break;
+    }
+
+    return wkMouseButton;
+}
+
+inline WKEventMouseButton toAPI(WebCore::MouseButton mouseButton)
+{
+    WKEventMouseButton wkMouseButton = kWKEventMouseButtonNoButton;
+
+    switch (mouseButton) {
+    case WebCore::MouseButton::NoButton:
+        wkMouseButton = kWKEventMouseButtonNoButton;
+        break;
+    case WebCore::MouseButton::LeftButton:
+        wkMouseButton = kWKEventMouseButtonLeftButton;
+        break;
+    case WebCore::MouseButton::MiddleButton:
+        wkMouseButton = kWKEventMouseButtonMiddleButton;
+        break;
+    case WebCore::MouseButton::RightButton:
         wkMouseButton = kWKEventMouseButtonRightButton;
         break;
     }
@@ -823,7 +846,7 @@ inline SameDocumentNavigationType toSameDocumentNavigationType(WKSameDocumentNav
 
 inline WKDiagnosticLoggingResultType toAPI(WebCore::DiagnosticLoggingResultType type)
 {
-    WKDiagnosticLoggingResultType wkType;
+    WKDiagnosticLoggingResultType wkType { };
 
     switch (type) {
     case WebCore::DiagnosticLoggingResultPass:
@@ -842,7 +865,7 @@ inline WKDiagnosticLoggingResultType toAPI(WebCore::DiagnosticLoggingResultType 
 
 inline WebCore::DiagnosticLoggingResultType toDiagnosticLoggingResultType(WKDiagnosticLoggingResultType wkType)
 {
-    WebCore::DiagnosticLoggingResultType type;
+    WebCore::DiagnosticLoggingResultType type { };
 
     switch (wkType) {
     case kWKDiagnosticLoggingResultPass:

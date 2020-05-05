@@ -26,7 +26,6 @@
 #pragma once
 
 #include "APIObject.h"
-#include "HTTPCookieAcceptPolicy.h"
 #include <WebCore/Cookie.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
@@ -37,6 +36,7 @@ struct Cookie;
 #if PLATFORM(COCOA)
 class CookieStorageObserver;
 #endif
+enum class HTTPCookieAcceptPolicy : uint8_t;
 }
 
 namespace WebKit {
@@ -47,11 +47,10 @@ class WebsiteDataStore;
 namespace API {
 
 class APIWebCookieManagerProxyObserver;
-class WebsiteDataStore;
 
 class HTTPCookieStore final : public ObjectImpl<Object::Type::HTTPCookieStore> {
 public:
-    static Ref<HTTPCookieStore> create(WebsiteDataStore& websiteDataStore)
+    static Ref<HTTPCookieStore> create(WebKit::WebsiteDataStore& websiteDataStore)
     {
         return adoptRef(*new HTTPCookieStore(websiteDataStore));
     }
@@ -59,8 +58,11 @@ public:
     virtual ~HTTPCookieStore();
 
     void cookies(CompletionHandler<void(const Vector<WebCore::Cookie>&)>&&);
-    void setCookie(const WebCore::Cookie&, CompletionHandler<void()>&&);
+    void setCookies(const Vector<WebCore::Cookie>&, CompletionHandler<void()>&&);
     void deleteCookie(const WebCore::Cookie&, CompletionHandler<void()>&&);
+    
+    void deleteAllCookies(CompletionHandler<void()>&&);
+    void setHTTPCookieAcceptPolicy(WebCore::HTTPCookieAcceptPolicy, CompletionHandler<void()>&&);
 
     class Observer {
     public:
@@ -75,7 +77,7 @@ public:
     void cookieManagerDestroyed();
 
 private:
-    HTTPCookieStore(WebsiteDataStore&);
+    HTTPCookieStore(WebKit::WebsiteDataStore&);
 
     void registerForNewProcessPoolNotifications();
     void unregisterForNewProcessPoolNotifications();
@@ -86,7 +88,10 @@ private:
     static void deleteCookieFromDefaultUIProcessCookieStore(const WebCore::Cookie&);
     void startObservingChangesToDefaultUIProcessCookieStore(Function<void()>&&);
     void stopObservingChangesToDefaultUIProcessCookieStore();
+    void deleteCookiesInDefaultUIProcessCookieStore();
+    void setHTTPCookieAcceptPolicyInDefaultUIProcessCookieStore(WebCore::HTTPCookieAcceptPolicy);
     
+    // FIXME: This is a reference cycle.
     Ref<WebKit::WebsiteDataStore> m_owningDataStore;
     HashSet<Observer*> m_observers;
 
@@ -97,7 +102,7 @@ private:
     uint64_t m_processPoolCreationListenerIdentifier { 0 };
 
 #if PLATFORM(COCOA)
-    RefPtr<WebCore::CookieStorageObserver> m_defaultUIProcessObserver;
+    std::unique_ptr<WebCore::CookieStorageObserver> m_defaultUIProcessObserver;
 #endif
 };
 

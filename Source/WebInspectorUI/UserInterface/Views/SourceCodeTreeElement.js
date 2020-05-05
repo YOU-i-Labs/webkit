@@ -128,44 +128,14 @@ WI.SourceCodeTreeElement = class SourceCodeTreeElement extends WI.FolderizedTree
             findAndCombineFolderChains(this.children[i], null);
     }
 
-    // Protected
-
-    createFoldersAsNeededForSubpath(subpath)
+    canSelectOnMouseDown(event)
     {
-        if (!subpath)
-            return this;
-
-        var components = subpath.split("/");
-        if (components.length === 1)
-            return this;
-
-        if (!this._subpathFolderTreeElementMap)
-            this._subpathFolderTreeElementMap = {};
-
-        var currentPath = "";
-        var currentFolderTreeElement = this;
-
-        for (var i = 0; i < components.length - 1; ++i) {
-            var componentName = components[i];
-            currentPath += (i ? "/" : "") + componentName;
-
-            var cachedFolder = this._subpathFolderTreeElementMap[currentPath];
-            if (cachedFolder) {
-                currentFolderTreeElement = cachedFolder;
-                continue;
-            }
-
-            var newFolder = new WI.FolderTreeElement(componentName);
-            newFolder.__path = currentPath;
-            this._subpathFolderTreeElementMap[currentPath] = newFolder;
-
-            var index = insertionIndexForObjectInListSortedByFunction(newFolder, currentFolderTreeElement.children, WI.ResourceTreeElement.compareFolderAndResourceTreeElements);
-            currentFolderTreeElement.insertChild(newFolder, index);
-            currentFolderTreeElement = newFolder;
-        }
-
-        return currentFolderTreeElement;
+        if (this._toggleBlackboxedImageElement && this._toggleBlackboxedImageElement.contains(event.target))
+            return false;
+        return super.canSelectOnMouseDown(event);
     }
+
+    // Protected
 
     descendantResourceTreeElementTypeDidChange(childTreeElement, oldType)
     {
@@ -187,6 +157,21 @@ WI.SourceCodeTreeElement = class SourceCodeTreeElement extends WI.FolderizedTree
             childTreeElement.revealAndSelect(true, false, true);
     }
 
+    updateStatus()
+    {
+        if (this._sourceCode.supportsScriptBlackboxing) {
+            if (!this._toggleBlackboxedImageElement) {
+                this._toggleBlackboxedImageElement = document.createElement("img");
+                this._toggleBlackboxedImageElement.classList.add("toggle-script-blackbox");
+                this._toggleBlackboxedImageElement.addEventListener("click", this._handleToggleBlackboxedImageElementClicked.bind(this));
+            }
+
+            this.status = this._toggleBlackboxedImageElement;
+            this._updateToggleBlackboxImageElementState();
+        } else if (this.status === this._toggleBlackboxedImageElement)
+            this.status = null;
+    }
+
     // Protected (ResourceTreeElement calls this when its Resource changes dynamically for Frames)
 
     _updateSourceCode(sourceCode)
@@ -196,12 +181,68 @@ WI.SourceCodeTreeElement = class SourceCodeTreeElement extends WI.FolderizedTree
         if (this._sourceCode === sourceCode)
             return;
 
-        if (this._sourceCode)
+        let oldSupportsScriptBlackboxing = false;
+
+        if (this._sourceCode) {
+            oldSupportsScriptBlackboxing = this._sourceCode.supportsScriptBlackboxing;
+
             this._sourceCode.removeEventListener(WI.SourceCode.Event.SourceMapAdded, this.updateSourceMapResources, this);
+        }
 
         this._sourceCode = sourceCode;
         this._sourceCode.addEventListener(WI.SourceCode.Event.SourceMapAdded, this.updateSourceMapResources, this);
 
+        let newSupportsScriptBlackboxing = this._sourceCode.supportsScriptBlackboxing;
+        if (oldSupportsScriptBlackboxing !== newSupportsScriptBlackboxing) {
+            if (newSupportsScriptBlackboxing)
+                WI.debuggerManager.addEventListener(WI.DebuggerManager.Event.BlackboxChanged, this._updateToggleBlackboxImageElementState, this);
+            else if (oldSupportsScriptBlackboxing)
+                WI.debuggerManager.removeEventListener(WI.DebuggerManager.Event.BlackboxChanged, this._updateToggleBlackboxImageElementState, this);
+        }
+
         this.updateSourceMapResources();
+
+        this.updateStatus();
+    }
+
+    // Private
+
+    _updateToggleBlackboxImageElementState()
+    {
+        let blackboxData = WI.debuggerManager.blackboxDataForSourceCode(this._sourceCode);
+
+        this._toggleBlackboxedImageElement.classList.toggle("pattern-blackboxed", blackboxData && blackboxData.type === WI.DebuggerManager.BlackboxType.Pattern);
+        this._toggleBlackboxedImageElement.classList.toggle("url-blackboxed", blackboxData && blackboxData.type === WI.DebuggerManager.BlackboxType.URL);
+
+        if (blackboxData) {
+            switch (blackboxData.type) {
+            case WI.DebuggerManager.BlackboxType.Pattern:
+                this._toggleBlackboxedImageElement.title = WI.UIString("Script ignored when debugging due to URL pattern blackbox");
+                break;
+
+            case WI.DebuggerManager.BlackboxType.URL:
+                this._toggleBlackboxedImageElement.title = WI.UIString("Unblackbox script to include it when debugging");
+                break;
+            }
+
+            console.assert(this._toggleBlackboxedImageElement.title);
+        } else
+            this._toggleBlackboxedImageElement.title = WI.UIString("Blackbox script to ignore it when debugging");
+    }
+
+    _handleToggleBlackboxedImageElementClicked(event)
+    {
+        let blackboxData = WI.debuggerManager.blackboxDataForSourceCode(this._sourceCode);
+        if (blackboxData && blackboxData.type === WI.DebuggerManager.BlackboxType.Pattern) {
+            WI.showSettingsTab({
+                blackboxPatternToSelect: blackboxData.regex,
+                initiatorHint: WI.TabBrowser.TabNavigationInitiator.ContextMenu,
+            });
+            return;
+        }
+
+        WI.debuggerManager.setShouldBlackboxScript(this._sourceCode, !blackboxData);
+
+        this._updateToggleBlackboxImageElementState();
     }
 };

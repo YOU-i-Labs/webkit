@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2014 The ANGLE Project Authors. All rights reserved.
+// Copyright 2014 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -15,10 +15,6 @@ namespace angle
 {
 
 // MemoryBuffer implementation.
-MemoryBuffer::MemoryBuffer() : mSize(0), mData(nullptr)
-{
-}
-
 MemoryBuffer::~MemoryBuffer()
 {
     free(mData);
@@ -41,7 +37,7 @@ bool MemoryBuffer::resize(size_t size)
     }
 
     // Only reallocate if the size has changed.
-    uint8_t *newMemory = reinterpret_cast<uint8_t *>(malloc(sizeof(uint8_t) * size));
+    uint8_t *newMemory = static_cast<uint8_t *>(malloc(sizeof(uint8_t) * size));
     if (newMemory == nullptr)
     {
         return false;
@@ -80,14 +76,30 @@ MemoryBuffer &MemoryBuffer::operator=(MemoryBuffer &&other)
     return *this;
 }
 
-// ScratchBuffer implementation.
-
-ScratchBuffer::ScratchBuffer(uint32_t lifetime) : mLifetime(lifetime), mResetCounter(lifetime)
+namespace
 {
+static constexpr uint32_t kDefaultScratchBufferLifetime = 1000u;
+
+}  // anonymous namespace
+
+// ScratchBuffer implementation.
+ScratchBuffer::ScratchBuffer() : ScratchBuffer(kDefaultScratchBufferLifetime) {}
+
+ScratchBuffer::ScratchBuffer(uint32_t lifetime) : mLifetime(lifetime), mResetCounter(lifetime) {}
+
+ScratchBuffer::~ScratchBuffer() {}
+
+ScratchBuffer::ScratchBuffer(ScratchBuffer &&other)
+{
+    *this = std::move(other);
 }
 
-ScratchBuffer::~ScratchBuffer()
+ScratchBuffer &ScratchBuffer::operator=(ScratchBuffer &&other)
 {
+    std::swap(mLifetime, other.mLifetime);
+    std::swap(mResetCounter, other.mResetCounter);
+    std::swap(mScratchMemory, other.mScratchMemory);
+    return *this;
 }
 
 bool ScratchBuffer::get(size_t requestedSize, MemoryBuffer **memoryBufferOut)
@@ -118,9 +130,8 @@ bool ScratchBuffer::getImpl(size_t requestedSize,
         tick();
     }
 
-    if (mResetCounter == 0 || mScratchMemory.size() < requestedSize)
+    if (mScratchMemory.size() < requestedSize)
     {
-        mScratchMemory.resize(0);
         if (!mScratchMemory.resize(requestedSize))
         {
             return false;
@@ -143,13 +154,20 @@ void ScratchBuffer::tick()
     if (mResetCounter > 0)
     {
         --mResetCounter;
+        if (mResetCounter == 0)
+        {
+            clear();
+        }
     }
 }
 
 void ScratchBuffer::clear()
 {
     mResetCounter = mLifetime;
-    mScratchMemory.resize(0);
+    if (mScratchMemory.size() > 0)
+    {
+        mScratchMemory.clear();
+    }
 }
 
 }  // namespace angle

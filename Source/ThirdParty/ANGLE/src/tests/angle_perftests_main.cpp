@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2014 The ANGLE Project Authors. All rights reserved.
+// Copyright 2014 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -9,20 +9,13 @@
 
 #include <gtest/gtest.h>
 
-extern bool g_OnlyOneRunFrame;
+#include "test_utils/runner/TestSuite.h"
+
+void ANGLEProcessPerfTestArgs(int *argc, char **argv);
 
 int main(int argc, char **argv)
 {
-    for (int i = 0; i < argc; ++i)
-    {
-        if (strcmp("--one-frame-only", argv[i]) == 0)
-        {
-            g_OnlyOneRunFrame = true;
-        }
-    }
-
-    testing::InitGoogleTest(&argc, argv);
-    testing::AddGlobalTestEnvironment(new testing::Environment());
-    int rt = RUN_ALL_TESTS();
-    return rt;
+    angle::TestSuite testSuite(&argc, argv);
+    ANGLEProcessPerfTestArgs(&argc, argv);
+    return testSuite.run();
 }

@@ -33,7 +33,7 @@
 #include "PluginProcess.h"
 #include "PluginProcessAttributes.h"
 #include "ProcessLauncher.h"
-#include "WebProcessProxyMessages.h"
+#include "WebProcessProxyMessagesReplies.h"
 #include <wtf/Deque.h>
 
 #if PLATFORM(COCOA)
@@ -53,10 +53,6 @@ struct RawPluginMetaData {
     String name;
     String description;
     String mimeDescription;
-
-#if PLATFORM(GTK)
-    bool requiresGtk2;
-#endif
 };
 #endif
 
@@ -75,7 +71,7 @@ public:
 
     // Asks the plug-in process to create a new connection to a web process. The connection identifier will be
     // encoded in the given argument encoder and sent back to the connection of the given web process.
-    void getPluginProcessConnection(Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply&&);
+    void getPluginProcessConnection(Messages::WebProcessProxy::GetPluginProcessConnectionDelayedReply&&);
 
     void fetchWebsiteData(CompletionHandler<void (Vector<String>)>&&);
     void deleteWebsiteData(WallTime modifiedSince, CompletionHandler<void ()>&&);
@@ -93,6 +89,9 @@ public:
 
 private:
     PluginProcessProxy(PluginProcessManager*, const PluginProcessAttributes&, uint64_t pluginProcessToken);
+
+    // AuxiliaryProcessProxy
+    ASCIILiteral processName() const final { return "Plugin"_s; }
 
     void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
     void platformGetLaunchOptionsWithAttributes(ProcessLauncher::LaunchOptions&, const PluginProcessAttributes&);
@@ -130,10 +129,10 @@ private:
     void endModal();
 
     void applicationDidBecomeActive();
-    void launchProcess(const String& launchPath, const Vector<String>& arguments, bool& result);
-    void launchApplicationAtURL(const String& urlString, const Vector<String>& arguments, bool& result);
-    void openURL(const String& url, bool& result, int32_t& status, String& launchedURLString);
-    void openFile(const String& fullPath, bool& result);
+    void launchProcess(const String& launchPath, const Vector<String>& arguments, CompletionHandler<void(bool)>&&);
+    void launchApplicationAtURL(const String& urlString, const Vector<String>& arguments, CompletionHandler<void(bool)>&&);
+    void openURL(const String& url, CompletionHandler<void(bool result, int32_t status, String launchedURLString)>&&);
+    void openFile(const String& fullPath, CompletionHandler<void(bool)>&&);
 #endif
 
     void platformInitializePluginProcess(PluginProcessCreationParameters& parameters);
@@ -147,7 +146,7 @@ private:
     // The connection to the plug-in host process.
     RefPtr<IPC::Connection> m_connection;
 
-    Deque<Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply> m_pendingConnectionReplies;
+    Deque<Messages::WebProcessProxy::GetPluginProcessConnectionDelayedReply> m_pendingConnectionReplies;
 
     Vector<uint64_t> m_pendingFetchWebsiteDataRequests;
     HashMap<uint64_t, CompletionHandler<void (Vector<String>)>> m_pendingFetchWebsiteDataCallbacks;

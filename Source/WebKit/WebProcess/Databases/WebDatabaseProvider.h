@@ -27,7 +27,6 @@
 #define WebDatabaseProvider_h
 
 #include <WebCore/DatabaseProvider.h>
-#include <WebCore/InProcessIDBServer.h>
 #include <wtf/HashMap.h>
 
 namespace WebKit {
@@ -43,10 +42,6 @@ public:
 
 private:
     explicit WebDatabaseProvider(uint64_t identifier);
-
-#if ENABLE(INDEXED_DATABASE)
-    HashMap<uint64_t, RefPtr<WebCore::InProcessIDBServer>> m_idbEphemeralConnectionMap;
-#endif
 
     const uint64_t m_identifier;
 };

@@ -68,7 +68,7 @@ void TextureMapperLayer::computeTransformsRecursive()
 
         m_layerTransforms.combined = parentTransform;
         m_layerTransforms.combined
-            .translate3d(originX + m_state.pos.x(), originY + m_state.pos.y(), m_state.anchorPoint.z())
+            .translate3d(originX + (m_state.pos.x() - m_state.boundsOrigin.x()), originY + (m_state.pos.y() - m_state.boundsOrigin.y()), m_state.anchorPoint.z())
             .multiply(m_layerTransforms.localTransform);
 
         m_layerTransforms.combinedForChildren = m_layerTransforms.combined;
@@ -78,6 +78,28 @@ void TextureMapperLayer::computeTransformsRecursive()
             m_layerTransforms.combinedForChildren = m_layerTransforms.combinedForChildren.to2dTransform();
         m_layerTransforms.combinedForChildren.multiply(m_state.childrenTransform);
         m_layerTransforms.combinedForChildren.translate3d(-originX, -originY, -m_state.anchorPoint.z());
+
+#if USE(COORDINATED_GRAPHICS)
+        // Compute transforms for the future as well.
+        TransformationMatrix futureParentTransform;
+        if (m_parent)
+            futureParentTransform = m_parent->m_layerTransforms.futureCombinedForChildren;
+        else if (m_effectTarget)
+            futureParentTransform = m_effectTarget->m_layerTransforms.futureCombined;
+
+        m_layerTransforms.futureCombined = futureParentTransform;
+        m_layerTransforms.futureCombined
+            .translate3d(originX + (m_state.pos.x() - m_state.boundsOrigin.x()), originY + (m_state.pos.y() - m_state.boundsOrigin.y()), m_state.anchorPoint.z())
+            .multiply(m_layerTransforms.futureLocalTransform);
+
+        m_layerTransforms.futureCombinedForChildren = m_layerTransforms.futureCombined;
+        m_layerTransforms.futureCombined.translate3d(-originX, -originY, -m_state.anchorPoint.z());
+
+        if (!m_state.preserves3D)
+            m_layerTransforms.futureCombinedForChildren = m_layerTransforms.futureCombinedForChildren.to2dTransform();
+        m_layerTransforms.futureCombinedForChildren.multiply(m_state.childrenTransform);
+        m_layerTransforms.futureCombinedForChildren.translate3d(-originX, -originY, -m_state.anchorPoint.z());
+#endif
     }
 
     m_state.visible = m_state.backfaceVisibility || !m_layerTransforms.combined.isBackFaceVisible();
@@ -97,6 +119,11 @@ void TextureMapperLayer::computeTransformsRecursive()
     // Reorder children if needed on the way back up.
     if (m_state.preserves3D)
         sortByZOrder(m_children);
+
+#if USE(COORDINATED_GRAPHICS)
+    if (m_backingStore && m_animatedBackingStoreClient)
+        m_animatedBackingStoreClient->requestBackingStoreUpdateIfNeeded(m_layerTransforms.futureCombined);
+#endif
 }
 
 void TextureMapperLayer::paint()
@@ -271,7 +298,7 @@ void TextureMapperLayer::computeOverlapRegions(Region& overlapRegion, Region& no
         boundingRect = m_state.contentsRect;
 
     if (m_currentFilters.hasOutsets()) {
-        FilterOutsets outsets = m_currentFilters.outsets();
+        auto outsets = m_currentFilters.outsets();
         IntRect unfilteredTargetRect(boundingRect);
         boundingRect.move(std::max(0, -outsets.left()), std::max(0, -outsets.top()));
         boundingRect.expand(outsets.left() + outsets.right(), outsets.top() + outsets.bottom());
@@ -335,7 +362,7 @@ void TextureMapperLayer::paintUsingOverlapRegions(const TextureMapperPaintOption
     }
 
     nonOverlapRegion.translate(options.offset);
-    Vector<IntRect> rects = nonOverlapRegion.rects();
+    auto rects = nonOverlapRegion.rects();
 
     for (auto& rect : rects) {
         if (!rect.intersects(options.textureMapper.clipBounds()))
@@ -515,6 +542,11 @@ void TextureMapperLayer::setPosition(const FloatPoint& position)
     m_state.pos = position;
 }
 
+void TextureMapperLayer::setBoundsOrigin(const FloatPoint& boundsOrigin)
+{
+    m_state.boundsOrigin = boundsOrigin;
+}
+
 void TextureMapperLayer::setSize(const FloatSize& size)
 {
     m_state.size = size;
@@ -613,7 +645,7 @@ void TextureMapperLayer::setContentsLayer(TextureMapperPlatformLayer* platformLa
     m_contentsLayer = platformLayer;
 }
 
-void TextureMapperLayer::setAnimations(const TextureMapperAnimations& animations)
+void TextureMapperLayer::setAnimations(const Nicosia::Animations& animations)
 {
     m_animations = animations;
 }
@@ -622,6 +654,13 @@ void TextureMapperLayer::setBackingStore(TextureMapperBackingStore* backingStore
 {
     m_backingStore = backingStore;
 }
+
+#if USE(COORDINATED_GRAPHICS)
+void TextureMapperLayer::setAnimatedBackingStoreClient(Nicosia::AnimatedBackingStoreClient* client)
+{
+    m_animatedBackingStoreClient = client;
+}
+#endif
 
 bool TextureMapperLayer::descendantsOrSelfHaveRunningAnimations() const
 {
@@ -644,12 +683,19 @@ bool TextureMapperLayer::applyAnimationsRecursively(MonotonicTime time)
 
 bool TextureMapperLayer::syncAnimations(MonotonicTime time)
 {
-    TextureMapperAnimation::ApplicationResult applicationResults;
+    Nicosia::Animation::ApplicationResult applicationResults;
     m_animations.apply(applicationResults, time);
 
     m_layerTransforms.localTransform = applicationResults.transform.valueOr(m_state.transform);
     m_currentOpacity = applicationResults.opacity.valueOr(m_state.opacity);
     m_currentFilters = applicationResults.filters.valueOr(m_state.filters);
+
+#if USE(COORDINATED_GRAPHICS)
+    // Calculate localTransform 50ms in the future.
+    Nicosia::Animation::ApplicationResult futureApplicationResults;
+    m_animations.applyKeepingInternalState(futureApplicationResults, time + 50_ms);
+    m_layerTransforms.futureLocalTransform = futureApplicationResults.transform.valueOr(m_layerTransforms.localTransform);
+#endif
 
     return applicationResults.hasRunningAnimations;
 }

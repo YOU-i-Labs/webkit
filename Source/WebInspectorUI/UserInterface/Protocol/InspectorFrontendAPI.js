@@ -44,6 +44,17 @@ InspectorFrontendAPI = {
 
     setTimelineProfilingEnabled: function(enabled)
     {
+        if (!WI.targetsAvailable()) {
+            WI.whenTargetsAvailable().then(() => {
+                InspectorFrontendAPI.setTimelineProfilingEnabled(enabled);
+            });
+            return;
+        }
+
+        WI.showTimelineTab({
+            initiatorHint: WI.TabBrowser.TabNavigationInitiator.FrontendAPI
+        });
+
         if (WI.timelineManager.isCapturing() === enabled)
             return;
 
@@ -55,6 +66,13 @@ InspectorFrontendAPI = {
 
     setElementSelectionEnabled: function(enabled)
     {
+        if (!WI.targetsAvailable()) {
+            WI.whenTargetsAvailable().then(() => {
+                InspectorFrontendAPI.setElementSelectionEnabled(enabled);
+            });
+            return;
+        }
+
         WI.domManager.inspectModeEnabled = enabled;
     },
 
@@ -73,9 +91,18 @@ InspectorFrontendAPI = {
         WI.updateVisibilityState(visible);
     },
 
+    setDiagnosticLoggingAvailable: function(available)
+    {
+        if (WI.diagnosticController)
+            WI.diagnosticController.diagnosticLoggingAvailable = available;
+    },
+
     showConsole: function()
     {
-        WI.showConsoleTab();
+        const requestedScope = null;
+        WI.showConsoleTab(requestedScope, {
+            initiatorHint: WI.TabBrowser.TabNavigationInitiator.FrontendAPI,
+        });
 
         WI.quickConsole.prompt.focus();
 
@@ -99,30 +126,31 @@ InspectorFrontendAPI = {
 
     showResources: function()
     {
-        WI.showResourcesTab();
+        WI.showSourcesTab({
+            initiatorHint: WI.TabBrowser.TabNavigationInitiator.FrontendAPI,
+        });
     },
 
+    // COMPATIBILITY (iOS 13): merged into InspectorFrontendAPI.setTimelineProfilingEnabled.
     showTimelines: function()
     {
-        WI.showTimelineTab();
+        WI.showTimelineTab({
+            initiatorHint: WI.TabBrowser.TabNavigationInitiator.FrontendAPI
+        });
     },
 
     showMainResourceForFrame: function(frameIdentifier)
     {
-        const options = {
+        WI.showSourceCodeForFrame(frameIdentifier, {
             ignoreNetworkTab: true,
             ignoreSearchTab: true,
-        };
-        WI.showSourceCodeForFrame(frameIdentifier, options);
+            initiatorHint: WI.TabBrowser.TabNavigationInitiator.FrontendAPI,
+        });
     },
 
     contextMenuItemSelected: function(id)
     {
-        try {
-            WI.ContextMenu.contextMenuItemSelected(id);
-        } catch (e) {
-            console.error("Uncaught exception in inspector page under contextMenuItemSelected", e);
-        }
+        WI.ContextMenu.contextMenuItemSelected(id);
     },
 
     contextMenuCleared: function()

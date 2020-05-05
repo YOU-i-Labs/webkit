@@ -30,7 +30,7 @@
 
 WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 {
-    constructor(omitRootDOMNode, selectable, excludeRevealElementContextMenu)
+    constructor({selectable, omitRootDOMNode, excludeRevealElementContextMenu, showInspectedNode} = {})
     {
         super(selectable);
 
@@ -44,20 +44,24 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
         this.element.addEventListener("dragend", this._ondragend.bind(this), false);
 
         this.element.classList.add("dom", WI.SyntaxHighlightedStyleClassName);
+        this.element.dir = "ltr";
 
         this._includeRootDOMNode = !omitRootDOMNode;
         this._excludeRevealElementContextMenu = excludeRevealElementContextMenu;
         this._rootDOMNode = null;
         this._selectedDOMNode = null;
+        this._treeElementsToRemove = null;
 
         this._editable = false;
         this._editing = false;
         this._visible = false;
+        this._usingLocalDOMNode = false;
 
         this._hideElementsKeyboardShortcut = new WI.KeyboardShortcut(null, "H", this._hideElements.bind(this), this.element);
         this._hideElementsKeyboardShortcut.implicitlyPreventsDefault = false;
 
-        WI.settings.showShadowDOM.addEventListener(WI.Setting.Event.Changed, this._showShadowDOMSettingChanged, this);
+        if (showInspectedNode)
+            WI.domManager.addEventListener(WI.DOMManager.Event.InspectedNodeChanged, this._handleInspectedNodeChanged, this);
     }
 
     // Public
@@ -69,8 +73,6 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 
     close()
     {
-        WI.settings.showShadowDOM.removeEventListener(null, null, this);
-
         if (this._elementsTreeUpdater) {
             this._elementsTreeUpdater.close();
             this._elementsTreeUpdater = null;
@@ -113,6 +115,12 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
         return this._isXMLMimeType;
     }
 
+    markAsUsingLocalDOMNode()
+    {
+        this._editable = false;
+        this._usingLocalDOMNode = true;
+    }
+
     selectedDOMNode()
     {
         return this._selectedDOMNode;
@@ -139,7 +147,7 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 
     get editable()
     {
-        return this._editable;
+        return this._editable && this.rootDOMNode && !this.rootDOMNode.destroyed;
     }
 
     set editable(x)
@@ -157,7 +165,7 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
         if (!this.rootDOMNode)
             return;
 
-        let selectedNode = this.selectedTreeElement ? this.selectedTreeElement.representedObject : null;
+        let selectedTreeElements = this.selectedTreeElements;
 
         this.removeChildren();
 
@@ -180,8 +188,32 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
             }
         }
 
-        if (selectedNode)
-            this._revealAndSelectNode(selectedNode, true);
+        if (!selectedTreeElements.length)
+            return;
+
+        // The selection cannot be restored from represented objects alone,
+        // since a closing tag DOMTreeElement has the same represented object
+        // as its parent.
+        selectedTreeElements = selectedTreeElements.map((oldTreeElement) => {
+            let treeElement = this.findTreeElement(oldTreeElement.representedObject);
+            if (treeElement && oldTreeElement.isCloseTag()) {
+                console.assert(treeElement.closeTagTreeElement, "Missing close tag TreeElement.", treeElement);
+                if (treeElement.closeTagTreeElement)
+                    treeElement = treeElement.closeTagTreeElement;
+            }
+            return treeElement;
+        });
+
+        // It's possible that a previously selected node will no longer exist (e.g. after navigation).
+        selectedTreeElements = selectedTreeElements.filter((x) => !!x);
+
+        if (!selectedTreeElements.length)
+            return;
+
+        this.selectTreeElements(selectedTreeElements);
+
+        if (this.selectedTreeElement)
+            this.selectedTreeElement.reveal();
     }
 
     updateSelectionArea()
@@ -244,11 +276,6 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 
     populateContextMenu(contextMenu, event, treeElement)
     {
-        let tag = event.target.enclosingNodeOrSelfWithClass("html-tag");
-        let textNode = event.target.enclosingNodeOrSelfWithClass("html-text-node");
-        let commentNode = event.target.enclosingNodeOrSelfWithClass("html-comment");
-        let pseudoElement = event.target.enclosingNodeOrSelfWithClass("html-pseudo-element");
-
         let subMenus = {
             add: new WI.ContextSubMenuItem(contextMenu, WI.UIString("Add")),
             edit: new WI.ContextSubMenuItem(contextMenu, WI.UIString("Edit")),
@@ -256,20 +283,25 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
             delete: new WI.ContextSubMenuItem(contextMenu, WI.UIString("Delete")),
         };
 
-        if (treeElement.selected && this.selectedTreeElements.length > 1)
-            subMenus.delete.appendItem(WI.UIString("Nodes"), () => { this.ondelete(); }, !this._editable);
+        if (this.editable && treeElement.selected && this.selectedTreeElements.length > 1) {
+            subMenus.delete.appendItem(WI.UIString("Nodes"), () => {
+                this.ondelete();
+            });
+        }
 
-        if (tag && treeElement._populateTagContextMenu)
-            treeElement._populateTagContextMenu(contextMenu, event, subMenus);
-        else if (textNode && treeElement._populateTextContextMenu)
-            treeElement._populateTextContextMenu(contextMenu, textNode, subMenus);
-        else if ((commentNode || pseudoElement) && treeElement._populateNodeContextMenu)
-            treeElement._populateNodeContextMenu(contextMenu, subMenus);
+        if (treeElement.populateDOMNodeContextMenu)
+            treeElement.populateDOMNodeContextMenu(contextMenu, subMenus, event, subMenus);
 
         let options = {
+            disallowEditing: !this.editable,
+            usingLocalDOMNode: this._usingLocalDOMNode,
             excludeRevealElement: this._excludeRevealElementContextMenu,
             copySubMenu: subMenus.copy,
         };
+
+        if (treeElement.bindRevealDescendantBreakpointsMenuItemHandler)
+            options.revealDescendantBreakpointsMenuItemHandler = treeElement.bindRevealDescendantBreakpointsMenuItemHandler();
+
         WI.appendContextMenuItemsForDOMNode(contextMenu, treeElement.representedObject, options);
 
         super.populateContextMenu(contextMenu, event, treeElement);
@@ -281,10 +313,16 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 
     ondelete()
     {
-        if (!this._editable)
+        if (!this.editable)
             return false;
 
-        let selectedTreeElements = this.selectedTreeElements;
+        this._treeElementsToRemove = this.selectedTreeElements;
+
+        // Reveal all of the elements being deleted so that if the node is hidden (e.g. the parent
+        // is collapsed), we can select its siblings instead of the parent itself.
+        for (let treeElement of this._treeElementsToRemove)
+            treeElement.reveal();
+
         this._selectionController.removeSelectedItems();
 
         let levelMap = new Map;
@@ -303,23 +341,65 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 
         // Sort in descending order by node level. This ensures that child nodes
         // are removed before their ancestors.
-        selectedTreeElements.sort((a, b) => getLevel(b) - getLevel(a));
+        this._treeElementsToRemove.sort((a, b) => getLevel(b) - getLevel(a));
 
         // Track removed elements, since the opening and closing tags for the
         // same WI.DOMNode can both be selected.
-        let removedTreeElements = new Set;
+        let removedDOMNodes = new Set;
 
-        for (let treeElement of selectedTreeElements) {
-            if (removedTreeElements.has(treeElement))
+        for (let treeElement of this._treeElementsToRemove) {
+            if (removedDOMNodes.has(treeElement.representedObject))
                 continue;
-            removedTreeElements.add(treeElement)
+            removedDOMNodes.add(treeElement.representedObject);
             treeElement.remove();
+        }
+
+        this._treeElementsToRemove = null;
+
+        if (this.selectedTreeElement && !this.selectedTreeElement.isCloseTag()) {
+            console.assert(this.selectedTreeElements.length === 1);
+            this.selectedTreeElement.reveal();
         }
 
         return true;
     }
 
+    // SelectionController delegate overrides
+
+    selectionControllerPreviousSelectableItem(controller, item)
+    {
+        let treeElement = this.getCachedTreeElement(item);
+        console.assert(treeElement, "Missing TreeElement for representedObject.", item);
+        if (!treeElement)
+            return null;
+
+        if (this._treeElementsToRemove) {
+            // When deleting, force the SelectionController to check siblings in
+            // the opposite direction before searching up the parent chain.
+            if (!treeElement.previousSelectableSibling && treeElement.nextSelectableSibling)
+                return null;
+        }
+
+        return super.selectionControllerPreviousSelectableItem(controller, item);
+    }
+
     // Protected
+
+    canSelectTreeElement(treeElement)
+    {
+        if (!super.canSelectTreeElement(treeElement))
+            return false;
+
+        let willRemoveAncestorOrSelf = false;
+        if (this._treeElementsToRemove) {
+            while (treeElement && !willRemoveAncestorOrSelf) {
+                willRemoveAncestorOrSelf = this._treeElementsToRemove.includes(treeElement);
+                treeElement = treeElement.parent;
+            }
+        }
+
+        return !willRemoveAncestorOrSelf;
+    }
 
     objectForSelection(treeElement)
     {
@@ -343,13 +423,6 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
         if (!node || this._suppressRevealAndSelect)
             return;
 
-        if (!WI.settings.showShadowDOM.value) {
-            while (node && node.isInShadowTree())
-                node = node.parentNode;
-            if (!node)
-                return;
-        }
-
         var treeElement = this.createTreeElementFor(node);
         if (!treeElement)
             return;
@@ -368,6 +441,9 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 
     _onmousemove(event)
     {
+        if (this._usingLocalDOMNode)
+            return;
+
         let element = this.treeElementFromEvent(event);
         if (element && this._previousHoveredElement === element)
             return;
@@ -381,16 +457,23 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
             element.hovered = true;
             this._previousHoveredElement = element;
 
-            // Lazily compute tag-specific tooltips.
-            if (element.representedObject && !element.tooltip && element._createTooltipForNode)
-                element._createTooltipForNode();
-        }
+            if (element.representedObject) {
+                // Lazily compute tag-specific tooltips.
+                if (!element.tooltip && element._createTooltipForNode)
+                    element._createTooltipForNode();
 
-        WI.domManager.highlightDOMNode(element ? element.representedObject.id : 0);
+                element.representedObject.highlight();
+            } else
+                WI.domManager.hideDOMNodeHighlight();
+        } else
+            WI.domManager.hideDOMNodeHighlight();
     }
 
     _onmouseout(event)
     {
+        if (this._usingLocalDOMNode)
+            return;
+
         var nodeUnderMouse = document.elementFromPoint(event.pageX, event.pageY);
         if (nodeUnderMouse && this.element.contains(nodeUnderMouse))
             return;
@@ -405,9 +488,15 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 
     _ondragstart(event)
     {
+        if (!this.editable)
+            return false;
+
         let treeElement = this.treeElementFromEvent(event);
         if (!treeElement)
             return false;
+
+        event.dataTransfer.effectAllowed = "copyMove";
+        event.dataTransfer.setData(DOMTreeOutline.DOMNodeIdDragType, treeElement.representedObject.id);
 
         if (!this._isValidDragSourceOrTarget(treeElement))
             return false;
@@ -416,7 +505,6 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
             return false;
 
         event.dataTransfer.setData("text/plain", treeElement.listItemElement.textContent);
-        event.dataTransfer.effectAllowed = "copyMove";
         this._nodeBeingDragged = treeElement.representedObject;
 
         WI.domManager.hideDOMNodeHighlight();
@@ -426,6 +514,9 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 
     _ondragover(event)
     {
+        if (!this.editable)
+            return false;
+
         if (event.dataTransfer.types.includes(WI.GeneralStyleDetailsSidebarPanel.ToggledClassesDragType)) {
             event.preventDefault();
             event.dataTransfer.dropEffect = "copy";
@@ -457,6 +548,9 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 
     _ondragleave(event)
     {
+        if (!this.editable)
+            return false;
+
         this._clearDragOverTreeElementMarker();
         event.preventDefault();
         return false;
@@ -479,6 +573,9 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 
     _ondrop(event)
     {
+        if (!this.editable)
+            return;
+
         event.preventDefault();
 
         function callback(error, newNodeId)
@@ -518,6 +615,9 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 
     _ondragend(event)
     {
+        if (!this.editable)
+            return;
+
         event.preventDefault();
         this._clearDragOverTreeElementMarker();
         delete this._nodeBeingDragged;
@@ -540,25 +640,26 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
             this._elementsTreeUpdater._updateModifiedNodes();
     }
 
-    _showShadowDOMSettingChanged(event)
+    _handleInspectedNodeChanged(event)
     {
-        var nodeToSelect = this.selectedTreeElement ? this.selectedTreeElement.representedObject : null;
-        while (nodeToSelect) {
-            if (!nodeToSelect.isInShadowTree())
-                break;
-            nodeToSelect = nodeToSelect.parentNode;
+        let {lastInspectedNode} = event.data;
+
+        if (lastInspectedNode) {
+            let lastInspectedNodeTreeElement = this.findTreeElement(lastInspectedNode);
+            if (lastInspectedNodeTreeElement)
+                lastInspectedNodeTreeElement.listItemElement.classList.remove("inspected-node");
         }
 
-        this.children.forEach(function(child) {
-            child.updateChildren(true);
-        });
-
-        if (nodeToSelect)
-            this.selectDOMNode(nodeToSelect);
+        let inspectedNodeTreeElement = this.findTreeElement(WI.domManager.inspectedNode);
+        if (inspectedNodeTreeElement)
+            inspectedNodeTreeElement.listItemElement.classList.add("inspected-node");
     }
 
     _hideElements(event, keyboardShortcut)
     {
+        if (!this.editable)
+            return;
+
         if (!this.selectedTreeElement || WI.isEditingAnyField())
             return;
 
@@ -572,3 +673,5 @@ WI.DOMTreeOutline = class DOMTreeOutline extends WI.TreeOutline
 WI.DOMTreeOutline.Event = {
     SelectedNodeChanged: "dom-tree-outline-selected-node-changed"
 };
+
+WI.DOMTreeOutline.DOMNodeIdDragType = "web-inspector/dom-node-id";

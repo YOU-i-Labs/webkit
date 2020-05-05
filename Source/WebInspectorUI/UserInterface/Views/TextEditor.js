@@ -33,35 +33,10 @@ WI.TextEditor = class TextEditor extends WI.View
 
         this._codeMirror = WI.CodeMirrorEditor.create(this.element, {
             readOnly: true,
-            indentWithTabs: WI.settings.indentWithTabs.value,
-            indentUnit: WI.settings.indentUnit.value,
-            tabSize: WI.settings.tabSize.value,
             lineNumbers: true,
-            lineWrapping: WI.settings.enableLineWrapping.value,
             matchBrackets: true,
             autoCloseBrackets: true,
-            showWhitespaceCharacters: WI.settings.showWhitespaceCharacters.value,
             styleSelectedText: true,
-        });
-
-        WI.settings.indentWithTabs.addEventListener(WI.Setting.Event.Changed, (event) => {
-            this._codeMirror.setOption("indentWithTabs", WI.settings.indentWithTabs.value);
-        });
-
-        WI.settings.indentUnit.addEventListener(WI.Setting.Event.Changed, (event) => {
-            this._codeMirror.setOption("indentUnit", WI.settings.indentUnit.value);
-        });
-
-        WI.settings.tabSize.addEventListener(WI.Setting.Event.Changed, (event) => {
-            this._codeMirror.setOption("tabSize", WI.settings.tabSize.value);
-        });
-
-        WI.settings.enableLineWrapping.addEventListener(WI.Setting.Event.Changed, (event) => {
-            this._codeMirror.setOption("lineWrapping", WI.settings.enableLineWrapping.value);
-        });
-
-        WI.settings.showWhitespaceCharacters.addEventListener(WI.Setting.Event.Changed, (event) => {
-            this._codeMirror.setOption("showWhitespaceCharacters", WI.settings.showWhitespaceCharacters.value);
         });
 
         this._codeMirror.on("focus", this._editorFocused.bind(this));
@@ -180,6 +155,7 @@ WI.TextEditor = class TextEditor extends WI.View
     set readOnly(readOnly)
     {
         this._codeMirror.setOption("readOnly", readOnly);
+        this._codeMirror.getWrapperElement().classList.toggle("read-only", !!readOnly);
     }
 
     get formatted()
@@ -206,7 +182,7 @@ WI.TextEditor = class TextEditor extends WI.View
     hasFormatter()
     {
         let mode = this._codeMirror.getMode().name;
-        return mode === "javascript" || mode === "css";
+        return mode === "javascript" || mode === "css" || mode === "htmlmixed" || mode === "xml";
     }
 
     canBeFormatted()
@@ -338,7 +314,7 @@ WI.TextEditor = class TextEditor extends WI.View
         }
 
         // Go down the slow patch for all other text content.
-        var queryRegex = new RegExp(query.escapeForRegExp(), "gi");
+        let queryRegex = WI.SearchUtilities.regExpForString(query, WI.SearchUtilities.defaultSettings);
         var searchCursor = this._codeMirror.getSearchCursor(queryRegex, {line: 0, ch: 0}, false);
         var boundBatchSearch = batchSearch.bind(this);
         var numberOfSearchResultsDidChangeTimeout = null;
@@ -584,15 +560,6 @@ WI.TextEditor = class TextEditor extends WI.View
     hidden()
     {
         this._visible = false;
-    }
-
-    close()
-    {
-        WI.settings.indentWithTabs.removeEventListener(null, null, this);
-        WI.settings.indentUnit.removeEventListener(null, null, this);
-        WI.settings.tabSize.removeEventListener(null, null, this);
-        WI.settings.enableLineWrapping.removeEventListener(null, null, this);
-        WI.settings.showWhitespaceCharacters.removeEventListener(null, null, this);
     }
 
     setBreakpointInfoForLineAndColumn(lineNumber, columnNumber, breakpointInfo)
@@ -886,16 +853,9 @@ WI.TextEditor = class TextEditor extends WI.View
 
             if (!pretty)
                 this._undoFormatting(beforePrettyPrintState, resolve);
-            else if (this._canUseFormatterWorker())
-                this._startWorkerPrettyPrint(beforePrettyPrintState, resolve);
             else
-                this._startCodeMirrorPrettyPrint(beforePrettyPrintState, resolve);
+                this._startWorkerPrettyPrint(beforePrettyPrintState, resolve);
         });
-    }
-
-    _canUseFormatterWorker()
-    {
-        return this._codeMirror.getMode().name === "javascript";
     }
 
     _attemptToDetermineMIMEType()
@@ -918,36 +878,41 @@ WI.TextEditor = class TextEditor extends WI.View
 
     _startWorkerPrettyPrint(beforePrettyPrintState, callback)
     {
+        let workerProxy = WI.FormatterWorkerProxy.singleton();
         let sourceText = this._codeMirror.getValue();
         let indentString = WI.indentString();
         const includeSourceMapData = true;
 
-        let sourceType = this._delegate ? this._delegate.textEditorScriptSourceType(this) : WI.Script.SourceType.Program;
-        const isModule = sourceType === WI.Script.SourceType.Module;
-
-        let workerProxy = WI.FormatterWorkerProxy.singleton();
-        workerProxy.formatJavaScript(sourceText, isModule, indentString, includeSourceMapData, ({formattedText, sourceMapData}) => {
+        let formatCallback = ({formattedText, sourceMapData}) => {
             // Handle if formatting failed, which is possible for invalid programs.
             if (formattedText === null) {
                 callback();
                 return;
             }
             this._finishPrettyPrint(beforePrettyPrintState, formattedText, sourceMapData, callback);
-        });
-    }
+        };
 
-    _startCodeMirrorPrettyPrint(beforePrettyPrintState, callback)
-    {
-        let indentString = WI.indentString();
-        let start = {line: 0, ch: 0};
-        let end = {line: this._codeMirror.lineCount() - 1};
-        let builder = new FormatterContentBuilder(indentString);
-        let formatter = new WI.Formatter(this._codeMirror, builder);
-        formatter.format(start, end);
-
-        let formattedText = builder.formattedContent;
-        let sourceMapData = builder.sourceMapData;
-        this._finishPrettyPrint(beforePrettyPrintState, formattedText, sourceMapData, callback);
+        let mode = this._codeMirror.getMode().name;
+        switch (mode) {
+        case "javascript": {
+            let sourceType = this._delegate ? this._delegate.textEditorScriptSourceType(this) : WI.Script.SourceType.Program;
+            const isModule = sourceType === WI.Script.SourceType.Module;
+            workerProxy.formatJavaScript(sourceText, isModule, indentString, includeSourceMapData, formatCallback);
+            break;
+        }
+        case "css":
+            workerProxy.formatCSS(sourceText, indentString, includeSourceMapData, formatCallback);
+            break;
+        case "htmlmixed":
+            workerProxy.formatHTML(sourceText, indentString, includeSourceMapData, formatCallback);
+            break;
+        case "xml":
+            workerProxy.formatXML(sourceText, indentString, includeSourceMapData, formatCallback);
+            break;
+        default:
+            console.assert(false, "Unexpected mode attempted to pretty print.");
+            break;
+        }
     }
 
     _finishPrettyPrint(beforePrettyPrintState, formattedText, sourceMapData, callback)
@@ -1687,6 +1652,9 @@ WI.TextEditor = class TextEditor extends WI.View
 
     _openClickedLinks(event)
     {
+        if (!this.readOnly && !event.commandOrControlKey)
+            return;
+
         // Get the position in the text and the token at that position.
         var position = this._codeMirror.coordsChar({left: event.pageX, top: event.pageY});
         var tokenInfo = this._codeMirror.getTokenAt(position);

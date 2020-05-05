@@ -23,6 +23,36 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+WI.addMouseDownContextMenuHandlers = function(element, populateContextMenuCallback)
+{
+    let ignoreMouseDown = false;
+    element.addEventListener("mousedown", (event) => {
+        if (event.button !== 0)
+            return;
+
+        event.stop();
+
+        if (ignoreMouseDown)
+            return;
+
+        ignoreMouseDown = true;
+
+        let contextMenu = WI.ContextMenu.createFromEvent(event);
+        contextMenu.addBeforeShowCallback(() => {
+            ignoreMouseDown = false;
+        });
+
+        populateContextMenuCallback(contextMenu, event);
+
+        contextMenu.show();
+    });
+
+    element.addEventListener("contextmenu", (event) => {
+        let contextMenu = WI.ContextMenu.createFromEvent(event);
+        populateContextMenuCallback(contextMenu, event);
+    });
+};
+
 WI.appendContextMenuItemsForSourceCode = function(contextMenu, sourceCodeOrLocation)
 {
     console.assert(contextMenu instanceof WI.ContextMenu);
@@ -40,11 +70,80 @@ WI.appendContextMenuItemsForSourceCode = function(contextMenu, sourceCodeOrLocat
     if (!(sourceCode instanceof WI.SourceCode))
         return;
 
+    if (contextMenu.__domBreakpointItemsAdded)
+        return;
+
+    if (!contextMenu.__localOverrideItemsAdded && WI.NetworkManager.supportsLocalResourceOverrides()) {
+        contextMenu.__localOverrideItemsAdded = true;
+
+        if (WI.networkManager.canBeOverridden(sourceCode)) {
+            contextMenu.appendSeparator();
+            contextMenu.appendItem(WI.UIString("Create Local Override"), async () => {
+                let resource = sourceCode;
+                let localResourceOverride = await resource.createLocalResourceOverride();
+                WI.networkManager.addLocalResourceOverride(localResourceOverride);
+                WI.showLocalResourceOverride(localResourceOverride, {
+                    initiatorHint: WI.TabBrowser.TabNavigationInitiator.ContextMenu,
+                });
+            });
+        } else {
+            let localResourceOverride = WI.networkManager.localResourceOverrideForURL(sourceCode.url);
+            if (localResourceOverride) {
+                contextMenu.appendSeparator();
+
+                contextMenu.appendItem(WI.UIString("Reveal Local Override"), () => {
+                    WI.showLocalResourceOverride(localResourceOverride, {
+                        initiatorHint: WI.TabBrowser.TabNavigationInitiator.ContextMenu,
+                    });
+                });
+
+                contextMenu.appendItem(localResourceOverride.disabled ? WI.UIString("Enable Local Override") : WI.UIString("Disable Local Override"), () => {
+                    localResourceOverride.disabled = !localResourceOverride.disabled;
+                });
+
+                contextMenu.appendItem(WI.UIString("Delete Local Override"), () => {
+                    WI.networkManager.removeLocalResourceOverride(localResourceOverride);
+                });
+            }
+        }
+    }
+
+    contextMenu.appendSeparator();
+
+    if (location && (sourceCode instanceof WI.Script || (sourceCode instanceof WI.Resource && sourceCode.type === WI.Resource.Type.Script && !sourceCode.isLocalResourceOverride))) {
+        let existingBreakpoint = WI.debuggerManager.breakpointForSourceCodeLocation(location);
+        if (existingBreakpoint) {
+            contextMenu.appendItem(WI.UIString("Delete Breakpoint"), () => {
+                WI.debuggerManager.removeBreakpoint(existingBreakpoint);
+            });
+        } else {
+            contextMenu.appendItem(WI.UIString("Add Breakpoint"), () => {
+                WI.debuggerManager.addBreakpoint(new WI.Breakpoint(location));
+            });
+        }
+    }
+
+    if (sourceCode.supportsScriptBlackboxing) {
+        let blackboxData = WI.debuggerManager.blackboxDataForSourceCode(sourceCode);
+        if (blackboxData && blackboxData.type === WI.DebuggerManager.BlackboxType.Pattern) {
+            contextMenu.appendItem(WI.UIString("Reveal Blackbox Pattern"), () => {
+                WI.showSettingsTab({
+                    blackboxPatternToSelect: blackboxData.regex,
+                    initiatorHint: WI.TabBrowser.TabNavigationInitiator.ContextMenu,
+                });
+            });
+        } else {
+            contextMenu.appendItem(blackboxData ? WI.UIString("Unblackbox Script") : WI.UIString("Blackbox Script"), () => {
+                WI.debuggerManager.setShouldBlackboxScript(sourceCode, !blackboxData);
+            });
+        }
+    }
+
     contextMenu.appendSeparator();
 
     WI.appendContextMenuItemsForURL(contextMenu, sourceCode.url, {sourceCode, location});
 
-    if (sourceCode instanceof WI.Resource) {
+    if (sourceCode instanceof WI.Resource && !sourceCode.isLocalResourceOverride) {
         if (sourceCode.urlComponents.scheme !== "data") {
             contextMenu.appendItem(WI.UIString("Copy as cURL"), () => {
                 InspectorFrontendHost.copyText(sourceCode.generateCURLCommand());
@@ -61,37 +160,30 @@ WI.appendContextMenuItemsForSourceCode = function(contextMenu, sourceCodeOrLocat
                     InspectorFrontendHost.copyText(sourceCode.stringifyHTTPResponse());
                 });
             }
-
-            contextMenu.appendSeparator();
         }
     }
 
+    contextMenu.appendSeparator();
+
     contextMenu.appendItem(WI.UIString("Save File"), () => {
         sourceCode.requestContent().then(() => {
+            let saveData = {
+                url: sourceCode.url,
+                content: sourceCode.content,
+            };
+
+            if (sourceCode.urlComponents.path === "/") {
+                let extension = WI.fileExtensionForMIMEType(sourceCode.mimeType);
+                if (extension)
+                    saveData.suggestedName = `index.${extension}`;
+            }
+
             const forceSaveAs = true;
-            WI.FileUtilities.save({
-                url: sourceCode.url || "",
-                content: sourceCode.content
-            }, forceSaveAs);
+            WI.FileUtilities.save(saveData, forceSaveAs);
         });
     });
 
     contextMenu.appendSeparator();
-
-    if (location && (sourceCode instanceof WI.Script || (sourceCode instanceof WI.Resource && sourceCode.type === WI.Resource.Type.Script))) {
-        let existingBreakpoint = WI.debuggerManager.breakpointForSourceCodeLocation(location);
-        if (existingBreakpoint) {
-            contextMenu.appendItem(WI.UIString("Delete Breakpoint"), () => {
-                WI.debuggerManager.removeBreakpoint(existingBreakpoint);
-            });
-        } else {
-            contextMenu.appendItem(WI.UIString("Add Breakpoint"), () => {
-                WI.debuggerManager.addBreakpoint(new WI.Breakpoint(location));
-            });
-        }
-
-        contextMenu.appendSeparator();
-    }
 };
 
 WI.appendContextMenuItemsForURL = function(contextMenu, url, options = {})
@@ -100,6 +192,7 @@ WI.appendContextMenuItemsForURL = function(contextMenu, url, options = {})
         return;
 
     function showResourceWithOptions(options) {
+        options.initiatorHint = WI.TabBrowser.TabNavigationInitiator.ContextMenu;
         if (options.location)
             WI.showSourceCodeLocation(options.location, options);
         else if (options.sourceCode)
@@ -116,14 +209,15 @@ WI.appendContextMenuItemsForURL = function(contextMenu, url, options = {})
     }
 
     if (WI.networkManager.resourceForURL(url)) {
-        if (!WI.isShowingResourcesTab()) {
-            contextMenu.appendItem(WI.UIString("Reveal in Resources Tab"), () => {
-                showResourceWithOptions({ignoreNetworkTab: true, ignoreSearchTab: true});
+        if (!WI.isShowingSourcesTab()) {
+            contextMenu.appendItem(WI.UIString("Reveal in Sources Tab"), () => {
+                showResourceWithOptions({preferredTabType: WI.SourcesTabContentView.Type});
             });
         }
+
         if (!WI.isShowingNetworkTab()) {
             contextMenu.appendItem(WI.UIString("Reveal in Network Tab"), () => {
-                showResourceWithOptions({ignoreResourcesTab: true, ignoreDebuggerTab: true, ignoreSearchTab: true});
+                showResourceWithOptions({preferredTabType: WI.NetworkTabContentView.Type});
             });
         }
     }
@@ -148,14 +242,16 @@ WI.appendContextMenuItemsForDOMNode = function(contextMenu, domNode, options = {
     let copySubMenu = options.copySubMenu || contextMenu.appendSubMenuItem(WI.UIString("Copy"));
 
     let isElement = domNode.nodeType() === Node.ELEMENT_NODE;
-    if (domNode.ownerDocument && isElement) {
+    let attached = domNode.attached;
+
+    if (isElement && attached) {
         copySubMenu.appendItem(WI.UIString("Selector Path"), () => {
             let cssPath = WI.cssPath(domNode);
             InspectorFrontendHost.copyText(cssPath);
         });
     }
 
-    if (domNode.ownerDocument && !domNode.isPseudoElement()) {
+    if (!domNode.isPseudoElement() && attached) {
         copySubMenu.appendItem(WI.UIString("XPath"), () => {
             let xpath = WI.xpath(domNode);
             InspectorFrontendHost.copyText(xpath);
@@ -164,148 +260,183 @@ WI.appendContextMenuItemsForDOMNode = function(contextMenu, domNode, options = {
 
     contextMenu.appendSeparator();
 
-    if (domNode.isCustomElement()) {
-        contextMenu.appendItem(WI.UIString("Jump to Definition"), () => {
-            function didGetFunctionDetails(error, response) {
-                if (error)
-                    return;
-
-                let location = response.location;
-                let sourceCode = WI.debuggerManager.scriptForIdentifier(location.scriptId, WI.mainTarget);
-                if (!sourceCode)
-                    return;
-
-                let sourceCodeLocation = sourceCode.createSourceCodeLocation(location.lineNumber, location.columnNumber || 0);
-                WI.showSourceCodeLocation(sourceCodeLocation, {
-                    ignoreNetworkTab: true,
-                    ignoreSearchTab: true,
-                });
-            }
-
-            WI.RemoteObject.resolveNode(domNode).then((remoteObject) => {
-                remoteObject.getProperty("constructor", (error, result, wasThrown) => {
+    if (!options.usingLocalDOMNode) {
+        if (domNode.isCustomElement()) {
+            contextMenu.appendItem(WI.UIString("Jump to Definition"), () => {
+                function didGetFunctionDetails(error, response) {
                     if (error)
                         return;
-                    if (result.type === "function")
-                        remoteObject.target.DebuggerAgent.getFunctionDetails(result.objectId, didGetFunctionDetails);
-                    result.release();
-                });
-                remoteObject.release();
-            });
-        });
 
-        contextMenu.appendSeparator();
-    }
+                    let location = response.location;
+                    let sourceCode = WI.debuggerManager.scriptForIdentifier(location.scriptId, WI.mainTarget);
+                    if (!sourceCode)
+                        return;
 
-    if (WI.domDebuggerManager.supported && isElement && !domNode.isPseudoElement() && domNode.ownerDocument) {
-        contextMenu.appendSeparator();
-
-        WI.appendContextMenuItemsForDOMNodeBreakpoints(contextMenu, domNode);
-    }
-
-    contextMenu.appendSeparator();
-
-    if (!options.excludeLogElement && !domNode.isInUserAgentShadowTree() && !domNode.isPseudoElement()) {
-        let label = isElement ? WI.UIString("Log Element") : WI.UIString("Log Node");
-        contextMenu.appendItem(label, () => {
-            WI.RemoteObject.resolveNode(domNode, WI.RuntimeManager.ConsoleObjectGroup).then((remoteObject) => {
-                let text = isElement ? WI.UIString("Selected Element") : WI.UIString("Selected Node");
-                const addSpecialUserLogClass = true;
-                WI.consoleLogViewController.appendImmediateExecutionWithResult(text, remoteObject, addSpecialUserLogClass);
-            });
-        });
-    }
-
-    if (!options.excludeRevealElement && window.DOMAgent && domNode.ownerDocument) {
-        contextMenu.appendItem(WI.UIString("Reveal in DOM Tree"), () => {
-            WI.domManager.inspectElement(domNode.id);
-        });
-    }
-
-    if (!options.excludeRevealLayer && window.LayerTreeAgent && domNode.parentNode) {
-        contextMenu.appendItem(WI.UIString("Reveal in Layers Tab"), () => {
-            WI.showLayersTab({nodeToSelect: domNode});
-        });
-    }
-
-    if (window.PageAgent) {
-        contextMenu.appendItem(WI.UIString("Capture Screenshot"), () => {
-            PageAgent.snapshotNode(domNode.id, (error, dataURL) => {
-                if (error) {
-                    const target = WI.mainTarget;
-                    const source = WI.ConsoleMessage.MessageSource.Other;
-                    const level = WI.ConsoleMessage.MessageLevel.Error;
-                    let consoleMessage = new WI.ConsoleMessage(target, source, level, error);
-                    consoleMessage.shouldRevealConsole = true;
-
-                    WI.consoleLogViewController.appendConsoleMessage(consoleMessage);
-                    return;
+                    let sourceCodeLocation = sourceCode.createSourceCodeLocation(location.lineNumber, location.columnNumber || 0);
+                    WI.showSourceCodeLocation(sourceCodeLocation, {
+                        ignoreNetworkTab: true,
+                        ignoreSearchTab: true,
+                    });
                 }
 
-                let date = new Date;
-                let values = [
-                    date.getFullYear(),
-                    Number.zeroPad(date.getMonth() + 1, 2),
-                    Number.zeroPad(date.getDate(), 2),
-                    Number.zeroPad(date.getHours(), 2),
-                    Number.zeroPad(date.getMinutes(), 2),
-                    Number.zeroPad(date.getSeconds(), 2),
-                ];
-                let filename = WI.UIString("Screen Shot %s-%s-%s at %s.%s.%s").format(...values);
-                WI.FileUtilities.save({
-                    url: encodeURI(`web-inspector:///${filename}.png`),
-                    content: parseDataURL(dataURL).data,
-                    base64Encoded: true,
+                WI.RemoteObject.resolveNode(domNode).then((remoteObject) => {
+                    remoteObject.getProperty("constructor", (error, result, wasThrown) => {
+                        if (error)
+                            return;
+                        if (result.type === "function")
+                            remoteObject.target.DebuggerAgent.getFunctionDetails(result.objectId, didGetFunctionDetails);
+                        result.release();
+                    });
+                    remoteObject.release();
                 });
             });
-        });
-    }
 
-    if (isElement) {
-        contextMenu.appendItem(WI.UIString("Scroll Into View"), () => {
-            domNode.scrollIntoView();
-        });
-    }
+            contextMenu.appendSeparator();
+        }
 
-    contextMenu.appendSeparator();
+        if (!options.disallowEditing && WI.cssManager.canForcePseudoClasses() && domNode.attached) {
+            contextMenu.appendSeparator();
+
+            let pseudoSubMenu = contextMenu.appendSubMenuItem(WI.UIString("Forced Pseudo-Classes", "A context menu item to force (override) a DOM node's pseudo-classes"));
+
+            let enabledPseudoClasses = domNode.enabledPseudoClasses;
+            WI.CSSManager.ForceablePseudoClasses.forEach((pseudoClass) => {
+                let enabled = enabledPseudoClasses.includes(pseudoClass);
+                pseudoSubMenu.appendCheckboxItem(pseudoClass.capitalize(), () => {
+                    domNode.setPseudoClassEnabled(pseudoClass, !enabled);
+                }, enabled);
+            });
+        }
+
+        if (WI.domDebuggerManager.supported && isElement && !domNode.isPseudoElement() && attached) {
+            contextMenu.appendSeparator();
+
+            WI.appendContextMenuItemsForDOMNodeBreakpoints(contextMenu, domNode, options);
+        }
+
+        contextMenu.appendSeparator();
+
+        let canLogShadowTree = !domNode.isInUserAgentShadowTree() || WI.DOMManager.supportsEditingUserAgentShadowTrees({frontendOnly: true});
+        if (!options.excludeLogElement && canLogShadowTree && !domNode.destroyed && !domNode.isPseudoElement()) {
+            let label = isElement ? WI.UIString("Log Element", "Log (print) DOM element to Console") : WI.UIString("Log Node", "Log (print) DOM node to Console");
+            contextMenu.appendItem(label, () => {
+                WI.RemoteObject.resolveNode(domNode, WI.RuntimeManager.ConsoleObjectGroup).then((remoteObject) => {
+                    let text = isElement ? WI.UIString("Selected Element", "Selected DOM element") : WI.UIString("Selected Node", "Selected DOM node");
+                    const addSpecialUserLogClass = true;
+                    WI.consoleLogViewController.appendImmediateExecutionWithResult(text, remoteObject, addSpecialUserLogClass);
+                });
+            });
+        }
+
+        if (!options.excludeRevealElement && InspectorBackend.hasDomain("DOM") && attached) {
+            contextMenu.appendItem(WI.repeatedUIString.revealInDOMTree(), () => {
+                WI.domManager.inspectElement(domNode.id, {
+                    initiatorHint: WI.TabBrowser.TabNavigationInitiator.ContextMenu,
+                });
+            });
+        }
+
+        if (InspectorBackend.hasDomain("LayerTree") && attached) {
+            contextMenu.appendItem(WI.UIString("Reveal in Layers Tab", "Open Layers tab and select the layer corresponding to this node"), () => {
+                WI.showLayersTab({
+                    nodeToSelect: domNode,
+                    initiatorHint: WI.TabBrowser.TabNavigationInitiator.ContextMenu,
+                });
+            });
+        }
+
+        if (InspectorBackend.hasDomain("Page") && attached) {
+            contextMenu.appendItem(WI.UIString("Capture Screenshot", "Capture screenshot of the selected DOM node"), () => {
+                let target = WI.assumingMainTarget();
+                target.PageAgent.snapshotNode(domNode.id, (error, dataURL) => {
+                    if (error) {
+                        const target = WI.mainTarget;
+                        const source = WI.ConsoleMessage.MessageSource.Other;
+                        const level = WI.ConsoleMessage.MessageLevel.Error;
+                        let consoleMessage = new WI.ConsoleMessage(target, source, level, error);
+                        consoleMessage.shouldRevealConsole = true;
+
+                        WI.consoleLogViewController.appendConsoleMessage(consoleMessage);
+                        return;
+                    }
+
+                    WI.FileUtilities.save({
+                        content: parseDataURL(dataURL).data,
+                        base64Encoded: true,
+                        suggestedName: WI.FileUtilities.screenshotString() + ".png",
+                    });
+                });
+            });
+        }
+
+        if (isElement && attached) {
+            contextMenu.appendItem(WI.UIString("Scroll into View", "Scroll selected DOM node into view on the inspected web page"), () => {
+                domNode.scrollIntoView();
+            });
+        }
+
+        contextMenu.appendSeparator();
+    }
 };
 
-WI.appendContextMenuItemsForDOMNodeBreakpoints = function(contextMenu, domNode, {allowEditing} = {})
+WI.appendContextMenuItemsForDOMNodeBreakpoints = function(contextMenu, domNode, options = {})
 {
     if (contextMenu.__domBreakpointItemsAdded)
         return;
 
     contextMenu.__domBreakpointItemsAdded = true;
 
-    let subMenu = contextMenu.appendSubMenuItem(WI.UIString("Break on\u2026"));
-
     let breakpoints = WI.domDebuggerManager.domBreakpointsForNode(domNode);
-    let keyValuePairs = breakpoints.map((breakpoint) => [breakpoint.type, breakpoint]);
-    let breakpointsByType = new Map(keyValuePairs);
+
+    contextMenu.appendSeparator();
+
+    let subMenu = contextMenu.appendSubMenuItem(WI.UIString("Break on"));
 
     for (let type of Object.values(WI.DOMBreakpoint.Type)) {
         let label = WI.DOMBreakpointTreeElement.displayNameForType(type);
-        let breakpoint = breakpointsByType.get(type);
+        let breakpoint = breakpoints.find((breakpoint) => breakpoint.type === type);
 
         subMenu.appendCheckboxItem(label, function() {
             if (breakpoint)
                 WI.domDebuggerManager.removeDOMBreakpoint(breakpoint);
             else
                 WI.domDebuggerManager.addDOMBreakpoint(new WI.DOMBreakpoint(domNode, type));
-        }, !!breakpoint, false);
+        }, !!breakpoint);
     }
 
-    if (allowEditing) {
-        contextMenu.appendSeparator();
+    contextMenu.appendSeparator();
 
+    if (breakpoints.length) {
         let shouldEnable = breakpoints.some((breakpoint) => breakpoint.disabled);
-        let label = shouldEnable ? WI.UIString("Enable Breakpoints") : WI.UIString("Disable Breakpoints");
-        contextMenu.appendItem(label, () => {
-            breakpoints.forEach((breakpoint) => breakpoint.disabled = !shouldEnable);
+        contextMenu.appendItem(shouldEnable ? WI.UIString("Enable Breakpoint") : WI.UIString("Disable Breakpoint"), () => {
+            for (let breakpoint of breakpoints)
+                breakpoint.disabled = !shouldEnable;
         });
 
-        contextMenu.appendItem(WI.UIString("Delete Breakpoints"), function() {
-            WI.domDebuggerManager.removeDOMBreakpointsForNode(domNode);
+        contextMenu.appendItem(WI.UIString("Delete Breakpoint"), () => {
+            for (let breakpoint of breakpoints)
+                WI.domDebuggerManager.removeDOMBreakpoint(breakpoint);
         });
+
+        contextMenu.appendSeparator();
+    }
+
+    let subtreeBreakpoints = WI.domDebuggerManager.domBreakpointsInSubtree(domNode);
+    if (subtreeBreakpoints.length) {
+        if (options.revealDescendantBreakpointsMenuItemHandler)
+            contextMenu.appendItem(WI.UIString("Reveal Descendant Breakpoints"), options.revealDescendantBreakpointsMenuItemHandler);
+
+        let subtreeShouldEnable = subtreeBreakpoints.some((breakpoint) => breakpoint.disabled);
+        contextMenu.appendItem(subtreeShouldEnable ? WI.UIString("Enable Descendant Breakpoints") : WI.UIString("Disable Descendant Breakpoints"), () => {
+            for (let subtreeBreakpoint of subtreeBreakpoints)
+                subtreeBreakpoint.disabled = !subtreeShouldEnable;
+        });
+
+        contextMenu.appendItem(WI.UIString("Delete Descendant Breakpoints"), () => {
+            for (let subtreeBreakpoint of subtreeBreakpoints)
+                WI.domDebuggerManager.removeDOMBreakpoint(subtreeBreakpoint);
+        });
+
+        contextMenu.appendSeparator();
     }
 };

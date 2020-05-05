@@ -38,9 +38,17 @@ WI.ObjectStore = class ObjectStore
         return (!window.InspectorTest || WI.ObjectStore.__testObjectStore) && window.indexedDB;
     }
 
+    static async reset()
+    {
+        if (WI.ObjectStore._database)
+            WI.ObjectStore._database.close();
+
+        await window.indexedDB.deleteDatabase(ObjectStore._databaseName);
+    }
+
     static get _databaseName()
     {
-        let inspectionLevel = InspectorFrontendHost ? InspectorFrontendHost.inspectionLevel() : 1;
+        let inspectionLevel = InspectorFrontendHost ? InspectorFrontendHost.inspectionLevel : 1;
         let levelString = (inspectionLevel > 1) ? "-" + inspectionLevel : "";
         return "com.apple.WebInspector" + levelString;
     }
@@ -59,9 +67,9 @@ WI.ObjectStore = class ObjectStore
 
         WI.ObjectStore._databaseCallbacks = [callback];
 
-        const version = 1; // Increment this for every edit to `WI.objectStores`.
+        const version = 5; // Increment this for every edit to `WI.objectStores`.
 
-        let databaseRequest = indexedDB.open(WI.ObjectStore._databaseName, version);
+        let databaseRequest = window.indexedDB.open(WI.ObjectStore._databaseName, version);
         databaseRequest.addEventListener("upgradeneeded", (event) => {
             let database = databaseRequest.result;
 
@@ -97,6 +105,11 @@ WI.ObjectStore = class ObjectStore
 
     // Public
 
+    get keyPath()
+    {
+        return (this._options || {}).keyPath;
+    }
+
     associateObject(object, key, value)
     {
         if (typeof value === "object")
@@ -106,29 +119,37 @@ WI.ObjectStore = class ObjectStore
         resolved.object[resolved.key] = value;
     }
 
-    async getAll(...args)
+    async get(...args)
     {
         if (!WI.ObjectStore.supported())
             return undefined;
+
+        return this._operation("readonly", (objectStore) => objectStore.get(...args));
+    }
+
+    async getAll(...args)
+    {
+        if (!WI.ObjectStore.supported())
+            return [];
 
         return this._operation("readonly", (objectStore) => objectStore.getAll(...args));
     }
 
-    async add(...args)
+    async put(...args)
     {
         if (!WI.ObjectStore.supported())
             return undefined;
 
-        return this._operation("readwrite", (objectStore) => objectStore.add(...args));
+        return this._operation("readwrite", (objectStore) => objectStore.put(...args));
     }
 
-    async addObject(object, ...args)
+    async putObject(object, ...args)
     {
         if (!WI.ObjectStore.supported())
             return undefined;
 
         console.assert(typeof object.toJSON === "function", "ObjectStore cannot store an object without JSON serialization", object.constructor.name);
-        let result = await this.add(object.toJSON(WI.ObjectStore.toJSONSymbol), ...args);
+        let result = await this.put(object.toJSON(WI.ObjectStore.toJSONSymbol), ...args);
         this.associateObject(object, args[0], result);
         return result;
     }
@@ -227,5 +248,11 @@ WI.ObjectStore.toJSONSymbol = Symbol("ObjectStore-toJSON");
 
 // Be sure to update the `version` above when making changes.
 WI.objectStores = {
+    general: new WI.ObjectStore("general"),
     audits: new WI.ObjectStore("audit-manager-tests", {keyPath: "__id", autoIncrement: true}),
+    breakpoints: new WI.ObjectStore("debugger-breakpoints", {keyPath: "__id"}),
+    domBreakpoints: new WI.ObjectStore("dom-debugger-dom-breakpoints", {keyPath: "__id"}),
+    eventBreakpoints: new WI.ObjectStore("dom-debugger-event-breakpoints", {keyPath: "__id"}),
+    urlBreakpoints: new WI.ObjectStore("dom-debugger-url-breakpoints", {keyPath: "__id"}),
+    localResourceOverrides: new WI.ObjectStore("local-resource-overrides", {keyPath: "__id"}),
 };

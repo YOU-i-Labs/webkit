@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2002-2013 The ANGLE Project Authors. All rights reserved.
+// Copyright 2002 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -8,10 +8,11 @@
 
 #include <stddef.h>
 
-#include "khrplatform.h"
+#include "KHR/khrplatform.h"
 
 #include <array>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -25,7 +26,7 @@
 
 // Version number for shader translation API.
 // It is incremented every time the API changes.
-#define ANGLE_SH_VERSION 190
+#define ANGLE_SH_VERSION 224
 
 enum ShShaderSpec
 {
@@ -37,6 +38,9 @@ enum ShShaderSpec
 
     SH_GLES3_1_SPEC,
     SH_WEBGL3_SPEC,
+
+    SH_GL_CORE_SPEC,
+    SH_GL_COMPATIBILITY_SPEC,
 };
 
 enum ShShaderOutput
@@ -65,19 +69,23 @@ enum ShShaderOutput
 
     // Output specialized GLSL to be fed to glslang for Vulkan SPIR.
     SH_GLSL_VULKAN_OUTPUT = 0x8B4B,
+
+    // Output specialized GLSL to be fed to glslang for Vulkan SPIR to be cross compiled to Metal
+    // later.
+    SH_GLSL_METAL_OUTPUT = 0x8B4C,
 };
 
 // Compile options.
 // The Compile options type is defined in ShaderVars.h, to allow ANGLE to import the ShaderVars
 // header without needing the ShaderLang header. This avoids some conflicts with glslang.
 
-const ShCompileOptions SH_VALIDATE                           = 0;
-const ShCompileOptions SH_VALIDATE_LOOP_INDEXING             = UINT64_C(1) << 0;
-const ShCompileOptions SH_INTERMEDIATE_TREE                  = UINT64_C(1) << 1;
-const ShCompileOptions SH_OBJECT_CODE                        = UINT64_C(1) << 2;
-const ShCompileOptions SH_VARIABLES                          = UINT64_C(1) << 3;
-const ShCompileOptions SH_LINE_DIRECTIVES                    = UINT64_C(1) << 4;
-const ShCompileOptions SH_SOURCE_PATH                        = UINT64_C(1) << 5;
+const ShCompileOptions SH_VALIDATE               = 0;
+const ShCompileOptions SH_VALIDATE_LOOP_INDEXING = UINT64_C(1) << 0;
+const ShCompileOptions SH_INTERMEDIATE_TREE      = UINT64_C(1) << 1;
+const ShCompileOptions SH_OBJECT_CODE            = UINT64_C(1) << 2;
+const ShCompileOptions SH_VARIABLES              = UINT64_C(1) << 3;
+const ShCompileOptions SH_LINE_DIRECTIVES        = UINT64_C(1) << 4;
+const ShCompileOptions SH_SOURCE_PATH            = UINT64_C(1) << 5;
 
 // This flag will keep invariant declaration for input in fragment shader for GLSL >=4.20 on AMD.
 // From GLSL >= 4.20, it's optional to add invariant for fragment input, but GPU vendors have
@@ -120,6 +128,7 @@ const ShCompileOptions SH_ENFORCE_PACKING_RESTRICTIONS = UINT64_C(1) << 9;
 // vec234, or mat234 type. The ShArrayIndexClampingStrategy enum,
 // specified in the ShBuiltInResources when constructing the
 // compiler, selects the strategy for the clamping implementation.
+// TODO(http://anglebug.com/4361): fix for compute shaders.
 const ShCompileOptions SH_CLAMP_INDIRECT_ARRAY_BOUNDS = UINT64_C(1) << 10;
 
 // This flag limits the complexity of an expression.
@@ -214,13 +223,9 @@ const ShCompileOptions SH_REWRITE_FLOAT_UNARY_MINUS_OPERATOR = UINT64_C(1) << 29
 // It works by using an expression to emulate this function.
 const ShCompileOptions SH_EMULATE_ATAN2_FLOAT_FUNCTION = UINT64_C(1) << 30;
 
-// Set to 1 to translate gl_ViewID_OVR to an uniform so that the extension can be emulated.
-// "uniform highp uint ViewID_OVR".
-const ShCompileOptions SH_TRANSLATE_VIEWID_OVR_TO_UNIFORM = UINT64_C(1) << 31;
-
 // Set to initialize uninitialized local and global temporary variables. Should only be used with
 // GLSL output. In HLSL output variables are initialized regardless of if this flag is set.
-const ShCompileOptions SH_INITIALIZE_UNINITIALIZED_LOCALS = UINT64_C(1) << 32;
+const ShCompileOptions SH_INITIALIZE_UNINITIALIZED_LOCALS = UINT64_C(1) << 31;
 
 // The flag modifies the shader in the following way:
 // Every occurrence of gl_InstanceID is replaced by the global temporary variable InstanceID.
@@ -229,21 +234,21 @@ const ShCompileOptions SH_INITIALIZE_UNINITIALIZED_LOCALS = UINT64_C(1) << 32;
 // ViewID_OVR = uint(gl_InstanceID) % num_views;
 // InstanceID = gl_InstanceID / num_views;
 // ViewID_OVR is added as a varying variable to both the vertex and fragment shaders.
-const ShCompileOptions SH_INITIALIZE_BUILTINS_FOR_INSTANCED_MULTIVIEW = UINT64_C(1) << 33;
+const ShCompileOptions SH_INITIALIZE_BUILTINS_FOR_INSTANCED_MULTIVIEW = UINT64_C(1) << 32;
 
 // With the flag enabled the GLSL/ESSL vertex shader is modified to include code for viewport
 // selection in the following way:
-// - Code to enable the extension NV_viewport_array2 is included.
+// - Code to enable the extension ARB_shader_viewport_layer_array/NV_viewport_array2 is included.
 // - Code to select the viewport index or layer is inserted at the beginning of main after
 // ViewID_OVR's initialization.
 // - A declaration of the uniform multiviewBaseViewLayerIndex.
 // Note: The SH_INITIALIZE_BUILTINS_FOR_INSTANCED_MULTIVIEW flag also has to be enabled to have the
 // temporary variable ViewID_OVR declared and initialized.
-const ShCompileOptions SH_SELECT_VIEW_IN_NV_GLSL_VERTEX_SHADER = UINT64_C(1) << 34;
+const ShCompileOptions SH_SELECT_VIEW_IN_NV_GLSL_VERTEX_SHADER = UINT64_C(1) << 33;
 
 // If the flag is enabled, gl_PointSize is clamped to the maximum point size specified in
 // ShBuiltInResources in vertex shaders.
-const ShCompileOptions SH_CLAMP_POINT_SIZE = UINT64_C(1) << 35;
+const ShCompileOptions SH_CLAMP_POINT_SIZE = UINT64_C(1) << 34;
 
 // Turn some arithmetic operations that operate on a float vector-scalar pair into vector-vector
 // operations. This is done recursively. Some scalar binary operations inside vector constructors
@@ -251,11 +256,82 @@ const ShCompileOptions SH_CLAMP_POINT_SIZE = UINT64_C(1) << 35;
 //
 // This is targeted to work around a bug in NVIDIA OpenGL drivers that was reproducible on NVIDIA
 // driver version 387.92. It works around the most common occurrences of the bug.
-const ShCompileOptions SH_REWRITE_VECTOR_SCALAR_ARITHMETIC = UINT64_C(1) << 36;
+const ShCompileOptions SH_REWRITE_VECTOR_SCALAR_ARITHMETIC = UINT64_C(1) << 35;
 
 // Don't use loops to initialize uninitialized variables. Only has an effect if some kind of
 // variable initialization is turned on.
-const ShCompileOptions SH_DONT_USE_LOOPS_TO_INITIALIZE_VARIABLES = UINT64_C(1) << 37;
+const ShCompileOptions SH_DONT_USE_LOOPS_TO_INITIALIZE_VARIABLES = UINT64_C(1) << 36;
+
+// Don't use D3D constant register zero when allocating space for uniforms. This is targeted to work
+// around a bug in NVIDIA D3D driver version 388.59 where in very specific cases the driver would
+// not handle constant register zero correctly. Only has an effect on HLSL translation.
+const ShCompileOptions SH_SKIP_D3D_CONSTANT_REGISTER_ZERO = UINT64_C(1) << 37;
+
+// Clamp gl_FragDepth to the range [0.0, 1.0] in case it is statically used.
+const ShCompileOptions SH_CLAMP_FRAG_DEPTH = UINT64_C(1) << 38;
+
+// Rewrite expressions like "v.x = z = expression;". Works around a bug in NVIDIA OpenGL drivers
+// prior to version 397.31.
+const ShCompileOptions SH_REWRITE_REPEATED_ASSIGN_TO_SWIZZLED = UINT64_C(1) << 39;
+
+// Rewrite gl_DrawID as a uniform int
+const ShCompileOptions SH_EMULATE_GL_DRAW_ID = UINT64_C(1) << 40;
+
+// This flag initializes shared variables to 0.
+// It is to avoid ompute shaders being able to read undefined values that could be coming from
+// another webpage/application.
+const ShCompileOptions SH_INIT_SHARED_VARIABLES = UINT64_C(1) << 41;
+
+// Forces the value returned from an atomic operations to be always be resolved. This is targeted to
+// workaround a bug in NVIDIA D3D driver where the return value from
+// RWByteAddressBuffer.InterlockedAdd does not get resolved when used in the .yzw components of a
+// RWByteAddressBuffer.Store operation. Only has an effect on HLSL translation.
+// http://anglebug.com/3246
+const ShCompileOptions SH_FORCE_ATOMIC_VALUE_RESOLUTION = UINT64_C(1) << 42;
+
+// Rewrite gl_BaseVertex and gl_BaseInstance as uniform int
+const ShCompileOptions SH_EMULATE_GL_BASE_VERTEX_BASE_INSTANCE = UINT64_C(1) << 43;
+
+// Emulate seamful cube map sampling for OpenGL ES2.0.  Currently only applies to the Vulkan
+// backend, as is done after samplers are moved out of structs.  Can likely be made to work on
+// the other backends as well.
+const ShCompileOptions SH_EMULATE_SEAMFUL_CUBE_MAP_SAMPLING = UINT64_C(1) << 44;
+
+// This flag controls how to translate WEBGL_video_texture sampling function.
+const ShCompileOptions SH_TAKE_VIDEO_TEXTURE_AS_EXTERNAL_OES = UINT64_C(1) << 45;
+
+// If requested, validates the AST after every transformation.  Useful for debugging.
+const ShCompileOptions SH_VALIDATE_AST = UINT64_C(1) << 46;
+
+// Use old version of RewriteStructSamplers, which doesn't produce as many
+// sampler arrays in parameters. This causes a few tests to pass on Android.
+const ShCompileOptions SH_USE_OLD_REWRITE_STRUCT_SAMPLERS = UINT64_C(1) << 47;
+
+// This flag works around a inconsistent behavior in Mac AMD driver where gl_VertexID doesn't
+// include base vertex value. It replaces gl_VertexID with (gl_VertexID + angle_BaseVertex)
+// when angle_BaseVertex is available.
+const ShCompileOptions SH_ADD_BASE_VERTEX_TO_VERTEX_ID = UINT64_C(1) << 48;
+
+// This works around the dynamic lvalue indexing of swizzled vectors on various platforms.
+const ShCompileOptions SH_REMOVE_DYNAMIC_INDEXING_OF_SWIZZLED_VECTOR = UINT64_C(1) << 49;
+
+// This flag works a driver bug that fails to allocate ShaderResourceView for StructuredBuffer
+// on Windows 7 and earlier.
+const ShCompileOptions SH_DONT_TRANSLATE_UNIFORM_BLOCK_TO_STRUCTUREDBUFFER = UINT64_C(1) << 50;
+
+// This flag indicates whether Bresenham line raster emulation code should be generated.  This
+// emulation is necessary if the backend uses a differnet algorithm to draw lines.  Currently only
+// implemented for the Vulkan backend.
+const ShCompileOptions SH_ADD_BRESENHAM_LINE_RASTER_EMULATION = UINT64_C(1) << 51;
+
+// This flag allows disabling ARB_texture_rectangle on a per-compile basis. This is necessary
+// for WebGL contexts becuase ARB_texture_rectangle may be necessary for the WebGL implementation
+// internally but shouldn't be exposed to WebGL user code.
+const ShCompileOptions SH_DISABLE_ARB_TEXTURE_RECTANGLE = UINT64_C(1) << 52;
+
+// This flag works around a driver bug by rewriting uses of row-major matrices
+// as column-major in ESSL 3.00 and greater shaders.
+const ShCompileOptions SH_REWRITE_ROW_MAJOR_MATRICES = UINT64_C(1) << 53;
 
 // Defines alternate strategies for implementing array index clamping.
 enum ShArrayIndexClampingStrategy
@@ -303,8 +379,17 @@ struct ShBuiltInResources
     int NV_shader_framebuffer_fetch;
     int ARM_shader_framebuffer_fetch;
     int OVR_multiview;
+    int OVR_multiview2;
+    int EXT_multisampled_render_to_texture;
     int EXT_YUV_target;
-    int OES_geometry_shader;
+    int EXT_geometry_shader;
+    int EXT_gpu_shader5;
+    int OES_texture_storage_multisample_2d_array;
+    int OES_texture_3D;
+    int ANGLE_texture_multisample;
+    int ANGLE_multi_draw;
+    int ANGLE_base_vertex_base_instance;
+    int WEBGL_video_texture;
 
     // Set to 1 to enable replacing GL_EXT_draw_buffers #extension directives
     // with GL_NV_draw_buffers in ESSL output. This flag can be used to emulate
@@ -430,7 +515,7 @@ struct ShBuiltInResources
     // maximum point size (higher limit from ALIASED_POINT_SIZE_RANGE)
     float MaxPointSize;
 
-    // OES_geometry_shader constants
+    // EXT_geometry_shader constants
     int MaxGeometryUniformComponents;
     int MaxGeometryUniformBlocks;
     int MaxGeometryInputComponents;
@@ -443,6 +528,9 @@ struct ShBuiltInResources
     int MaxGeometryShaderStorageBlocks;
     int MaxGeometryShaderInvocations;
     int MaxGeometryImageUniforms;
+
+    // Subpixel bits used in rasterization.
+    int SubPixelBits;
 };
 
 //
@@ -559,12 +647,12 @@ const std::map<std::string, std::string> *GetNameHashingMap(const ShHandle handl
 // Returns NULL on failure.
 // Parameters:
 // handle: Specifies the compiler
-const std::vector<sh::Uniform> *GetUniforms(const ShHandle handle);
-const std::vector<sh::Varying> *GetVaryings(const ShHandle handle);
-const std::vector<sh::Varying> *GetInputVaryings(const ShHandle handle);
-const std::vector<sh::Varying> *GetOutputVaryings(const ShHandle handle);
-const std::vector<sh::Attribute> *GetAttributes(const ShHandle handle);
-const std::vector<sh::OutputVariable> *GetOutputVariables(const ShHandle handle);
+const std::vector<sh::ShaderVariable> *GetUniforms(const ShHandle handle);
+const std::vector<sh::ShaderVariable> *GetVaryings(const ShHandle handle);
+const std::vector<sh::ShaderVariable> *GetInputVaryings(const ShHandle handle);
+const std::vector<sh::ShaderVariable> *GetOutputVaryings(const ShHandle handle);
+const std::vector<sh::ShaderVariable> *GetAttributes(const ShHandle handle);
+const std::vector<sh::ShaderVariable> *GetOutputVariables(const ShHandle handle);
 const std::vector<sh::InterfaceBlock> *GetInterfaceBlocks(const ShHandle handle);
 const std::vector<sh::InterfaceBlock> *GetUniformBlocks(const ShHandle handle);
 const std::vector<sh::InterfaceBlock> *GetShaderStorageBlocks(const ShHandle handle);
@@ -583,6 +671,17 @@ int GetVertexShaderNumViews(const ShHandle handle);
 bool CheckVariablesWithinPackingLimits(int maxVectors,
                                        const std::vector<sh::ShaderVariable> &variables);
 
+// Gives the compiler-assigned register for a shader storage block.
+// The method writes the value to the output variable "indexOut".
+// Returns true if it found a valid shader storage block, false otherwise.
+// Parameters:
+// handle: Specifies the compiler
+// shaderStorageBlockName: Specifies the shader storage block
+// indexOut: output variable that stores the assigned register
+bool GetShaderStorageBlockRegister(const ShHandle handle,
+                                   const std::string &shaderStorageBlockName,
+                                   unsigned int *indexOut);
+
 // Gives the compiler-assigned register for a uniform block.
 // The method writes the value to the output variable "indexOut".
 // Returns true if it found a valid uniform block, false otherwise.
@@ -594,15 +693,87 @@ bool GetUniformBlockRegister(const ShHandle handle,
                              const std::string &uniformBlockName,
                              unsigned int *indexOut);
 
+bool ShouldUniformBlockUseStructuredBuffer(const ShHandle handle,
+                                           const std::string &uniformBlockName);
+
 // Gives a map from uniform names to compiler-assigned registers in the default uniform block.
 // Note that the map contains also registers of samplers that have been extracted from structs.
 const std::map<std::string, unsigned int> *GetUniformRegisterMap(const ShHandle handle);
 
+// Sampler, image and atomic counters share registers(t type and u type),
+// GetReadonlyImage2DRegisterIndex and GetImage2DRegisterIndex return the first index into
+// a range of reserved registers for image2D/iimage2D/uimage2D variables.
+// Parameters: handle: Specifies the compiler
+unsigned int GetReadonlyImage2DRegisterIndex(const ShHandle handle);
+unsigned int GetImage2DRegisterIndex(const ShHandle handle);
+
+// The method records these used function names related with image2D/iimage2D/uimage2D, these
+// functions will be dynamically generated.
+// Parameters:
+// handle: Specifies the compiler
+const std::set<std::string> *GetUsedImage2DFunctionNames(const ShHandle handle);
+
+bool HasValidGeometryShaderInputPrimitiveType(const ShHandle handle);
+bool HasValidGeometryShaderOutputPrimitiveType(const ShHandle handle);
+bool HasValidGeometryShaderMaxVertices(const ShHandle handle);
 GLenum GetGeometryShaderInputPrimitiveType(const ShHandle handle);
 GLenum GetGeometryShaderOutputPrimitiveType(const ShHandle handle);
 int GetGeometryShaderInvocations(const ShHandle handle);
 int GetGeometryShaderMaxVertices(const ShHandle handle);
+unsigned int GetShaderSharedMemorySize(const ShHandle handle);
 
+//
+// Helper function to identify specs that are based on the WebGL spec.
+//
+inline bool IsWebGLBasedSpec(ShShaderSpec spec)
+{
+    return (spec == SH_WEBGL_SPEC || spec == SH_WEBGL2_SPEC || spec == SH_WEBGL3_SPEC);
+}
+
+//
+// Helper function to identify DesktopGL specs
+//
+inline bool IsDesktopGLSpec(ShShaderSpec spec)
+{
+    return spec == SH_GL_CORE_SPEC || spec == SH_GL_COMPATIBILITY_SPEC;
+}
+
+// Can't prefix with just _ because then we might introduce a double underscore, which is not safe
+// in GLSL (ESSL 3.00.6 section 3.8: All identifiers containing a double underscore are reserved for
+// use by the underlying implementation). u is short for user-defined.
+extern const char kUserDefinedNamePrefix[];
+
+namespace vk
+{
+
+// Specialization constant ids
+enum class SpecializationConstantId : uint32_t
+{
+    LineRasterEmulation = 0,
+
+    InvalidEnum = 1,
+    EnumCount   = 1,
+};
+
+// Interface block name containing the aggregate default uniforms
+extern const char kDefaultUniformsNameVS[];
+extern const char kDefaultUniformsNameTCS[];
+extern const char kDefaultUniformsNameTES[];
+extern const char kDefaultUniformsNameGS[];
+extern const char kDefaultUniformsNameFS[];
+extern const char kDefaultUniformsNameCS[];
+
+// Interface block and variable name containing driver uniforms
+extern const char kDriverUniformsBlockName[];
+extern const char kDriverUniformsVarName[];
+
+// Interface block array variable name used for atomic counter emulation
+extern const char kAtomicCountersVarName[];
+
+// Line raster emulation varying
+extern const char kLineRasterEmulationPosition[];
+
+}  // namespace vk
 }  // namespace sh
 
-#endif // GLSLANG_SHADERLANG_H_
+#endif  // GLSLANG_SHADERLANG_H_

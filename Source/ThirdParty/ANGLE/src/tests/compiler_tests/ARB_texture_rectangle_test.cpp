@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2014 The ANGLE Project Authors. All rights reserved.
+// Copyright 2014 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -29,6 +29,46 @@ class ARBTextureRectangleTest : public ARBTextureRectangleTestNoExt
         resources->ARB_texture_rectangle = 1;
     }
 };
+
+// Check that if the extension is not supported, trying to use the features without having an
+// extension directive fails.
+TEST_F(ARBTextureRectangleTestNoExt, NewTypeAndBuiltinsWithoutExtensionDirective)
+{
+    const std::string &shaderString =
+        R"(
+        precision mediump float;
+        uniform sampler2DRect tex;
+        void main()
+        {
+            vec4 color = texture2DRect(tex, vec2(1.0));
+            color = texture2DRectProj(tex, vec3(1.0));
+            color = texture2DRectProj(tex, vec4(1.0));
+        })";
+    if (compile(shaderString))
+    {
+        FAIL() << "Shader compilation succeeded, expecting failure:\n" << mInfoLog;
+    }
+}
+
+// Check that if the extension is not supported, trying to use the features fails.
+TEST_F(ARBTextureRectangleTestNoExt, NewTypeAndBuiltinsWithExtensionDirective)
+{
+    const std::string &shaderString =
+        R"(
+        #extension GL_ARB_texture_rectangle : enable
+        precision mediump float;
+        uniform sampler2DRect tex;
+        void main()
+        {
+            vec4 color = texture2DRect(tex, vec2(1.0));
+            color = texture2DRectProj(tex, vec3(1.0));
+            color = texture2DRectProj(tex, vec4(1.0));
+        })";
+    if (compile(shaderString))
+    {
+        FAIL() << "Shader compilation succeeded, expecting failure:\n" << mInfoLog;
+    }
+}
 
 // Check that new types and builtins are usable even with the #extension directive
 // Issue #15 of ARB_texture_rectangle explains that the extension was specified before the
@@ -112,5 +152,46 @@ TEST_F(ARBTextureRectangleTest, DisableARBTextureRectangle)
     if (compile(shaderString))
     {
         FAIL() << "Shader compilation succeeded, expecting failure:\n" << mInfoLog;
+    }
+}
+
+// The compiler option to disable ARB_texture_rectangle should prevent shaders from
+// enabling it.
+TEST_F(ARBTextureRectangleTest, CompilerOption)
+{
+    const std::string &shaderString =
+        R"(
+        #extension GL_ARB_texture_rectangle : enable
+        precision mediump float;
+        uniform sampler2DRect s;
+        void main() {})";
+    mExtraCompileOptions |= SH_DISABLE_ARB_TEXTURE_RECTANGLE;
+    if (compile(shaderString))
+    {
+        FAIL() << "Shader compilation succeeded, expecting failure:\n" << mInfoLog;
+    }
+}
+
+// The compiler option to disable ARB_texture_rectangle should be toggleable.
+TEST_F(ARBTextureRectangleTest, ToggleCompilerOption)
+{
+    const std::string &shaderString =
+        R"(
+        precision mediump float;
+        uniform sampler2DRect s;
+        void main() {})";
+    if (!compile(shaderString))
+    {
+        FAIL() << "Shader compilation failed, expecting success:\n" << mInfoLog;
+    }
+    mExtraCompileOptions |= SH_DISABLE_ARB_TEXTURE_RECTANGLE;
+    if (compile(shaderString))
+    {
+        FAIL() << "Shader compilation succeeded, expecting failure:\n" << mInfoLog;
+    }
+    mExtraCompileOptions &= ~SH_DISABLE_ARB_TEXTURE_RECTANGLE;
+    if (!compile(shaderString))
+    {
+        FAIL() << "Shader compilation failed, expecting success:\n" << mInfoLog;
     }
 }

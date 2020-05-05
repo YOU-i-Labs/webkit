@@ -28,13 +28,6 @@ class WebGLFramebufferTest : public ANGLETest
         setWebGLCompatibilityEnabled(true);
     }
 
-    void SetUp() override
-    {
-        ANGLETest::SetUp();
-        glRequestExtensionANGLE = reinterpret_cast<PFNGLREQUESTEXTENSIONANGLEPROC>(
-            eglGetProcAddress("glRequestExtensionANGLE"));
-    }
-
     void drawUByteColorQuad(GLuint program, GLint uniformLoc, const GLColor &color);
     void testDepthStencilDepthStencil(GLint width, GLint height);
     void testDepthStencilRenderbuffer(GLint width,
@@ -44,8 +37,6 @@ class WebGLFramebufferTest : public ANGLETest
     void testRenderingAndReading(GLuint program);
     void testUsingIncompleteFramebuffer(GLenum depthFormat, GLenum depthAttachment);
     void testDrawingMissingAttachment();
-
-    PFNGLREQUESTEXTENSIONANGLEPROC glRequestExtensionANGLE = nullptr;
 };
 
 constexpr GLint ALLOW_COMPLETE              = 0x1;
@@ -144,14 +135,17 @@ TEST_P(WebGLFramebufferTest, TestFramebufferRequiredCombinations)
     checkBufferBits(GL_DEPTH_ATTACHMENT, GL_NONE);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
 
-    // 3. COLOR_ATTACHMENT0 = RGBA/UNSIGNED_BYTE texture + DEPTH_STENCIL_ATTACHMENT = DEPTH_STENCIL
-    // renderbuffer
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_STENCIL, width, height);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
-                              renderbuffer);
-    EXPECT_GL_NO_ERROR();
-    checkFramebufferForAllowedStatuses(ALLOW_COMPLETE);
-    checkBufferBits(GL_DEPTH_STENCIL_ATTACHMENT, GL_NONE);
+    if (getClientMajorVersion() == 2)
+    {
+        // 3. COLOR_ATTACHMENT0 = RGBA/UNSIGNED_BYTE texture + DEPTH_STENCIL_ATTACHMENT =
+        // DEPTH_STENCIL renderbuffer
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_STENCIL, width, height);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
+                                  renderbuffer);
+        EXPECT_GL_NO_ERROR();
+        checkFramebufferForAllowedStatuses(ALLOW_COMPLETE);
+        checkBufferBits(GL_DEPTH_STENCIL_ATTACHMENT, GL_NONE);
+    }
 }
 
 void testAttachment(GLint width,
@@ -224,30 +218,18 @@ void WebGLFramebufferTest::drawUByteColorQuad(GLuint program,
     Vector4 vecColor = color.toNormalizedVector();
     glUseProgram(program);
     glUniform4fv(uniformLoc, 1, vecColor.data());
-    drawQuad(program, "position", 0.5f, 1.0f, true);
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f, 1.0f, true);
 }
 
 void WebGLFramebufferTest::testDepthStencilDepthStencil(GLint width, GLint height)
 {
-    const std::string &vertexShader =
-        "attribute vec4 position;\n"
-        "void main() {\n"
-        "    gl_Position = position;\n"
-        "}";
-    const std::string &fragmentShader =
-        "precision mediump float;\n"
-        "uniform vec4 color;\n"
-        "void main() {\n"
-        "    gl_FragColor = color;\n"
-        "}";
-
     if (width == 0 || height == 0)
     {
         return;
     }
 
-    ANGLE_GL_PROGRAM(program, vertexShader, fragmentShader);
-    GLint uniformLoc = glGetUniformLocation(program.get(), "color");
+    ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), essl1_shaders::fs::UniformColor());
+    GLint uniformLoc = glGetUniformLocation(program.get(), essl1_shaders::ColorUniform());
     ASSERT_NE(-1, uniformLoc);
 
     struct TestInfo
@@ -353,9 +335,13 @@ void WebGLFramebufferTest::testDepthStencilRenderbuffer(GLint width,
     // OpenGL itself doesn't seem to guarantee that e.g. a 2 x 0
     // renderbuffer will report 2 for its width when queried.
     if (!(height == 0 && width > 0))
+    {
         EXPECT_EQ(width, getRenderbufferParameter(GL_RENDERBUFFER_WIDTH));
+    }
     if (!(width == 0 && height > 0))
+    {
         EXPECT_EQ(height, getRenderbufferParameter(GL_RENDERBUFFER_HEIGHT));
+    }
     EXPECT_EQ(GL_DEPTH_STENCIL, getRenderbufferParameter(GL_RENDERBUFFER_INTERNAL_FORMAT));
     EXPECT_EQ(0, getRenderbufferParameter(GL_RENDERBUFFER_RED_SIZE));
     EXPECT_EQ(0, getRenderbufferParameter(GL_RENDERBUFFER_GREEN_SIZE));
@@ -378,6 +364,9 @@ void WebGLFramebufferTest::testDepthStencilRenderbuffer(GLint width,
 // Test various attachment combinations with WebGL framebuffers.
 TEST_P(WebGLFramebufferTest, TestAttachments)
 {
+    // GL_DEPTH_STENCIL renderbuffer format is only valid for WebGL1
+    ANGLE_SKIP_TEST_IF(getClientMajorVersion() != 2);
+
     for (GLint width = 2; width <= 2; width += 2)
     {
         for (GLint height = 2; height <= 2; height += 2)
@@ -547,7 +536,7 @@ void WebGLFramebufferTest::testRenderingAndReading(GLuint program)
     EXPECT_GL_NO_ERROR();
 
     // drawArrays with incomplete framebuffer
-    drawQuad(program, "position", 0.5f, 1.0f, true);
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f, 1.0f, true);
     EXPECT_GL_ERROR(GL_INVALID_FRAMEBUFFER_OPERATION);
 
     // readPixels from incomplete framebuffer
@@ -579,11 +568,7 @@ void WebGLFramebufferTest::testUsingIncompleteFramebuffer(GLenum depthFormat,
                                                           GLenum depthAttachment)
 {
     // Simple draw program.
-    const std::string &vertexShader =
-        "attribute vec4 position; void main() { gl_Position = position; }";
-    const std::string &fragmentShader = "void main() { gl_FragColor = vec4(1, 0, 0, 1); }";
-
-    ANGLE_GL_PROGRAM(program, vertexShader, fragmentShader);
+    ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
 
     GLFramebuffer fbo;
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -789,19 +774,17 @@ void TestReadingMissingAttachment(int size)
 void WebGLFramebufferTest::testDrawingMissingAttachment()
 {
     // Simple draw program.
-    const std::string &vertexShader   = "attribute vec4 pos; void main() { gl_Position = pos; }";
-    const std::string &fragmentShader = "void main() { gl_FragColor = vec4(1, 0, 0, 1); }";
-    ANGLE_GL_PROGRAM(program, vertexShader, fragmentShader);
+    ANGLE_GL_PROGRAM(program, essl1_shaders::vs::Simple(), essl1_shaders::fs::Red());
 
     glClear(GL_COLOR_BUFFER_BIT);
     EXPECT_GL_NO_ERROR();
 
     // try glDrawArrays
-    drawQuad(program, "pos", 0.5f, 1.0f, true);
+    drawQuad(program, essl1_shaders::PositionAttrib(), 0.5f, 1.0f, true);
     EXPECT_GL_NO_ERROR();
 
     // try glDrawElements
-    drawIndexedQuad(program, "pos", 0.5f, 1.0f, true);
+    drawIndexedQuad(program, essl1_shaders::PositionAttrib(), 0.5f, 1.0f, true);
     EXPECT_GL_NO_ERROR();
 }
 
@@ -842,16 +825,7 @@ TEST_P(WebGLFramebufferTest, CheckValidColorDepthCombination)
 // Test to cover a bug in preserving the texture image index for WebGL framebuffer attachments
 TEST_P(WebGLFramebufferTest, TextureAttachmentCommitBug)
 {
-    if (extensionRequestable("GL_ANGLE_depth_texture"))
-    {
-        glRequestExtensionANGLE("GL_ANGLE_depth_texture");
-    }
-
-    if (!extensionEnabled("GL_ANGLE_depth_texture"))
-    {
-        std::cout << "Test skipped because depth textures are not available.\n";
-        return;
-    }
+    ANGLE_SKIP_TEST_IF(!EnsureGLExtensionEnabled("GL_ANGLE_depth_texture"));
 
     GLTexture depthTexture;
     glBindTexture(GL_TEXTURE_2D, depthTexture.get());
@@ -868,12 +842,65 @@ TEST_P(WebGLFramebufferTest, TextureAttachmentCommitBug)
     EXPECT_GL_NO_ERROR();
 }
 
-// Only run against WebGL 1 validation, since much was changed in 2.
-ANGLE_INSTANTIATE_TEST(WebGLFramebufferTest,
-                       ES2_D3D9(),
-                       ES2_D3D11(),
-                       ES2_D3D11_FL9_3(),
-                       ES2_OPENGL(),
-                       ES2_OPENGLES());
+// Test combinations of ordering in setting the resource format and attaching it to the depth
+// stencil attacchment.  Covers http://crbug.com/997702
+TEST_P(WebGLFramebufferTest, DepthStencilAttachmentOrdering)
+{
+    constexpr GLsizei kFramebufferSize = 16;
 
-}  // namespace
+    GLTexture color;
+    glBindTexture(GL_TEXTURE_2D, color);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, kFramebufferSize, kFramebufferSize, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, nullptr);
+
+    GLRenderbuffer depthStencil;
+    glBindRenderbuffer(GL_RENDERBUFFER, depthStencil);
+
+    // Attach the renderbuffer to the framebuffer when it has no format
+    GLFramebuffer framebuffer;
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, color, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER,
+                              depthStencil);
+
+    // Framebuffer is incomplete because the depth stencil attachment doesn't a format/size
+    EXPECT_GL_NO_ERROR();
+    EXPECT_GLENUM_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER),
+                     GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT);
+
+    // Set depth stencil attachment to a color format
+    if (EnsureGLExtensionEnabled("GL_OES_rgb8_rgba8"))
+    {
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, kFramebufferSize, kFramebufferSize);
+
+        // Non-depth stencil format on the depth stencil attachment
+        EXPECT_GL_NO_ERROR();
+        EXPECT_GLENUM_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER),
+                         GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT);
+    }
+
+    {
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, kFramebufferSize,
+                              kFramebufferSize);
+
+        // Depth-stencil attachment only has a depth format, not complete
+        EXPECT_GL_NO_ERROR();
+        EXPECT_GLENUM_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER),
+                         GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT);
+    }
+
+    if (EnsureGLExtensionEnabled("GL_OES_packed_depth_stencil"))
+    {
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, kFramebufferSize,
+                              kFramebufferSize);
+
+        // Framebuffer should be complete now with a depth-stencil format
+        EXPECT_GL_NO_ERROR();
+        EXPECT_GLENUM_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
+    }
+}
+
+// Only run against WebGL 1 validation, since much was changed in 2.
+ANGLE_INSTANTIATE_TEST_ES2_AND_ES3(WebGLFramebufferTest);
+
+}  // namespace angle

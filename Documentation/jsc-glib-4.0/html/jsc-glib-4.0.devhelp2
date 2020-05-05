@@ -13,6 +13,7 @@
     </sub>
     <sub name="Index" link="index-all.html"/>
     <sub name="Index of new symbols in 2.24" link="api-index-2-24.html"/>
+    <sub name="Index of new symbols in 2.28" link="api-index-2-28.html"/>
     <sub name="Annotation Glossary" link="annotation-glossary.html"/>
   </chapters>
   <functions>
@@ -88,6 +89,8 @@
     <keyword type="function" name="jsc_value_is_constructor ()" link="JSCValue.html#jsc-value-is-constructor"/>
     <keyword type="function" name="jsc_value_constructor_call ()" link="JSCValue.html#jsc-value-constructor-call"/>
     <keyword type="function" name="jsc_value_constructor_callv ()" link="JSCValue.html#jsc-value-constructor-callv"/>
+    <keyword type="function" name="jsc_value_new_from_json ()" link="JSCValue.html#jsc-value-new-from-json" since="2.28"/>
+    <keyword type="function" name="jsc_value_to_json ()" link="JSCValue.html#jsc-value-to-json" since="2.28"/>
     <keyword type="struct" name="struct JSCValue" link="JSCValue.html#JSCValue-struct"/>
     <keyword type="enum" name="enum JSCValuePropertyFlags" link="JSCValue.html#JSCValuePropertyFlags"/>
     <keyword type="property" name="The “context” property" link="JSCValue.html#JSCValue--context"/>

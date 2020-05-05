@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2017 The ANGLE Project Authors. All rights reserved.
+// Copyright 2017 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -21,7 +21,7 @@ namespace rx
 {
 class GLImplFactory;
 class ProgramPipelineImpl;
-};
+}  // namespace rx
 
 namespace gl
 {
@@ -42,15 +42,15 @@ class ProgramPipelineState final : angle::NonCopyable
     std::string mLabel;
 };
 
-class ProgramPipeline final : public RefCountObject, public LabeledObject
+class ProgramPipeline final : public RefCountObject<ProgramPipelineID>, public LabeledObject
 {
   public:
-    ProgramPipeline(rx::GLImplFactory *factory, GLuint handle);
+    ProgramPipeline(rx::GLImplFactory *factory, ProgramPipelineID handle);
     ~ProgramPipeline() override;
 
-    Error onDestroy(const Context *context) override;
+    void onDestroy(const Context *context) override;
 
-    void setLabel(const std::string &label) override;
+    void setLabel(const Context *context, const std::string &label) override;
     const std::string &getLabel() const override;
 
     rx::ProgramPipelineImpl *getImplementation() const;
@@ -60,6 +60,6 @@ class ProgramPipeline final : public RefCountObject, public LabeledObject
 
     ProgramPipelineState mState;
 };
-}
+}  // namespace gl
 
 #endif  // LIBANGLE_PROGRAMPIPELINE_H_

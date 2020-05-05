@@ -27,6 +27,7 @@
 #include <CDMInstance.h>
 #include <gst/base/gstbasetransform.h>
 #include <gst/gst.h>
+#include <wtf/RefPtr.h>
 
 G_BEGIN_DECLS
 
@@ -54,7 +55,7 @@ struct _WebKitMediaCommonEncryptionDecryptClass {
     GstBaseTransformClass parentClass;
 
     const char* protectionSystemId;
-    bool (*handleKeyResponse)(WebKitMediaCommonEncryptionDecrypt*, RefPtr<WebCore::CDMInstance>);
+    bool (*handleKeyResponse)(WebKitMediaCommonEncryptionDecrypt*, RefPtr<WebCore::ProxyCDM>);
     bool (*decrypt)(WebKitMediaCommonEncryptionDecrypt*, GstBuffer* ivBuffer, GstBuffer* keyIDBuffer, GstBuffer* buffer, unsigned subSamplesCount, GstBuffer* subSamplesBuffer);
 };
 

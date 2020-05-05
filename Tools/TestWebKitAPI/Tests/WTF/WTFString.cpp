@@ -74,7 +74,7 @@ TEST(WTF, StringASCII)
 static inline const char* testStringNumberFixedPrecision(double number)
 {
     static char testBuffer[100] = { };
-    std::strncpy(testBuffer, String::number(number).utf8().data(), 99);
+    std::strncpy(testBuffer, String::numberToStringFixedPrecision(number).utf8().data(), 99);
     return testBuffer;
 }
 
@@ -159,20 +159,18 @@ TEST(WTF, StringNumberFixedWidth)
     EXPECT_STREQ("1000.000000", testStringNumberFixedWidth(1e3));
     EXPECT_STREQ("10000000000.000000", testStringNumberFixedWidth(1e10));
     EXPECT_STREQ("100000000000000000000.000000", testStringNumberFixedWidth(1e20));
-    EXPECT_STREQ("1000000000000000000000.000000", testStringNumberFixedWidth(1e21));
-    EXPECT_STREQ("1000000000000000019884624838656.000000", testStringNumberFixedWidth(1e30));
+    EXPECT_STREQ("", testStringNumberFixedWidth(1e21));
 
     EXPECT_STREQ("1100.000000", testStringNumberFixedWidth(1.1e3));
     EXPECT_STREQ("11000000000.000000", testStringNumberFixedWidth(1.1e10));
     EXPECT_STREQ("110000000000000000000.000000", testStringNumberFixedWidth(1.1e20));
-    EXPECT_STREQ("1100000000000000000000.000000", testStringNumberFixedWidth(1.1e21));
-    EXPECT_STREQ("1099999999999999993725589651456.000000", testStringNumberFixedWidth(1.1e30));
+    EXPECT_STREQ("", testStringNumberFixedWidth(1.1e21));
 }
 
 static inline const char* testStringNumber(double number)
 {
     static char testBuffer[100] = { };
-    std::strncpy(testBuffer, String::numberToStringECMAScript(number).utf8().data(), 99);
+    std::strncpy(testBuffer, String::number(number).utf8().data(), 99);
     return testBuffer;
 }
 

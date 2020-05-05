@@ -35,19 +35,20 @@
 #include "WebPageProxy.h"
 #include "WebPreferences.h"
 #include "WebProcessProxy.h"
+#include <WebCore/PlatformDisplay.h>
 #include <WebCore/Region.h>
 
 #if PLATFORM(GTK)
 #include <gtk/gtk.h>
 #endif
 
-#if PLATFORM(WAYLAND)
-#include "WaylandCompositor.h"
-#include <WebCore/PlatformDisplay.h>
-#endif
-
 #if USE(GLIB_EVENT_LOOP)
 #include <wtf/glib/RunLoopSourcePriority.h>
+#endif
+
+#if USE(DIRECT2D)
+#include <d2d1.h>
+#include <d3d11_1.h>
 #endif
 
 namespace WebKit {
@@ -118,11 +119,17 @@ void DrawingAreaProxyCoordinatedGraphics::paint(BackingStore::PlatformGraphicsCo
 
 void DrawingAreaProxyCoordinatedGraphics::sizeDidChange()
 {
+#if USE(DIRECT2D)
+    m_backingStore = nullptr;
+#endif
     backingStoreStateDidChange(RespondImmediately);
 }
 
 void DrawingAreaProxyCoordinatedGraphics::deviceScaleFactorDidChange()
 {
+#if USE(DIRECT2D)
+    m_backingStore = nullptr;
+#endif
     backingStoreStateDidChange(RespondImmediately);
 }
 
@@ -156,7 +163,7 @@ void DrawingAreaProxyCoordinatedGraphics::update(uint64_t backingStoreStateID, c
 #if !PLATFORM(WPE)
     incorporateUpdate(updateInfo);
 #endif
-    process().send(Messages::DrawingArea::DidUpdate(), m_webPageProxy.pageID());
+    send(Messages::DrawingArea::DidUpdate());
 }
 
 void DrawingAreaProxyCoordinatedGraphics::didUpdateBackingStoreState(uint64_t backingStoreStateID, const UpdateInfo& updateInfo, const LayerTreeContext& layerTreeContext)
@@ -168,7 +175,7 @@ void DrawingAreaProxyCoordinatedGraphics::didUpdateBackingStoreState(uint64_t ba
     m_isWaitingForDidUpdateBackingStoreState = false;
 
     // Stop the responsiveness timer that was started in sendUpdateBackingStoreState.
-    process().responsivenessTimer().stop();
+    process().stopResponsivenessTimer();
 
     if (layerTreeContext != m_layerTreeContext) {
         if (layerTreeContext.isEmpty() && !m_layerTreeContext.isEmpty()) {
@@ -185,16 +192,8 @@ void DrawingAreaProxyCoordinatedGraphics::didUpdateBackingStoreState(uint64_t ba
 
     if (m_nextBackingStoreStateID != m_currentBackingStoreStateID)
         sendUpdateBackingStoreState(RespondImmediately);
-    else {
+    else
         m_hasReceivedFirstUpdate = true;
-
-#if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK) && PLATFORM(X11) && !USE(REDIRECTED_XCOMPOSITE_WINDOW)
-        if (m_pendingNativeSurfaceHandleForCompositing) {
-            setNativeSurfaceHandleForCompositing(m_pendingNativeSurfaceHandleForCompositing);
-            m_pendingNativeSurfaceHandleForCompositing = 0;
-        }
-#endif
-    }
 
 #if !PLATFORM(WPE)
     if (isInAcceleratedCompositingMode()) {
@@ -248,7 +247,7 @@ void DrawingAreaProxyCoordinatedGraphics::incorporateUpdate(const UpdateInfo& up
         return;
 
     if (!m_backingStore)
-        m_backingStore = std::make_unique<BackingStore>(updateInfo.viewSize, updateInfo.deviceScaleFactor, m_webPageProxy);
+        m_backingStore = makeUnique<BackingStore>(updateInfo.viewSize, updateInfo.deviceScaleFactor, m_webPageProxy);
 
     m_backingStore->incorporateUpdate(updateInfo);
 
@@ -303,7 +302,7 @@ void DrawingAreaProxyCoordinatedGraphics::sendUpdateBackingStoreState(RespondImm
 {
     ASSERT(m_currentBackingStoreStateID < m_nextBackingStoreStateID);
 
-    if (!m_webPageProxy.isValid())
+    if (!m_webPageProxy.hasRunningProcess())
         return;
 
     if (m_isWaitingForDidUpdateBackingStoreState)
@@ -314,14 +313,13 @@ void DrawingAreaProxyCoordinatedGraphics::sendUpdateBackingStoreState(RespondImm
 
     m_isWaitingForDidUpdateBackingStoreState = respondImmediatelyOrNot == RespondImmediately;
 
-    process().send(Messages::DrawingArea::UpdateBackingStoreState(m_nextBackingStoreStateID, respondImmediatelyOrNot == RespondImmediately, m_webPageProxy.deviceScaleFactor(), m_size, m_scrollOffset), m_webPageProxy.pageID());
-
+    send(Messages::DrawingArea::UpdateBackingStoreState(m_nextBackingStoreStateID, respondImmediatelyOrNot == RespondImmediately, m_webPageProxy.deviceScaleFactor(), m_size, m_scrollOffset));
     m_scrollOffset = IntSize();
 
     if (m_isWaitingForDidUpdateBackingStoreState) {
         // Start the responsiveness timer. We will stop it when we hear back from the WebProcess
         // in didUpdateBackingStoreState.
-        process().responsivenessTimer().start();
+        process().startResponsivenessTimer();
     }
 
     if (m_isWaitingForDidUpdateBackingStoreState && !m_layerTreeContext.isEmpty()) {
@@ -335,7 +333,7 @@ void DrawingAreaProxyCoordinatedGraphics::waitForAndDispatchDidUpdateBackingStor
 {
     ASSERT(m_isWaitingForDidUpdateBackingStoreState);
 
-    if (!m_webPageProxy.isValid())
+    if (!m_webPageProxy.hasRunningProcess())
         return;
     if (process().state() == WebProcessProxy::State::Launching)
         return;
@@ -354,7 +352,7 @@ void DrawingAreaProxyCoordinatedGraphics::waitForAndDispatchDidUpdateBackingStor
     // choose the most recent one, or the one that is closest to our current size.
 
     // The timeout, in seconds, we use when waiting for a DidUpdateBackingStoreState message when we're asked to paint.
-    process().connection()->waitForAndDispatchImmediately<Messages::DrawingAreaProxy::DidUpdateBackingStoreState>(m_webPageProxy.pageID(), Seconds::fromMilliseconds(500));
+    process().connection()->waitForAndDispatchImmediately<Messages::DrawingAreaProxy::DidUpdateBackingStoreState>(m_identifier.toUInt64(), Seconds::fromMilliseconds(500));
 }
 
 #if !PLATFORM(WPE)
@@ -376,27 +374,6 @@ void DrawingAreaProxyCoordinatedGraphics::discardBackingStore()
         return;
     m_backingStore = nullptr;
     backingStoreStateDidChange(DoNotRespondImmediately);
-}
-#endif
-
-#if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK) && PLATFORM(X11) && !USE(REDIRECTED_XCOMPOSITE_WINDOW)
-void DrawingAreaProxyCoordinatedGraphics::setNativeSurfaceHandleForCompositing(uint64_t handle)
-{
-    if (!m_hasReceivedFirstUpdate) {
-        m_pendingNativeSurfaceHandleForCompositing = handle;
-        return;
-    }
-    process().send(Messages::DrawingArea::SetNativeSurfaceHandleForCompositing(handle), m_webPageProxy.pageID(), IPC::SendOption::DispatchMessageEvenWhenWaitingForSyncReply);
-}
-
-void DrawingAreaProxyCoordinatedGraphics::destroyNativeSurfaceHandleForCompositing()
-{
-    if (m_pendingNativeSurfaceHandleForCompositing) {
-        m_pendingNativeSurfaceHandleForCompositing = 0;
-        return;
-    }
-    bool handled;
-    process().sendSync(Messages::DrawingArea::DestroyNativeSurfaceHandleForCompositing(), Messages::DrawingArea::DestroyNativeSurfaceHandleForCompositing::Reply(handled), m_webPageProxy.pageID());
 }
 #endif
 
@@ -433,8 +410,9 @@ void DrawingAreaProxyCoordinatedGraphics::DrawingMonitor::start(WTF::Function<vo
     m_startTime = MonotonicTime::now();
     m_callback = WTFMove(callback);
 #if PLATFORM(GTK)
+    gtk_widget_queue_draw(m_webPage.viewWidget());
     g_signal_connect_swapped(m_webPage.viewWidget(), "draw", reinterpret_cast<GCallback>(webViewDrawCallback), this);
-    m_timer.startOneShot(1_s);
+    m_timer.startOneShot(100_ms);
 #else
     m_timer.startOneShot(0_s);
 #endif
@@ -455,24 +433,24 @@ void DrawingAreaProxyCoordinatedGraphics::DrawingMonitor::stop()
 
 void DrawingAreaProxyCoordinatedGraphics::DrawingMonitor::didDraw()
 {
-    // We wait up to 1 second for draw events. If there are several draw events queued quickly,
+    // We wait up to 100 milliseconds for draw events. If there are several draw events queued quickly,
     // we want to wait until all of them have been processed, so after receiving a draw, we wait
-    // up to 100ms for the next one or stop.
-    if (MonotonicTime::now() - m_startTime > 1_s)
+    // for the next frame or stop.
+    if (MonotonicTime::now() - m_startTime > 100_ms)
         stop();
     else
-        m_timer.startOneShot(100_ms);
+        m_timer.startOneShot(16_ms);
 }
 
 void DrawingAreaProxyCoordinatedGraphics::dispatchAfterEnsuringDrawing(WTF::Function<void(CallbackBase::Error)>&& callbackFunction)
 {
-    if (!m_webPageProxy.isValid()) {
+    if (!m_webPageProxy.hasRunningProcess()) {
         callbackFunction(CallbackBase::Error::OwnerWasInvalidated);
         return;
     }
 
     if (!m_drawingMonitor)
-        m_drawingMonitor = std::make_unique<DrawingAreaProxyCoordinatedGraphics::DrawingMonitor>(m_webPageProxy);
+        m_drawingMonitor = makeUnique<DrawingAreaProxyCoordinatedGraphics::DrawingMonitor>(m_webPageProxy);
     m_drawingMonitor->start(WTFMove(callbackFunction));
 }
 

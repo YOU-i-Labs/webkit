@@ -33,9 +33,10 @@
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
 #include <WebCore/Page.h>
-#include <WebCore/WheelEventTestTrigger.h>
+#include <WebCore/WheelEventTestMonitor.h>
 #include <wtf/MainThread.h>
 #include <wtf/RunLoop.h>
+#include <wtf/SystemTracing.h>
 
 #if ENABLE(ASYNC_SCROLLING)
 #include <WebCore/AsyncScrollingCoordinator.h>
@@ -67,18 +68,18 @@ void EventDispatcher::addScrollingTreeForPage(WebPage* webPage)
     LockHolder locker(m_scrollingTreesMutex);
 
     ASSERT(webPage->corePage()->scrollingCoordinator());
-    ASSERT(!m_scrollingTrees.contains(webPage->pageID()));
+    ASSERT(!m_scrollingTrees.contains(webPage->identifier()));
 
     AsyncScrollingCoordinator& scrollingCoordinator = downcast<AsyncScrollingCoordinator>(*webPage->corePage()->scrollingCoordinator());
-    m_scrollingTrees.set(webPage->pageID(), downcast<ThreadedScrollingTree>(scrollingCoordinator.scrollingTree()));
+    m_scrollingTrees.set(webPage->identifier(), downcast<ThreadedScrollingTree>(scrollingCoordinator.scrollingTree()));
 }
 
 void EventDispatcher::removeScrollingTreeForPage(WebPage* webPage)
 {
     LockHolder locker(m_scrollingTreesMutex);
-    ASSERT(m_scrollingTrees.contains(webPage->pageID()));
+    ASSERT(m_scrollingTrees.contains(webPage->identifier()));
 
-    m_scrollingTrees.remove(webPage->pageID());
+    m_scrollingTrees.remove(webPage->identifier());
 }
 #endif
 
@@ -87,7 +88,7 @@ void EventDispatcher::initializeConnection(IPC::Connection* connection)
     connection->addWorkQueueMessageReceiver(Messages::EventDispatcher::messageReceiverName(), m_queue.get(), this);
 }
 
-void EventDispatcher::wheelEvent(uint64_t pageID, const WebWheelEvent& wheelEvent, bool canRubberBandAtLeft, bool canRubberBandAtRight, bool canRubberBandAtTop, bool canRubberBandAtBottom)
+void EventDispatcher::wheelEvent(PageIdentifier pageID, const WebWheelEvent& wheelEvent, bool canRubberBandAtLeft, bool canRubberBandAtRight, bool canRubberBandAtTop, bool canRubberBandAtBottom)
 {
 #if PLATFORM(COCOA) || ENABLE(ASYNC_SCROLLING)
     PlatformWheelEvent platformWheelEvent = platform(wheelEvent);
@@ -142,7 +143,7 @@ void EventDispatcher::wheelEvent(uint64_t pageID, const WebWheelEvent& wheelEven
 }
 
 #if ENABLE(MAC_GESTURE_EVENTS)
-void EventDispatcher::gestureEvent(uint64_t pageID, const WebKit::WebGestureEvent& gestureEvent)
+void EventDispatcher::gestureEvent(PageIdentifier pageID, const WebKit::WebGestureEvent& gestureEvent)
 {
     RunLoop::main().dispatch([protectedThis = makeRef(*this), pageID, gestureEvent]() mutable {
         protectedThis->dispatchGestureEvent(pageID, gestureEvent);
@@ -154,16 +155,16 @@ void EventDispatcher::gestureEvent(uint64_t pageID, const WebKit::WebGestureEven
 void EventDispatcher::clearQueuedTouchEventsForPage(const WebPage& webPage)
 {
     LockHolder locker(&m_touchEventsLock);
-    m_touchEvents.remove(webPage.pageID());
+    m_touchEvents.remove(webPage.identifier());
 }
 
 void EventDispatcher::getQueuedTouchEventsForPage(const WebPage& webPage, TouchEventQueue& destinationQueue)
 {
     LockHolder locker(&m_touchEventsLock);
-    destinationQueue = m_touchEvents.take(webPage.pageID());
+    destinationQueue = m_touchEvents.take(webPage.identifier());
 }
 
-void EventDispatcher::touchEvent(uint64_t pageID, const WebKit::WebTouchEvent& touchEvent)
+void EventDispatcher::touchEvent(PageIdentifier pageID, const WebKit::WebTouchEvent& touchEvent, Optional<CallbackID> callbackID)
 {
     bool updateListWasEmpty;
     {
@@ -171,17 +172,16 @@ void EventDispatcher::touchEvent(uint64_t pageID, const WebKit::WebTouchEvent& t
         updateListWasEmpty = m_touchEvents.isEmpty();
         auto addResult = m_touchEvents.add(pageID, TouchEventQueue());
         if (addResult.isNewEntry)
-            addResult.iterator->value.append(touchEvent);
+            addResult.iterator->value.append({ touchEvent, callbackID });
         else {
-            TouchEventQueue& queuedEvents = addResult.iterator->value;
+            auto& queuedEvents = addResult.iterator->value;
             ASSERT(!queuedEvents.isEmpty());
-            const WebTouchEvent& lastTouchEvent = queuedEvents.last();
-
+            auto& lastEventAndCallback = queuedEvents.last();
             // Coalesce touch move events.
-            if (touchEvent.type() == WebEvent::TouchMove && lastTouchEvent.type() == WebEvent::TouchMove)
-                queuedEvents.last() = touchEvent;
+            if (touchEvent.type() == WebEvent::TouchMove && lastEventAndCallback.first.type() == WebEvent::TouchMove && !callbackID && !lastEventAndCallback.second)
+                queuedEvents.last() = { touchEvent, WTF::nullopt };
             else
-                queuedEvents.append(touchEvent);
+                queuedEvents.append({ touchEvent, callbackID });
         }
     }
 
@@ -194,7 +194,9 @@ void EventDispatcher::touchEvent(uint64_t pageID, const WebKit::WebTouchEvent& t
 
 void EventDispatcher::dispatchTouchEvents()
 {
-    HashMap<uint64_t, TouchEventQueue> localCopy;
+    TraceScope traceScope(DispatchTouchEventsStart, DispatchTouchEventsEnd);
+
+    HashMap<PageIdentifier, TouchEventQueue> localCopy;
     {
         LockHolder locker(&m_touchEventsLock);
         localCopy.swap(m_touchEvents);
@@ -207,7 +209,7 @@ void EventDispatcher::dispatchTouchEvents()
 }
 #endif
 
-void EventDispatcher::dispatchWheelEvent(uint64_t pageID, const WebWheelEvent& wheelEvent)
+void EventDispatcher::dispatchWheelEvent(PageIdentifier pageID, const WebWheelEvent& wheelEvent)
 {
     ASSERT(RunLoop::isMain());
 
@@ -219,7 +221,7 @@ void EventDispatcher::dispatchWheelEvent(uint64_t pageID, const WebWheelEvent& w
 }
 
 #if ENABLE(MAC_GESTURE_EVENTS)
-void EventDispatcher::dispatchGestureEvent(uint64_t pageID, const WebGestureEvent& gestureEvent)
+void EventDispatcher::dispatchGestureEvent(PageIdentifier pageID, const WebGestureEvent& gestureEvent)
 {
     ASSERT(RunLoop::isMain());
 
@@ -232,7 +234,7 @@ void EventDispatcher::dispatchGestureEvent(uint64_t pageID, const WebGestureEven
 #endif
 
 #if ENABLE(ASYNC_SCROLLING)
-void EventDispatcher::sendDidReceiveEvent(uint64_t pageID, const WebEvent& event, bool didHandleEvent)
+void EventDispatcher::sendDidReceiveEvent(PageIdentifier pageID, const WebEvent& event, bool didHandleEvent)
 {
     WebProcess::singleton().parentProcessConnection()->send(Messages::WebPageProxy::DidReceiveEvent(static_cast<uint32_t>(event.type()), didHandleEvent), pageID);
 }

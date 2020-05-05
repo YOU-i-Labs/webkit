@@ -62,6 +62,8 @@ exclude Source/cmake/OptionsWPE.cmake$
 exclude Source/WebInspectorUI/Tools
 
 exclude Source/WebKit/Resources
+directory Source/WebKit/Resources/gtk
+
 exclude Source/WebKit/gtk/NEWS$
 
 # We do want to include the NEWS, but we want it to be in the root of the archive.
@@ -77,7 +79,6 @@ file Source/WebCore/Resources/panIcon.png
 file Source/WebCore/Resources/plugIns.js
 file Source/WebCore/Resources/textAreaResizeCorner.png
 file Source/WebCore/Resources/textAreaResizeCorner@2x.png
-file Source/WebCore/Resources/urlIcon.png
 file Source/WebCore/platform/audio/resources/Composite.wav
 
 directory Tools/gtk

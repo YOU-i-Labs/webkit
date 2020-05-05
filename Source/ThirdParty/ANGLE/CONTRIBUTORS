@@ -25,6 +25,7 @@ Google Inc.
  Eric Boren
  Henry Bridge
  Nat Duca
+ Courtney Goeltzenleuchter
  Peter Kasting
  Vangelis Kokkevis
  Zhenyao Mo
@@ -42,6 +43,9 @@ Google Inc.
  Scott Graham
  Corentin Wallez
  Kai Ninomiya
+ Victor Costan
+ Shahbaz Youssefi
+ Eric Binet
 
 Adobe Systems Inc.
  Alexandru Chiculita
@@ -73,11 +77,13 @@ Intel Corporation
  Yunchao He
  Xinghua Cao
  Brandon Jones
+ Enrico Galli
 
 Klarälvdalens Datakonsult AB
  Milian Wolff
 
 Mozilla Corp.
+ Dzmitry Malyshau
  Ehsan Akhgari
  Edwin Flores
  Jeff Gilbert
@@ -85,6 +91,7 @@ Mozilla Corp.
  Benoit Jacob
  Makoto Kato
  Vladimir Vukicevic
+ Josh Matthews
 
 Turbulenz
  Michael Braithwaite
@@ -99,12 +106,18 @@ Sebastian Bergstein
 James Ross-Gowan
 Andrei Volykhin
 Jérôme Duval
+Till Rathmann
+Nick Shaforostov
 
 Microsoft Corporation
  Cooper Partin
  Austin Kinross
+ Mingyu Hu
  Minmin Gong
  Shawn Hargreaves
+ Rafael Cintron
+ James Clarke
+ Nathan Zabriskie
 
 Microsoft Open Technologies, Inc.
  Cooper Partin
@@ -117,6 +130,9 @@ NVIDIA Corporation
  Kimmo Kinnunen
  Sami Väisänen
  Martin Radev
+ Joonatan Saarhelo
+ Markus Tavenrath
+ Anders Leino
 
 Opera Software ASA
  Daniel Bratell
@@ -125,3 +141,36 @@ Opera Software ASA
 
 Advanced Micro Devices, Inc.
  Russ Lind
+
+LG Electronics, Inc.
+ Jani Hautakangas
+
+IBM Inc.
+ Junliang Yan
+
+AdaptVis GmbH
+ Sascha Kolodzey
+
+Samsung Electronics, Inc.
+ Brandon Schade
+ Colin Peter
+ Hyunchang Kim
+ Hyunseok Ko
+ Jaedon Lee
+ Jeff Vigil
+ Kevin Jung
+ Kyeongmin Kim
+ Minkyu Jeong
+ Mohan Maiya
+ Sangwon Park
+
+Arm Ltd.
+ Fei Yang
+ Xinyi He
+ Sunny Sun
+
+Broadcom Inc.
+ Gary Sweet
+
+Facebook, Inc.
+ Artem Bolgar

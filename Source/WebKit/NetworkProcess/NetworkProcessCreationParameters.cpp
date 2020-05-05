@@ -35,21 +35,12 @@
 
 namespace WebKit {
 
-NetworkProcessCreationParameters::NetworkProcessCreationParameters()
-{
-}
+NetworkProcessCreationParameters::NetworkProcessCreationParameters() = default;
 
 void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
 {
     encoder.encodeEnum(cacheModel);
-    encoder << canHandleHTTPSServerTrustEvaluation;
-    encoder << diskCacheDirectory;
-    encoder << diskCacheDirectoryExtensionHandle;
-    encoder << shouldEnableNetworkCacheEfficacyLogging;
-#if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
-    encoder << shouldEnableNetworkCacheSpeculativeRevalidation;
-#endif
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     encoder << uiProcessCookieStorageIdentifier;
 #endif
 #if PLATFORM(IOS_FAMILY)
@@ -58,14 +49,10 @@ void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << parentBundleDirectoryExtensionHandle;
 #endif
     encoder << shouldSuppressMemoryPressureHandler;
-    encoder << shouldUseTestingNetworkSession;
     encoder << urlSchemesRegisteredForCustomProtocols;
 #if PLATFORM(COCOA)
     encoder << uiProcessBundleIdentifier;
     encoder << uiProcessSDKVersion;
-#if PLATFORM(IOS_FAMILY)
-    encoder << ctDataConnectionServiceType;
-#endif
     IPC::encode(encoder, networkATSContext.get());
     encoder << storageAccessAPIEnabled;
     encoder << suppressesConnectionTerminationOnSystemChange;
@@ -82,42 +69,22 @@ void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << urlSchemesRegisteredAsBypassingContentSecurityPolicy;
     encoder << urlSchemesRegisteredAsLocal;
     encoder << urlSchemesRegisteredAsNoAccess;
-    encoder << urlSchemesRegisteredAsDisplayIsolated;
-    encoder << urlSchemesRegisteredAsCORSEnabled;
-    encoder << urlSchemesRegisteredAsCanDisplayOnlyIfCanRequest;
-
-#if ENABLE(PROXIMITY_NETWORKING)
-    encoder << wirelessContextIdentifier;
-#endif
 
 #if ENABLE(SERVICE_WORKER)
     encoder << serviceWorkerRegistrationDirectory << serviceWorkerRegistrationDirectoryExtensionHandle << urlSchemesServiceWorkersCanHandle << shouldDisableServiceWorkerProcessTerminationDelay;
 #endif
+    encoder << shouldEnableITPDatabase;
+    encoder << enableAdClickAttributionDebugMode;
+    encoder << hstsStorageDirectory;
+    encoder << hstsStorageDirectoryExtensionHandle;
 }
 
 bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProcessCreationParameters& result)
 {
     if (!decoder.decodeEnum(result.cacheModel))
         return false;
-    if (!decoder.decode(result.canHandleHTTPSServerTrustEvaluation))
-        return false;
 
-    if (!decoder.decode(result.diskCacheDirectory))
-        return false;
-    
-    Optional<SandboxExtension::Handle> diskCacheDirectoryExtensionHandle;
-    decoder >> diskCacheDirectoryExtensionHandle;
-    if (!diskCacheDirectoryExtensionHandle)
-        return false;
-    result.diskCacheDirectoryExtensionHandle = WTFMove(*diskCacheDirectoryExtensionHandle);
-
-    if (!decoder.decode(result.shouldEnableNetworkCacheEfficacyLogging))
-        return false;
-#if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
-    if (!decoder.decode(result.shouldEnableNetworkCacheSpeculativeRevalidation))
-        return false;
-#endif
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     if (!decoder.decode(result.uiProcessCookieStorageIdentifier))
         return false;
 #endif
@@ -142,8 +109,6 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
 #endif
     if (!decoder.decode(result.shouldSuppressMemoryPressureHandler))
         return false;
-    if (!decoder.decode(result.shouldUseTestingNetworkSession))
-        return false;
     if (!decoder.decode(result.urlSchemesRegisteredForCustomProtocols))
         return false;
 #if PLATFORM(COCOA)
@@ -151,10 +116,6 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
         return false;
     if (!decoder.decode(result.uiProcessSDKVersion))
         return false;
-#if PLATFORM(IOS_FAMILY)
-    if (!decoder.decode(result.ctDataConnectionServiceType))
-        return false;
-#endif
     if (!IPC::decode(decoder, result.networkATSContext))
         return false;
     if (!decoder.decode(result.storageAccessAPIEnabled))
@@ -188,17 +149,6 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
         return false;
     if (!decoder.decode(result.urlSchemesRegisteredAsNoAccess))
         return false;
-    if (!decoder.decode(result.urlSchemesRegisteredAsDisplayIsolated))
-        return false;
-    if (!decoder.decode(result.urlSchemesRegisteredAsCORSEnabled))
-        return false;
-    if (!decoder.decode(result.urlSchemesRegisteredAsCanDisplayOnlyIfCanRequest))
-        return false;
-
-#if ENABLE(PROXIMITY_NETWORKING)
-    if (!decoder.decode(result.wirelessContextIdentifier))
-        return false;
-#endif
 
 #if ENABLE(SERVICE_WORKER)
     if (!decoder.decode(result.serviceWorkerRegistrationDirectory))
@@ -216,6 +166,18 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
     if (!decoder.decode(result.shouldDisableServiceWorkerProcessTerminationDelay))
         return false;
 #endif
+
+    if (!decoder.decode(result.shouldEnableITPDatabase))
+        return false;
+
+    if (!decoder.decode(result.enableAdClickAttributionDebugMode))
+        return false;
+
+    if (!decoder.decode(result.hstsStorageDirectory))
+        return false;
+
+    if (!decoder.decode(result.hstsStorageDirectoryExtensionHandle))
+        return false;
 
     return true;
 }

@@ -31,6 +31,7 @@
 #include "WebCompiledContentRuleListData.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebPageGroupData.h"
+#include "WebPageProxyIdentifier.h"
 #include "WebPreferencesStore.h"
 #include "WebUserContentControllerDataTypes.h"
 #include <WebCore/ActivityState.h>
@@ -39,10 +40,11 @@
 #include <WebCore/IntSize.h>
 #include <WebCore/LayoutMilestone.h>
 #include <WebCore/MediaProducer.h>
+#include <WebCore/PageIdentifier.h>
 #include <WebCore/Pagination.h>
 #include <WebCore/ScrollTypes.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
-#include <pal/SessionID.h>
+#include <WebCore/ViewportArguments.h>
 #include <wtf/HashMap.h>
 #include <wtf/text/WTFString.h>
 
@@ -71,6 +73,8 @@ struct WebPageCreationParameters {
     
     WebPreferencesStore store;
     DrawingAreaType drawingAreaType;
+    DrawingAreaIdentifier drawingAreaIdentifier;
+    WebPageProxyIdentifier webPageProxyIdentifier;
     WebPageGroupData pageGroupData;
 
     bool isEditable;
@@ -94,11 +98,9 @@ struct WebPageCreationParameters {
     String userAgent;
 
     Vector<BackForwardListItemState> itemStates;
-    PAL::SessionID sessionID;
 
     UserContentControllerIdentifier userContentControllerID;
     uint64_t visitedLinkTableID;
-    uint64_t websiteDataStoreID;
     bool canRunBeforeUnloadConfirmPanel;
     bool canRunModal;
 
@@ -113,8 +115,9 @@ struct WebPageCreationParameters {
     float mediaVolume;
     WebCore::MediaProducer::MutedStateFlags muted;
     bool mayStartMediaWhenInWindow;
+    bool mediaPlaybackIsSuspended { false };
 
-    WebCore::IntSize viewLayoutSize;
+    WebCore::IntSize minimumSizeForAutoLayout;
     bool autoSizingShouldExpandToViewHeight;
     Optional<WebCore::IntSize> viewportSizeForCSSViewportUnits;
     
@@ -128,34 +131,45 @@ struct WebPageCreationParameters {
 
     LayerHostingMode layerHostingMode;
 
+    bool hasResourceLoadClient { false };
+
     Vector<String> mimeTypesWithCustomContentProviders;
 
     bool controlledByAutomation;
     bool isProcessSwap { false };
 
     bool useDarkAppearance { false };
+    bool useElevatedUserInterfaceLevel { false };
 
 #if PLATFORM(MAC)
     ColorSpaceData colorSpace;
     bool useSystemAppearance;
+#endif
+#if ENABLE(META_VIEWPORT)
+    bool ignoresViewportScaleLimits;
+    WebCore::FloatSize viewportConfigurationViewLayoutSize;
+    double viewportConfigurationLayoutSizeScaleFactor;
+    double viewportConfigurationMinimumEffectiveDeviceWidth;
+    WebCore::FloatSize viewportConfigurationViewSize;
+    Optional<WebCore::ViewportArguments> overrideViewportArguments;
+    Optional<SandboxExtension::Handle> frontboardExtensionHandle;
+    Optional<SandboxExtension::Handle> iconServicesExtensionHandle;
 #endif
 #if PLATFORM(IOS_FAMILY)
     WebCore::FloatSize screenSize;
     WebCore::FloatSize availableScreenSize;
     WebCore::FloatSize overrideScreenSize;
     float textAutosizingWidth;
-    bool ignoresViewportScaleLimits;
-    WebCore::FloatSize viewportConfigurationViewLayoutSize;
-    double viewportConfigurationLayoutSizeScaleFactor;
-    WebCore::FloatSize viewportConfigurationViewSize;
     WebCore::FloatSize maximumUnobscuredSize;
     int32_t deviceOrientation { 0 };
+    bool keyboardIsAttached { false };
+    bool canShowWhileLocked { false };
 #endif
 #if PLATFORM(COCOA)
     bool smartInsertDeleteEnabled;
     Vector<String> additionalSupportedImageTypes;
 #endif
-#if PLATFORM(WPE)
+#if USE(WPE_RENDERER)
     IPC::Attachment hostFileDescriptor;
 #endif
     bool appleMailPaginationQuirkEnabled;
@@ -174,10 +188,6 @@ struct WebPageCreationParameters {
     Optional<WebCore::ApplicationManifest> applicationManifest;
 #endif
 
-#if ENABLE(SERVICE_WORKER)
-    bool hasRegisteredServiceWorkers { true };
-#endif
-
     bool needsFontAttributes { false };
 
     // WebRTC members.
@@ -185,7 +195,7 @@ struct WebPageCreationParameters {
     bool enumeratingAllNetworkInterfacesEnabled { false };
 
     // UserContentController members
-    Vector<std::pair<uint64_t, String>> userContentWorlds;
+    Vector<std::pair<ContentWorldIdentifier, String>> userContentWorlds;
     Vector<WebUserScriptData> userScripts;
     Vector<WebUserStyleSheetData> userStyleSheets;
     Vector<WebScriptMessageHandlerData> messageHandlers;
@@ -194,6 +204,21 @@ struct WebPageCreationParameters {
 #endif
 
     Optional<WebCore::Color> backgroundColor;
+
+    Optional<WebCore::PageIdentifier> oldPageID;
+
+    String overriddenMediaType;
+    Vector<String> corsDisablingPatterns;
+
+    bool shouldCaptureAudioInUIProcess { false };
+    bool shouldCaptureAudioInGPUProcess { false };
+    bool shouldCaptureVideoInUIProcess { false };
+    bool shouldCaptureVideoInGPUProcess { false };
+    bool shouldCaptureDisplayInUIProcess { false };
+
+#if PLATFORM(GTK)
+    String themeName;
+#endif
 };
 
 } // namespace WebKit

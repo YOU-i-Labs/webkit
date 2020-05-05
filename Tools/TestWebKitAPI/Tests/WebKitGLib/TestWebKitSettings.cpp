@@ -96,10 +96,10 @@ static void testWebKitSettings(Test*, gconstpointer)
     webkit_settings_set_javascript_can_open_windows_automatically(settings, TRUE);
     g_assert_true(webkit_settings_get_javascript_can_open_windows_automatically(settings));
 
-    // By default hyper link auditing is disabled.
-    g_assert_false(webkit_settings_get_enable_hyperlink_auditing(settings));
-    webkit_settings_set_enable_hyperlink_auditing(settings, TRUE);
+    // By default hyper link auditing is enabled.
     g_assert_true(webkit_settings_get_enable_hyperlink_auditing(settings));
+    webkit_settings_set_enable_hyperlink_auditing(settings, FALSE);
+    g_assert_false(webkit_settings_get_enable_hyperlink_auditing(settings));
 
     // Default font family is "sans-serif".
     g_assert_cmpstr(webkit_settings_get_default_font_family(settings), ==, "sans-serif");
@@ -200,14 +200,6 @@ static void testWebKitSettings(Test*, gconstpointer)
     webkit_settings_set_default_charset(settings, "utf8");
     g_assert_cmpstr(webkit_settings_get_default_charset(settings), ==, "utf8");
 
-#if PLATFORM(GTK)
-    G_GNUC_BEGIN_IGNORE_DEPRECATIONS;
-    g_assert_false(webkit_settings_get_enable_private_browsing(settings));
-    webkit_settings_set_enable_private_browsing(settings, TRUE);
-    g_assert_true(webkit_settings_get_enable_private_browsing(settings));
-    G_GNUC_END_IGNORE_DEPRECATIONS;
-#endif
-
     g_assert_false(webkit_settings_get_enable_developer_extras(settings));
     webkit_settings_set_enable_developer_extras(settings, TRUE);
     g_assert_true(webkit_settings_get_enable_developer_extras(settings));
@@ -239,15 +231,15 @@ static void testWebKitSettings(Test*, gconstpointer)
     webkit_settings_set_print_backgrounds(settings, FALSE);
     g_assert_false(webkit_settings_get_print_backgrounds(settings));
 
-    // WebAudio is disabled by default.
-    g_assert_false(webkit_settings_get_enable_webaudio(settings));
-    webkit_settings_set_enable_webaudio(settings, TRUE);
+    // WebAudio is enabled by default.
     g_assert_true(webkit_settings_get_enable_webaudio(settings));
+    webkit_settings_set_enable_webaudio(settings, FALSE);
+    g_assert_false(webkit_settings_get_enable_webaudio(settings));
 
-    // WebGL is disabled by default.
-    g_assert_false(webkit_settings_get_enable_webgl(settings));
-    webkit_settings_set_enable_webgl(settings, TRUE);
+    // WebGL is enabled by default.
     g_assert_true(webkit_settings_get_enable_webgl(settings));
+    webkit_settings_set_enable_webgl(settings, FALSE);
+    g_assert_false(webkit_settings_get_enable_webgl(settings));
 
     // Allow Modal Dialogs is disabled by default.
     g_assert_false(webkit_settings_get_allow_modal_dialogs(settings));
@@ -284,7 +276,7 @@ static void testWebKitSettings(Test*, gconstpointer)
     webkit_settings_set_enable_site_specific_quirks(settings, FALSE);
     g_assert_false(webkit_settings_get_enable_site_specific_quirks(settings));
 
-    // By default, page cache is enabled.
+    // By default, the back/forward cache is enabled.
     g_assert_true(webkit_settings_get_enable_page_cache(settings));
     webkit_settings_set_enable_page_cache(settings, FALSE);
     g_assert_false(webkit_settings_get_enable_page_cache(settings));
@@ -338,6 +330,16 @@ static void testWebKitSettings(Test*, gconstpointer)
     g_assert_false(webkit_settings_get_allow_universal_access_from_file_urls(settings));
     webkit_settings_set_allow_universal_access_from_file_urls(settings, TRUE);
     g_assert_true(webkit_settings_get_allow_universal_access_from_file_urls(settings));
+
+    // Top frame navigation to data url is allowed by default.
+    g_assert_true(webkit_settings_get_allow_top_navigation_to_data_urls(settings));
+    webkit_settings_set_allow_top_navigation_to_data_urls(settings, FALSE);
+    g_assert_false(webkit_settings_get_allow_top_navigation_to_data_urls(settings));
+
+    // Media is enabled by default.
+    g_assert_true(webkit_settings_get_enable_media(settings));
+    webkit_settings_set_enable_media(settings, FALSE);
+    g_assert_false(webkit_settings_get_enable_media(settings));
 
 #if PLATFORM(GTK)
     // Ondemand is the default hardware acceleration policy.
@@ -412,12 +414,12 @@ static void testWebKitSettingsUserAgent(WebViewTest* test, gconstpointer)
     g_assert_cmpstr(funkyUserAgent, ==, webkit_settings_get_user_agent(settings.get()));
     assertThatUserAgentIsSentInHeaders(test, funkyUserAgent);
 
-    webkit_settings_set_user_agent_with_application_details(settings.get(), "WebKitGTK+", 0);
+    webkit_settings_set_user_agent_with_application_details(settings.get(), "WebKitGTK", 0);
     const char* userAgentWithNullVersion = webkit_settings_get_user_agent(settings.get());
     g_assert_cmpstr(g_strstr_len(userAgentWithNullVersion, -1, defaultUserAgent.data()), ==, userAgentWithNullVersion);
-    g_assert_nonnull(g_strstr_len(userAgentWithNullVersion, -1, "WebKitGTK+"));
+    g_assert_nonnull(g_strstr_len(userAgentWithNullVersion, -1, "WebKitGTK"));
 
-    webkit_settings_set_user_agent_with_application_details(settings.get(), "WebKitGTK+", "");
+    webkit_settings_set_user_agent_with_application_details(settings.get(), "WebKitGTK", "");
     g_assert_cmpstr(webkit_settings_get_user_agent(settings.get()), ==, userAgentWithNullVersion);
 
     webkit_settings_set_user_agent_with_application_details(settings.get(), "WebCatGTK+", "3.4.5");

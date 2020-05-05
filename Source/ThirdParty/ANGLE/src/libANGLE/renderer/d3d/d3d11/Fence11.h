@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2013 The ANGLE Project Authors. All rights reserved.
+// Copyright 2013 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -23,13 +23,19 @@ class FenceNV11 : public FenceNVImpl
     explicit FenceNV11(Renderer11 *renderer);
     ~FenceNV11() override;
 
-    gl::Error set(GLenum condition) override;
-    gl::Error test(GLboolean *outFinished) override;
-    gl::Error finish() override;
+    void onDestroy(const gl::Context *context) override {}
+    angle::Result set(const gl::Context *context, GLenum condition) override;
+    angle::Result test(const gl::Context *context, GLboolean *outFinished) override;
+    angle::Result finish(const gl::Context *context) override;
 
   private:
-    template<class T> friend gl::Error FenceSetHelper(T *fence);
-    template<class T> friend gl::Error FenceTestHelper(T *fence, bool flushCommandBuffer, GLboolean *outFinished);
+    template <class T>
+    friend angle::Result FenceSetHelper(const gl::Context *context, T *fence);
+    template <class T>
+    friend angle::Result FenceTestHelper(const gl::Context *context,
+                                         T *fence,
+                                         bool flushCommandBuffer,
+                                         GLboolean *outFinished);
 
     Renderer11 *mRenderer;
     ID3D11Query *mQuery;
@@ -41,20 +47,30 @@ class Sync11 : public SyncImpl
     explicit Sync11(Renderer11 *renderer);
     ~Sync11() override;
 
-    gl::Error set(GLenum condition, GLbitfield flags) override;
-    gl::Error clientWait(GLbitfield flags, GLuint64 timeout, GLenum *outResult) override;
-    gl::Error serverWait(GLbitfield flags, GLuint64 timeout) override;
-    gl::Error getStatus(GLint *outResult) override;
+    angle::Result set(const gl::Context *context, GLenum condition, GLbitfield flags) override;
+    angle::Result clientWait(const gl::Context *context,
+                             GLbitfield flags,
+                             GLuint64 timeout,
+                             GLenum *outResult) override;
+    angle::Result serverWait(const gl::Context *context,
+                             GLbitfield flags,
+                             GLuint64 timeout) override;
+    angle::Result getStatus(const gl::Context *context, GLint *outResult) override;
 
   private:
-    template<class T> friend gl::Error FenceSetHelper(T *fence);
-    template<class T> friend gl::Error FenceTestHelper(T *fence, bool flushCommandBuffer, GLboolean *outFinished);
+    template <class T>
+    friend angle::Result FenceSetHelper(const gl::Context *context, T *fence);
+    template <class T>
+    friend angle::Result FenceTestHelper(const gl::Context *context,
+                                         T *fence,
+                                         bool flushCommandBuffer,
+                                         GLboolean *outFinished);
 
     Renderer11 *mRenderer;
     ID3D11Query *mQuery;
     LONGLONG mCounterFrequency;
 };
 
-}
+}  // namespace rx
 
-#endif // LIBANGLE_RENDERER_D3D_D3D11_FENCE11_H_
+#endif  // LIBANGLE_RENDERER_D3D_D3D11_FENCE11_H_

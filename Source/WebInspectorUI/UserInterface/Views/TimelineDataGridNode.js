@@ -25,16 +25,16 @@
 
 WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
 {
-    constructor(includesGraph, graphDataSource, hasChildren)
+    constructor(records, {hasChildren, includesGraph, graphDataSource} = {})
     {
-        super({}, hasChildren);
+        super({}, {hasChildren, copyable: false});
 
-        this.copyable = false;
-
+        this._records = records;
         this._includesGraph = includesGraph || false;
         this._graphDataSource = graphDataSource || null;
+        this._cachedData = null;
 
-        if (graphDataSource) {
+        if (this._graphDataSource) {
             this._graphContainerElement = document.createElement("div");
             this._timelineRecordBars = [];
         }
@@ -42,15 +42,11 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
 
     // Public
 
+    get records() { return this._records; }
+
     get record()
     {
         return this.records && this.records.length ? this.records[0] : null;
-    }
-
-    get records()
-    {
-        // Implemented by subclasses.
-        return [];
     }
 
     get graphDataSource()
@@ -63,8 +59,9 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
         if (!this._graphDataSource)
             return {};
 
-        var records = this.records || [];
-        return {graph: records.length ? records[0].startTime : 0};
+        return {
+            graph: this.record ? this.record.startTime : 0,
+        };
     }
 
     collapse()
@@ -116,8 +113,7 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
 
         if (value instanceof WI.SourceCodeLocation) {
             if (value.sourceCode instanceof WI.Resource) {
-                cell.classList.add(WI.ResourceTreeElement.ResourceIconStyleClassName);
-                cell.classList.add(value.sourceCode.type);
+                cell.classList.add(WI.ResourceTreeElement.ResourceIconStyleClassName, ...WI.Resource.classNamesForResource(value.sourceCode));
             } else if (value.sourceCode instanceof WI.Script) {
                 if (value.sourceCode.url) {
                     cell.classList.add(WI.ResourceTreeElement.ResourceIconStyleClassName);
@@ -163,8 +159,7 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
                 if (isAnonymousFunction) {
                     // For anonymous functions we show the resource or script icon and name.
                     if (callFrame.sourceCodeLocation.sourceCode instanceof WI.Resource) {
-                        cell.classList.add(WI.ResourceTreeElement.ResourceIconStyleClassName);
-                        cell.classList.add(callFrame.sourceCodeLocation.sourceCode.type);
+                        cell.classList.add(WI.ResourceTreeElement.ResourceIconStyleClassName, ...WI.Resource.classNamesForResource(callFrame.sourceCodeLocation.sourceCode));
                     } else if (callFrame.sourceCodeLocation.sourceCode instanceof WI.Script) {
                         if (callFrame.sourceCodeLocation.sourceCode.url) {
                             cell.classList.add(WI.ResourceTreeElement.ResourceIconStyleClassName);
@@ -202,11 +197,18 @@ WI.TimelineDataGridNode = class TimelineDataGridNode extends WI.DataGridNode
             return fragment;
         }
 
+        if (value instanceof WI.DOMNode) {
+            cell.classList.add(WI.DOMTreeElementPathComponent.iconClassNameForNode(value));
+            return WI.linkifyNodeReference(value);
+        }
+
         return super.createCellContent(columnIdentifier, cell);
     }
 
     refresh()
     {
+        this._cachedData = null;
+
         if (this._graphDataSource && this._includesGraph)
             this.needsGraphRefresh();
 

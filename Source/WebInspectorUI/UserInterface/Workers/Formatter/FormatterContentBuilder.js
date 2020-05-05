@@ -33,6 +33,7 @@ FormatterContentBuilder = class FormatterContentBuilder
         this._formattedContentLength = 0;
 
         this._startOfLine = true;
+        this._currentLine = null;
         this.lastTokenWasNewline = false;
         this.lastTokenWasWhitespace = false;
         this.lastNewlineAppendWasMultiple = false;
@@ -53,10 +54,8 @@ FormatterContentBuilder = class FormatterContentBuilder
 
     // Public
 
-    get originalContent()
-    {
-        return this._originalContent;
-    }
+    get indentString() { return this._indentString; }
+    get originalContent() { return this._originalContent; }
 
     get formattedContent()
     {
@@ -74,6 +73,38 @@ FormatterContentBuilder = class FormatterContentBuilder
         };
     }
 
+    get lastToken()
+    {
+        return this._formattedContent.lastValue;
+    }
+
+    get currentLine()
+    {
+        if (!this._currentLine)
+            this._currentLine = this._formattedContent.slice(this._formattedContent.lastIndexOf("\n") + 1).join("");
+        return this._currentLine;
+    }
+
+    get indentLevel()
+    {
+        return this._indent;
+    }
+
+    get indented()
+    {
+        return this._indent > 0;
+    }
+
+    get originalOffset()
+    {
+        return this._originalOffset;
+    }
+
+    set originalOffset(offset)
+    {
+        this._originalOffset = offset;
+    }
+
     setOriginalContent(originalContent)
     {
         console.assert(!this._originalContent);
@@ -86,6 +117,22 @@ FormatterContentBuilder = class FormatterContentBuilder
         this._originalLineEndings = originalLineEndings;
     }
 
+    appendNonToken(string)
+    {
+        if (!string)
+            return;
+
+        if (this._startOfLine)
+            this._appendIndent();
+
+        console.assert(!string.includes("\n"), "Appended a string with newlines. This breaks the source map.");
+
+        this._append(string);
+        this._startOfLine = false;
+        this.lastTokenWasNewline = false;
+        this.lastTokenWasWhitespace = false;
+    }
+
     appendToken(string, originalPosition)
     {
         if (this._startOfLine)
@@ -93,7 +140,39 @@ FormatterContentBuilder = class FormatterContentBuilder
 
         this._addMappingIfNeeded(originalPosition);
 
+        console.assert(!string.includes("\n"), "Appended a string with newlines. This breaks the source map.");
+
         this._append(string);
+        this._startOfLine = false;
+        this.lastTokenWasNewline = false;
+        this.lastTokenWasWhitespace = false;
+    }
+
+    appendStringWithPossibleNewlines(string, originalPosition)
+    {
+        let currentPosition = originalPosition;
+        let lines = string.split("\n");
+        for (let i = 0; i < lines.length; ++i) {
+            let line = lines[i];
+            if (line) {
+                this.appendToken(line, currentPosition);
+                currentPosition += line.length;
+            }
+
+            if (i < lines.length - 1) {
+                this.appendNewline(true);
+                currentPosition += 1;
+            }
+        }
+    }
+
+    appendMapping(originalPosition)
+    {
+        if (this._startOfLine)
+            this._appendIndent();
+
+        this._addMappingIfNeeded(originalPosition);
+
         this._startOfLine = false;
         this.lastTokenWasNewline = false;
         this.lastTokenWasWhitespace = false;
@@ -138,26 +217,27 @@ FormatterContentBuilder = class FormatterContentBuilder
     removeLastNewline()
     {
         console.assert(this.lastTokenWasNewline);
-        console.assert(this._formattedContent.lastValue === "\n");
+        console.assert(this.lastToken === "\n");
         if (this.lastTokenWasNewline) {
             this._popFormattedContent();
             this._formattedLineEndings.pop();
-            this._startOfLine = false;
-            this.lastTokenWasNewline = false;
-            this.lastTokenWasWhitespace = false;
+            this.lastTokenWasNewline = this.lastToken === "\n";
+            this.lastTokenWasWhitespace = this.lastToken === " ";
+            this._startOfLine = this.lastTokenWasNewline;
         }
     }
 
     removeLastWhitespace()
     {
         console.assert(this.lastTokenWasWhitespace);
-        console.assert(this._formattedContent.lastValue === " ");
+        console.assert(this.lastToken === " ");
         if (this.lastTokenWasWhitespace) {
             this._popFormattedContent();
             // No need to worry about `_startOfLine` and `lastTokenWasNewline`
             // because `appendSpace` takes care of not adding whitespace
             // to the beginning of a line.
-            this.lastTokenWasWhitespace = false;
+            this.lastTokenWasNewline = this.lastToken === "\n";
+            this.lastTokenWasWhitespace = this.lastToken === " ";
         }
     }
 
@@ -175,6 +255,17 @@ FormatterContentBuilder = class FormatterContentBuilder
             this._indent = 0;
     }
 
+    indentToLevel(level)
+    {
+        if (this._indent === level)
+            return;
+
+        while (this._indent < level)
+            this.indent();
+        while (this._indent > level)
+            this.dedent();
+    }
+
     addOriginalLineEnding(originalPosition)
     {
         this._originalLineEndings.push(originalPosition);
@@ -182,6 +273,8 @@ FormatterContentBuilder = class FormatterContentBuilder
 
     finish()
     {
+        while (this.lastTokenWasNewline)
+            this.removeLastNewline();
         this.appendNewline();
     }
 
@@ -191,19 +284,24 @@ FormatterContentBuilder = class FormatterContentBuilder
     {
         let removed = this._formattedContent.pop();
         this._formattedContentLength -= removed.length;
+        this._currentLine = null;
     }
 
     _append(str)
     {
+        console.assert(str, "Should not append an empty string");
         this._formattedContent.push(str);
         this._formattedContentLength += str.length;
+        this._currentLine = null;
     }
 
     _appendIndent()
     {
         // Indent is already in the cache.
         if (this._indent < this._indentCache.length) {
-            this._append(this._indentCache[this._indent]);
+            let indent = this._indentCache[this._indent];
+            if (indent)
+                this._append(indent);
             return;
         }
 

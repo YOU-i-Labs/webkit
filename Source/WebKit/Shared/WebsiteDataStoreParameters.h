@@ -28,6 +28,7 @@
 #include "NetworkSessionCreationParameters.h"
 #include "SandboxExtension.h"
 #include <WebCore/Cookie.h>
+#include <WebCore/StorageQuotaManager.h>
 #include <pal/SessionID.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
@@ -44,9 +45,6 @@ struct WebsiteDataStoreParameters {
     WebsiteDataStoreParameters(WebsiteDataStoreParameters&&) = default;
     WebsiteDataStoreParameters& operator=(WebsiteDataStoreParameters&&) = default;
     ~WebsiteDataStoreParameters();
-
-    static WebsiteDataStoreParameters legacyPrivateSessionParameters() { return privateSessionParameters(PAL::SessionID::legacyPrivateSessionID()); }
-    static WebsiteDataStoreParameters privateSessionParameters(PAL::SessionID);
 
     void encode(IPC::Encoder&) const;
     static Optional<WebsiteDataStoreParameters> decode(IPC::Decoder&);
@@ -67,7 +65,17 @@ struct WebsiteDataStoreParameters {
 #if ENABLE(SERVICE_WORKER)
     String serviceWorkerRegistrationDirectory;
     SandboxExtension::Handle serviceWorkerRegistrationDirectoryExtensionHandle;
+    bool serviceWorkerProcessTerminationDelayEnabled { true };
 #endif
+
+    String localStorageDirectory;
+    SandboxExtension::Handle localStorageDirectoryExtensionHandle;
+
+    String cacheStorageDirectory;
+    SandboxExtension::Handle cacheStorageDirectoryExtensionHandle;
+
+    uint64_t perOriginStorageQuota { WebCore::StorageQuotaManager::defaultQuota() };
+    uint64_t perThirdPartyOriginStorageQuota { WebCore::StorageQuotaManager::defaultThirdPartyQuota() };
 };
 
 } // namespace WebKit

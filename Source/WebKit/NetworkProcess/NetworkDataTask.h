@@ -34,7 +34,9 @@
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/StoredCredentialsPolicy.h>
 #include <WebCore/Timer.h>
+#include <pal/SessionID.h>
 #include <wtf/CompletionHandler.h>
+#include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
@@ -50,6 +52,7 @@ class NetworkLoadParameters;
 class NetworkSession;
 class PendingDownload;
 enum class AuthenticationChallengeDisposition : uint8_t;
+enum class NegotiatedLegacyTLS : bool;
 
 using RedirectCompletionHandler = CompletionHandler<void(WebCore::ResourceRequest&&)>;
 using ChallengeCompletionHandler = CompletionHandler<void(AuthenticationChallengeDisposition, const WebCore::Credential&)>;
@@ -58,13 +61,14 @@ using ResponseCompletionHandler = CompletionHandler<void(WebCore::PolicyAction)>
 class NetworkDataTaskClient {
 public:
     virtual void willPerformHTTPRedirection(WebCore::ResourceResponse&&, WebCore::ResourceRequest&&, RedirectCompletionHandler&&) = 0;
-    virtual void didReceiveChallenge(WebCore::AuthenticationChallenge&&, ChallengeCompletionHandler&&) = 0;
-    virtual void didReceiveResponse(WebCore::ResourceResponse&&, ResponseCompletionHandler&&) = 0;
+    virtual void didReceiveChallenge(WebCore::AuthenticationChallenge&&, NegotiatedLegacyTLS, ChallengeCompletionHandler&&) = 0;
+    virtual void didReceiveResponse(WebCore::ResourceResponse&&, NegotiatedLegacyTLS, ResponseCompletionHandler&&) = 0;
     virtual void didReceiveData(Ref<WebCore::SharedBuffer>&&) = 0;
     virtual void didCompleteWithError(const WebCore::ResourceError&, const WebCore::NetworkLoadMetrics&) = 0;
     virtual void didSendData(uint64_t totalBytesSent, uint64_t totalBytesExpectedToSend) = 0;
     virtual void wasBlocked() = 0;
     virtual void cannotShowURL() = 0;
+    virtual void wasBlockedByRestrictions() = 0;
 
     virtual bool shouldCaptureExtraNetworkLoadMetrics() const { return false; }
 
@@ -77,7 +81,7 @@ public:
     virtual ~NetworkDataTaskClient() { }
 };
 
-class NetworkDataTask : public RefCounted<NetworkDataTask> {
+class NetworkDataTask : public ThreadSafeRefCounted<NetworkDataTask, WTF::DestructionThread::Main>, public CanMakeWeakPtr<NetworkDataTask> {
 public:
     static Ref<NetworkDataTask> create(NetworkSession&, NetworkDataTaskClient&, const NetworkLoadParameters&);
 
@@ -87,7 +91,7 @@ public:
     virtual void resume() = 0;
     virtual void invalidateAndCancel() = 0;
 
-    void didReceiveResponse(WebCore::ResourceResponse&&, ResponseCompletionHandler&&);
+    void didReceiveResponse(WebCore::ResourceResponse&&, NegotiatedLegacyTLS, ResponseCompletionHandler&&);
     bool shouldCaptureExtraNetworkLoadMetrics() const;
 
     enum class State {
@@ -128,20 +132,25 @@ public:
 
     virtual String description() const;
 
+    PAL::SessionID sessionID() const;
+
+    NetworkSession* networkSession();
+
 protected:
     NetworkDataTask(NetworkSession&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, WebCore::StoredCredentialsPolicy, bool shouldClearReferrerOnHTTPSToHTTPRedirect, bool dataTaskIsForMainFrameNavigation);
 
     enum FailureType {
         NoFailure,
         BlockedFailure,
-        InvalidURLFailure
+        InvalidURLFailure,
+        RestrictedURLFailure
     };
     void failureTimerFired();
     void scheduleFailure(FailureType);
 
     FailureType m_scheduledFailureType { NoFailure };
     WebCore::Timer m_failureTimer;
-    Ref<NetworkSession> m_session;
+    WeakPtr<NetworkSession> m_session;
     NetworkDataTaskClient* m_client { nullptr };
     PendingDownload* m_pendingDownload { nullptr };
     DownloadID m_pendingDownloadID;

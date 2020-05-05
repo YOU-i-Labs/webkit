@@ -56,11 +56,16 @@ private:
     void setLayerTreeStateIsFrozen(bool) override;
     bool layerTreeStateIsFrozen() const override { return m_layerTreeStateIsFrozen; }
 
-    void setPaintingEnabled(bool paintingEnabled) override { m_isPaintingEnabled = paintingEnabled; };
     void updatePreferences(const WebPreferencesStore&) override;
+    void enablePainting() override;
     void mainFrameContentSizeChanged(const WebCore::IntSize&) override;
+
+#if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
     void deviceOrPageScaleFactorChanged() override;
     void didChangeViewportAttributes(WebCore::ViewportAttributes&&) override;
+#endif
+
+    bool supportsAsyncScrolling() const override;
 
     WebCore::GraphicsLayerFactory* graphicsLayerFactory() override;
     void setRootCompositingLayer(WebCore::GraphicsLayer*) override;
@@ -71,11 +76,6 @@ private:
 
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
     RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID) override;
-#endif
-
-#if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK) && PLATFORM(X11) && !USE(REDIRECTED_XCOMPOSITE_WINDOW)
-    void setNativeSurfaceHandleForCompositing(uint64_t) override;
-    void destroyNativeSurfaceHandleForCompositing(bool&) override;
 #endif
 
     void activityStateDidChange(OptionSet<WebCore::ActivityState::Flag>, ActivityStateChangeID, const Vector<CallbackID>& /* callbackIDs */) override;
@@ -105,7 +105,7 @@ private:
     uint64_t m_backingStoreStateID { 0 };
 
     // Whether painting is enabled. If painting is disabled, any calls to setNeedsDisplay and scroll are ignored.
-    bool m_isPaintingEnabled { true };
+    bool m_isPaintingEnabled { false };
 
     // Whether we're currently processing an UpdateBackingStoreState message.
     bool m_inUpdateBackingStoreState { false };
@@ -145,7 +145,8 @@ private:
     // web process won't paint more frequent than the UI process can handle.
     bool m_isWaitingForDidUpdate { false };
 
-    bool m_alwaysUseCompositing {false };
+    bool m_alwaysUseCompositing { false };
+    bool m_supportsAsyncScrolling { true };
     bool m_forceRepaintAfterBackingStoreStateUpdate { false };
 
     RunLoop::Timer<DrawingAreaCoordinatedGraphics> m_displayTimer;

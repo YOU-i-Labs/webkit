@@ -37,12 +37,22 @@
 extern "C" {
 #endif
 
+enum RenderTreeExternalRepresentationFlags {
+    RenderTreeShowAllLayers           = 1 << 0,
+    RenderTreeShowLayerNesting        = 1 << 1,
+    RenderTreeShowCompositedLayers    = 1 << 2,
+    RenderTreeShowOverflow            = 1 << 3,
+    RenderTreeShowSVGGeometry         = 1 << 4,
+    RenderTreeShowLayerFragments      = 1 << 5,
+};
+typedef uint32_t RenderTreeExternalRepresentationBehavior;
+
 WK_EXPORT void WKBundlePageStopLoading(WKBundlePageRef page);
 WK_EXPORT void WKBundlePageSetDefersLoading(WKBundlePageRef page, bool defersLoading) WK_C_API_DEPRECATED;
 WK_EXPORT bool WKBundlePageIsEditingCommandEnabled(WKBundlePageRef page, WKStringRef commandName);
 WK_EXPORT void WKBundlePageClearMainFrameName(WKBundlePageRef page);
 WK_EXPORT void WKBundlePageClose(WKBundlePageRef page);
-WK_EXPORT WKStringRef WKBundlePageCopyRenderTreeExternalRepresentation(WKBundlePageRef page);
+WK_EXPORT WKStringRef WKBundlePageCopyRenderTreeExternalRepresentation(WKBundlePageRef page, RenderTreeExternalRepresentationBehavior);
 WK_EXPORT WKStringRef WKBundlePageCopyRenderTreeExternalRepresentationForPrinting(WKBundlePageRef page);
 WK_EXPORT void WKBundlePageExecuteEditingCommand(WKBundlePageRef page, WKStringRef commandName, WKStringRef argument);
 
@@ -54,6 +64,7 @@ WK_EXPORT void WKBundlePageSetPageZoomFactor(WKBundlePageRef page, double zoomFa
 WK_EXPORT void WKBundlePageSetScaleAtOrigin(WKBundlePageRef page, double scale, WKPoint origin);
 
 WK_EXPORT void WKBundlePageForceRepaint(WKBundlePageRef page);
+WK_EXPORT void WKBundlePageFlushPendingEditorStateUpdate(WKBundlePageRef page);
 
 WK_EXPORT void WKBundlePageSimulateMouseDown(WKBundlePageRef page, int button, WKPoint position, int clickCount, WKEventModifiers modifiers, double time);
 WK_EXPORT void WKBundlePageSimulateMouseUp(WKBundlePageRef page, int button, WKPoint position, int clickCount, WKEventModifiers modifiers, double time);
@@ -73,7 +84,7 @@ WK_EXPORT bool WKBundlePageIsTrackingRepaints(WKBundlePageRef page);
 WK_EXPORT void WKBundlePageResetTrackedRepaints(WKBundlePageRef page);
 WK_EXPORT WKArrayRef WKBundlePageCopyTrackedRepaintRects(WKBundlePageRef page);
 
-WK_EXPORT void WKBundlePageSetComposition(WKBundlePageRef page, WKStringRef text, int from, int length, bool suppressUnderline);
+WK_EXPORT void WKBundlePageSetComposition(WKBundlePageRef page, WKStringRef text, int from, int length, bool suppressUnderline, WKArrayRef highlightData);
 WK_EXPORT bool WKBundlePageHasComposition(WKBundlePageRef page);
 WK_EXPORT void WKBundlePageConfirmComposition(WKBundlePageRef page);
 WK_EXPORT void WKBundlePageConfirmCompositionWithText(WKBundlePageRef page, WKStringRef text);
@@ -85,6 +96,7 @@ WK_EXPORT bool WKBundlePageCanShowMIMEType(WKBundlePageRef, WKStringRef mimeType
 
 WK_EXPORT void* WKAccessibilityRootObject(WKBundlePageRef);
 WK_EXPORT void* WKAccessibilityFocusedObject(WKBundlePageRef);
+WK_EXPORT bool WKAccessibilityCanUseSecondaryAXThread(WKBundlePageRef);
 
 WK_EXPORT void WKAccessibilityEnableEnhancedAccessibility(bool);
 WK_EXPORT bool WKAccessibilityEnhancedAccessibilityEnabled();
@@ -94,6 +106,8 @@ WK_EXPORT WKArrayRef WKBundlePageCopyContextMenuItems(WKBundlePageRef);
 WK_EXPORT WKArrayRef WKBundlePageCopyContextMenuAtPointInWindow(WKBundlePageRef, WKPoint);
 
 WK_EXPORT void WKBundlePageInsertNewlineInQuotedContent(WKBundlePageRef page);
+
+WK_EXPORT bool WKBundlePageIsSuspended(WKBundlePageRef page);
 
 // This only works if the SuppressesIncrementalRendering preference is set as well.
 typedef unsigned WKRenderingSuppressionToken;
@@ -123,16 +137,6 @@ typedef uint32_t WKEventThrottlingBehavior;
 
 // Passing null in the second parameter clears the override.
 WK_EXPORT void WKBundlePageSetEventThrottlingBehaviorOverride(WKBundlePageRef, WKEventThrottlingBehavior*);
-
-enum {
-    kWKCompositingPolicyNormal = 0,
-    kWKCompositingPolicyConservative
-};
-
-typedef uint32_t WKCompositingPolicy;
-
-// Passing null in the second parameter clears the override.
-WK_EXPORT void WKBundlePageSetCompositingPolicyOverride(WKBundlePageRef, WKCompositingPolicy*);
 
 #if TARGET_OS_IPHONE
 WK_EXPORT void WKBundlePageSetUseTestingViewportConfiguration(WKBundlePageRef, bool);

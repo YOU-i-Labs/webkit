@@ -28,26 +28,48 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include "FormDataReference.h"
+#include "Logging.h"
+#include "NetworkConnectionToWebProcess.h"
 #include "NetworkProcess.h"
+#include "NetworkProcessProxyMessages.h"
+#include "ServiceWorkerFetchTask.h"
+#include "ServiceWorkerFetchTaskMessages.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebSWContextManagerConnectionMessages.h"
+#include "WebSWServerConnection.h"
+#include <WebCore/SWServer.h>
 #include <WebCore/ServiceWorkerContextData.h>
 
 namespace WebKit {
 using namespace WebCore;
 
-WebSWServerToContextConnection::WebSWServerToContextConnection(NetworkProcess& networkProcess, const SecurityOriginData& securityOrigin, Ref<IPC::Connection>&& connection)
-    : SWServerToContextConnection(securityOrigin)
-    , m_ipcConnection(WTFMove(connection))
-    , m_networkProcess(networkProcess)
+WebSWServerToContextConnection::WebSWServerToContextConnection(NetworkConnectionToWebProcess& connection, RegistrableDomain&& registrableDomain, SWServer& server)
+    : SWServerToContextConnection(WTFMove(registrableDomain))
+    , m_connection(connection)
+    , m_server(makeWeakPtr(server))
 {
+    server.addContextConnection(*this);
 }
 
-WebSWServerToContextConnection::~WebSWServerToContextConnection() = default;
+WebSWServerToContextConnection::~WebSWServerToContextConnection()
+{
+    auto fetches = WTFMove(m_ongoingFetches);
+    for (auto& fetch : fetches.values())
+        fetch->contextClosed();
+
+    if (m_server && m_server->contextConnectionForRegistrableDomain(registrableDomain()) == this)
+        m_server->removeContextConnection(*this);
+}
+
+IPC::Connection& WebSWServerToContextConnection::ipcConnection() const
+{
+    return m_connection.connection();
+}
 
 IPC::Connection* WebSWServerToContextConnection::messageSenderConnection() const
 {
-    return m_ipcConnection.ptr();
+    return &ipcConnection();
 }
 
 uint64_t WebSWServerToContextConnection::messageSenderDestinationID() const
@@ -55,14 +77,18 @@ uint64_t WebSWServerToContextConnection::messageSenderDestinationID() const
     return 0;
 }
 
-void WebSWServerToContextConnection::connectionClosed()
+void WebSWServerToContextConnection::postMessageToServiceWorkerClient(const ServiceWorkerClientIdentifier& destinationIdentifier, const MessageWithMessagePorts& message, ServiceWorkerIdentifier sourceIdentifier, const String& sourceOrigin)
 {
-    // FIXME: Do what here...?
+    if (!m_server)
+        return;
+
+    if (auto* connection = m_server->connection(destinationIdentifier.serverConnectionIdentifier))
+        connection->postMessageToServiceWorkerClient(destinationIdentifier.contextIdentifier, message, sourceIdentifier, sourceOrigin);
 }
 
-void WebSWServerToContextConnection::installServiceWorkerContext(const ServiceWorkerContextData& data, PAL::SessionID sessionID, const String& userAgent)
+void WebSWServerToContextConnection::installServiceWorkerContext(const ServiceWorkerContextData& data, const String& userAgent)
 {
-    send(Messages::WebSWContextManagerConnection::InstallServiceWorker { data, sessionID, userAgent });
+    send(Messages::WebSWContextManagerConnection::InstallServiceWorker { data, userAgent });
 }
 
 void WebSWServerToContextConnection::fireInstallEvent(ServiceWorkerIdentifier serviceWorkerIdentifier)
@@ -82,7 +108,8 @@ void WebSWServerToContextConnection::terminateWorker(ServiceWorkerIdentifier ser
 
 void WebSWServerToContextConnection::syncTerminateWorker(ServiceWorkerIdentifier serviceWorkerIdentifier)
 {
-    sendSync(Messages::WebSWContextManagerConnection::SyncTerminateWorker(serviceWorkerIdentifier), Messages::WebSWContextManagerConnection::SyncTerminateWorker::Reply());
+    if (!sendSync(Messages::WebSWContextManagerConnection::SyncTerminateWorker(serviceWorkerIdentifier), Messages::WebSWContextManagerConnection::SyncTerminateWorker::Reply(), 0, 10_s, IPC::SendSyncOption::ForceDispatchWhenDestinationIsWaitingForUnboundedSyncReply))
+        m_connection.networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::TerminateUnresponsiveServiceWorkerProcesses(registrableDomain(), m_connection.sessionID()), 0);
 }
 
 void WebSWServerToContextConnection::findClientByIdentifierCompleted(uint64_t requestIdentifier, const Optional<ServiceWorkerClientData>& data, bool hasSecurityError)
@@ -100,19 +127,46 @@ void WebSWServerToContextConnection::claimCompleted(uint64_t requestIdentifier)
     send(Messages::WebSWContextManagerConnection::ClaimCompleted { requestIdentifier });
 }
 
-void WebSWServerToContextConnection::didFinishSkipWaiting(uint64_t callbackID)
+void WebSWServerToContextConnection::connectionIsNoLongerNeeded()
 {
-    send(Messages::WebSWContextManagerConnection::DidFinishSkipWaiting { callbackID });
+    m_connection.serverToContextConnectionNoLongerNeeded();
 }
 
-void WebSWServerToContextConnection::connectionMayNoLongerBeNeeded()
+void WebSWServerToContextConnection::setThrottleState(bool isThrottleable)
 {
-    m_networkProcess->swContextConnectionMayNoLongerBeNeeded(*this);
+    m_isThrottleable = isThrottleable;
+    send(Messages::WebSWContextManagerConnection::SetThrottleState { isThrottleable });
 }
 
-void WebSWServerToContextConnection::terminate()
+void WebSWServerToContextConnection::startFetch(ServiceWorkerFetchTask& task)
 {
-    send(Messages::WebSWContextManagerConnection::TerminateProcess());
+    task.start(*this);
+}
+
+void WebSWServerToContextConnection::didReceiveFetchTaskMessage(IPC::Connection& connection, IPC::Decoder& decoder)
+{
+    auto iterator = m_ongoingFetches.find(makeObjectIdentifier<FetchIdentifierType>(decoder.destinationID()));
+    if (iterator == m_ongoingFetches.end())
+        return;
+
+    iterator->value->didReceiveMessage(connection, decoder);
+}
+
+void WebSWServerToContextConnection::registerFetch(ServiceWorkerFetchTask& task)
+{
+    ASSERT(!m_ongoingFetches.contains(task.fetchIdentifier()));
+    m_ongoingFetches.add(task.fetchIdentifier(), makeWeakPtr(task));
+}
+
+void WebSWServerToContextConnection::unregisterFetch(ServiceWorkerFetchTask& task)
+{
+    ASSERT(m_ongoingFetches.contains(task.fetchIdentifier()));
+    m_ongoingFetches.remove(task.fetchIdentifier());
+}
+
+WebCore::ProcessIdentifier WebSWServerToContextConnection::webProcessIdentifier() const
+{
+    return m_connection.webProcessIdentifier();
 }
 
 } // namespace WebKit

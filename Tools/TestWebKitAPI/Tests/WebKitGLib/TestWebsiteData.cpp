@@ -19,6 +19,7 @@
 
 #include "config.h"
 
+#include <WebCore/GUniquePtrSoup.h>
 #include "WebKitTestServer.h"
 #include "WebViewTest.h"
 #include <glib/gstdio.h>
@@ -35,6 +36,7 @@ static void serverCallback(SoupServer* server, SoupMessage* message, const char*
     if (g_str_equal(path, "/empty")) {
         static const char* emptyHTML = "<html><body></body></html>";
         soup_message_headers_replace(message->response_headers, "Set-Cookie", "foo=bar; Max-Age=60");
+        soup_message_headers_replace(message->response_headers, "Strict-Transport-Security", "max-age=3600");
         soup_message_body_append(message->response_body, SOUP_MEMORY_STATIC, emptyHTML, strlen(emptyHTML));
         soup_message_body_complete(message->response_body);
         soup_message_set_status(message, SOUP_STATUS_OK);
@@ -148,11 +150,6 @@ static void testWebsiteDataConfiguration(WebsiteDataTest* test, gconstpointer)
     g_assert_cmpstr(indexedDBDirectory.get(), ==, webkit_website_data_manager_get_indexeddb_directory(test->m_manager));
     g_assert_true(g_file_test(indexedDBDirectory.get(), G_FILE_TEST_IS_DIR));
 
-    GUniquePtr<char> webSQLDirectory(g_build_filename(Test::dataDirectory(), "websql", nullptr));
-    g_assert_cmpstr(webSQLDirectory.get(), ==, webkit_website_data_manager_get_websql_directory(test->m_manager));
-    test->runJavaScriptAndWaitUntilFinished("db = openDatabase(\"TestDatabase\", \"1.0\", \"TestDatabase\", 1);", nullptr);
-    g_assert_true(g_file_test(webSQLDirectory.get(), G_FILE_TEST_IS_DIR));
-
     test->loadURI(kServer->getURIForPath("/appcache").data());
     test->waitUntilLoadFinished();
     GUniquePtr<char> applicationCacheDirectory(g_build_filename(Test::dataDirectory(), "appcache", nullptr));
@@ -167,9 +164,14 @@ static void testWebsiteDataConfiguration(WebsiteDataTest* test, gconstpointer)
     g_assert_cmpstr(diskCacheDirectory.get(), ==, webkit_website_data_manager_get_disk_cache_directory(test->m_manager));
     g_assert_true(g_file_test(diskCacheDirectory.get(), G_FILE_TEST_IS_DIR));
 
-    // Clear all persistent caches, since the data dir is common to all test cases.
+    GUniquePtr<char> hstsCacheDirectory(g_build_filename(Test::dataDirectory(), "hsts", nullptr));
+    g_assert_cmpstr(hstsCacheDirectory.get(), ==, webkit_website_data_manager_get_hsts_cache_directory(test->m_manager));
+    g_assert_true(g_file_test(hstsCacheDirectory.get(), G_FILE_TEST_IS_DIR));
+
+    // Clear all persistent caches, since the data dir is common to all test cases. Note: not cleaning the HSTS cache here as its data
+    // is needed for the HSTS tests, where data cleaning will be tested.
     static const WebKitWebsiteDataTypes persistentCaches = static_cast<WebKitWebsiteDataTypes>(WEBKIT_WEBSITE_DATA_DISK_CACHE | WEBKIT_WEBSITE_DATA_LOCAL_STORAGE
-        | WEBKIT_WEBSITE_DATA_WEBSQL_DATABASES | WEBKIT_WEBSITE_DATA_INDEXEDDB_DATABASES | WEBKIT_WEBSITE_DATA_OFFLINE_APPLICATION_CACHE | WEBKIT_WEBSITE_DATA_DEVICE_ID_HASH_SALT);
+        | WEBKIT_WEBSITE_DATA_INDEXEDDB_DATABASES | WEBKIT_WEBSITE_DATA_OFFLINE_APPLICATION_CACHE | WEBKIT_WEBSITE_DATA_DEVICE_ID_HASH_SALT);
     test->clear(persistentCaches, 0);
     g_assert_null(test->fetch(persistentCaches));
 
@@ -181,7 +183,7 @@ static void testWebsiteDataConfiguration(WebsiteDataTest* test, gconstpointer)
     g_assert_cmpstr(webkit_website_data_manager_get_indexeddb_directory(test->m_manager), !=, webkit_website_data_manager_get_indexeddb_directory(defaultManager));
     g_assert_cmpstr(webkit_website_data_manager_get_disk_cache_directory(test->m_manager), !=, webkit_website_data_manager_get_disk_cache_directory(defaultManager));
     g_assert_cmpstr(webkit_website_data_manager_get_offline_application_cache_directory(test->m_manager), !=, webkit_website_data_manager_get_offline_application_cache_directory(defaultManager));
-    g_assert_cmpstr(webkit_website_data_manager_get_websql_directory(test->m_manager), !=, webkit_website_data_manager_get_websql_directory(defaultManager));
+    g_assert_cmpstr(webkit_website_data_manager_get_hsts_cache_directory(test->m_manager), !=, webkit_website_data_manager_get_hsts_cache_directory(defaultManager));
 
     // Using Test::dataDirectory() we get the default configuration but for a differrent prefix.
     GRefPtr<WebKitWebsiteDataManager> baseDataManager = adoptGRef(webkit_website_data_manager_new("base-data-directory", Test::dataDirectory(), "base-cache-directory", Test::dataDirectory(), nullptr));
@@ -196,9 +198,6 @@ static void testWebsiteDataConfiguration(WebsiteDataTest* test, gconstpointer)
     applicationCacheDirectory.reset(g_build_filename(Test::dataDirectory(), "applications", nullptr));
     g_assert_cmpstr(webkit_website_data_manager_get_offline_application_cache_directory(baseDataManager.get()), ==, applicationCacheDirectory.get());
 
-    webSQLDirectory.reset(g_build_filename(Test::dataDirectory(), "databases", nullptr));
-    g_assert_cmpstr(webkit_website_data_manager_get_websql_directory(baseDataManager.get()), ==, webSQLDirectory.get());
-
     g_assert_cmpstr(webkit_website_data_manager_get_disk_cache_directory(baseDataManager.get()), ==, Test::dataDirectory());
 
     // Any specific configuration provided takes precedence over base dirs.
@@ -210,7 +209,6 @@ static void testWebsiteDataConfiguration(WebsiteDataTest* test, gconstpointer)
     g_assert_cmpstr(webkit_website_data_manager_get_offline_application_cache_directory(baseDataManager.get()), ==, applicationCacheDirectory.get());
     // The result should be the same as previous manager.
     g_assert_cmpstr(webkit_website_data_manager_get_local_storage_directory(baseDataManager.get()), ==, localStorageDirectory.get());
-    g_assert_cmpstr(webkit_website_data_manager_get_websql_directory(baseDataManager.get()), ==, webSQLDirectory.get());
     g_assert_cmpstr(webkit_website_data_manager_get_disk_cache_directory(baseDataManager.get()), ==, Test::dataDirectory());
 }
 
@@ -232,7 +230,7 @@ static void testWebsiteDataEphemeral(WebViewTest* test, gconstpointer)
     g_assert_null(webkit_website_data_manager_get_disk_cache_directory(manager.get()));
     g_assert_null(webkit_website_data_manager_get_offline_application_cache_directory(manager.get()));
     g_assert_null(webkit_website_data_manager_get_indexeddb_directory(manager.get()));
-    g_assert_null(webkit_website_data_manager_get_websql_directory(manager.get()));
+    g_assert_null(webkit_website_data_manager_get_hsts_cache_directory(manager.get()));
 
     // Configuration is ignored when is-ephemeral is used.
     manager = adoptGRef(WEBKIT_WEBSITE_DATA_MANAGER(g_object_new(WEBKIT_TYPE_WEBSITE_DATA_MANAGER, "base-data-directory", Test::dataDirectory(), "is-ephemeral", TRUE, nullptr)));
@@ -416,13 +414,15 @@ static void testWebsiteDataStorage(WebsiteDataTest* test, gconstpointer)
 
 static void testWebsiteDataDatabases(WebsiteDataTest* test, gconstpointer)
 {
-    static const WebKitWebsiteDataTypes databaseTypes = static_cast<WebKitWebsiteDataTypes>(WEBKIT_WEBSITE_DATA_WEBSQL_DATABASES | WEBKIT_WEBSITE_DATA_INDEXEDDB_DATABASES);
+    static const WebKitWebsiteDataTypes databaseTypes = static_cast<WebKitWebsiteDataTypes>(WEBKIT_WEBSITE_DATA_INDEXEDDB_DATABASES);
     GList* dataList = test->fetch(databaseTypes);
     g_assert_null(dataList);
 
     test->loadURI(kServer->getURIForPath("/empty").data());
     test->waitUntilLoadFinished();
     test->runJavaScriptAndWaitUntilFinished("window.indexedDB.open('TestDatabase');", nullptr);
+
+    test->wait(1);
 
     dataList = test->fetch(databaseTypes);
     g_assert_nonnull(dataList);
@@ -445,7 +445,6 @@ static void testWebsiteDataDatabases(WebsiteDataTest* test, gconstpointer)
     g_assert_cmpuint(webkit_website_data_get_types(data), ==, databaseTypes);
     // Database sizes are unknown.
     g_assert_cmpuint(webkit_website_data_get_size(data, WEBKIT_WEBSITE_DATA_INDEXEDDB_DATABASES), ==, 0);
-    g_assert_cmpuint(webkit_website_data_get_size(data, WEBKIT_WEBSITE_DATA_WEBSQL_DATABASES), ==, 0);
 
     // Remove all databases at once.
     GList removeList = { data, nullptr, nullptr };
@@ -492,6 +491,47 @@ static void testWebsiteDataAppcache(WebsiteDataTest* test, gconstpointer)
     dataList = test->fetch(cacheAndAppcacheTypes);
     g_assert_null(dataList);
 }
+
+#if SOUP_CHECK_VERSION(2, 67, 91)
+static void prepopulateHstsData()
+{
+    // HSTS headers will be ignored in this test because the spec forbids STS policies from being honored for hosts with
+    // an IP address instead of a domain. In order to be able to test the data manager API with HSTS website data, we
+    // prepopulate the HSTS storage using the libsoup API directly.
+
+    GUniquePtr<char> hstsCacheDirectory(g_build_filename(Test::dataDirectory(), "hsts", nullptr));
+    GUniquePtr<char> hstsDatabase(g_build_filename(hstsCacheDirectory.get(), "hsts-storage.sqlite", nullptr));
+    g_mkdir_with_parents(hstsCacheDirectory.get(), 0700);
+
+    GRefPtr<SoupHSTSEnforcer> enforcer = adoptGRef(soup_hsts_enforcer_db_new(hstsDatabase.get()));
+    GUniquePtr<SoupHSTSPolicy> policy(soup_hsts_policy_new("webkitgtk.org", 3600, true));
+    soup_hsts_enforcer_set_policy(enforcer.get(), policy.get());
+
+    policy.reset(soup_hsts_policy_new("webkit.org", 3600, true));
+    soup_hsts_enforcer_set_policy(enforcer.get(), policy.get());
+}
+
+static void testWebsiteDataHsts(WebsiteDataTest* test, gconstpointer)
+{
+    GList* dataList = test->fetch(WEBKIT_WEBSITE_DATA_HSTS_CACHE);
+    g_assert_cmpuint(g_list_length(dataList), ==, 2);
+    WebKitWebsiteData* data = static_cast<WebKitWebsiteData*>(dataList->data);
+    g_assert_cmpuint(webkit_website_data_get_types(data), ==, WEBKIT_WEBSITE_DATA_HSTS_CACHE);
+    // HSTS data size is unknown.
+    g_assert_cmpuint(webkit_website_data_get_size(data, WEBKIT_WEBSITE_DATA_HSTS_CACHE), ==, 0);
+
+    GList removeList = { data, nullptr, nullptr };
+    test->remove(WEBKIT_WEBSITE_DATA_HSTS_CACHE, &removeList);
+    dataList = test->fetch(WEBKIT_WEBSITE_DATA_HSTS_CACHE);
+    g_assert_cmpuint(g_list_length(dataList), ==, 1);
+    data = static_cast<WebKitWebsiteData*>(dataList->data);
+    g_assert_cmpuint(webkit_website_data_get_types(data), ==, WEBKIT_WEBSITE_DATA_HSTS_CACHE);
+
+    // Remove all HSTS data.
+    test->clear(WEBKIT_WEBSITE_DATA_HSTS_CACHE, 0);
+    g_assert_null(test->fetch(WEBKIT_WEBSITE_DATA_HSTS_CACHE));
+}
+#endif
 
 static void testWebsiteDataCookies(WebsiteDataTest* test, gconstpointer)
 {
@@ -581,6 +621,10 @@ void beforeAll()
     kServer = new WebKitTestServer();
     kServer->run(serverCallback);
 
+#if SOUP_CHECK_VERSION(2, 67, 91)
+    prepopulateHstsData();
+#endif
+
     WebsiteDataTest::add("WebKitWebsiteData", "configuration", testWebsiteDataConfiguration);
     WebViewTest::add("WebKitWebsiteData", "ephemeral", testWebsiteDataEphemeral);
     WebsiteDataTest::add("WebKitWebsiteData", "cache", testWebsiteDataCache);
@@ -588,6 +632,9 @@ void beforeAll()
     WebsiteDataTest::add("WebKitWebsiteData", "databases", testWebsiteDataDatabases);
     WebsiteDataTest::add("WebKitWebsiteData", "appcache", testWebsiteDataAppcache);
     WebsiteDataTest::add("WebKitWebsiteData", "cookies", testWebsiteDataCookies);
+#if SOUP_CHECK_VERSION(2, 67, 91)
+    WebsiteDataTest::add("WebKitWebsiteData", "hsts", testWebsiteDataHsts);
+#endif
     WebsiteDataTest::add("WebKitWebsiteData", "deviceidhashsalt", testWebsiteDataDeviceIdHashSalt);
 }
 

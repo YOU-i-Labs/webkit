@@ -62,6 +62,7 @@ typedef struct _GSource GSource;
 typedef struct _GVariant GVariant;
 typedef struct _GVariantBuilder GVariantBuilder;
 typedef struct _GVariantIter GVariantIter;
+typedef struct _GVariantType GVariantType;
 typedef union _GdkEvent GdkEvent;
 typedef struct _GTimer GTimer;
 typedef struct _GKeyFile GKeyFile;
@@ -73,11 +74,6 @@ typedef struct _GClosure GClosure;
 #if USE(CAIRO)
 typedef struct _cairo_surface cairo_surface_t;
 typedef struct _cairo_rectangle_int cairo_rectangle_int_t;
-#endif
-
-#if USE(CLUTTER)
-typedef struct _ClutterActor ClutterActor;
-typedef struct _GraphicsLayerActor GraphicsLayerActor;
 #endif
 
 #if PLATFORM(GTK)
@@ -96,15 +92,8 @@ typedef struct _GtkTargetList GtkTargetList;
 typedef struct _GtkThemeParts GtkThemeParts;
 typedef struct _GtkWidget GtkWidget;
 typedef struct _GtkWindow GtkWindow;
-
-#ifdef GTK_API_VERSION_2
-typedef struct _GdkRectangle GdkRectangle;
-typedef struct _GdkDrawable GdkWindow;
-#else
 typedef struct _GdkWindow GdkWindow;
 typedef struct _GtkStyleContext GtkStyleContext;
-#endif
-
 #endif
 
 #endif

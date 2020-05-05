@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2016 The ANGLE Project Authors. All rights reserved.
+// Copyright 2016 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -24,16 +24,22 @@ namespace
 void *nativeEGLHandle;
 }  // anonymous namespace
 
-FunctionsEGLDL::FunctionsEGLDL() : mGetProcAddressPtr(nullptr)
-{
-}
+FunctionsEGLDL::FunctionsEGLDL() : mGetProcAddressPtr(nullptr) {}
 
-FunctionsEGLDL::~FunctionsEGLDL()
-{
-}
+FunctionsEGLDL::~FunctionsEGLDL() {}
 
-egl::Error FunctionsEGLDL::initialize(EGLNativeDisplayType nativeDisplay, const char *libName)
+egl::Error FunctionsEGLDL::initialize(EGLNativeDisplayType nativeDisplay,
+                                      const char *libName,
+                                      void *eglHandle)
 {
+
+    if (eglHandle)
+    {
+        // If the handle is provided, use it.
+        // Caller has already dlopened the vendor library.
+        nativeEGLHandle = eglHandle;
+    }
+
     if (!nativeEGLHandle)
     {
         nativeEGLHandle = dlopen(libName, RTLD_NOW);

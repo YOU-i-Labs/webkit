@@ -62,7 +62,7 @@ bool JSAPIWrapperObjectHandleOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::
     // the same wrapped object in multiple global objects keeps all of the global objects alive.
     if (!wrapperObject->wrappedObject())
         return false;
-    return JSC::Heap::isMarked(wrapperObject->structure()->globalObject()) && visitor.containsOpaqueRoot(wrapperObject->wrappedObject());
+    return visitor.vm().heap.isMarked(wrapperObject->structure()->globalObject()) && visitor.containsOpaqueRoot(wrapperObject->wrappedObject());
 }
 
 namespace JSC {
@@ -70,6 +70,19 @@ namespace JSC {
 template <> const ClassInfo JSCallbackObject<JSAPIWrapperObject>::s_info = { "JSAPIWrapperObject", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSCallbackObject) };
 
 template<> const bool JSCallbackObject<JSAPIWrapperObject>::needsDestruction = true;
+
+template <>
+IsoSubspace* JSCallbackObject<JSAPIWrapperObject>::subspaceForImpl(VM& vm, SubspaceAccess mode)
+{
+    switch (mode) {
+    case SubspaceAccess::OnMainThread:
+        return vm.apiWrapperObjectSpace<SubspaceAccess::OnMainThread>();
+    case SubspaceAccess::Concurrently:
+        return vm.apiWrapperObjectSpace<SubspaceAccess::Concurrently>();
+    }
+    RELEASE_ASSERT_NOT_REACHED();
+    return nullptr;
+}
 
 template <>
 Structure* JSCallbackObject<JSAPIWrapperObject>::createStructure(VM& vm, JSGlobalObject* globalObject, JSValue proto)

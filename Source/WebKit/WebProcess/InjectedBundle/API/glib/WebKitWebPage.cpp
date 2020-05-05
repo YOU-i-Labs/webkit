@@ -41,10 +41,12 @@
 #include "WebKitScriptWorldPrivate.h"
 #include "WebKitURIRequestPrivate.h"
 #include "WebKitURIResponsePrivate.h"
+#include "WebKitUserMessagePrivate.h"
 #include "WebKitWebEditorPrivate.h"
 #include "WebKitWebHitTestResultPrivate.h"
 #include "WebKitWebPagePrivate.h"
 #include "WebKitWebProcessEnumTypes.h"
+#include "WebPageProxyMessages.h"
 #include "WebProcess.h"
 #include <WebCore/Document.h>
 #include <WebCore/DocumentLoader.h>
@@ -68,7 +70,9 @@ enum {
     CONTEXT_MENU,
     CONSOLE_MESSAGE_SENT,
     FORM_CONTROLS_ASSOCIATED,
+    FORM_CONTROLS_ASSOCIATED_FOR_FRAME,
     WILL_SUBMIT_FORM,
+    USER_MESSAGE_RECEIVED,
 
     LAST_SIGNAL
 };
@@ -94,6 +98,7 @@ WEBKIT_DEFINE_TYPE(WebKitWebPage, webkit_web_page, G_TYPE_OBJECT)
 static void webFrameDestroyed(WebFrame*);
 
 class WebKitFrameWrapper final: public FrameDestructionObserver {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     WebKitFrameWrapper(WebFrame& webFrame)
         : FrameDestructionObserver(webFrame.coreFrame())
@@ -127,7 +132,7 @@ static WebKitFrame* webkitFrameGetOrCreate(WebFrame* webFrame)
     if (wrapperPtr)
         return wrapperPtr->webkitFrame();
 
-    std::unique_ptr<WebKitFrameWrapper> wrapper = std::make_unique<WebKitFrameWrapper>(*webFrame);
+    std::unique_ptr<WebKitFrameWrapper> wrapper = makeUnique<WebKitFrameWrapper>(*webFrame);
     wrapperPtr = wrapper.get();
     webFrameMap().set(webFrame, WTFMove(wrapper));
     return wrapperPtr->webkitFrame();
@@ -247,7 +252,7 @@ private:
         }
 
         webkitURIRequestGetResourceRequest(request.get(), resourceRequest);
-        resourceRequest.setInitiatingPageID(page.pageID());
+        resourceRequest.setInitiatingPageID(page.webPageProxyIdentifier().toUInt64());
 
         API::Dictionary::MapType message;
         message.set(String::fromUTF8("Page"), &page);
@@ -380,13 +385,14 @@ public:
         fireFormSubmissionEvent(WEBKIT_FORM_SUBMISSION_WILL_SEND_DOM_EVENT, formElement, frame, sourceFrame, values);
     }
 
-    void didAssociateFormControls(WebPage*, const Vector<RefPtr<Element>>& elements) override
+    void didAssociateFormControls(WebPage*, const Vector<RefPtr<Element>>& elements, WebFrame* frame) override
     {
         GRefPtr<GPtrArray> formElements = adoptGRef(g_ptr_array_sized_new(elements.size()));
         for (size_t i = 0; i < elements.size(); ++i)
             g_ptr_array_add(formElements.get(), WebKit::kit(elements[i].get()));
 
         g_signal_emit(m_webPage, signals[FORM_CONTROLS_ASSOCIATED], 0, formElements.get());
+        g_signal_emit(m_webPage, signals[FORM_CONTROLS_ASSOCIATED_FOR_FRAME], 0, formElements.get(), webkitFrameGetOrCreate(frame));
     }
 
     bool shouldNotifyOnFormChanges(WebPage*) override { return true; }
@@ -565,15 +571,46 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
      * keep them alive after the signal handler returns.
      *
      * Since: 2.16
+     *
+     * Deprecated: 2.26, use #WebKitWebPage::form-controls-associated-for-frame instead.
      */
     signals[FORM_CONTROLS_ASSOCIATED] = g_signal_new(
         "form-controls-associated",
         G_TYPE_FROM_CLASS(klass),
-        G_SIGNAL_RUN_LAST,
+        static_cast<GSignalFlags>(G_SIGNAL_RUN_LAST | G_SIGNAL_DEPRECATED),
         0, 0, nullptr,
         g_cclosure_marshal_VOID__BOXED,
         G_TYPE_NONE, 1,
         G_TYPE_PTR_ARRAY);
+
+    /**
+     * WebKitWebPage::form-controls-associated-for-frame:
+     * @web_page: the #WebKitWebPage on which the signal is emitted
+     * @elements: (element-type WebKitDOMElement) (transfer none): a #GPtrArray of
+     *     #WebKitDOMElement with the list of forms in the page
+     * @frame: the #WebKitFrame
+     *
+     * Emitted after form elements (or form associated elements) are associated to a particular web
+     * page. This is useful to implement form auto filling for web pages where form fields are added
+     * dynamically. This signal might be emitted multiple times for the same web page.
+     *
+     * Note that this signal could be also emitted when form controls are moved between forms. In
+     * that case, the @elements array carries the list of those elements which have moved.
+     *
+     * Clients should take a reference to the members of the @elements array if it is desired to
+     * keep them alive after the signal handler returns.
+     *
+     * Since: 2.26
+     */
+    signals[FORM_CONTROLS_ASSOCIATED_FOR_FRAME] = g_signal_new(
+        "form-controls-associated-for-frame",
+        G_TYPE_FROM_CLASS(klass),
+        G_SIGNAL_RUN_LAST,
+        0, 0, nullptr,
+        g_cclosure_marshal_generic,
+        G_TYPE_NONE, 2,
+        G_TYPE_PTR_ARRAY,
+        WEBKIT_TYPE_FRAME);
 
     /**
      * WebKitWebPage::will-submit-form:
@@ -633,6 +670,34 @@ static void webkit_web_page_class_init(WebKitWebPageClass* klass)
         WEBKIT_TYPE_FRAME,
         G_TYPE_PTR_ARRAY,
         G_TYPE_PTR_ARRAY);
+
+    /**
+     * WebKitWebPage::user-message-received:
+     * @web_page: the #WebKitWebPage on which the signal is emitted
+     * @message: the #WebKitUserMessage received
+     *
+     * This signal is emitted when a #WebKitUserMessage is received from the
+     * #WebKitWebView corresponding to @web_page. You can reply to the message
+     * using webkit_user_message_send_reply().
+     *
+     * You can handle the user message asynchronously by calling g_object_ref() on
+     * @message and returning %TRUE. If the last reference of @message is removed
+     * and the message has been replied, the operation in the #WebKitWebView will
+     * finish with error %WEBKIT_USER_MESSAGE_UNHANDLED_MESSAGE.
+     *
+     * Returns: %TRUE if the message was handled, or %FALSE otherwise.
+     *
+     * Since: 2.28
+     */
+    signals[USER_MESSAGE_RECEIVED] = g_signal_new(
+        "user-message-received",
+        G_TYPE_FROM_CLASS(klass),
+        G_SIGNAL_RUN_LAST,
+        0,
+        g_signal_accumulator_true_handled, nullptr,
+        g_cclosure_marshal_generic,
+        G_TYPE_BOOLEAN, 1,
+        WEBKIT_TYPE_USER_MESSAGE);
 }
 
 WebPage* webkitWebPageGetPage(WebKitWebPage *webPage)
@@ -645,11 +710,11 @@ WebKitWebPage* webkitWebPageCreate(WebPage* webPage)
     WebKitWebPage* page = WEBKIT_WEB_PAGE(g_object_new(WEBKIT_TYPE_WEB_PAGE, NULL));
     page->priv->webPage = webPage;
 
-    webPage->setInjectedBundleResourceLoadClient(std::make_unique<PageResourceLoadClient>(page));
-    webPage->setInjectedBundlePageLoaderClient(std::make_unique<PageLoaderClient>(page));
-    webPage->setInjectedBundleContextMenuClient(std::make_unique<PageContextMenuClient>(page));
-    webPage->setInjectedBundleUIClient(std::make_unique<PageUIClient>(page));
-    webPage->setInjectedBundleFormClient(std::make_unique<PageFormClient>(page));
+    webPage->setInjectedBundleResourceLoadClient(makeUnique<PageResourceLoadClient>(page));
+    webPage->setInjectedBundlePageLoaderClient(makeUnique<PageLoaderClient>(page));
+    webPage->setInjectedBundleContextMenuClient(makeUnique<PageContextMenuClient>(page));
+    webPage->setInjectedBundleUIClient(makeUnique<PageUIClient>(page));
+    webPage->setInjectedBundleFormClient(makeUnique<PageFormClient>(page));
 
     return page;
 }
@@ -699,6 +764,14 @@ void webkitWebPageDidReceiveMessage(WebKitWebPage* page, const String& messageNa
         ASSERT_NOT_REACHED();
 }
 
+void webkitWebPageDidReceiveUserMessage(WebKitWebPage* webPage, UserMessage&& message, CompletionHandler<void(UserMessage&&)>&& completionHandler)
+{
+    // Sink the floating ref.
+    GRefPtr<WebKitUserMessage> userMessage = webkitUserMessageCreate(WTFMove(message), WTFMove(completionHandler));
+    gboolean returnValue;
+    g_signal_emit(webPage, signals[USER_MESSAGE_RECEIVED], 0, userMessage.get(), &returnValue);
+}
+
 /**
  * webkit_web_page_get_dom_document:
  * @web_page: a #WebKitWebPage
@@ -730,7 +803,7 @@ guint64 webkit_web_page_get_id(WebKitWebPage* webPage)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_PAGE(webPage), 0);
 
-    return webPage->priv->webPage->pageID();
+    return webPage->priv->webPage->identifier().toUInt64();
 }
 
 /**
@@ -787,4 +860,69 @@ WebKitWebEditor* webkit_web_page_get_editor(WebKitWebPage* webPage)
         webPage->priv->webEditor = adoptGRef(webkitWebEditorCreate(webPage));
 
     return webPage->priv->webEditor.get();
+}
+
+/**
+ * webkit_web_page_send_message_to_view:
+ * @web_page: a #WebKitWebPage
+ * @message: a #WebKitUserMessage
+ * @cancellable: (nullable): a #GCancellable or %NULL to ignore
+ * @callback: (scope async): (nullable): A #GAsyncReadyCallback to call when the request is satisfied or %NULL
+ * @user_data: (closure): the data to pass to callback function
+ *
+ * Send @message to the #WebKitWebView corresponding to @web_page. If @message is floating, it's consumed.
+ *
+ * If you don't expect any reply, or you simply want to ignore it, you can pass %NULL as @callback.
+ * When the operation is finished, @callback will be called. You can then call
+ * webkit_web_page_send_message_to_view_finish() to get the message reply.
+ *
+ * Since: 2.28
+ */
+void webkit_web_page_send_message_to_view(WebKitWebPage* webPage, WebKitUserMessage* message, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer userData)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_PAGE(webPage));
+    g_return_if_fail(WEBKIT_IS_USER_MESSAGE(message));
+
+    // We sink the reference in case of being floating.
+    GRefPtr<WebKitUserMessage> adoptedMessage = message;
+    if (!callback) {
+        webPage->priv->webPage->send(Messages::WebPageProxy::SendMessageToWebView(webkitUserMessageGetMessage(message)));
+        return;
+    }
+
+    GRefPtr<GTask> task = adoptGRef(g_task_new(webPage, cancellable, callback, userData));
+    CompletionHandler<void(UserMessage&&)> completionHandler = [task = WTFMove(task)](UserMessage&& replyMessage) {
+        switch (replyMessage.type) {
+        case UserMessage::Type::Null:
+            g_task_return_new_error(task.get(), G_IO_ERROR, G_IO_ERROR_CANCELLED, _("Operation was cancelled"));
+            break;
+        case UserMessage::Type::Message:
+            g_task_return_pointer(task.get(), g_object_ref_sink(webkitUserMessageCreate(WTFMove(replyMessage))), static_cast<GDestroyNotify>(g_object_unref));
+            break;
+        case UserMessage::Type::Error:
+            g_task_return_new_error(task.get(), WEBKIT_USER_MESSAGE_ERROR, replyMessage.errorCode, _("Message %s was not handled"), replyMessage.name.data());
+            break;
+        }
+    };
+    webPage->priv->webPage->sendWithAsyncReply(Messages::WebPageProxy::SendMessageToWebViewWithReply(webkitUserMessageGetMessage(message)), WTFMove(completionHandler));
+}
+
+/**
+ * webkit_web_page_send_message_to_view_finish:
+ * @web_page: a #WebKitWebPage
+ * @result: a #GAsyncResult
+ * @error: return location for error or %NULL to ignor
+ *
+ * Finish an asynchronous operation started with webkit_web_page_send_message_to_view().
+ *
+ * Returns: (transfer full): a #WebKitUserMessage with the reply or %NULL in case of error.
+ *
+ * Since: 2.28
+ */
+WebKitUserMessage* webkit_web_page_send_message_to_view_finish(WebKitWebPage* webPage, GAsyncResult* result, GError** error)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_PAGE(webPage), nullptr);
+    g_return_val_if_fail(g_task_is_valid(result, webPage), nullptr);
+
+    return WEBKIT_USER_MESSAGE(g_task_propagate_pointer(G_TASK(result), error));
 }

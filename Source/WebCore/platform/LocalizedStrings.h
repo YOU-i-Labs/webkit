@@ -68,7 +68,7 @@ namespace WebCore {
     String contextMenuItemTagStop();
     String contextMenuItemTagReload();
     String contextMenuItemTagCut();
-    String contextMenuItemTagPaste();
+    WEBCORE_EXPORT String contextMenuItemTagPaste();
 #if PLATFORM(GTK)
     String contextMenuItemTagDelete();
     String contextMenuItemTagInputMethods();
@@ -83,9 +83,8 @@ namespace WebCore {
     String contextMenuItemTagUnicodeInsertZWSMark();
     String contextMenuItemTagUnicodeInsertZWJMark();
     String contextMenuItemTagUnicodeInsertZWNJMark();
-#endif
-#if PLATFORM(GTK)
     String contextMenuItemTagSelectAll();
+    String contextMenuItemTagInsertEmoji();
 #endif
     String contextMenuItemTagNoGuessesFound();
     String contextMenuItemTagIgnoreSpelling();
@@ -187,7 +186,10 @@ namespace WebCore {
     String AXMonthFieldText();
     String AXNumberFieldText();
     String AXWeekFieldText();
-    
+    String AXARIAContentGroupText(const String& ariaType);
+    String AXHorizontalRuleDescriptionText();
+    String AXMarkText();
+
     String AXButtonActionVerb();
     String AXRadioButtonActionVerb();
     String AXTextFieldActionVerb();
@@ -204,16 +206,22 @@ namespace WebCore {
     String weekFormatInLDML();
 #endif
 #if PLATFORM(COCOA)
-    String AXARIAContentGroupText(const String& ariaType);
-    String AXHorizontalRuleDescriptionText();
-    String AXMarkText();
 #if ENABLE(METER_ELEMENT)
     String AXMeterGaugeRegionOptimumText();
     String AXMeterGaugeRegionSuboptimalText();
     String AXMeterGaugeRegionLessGoodText();
 #endif
 #endif
-    
+#if ENABLE(APPLE_PAY)
+    String AXApplePayPlainLabel();
+    String AXApplePayBuyLabel();
+    String AXApplePaySetupLabel();
+    String AXApplePayDonateLabel();
+    String AXApplePayCheckOutLabel();
+    String AXApplePayBookLabel();
+    String AXApplePaySubscribeLabel();
+#endif
+
     String AXAutoFillCredentialsLabel();
     String AXAutoFillContactsLabel();
     String AXAutoFillStrongPasswordLabel();
@@ -225,8 +233,9 @@ namespace WebCore {
     String blockedPluginByContentSecurityPolicyText();
     String insecurePluginVersionText();
     String unsupportedPluginText();
+    WEBCORE_EXPORT String pluginTooSmallText();
 
-    String multipleFileUploadText(unsigned numberOfFiles);
+    WEBCORE_EXPORT String multipleFileUploadText(unsigned numberOfFiles);
     String unknownFileSizeText();
 
 #if PLATFORM(WIN)

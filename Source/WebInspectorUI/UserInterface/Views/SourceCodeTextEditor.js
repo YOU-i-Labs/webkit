@@ -90,6 +90,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
         WI.consoleManager.addEventListener(WI.ConsoleManager.Event.IssueAdded, this._issueWasAdded, this);
 
+        this._sourceCode.addEventListener(WI.SourceCode.Event.FormatterDidChange, this._handleFormatterDidChange, this);
         if (this._sourceCode instanceof WI.SourceMapResource || this._sourceCode.sourceMaps.length > 0)
             WI.notifications.addEventListener(WI.Notification.GlobalModifierKeysDidChange, this._updateTokenTrackingControllerState, this);
         else
@@ -165,8 +166,6 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
     close()
     {
-        super.close();
-
         if (this._supportsDebugging) {
             WI.Breakpoint.removeEventListener(null, null, this);
             WI.debuggerManager.removeEventListener(null, null, this);
@@ -178,12 +177,9 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             }
         }
 
-        WI.consoleManager.removeEventListener(WI.ConsoleManager.Event.IssueAdded, this._issueWasAdded, this);
-
-        if (this._sourceCode instanceof WI.SourceMapResource || this._sourceCode.sourceMaps.length > 0)
-            WI.notifications.removeEventListener(WI.Notification.GlobalModifierKeysDidChange, this._updateTokenTrackingControllerState, this);
-        else
-            this._sourceCode.removeEventListener(WI.SourceCode.Event.SourceMapAdded, this._sourceCodeSourceMapAdded, this);
+        WI.consoleManager.removeEventListener(null, null, this);
+        WI.notifications.removeEventListener(null, null, this);
+        this._sourceCode.removeEventListener(null, null, this);
     }
 
     canBeFormatted()
@@ -224,7 +220,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
                 return;
             }
 
-            var queryRegex = new RegExp(query.escapeForRegExp(), "gi");
+            let queryRegex = WI.SearchUtilities.regExpForString(query, WI.SearchUtilities.defaultSettings);
             var searchResults = [];
 
             for (var i = 0; i < matches.length; ++i) {
@@ -254,11 +250,18 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
         if (this._sourceCode instanceof WI.SourceMapResource)
             return false;
+        if (this._sourceCode instanceof WI.LocalResource)
+            return false;
+        if (this._sourceCode instanceof WI.LocalScript)
+            return false;
+
+        let caseSensitive = WI.SearchUtilities.defaultSettings.caseSensitive.value;
+        let isRegex = WI.SearchUtilities.defaultSettings.regularExpression.value;
 
         if (this._sourceCode instanceof WI.Resource)
-            PageAgent.searchInResource(this._sourceCode.parentFrame.id, this._sourceCode.url, query, false, false, searchResultCallback.bind(this));
+            this._sourceCode.target.PageAgent.searchInResource(this._sourceCode.parentFrame.id, this._sourceCode.url, query, caseSensitive, isRegex, searchResultCallback.bind(this));
         else if (this._sourceCode instanceof WI.Script)
-            this._sourceCode.target.DebuggerAgent.searchInContent(this._sourceCode.id, query, false, false, searchResultCallback.bind(this));
+            this._sourceCode.target.DebuggerAgent.searchInContent(this._sourceCode.id, query, caseSensitive, isRegex, searchResultCallback.bind(this));
         return true;
     }
 
@@ -499,9 +502,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         if (this._supportsDebugging) {
             this._breakpointMap = {};
 
-            var breakpoints = WI.debuggerManager.breakpointsForSourceCode(this._sourceCode);
-            for (var i = 0; i < breakpoints.length; ++i) {
-                var breakpoint = breakpoints[i];
+            for (let breakpoint of WI.debuggerManager.breakpointsForSourceCode(this._sourceCode)) {
                 console.assert(this._matchesBreakpoint(breakpoint));
                 var lineInfo = this._editorLineInfoForSourceCodeLocation(breakpoint.sourceCodeLocation);
                 this._addBreakpointWithEditorLineInfo(breakpoint, lineInfo);
@@ -530,6 +531,11 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         if (parameters.error)
             return;
 
+        if (parameters.message) {
+            this._showMessage(parameters.message);
+            return;
+        }
+
         var sourceCode = parameters.sourceCode;
         var content = sourceCode.content;
         var base64Encoded = parameters.base64Encoded;
@@ -553,6 +559,12 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         this.repeatReveal = false;
     }
 
+    _showMessage(message)
+    {
+        this.element.removeChildren();
+        this.element.appendChild(WI.createMessageTextView(message));
+    }
+
     _breakpointStatusDidChange(event)
     {
         this._updateBreakpointStatus(event.target);
@@ -562,8 +574,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
     {
         console.assert(this._supportsDebugging);
 
-        var breakpoints = WI.debuggerManager.breakpointsForSourceCode(this._sourceCode);
-        for (var breakpoint of breakpoints)
+        for (let breakpoint of WI.debuggerManager.breakpointsForSourceCode(this._sourceCode))
             this._updateBreakpointStatus(breakpoint);
     }
 
@@ -1168,8 +1179,11 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
     get _supportsDebugging()
     {
-        if (this._sourceCode instanceof WI.Resource)
+        if (this._sourceCode instanceof WI.Resource) {
+            if (this._sourceCode.isLocalResourceOverride)
+                return false;
             return this._sourceCode.type === WI.Resource.Type.Document || this._sourceCode.type === WI.Resource.Type.Script;
+        }
         if (this._sourceCode instanceof WI.Script)
             return !(this._sourceCode instanceof WI.LocalScript);
         return false;
@@ -1245,35 +1259,29 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         if (breakpoints.length === 1) {
             WI.breakpointPopoverController.appendContextMenuItems(contextMenu, breakpoints[0], event.target);
 
-            if (!WI.isShowingDebuggerTab()) {
+            if (!WI.isShowingSourcesTab()) {
                 contextMenu.appendSeparator();
-                contextMenu.appendItem(WI.UIString("Reveal in Debugger Tab"), () => {
-                    WI.showDebuggerTab({breakpointToSelect: breakpoints[0]});
+                contextMenu.appendItem(WI.UIString("Reveal in Sources Tab"), () => {
+                    WI.showSourcesTab({
+                        breakpointToSelect: breakpoints[0],
+                        initiatorHint: WI.TabBrowser.TabNavigationInitiator.ContextMenu,
+                    });
                 });
             }
 
             return;
         }
 
-        // Multiple breakpoints.
-        let removeBreakpoints = () => {
-            for (let breakpoint of breakpoints) {
-                if (WI.debuggerManager.isBreakpointRemovable(breakpoint))
-                    WI.debuggerManager.removeBreakpoint(breakpoint);
-            }
-        };
-
         let shouldDisable = breakpoints.some((breakpoint) => !breakpoint.disabled);
-        let toggleBreakpoints = (shouldDisable) => {
+        contextMenu.appendItem(shouldDisable ? WI.UIString("Disable Breakpoints") : WI.UIString("Enable Breakpoints"), () => {
             for (let breakpoint of breakpoints)
                 breakpoint.disabled = shouldDisable;
-        };
+        });
 
-        if (shouldDisable)
-            contextMenu.appendItem(WI.UIString("Disable Breakpoints"), toggleBreakpoints);
-        else
-            contextMenu.appendItem(WI.UIString("Enable Breakpoints"), toggleBreakpoints);
-        contextMenu.appendItem(WI.UIString("Delete Breakpoints"), removeBreakpoints);
+        contextMenu.appendItem(WI.UIString("Delete Breakpoints"), () => {
+            for (let breakpoint of breakpoints)
+                WI.debuggerManager.removeBreakpoint(breakpoint);
+        });
     }
 
     textEditorBreakpointAdded(textEditor, lineNumber, columnNumber)
@@ -1290,8 +1298,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         this._addBreakpointWithEditorLineInfo(breakpoint, lineInfo);
 
         this._ignoreBreakpointAddedBreakpoint = breakpoint;
-        const shouldSpeculativelyResolveBreakpoint = true;
-        WI.debuggerManager.addBreakpoint(breakpoint, shouldSpeculativelyResolveBreakpoint);
+        WI.debuggerManager.addBreakpoint(breakpoint);
         this._ignoreBreakpointAddedBreakpoint = null;
 
         // Return the more accurate location and breakpoint info.
@@ -1381,24 +1388,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
                 this._sourceCode.resource.formatterSourceMap = this.formatterSourceMap;
         }
 
-        // Some breakpoints / issues may have moved, some might not have. Just go through
-        // and remove and reinsert all the breakpoints / issues.
-
-        var oldBreakpointMap = this._breakpointMap;
-        this._breakpointMap = {};
-
-        for (var lineNumber in oldBreakpointMap) {
-            for (var columnNumber in oldBreakpointMap[lineNumber]) {
-                var breakpoint = oldBreakpointMap[lineNumber][columnNumber];
-                var newLineInfo = this._editorLineInfoForSourceCodeLocation(breakpoint.sourceCodeLocation);
-                this._addBreakpointWithEditorLineInfo(breakpoint, newLineInfo);
-                this.setBreakpointInfoForLineAndColumn(lineNumber, columnNumber, null);
-                this.setBreakpointInfoForLineAndColumn(newLineInfo.lineNumber, newLineInfo.columnNumber, this._breakpointInfoForBreakpoint(breakpoint));
-            }
-        }
-
-        this._reinsertAllIssues();
-        this._reinsertAllThreadIndicators();
+        this._handleFormatterDidChange();
     }
 
     textEditorExecutionHighlightRange(currentPosition, callback)
@@ -1431,6 +1421,12 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
         };
 
         script.requestScriptSyntaxTree((syntaxTree) => {
+            // After requesting the tree, we still might get a null tree from a parse error.
+            if (!syntaxTree) {
+                callback(null);
+                return;
+            }
+
             // Convert to the position within the inline script before querying the AST.
             position = toInlineScriptPosition(position);
             let nodes = syntaxTree.containersOfPosition(position);
@@ -1595,6 +1591,31 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             this._basicBlockAnnotator.refresh();
     }
 
+    _handleFormatterDidChange(event)
+    {
+        if (this._ignoreAllBreakpointLocationUpdates)
+            return;
+
+        // Some breakpoints / issues may have moved, some might not have. Just go through
+        // and remove and reinsert all the breakpoints / issues.
+
+        var oldBreakpointMap = this._breakpointMap;
+        this._breakpointMap = {};
+
+        for (var lineNumber in oldBreakpointMap) {
+            for (var columnNumber in oldBreakpointMap[lineNumber]) {
+                var breakpoint = oldBreakpointMap[lineNumber][columnNumber];
+                var newLineInfo = this._editorLineInfoForSourceCodeLocation(breakpoint.sourceCodeLocation);
+                this._addBreakpointWithEditorLineInfo(breakpoint, newLineInfo);
+                this.setBreakpointInfoForLineAndColumn(lineNumber, columnNumber, null);
+                this.setBreakpointInfoForLineAndColumn(newLineInfo.lineNumber, newLineInfo.columnNumber, this._breakpointInfoForBreakpoint(breakpoint));
+            }
+        }
+
+        this._reinsertAllIssues();
+        this._reinsertAllThreadIndicators();
+    }
+
     _sourceCodeSourceMapAdded(event)
     {
         WI.notifications.addEventListener(WI.Notification.GlobalModifierKeysDidChange, this._updateTokenTrackingControllerState, this);
@@ -1751,8 +1772,9 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
             case "string":
             case "number":
             case "boolean":
-            case "undefined":
             case "symbol":
+            case "bigint":
+            case "undefined":
                 this._showPopoverWithFormattedValue(data);
                 break;
             }
@@ -1760,12 +1782,12 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
 
         if (WI.debuggerManager.activeCallFrame) {
-            target.DebuggerAgent.evaluateOnCallFrame.invoke({callFrameId: WI.debuggerManager.activeCallFrame.id, expression, objectGroup: "popover", doNotPauseOnExceptionsAndMuteConsole: true}, populate.bind(this), target.DebuggerAgent);
+            target.DebuggerAgent.evaluateOnCallFrame.invoke({callFrameId: WI.debuggerManager.activeCallFrame.id, expression, objectGroup: "popover", doNotPauseOnExceptionsAndMuteConsole: true}, populate.bind(this));
             return;
         }
 
         // No call frame available. Use the SourceCode's page's context.
-        target.RuntimeAgent.evaluate.invoke({expression, objectGroup: "popover", doNotPauseOnExceptionsAndMuteConsole: true}, populate.bind(this), target.RuntimeAgent);
+        target.RuntimeAgent.evaluate.invoke({expression, objectGroup: "popover", doNotPauseOnExceptionsAndMuteConsole: true}, populate.bind(this));
     }
 
     _tokenTrackingControllerHighlightedJavaScriptTypeInformation(candidate)
@@ -1889,6 +1911,11 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
                 this._showPopover(content);
                 codeMirror.setValue(formattedText || data.description);
                 this._popover.update();
+
+                // CodeMirror needs a refresh after the popover displays, to layout, otherwise it may appear with the wrong size.
+                setTimeout(() => {
+                    codeMirror.refresh();
+                });
             });
         }
 
@@ -1916,7 +1943,9 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
                 var goToButton = titleElement.appendChild(WI.createGoToArrowButton());
                 goToButton.addEventListener("click", function() {
-                    WI.domManager.inspectElement(nodeId);
+                    WI.domManager.inspectElement(nodeId, {
+                        initiatorHint: WI.TabBrowser.TabNavigationInitiator.LinkClick,
+                    });
                 });
             });
         }
@@ -1941,8 +1970,10 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
 
     _showPopoverWithFormattedValue(remoteObject)
     {
-        var content = WI.FormattedValue.createElementForRemoteObject(remoteObject);
-        this._showPopover(content);
+        let wrapper = document.createElement("div");
+        wrapper.className = "formatted";
+        wrapper.appendChild(WI.FormattedValue.createElementForRemoteObject(remoteObject));
+        this._showPopover(wrapper);
     }
 
     willDismissPopover(popover)
@@ -2155,7 +2186,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
     _createTypeTokenAnnotator()
     {
         // COMPATIBILITY (iOS 8): Runtime.getRuntimeTypesForVariablesAtOffsets did not exist yet.
-        if (!this.target.RuntimeAgent.getRuntimeTypesForVariablesAtOffsets)
+        if (!this.target || !this.target.hasCommand("Runtime.getRuntimeTypesForVariablesAtOffsets"))
             return;
 
         var script = this._getAssociatedScript();
@@ -2168,7 +2199,7 @@ WI.SourceCodeTextEditor = class SourceCodeTextEditor extends WI.TextEditor
     _createBasicBlockAnnotator()
     {
         // COMPATIBILITY (iOS 8): Runtime.getBasicBlocks did not exist yet.
-        if (!this.target.RuntimeAgent.getBasicBlocks)
+        if (!this.target || !this.target.hasCommand("Runtime.getBasicBlocks"))
             return;
 
         var script = this._getAssociatedScript();

@@ -31,8 +31,7 @@ WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
 
         this._delegate = delegate || null;
 
-        // Add this offset-sections class name so the sticky headers don't overlap the navigation bar.
-        this.element.classList.add(className, "offset-sections");
+        this.element.classList.add(className);
 
         this._navigationInfo = {identifier, label};
 
@@ -50,6 +49,12 @@ WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
     get nodeStyles()
     {
         return this._nodeStyles;
+    }
+
+    get supportsNewRule()
+    {
+        // Overridden by subclasses if needed.
+        return false;
     }
 
     shown()
@@ -86,6 +91,8 @@ WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
 
             this._nodeStyles = WI.cssManager.stylesForNode(domNode);
 
+            this.dispatchEventToListeners(WI.StyleDetailsPanel.Event.NodeChanged);
+
             console.assert(this._nodeStyles);
             if (!this._nodeStyles)
                 return;
@@ -103,7 +110,6 @@ WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
     refresh(significantChange)
     {
         // Implemented by subclasses.
-        this.dispatchEventToListeners(WI.StyleDetailsPanel.Event.Refreshed);
     }
 
     // Protected
@@ -163,5 +169,5 @@ WI.StyleDetailsPanel = class StyleDetailsPanel extends WI.View
 };
 
 WI.StyleDetailsPanel.Event = {
-    Refreshed: "style-details-panel-refreshed"
+    NodeChanged: "style-details-panel-node-changed",
 };

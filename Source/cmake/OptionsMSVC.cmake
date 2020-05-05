@@ -26,12 +26,13 @@ if (NOT COMPILER_IS_CLANG_CL)
     add_definitions(-D_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES=1)
 endif ()
 
-# Enable C++14
-# https://docs.microsoft.com/en-us/cpp/build/reference/std-specify-language-standard-version
-add_compile_options(/std:c++14)
-
 # Specify the source code encoding
 add_compile_options(/utf-8 /validate-charset)
+
+# Enable the new lambda processor for better C++ conformance with /std:c++17
+if (NOT COMPILER_IS_CLANG_CL)
+    add_compile_options(/experimental:newLambdaProcessor)
+endif ()
 
 if (${CMAKE_BUILD_TYPE} MATCHES "Debug")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /OPT:NOREF /OPT:NOICF")

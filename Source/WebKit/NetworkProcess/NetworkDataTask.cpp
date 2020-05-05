@@ -29,6 +29,7 @@
 #include "NetworkDataTaskBlob.h"
 #include "NetworkLoadParameters.h"
 #include "NetworkSession.h"
+#include <WebCore/ResourceError.h>
 #include <WebCore/ResourceResponse.h>
 #include <wtf/RunLoop.h>
 
@@ -49,7 +50,7 @@ Ref<NetworkDataTask> NetworkDataTask::create(NetworkSession& session, NetworkDat
 {
     ASSERT(!parameters.request.url().protocolIsBlob());
 #if PLATFORM(COCOA)
-    return NetworkDataTaskCocoa::create(session, client, parameters.request, parameters.webFrameID, parameters.webPageID, parameters.storedCredentialsPolicy, parameters.contentSniffingPolicy, parameters.contentEncodingSniffingPolicy, parameters.shouldClearReferrerOnHTTPSToHTTPRedirect, parameters.shouldPreconnectOnly, parameters.isMainFrameNavigation, parameters.networkActivityTracker);
+    return NetworkDataTaskCocoa::create(session, client, parameters.request, parameters.webFrameID, parameters.webPageID, parameters.storedCredentialsPolicy, parameters.contentSniffingPolicy, parameters.contentEncodingSniffingPolicy, parameters.shouldClearReferrerOnHTTPSToHTTPRedirect, parameters.shouldPreconnectOnly, parameters.isMainFrameNavigation, parameters.isMainResourceNavigationForAnyFrame, parameters.networkActivityTracker);
 #endif
 #if USE(SOUP)
     return NetworkDataTaskSoup::create(session, client, parameters.request, parameters.storedCredentialsPolicy, parameters.contentSniffingPolicy, parameters.contentEncodingSniffingPolicy, parameters.shouldClearReferrerOnHTTPSToHTTPRedirect, parameters.isMainFrameNavigation);
@@ -61,7 +62,7 @@ Ref<NetworkDataTask> NetworkDataTask::create(NetworkSession& session, NetworkDat
 
 NetworkDataTask::NetworkDataTask(NetworkSession& session, NetworkDataTaskClient& client, const ResourceRequest& requestWithCredentials, StoredCredentialsPolicy storedCredentialsPolicy, bool shouldClearReferrerOnHTTPSToHTTPRedirect, bool dataTaskIsForMainFrameNavigation)
     : m_failureTimer(*this, &NetworkDataTask::failureTimerFired)
-    , m_session(session)
+    , m_session(makeWeakPtr(session))
     , m_client(&client)
     , m_partition(requestWithCredentials.cachePartition())
     , m_storedCredentialsPolicy(storedCredentialsPolicy)
@@ -96,20 +97,23 @@ void NetworkDataTask::scheduleFailure(FailureType type)
     m_failureTimer.startOneShot(0_s);
 }
 
-void NetworkDataTask::didReceiveResponse(ResourceResponse&& response, ResponseCompletionHandler&& completionHandler)
+void NetworkDataTask::didReceiveResponse(ResourceResponse&& response, NegotiatedLegacyTLS negotiatedLegacyTLS, ResponseCompletionHandler&& completionHandler)
 {
-    ASSERT(m_client);
     if (response.isHTTP09()) {
         auto url = response.url();
         Optional<uint16_t> port = url.port();
         if (port && !WTF::isDefaultPortForProtocol(port.value(), url.protocol())) {
             completionHandler(PolicyAction::Ignore);
             cancel();
-            m_client->didCompleteWithError({ String(), 0, url, "Cancelled load from '" + url.stringCenterEllipsizedToLength() + "' because it is using HTTP/0.9." });
+            if (m_client)
+                m_client->didCompleteWithError({ String(), 0, url, "Cancelled load from '" + url.stringCenterEllipsizedToLength() + "' because it is using HTTP/0.9." });
             return;
         }
     }
-    m_client->didReceiveResponse(WTFMove(response), WTFMove(completionHandler));
+    if (m_client)
+        m_client->didReceiveResponse(WTFMove(response), negotiatedLegacyTLS, WTFMove(completionHandler));
+    else
+        completionHandler(PolicyAction::Ignore);
 }
 
 bool NetworkDataTask::shouldCaptureExtraNetworkLoadMetrics() const
@@ -132,6 +136,11 @@ void NetworkDataTask::failureTimerFired()
         if (m_client)
             m_client->cannotShowURL();
         return;
+    case RestrictedURLFailure:
+        m_scheduledFailureType = NoFailure;
+        if (m_client)
+            m_client->wasBlockedByRestrictions();
+        return;
     case NoFailure:
         ASSERT_NOT_REACHED();
         break;
@@ -142,6 +151,16 @@ void NetworkDataTask::failureTimerFired()
 String NetworkDataTask::description() const
 {
     return emptyString();
+}
+
+PAL::SessionID NetworkDataTask::sessionID() const
+{
+    return m_session->sessionID();
+}
+
+NetworkSession* NetworkDataTask::networkSession()
+{
+    return m_session.get();
 }
 
 } // namespace WebKit

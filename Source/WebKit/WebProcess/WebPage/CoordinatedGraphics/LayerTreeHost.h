@@ -39,6 +39,9 @@
 #include <wtf/OptionSet.h>
 #include <wtf/RunLoop.h>
 
+#if USE(COORDINATED_GRAPHICS)
+#endif
+
 namespace WebCore {
 class IntRect;
 class IntSize;
@@ -70,7 +73,6 @@ public:
     void cancelPendingLayerFlush();
     void setRootCompositingLayer(WebCore::GraphicsLayer*);
     void setViewOverlayRootLayer(WebCore::GraphicsLayer*);
-    void invalidate();
 
     void scrollNonCompositedContents(const WebCore::IntRect&);
     void forceRepaint();
@@ -87,15 +89,13 @@ public:
 
     void setIsDiscardable(bool);
 
-#if USE(TEXTURE_MAPPER_GL) && PLATFORM(GTK)
-    void setNativeSurfaceHandleForCompositing(uint64_t);
-#endif
-
     void deviceOrPageScaleFactorChanged();
 
 #if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
     RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID);
 #endif
+
+    WebCore::PlatformDisplayID displayID() const { return m_displayID; }
 
 private:
 #if USE(COORDINATED_GRAPHICS)
@@ -107,6 +107,7 @@ private:
     void didFlushRootLayer(const WebCore::FloatRect& visibleContentRect) override;
     void notifyFlushRequired() override { scheduleLayerFlush(); };
     void commitSceneState(const WebCore::CoordinatedGraphicsState&) override;
+    void updateScene() override;
 
     // AcceleratedSurface::Client
     void frameComplete() override;
@@ -137,7 +138,7 @@ private:
             m_layerTreeHost.didDestroyGLContext();
         }
 
-        void resize(const WebCore::IntSize& size)
+        void resize(const WebCore::IntSize& size) override
         {
             if (m_layerTreeHost.m_surface)
                 m_layerTreeHost.m_surface->clientResize(size);
@@ -158,7 +159,7 @@ private:
             m_layerTreeHost.requestDisplayRefreshMonitorUpdate();
         }
 
-        void handleDisplayRefreshMonitorUpdate(bool hasBeenRescheduled)
+        void handleDisplayRefreshMonitorUpdate(bool hasBeenRescheduled) override
         {
             m_layerTreeHost.handleDisplayRefreshMonitorUpdate(hasBeenRescheduled);
         }
@@ -179,7 +180,6 @@ private:
     bool m_layerFlushSchedulingEnabled { true };
     bool m_notifyAfterScheduledLayerFlush { false };
     bool m_isSuspended { false };
-    bool m_isValid { true };
     bool m_isWaitingForRenderer { false };
     bool m_scheduledWhileWaitingForRenderer { false };
     float m_lastPageScaleFactor { 1 };
@@ -187,7 +187,6 @@ private:
     bool m_isDiscardable { false };
     OptionSet<DiscardableSyncActions> m_discardableSyncActions;
     WebCore::GraphicsLayer* m_viewOverlayRootLayer { nullptr };
-    CompositingCoordinator m_coordinator;
     CompositorClient m_compositorClient;
     std::unique_ptr<AcceleratedSurface> m_surface;
     RefPtr<ThreadedCompositor> m_compositor;
@@ -197,7 +196,9 @@ private:
         bool needsFreshFlush { false };
     } m_forceRepaintAsync;
     RunLoop::Timer<LayerTreeHost> m_layerFlushTimer;
+    CompositingCoordinator m_coordinator;
 #endif // USE(COORDINATED_GRAPHICS)
+    WebCore::PlatformDisplayID m_displayID;
 };
 
 #if !USE(COORDINATED_GRAPHICS)
@@ -209,7 +210,6 @@ inline void LayerTreeHost::scheduleLayerFlush() { }
 inline void LayerTreeHost::cancelPendingLayerFlush() { }
 inline void LayerTreeHost::setRootCompositingLayer(WebCore::GraphicsLayer*) { }
 inline void LayerTreeHost::setViewOverlayRootLayer(WebCore::GraphicsLayer*) { }
-inline void LayerTreeHost::invalidate() { }
 inline void LayerTreeHost::scrollNonCompositedContents(const WebCore::IntRect&) { }
 inline void LayerTreeHost::forceRepaint() { }
 inline bool LayerTreeHost::forceRepaintAsync(CallbackID) { return false; }

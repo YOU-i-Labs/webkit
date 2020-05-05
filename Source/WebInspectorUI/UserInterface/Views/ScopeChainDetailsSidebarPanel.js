@@ -261,6 +261,7 @@ WI.ScopeChainDetailsSidebarPanel = class ScopeChainDetailsSidebarPanel extends W
                 }
 
                 let treeOutline = objectTree.treeOutline;
+                treeOutline.registerScrollVirtualizer(this.contentView.element, 16);
                 treeOutline.addEventListener(WI.TreeOutline.Event.ElementAdded, this._treeElementAdded.bind(this, detailsSectionIdentifier), this);
                 treeOutline.addEventListener(WI.TreeOutline.Event.ElementDisclosureDidChanged, this._treeElementDisclosureDidChange.bind(this, detailsSectionIdentifier), this);
 
@@ -363,8 +364,6 @@ WI.ScopeChainDetailsSidebarPanel = class ScopeChainDetailsSidebarPanel extends W
         this._codeMirror = WI.CodeMirrorEditor.create(editorElement, {
             lineWrapping: true,
             mode: "text/javascript",
-            indentWithTabs: true,
-            indentUnit: 4,
             matchBrackets: true,
             value: "",
         });
@@ -454,7 +453,7 @@ WI.ScopeChainDetailsSidebarPanel = class ScopeChainDetailsSidebarPanel extends W
         if (objectTreeElement.parent !== objectTreeElement.treeOutline)
             return;
 
-        contextMenu.appendItem(WI.UIString("Remove Watch Expression"), () => {
+        contextMenu.appendItem(WI.UIString("Delete Watch Expression"), () => {
             let expression = objectTreeElement.property.name;
             this._removeWatchExpression(expression);
         });

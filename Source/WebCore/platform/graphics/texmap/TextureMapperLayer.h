@@ -22,10 +22,14 @@
 
 #include "FilterOperations.h"
 #include "FloatRect.h"
+#include "NicosiaAnimation.h"
 #include "TextureMapper.h"
-#include "TextureMapperAnimation.h"
 #include "TextureMapperBackingStore.h"
 #include <wtf/WeakPtr.h>
+
+#if USE(COORDINATED_GRAPHICS)
+#include "NicosiaAnimatedBackingStoreClient.h"
+#endif
 
 namespace WebCore {
 
@@ -56,6 +60,7 @@ public:
     void setMaskLayer(TextureMapperLayer*);
     void setReplicaLayer(TextureMapperLayer*);
     void setPosition(const FloatPoint&);
+    void setBoundsOrigin(const FloatPoint&);
     void setSize(const FloatSize&);
     void setAnchorPoint(const FloatPoint3D&);
     void setPreserves3D(bool);
@@ -86,8 +91,11 @@ public:
     void setDebugVisuals(bool showDebugBorders, const Color& debugBorderColor, float debugBorderWidth);
     void setRepaintCounter(bool showRepaintCounter, int repaintCount);
     void setContentsLayer(TextureMapperPlatformLayer*);
-    void setAnimations(const TextureMapperAnimations&);
+    void setAnimations(const Nicosia::Animations&);
     void setBackingStore(TextureMapperBackingStore*);
+#if USE(COORDINATED_GRAPHICS)
+    void setAnimatedBackingStoreClient(Nicosia::AnimatedBackingStoreClient*);
+#endif
 
     bool applyAnimationsRecursively(MonotonicTime);
     bool syncAnimations(MonotonicTime);
@@ -150,6 +158,7 @@ private:
     struct State {
         FloatPoint pos;
         FloatPoint3D anchorPoint;
+        FloatPoint boundsOrigin;
         FloatSize size;
         TransformationMatrix transform;
         TransformationMatrix childrenTransform;
@@ -195,14 +204,21 @@ private:
 
     State m_state;
     TextureMapper* m_textureMapper { nullptr };
-    TextureMapperAnimations m_animations;
+    Nicosia::Animations m_animations;
     uint32_t m_id { 0 };
+#if USE(COORDINATED_GRAPHICS)
+    RefPtr<Nicosia::AnimatedBackingStoreClient> m_animatedBackingStoreClient;
+#endif
 
     struct {
         TransformationMatrix localTransform;
-
         TransformationMatrix combined;
         TransformationMatrix combinedForChildren;
+#if USE(COORDINATED_GRAPHICS)
+        TransformationMatrix futureLocalTransform;
+        TransformationMatrix futureCombined;
+        TransformationMatrix futureCombinedForChildren;
+#endif
     } m_layerTransforms;
 };
 

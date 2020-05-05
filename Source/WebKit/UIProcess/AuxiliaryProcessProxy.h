@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -50,7 +50,19 @@ public:
 
     template<typename T> bool send(T&& message, uint64_t destinationID, OptionSet<IPC::SendOption> sendOptions = { });
     template<typename T> bool sendSync(T&& message, typename T::Reply&&, uint64_t destinationID, Seconds timeout = 1_s, OptionSet<IPC::SendSyncOption> sendSyncOptions = { });
-    template<typename T, typename... Args> void sendWithAsyncReply(T&&, CompletionHandler<void(Args...)>&&);
+    template<typename T, typename C> void sendWithAsyncReply(T&&, C&&, uint64_t destinationID = 0, OptionSet<IPC::SendOption> = { });
+    
+    template<typename T, typename U>
+    bool send(T&& message, ObjectIdentifier<U> destinationID, OptionSet<IPC::SendOption> sendOptions = { })
+    {
+        return send<T>(WTFMove(message), destinationID.toUInt64(), sendOptions);
+    }
+    
+    template<typename T, typename U>
+    bool sendSync(T&& message, typename T::Reply&& reply, ObjectIdentifier<U> destinationID, Seconds timeout = 1_s, OptionSet<IPC::SendSyncOption> sendSyncOptions = { })
+    {
+        return sendSync<T>(WTFMove(message), WTFMove(reply), destinationID.toUInt64(), timeout, sendSyncOptions);
+    }
 
     IPC::Connection* connection() const
     {
@@ -67,6 +79,18 @@ public:
     void addMessageReceiver(IPC::StringReference messageReceiverName, uint64_t destinationID, IPC::MessageReceiver&);
     void removeMessageReceiver(IPC::StringReference messageReceiverName, uint64_t destinationID);
     void removeMessageReceiver(IPC::StringReference messageReceiverName);
+    
+    template <typename T>
+    void addMessageReceiver(IPC::StringReference messageReceiverName, ObjectIdentifier<T> destinationID, IPC::MessageReceiver& receiver)
+    {
+        addMessageReceiver(messageReceiverName, destinationID.toUInt64(), receiver);
+    }
+    
+    template <typename T>
+    void removeMessageReceiver(IPC::StringReference messageReceiverName, ObjectIdentifier<T> destinationID)
+    {
+        removeMessageReceiver(messageReceiverName, destinationID.toUInt64());
+    }
 
     enum class State {
         Launching,
@@ -74,11 +98,13 @@ public:
         Terminated,
     };
     State state() const;
+    bool isLaunching() const { return state() == State::Launching; }
+    bool wasTerminated() const;
 
     ProcessID processIdentifier() const { return m_processLauncher ? m_processLauncher->processIdentifier() : 0; }
 
     bool canSendMessage() const { return state() != State::Terminated;}
-    bool sendMessage(std::unique_ptr<IPC::Encoder>, OptionSet<IPC::SendOption>);
+    bool sendMessage(std::unique_ptr<IPC::Encoder>, OptionSet<IPC::SendOption>, Optional<std::pair<CompletionHandler<void(IPC::Decoder*)>, uint64_t>>&& asyncReplyInfo = WTF::nullopt);
 
     void shutDownProcess();
 
@@ -92,15 +118,26 @@ protected:
 
     bool dispatchMessage(IPC::Connection&, IPC::Decoder&);
     bool dispatchSyncMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&);
-    
+
+    void logInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName);
+    virtual ASCIILiteral processName() const = 0;
+
     virtual void getLaunchOptions(ProcessLauncher::LaunchOptions&);
     virtual void platformGetLaunchOptions(ProcessLauncher::LaunchOptions&) { };
+
+    struct PendingMessage {
+        std::unique_ptr<IPC::Encoder> encoder;
+        OptionSet<IPC::SendOption> sendOptions;
+        Optional<std::pair<CompletionHandler<void(IPC::Decoder*)>, uint64_t>> asyncReplyInfo;
+    };
+
+    virtual bool shouldSendPendingMessage(const PendingMessage&) { return true; }
 
 private:
     virtual void connectionWillOpen(IPC::Connection&);
     virtual void processWillShutDown(IPC::Connection&) = 0;
 
-    Vector<std::pair<std::unique_ptr<IPC::Encoder>, OptionSet<IPC::SendOption>>> m_pendingMessages;
+    Vector<PendingMessage> m_pendingMessages;
     RefPtr<ProcessLauncher> m_processLauncher;
     RefPtr<IPC::Connection> m_connection;
     IPC::MessageReceiverMap m_messageReceiverMap;
@@ -113,7 +150,7 @@ bool AuxiliaryProcessProxy::send(T&& message, uint64_t destinationID, OptionSet<
 {
     COMPILE_ASSERT(!T::isSync, AsyncMessageExpected);
 
-    auto encoder = std::make_unique<IPC::Encoder>(T::receiverName(), T::name(), destinationID);
+    auto encoder = makeUnique<IPC::Encoder>(T::receiverName(), T::name(), destinationID);
     encoder->encode(message.arguments());
 
     return sendMessage(WTFMove(encoder), sendOptions);
@@ -132,15 +169,21 @@ bool AuxiliaryProcessProxy::sendSync(U&& message, typename U::Reply&& reply, uin
     return connection()->sendSync(std::forward<U>(message), WTFMove(reply), destinationID, timeout, sendSyncOptions);
 }
 
-template<typename T, typename... Args>
-void AuxiliaryProcessProxy::sendWithAsyncReply(T&& message, CompletionHandler<void(Args...)>&& completionHandler)
+template<typename T, typename C>
+void AuxiliaryProcessProxy::sendWithAsyncReply(T&& message, C&& completionHandler, uint64_t destinationID, OptionSet<IPC::SendOption> sendOptions)
 {
-    if (!m_connection) {
-        T::cancelReply(WTFMove(completionHandler));
-        return;
-    }
+    COMPILE_ASSERT(!T::isSync, AsyncMessageExpected);
 
-    connection()->sendWithAsyncReply(std::forward<T>(message), WTFMove(completionHandler));
+    auto encoder = makeUnique<IPC::Encoder>(T::receiverName(), T::name(), destinationID);
+    uint64_t listenerID = IPC::nextAsyncReplyHandlerID();
+    encoder->encode(listenerID);
+    encoder->encode(message.arguments());
+    sendMessage(WTFMove(encoder), sendOptions, {{ [completionHandler = WTFMove(completionHandler)] (IPC::Decoder* decoder) mutable {
+        if (decoder && !decoder->isInvalid())
+            T::callReply(*decoder, WTFMove(completionHandler));
+        else
+            T::cancelReply(WTFMove(completionHandler));
+    }, listenerID }});
 }
     
 } // namespace WebKit

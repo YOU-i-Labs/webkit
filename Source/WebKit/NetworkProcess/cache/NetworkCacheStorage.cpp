@@ -143,6 +143,16 @@ public:
     unsigned activeCount { 0 };
 };
 
+static String makeCachePath(const String& baseCachePath)
+{
+#if PLATFORM(MAC)
+    // Put development cache to a different directory to avoid affecting the system cache.
+    if (!AuxiliaryProcess::isSystemWebKit())
+        return FileSystem::pathByAppendingComponent(baseCachePath, "Development"_s);
+#endif
+    return baseCachePath;
+}
+
 static String makeVersionedDirectoryPath(const String& baseDirectoryPath)
 {
     String versionSubdirectory = makeString(versionDirectoryPrefix, Storage::version);
@@ -164,19 +174,25 @@ static String makeSaltFilePath(const String& baseDirectoryPath)
     return FileSystem::pathByAppendingComponent(makeVersionedDirectoryPath(baseDirectoryPath), saltFileName);
 }
 
-RefPtr<Storage> Storage::open(const String& cachePath, Mode mode)
+RefPtr<Storage> Storage::open(const String& baseCachePath, Mode mode, size_t capacity)
 {
     ASSERT(RunLoop::isMain());
+    ASSERT(!baseCachePath.isNull());
+
+    auto cachePath = makeCachePath(baseCachePath);
 
     if (!FileSystem::makeAllDirectories(makeVersionedDirectoryPath(cachePath)))
         return nullptr;
+
     auto salt = readOrMakeSalt(makeSaltFilePath(cachePath));
     if (!salt)
         return nullptr;
-    return adoptRef(new Storage(cachePath, mode, *salt));
+
+    return adoptRef(new Storage(cachePath, mode, *salt, capacity));
 }
 
-void traverseRecordsFiles(const String& recordsPath, const String& expectedType, const RecordFileTraverseFunction& function)
+using RecordFileTraverseFunction = Function<void (const String& fileName, const String& hashString, const String& type, bool isBlob, const String& recordDirectoryPath)>;
+static void traverseRecordsFiles(const String& recordsPath, const String& expectedType, const RecordFileTraverseFunction& function)
 {
     traverseDirectory(recordsPath, [&](const String& partitionName, DirectoryEntryType entryType) {
         if (entryType != DirectoryEntryType::Directory)
@@ -222,12 +238,12 @@ static void deleteEmptyRecordsDirectories(const String& recordsPath)
     });
 }
 
-Storage::Storage(const String& baseDirectoryPath, Mode mode, Salt salt)
+Storage::Storage(const String& baseDirectoryPath, Mode mode, Salt salt, size_t capacity)
     : m_basePath(baseDirectoryPath)
     , m_recordsPath(makeRecordsDirectoryPath(baseDirectoryPath))
     , m_mode(mode)
     , m_salt(salt)
-    , m_canUseBlobsForForBodyData(isSafeToUseMemoryMapForPath(baseDirectoryPath))
+    , m_capacity(capacity)
     , m_readOperationTimeoutTimer(*this, &Storage::cancelAllReadOperations)
     , m_writeOperationDispatchTimer(*this, &Storage::dispatchPendingWriteOperations)
     , m_ioQueue(WorkQueue::create("com.apple.WebKit.Cache.Storage", WorkQueue::Type::Concurrent))
@@ -251,17 +267,17 @@ Storage::~Storage()
     ASSERT(!m_shrinkInProgress);
 }
 
-String Storage::basePath() const
+String Storage::basePathIsolatedCopy() const
 {
     return m_basePath.isolatedCopy();
 }
 
 String Storage::versionPath() const
 {
-    return makeVersionedDirectoryPath(basePath());
+    return makeVersionedDirectoryPath(basePathIsolatedCopy());
 }
 
-String Storage::recordsPath() const
+String Storage::recordsPathIsolatedCopy() const
 {
     return m_recordsPath.isolatedCopy();
 }
@@ -290,17 +306,16 @@ void Storage::synchronize()
     LOG(NetworkCacheStorage, "(NetworkProcess) synchronizing cache");
 
     backgroundIOQueue().dispatch([this, protectedThis = makeRef(*this)] () mutable {
-        auto recordFilter = std::make_unique<ContentsFilter>();
-        auto blobFilter = std::make_unique<ContentsFilter>();
+        auto recordFilter = makeUnique<ContentsFilter>();
+        auto blobFilter = makeUnique<ContentsFilter>();
 
         // Most of the disk space usage is in blobs if we are using them. Approximate records file sizes to avoid expensive stat() calls.
-        bool shouldComputeExactRecordsSize = !m_canUseBlobsForForBodyData;
         size_t recordsSize = 0;
         unsigned recordCount = 0;
         unsigned blobCount = 0;
 
         String anyType;
-        traverseRecordsFiles(recordsPath(), anyType, [&](const String& fileName, const String& hashString, const String& type, bool isBlob, const String& recordDirectoryPath) {
+        traverseRecordsFiles(recordsPathIsolatedCopy(), anyType, [&](const String& fileName, const String& hashString, const String& type, bool isBlob, const String& recordDirectoryPath) {
             auto filePath = FileSystem::pathByAppendingComponent(recordDirectoryPath, fileName);
 
             Key::HashType hash;
@@ -317,21 +332,14 @@ void Storage::synchronize()
 
             ++recordCount;
 
-            if (shouldComputeExactRecordsSize) {
-                long long fileSize = 0;
-                FileSystem::getFileSize(filePath, fileSize);
-                recordsSize += fileSize;
-            }
-
             recordFilter->add(hash);
         });
 
-        if (!shouldComputeExactRecordsSize)
-            recordsSize = estimateRecordsSize(recordCount, blobCount);
+        recordsSize = estimateRecordsSize(recordCount, blobCount);
 
         m_blobStorage.synchronize();
 
-        deleteEmptyRecordsDirectories(recordsPath());
+        deleteEmptyRecordsDirectories(recordsPathIsolatedCopy());
 
         LOG(NetworkCacheStorage, "(NetworkProcess) cache synchronization completed size=%zu recordCount=%u", recordsSize, recordCount);
 
@@ -348,6 +356,8 @@ void Storage::synchronize()
             m_blobFilter = WTFMove(blobFilter);
             m_approximateRecordsSize = recordsSize;
             m_synchronizationInProgress = false;
+            if (m_mode == Mode::AvoidRandomness)
+                dispatchPendingWriteOperations();
         });
 
     });
@@ -374,15 +384,13 @@ bool Storage::mayContain(const Key& key) const
 bool Storage::mayContainBlob(const Key& key) const
 {
     ASSERT(RunLoop::isMain());
-    if (!m_canUseBlobsForForBodyData)
-        return false;
     return !m_blobFilter || m_blobFilter->mayContain(key.hash());
 }
 
 String Storage::recordDirectoryPathForKey(const Key& key) const
 {
     ASSERT(!key.type().isEmpty());
-    return FileSystem::pathByAppendingComponent(FileSystem::pathByAppendingComponent(recordsPath(), key.partitionHashAsString()), key.type());
+    return FileSystem::pathByAppendingComponent(FileSystem::pathByAppendingComponent(recordsPathIsolatedCopy(), key.partitionHashAsString()), key.type());
 }
 
 String Storage::recordPathForKey(const Key& key) const
@@ -497,7 +505,7 @@ void Storage::readRecord(ReadOperation& readOperation, const Data& recordData)
     }
 
     readOperation.expectedBodyHash = metaData.bodyHash;
-    readOperation.resultRecord = std::make_unique<Storage::Record>(Storage::Record {
+    readOperation.resultRecord = makeUnique<Storage::Record>(Storage::Record {
         metaData.key,
         metaData.timeStamp,
         headerData,
@@ -766,7 +774,7 @@ template <class T> bool retrieveFromMemory(const T& operations, const Key& key, 
         if (operation->record.key == key) {
             LOG(NetworkCacheStorage, "(NetworkProcess) found write operation in progress");
             RunLoop::main().dispatch([record = operation->record, completionHandler = WTFMove(completionHandler)] () mutable {
-                completionHandler(std::make_unique<Storage::Record>(record), { });
+                completionHandler(makeUnique<Storage::Record>(record), { });
             });
             return true;
         }
@@ -791,8 +799,6 @@ void Storage::dispatchPendingWriteOperations()
 
 bool Storage::shouldStoreBodyAsBlob(const Data& bodyData)
 {
-    if (!m_canUseBlobsForForBodyData)
-        return false;
     return bodyData.size() > maximumInlineBodySize;
 }
 
@@ -872,7 +878,7 @@ void Storage::retrieve(const Key& key, unsigned priority, RetrieveCompletionHand
     if (retrieveFromMemory(m_activeWriteOperations, key, completionHandler))
         return;
 
-    auto readOperation = std::make_unique<ReadOperation>(*this, key, WTFMove(completionHandler));
+    auto readOperation = makeUnique<ReadOperation>(*this, key, WTFMove(completionHandler));
 
     readOperation->timings.startTime = MonotonicTime::now();
     readOperation->timings.dispatchCountAtStart = m_readOperationDispatchCount;
@@ -889,14 +895,14 @@ void Storage::store(const Record& record, MappedBodyHandler&& mappedBodyHandler,
     if (!m_capacity)
         return;
 
-    auto writeOperation = std::make_unique<WriteOperation>(*this, record, WTFMove(mappedBodyHandler), WTFMove(completionHandler));
+    auto writeOperation = makeUnique<WriteOperation>(*this, record, WTFMove(mappedBodyHandler), WTFMove(completionHandler));
     m_pendingWriteOperations.prepend(WTFMove(writeOperation));
 
     // Add key to the filter already here as we do lookups from the pending operations too.
     addToRecordFilter(record.key);
 
     bool isInitialWrite = m_pendingWriteOperations.size() == 1;
-    if (!isInitialWrite)
+    if (!isInitialWrite || (m_synchronizationInProgress && m_mode == Mode::AvoidRandomness))
         return;
 
     m_writeOperationDispatchTimer.startOneShot(m_initialWriteDelay);
@@ -908,12 +914,12 @@ void Storage::traverse(const String& type, OptionSet<TraverseFlag> flags, Traver
     ASSERT(traverseHandler);
     // Avoid non-thread safe Function copies.
 
-    auto traverseOperationPtr = std::make_unique<TraverseOperation>(makeRef(*this), type, flags, WTFMove(traverseHandler));
+    auto traverseOperationPtr = makeUnique<TraverseOperation>(makeRef(*this), type, flags, WTFMove(traverseHandler));
     auto& traverseOperation = *traverseOperationPtr;
     m_activeTraverseOperations.add(WTFMove(traverseOperationPtr));
 
     ioQueue().dispatch([this, &traverseOperation] {
-        traverseRecordsFiles(recordsPath(), traverseOperation.type, [this, &traverseOperation](const String& fileName, const String& hashString, const String& type, bool isBlob, const String& recordDirectoryPath) {
+        traverseRecordsFiles(recordsPathIsolatedCopy(), traverseOperation.type, [this, &traverseOperation](const String& fileName, const String& hashString, const String& type, bool isBlob, const String& recordDirectoryPath) {
             ASSERT(type == traverseOperation.type || traverseOperation.type.isEmpty());
             if (isBlob)
                 return;
@@ -981,8 +987,10 @@ void Storage::traverse(const String& type, OptionSet<TraverseFlag> flags, Traver
 void Storage::setCapacity(size_t capacity)
 {
     ASSERT(RunLoop::isMain());
+    if (m_capacity == capacity)
+        return;
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     const size_t assumedAverageRecordSize = 50 << 10;
     size_t maximumRecordCount = capacity / assumedAverageRecordSize;
     // ~10 bits per element are required for <1% false positive rate.
@@ -1008,7 +1016,7 @@ void Storage::clear(const String& type, WallTime modifiedSinceTime, CompletionHa
     m_approximateRecordsSize = 0;
 
     ioQueue().dispatch([this, protectedThis = makeRef(*this), modifiedSinceTime, completionHandler = WTFMove(completionHandler), type = type.isolatedCopy()] () mutable {
-        auto recordsPath = this->recordsPath();
+        auto recordsPath = this->recordsPathIsolatedCopy();
         traverseRecordsFiles(recordsPath, type, [modifiedSinceTime](const String& fileName, const String& hashString, const String& type, bool isBlob, const String& recordDirectoryPath) {
             auto filePath = FileSystem::pathByAppendingComponent(recordDirectoryPath, fileName);
             if (modifiedSinceTime > -WallTime::infinity()) {
@@ -1084,7 +1092,7 @@ void Storage::shrink()
     LOG(NetworkCacheStorage, "(NetworkProcess) shrinking cache approximateSize=%zu capacity=%zu", approximateSize(), m_capacity);
 
     backgroundIOQueue().dispatch([this, protectedThis = makeRef(*this)] () mutable {
-        auto recordsPath = this->recordsPath();
+        auto recordsPath = this->recordsPathIsolatedCopy();
         String anyType;
         traverseRecordsFiles(recordsPath, anyType, [this](const String& fileName, const String& hashString, const String& type, bool isBlob, const String& recordDirectoryPath) {
             if (isBlob)
@@ -1119,8 +1127,7 @@ void Storage::shrink()
 
 void Storage::deleteOldVersions()
 {
-    backgroundIOQueue().dispatch([this, protectedThis = makeRef(*this)] () mutable {
-        auto cachePath = basePath();
+    backgroundIOQueue().dispatch([cachePath = basePathIsolatedCopy()] () mutable {
         traverseDirectory(cachePath, [&cachePath](const String& subdirName, DirectoryEntryType type) {
             if (type != DirectoryEntryType::Directory)
                 return;
@@ -1133,10 +1140,6 @@ void Storage::deleteOldVersions()
                 return;
             if (directoryVersion >= version)
                 return;
-#if PLATFORM(MAC)
-            if (!AuxiliaryProcess::isSystemWebKit() && directoryVersion == lastStableVersion)
-                return;
-#endif
 
             auto oldVersionPath = FileSystem::pathByAppendingComponent(cachePath, subdirName);
             LOG(NetworkCacheStorage, "(NetworkProcess) deleting old cache version, path %s", oldVersionPath.utf8().data());

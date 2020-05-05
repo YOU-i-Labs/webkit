@@ -1,12 +1,14 @@
 //
-// Copyright (c) 2002-2012 The ANGLE Project Authors. All rights reserved.
+// Copyright 2002 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
+
 #include "gtest/gtest.h"
+
 #include "angle_gl.h"
-#include "common/utilities.h"
 #include "common/angleutils.h"
+#include "common/utilities.h"
 #include "compiler/translator/VariablePacker.h"
 
 namespace

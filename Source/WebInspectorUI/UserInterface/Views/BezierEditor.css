@@ -28,45 +28,29 @@
     height: 258px;
 
     --bezier-editor-preview-translateX: 170px;
-    --bezier-editor-preview-timing-margin-start: 11px;
-}
-
-body[dir=ltr] .bezier-editor {
-    --bezier-editor-preview-translateX-animate: var(--bezier-editor-preview-translateX);
-}
-
-body[dir=rtl] .bezier-editor {
-    --bezier-editor-preview-translateX-animate: calc(-1 * var(--bezier-editor-preview-translateX));
 }
 
 .bezier-editor > .bezier-preview {
     width: calc(100% - 10px);
     height: 25px;
     margin: 5px 5px 0;
-    border-bottom: 1px solid lightgrey;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .bezier-editor > .bezier-preview > div {
     width: 20px;
     height: 20px;
-    background-color: var(--selected-background-color);
+    background-color: var(--glyph-color-active);
     border-radius: 50%;
 }
 
 .bezier-editor > .bezier-preview-timing {
     position: absolute;
     top: 34px;
+    -webkit-margin-start: 11px;
     border-left: 4px solid transparent;
     border-right: 4px solid transparent;
-    border-top: 4px solid black;
-}
-
-body[dir=ltr] .bezier-editor > .bezier-preview-timing {
-    margin-left: var(--bezier-editor-preview-timing-margin-start);
-}
-
-body[dir=rtl] .bezier-editor > .bezier-preview-timing {
-    margin-right: var(--bezier-editor-preview-timing-margin-start);
+    border-top: 4px solid var(--text-color);
 }
 
 .bezier-editor > .bezier-preview.animate > div,
@@ -77,42 +61,38 @@ body[dir=rtl] .bezier-editor > .bezier-preview-timing {
 @keyframes bezierPreview {
     from { transform: translateX(0); }
     10% { transform: translateX(0); }
-    90% { transform: translateX(var(--bezier-editor-preview-translateX-animate)); }
-    to { transform: translateX(var(--bezier-editor-preview-translateX-animate)); }
+    90% { transform: translateX(var(--bezier-editor-preview-translateX)); }
+    to { transform: translateX(var(--bezier-editor-preview-translateX)); }
 }
 
 .bezier-editor > .bezier-container {
     margin: 0 8px;
 }
 
-body[dir=rtl] .bezier-editor > .bezier-container {
-    transform: scaleX(-1);
-}
-
 .bezier-editor > .bezier-container .linear-curve {
     fill: none;
-    stroke:lightgrey;
+    stroke: var(--text-color-quaternary);
     stroke-width: 2;
     stroke-linecap: round;
 }
 
 .bezier-editor > .bezier-container .bezier-curve {
     fill: none;
-    stroke: black;
+    stroke: var(--text-color);
     stroke-width: 2;
     stroke-linecap: round;
 }
 
 .bezier-editor > .bezier-container .control-line {
     fill: none;
-    stroke: hsl(210, 100%, 49%);
+    stroke: var(--glyph-color-active);
     stroke-width: 2;
     stroke-linecap: round;
 }
 
 .bezier-editor > .bezier-container .control-handle {
     r: 5px;
-    fill: hsl(210, 100%, 49%);
+    fill: var(--glyph-color-active);
 }
 
 .bezier-editor > .bezier-container .control-handle.selected {
@@ -124,58 +104,12 @@ body[dir=rtl] .bezier-editor > .bezier-container {
     width: calc(100% - 10px);
     margin: 0 5px;
     padding-top: 7px;
-    border-top: 1px solid lightgrey;
+    border-top: 1px solid var(--border-color);
 }
 
 .bezier-editor > .number-input-container > input {
     width: 100%;
     margin: 0 2px;
     padding: 1px 0 1px;
-    text-align: right;
-    font-size: 12px;
-    background-color: white;
-    border: 1px solid hsl(0, 0%, 60%);
-    border-radius: 4px;
-    box-shadow: inset 0 0 1px 1px hsl(0, 0%, 89%);
-    outline: none;
-
-    --bezier-editor-number-input-padding-start: 1px;
-}
-
-body[dir=ltr] .bezier-editor > .number-input-container > input {
-    padding-left: var(--bezier-editor-number-input-padding-start);
-}
-
-body[dir=rtl] .bezier-editor > .number-input-container > input {
-    padding-right: var(--bezier-editor-number-input-padding-start);
-}
-
-@media (prefers-color-scheme: dark) {
-    .bezier-editor > .bezier-preview-timing {
-        border-top-color: var(--text-color-tertiary);
-    }
-
-    .bezier-editor > .bezier-container .bezier-curve {
-        stroke: white;
-    }
-
-    .bezier-editor > .bezier-container .linear-curve {
-        stroke: var(--text-color-tertiary);
-    }
-
-    .bezier-editor > .bezier-preview {
-        border-bottom-color: var(--text-color-tertiary);
-    }
-
-    .bezier-editor > .bezier-preview > div {
-        background-color: var(--selected-background-color-active);
-    }
-
-    .bezier-editor > .bezier-container .control-handle {
-        fill: var(--selected-background-color-active);
-    }
-
-    .bezier-editor > .bezier-container .control-line {
-        stroke: var(--selected-background-color-active);
-    }
+    text-align: end;
 }

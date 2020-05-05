@@ -29,7 +29,7 @@
 #include "SandboxExtension.h"
 #include "TextCheckerState.h"
 #include "UserData.h"
-#include <pal/SessionID.h>
+#include "WebProcessDataStoreParameters.h"
 #include <wtf/HashMap.h>
 #include <wtf/ProcessID.h>
 #include <wtf/RetainPtr.h>
@@ -47,8 +47,12 @@
 #endif
 
 #if USE(SOUP)
-#include "HTTPCookieAcceptPolicy.h"
+#include <WebCore/HTTPCookieAcceptPolicy.h>
 #include <WebCore/SoupNetworkProxySettings.h>
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+#include <WebCore/RenderThemeIOS.h>
 #endif
 
 namespace API {
@@ -65,6 +69,8 @@ namespace WebKit {
 struct WebProcessCreationParameters {
     WebProcessCreationParameters();
     ~WebProcessCreationParameters();
+    WebProcessCreationParameters(WebProcessCreationParameters&&);
+    WebProcessCreationParameters& operator=(WebProcessCreationParameters&&);
 
     void encode(IPC::Encoder&) const;
     static bool decode(IPC::Decoder&, WebProcessCreationParameters&);
@@ -75,28 +81,14 @@ struct WebProcessCreationParameters {
 
     UserData initializationUserData;
 
-    String applicationCacheDirectory;
-    String applicationCacheFlatFileSubdirectoryName;
-    SandboxExtension::Handle applicationCacheDirectoryExtensionHandle;
-    String webSQLDatabaseDirectory;
-    SandboxExtension::Handle webSQLDatabaseDirectoryExtensionHandle;
-    String mediaCacheDirectory;
-    SandboxExtension::Handle mediaCacheDirectoryExtensionHandle;
-    String javaScriptConfigurationDirectory;
-    SandboxExtension::Handle javaScriptConfigurationDirectoryExtensionHandle;
 #if PLATFORM(IOS_FAMILY)
     SandboxExtension::Handle cookieStorageDirectoryExtensionHandle;
     SandboxExtension::Handle containerCachesDirectoryExtensionHandle;
     SandboxExtension::Handle containerTemporaryDirectoryExtensionHandle;
 #endif
-    SandboxExtension::Handle mediaKeyStorageDirectoryExtensionHandle;
 #if ENABLE(MEDIA_STREAM)
     SandboxExtension::Handle audioCaptureExtensionHandle;
-    bool shouldCaptureAudioInUIProcess { false };
-    bool shouldCaptureVideoInUIProcess { false };
-    bool shouldCaptureDisplayInUIProcess { false };
 #endif
-    String mediaKeyStorageDirectory;
 
     String webCoreLoggingChannels;
     String webKitLoggingChannels;
@@ -123,12 +115,12 @@ struct WebProcessCreationParameters {
     CacheModel cacheModel;
 
     double defaultRequestTimeoutInterval { INT_MAX };
+    unsigned backForwardCacheCapacity { 0 };
 
     bool shouldAlwaysUseComplexTextCodePath { false };
     bool shouldEnableMemoryPressureReliefLogging { false };
     bool shouldSuppressMemoryPressureHandler { false };
     bool shouldUseFontSmoothing { true };
-    bool resourceLoadStatisticsEnabled { false };
     bool fullKeyboardAccessEnabled { false };
     bool memoryCacheDisabled { false };
     bool attrStyleEnabled { false };
@@ -167,7 +159,6 @@ struct WebProcessCreationParameters {
     HashMap<String, bool> notificationPermissions;
 #endif
 
-    HashMap<PAL::SessionID, HashMap<unsigned, WallTime>> plugInAutoStartOriginHashes;
     Vector<String> plugInAutoStartOrigins;
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
@@ -199,9 +190,32 @@ struct WebProcessCreationParameters {
     bool useOverlayScrollbars { true };
 #endif
 
-#if PLATFORM(WPE)
+#if USE(WPE_RENDERER)
+    bool isServiceWorkerProcess { false };
     IPC::Attachment hostClientFileDescriptor;
     CString implementationLibraryName;
+#endif
+
+    Optional<WebProcessDataStoreParameters> websiteDataStoreParameters;
+    
+#if PLATFORM(IOS)
+    Optional<SandboxExtension::Handle> compilerServiceExtensionHandle;
+    Optional<SandboxExtension::Handle> contentFilterExtensionHandle;
+    Optional<SandboxExtension::Handle> launchServicesOpenExtensionHandle;
+    Optional<SandboxExtension::Handle> diagnosticsExtensionHandle;
+#endif
+
+#if PLATFORM(COCOA)
+    Optional<SandboxExtension::Handle> neHelperExtensionHandle;
+    Optional<SandboxExtension::Handle> neSessionManagerExtensionHandle;
+    bool systemHasBattery { false };
+    Optional<HashMap<String, Vector<String>, ASCIICaseInsensitiveHash>> mimeTypesMap;
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+    bool currentUserInterfaceIdiomIsPad { false };
+    WebCore::RenderThemeIOS::CSSValueToSystemColorMap cssValueToSystemColorMap;
+    WebCore::Color focusRingColor;
 #endif
 };
 

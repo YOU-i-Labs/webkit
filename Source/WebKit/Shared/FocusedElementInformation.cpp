@@ -63,7 +63,8 @@ Optional<OptionItem> OptionItem::decode(IPC::Decoder& decoder)
 
 void FocusedElementInformation::encode(IPC::Encoder& encoder) const
 {
-    encoder << elementRect;
+    encoder << interactionRect;
+    encoder << elementContext;
     encoder << lastInteractionLocation;
     encoder << minimumScaleFactor;
     encoder << maximumScaleFactor;
@@ -78,6 +79,7 @@ void FocusedElementInformation::encode(IPC::Encoder& encoder) const
     encoder.encodeEnum(autocapitalizeType);
     encoder.encodeEnum(elementType);
     encoder.encodeEnum(inputMode);
+    encoder.encodeEnum(enterKeyHint);
     encoder << formAction;
     encoder << selectOptions;
     encoder << selectedIndex;
@@ -91,7 +93,6 @@ void FocusedElementInformation::encode(IPC::Encoder& encoder) const
     encoder << title;
     encoder << acceptsAutofilledLoginCredentials;
     encoder << isAutofillableUsernameField;
-    encoder << elementIsTransparentOrFullyClipped;
     encoder << representingPageURL;
     encoder.encodeEnum(autofillFieldName);
     encoder << placeholder;
@@ -105,11 +106,19 @@ void FocusedElementInformation::encode(IPC::Encoder& encoder) const
     encoder << suggestedColors;
 #endif
 #endif
+    encoder << shouldSynthesizeKeyEventsForEditing;
+    encoder << isSpellCheckingEnabled;
+    encoder << shouldAvoidResizingWhenInputViewBoundsChange;
+    encoder << shouldAvoidScrollingWhenFocusedContentIsVisible;
+    encoder << shouldUseLegacySelectPopoverDismissalBehaviorInDataActivation;
 }
 
 bool FocusedElementInformation::decode(IPC::Decoder& decoder, FocusedElementInformation& result)
 {
-    if (!decoder.decode(result.elementRect))
+    if (!decoder.decode(result.interactionRect))
+        return false;
+
+    if (!decoder.decode(result.elementContext))
         return false;
 
     if (!decoder.decode(result.lastInteractionLocation))
@@ -154,6 +163,9 @@ bool FocusedElementInformation::decode(IPC::Decoder& decoder, FocusedElementInfo
     if (!decoder.decodeEnum(result.inputMode))
         return false;
 
+    if (!decoder.decodeEnum(result.enterKeyHint))
+        return false;
+
     if (!decoder.decode(result.formAction))
         return false;
 
@@ -193,9 +205,6 @@ bool FocusedElementInformation::decode(IPC::Decoder& decoder, FocusedElementInfo
     if (!decoder.decode(result.isAutofillableUsernameField))
         return false;
 
-    if (!decoder.decode(result.elementIsTransparentOrFullyClipped))
-        return false;
-
     if (!decoder.decode(result.representingPageURL))
         return false;
 
@@ -226,6 +235,20 @@ bool FocusedElementInformation::decode(IPC::Decoder& decoder, FocusedElementInfo
         return false;
 #endif
 #endif
+    if (!decoder.decode(result.shouldSynthesizeKeyEventsForEditing))
+        return false;
+
+    if (!decoder.decode(result.isSpellCheckingEnabled))
+        return false;
+
+    if (!decoder.decode(result.shouldAvoidResizingWhenInputViewBoundsChange))
+        return false;
+
+    if (!decoder.decode(result.shouldAvoidScrollingWhenFocusedContentIsVisible))
+        return false;
+
+    if (!decoder.decode(result.shouldUseLegacySelectPopoverDismissalBehaviorInDataActivation))
+        return false;
 
     return true;
 }

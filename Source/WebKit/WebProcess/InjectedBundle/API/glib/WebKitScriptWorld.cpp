@@ -69,7 +69,7 @@ static void webkit_script_world_class_init(WebKitScriptWorldClass* klass)
      * cleared. This is the preferred place to set custom properties on the window
      * object using the JavaScriptCore API. You can get the window object of @frame
      * from the JavaScript execution context of @world that is returned by
-     * webkit_frame_get_javascript_context_for_script_world().
+     * webkit_frame_get_js_context_for_script_world().
      *
      * Since: 2.2
      */
@@ -152,7 +152,7 @@ WebKitScriptWorld* webkit_script_world_get_default(void)
  */
 WebKitScriptWorld* webkit_script_world_new(void)
 {
-    return webkitScriptWorldCreate(InjectedBundleScriptWorld::create());
+    return webkitScriptWorldCreate(InjectedBundleScriptWorld::create(InjectedBundleScriptWorld::Type::User));
 }
 
 /**
@@ -173,7 +173,7 @@ WebKitScriptWorld* webkit_script_world_new_with_name(const char* name)
 {
     g_return_val_if_fail(name, nullptr);
 
-    return webkitScriptWorldCreate(InjectedBundleScriptWorld::create(String::fromUTF8(name)));
+    return webkitScriptWorldCreate(InjectedBundleScriptWorld::create(String::fromUTF8(name), InjectedBundleScriptWorld::Type::User));
 }
 
 /**

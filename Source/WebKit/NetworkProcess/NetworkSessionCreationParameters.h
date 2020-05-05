@@ -26,6 +26,8 @@
 #pragma once
 
 #include "SandboxExtension.h"
+#include <WebCore/NetworkStorageSession.h>
+#include <WebCore/RegistrableDomain.h>
 #include <pal/SessionID.h>
 #include <wtf/Seconds.h>
 #include <wtf/URL.h>
@@ -56,7 +58,6 @@ enum class AllowsCellularAccess : bool { No, Yes };
 struct NetworkSessionCreationParameters {
     void encode(IPC::Encoder&) const;
     static Optional<NetworkSessionCreationParameters> decode(IPC::Decoder&);
-    static NetworkSessionCreationParameters privateSessionParameters(const PAL::SessionID&);
     
     PAL::SessionID sessionID { PAL::SessionID::defaultSessionID() };
     String boundInterfaceIdentifier;
@@ -81,6 +82,27 @@ struct NetworkSessionCreationParameters {
     String resourceLoadStatisticsDirectory;
     SandboxExtension::Handle resourceLoadStatisticsDirectoryExtensionHandle;
     bool enableResourceLoadStatistics { false };
+    bool enableResourceLoadStatisticsLogTestingEvent { false };
+    bool shouldIncludeLocalhostInResourceLoadStatistics { true };
+    bool enableResourceLoadStatisticsDebugMode { false };
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    WebCore::ThirdPartyCookieBlockingMode thirdPartyCookieBlockingMode { WebCore::ThirdPartyCookieBlockingMode::All };
+#endif
+    WebCore::FirstPartyWebsiteDataRemovalMode firstPartyWebsiteDataRemovalMode { WebCore::FirstPartyWebsiteDataRemovalMode::AllButCookies };
+    bool deviceManagementRestrictionsEnabled { false };
+    bool allLoadsBlockedByDeviceManagementRestrictionsForTesting { false };
+    WebCore::RegistrableDomain resourceLoadStatisticsManualPrevalentResource { };
+
+    String networkCacheDirectory;
+    SandboxExtension::Handle networkCacheDirectoryExtensionHandle;
+    String dataConnectionServiceType;
+    bool fastServerTrustEvaluationEnabled { false };
+    bool networkCacheSpeculativeValidationEnabled { false };
+    bool shouldUseTestingNetworkSession { false };
+    bool staleWhileRevalidateEnabled { false };
+    unsigned testSpeedMultiplier { 1 };
+    bool suppressesConnectionTerminationOnSystemChange { false };
+    bool allowsServerPreconnect { true };
 };
 
 } // namespace WebKit

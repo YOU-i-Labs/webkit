@@ -61,12 +61,12 @@ ViewGestureGeometryCollector::ViewGestureGeometryCollector(WebPage& webPage)
     , m_renderTreeSizeNotificationThreshold(0)
 #endif
 {
-    WebProcess::singleton().addMessageReceiver(Messages::ViewGestureGeometryCollector::messageReceiverName(), m_webPage.pageID(), *this);
+    WebProcess::singleton().addMessageReceiver(Messages::ViewGestureGeometryCollector::messageReceiverName(), m_webPage.identifier(), *this);
 }
 
 ViewGestureGeometryCollector::~ViewGestureGeometryCollector()
 {
-    WebProcess::singleton().removeMessageReceiver(Messages::ViewGestureGeometryCollector::messageReceiverName(), m_webPage.pageID());
+    WebProcess::singleton().removeMessageReceiver(Messages::ViewGestureGeometryCollector::messageReceiverName(), m_webPage.identifier());
 }
 
 void ViewGestureGeometryCollector::dispatchDidCollectGeometryForSmartMagnificationGesture(FloatPoint origin, FloatRect targetRect, FloatRect visibleContentRect, bool fitEntireRect, double viewportMinimumScale, double viewportMaximumScale)
@@ -115,7 +115,7 @@ void ViewGestureGeometryCollector::collectGeometryForSmartMagnificationGesture(F
     IntPoint originInContentsSpace = m_webPage.mainFrameView()->windowToContents(roundedIntPoint(origin));
     HitTestResult hitTestResult = HitTestResult(originInContentsSpace);
 
-    m_webPage.mainFrameView()->renderView()->hitTest(HitTestRequest(), hitTestResult);
+    m_webPage.mainFrame()->document()->hitTest(HitTestRequest(), hitTestResult);
     Node* node = hitTestResult.innerNode();
     if (!node) {
         dispatchDidCollectGeometryForSmartMagnificationGesture(FloatPoint(), FloatRect(), FloatRect(), false, 0, 0);

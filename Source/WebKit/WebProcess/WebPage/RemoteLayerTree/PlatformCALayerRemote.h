@@ -174,6 +174,8 @@ public:
     WebCore::GraphicsLayer::CustomAppearance customAppearance() const override;
     void updateCustomAppearance(WebCore::GraphicsLayer::CustomAppearance) override;
 
+    void setEventRegion(const WebCore::EventRegion&) override;
+
     WebCore::GraphicsLayer::EmbeddedViewID embeddedViewID() const override;
 
     WebCore::TiledBacking* tiledBacking() override { return nullptr; }
@@ -182,7 +184,7 @@ public:
 
     Ref<PlatformCALayer> createCompatibleLayer(WebCore::PlatformCALayer::LayerType, WebCore::PlatformCALayerClient*) const override;
 
-    void enumerateRectsBeingDrawn(CGContextRef, void (^block)(CGRect)) override;
+    void enumerateRectsBeingDrawn(WebCore::GraphicsContext&, void (^block)(WebCore::FloatRect)) override;
 
     virtual uint32_t hostingContextID();
 
@@ -195,6 +197,7 @@ public:
 
     void didCommit();
 
+    void moveToContext(RemoteLayerTreeContext&);
     void clearContext() { m_context = nullptr; }
     RemoteLayerTreeContext* context() const { return m_context; }
 

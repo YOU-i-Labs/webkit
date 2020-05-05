@@ -78,7 +78,7 @@ RefPtr<InjectedBundleRangeHandle> InjectedBundleRangeHandle::getOrCreate(Range* 
 
     auto rangeHandle = InjectedBundleRangeHandle::create(*range);
     result.iterator->value = rangeHandle.ptr();
-    return WTFMove(rangeHandle);
+    return rangeHandle;
 }
 
 Ref<InjectedBundleRangeHandle> InjectedBundleRangeHandle::create(Range& range)
@@ -143,6 +143,9 @@ RefPtr<WebImage> InjectedBundleRangeHandle::renderedImage(SnapshotOptions option
         return nullptr;
 
     auto graphicsContext = backingStore->createGraphicsContext();
+    if (!graphicsContext)
+        return nullptr;
+
     graphicsContext->scale(scaleFactor);
 
     paintRect.move(frameView->frameRect().x(), frameView->frameRect().y());

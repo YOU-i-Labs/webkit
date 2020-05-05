@@ -25,10 +25,8 @@
 
 #include "config.h"
 
-#if! PLATFORM(WIN)
-#include "PlatformUtilities.h"
-#endif
 #include "RefLogger.h"
+#include "Utilities.h"
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RefCounted.h>
@@ -393,7 +391,7 @@ TEST(WTF_RefPtr, Release)
     EXPECT_STREQ("ref(a) ref(c) | deref(a) | deref(c) ", takeLogStr().c_str());
 }
 
-RefPtr<RefLogger> f1(RefLogger& logger)
+static RefPtr<RefLogger> f1(RefLogger& logger)
 {
     return RefPtr<RefLogger>(&logger);
 }
@@ -417,12 +415,12 @@ struct ConstRefCounted : RefCounted<ConstRefCounted> {
     static Ref<ConstRefCounted> create() { return adoptRef(*new ConstRefCounted); }
 };
 
-const ConstRefCounted& returnConstRefCountedRef()
+static const ConstRefCounted& returnConstRefCountedRef()
 {
     static NeverDestroyed<ConstRefCounted> instance;
     return instance.get();
 }
-ConstRefCounted& returnRefCountedRef()
+static ConstRefCounted& returnRefCountedRef()
 {
     static NeverDestroyed<ConstRefCounted> instance;
     return instance.get();

@@ -21,7 +21,9 @@
 
 #include <cairo.h>
 #include <glib-object.h>
+#include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/Vector.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/text/CString.h>
@@ -78,6 +80,19 @@
         }                                                                \
     } while (0)
 
+#if !defined(g_assert_cmpfloat_with_epsilon)
+#define g_assert_cmpfloat_with_epsilon(n1,n2,epsilon)                   \
+    do {                                                                \
+        double __n1 = (n1);                                             \
+        double __n2 = (n2);                                             \
+        double __epsilon = (epsilon);                                   \
+        if ((((__n1) > (__n2) ? (__n1) - (__n2) : (__n2) - (__n1)) < (__epsilon))) ; \
+        else {                                                          \
+            g_assertion_message_cmpnum (G_LOG_DOMAIN, __FILE__, __LINE__, \
+                G_STRFUNC, #n1 " == " #n2 " (+/- " #epsilon ")", __n1, "==", __n2, 'f'); \
+        }                                                               \
+    } while(0)
+#endif
 
 class Test {
 public:
@@ -108,12 +123,19 @@ public:
         GUniquePtr<char> diskCacheDirectory(g_build_filename(dataDirectory(), "disk-cache", nullptr));
         GUniquePtr<char> applicationCacheDirectory(g_build_filename(dataDirectory(), "appcache", nullptr));
         GUniquePtr<char> webSQLDirectory(g_build_filename(dataDirectory(), "websql", nullptr));
+        GUniquePtr<char> hstsDirectory(g_build_filename(dataDirectory(), "hsts", nullptr));
         GRefPtr<WebKitWebsiteDataManager> websiteDataManager = adoptGRef(webkit_website_data_manager_new(
             "local-storage-directory", localStorageDirectory.get(), "indexeddb-directory", indexedDBDirectory.get(),
             "disk-cache-directory", diskCacheDirectory.get(), "offline-application-cache-directory", applicationCacheDirectory.get(),
-            "websql-directory", webSQLDirectory.get(), nullptr));
+            "websql-directory", webSQLDirectory.get(), "hsts-cache-directory", hstsDirectory.get(), nullptr));
 
-        m_webContext = adoptGRef(webkit_web_context_new_with_website_data_manager(websiteDataManager.get()));
+        m_webContext = adoptGRef(WEBKIT_WEB_CONTEXT(g_object_new(WEBKIT_TYPE_WEB_CONTEXT,
+            "website-data-manager", websiteDataManager.get(),
+#if PLATFORM(GTK)
+            "process-swap-on-cross-site-navigation-enabled", TRUE,
+#endif
+            nullptr)));
+        assertObjectIsDeletedWhenTestFinishes(G_OBJECT(m_webContext.get()));
         g_signal_connect(m_webContext.get(), "initialize-web-extensions", G_CALLBACK(initializeWebExtensionsCallback), this);
     }
 
@@ -127,7 +149,7 @@ public:
         g_print("Leaked objects:");
         HashSet<GObject*>::const_iterator end = m_watchedObjects.end();
         for (HashSet<GObject*>::const_iterator it = m_watchedObjects.begin(); it != end; ++it)
-            g_print(" %s(%p)", g_type_name_from_instance(reinterpret_cast<GTypeInstance*>(*it)), *it);
+            g_print(" %s(%p - %u left)", g_type_name_from_instance(reinterpret_cast<GTypeInstance*>(*it)), *it, (*it)->ref_count);
         g_print("\n");
 
         g_assert_true(m_watchedObjects.isEmpty());
@@ -136,13 +158,17 @@ public:
     virtual void initializeWebExtensions()
     {
         webkit_web_context_set_web_extensions_directory(m_webContext.get(), WEBKIT_TEST_WEB_EXTENSIONS_DIR);
-        webkit_web_context_set_web_extensions_initialization_user_data(m_webContext.get(), g_variant_new_uint32(++s_webExtensionID));
+        webkit_web_context_set_web_extensions_initialization_user_data(m_webContext.get(),
+            g_variant_new("(ss)", g_dbus_server_get_guid(s_dbusServer.get()), g_dbus_server_get_client_address(s_dbusServer.get())));
     }
 
 #if PLATFORM(WPE)
     static WebKitWebViewBackend* createWebViewBackend()
     {
+        // Don't make warnings fatal when creating the backend, since atk produces warnings when a11y bus is not running.
+        removeLogFatalFlag(G_LOG_LEVEL_WARNING);
         auto* headlessBackend = new WPEToolingBackends::HeadlessViewBackend(800, 600);
+        addLogFatalFlag(G_LOG_LEVEL_WARNING);
         // Make the view initially hidden for consistency with GTK+ tests.
         wpe_view_backend_remove_activity_state(headlessBackend->backend(), wpe_view_activity_state_visible | wpe_view_activity_state_focused);
         return webkit_web_view_backend_new(headlessBackend->backend(), [](gpointer userData) {
@@ -228,14 +254,14 @@ public:
         RELEASE_ASSERT_NOT_REACHED();
     }
 
-    void addLogFatalFlag(unsigned flag)
+    static void addLogFatalFlag(unsigned flag)
     {
         unsigned fatalMask = g_log_set_always_fatal(static_cast<GLogLevelFlags>(G_LOG_FATAL_MASK));
         fatalMask |= flag;
         g_log_set_always_fatal(static_cast<GLogLevelFlags>(fatalMask));
     }
 
-    void removeLogFatalFlag(unsigned flag)
+    static void removeLogFatalFlag(unsigned flag)
     {
         unsigned fatalMask = g_log_set_always_fatal(static_cast<GLogLevelFlags>(G_LOG_FATAL_MASK));
         fatalMask &= ~flag;
@@ -255,5 +281,7 @@ public:
 
     HashSet<GObject*> m_watchedObjects;
     GRefPtr<WebKitWebContext> m_webContext;
-    static uint32_t s_webExtensionID;
+    static GRefPtr<GDBusServer> s_dbusServer;
+    static Vector<GRefPtr<GDBusConnection>> s_dbusConnections;
+    static HashMap<uint64_t, GDBusConnection*> s_dbusConnectionPageMap;
 };

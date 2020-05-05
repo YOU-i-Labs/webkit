@@ -47,6 +47,7 @@
 #include "WebsitePoliciesData.h"
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/JSContextRef.h>
+#include <JavaScriptCore/JSGlobalObjectInlines.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/JSValueRef.h>
 #include <WebCore/ArchiveResource.h>
@@ -95,12 +96,6 @@ using namespace WebCore;
 
 DEFINE_DEBUG_ONLY_GLOBAL(WTF::RefCountedLeakCounter, webFrameCounter, ("WebFrame"));
 
-static uint64_t generateFrameID()
-{
-    static uint64_t uniqueFrameID = 1;
-    return uniqueFrameID++;
-}
-
 static uint64_t generateListenerID()
 {
     static uint64_t uniqueListenerID = 1;
@@ -110,7 +105,7 @@ static uint64_t generateListenerID()
 Ref<WebFrame> WebFrame::createWithCoreMainFrame(WebPage* page, WebCore::Frame* coreFrame)
 {
     auto frame = create(std::unique_ptr<WebFrameLoaderClient>(static_cast<WebFrameLoaderClient*>(&coreFrame->loader().client())));
-    page->send(Messages::WebPageProxy::DidCreateMainFrame(frame->frameID()), page->pageID());
+    page->send(Messages::WebPageProxy::DidCreateMainFrame(frame->frameID()));
 
     frame->m_coreFrame = coreFrame;
     frame->m_coreFrame->tree().setName(String());
@@ -120,8 +115,8 @@ Ref<WebFrame> WebFrame::createWithCoreMainFrame(WebPage* page, WebCore::Frame* c
 
 Ref<WebFrame> WebFrame::createSubframe(WebPage* page, const String& frameName, HTMLFrameOwnerElement* ownerElement)
 {
-    auto frame = create(std::make_unique<WebFrameLoaderClient>());
-    page->send(Messages::WebPageProxy::DidCreateSubframe(frame->frameID()), page->pageID());
+    auto frame = create(makeUnique<WebFrameLoaderClient>());
+    page->send(Messages::WebPageProxy::DidCreateSubframe(frame->frameID()));
 
     auto coreFrame = Frame::create(page->corePage(), ownerElement, frame->m_frameLoaderClient.get());
     frame->m_coreFrame = coreFrame.ptr();
@@ -148,7 +143,7 @@ Ref<WebFrame> WebFrame::create(std::unique_ptr<WebFrameLoaderClient> frameLoader
 
 WebFrame::WebFrame(std::unique_ptr<WebFrameLoaderClient> frameLoaderClient)
     : m_frameLoaderClient(WTFMove(frameLoaderClient))
-    , m_frameID(generateFrameID())
+    , m_frameID(FrameIdentifier::generate())
 {
     m_frameLoaderClient->setWebFrame(this);
     WebProcess::singleton().addWebFrame(m_frameID, this);
@@ -176,13 +171,13 @@ WebPage* WebFrame::page() const
     if (!m_coreFrame)
         return nullptr;
     
-    if (Page* page = m_coreFrame->page())
-        return WebPage::fromCorePage(page);
+    if (auto* page = m_coreFrame->page())
+        return &WebPage::fromCorePage(*page);
 
     return nullptr;
 }
 
-WebFrame* WebFrame::fromCoreFrame(Frame& frame)
+WebFrame* WebFrame::fromCoreFrame(const Frame& frame)
 {
     auto* webFrameLoaderClient = toWebFrameLoaderClient(frame.loader().client());
     if (!webFrameLoaderClient)
@@ -289,12 +284,10 @@ void WebFrame::startDownload(const WebCore::ResourceRequest& request, const Stri
     auto policyDownloadID = m_policyDownloadID;
     m_policyDownloadID = { };
 
-    auto& webProcess = WebProcess::singleton();
-    PAL::SessionID sessionID = page() ? page()->sessionID() : PAL::SessionID::defaultSessionID();
-    webProcess.ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::StartDownload(sessionID, policyDownloadID, request, suggestedName), 0);
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::StartDownload(policyDownloadID, request, suggestedName), 0);
 }
 
-void WebFrame::convertMainResourceLoadToDownload(DocumentLoader* documentLoader, PAL::SessionID sessionID, const ResourceRequest& request, const ResourceResponse& response)
+void WebFrame::convertMainResourceLoadToDownload(DocumentLoader* documentLoader, const ResourceRequest& request, const ResourceResponse& response)
 {
     ASSERT(m_policyDownloadID.downloadID());
 
@@ -313,7 +306,7 @@ void WebFrame::convertMainResourceLoadToDownload(DocumentLoader* documentLoader,
     else
         mainResourceLoadIdentifier = 0;
 
-    webProcess.ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::ConvertMainResourceLoadToDownload(sessionID, mainResourceLoadIdentifier, policyDownloadID, request, response), 0);
+    webProcess.ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::ConvertMainResourceLoadToDownload(mainResourceLoadIdentifier, policyDownloadID, request, response), 0);
 }
 
 void WebFrame::addConsoleMessage(MessageSource messageSource, MessageLevel messageLevel, const String& message, uint64_t requestID)
@@ -520,12 +513,18 @@ bool WebFrame::allowsFollowingLink(const URL& url) const
 
 JSGlobalContextRef WebFrame::jsContext()
 {
-    return toGlobalRef(m_coreFrame->script().globalObject(mainThreadNormalWorld())->globalExec());
+    if (!m_coreFrame)
+        return nullptr;
+
+    return toGlobalRef(m_coreFrame->script().globalObject(mainThreadNormalWorld()));
 }
 
 JSGlobalContextRef WebFrame::jsContextForWorld(InjectedBundleScriptWorld* world)
 {
-    return toGlobalRef(m_coreFrame->script().globalObject(world->coreWorld())->globalExec());
+    if (!m_coreFrame)
+        return nullptr;
+
+    return toGlobalRef(m_coreFrame->script().globalObject(world->coreWorld()));
 }
 
 bool WebFrame::handlesPageScaleGesture() const
@@ -638,7 +637,7 @@ RefPtr<InjectedBundleHitTestResult> WebFrame::hitTest(const IntPoint point) cons
     if (!m_coreFrame)
         return nullptr;
 
-    return InjectedBundleHitTestResult::create(m_coreFrame->eventHandler().hitTestResultAtPoint(point, HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::IgnoreClipping | HitTestRequest::DisallowUserAgentShadowContent));
+    return InjectedBundleHitTestResult::create(m_coreFrame->eventHandler().hitTestResultAtPoint(point, HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::IgnoreClipping | HitTestRequest::DisallowUserAgentShadowContent | HitTestRequest::AllowChildFrameContent));
 }
 
 bool WebFrame::getDocumentBackgroundColor(double* red, double* green, double* blue, double* alpha)
@@ -704,12 +703,14 @@ void WebFrame::stopLoading()
 
 WebFrame* WebFrame::frameForContext(JSContextRef context)
 {
-
-    JSC::JSGlobalObject* globalObjectObj = toJS(context)->lexicalGlobalObject();
+    JSC::JSGlobalObject* globalObjectObj = toJS(context);
     JSDOMWindow* window = jsDynamicCast<JSDOMWindow*>(globalObjectObj->vm(), globalObjectObj);
     if (!window)
         return nullptr;
-    return WebFrame::fromCoreFrame(*(window->wrapped().frame()));
+    auto* coreFrame = window->wrapped().frame();
+    if (!coreFrame)
+        return nullptr;
+    return WebFrame::fromCoreFrame(*coreFrame);
 }
 
 JSValueRef WebFrame::jsWrapperForWorld(InjectedBundleNodeHandle* nodeHandle, InjectedBundleScriptWorld* world)
@@ -718,10 +719,9 @@ JSValueRef WebFrame::jsWrapperForWorld(InjectedBundleNodeHandle* nodeHandle, Inj
         return 0;
 
     JSDOMWindow* globalObject = m_coreFrame->script().globalObject(world->coreWorld());
-    ExecState* exec = globalObject->globalExec();
 
-    JSLockHolder lock(exec);
-    return toRef(exec, toJS(exec, globalObject, nodeHandle->coreNode()));
+    JSLockHolder lock(globalObject);
+    return toRef(globalObject, toJS(globalObject, globalObject, nodeHandle->coreNode()));
 }
 
 JSValueRef WebFrame::jsWrapperForWorld(InjectedBundleRangeHandle* rangeHandle, InjectedBundleScriptWorld* world)
@@ -730,15 +730,14 @@ JSValueRef WebFrame::jsWrapperForWorld(InjectedBundleRangeHandle* rangeHandle, I
         return 0;
 
     JSDOMWindow* globalObject = m_coreFrame->script().globalObject(world->coreWorld());
-    ExecState* exec = globalObject->globalExec();
 
-    JSLockHolder lock(exec);
-    return toRef(exec, toJS(exec, globalObject, rangeHandle->coreRange()));
+    JSLockHolder lock(globalObject);
+    return toRef(globalObject, toJS(globalObject, globalObject, rangeHandle->coreRange()));
 }
 
 String WebFrame::counterValue(JSObjectRef element)
 {
-    if (!toJS(element)->inherits<JSElement>(*toJS(element)->vm()))
+    if (!toJS(element)->inherits<JSElement>(toJS(element)->vm()))
         return String();
 
     return counterValueForElement(&jsCast<JSElement*>(toJS(element))->wrapped());
@@ -813,7 +812,7 @@ void WebFrame::setTextDirection(const String& direction)
 
 void WebFrame::documentLoaderDetached(uint64_t navigationID)
 {
-    if (auto * page = this->page())
+    if (auto* page = this->page())
         page->send(Messages::WebPageProxy::DidDestroyNavigation(navigationID));
 }
 
@@ -850,6 +849,9 @@ RefPtr<ShareableBitmap> WebFrame::createSelectionSnapshot() const
     // FIXME: We should consider providing a way to use subpixel antialiasing for the snapshot
     // if we're compositing this image onto a solid color (e.g. the modern find indicator style).
     auto graphicsContext = sharedSnapshot->createGraphicsContext();
+    if (!graphicsContext)
+        return nullptr;
+
     float deviceScaleFactor = coreFrame()->page()->deviceScaleFactor();
     graphicsContext->scale(deviceScaleFactor);
     graphicsContext->drawConsumingImageBuffer(WTFMove(snapshot), FloatPoint());

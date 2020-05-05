@@ -465,6 +465,13 @@ WEBKIT_API void
 webkit_settings_set_allow_universal_access_from_file_urls      (WebKitSettings *settings,
                                                                 gboolean        allowed);
 
+WEBKIT_API gboolean
+webkit_settings_get_allow_top_navigation_to_data_urls          (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_allow_top_navigation_to_data_urls          (WebKitSettings *settings,
+                                                                gboolean        allowed);
+
 WEBKIT_API WebKitHardwareAccelerationPolicy
 webkit_settings_get_hardware_acceleration_policy               (WebKitSettings *settings);
 
@@ -490,6 +497,13 @@ webkit_settings_get_enable_javascript_markup                   (WebKitSettings *
 
 WEBKIT_API void
 webkit_settings_set_enable_javascript_markup                   (WebKitSettings *settings,
+                                                                gboolean        enabled);
+
+WEBKIT_API gboolean
+webkit_settings_get_enable_media                               (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_enable_media                               (WebKitSettings *settings,
                                                                 gboolean        enabled);
 
 G_END_DECLS

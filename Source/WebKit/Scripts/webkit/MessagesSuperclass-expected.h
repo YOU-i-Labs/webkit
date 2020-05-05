@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2019 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,15 +25,13 @@
 #pragma once
 
 #include "ArgumentCoders.h"
+#include "Connection.h"
 #include "TestClassName.h"
+#include "WebPageMessagesReplies.h"
 #include <wtf/Forward.h>
 #include <wtf/Optional.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/text/WTFString.h>
-
-namespace IPC {
-class Connection;
-}
 
 namespace WebKit {
 enum class TestTwoStateEnum : bool;
@@ -81,9 +79,10 @@ public:
     static void callReply(IPC::Decoder&, CompletionHandler<void(uint64_t&&)>&&);
     static void cancelReply(CompletionHandler<void(uint64_t&&)>&&);
     static IPC::StringReference asyncMessageReplyName() { return { "TestAsyncMessageReply" }; }
-    using AsyncReply = CompletionHandler<void(uint64_t result)>;
+    using AsyncReply = TestAsyncMessageAsyncReply;
     static void send(std::unique_ptr<IPC::Encoder>&&, IPC::Connection&, uint64_t result);
-    typedef std::tuple<uint64_t&> Reply;
+    using Reply = std::tuple<uint64_t&>;
+    using ReplyArguments = std::tuple<uint64_t>;
     explicit TestAsyncMessage(WebKit::TestTwoStateEnum twoStateEnum)
         : m_arguments(twoStateEnum)
     {
@@ -111,9 +110,10 @@ public:
     static void callReply(IPC::Decoder&, CompletionHandler<void()>&&);
     static void cancelReply(CompletionHandler<void()>&&);
     static IPC::StringReference asyncMessageReplyName() { return { "TestAsyncMessageWithNoArgumentsReply" }; }
-    using AsyncReply = CompletionHandler<void()>;
+    using AsyncReply = TestAsyncMessageWithNoArgumentsAsyncReply;
     static void send(std::unique_ptr<IPC::Encoder>&&, IPC::Connection&);
-    typedef std::tuple<> Reply;
+    using Reply = std::tuple<>;
+    using ReplyArguments = std::tuple<>;
     const Arguments& arguments() const
     {
         return m_arguments;
@@ -136,9 +136,10 @@ public:
     static void callReply(IPC::Decoder&, CompletionHandler<void(bool&&, uint64_t&&)>&&);
     static void cancelReply(CompletionHandler<void(bool&&, uint64_t&&)>&&);
     static IPC::StringReference asyncMessageReplyName() { return { "TestAsyncMessageWithMultipleArgumentsReply" }; }
-    using AsyncReply = CompletionHandler<void(bool flag, uint64_t value)>;
+    using AsyncReply = TestAsyncMessageWithMultipleArgumentsAsyncReply;
     static void send(std::unique_ptr<IPC::Encoder>&&, IPC::Connection&, bool flag, uint64_t value);
-    typedef std::tuple<bool&, uint64_t&> Reply;
+    using Reply = std::tuple<bool&, uint64_t&>;
+    using ReplyArguments = std::tuple<bool, uint64_t>;
     const Arguments& arguments() const
     {
         return m_arguments;
@@ -157,7 +158,10 @@ public:
     static IPC::StringReference name() { return IPC::StringReference("TestSyncMessage"); }
     static const bool isSync = true;
 
-    typedef std::tuple<uint8_t&> Reply;
+    using DelayedReply = TestSyncMessageDelayedReply;
+    static void send(std::unique_ptr<IPC::Encoder>&&, IPC::Connection&, uint8_t reply);
+    using Reply = std::tuple<uint8_t&>;
+    using ReplyArguments = std::tuple<uint8_t>;
     explicit TestSyncMessage(uint32_t param)
         : m_arguments(param)
     {
@@ -172,18 +176,19 @@ private:
     Arguments m_arguments;
 };
 
-class TestDelayedMessage {
+class TestSynchronousMessage {
 public:
     typedef std::tuple<bool> Arguments;
 
     static IPC::StringReference receiverName() { return messageReceiverName(); }
-    static IPC::StringReference name() { return IPC::StringReference("TestDelayedMessage"); }
+    static IPC::StringReference name() { return IPC::StringReference("TestSynchronousMessage"); }
     static const bool isSync = true;
 
-    using DelayedReply = CompletionHandler<void(const Optional<WebKit::TestClassName>& optionalReply)>;
+    using DelayedReply = TestSynchronousMessageDelayedReply;
     static void send(std::unique_ptr<IPC::Encoder>&&, IPC::Connection&, const Optional<WebKit::TestClassName>& optionalReply);
-    typedef std::tuple<Optional<WebKit::TestClassName>&> Reply;
-    explicit TestDelayedMessage(bool value)
+    using Reply = std::tuple<Optional<WebKit::TestClassName>&>;
+    using ReplyArguments = std::tuple<Optional<WebKit::TestClassName>>;
+    explicit TestSynchronousMessage(bool value)
         : m_arguments(value)
     {
     }

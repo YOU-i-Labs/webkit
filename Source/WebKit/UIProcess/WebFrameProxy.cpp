@@ -31,7 +31,6 @@
 #include "WebCertificateInfo.h"
 #include "WebFramePolicyListenerProxy.h"
 #include "WebPageMessages.h"
-#include "WebPageProxy.h"
 #include "WebPasteboardProxy.h"
 #include "WebProcessPool.h"
 #include "WebsiteDataStore.h"
@@ -44,9 +43,10 @@
 namespace WebKit {
 using namespace WebCore;
 
-WebFrameProxy::WebFrameProxy(WebPageProxy& page, uint64_t frameID)
+class WebPageProxy;
+
+WebFrameProxy::WebFrameProxy(WebPageProxy& page, FrameIdentifier frameID)
     : m_page(makeWeakPtr(page))
-    , m_isFrameSet(false)
     , m_frameID(frameID)
 {
     WebProcessPool::statistics().wkFrameCount++;
@@ -78,12 +78,21 @@ bool WebFrameProxy::isMainFrame() const
     return this == m_page->mainFrame() || (m_page->provisionalPageProxy() && this == m_page->provisionalPageProxy()->mainFrame());
 }
 
-void WebFrameProxy::loadURL(const URL& url)
+void WebFrameProxy::loadURL(const URL& url, const String& referrer)
 {
     if (!m_page)
         return;
 
-    m_page->process().send(Messages::WebPage::LoadURLInFrame(url, m_frameID), m_page->pageID());
+    m_page->send(Messages::WebPage::LoadURLInFrame(url, referrer, m_frameID));
+}
+
+void WebFrameProxy::loadData(const IPC::DataReference& data, const String& MIMEType, const String& encodingName, const URL& baseURL)
+{
+    ASSERT(!isMainFrame());
+    if (!m_page)
+        return;
+
+    m_page->send(Messages::WebPage::LoadDataInFrame(data, MIMEType, encodingName, baseURL, m_frameID));
 }
 
 void WebFrameProxy::stopLoading() const
@@ -91,10 +100,10 @@ void WebFrameProxy::stopLoading() const
     if (!m_page)
         return;
 
-    if (!m_page->isValid())
+    if (!m_page->hasRunningProcess())
         return;
 
-    m_page->process().send(Messages::WebPage::StopLoadingFrame(m_frameID), m_page->pageID());
+    m_page->send(Messages::WebPage::StopLoadingFrame(m_frameID));
 }
     
 bool WebFrameProxy::canProvideSource() const
@@ -135,6 +144,12 @@ bool WebFrameProxy::isDisplayingPDFDocument() const
 void WebFrameProxy::didStartProvisionalLoad(const URL& url)
 {
     m_frameLoadState.didStartProvisionalLoad(url);
+}
+
+void WebFrameProxy::didExplicitOpen(URL&& url, String&& mimeType)
+{
+    m_MIMEType = WTFMove(mimeType);
+    m_frameLoadState.didExplicitOpen(WTFMove(url));
 }
 
 void WebFrameProxy::didReceiveServerRedirectForProvisionalLoad(const URL& url)
@@ -248,7 +263,7 @@ void WebFrameProxy::collapseSelection()
     if (!m_page)
         return;
 
-    m_page->process().send(Messages::WebPage::CollapseSelectionInFrame(m_frameID), m_page->pageID());
+    m_page->process().send(Messages::WebPage::CollapseSelectionInFrame(m_frameID), m_page->webPageID());
 }
 #endif
 

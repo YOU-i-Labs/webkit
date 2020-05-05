@@ -34,6 +34,9 @@
 
 namespace WebKit {
 
+WebProcessCreationParameters::WebProcessCreationParameters(WebProcessCreationParameters&&) = default;
+WebProcessCreationParameters& WebProcessCreationParameters::operator=(WebProcessCreationParameters&&) = default;
+
 WebProcessCreationParameters::WebProcessCreationParameters()
 {
 }
@@ -48,29 +51,15 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << injectedBundlePathExtensionHandle;
     encoder << additionalSandboxExtensionHandles;
     encoder << initializationUserData;
-    encoder << applicationCacheDirectory;
-    encoder << applicationCacheFlatFileSubdirectoryName;
-    encoder << applicationCacheDirectoryExtensionHandle;
-    encoder << webSQLDatabaseDirectory;
-    encoder << webSQLDatabaseDirectoryExtensionHandle;
-    encoder << mediaCacheDirectory;
-    encoder << mediaCacheDirectoryExtensionHandle;
-    encoder << javaScriptConfigurationDirectory;
-    encoder << javaScriptConfigurationDirectoryExtensionHandle;
 #if PLATFORM(IOS_FAMILY)
     encoder << cookieStorageDirectoryExtensionHandle;
     encoder << containerCachesDirectoryExtensionHandle;
     encoder << containerTemporaryDirectoryExtensionHandle;
 #endif
-    encoder << mediaKeyStorageDirectory;
     encoder << webCoreLoggingChannels;
     encoder << webKitLoggingChannels;
-    encoder << mediaKeyStorageDirectoryExtensionHandle;
 #if ENABLE(MEDIA_STREAM)
     encoder << audioCaptureExtensionHandle;
-    encoder << shouldCaptureAudioInUIProcess;
-    encoder << shouldCaptureVideoInUIProcess;
-    encoder << shouldCaptureDisplayInUIProcess;
 #endif
     encoder << urlSchemesRegisteredAsEmptyDocument;
     encoder << urlSchemesRegisteredAsSecure;
@@ -89,7 +78,6 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << shouldEnableMemoryPressureReliefLogging;
     encoder << shouldSuppressMemoryPressureHandler;
     encoder << shouldUseFontSmoothing;
-    encoder << resourceLoadStatisticsEnabled;
     encoder << fontWhitelist;
     encoder << terminationTimeout;
     encoder << languages;
@@ -99,6 +87,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << textCheckerState;
     encoder << fullKeyboardAccessEnabled;
     encoder << defaultRequestTimeoutInterval;
+    encoder << backForwardCacheCapacity;
 #if PLATFORM(COCOA)
     encoder << uiProcessBundleIdentifier;
     encoder << uiProcessSDKVersion;
@@ -120,7 +109,6 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << notificationPermissions;
 #endif
 
-    encoder << plugInAutoStartOriginHashes;
     encoder << plugInAutoStartOrigins;
     encoder << memoryCacheDisabled;
     encoder << attrStyleEnabled;
@@ -160,9 +148,32 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << useOverlayScrollbars;
 #endif
 
-#if PLATFORM(WPE)
+#if USE(WPE_RENDERER)
+    encoder << isServiceWorkerProcess;
     encoder << hostClientFileDescriptor;
     encoder << implementationLibraryName;
+#endif
+
+    encoder << websiteDataStoreParameters;
+    
+#if PLATFORM(IOS)
+    encoder << compilerServiceExtensionHandle;
+    encoder << contentFilterExtensionHandle;
+    encoder << launchServicesOpenExtensionHandle;
+    encoder << diagnosticsExtensionHandle;
+#endif
+    
+#if PLATFORM(COCOA)
+    encoder << neHelperExtensionHandle;
+    encoder << neSessionManagerExtensionHandle;
+    encoder << systemHasBattery;
+    encoder << mimeTypesMap;
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+    encoder << currentUserInterfaceIdiomIsPad;
+    encoder << cssValueToSystemColorMap;
+    encoder << focusRingColor;
 #endif
 }
 
@@ -184,43 +195,6 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     parameters.additionalSandboxExtensionHandles = WTFMove(*additionalSandboxExtensionHandles);
     if (!decoder.decode(parameters.initializationUserData))
         return false;
-    if (!decoder.decode(parameters.applicationCacheDirectory))
-        return false;
-    if (!decoder.decode(parameters.applicationCacheFlatFileSubdirectoryName))
-        return false;
-    
-    Optional<SandboxExtension::Handle> applicationCacheDirectoryExtensionHandle;
-    decoder >> applicationCacheDirectoryExtensionHandle;
-    if (!applicationCacheDirectoryExtensionHandle)
-        return false;
-    parameters.applicationCacheDirectoryExtensionHandle = WTFMove(*applicationCacheDirectoryExtensionHandle);
-
-    if (!decoder.decode(parameters.webSQLDatabaseDirectory))
-        return false;
-
-    Optional<SandboxExtension::Handle> webSQLDatabaseDirectoryExtensionHandle;
-    decoder >> webSQLDatabaseDirectoryExtensionHandle;
-    if (!webSQLDatabaseDirectoryExtensionHandle)
-        return false;
-    parameters.webSQLDatabaseDirectoryExtensionHandle = WTFMove(*webSQLDatabaseDirectoryExtensionHandle);
-
-    if (!decoder.decode(parameters.mediaCacheDirectory))
-        return false;
-    
-    Optional<SandboxExtension::Handle> mediaCacheDirectoryExtensionHandle;
-    decoder >> mediaCacheDirectoryExtensionHandle;
-    if (!mediaCacheDirectoryExtensionHandle)
-        return false;
-    parameters.mediaCacheDirectoryExtensionHandle = WTFMove(*mediaCacheDirectoryExtensionHandle);
-
-    if (!decoder.decode(parameters.javaScriptConfigurationDirectory))
-        return false;
-    
-    Optional<SandboxExtension::Handle> javaScriptConfigurationDirectoryExtensionHandle;
-    decoder >> javaScriptConfigurationDirectoryExtensionHandle;
-    if (!javaScriptConfigurationDirectoryExtensionHandle)
-        return false;
-    parameters.javaScriptConfigurationDirectoryExtensionHandle = WTFMove(*javaScriptConfigurationDirectoryExtensionHandle);
 
 #if PLATFORM(IOS_FAMILY)
     
@@ -243,18 +217,10 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     parameters.containerTemporaryDirectoryExtensionHandle = WTFMove(*containerTemporaryDirectoryExtensionHandle);
 
 #endif
-    if (!decoder.decode(parameters.mediaKeyStorageDirectory))
-        return false;
     if (!decoder.decode(parameters.webCoreLoggingChannels))
         return false;
     if (!decoder.decode(parameters.webKitLoggingChannels))
         return false;
-    
-    Optional<SandboxExtension::Handle> mediaKeyStorageDirectoryExtensionHandle;
-    decoder >> mediaKeyStorageDirectoryExtensionHandle;
-    if (!mediaKeyStorageDirectoryExtensionHandle)
-        return false;
-    parameters.mediaKeyStorageDirectoryExtensionHandle = WTFMove(*mediaKeyStorageDirectoryExtensionHandle);
 
 #if ENABLE(MEDIA_STREAM)
 
@@ -263,13 +229,6 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     if (!audioCaptureExtensionHandle)
         return false;
     parameters.audioCaptureExtensionHandle = WTFMove(*audioCaptureExtensionHandle);
-
-    if (!decoder.decode(parameters.shouldCaptureAudioInUIProcess))
-        return false;
-    if (!decoder.decode(parameters.shouldCaptureVideoInUIProcess))
-        return false;
-    if (!decoder.decode(parameters.shouldCaptureDisplayInUIProcess))
-        return false;
 #endif
     if (!decoder.decode(parameters.urlSchemesRegisteredAsEmptyDocument))
         return false;
@@ -305,8 +264,6 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
     if (!decoder.decode(parameters.shouldUseFontSmoothing))
         return false;
-    if (!decoder.decode(parameters.resourceLoadStatisticsEnabled))
-        return false;
     if (!decoder.decode(parameters.fontWhitelist))
         return false;
     if (!decoder.decode(parameters.terminationTimeout))
@@ -322,6 +279,8 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
     if (!decoder.decode(parameters.fullKeyboardAccessEnabled))
         return false;
     if (!decoder.decode(parameters.defaultRequestTimeoutInterval))
+        return false;
+    if (!decoder.decode(parameters.backForwardCacheCapacity))
         return false;
 #if PLATFORM(COCOA)
     if (!decoder.decode(parameters.uiProcessBundleIdentifier))
@@ -368,8 +327,6 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
 #endif
 
-    if (!decoder.decode(parameters.plugInAutoStartOriginHashes))
-        return false;
     if (!decoder.decode(parameters.plugInAutoStartOrigins))
         return false;
     if (!decoder.decode(parameters.memoryCacheDisabled))
@@ -426,11 +383,88 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
         return false;
 #endif
 
-#if PLATFORM(WPE)
+#if USE(WPE_RENDERER)
+    if (!decoder.decode(parameters.isServiceWorkerProcess))
+        return false;
     if (!decoder.decode(parameters.hostClientFileDescriptor))
         return false;
     if (!decoder.decode(parameters.implementationLibraryName))
         return false;
+#endif
+
+    Optional<Optional<WebProcessDataStoreParameters>> websiteDataStoreParameters;
+    decoder >> websiteDataStoreParameters;
+    if (!websiteDataStoreParameters)
+        return false;
+    parameters.websiteDataStoreParameters = WTFMove(*websiteDataStoreParameters);
+
+#if PLATFORM(IOS)
+    Optional<Optional<SandboxExtension::Handle>> compilerServiceExtensionHandle;
+    decoder >> compilerServiceExtensionHandle;
+    if (!compilerServiceExtensionHandle)
+        return false;
+    parameters.compilerServiceExtensionHandle = WTFMove(*compilerServiceExtensionHandle);
+
+    Optional<Optional<SandboxExtension::Handle>> contentFilterExtensionHandle;
+    decoder >> contentFilterExtensionHandle;
+    if (!contentFilterExtensionHandle)
+        return false;
+    parameters.contentFilterExtensionHandle = WTFMove(*contentFilterExtensionHandle);
+
+    Optional<Optional<SandboxExtension::Handle>> launchServicesOpenExtensionHandle;
+    decoder >> launchServicesOpenExtensionHandle;
+    if (!launchServicesOpenExtensionHandle)
+        return false;
+    parameters.launchServicesOpenExtensionHandle = WTFMove(*launchServicesOpenExtensionHandle);
+
+    Optional<Optional<SandboxExtension::Handle>> diagnosticsExtensionHandle;
+    decoder >> diagnosticsExtensionHandle;
+    if (!diagnosticsExtensionHandle)
+        return false;
+    parameters.diagnosticsExtensionHandle = WTFMove(*diagnosticsExtensionHandle);
+#endif
+
+#if PLATFORM(COCOA)
+    Optional<Optional<SandboxExtension::Handle>> neHelperExtensionHandle;
+    decoder >> neHelperExtensionHandle;
+    if (!neHelperExtensionHandle)
+        return false;
+    parameters.neHelperExtensionHandle = WTFMove(*neHelperExtensionHandle);
+
+    Optional<Optional<SandboxExtension::Handle>> neSessionManagerExtensionHandle;
+    decoder >> neSessionManagerExtensionHandle;
+    if (!neSessionManagerExtensionHandle)
+        return false;
+    parameters.neSessionManagerExtensionHandle = WTFMove(*neSessionManagerExtensionHandle);
+
+    Optional<bool> systemHasBattery;
+    decoder >> systemHasBattery;
+    if (!systemHasBattery)
+        return false;
+    parameters.systemHasBattery = WTFMove(*systemHasBattery);
+
+    Optional<Optional<HashMap<String, Vector<String>, ASCIICaseInsensitiveHash>>> mimeTypesMap;
+    decoder >> mimeTypesMap;
+    if (!mimeTypesMap)
+        return false;
+    parameters.mimeTypesMap = WTFMove(*mimeTypesMap);
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+    if (!decoder.decode(parameters.currentUserInterfaceIdiomIsPad))
+        return false;
+
+    Optional<WebCore::RenderThemeIOS::CSSValueToSystemColorMap> cssValueToSystemColorMap;
+    decoder >> cssValueToSystemColorMap;
+    if (!cssValueToSystemColorMap)
+        return false;
+    parameters.cssValueToSystemColorMap = WTFMove(*cssValueToSystemColorMap);
+
+    Optional<WebCore::Color> focusRingColor;
+    decoder >> focusRingColor;
+    if (!focusRingColor)
+        return false;
+    parameters.focusRingColor = WTFMove(*focusRingColor);
 #endif
 
     return true;

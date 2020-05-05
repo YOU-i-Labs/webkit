@@ -53,7 +53,7 @@ static void didFinishNavigation(WKPageRef page, WKNavigationRef navigation, WKTy
 
 TEST(WebKit, LayoutMilestonesWithAllContentInFrame)
 {
-    WKRetainPtr<WKContextRef> context(AdoptWK, WKContextCreateWithConfiguration(nullptr));
+    WKRetainPtr<WKContextRef> context = adoptWK(WKContextCreateWithConfiguration(nullptr));
     PlatformWebView webView(context.get());
 
     WKPageNavigationClientV3 loaderClient;
@@ -74,9 +74,9 @@ TEST(WebKit, LayoutMilestonesWithAllContentInFrame)
 
 TEST(WebKit, FirstVisuallyNonEmptyLayoutAfterPageCacheRestore)
 {
-    WKRetainPtr<WKContextRef> context(AdoptWK, WKContextCreateWithConfiguration(nullptr));
+    WKRetainPtr<WKContextRef> context = adoptWK(WKContextCreateWithConfiguration(nullptr));
 
-    WKContextSetCacheModel(context.get(), kWKCacheModelPrimaryWebBrowser); // Enables the Page Cache.
+    WKContextSetCacheModel(context.get(), kWKCacheModelPrimaryWebBrowser); // Enables the back/forward cache.
 
     PlatformWebView webView(context.get());
 
@@ -119,7 +119,7 @@ TEST(WebKit, FirstVisuallyNonEmptyLayoutAfterPageCacheRestore)
 
 TEST(WebKit, FirstVisuallyNonEmptyMilestoneWithLoadComplete)
 {
-    WKRetainPtr<WKContextRef> context(AdoptWK, WKContextCreateWithConfiguration(nullptr));
+    WKRetainPtr<WKContextRef> context = adoptWK(WKContextCreateWithConfiguration(nullptr));
     PlatformWebView webView(context.get());
 
     WKPageNavigationClientV3 loaderClient;

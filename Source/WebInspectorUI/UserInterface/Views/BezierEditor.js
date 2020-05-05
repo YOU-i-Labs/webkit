@@ -31,6 +31,7 @@ WI.BezierEditor = class BezierEditor extends WI.Object
 
         this._element = document.createElement("div");
         this._element.classList.add("bezier-editor");
+        this._element.dir = "ltr";
 
         var editorWidth = 184;
         var editorHeight = 200;
@@ -101,7 +102,7 @@ WI.BezierEditor = class BezierEditor extends WI.Object
             if (!isNaN(max))
                 this[key].max = max;
 
-            this[key].addEventListener("input", this.debounce(250)._handleNumberInputInput);
+            this[key].addEventListener("input", this._handleNumberInputInput.bind(this));
             this[key].addEventListener("keydown", this._handleNumberInputKeydown.bind(this));
         }
 
@@ -212,6 +213,7 @@ WI.BezierEditor = class BezierEditor extends WI.Object
         if (event.button !== 0)
             return;
 
+        event.stop();
         window.addEventListener("mousemove", this, true);
         window.addEventListener("mouseup", this, true);
 

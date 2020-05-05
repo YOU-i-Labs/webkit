@@ -45,6 +45,7 @@
 #include "Encoder.h"
 #include "ShareableBitmap.h"
 #include "WebCertificateInfo.h"
+#include "WebCoreArgumentCoders.h"
 #include "WebImage.h"
 #include "WebRenderLayer.h"
 #include "WebRenderObject.h"
@@ -310,6 +311,10 @@ void UserData::encode(IPC::Encoder& encoder, const API::Object& object)
         static_cast<const API::UInt64&>(object).encode(encoder);
         break;
 
+    case API::Object::Type::Int64:
+        static_cast<const API::Int64&>(object).encode(encoder);
+        break;
+
     case API::Object::Type::UserContentURLPattern: {
         auto& urlPattern = static_cast<const API::UserContentURLPattern&>(object);
         encoder << urlPattern.patternString();
@@ -572,6 +577,11 @@ bool UserData::decode(IPC::Decoder& decoder, RefPtr<API::Object>& result)
             return false;
         break;
 
+    case API::Object::Type::Int64:
+        if (!API::Int64::decode(decoder, result))
+            return false;
+        break;
+
     case API::Object::Type::UserContentURLPattern: {
         String string;
         if (!decoder.decode(string))
@@ -589,6 +599,7 @@ bool UserData::decode(IPC::Decoder& decoder, RefPtr<API::Object>& result)
 
     default:
         ASSERT_NOT_REACHED();
+        return false;
     }
 
     return true;

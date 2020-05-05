@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2002-2015 The ANGLE Project Authors. All rights reserved.
+// Copyright 2002 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -119,7 +119,7 @@ enum TOperator
     EOpExp2,
     EOpLog2,
     EOpSqrt,
-    EOpInverseSqrt,
+    EOpInversesqrt,
 
     EOpAbs,
     EOpSign,
@@ -136,9 +136,10 @@ enum TOperator
     EOpClamp,
     EOpMix,
     EOpStep,
-    EOpSmoothStep,
-    EOpIsNan,
-    EOpIsInf,
+    EOpSmoothstep,
+    EOpIsnan,
+    EOpIsinf,
+    EOpFma,
 
     EOpFloatBitsToInt,
     EOpFloatBitsToUint,
@@ -232,7 +233,7 @@ enum TOperator
     EOpBitwiseXorAssign,
     EOpBitwiseOrAssign,
 
-    //  barriers
+    // barriers
     EOpBarrier,
     EOpMemoryBarrier,
     EOpMemoryBarrierAtomicCounter,
@@ -241,9 +242,24 @@ enum TOperator
     EOpMemoryBarrierShared,
     EOpGroupMemoryBarrier,
 
-    //  Geometry only
+    // Atomic functions
+    EOpAtomicAdd,
+    EOpAtomicMin,
+    EOpAtomicMax,
+    EOpAtomicAnd,
+    EOpAtomicOr,
+    EOpAtomicXor,
+    EOpAtomicExchange,
+    EOpAtomicCompSwap,
+
+    // Geometry only
     EOpEmitVertex,
-    EOpEndPrimitive
+    EOpEndPrimitive,
+
+    // Desktop GLSL functions
+    EOpFTransform,
+    EOpPackDouble2x32,
+    EOpUnpackDouble2x32,
 };
 
 // Returns the string corresponding to the operator in GLSL
@@ -251,5 +267,8 @@ const char *GetOperatorString(TOperator op);
 
 // Say whether or not a binary or unary operation changes the value of a variable.
 bool IsAssignment(TOperator op);
+
+// Say whether or not an operator represents an atomic function.
+bool IsAtomicFunction(TOperator op);
 
 #endif  // COMPILER_TRANSLATOR_OPERATOR_H_

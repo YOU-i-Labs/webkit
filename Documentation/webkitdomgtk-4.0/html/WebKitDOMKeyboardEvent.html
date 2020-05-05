@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitDOMEvent.html" title="WebKitDOMEvent">
 <link rel="next" href="WebKitDOMMouseEvent.html" title="WebKitDOMMouseEvent">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.32.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -37,8 +37,8 @@
 <a name="WebKitDOMKeyboardEvent.functions"></a><h2>Functions</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="functions_return">
-<col class="functions_name">
+<col width="150px" class="functions_proto_type">
+<col class="functions_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -168,8 +168,8 @@
 <a name="WebKitDOMKeyboardEvent.other"></a><h2>Types and Values</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="name">
-<col class="description">
+<col width="150px" class="other_proto_type">
+<col class="other_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -555,7 +555,6 @@ webkit_dom_keyboard_event_get_alt_graph_key
 <div class="refsect2">
 <a name="WebKitDOMKeyboardEvent-struct"></a><h3>struct WebKitDOMKeyboardEvent</h3>
 <pre class="programlisting">struct WebKitDOMKeyboardEvent;</pre>
-<div class="warning"><p><code class="literal">WebKitDOMKeyboardEvent</code> is deprecated and should not be used in newly-written code.</p></div>
 </div>
 <hr>
 <div class="refsect2">
@@ -604,6 +603,7 @@ webkit_dom_keyboard_event_get_alt_graph_key
 <a name="WebKitDOMKeyboardEvent--alt-graph-key"></a><h3>The <code class="literal">“alt-graph-key”</code> property</h3>
 <pre class="programlisting">  “alt-graph-key”            <a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></pre>
 <p>read-only gboolean KeyboardEvent:alt-graph-key.</p>
+<p>Owner: WebKitDOMKeyboardEvent</p>
 <p>Flags: Read</p>
 <p>Default value: FALSE</p>
 </div>
@@ -612,6 +612,7 @@ webkit_dom_keyboard_event_get_alt_graph_key
 <a name="WebKitDOMKeyboardEvent--alt-key"></a><h3>The <code class="literal">“alt-key”</code> property</h3>
 <pre class="programlisting">  “alt-key”                  <a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></pre>
 <p>read-only gboolean KeyboardEvent:alt-key.</p>
+<p>Owner: WebKitDOMKeyboardEvent</p>
 <p>Flags: Read</p>
 <p>Default value: FALSE</p>
 </div>
@@ -620,6 +621,7 @@ webkit_dom_keyboard_event_get_alt_graph_key
 <a name="WebKitDOMKeyboardEvent--ctrl-key"></a><h3>The <code class="literal">“ctrl-key”</code> property</h3>
 <pre class="programlisting">  “ctrl-key”                 <a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></pre>
 <p>read-only gboolean KeyboardEvent:ctrl-key.</p>
+<p>Owner: WebKitDOMKeyboardEvent</p>
 <p>Flags: Read</p>
 <p>Default value: FALSE</p>
 </div>
@@ -628,6 +630,7 @@ webkit_dom_keyboard_event_get_alt_graph_key
 <a name="WebKitDOMKeyboardEvent--key-identifier"></a><h3>The <code class="literal">“key-identifier”</code> property</h3>
 <pre class="programlisting">  “key-identifier”           <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</pre>
 <p>read-only gchar* KeyboardEvent:key-identifier.</p>
+<p>Owner: WebKitDOMKeyboardEvent</p>
 <p>Flags: Read</p>
 <p>Default value: ""</p>
 </div>
@@ -636,6 +639,7 @@ webkit_dom_keyboard_event_get_alt_graph_key
 <a name="WebKitDOMKeyboardEvent--key-location"></a><h3>The <code class="literal">“key-location”</code> property</h3>
 <pre class="programlisting">  “key-location”             <a href="../glib/glib-Basic-Types.html#gulong"><span class="type">gulong</span></a></pre>
 <p>read-only gulong KeyboardEvent:key-location.</p>
+<p>Owner: WebKitDOMKeyboardEvent</p>
 <p>Flags: Read</p>
 </div>
 <hr>
@@ -643,6 +647,7 @@ webkit_dom_keyboard_event_get_alt_graph_key
 <a name="WebKitDOMKeyboardEvent--meta-key"></a><h3>The <code class="literal">“meta-key”</code> property</h3>
 <pre class="programlisting">  “meta-key”                 <a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></pre>
 <p>read-only gboolean KeyboardEvent:meta-key.</p>
+<p>Owner: WebKitDOMKeyboardEvent</p>
 <p>Flags: Read</p>
 <p>Default value: FALSE</p>
 </div>
@@ -651,12 +656,13 @@ webkit_dom_keyboard_event_get_alt_graph_key
 <a name="WebKitDOMKeyboardEvent--shift-key"></a><h3>The <code class="literal">“shift-key”</code> property</h3>
 <pre class="programlisting">  “shift-key”                <a href="../glib/glib-Basic-Types.html#gboolean"><span class="type">gboolean</span></a></pre>
 <p>read-only gboolean KeyboardEvent:shift-key.</p>
+<p>Owner: WebKitDOMKeyboardEvent</p>
 <p>Flags: Read</p>
 <p>Default value: FALSE</p>
 </div>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.32.1</div>
 </body>
 </html>

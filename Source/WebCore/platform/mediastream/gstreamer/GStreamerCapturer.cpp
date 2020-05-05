@@ -27,9 +27,7 @@
 #include <gst/app/gstappsink.h>
 #include <gst/app/gstappsrc.h>
 #include <mutex>
-#include <webrtc/api/mediastreaminterface.h>
-
-#if GST_CHECK_VERSION(1, 10, 0)
+#include <webrtc/api/media_stream_interface.h>
 
 GST_DEBUG_CATEGORY(webkit_capturer_debug);
 #define GST_CAT_DEFAULT webkit_capturer_debug
@@ -186,5 +184,4 @@ void GStreamerCapturer::stop()
 
 } // namespace WebCore
 
-#endif // GST_CHECK_VERSION(1, 10, 0)
 #endif // ENABLE(VIDEO) && ENABLE(MEDIA_STREAM) && USE(LIBWEBRTC) && USE(GSTREAMER)

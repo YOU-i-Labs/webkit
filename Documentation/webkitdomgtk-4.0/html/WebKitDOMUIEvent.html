@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitDOMTreeWalker.html" title="WebKitDOMTreeWalker">
 <link rel="next" href="WebKitDOMWheelEvent.html" title="WebKitDOMWheelEvent">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.32.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -37,8 +37,8 @@
 <a name="WebKitDOMUIEvent.functions"></a><h2>Functions</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="functions_return">
-<col class="functions_name">
+<col width="150px" class="functions_proto_type">
+<col class="functions_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -173,8 +173,8 @@
 <a name="WebKitDOMUIEvent.other"></a><h2>Types and Values</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="name">
-<col class="description">
+<col width="150px" class="other_proto_type">
+<col class="other_proto_name">
 </colgroup>
 <tbody><tr>
 <td class="datatype_keyword">struct</td>
@@ -500,6 +500,7 @@ webkit_dom_ui_event_get_page_y (<em class="parameter"><code><a class="link" href
 <a name="WebKitDOMUIEvent--char-code"></a><h3>The <code class="literal">“char-code”</code> property</h3>
 <pre class="programlisting">  “char-code”                <a href="../glib/glib-Basic-Types.html#glong"><span class="type">glong</span></a></pre>
 <p>read-only glong UIEvent:char-code.</p>
+<p>Owner: WebKitDOMUIEvent</p>
 <p>Flags: Read</p>
 <p>Default value: 0</p>
 </div>
@@ -508,6 +509,7 @@ webkit_dom_ui_event_get_page_y (<em class="parameter"><code><a class="link" href
 <a name="WebKitDOMUIEvent--detail"></a><h3>The <code class="literal">“detail”</code> property</h3>
 <pre class="programlisting">  “detail”                   <a href="../glib/glib-Basic-Types.html#glong"><span class="type">glong</span></a></pre>
 <p>read-only glong UIEvent:detail.</p>
+<p>Owner: WebKitDOMUIEvent</p>
 <p>Flags: Read</p>
 <p>Default value: 0</p>
 </div>
@@ -516,6 +518,7 @@ webkit_dom_ui_event_get_page_y (<em class="parameter"><code><a class="link" href
 <a name="WebKitDOMUIEvent--key-code"></a><h3>The <code class="literal">“key-code”</code> property</h3>
 <pre class="programlisting">  “key-code”                 <a href="../glib/glib-Basic-Types.html#glong"><span class="type">glong</span></a></pre>
 <p>read-only glong UIEvent:key-code.</p>
+<p>Owner: WebKitDOMUIEvent</p>
 <p>Flags: Read</p>
 <p>Default value: 0</p>
 </div>
@@ -524,6 +527,7 @@ webkit_dom_ui_event_get_page_y (<em class="parameter"><code><a class="link" href
 <a name="WebKitDOMUIEvent--layer-x"></a><h3>The <code class="literal">“layer-x”</code> property</h3>
 <pre class="programlisting">  “layer-x”                  <a href="../glib/glib-Basic-Types.html#glong"><span class="type">glong</span></a></pre>
 <p>read-only glong UIEvent:layer-x.</p>
+<p>Owner: WebKitDOMUIEvent</p>
 <p>Flags: Read</p>
 <p>Default value: 0</p>
 </div>
@@ -532,6 +536,7 @@ webkit_dom_ui_event_get_page_y (<em class="parameter"><code><a class="link" href
 <a name="WebKitDOMUIEvent--layer-y"></a><h3>The <code class="literal">“layer-y”</code> property</h3>
 <pre class="programlisting">  “layer-y”                  <a href="../glib/glib-Basic-Types.html#glong"><span class="type">glong</span></a></pre>
 <p>read-only glong UIEvent:layer-y.</p>
+<p>Owner: WebKitDOMUIEvent</p>
 <p>Flags: Read</p>
 <p>Default value: 0</p>
 </div>
@@ -540,6 +545,7 @@ webkit_dom_ui_event_get_page_y (<em class="parameter"><code><a class="link" href
 <a name="WebKitDOMUIEvent--page-x"></a><h3>The <code class="literal">“page-x”</code> property</h3>
 <pre class="programlisting">  “page-x”                   <a href="../glib/glib-Basic-Types.html#glong"><span class="type">glong</span></a></pre>
 <p>read-only glong UIEvent:page-x.</p>
+<p>Owner: WebKitDOMUIEvent</p>
 <p>Flags: Read</p>
 <p>Default value: 0</p>
 </div>
@@ -548,6 +554,7 @@ webkit_dom_ui_event_get_page_y (<em class="parameter"><code><a class="link" href
 <a name="WebKitDOMUIEvent--page-y"></a><h3>The <code class="literal">“page-y”</code> property</h3>
 <pre class="programlisting">  “page-y”                   <a href="../glib/glib-Basic-Types.html#glong"><span class="type">glong</span></a></pre>
 <p>read-only glong UIEvent:page-y.</p>
+<p>Owner: WebKitDOMUIEvent</p>
 <p>Flags: Read</p>
 <p>Default value: 0</p>
 </div>
@@ -556,11 +563,12 @@ webkit_dom_ui_event_get_page_y (<em class="parameter"><code><a class="link" href
 <a name="WebKitDOMUIEvent--view"></a><h3>The <code class="literal">“view”</code> property</h3>
 <pre class="programlisting">  “view”                     <a class="link" href="WebKitDOMDOMWindow.html" title="WebKitDOMDOMWindow"><span class="type">WebKitDOMDOMWindow</span></a> *</pre>
 <p>read-only WebKitDOMDOMWindow* UIEvent:view.</p>
+<p>Owner: WebKitDOMUIEvent</p>
 <p>Flags: Read</p>
 </div>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.32.1</div>
 </body>
 </html>

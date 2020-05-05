@@ -29,6 +29,7 @@
 #include <WebCore/Color.h>
 #include <WebCore/FontAttributes.h>
 #include <WebCore/IntRect.h>
+#include <WebCore/WritingDirection.h>
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -85,15 +86,16 @@ struct EditorState {
 
     struct PostLayoutData {
         uint32_t typingAttributes { AttributeNone };
-#if PLATFORM(IOS_FAMILY) || PLATFORM(GTK)
+#if PLATFORM(IOS_FAMILY) || PLATFORM(GTK) || PLATFORM(WPE)
         WebCore::IntRect caretRectAtStart;
 #endif
-#if PLATFORM(IOS_FAMILY) || PLATFORM(MAC)
+#if PLATFORM(COCOA)
         WebCore::IntRect focusedElementRect;
         uint64_t selectedTextLength { 0 };
         uint32_t textAlignment { NoAlignment };
         WebCore::Color textColor { WebCore::Color::black };
         uint32_t enclosingListType { NoList };
+        WebCore::WritingDirection baseWritingDirection { WebCore::WritingDirection::Natural };
 #endif
 #if PLATFORM(IOS_FAMILY)
         WebCore::IntRect caretRectAtEnd;
@@ -107,14 +109,21 @@ struct EditorState {
         bool isStableStateUpdate { false };
         bool insideFixedPosition { false };
         bool hasPlainText { false };
-        bool elementIsTransparentOrFullyClipped { false };
+        bool editableRootIsTransparentOrFullyClipped { false };
         WebCore::Color caretColor;
         bool atStartOfSentence { false };
+        bool selectionStartIsAtParagraphBoundary { false };
+        bool selectionEndIsAtParagraphBoundary { false };
 #endif
 #if PLATFORM(MAC)
         uint64_t candidateRequestStartPosition { 0 };
         String paragraphContextForCandidateRequest;
         String stringForCandidateRequest;
+#endif
+#if PLATFORM(GTK) || PLATFORM(WPE)
+        String surroundingContext;
+        uint64_t surroundingContextCursorPosition { 0 };
+        uint64_t surroundingContextSelectionPosition { 0 };
 #endif
 
         Optional<WebCore::FontAttributes> fontAttributes;

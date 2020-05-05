@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitResponsePolicyDecision.html" title="WebKitResponsePolicyDecision">
 <link rel="next" href="WebKitEditorState.html" title="WebKitEditorState">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.32.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -37,8 +37,8 @@
 <a name="WebKitHitTestResult.functions"></a><h2>Functions</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="functions_return">
-<col class="functions_name">
+<col width="150px" class="functions_proto_type">
+<col class="functions_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -147,37 +147,37 @@
 <tr>
 <td class="property_type"><a href="../glib/glib-Basic-Types.html#guint"><span class="type">guint</span></a></td>
 <td class="property_name"><a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult--context" title="The “context” property">context</a></td>
-<td class="property_flags">Read / Write / Construct Only</td>
+<td class="property_flags">Read / Write / Construct Only</td>
 </tr>
 <tr>
 <td class="property_type">
 <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</td>
 <td class="property_name"><a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult--image-uri" title="The “image-uri” property">image-uri</a></td>
-<td class="property_flags">Read / Write / Construct Only</td>
+<td class="property_flags">Read / Write / Construct Only</td>
 </tr>
 <tr>
 <td class="property_type">
 <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</td>
 <td class="property_name"><a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult--link-label" title="The “link-label” property">link-label</a></td>
-<td class="property_flags">Read / Write / Construct Only</td>
+<td class="property_flags">Read / Write / Construct Only</td>
 </tr>
 <tr>
 <td class="property_type">
 <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</td>
 <td class="property_name"><a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult--link-title" title="The “link-title” property">link-title</a></td>
-<td class="property_flags">Read / Write / Construct Only</td>
+<td class="property_flags">Read / Write / Construct Only</td>
 </tr>
 <tr>
 <td class="property_type">
 <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</td>
 <td class="property_name"><a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult--link-uri" title="The “link-uri” property">link-uri</a></td>
-<td class="property_flags">Read / Write / Construct Only</td>
+<td class="property_flags">Read / Write / Construct Only</td>
 </tr>
 <tr>
 <td class="property_type">
 <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</td>
 <td class="property_name"><a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult--media-uri" title="The “media-uri” property">media-uri</a></td>
-<td class="property_flags">Read / Write / Construct Only</td>
+<td class="property_flags">Read / Write / Construct Only</td>
 </tr>
 </tbody>
 </table></div>
@@ -186,8 +186,8 @@
 <a name="WebKitHitTestResult.other"></a><h2>Types and Values</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="name">
-<col class="description">
+<col width="150px" class="other_proto_type">
+<col class="other_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -211,7 +211,7 @@
 <div class="refsect1">
 <a name="WebKitHitTestResult.description"></a><h2>Description</h2>
 <p>A Hit Test is an operation to get context information about a given
-point in a <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a>. <a class="link" href="WebKitHitTestResult.html" title="WebKitHitTestResult"><span class="type">WebKitHitTestResult</span></a> represents the
+point in a <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a>. <a class="link" href="WebKitHitTestResult.html" title="WebKitHitTestResult"><span class="type">WebKitHitTestResult</span></a> represents the
 result of a Hit Test. It provides context information about what is
 at the coordinates of the Hit Test, such as if there's a link,
 an image or a media.</p>
@@ -223,7 +223,7 @@ an image or a media.</p>
 a link, image or a media element at the coordinates of the Hit Test.
 Note that it's possible that several <a class="link" href="WebKitHitTestResult.html#WebKitHitTestResultContext" title="enum WebKitHitTestResultContext"><span class="type">WebKitHitTestResultContext</span></a> flags
 are active at the same time, for example if there's a link containing an image.</p>
-<p>When the mouse is moved over a <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> a Hit Test is performed
+<p>When the mouse is moved over a <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a> a Hit Test is performed
 for the mouse coordinates and <a class="link" href="WebKitWebView.html#WebKitWebView-mouse-target-changed" title="The “mouse-target-changed” signal"><span class="type">“mouse-target-changed”</span></a>
 signal is emitted with a <a class="link" href="WebKitHitTestResult.html" title="WebKitHitTestResult"><span class="type">WebKitHitTestResult</span></a>.</p>
 </div>
@@ -655,7 +655,8 @@ context</p>
 <pre class="programlisting">  “context”                  <a href="../glib/glib-Basic-Types.html#guint"><span class="type">guint</span></a></pre>
 <p>Bitmask of <a class="link" href="WebKitHitTestResult.html#WebKitHitTestResultContext" title="enum WebKitHitTestResultContext"><span class="type">WebKitHitTestResultContext</span></a> flags representing
 the context of the <a class="link" href="WebKitHitTestResult.html" title="WebKitHitTestResult"><span class="type">WebKitHitTestResult</span></a>.</p>
-<p>Flags: Read / Write / Construct Only</p>
+<p>Owner: WebKitHitTestResult</p>
+<p>Flags: Read / Write / Construct Only</p>
 <p>Default value: 0</p>
 </div>
 <hr>
@@ -664,7 +665,8 @@ the context of the <a class="link" href="WebKitHitTestResult.html" title="WebKit
 <pre class="programlisting">  “image-uri”                <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</pre>
 <p>The URI of the image if flag <a class="link" href="WebKitHitTestResult.html#WEBKIT-HIT-TEST-RESULT-CONTEXT-IMAGE:CAPS"><code class="literal">WEBKIT_HIT_TEST_RESULT_CONTEXT_IMAGE</code></a>
 is present in <a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult--context" title="The “context” property"><span class="type">“context”</span></a></p>
-<p>Flags: Read / Write / Construct Only</p>
+<p>Owner: WebKitHitTestResult</p>
+<p>Flags: Read / Write / Construct Only</p>
 <p>Default value: NULL</p>
 </div>
 <hr>
@@ -673,7 +675,8 @@ is present in <a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult
 <pre class="programlisting">  “link-label”               <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</pre>
 <p>The label of the link if flag <a class="link" href="WebKitHitTestResult.html#WEBKIT-HIT-TEST-RESULT-CONTEXT-LINK:CAPS"><code class="literal">WEBKIT_HIT_TEST_RESULT_CONTEXT_LINK</code></a>
 is present in <a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult--context" title="The “context” property"><span class="type">“context”</span></a></p>
-<p>Flags: Read / Write / Construct Only</p>
+<p>Owner: WebKitHitTestResult</p>
+<p>Flags: Read / Write / Construct Only</p>
 <p>Default value: NULL</p>
 </div>
 <hr>
@@ -682,7 +685,8 @@ is present in <a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult
 <pre class="programlisting">  “link-title”               <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</pre>
 <p>The title of the link if flag <a class="link" href="WebKitHitTestResult.html#WEBKIT-HIT-TEST-RESULT-CONTEXT-LINK:CAPS"><code class="literal">WEBKIT_HIT_TEST_RESULT_CONTEXT_LINK</code></a>
 is present in <a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult--context" title="The “context” property"><span class="type">“context”</span></a></p>
-<p>Flags: Read / Write / Construct Only</p>
+<p>Owner: WebKitHitTestResult</p>
+<p>Flags: Read / Write / Construct Only</p>
 <p>Default value: NULL</p>
 </div>
 <hr>
@@ -691,7 +695,8 @@ is present in <a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult
 <pre class="programlisting">  “link-uri”                 <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</pre>
 <p>The URI of the link if flag <a class="link" href="WebKitHitTestResult.html#WEBKIT-HIT-TEST-RESULT-CONTEXT-LINK:CAPS"><code class="literal">WEBKIT_HIT_TEST_RESULT_CONTEXT_LINK</code></a>
 is present in <a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult--context" title="The “context” property"><span class="type">“context”</span></a></p>
-<p>Flags: Read / Write / Construct Only</p>
+<p>Owner: WebKitHitTestResult</p>
+<p>Flags: Read / Write / Construct Only</p>
 <p>Default value: NULL</p>
 </div>
 <hr>
@@ -700,16 +705,17 @@ is present in <a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult
 <pre class="programlisting">  “media-uri”                <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</pre>
 <p>The URI of the media if flag <a class="link" href="WebKitHitTestResult.html#WEBKIT-HIT-TEST-RESULT-CONTEXT-MEDIA:CAPS"><code class="literal">WEBKIT_HIT_TEST_RESULT_CONTEXT_MEDIA</code></a>
 is present in <a class="link" href="WebKitHitTestResult.html#WebKitHitTestResult--context" title="The “context” property"><span class="type">“context”</span></a></p>
-<p>Flags: Read / Write / Construct Only</p>
+<p>Owner: WebKitHitTestResult</p>
+<p>Flags: Read / Write / Construct Only</p>
 <p>Default value: NULL</p>
 </div>
 </div>
 <div class="refsect1">
 <a name="WebKitHitTestResult.see-also"></a><h2>See Also</h2>
-<p><a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a></p>
+<p><a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a></p>
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.32.1</div>
 </body>
 </html>

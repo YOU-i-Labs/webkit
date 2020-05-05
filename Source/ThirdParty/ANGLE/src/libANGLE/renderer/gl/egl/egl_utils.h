@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2017 The ANGLE Project Authors. All rights reserved.
+// Copyright 2017 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -38,7 +38,7 @@ AttributeVector TrimAttributeMap(const egl::AttributeMap &attributes,
 // Append EGL_NONE to the attribute vector so that it can be passed to a native driver.
 void FinalizeAttributeVector(AttributeVector *attributeVector);
 
-}  // namespace egl
+}  // namespace native_egl
 
 }  // namespace rx
 

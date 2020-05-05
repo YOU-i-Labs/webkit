@@ -48,8 +48,7 @@ TEST_P(ProgramPipelineTest, GenerateProgramPipelineObject)
 }
 
 class ProgramPipelineTest31 : public ProgramPipelineTest
-{
-};
+{};
 
 // Test generate or delete program pipeline.
 TEST_P(ProgramPipelineTest31, GenOrDeleteProgramPipelineTest)
@@ -88,29 +87,25 @@ TEST_P(ProgramPipelineTest31, BindProgramPipelineTest)
 // Test IsProgramPipeline
 TEST_P(ProgramPipelineTest31, IsProgramPipelineTest)
 {
-    EXPECT_EQ(GL_FALSE, glIsProgramPipeline(0));
+    EXPECT_GL_FALSE(glIsProgramPipeline(0));
     EXPECT_GL_NO_ERROR();
 
-    EXPECT_EQ(GL_FALSE, glIsProgramPipeline(2));
+    EXPECT_GL_FALSE(glIsProgramPipeline(2));
     EXPECT_GL_NO_ERROR();
 
     GLuint pipeline;
     glGenProgramPipelines(1, &pipeline);
     glBindProgramPipeline(pipeline);
-    EXPECT_EQ(GL_TRUE, glIsProgramPipeline(pipeline));
+    EXPECT_GL_TRUE(glIsProgramPipeline(pipeline));
     EXPECT_GL_NO_ERROR();
 
     glBindProgramPipeline(0);
     glDeleteProgramPipelines(1, &pipeline);
-    EXPECT_EQ(GL_FALSE, glIsProgramPipeline(pipeline));
+    EXPECT_GL_FALSE(glIsProgramPipeline(pipeline));
     EXPECT_GL_NO_ERROR();
 }
 
-ANGLE_INSTANTIATE_TEST(ProgramPipelineTest,
-                       ES3_OPENGL(),
-                       ES3_OPENGLES(),
-                       ES31_OPENGL(),
-                       ES31_OPENGLES());
-ANGLE_INSTANTIATE_TEST(ProgramPipelineTest31, ES31_OPENGL(), ES31_OPENGLES());
+ANGLE_INSTANTIATE_TEST_ES3_AND_ES31(ProgramPipelineTest);
+ANGLE_INSTANTIATE_TEST_ES31(ProgramPipelineTest31);
 
 }  // namespace

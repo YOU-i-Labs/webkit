@@ -65,7 +65,7 @@ static gboolean webViewPrintCallback(WebKitWebView* webView, WebKitPrintOperatio
 static void testWebViewPrint(WebViewTest* test, gconstpointer)
 {
     g_signal_connect(test->m_webView, "print", G_CALLBACK(webViewPrintCallback), test);
-    test->loadHtml("<html><body onLoad=\"print();\">WebKitGTK+ printing test</body></html>", 0);
+    test->loadHtml("<html><body onLoad=\"print();\">WebKitGTK printing test</body></html>", 0);
     g_main_loop_run(test->m_mainLoop);
 }
 
@@ -123,7 +123,7 @@ public:
 
 static void testPrintOperationPrint(PrintTest* test, gconstpointer)
 {
-    test->loadHtml("<html><body>WebKitGTK+ printing test</body></html>", 0);
+    test->loadHtml("<html><body>WebKitGTK printing test</body></html>", 0);
     test->waitUntilLoadFinished();
 
     GRefPtr<GtkPrinter> printer = adoptGRef(findPrintToFilePrinter());
@@ -156,7 +156,7 @@ static void testPrintOperationPrint(PrintTest* test, gconstpointer)
 
 static void testPrintOperationErrors(PrintTest* test, gconstpointer)
 {
-    test->loadHtml("<html><body>WebKitGTK+ printing errors test</body></html>", 0);
+    test->loadHtml("<html><body>WebKitGTK printing errors test</body></html>", 0);
     test->waitUntilLoadFinished();
 
     GRefPtr<GtkPrinter> printer = adoptGRef(findPrintToFilePrinter());
@@ -210,7 +210,7 @@ public:
 
     static void webViewClosed(WebKitWebView* webView, CloseAfterPrintTest* test)
     {
-        gtk_widget_destroy(GTK_WIDGET(webView));
+        g_object_unref(webView);
         test->m_webViewClosed = true;
         if (test->m_printFinished)
             g_main_loop_quit(test->m_mainLoop);
@@ -226,7 +226,7 @@ public:
 
     GtkWidget* createWebView()
     {
-        GtkWidget* newWebView = webkit_web_view_new_with_context(m_webContext.get());
+        GtkWidget* newWebView = webkit_web_view_new_with_related_view(m_webView);
         g_object_ref_sink(newWebView);
 
         assertObjectIsDeletedWhenTestFinishes(G_OBJECT(newWebView));

@@ -8,7 +8,7 @@
 <link rel="up" href="ch01.html" title="Class Overview">
 <link rel="prev" href="WebKitPlugin.html" title="WebKitPlugin">
 <link rel="next" href="WebKitURISchemeRequest.html" title="WebKitURISchemeRequest">
-<meta name="generator" content="GTK-Doc V1.29.1 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.32.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
@@ -38,8 +38,8 @@
 <a name="WebKitWebInspector.functions"></a><h2>Functions</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="functions_return">
-<col class="functions_name">
+<col width="150px" class="functions_proto_type">
+<col class="functions_proto_name">
 </colgroup>
 <tbody>
 <tr>
@@ -148,9 +148,9 @@
 <a name="WebKitWebInspector.signals"></a><h2>Signals</h2>
 <div class="informaltable"><table class="informaltable" border="0">
 <colgroup>
-<col width="150px" class="signals_return">
-<col width="300px" class="signals_name">
-<col width="200px" class="signals_flags">
+<col width="150px" class="signal_proto_type">
+<col width="300px" class="signal_proto_name">
+<col width="200px" class="signal_proto_flags">
 </colgroup>
 <tbody>
 <tr>
@@ -185,8 +185,8 @@
 <a name="WebKitWebInspector.other"></a><h2>Types and Values</h2>
 <div class="informaltable"><table class="informaltable" width="100%" border="0">
 <colgroup>
-<col width="150px" class="name">
-<col class="description">
+<col width="150px" class="other_proto_type">
+<col class="other_proto_name">
 </colgroup>
 <tbody><tr>
 <td class="datatype_keyword">struct</td>
@@ -203,11 +203,11 @@
 <div class="refsect1">
 <a name="WebKitWebInspector.description"></a><h2>Description</h2>
 <p>The WebKit Inspector is a graphical tool to inspect and change the
-content of a <a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a>. It also includes an interactive
+content of a <a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a>. It also includes an interactive
 JavaScript debugger. Using this class one can get a <a href="../gtk3/GtkWidget.html#GtkWidget-struct"><span class="type">GtkWidget</span></a>
 which can be embedded into an application to show the inspector.</p>
 <p>The inspector is available when the <a class="link" href="WebKitSettings.html" title="WebKitSettings"><span class="type">WebKitSettings</span></a> of the
-<a class="link" href="WebKitWebView.html" title="WebKitWebView"><span class="type">WebKitWebView</span></a> has set the <a class="link" href="WebKitSettings.html#WebKitSettings--enable-developer-extras" title="The “enable-developer-extras” property"><span class="type">“enable-developer-extras”</span></a>
+<a class="link" href="WebKitWebView.html" title="The main frame document title of this #WebKitWebView. If the title has not been received yet, it will be %NULL."><span class="type">WebKitWebView</span></a> has set the <a class="link" href="WebKitSettings.html#WebKitSettings--enable-developer-extras" title="The “enable-developer-extras” property"><span class="type">“enable-developer-extras”</span></a>
 to true, otherwise no inspector is available.</p>
 <div class="informalexample">
   <table class="listing_frame" border="0" cellpadding="0" cellspacing="0">
@@ -223,16 +223,16 @@ to true, otherwise no inspector is available.</p>
 8
 9
 10</pre></td>
-        <td class="listing_code"><pre class="programlisting"><span class="comment">/* Enable the developer extras */</span>
-WebKitSettings <span class="gtkdoc opt">*</span>setting <span class="gtkdoc opt">=</span> <span class="function"><a href="WebKitWebView.html#webkit-web-view-get-settings">webkit_web_view_get_settings</a></span> <span class="gtkdoc opt">(</span><span class="function">WEBKIT_WEB_VIEW</span><span class="gtkdoc opt">(</span>my_webview<span class="gtkdoc opt">));</span>
-<span class="function"><a href="../gobject/gobject-The-Base-Object-Type.html#g-object-set">g_object_set</a></span> <span class="gtkdoc opt">(</span><span class="function"><a href="../gobject/gobject-The-Base-Object-Type.html#G-OBJECT:CAPS">G_OBJECT</a></span><span class="gtkdoc opt">(</span>settings<span class="gtkdoc opt">),</span> <span class="string">&quot;enable-developer-extras&quot;</span><span class="gtkdoc opt">,</span> TRUE<span class="gtkdoc opt">,</span> NULL<span class="gtkdoc opt">);</span>
+        <td class="listing_code"><pre class="programlisting"><span class="cm">/* Enable the developer extras */</span>
+<span class="n">WebKitSettings</span> <span class="o">*</span><span class="n">setting</span> <span class="o">=</span> <span class="n">webkit_web_view_get_settings</span> <span class="p">(</span><span class="n">WEBKIT_WEB_VIEW</span><span class="p">(</span><span class="n">my_webview</span><span class="p">));</span>
+<span class="n">g_object_set</span> <span class="p">(</span><span class="n">G_OBJECT</span><span class="p">(</span><span class="n">settings</span><span class="p">),</span> <span class="s">&quot;enable-developer-extras&quot;</span><span class="p">,</span> <span class="n">TRUE</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
 
-<span class="comment">/* Load some data or reload to be able to inspect the page*/</span>
-<span class="function"><a href="WebKitWebView.html#webkit-web-view-load-uri">webkit_web_view_load_uri</a></span> <span class="gtkdoc opt">(</span><span class="function">WEBKIT_WEB_VIEW</span><span class="gtkdoc opt">(</span>my_webview<span class="gtkdoc opt">),</span> <span class="string">&quot;http://www.gnome.org&quot;</span><span class="gtkdoc opt">);</span>
+<span class="cm">/* Load some data or reload to be able to inspect the page*/</span>
+<span class="n">webkit_web_view_load_uri</span> <span class="p">(</span><span class="n">WEBKIT_WEB_VIEW</span><span class="p">(</span><span class="n">my_webview</span><span class="p">),</span> <span class="s">&quot;http://www.gnome.org&quot;</span><span class="p">);</span>
 
-<span class="comment">/* Show the inspector */</span>
-WebKitWebInspector <span class="gtkdoc opt">*</span>inspector <span class="gtkdoc opt">=</span> <span class="function"><a href="WebKitWebView.html#webkit-web-view-get-inspector">webkit_web_view_get_inspector</a></span> <span class="gtkdoc opt">(</span><span class="function">WEBKIT_WEB_VIEW</span><span class="gtkdoc opt">(</span>my_webview<span class="gtkdoc opt">));</span>
-<span class="function"><a href="WebKitWebInspector.html#webkit-web-inspector-show">webkit_web_inspector_show</a></span> <span class="gtkdoc opt">(</span><span class="function">WEBKIT_WEB_INSPECTOR</span><span class="gtkdoc opt">(</span>inspector<span class="gtkdoc opt">));</span></pre></td>
+<span class="cm">/* Show the inspector */</span>
+<span class="n">WebKitWebInspector</span> <span class="o">*</span><span class="n">inspector</span> <span class="o">=</span> <span class="n">webkit_web_view_get_inspector</span> <span class="p">(</span><span class="n">WEBKIT_WEB_VIEW</span><span class="p">(</span><span class="n">my_webview</span><span class="p">));</span>
+<span class="n">webkit_web_inspector_show</span> <span class="p">(</span><span class="n">WEBKIT_WEB_INSPECTOR</span><span class="p">(</span><span class="n">inspector</span><span class="p">));</span></pre></td>
       </tr>
     </tbody>
   </table>
@@ -495,6 +495,7 @@ returns 0.</p>
 <a name="WebKitWebInspector--attached-height"></a><h3>The <code class="literal">“attached-height”</code> property</h3>
 <pre class="programlisting">  “attached-height”          <a href="../glib/glib-Basic-Types.html#guint"><span class="type">guint</span></a></pre>
 <p>The height that the inspector view should have when it is attached.</p>
+<p>Owner: WebKitWebInspector</p>
 <p>Flags: Read</p>
 <p>Default value: 0</p>
 </div>
@@ -505,6 +506,7 @@ returns 0.</p>
 <p>Whether the <em class="parameter"><code>inspector</code></em>
  can be attached to the same window that contains
 the inspected view.</p>
+<p>Owner: WebKitWebInspector</p>
 <p>Flags: Read</p>
 <p>Default value: FALSE</p>
 <p class="since">Since: <a class="link" href="api-index-2-8.html#api-index-2.8">2.8</a></p>
@@ -514,6 +516,7 @@ the inspected view.</p>
 <a name="WebKitWebInspector--inspected-uri"></a><h3>The <code class="literal">“inspected-uri”</code> property</h3>
 <pre class="programlisting">  “inspected-uri”            <a href="../glib/glib-Basic-Types.html#gchar"><span class="type">gchar</span></a> *</pre>
 <p>The URI that is currently being inspected.</p>
+<p>Owner: WebKitWebInspector</p>
 <p>Flags: Read</p>
 <p>Default value: NULL</p>
 </div>
@@ -729,6 +732,6 @@ signal and simply return <a href="../glib/glib-Standard-Macros.html#TRUE:CAPS"><
 </div>
 </div>
 <div class="footer">
-<hr>Generated by GTK-Doc V1.29.1</div>
+<hr>Generated by GTK-Doc V1.32.1</div>
 </body>
 </html>

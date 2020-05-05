@@ -34,25 +34,11 @@
 
 namespace WebKit {
 
-Ref<WebCore::CacheStorageConnection> WebCacheStorageProvider::createCacheStorageConnection(PAL::SessionID sessionID)
+Ref<WebCore::CacheStorageConnection> WebCacheStorageProvider::createCacheStorageConnection()
 {
-    if (sessionID.isEphemeral()) {
-        return m_connections.ensure(sessionID.sessionID(), [=]() {
-            return WebCacheStorageConnection::create(*this, sessionID);
-        }).iterator->value.copyRef();
-    }
-
-    if (!m_defaultConnection) {
-        m_defaultConnection = WebCacheStorageConnection::create(*this, sessionID);
-        m_connections.set(sessionID.sessionID(), *m_defaultConnection);
-    }
-    return *m_defaultConnection;
-}
-
-void WebCacheStorageProvider::process(IPC::Connection& connection, IPC::Decoder& decoder)
-{
-    if (auto* cacheConnection = m_connections.get(decoder.destinationID()))
-        cacheConnection->didReceiveMessage(connection, decoder);
+    if (!m_connection)
+        m_connection = WebCacheStorageConnection::create(*this);
+    return *m_connection;
 }
 
 }

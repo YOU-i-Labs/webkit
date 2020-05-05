@@ -27,7 +27,6 @@
 
 #include "WebCacheStorageConnection.h"
 #include <WebCore/CacheStorageProvider.h>
-#include <pal/SessionID.h>
 #include <wtf/HashMap.h>
 
 namespace IPC {
@@ -41,15 +40,12 @@ class WebCacheStorageProvider final : public WebCore::CacheStorageProvider {
 public:
     static Ref<WebCacheStorageProvider> create() { return adoptRef(*new WebCacheStorageProvider); }
 
-    Ref<WebCore::CacheStorageConnection> createCacheStorageConnection(PAL::SessionID) final;
-
-    void process(IPC::Connection&, IPC::Decoder&);
+    Ref<WebCore::CacheStorageConnection> createCacheStorageConnection() final;
 
 private:
     WebCacheStorageProvider() = default;
 
-    RefPtr<WebCacheStorageConnection> m_defaultConnection;
-    HashMap<uint64_t, Ref<WebCacheStorageConnection>> m_connections;
+    RefPtr<WebCacheStorageConnection> m_connection;
 };
 
 }
