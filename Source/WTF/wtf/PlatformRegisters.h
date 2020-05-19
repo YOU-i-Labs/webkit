@@ -34,6 +34,8 @@
 #include <signal.h>
 #elif OS(WINDOWS)
 #include <windows.h>
+#elif defined(__ORBIS__)
+// Don't do anything
 #else
 #include <ucontext.h>
 #endif

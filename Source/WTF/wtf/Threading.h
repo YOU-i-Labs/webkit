@@ -48,7 +48,7 @@
 #include <wtf/WordLock.h>
 #include <wtf/text/AtomStringTable.h>
 
-#if USE(PTHREADS) && !OS(DARWIN)
+#if USE(PTHREADS) && !OS(DARWIN) && !defined(__ORBIS__)
 #include <signal.h>
 #endif
 
@@ -227,6 +227,11 @@ public:
     bool isCompilationThread() const { return m_isCompilationThread; }
     GCThreadType gcThreadType() const { return static_cast<GCThreadType>(m_gcThreadType); }
 
+#if defined(__ORBIS__)
+    void initializeExtendedStackSize(const char* name);
+    size_t extendedStackSize() { return m_extendedStackSize; }
+#endif
+
     struct NewThreadContext;
     static void entryPoint(NewThreadContext*);
 protected:
@@ -243,7 +248,7 @@ protected:
     void establishPlatformSpecificHandle(PlatformThreadHandle, ThreadIdentifier);
 #endif
 
-#if USE(PTHREADS) && !OS(DARWIN)
+#if USE(PTHREADS) && !OS(DARWIN) && !defined(__ORBIS__)
     static void signalHandlerSuspendResume(int, siginfo_t*, void* ucontext);
 #endif
 
@@ -334,6 +339,10 @@ protected:
 #endif
     void* m_savedStackPointerAtVMEntry { nullptr };
     void* m_savedLastStackTop;
+
+#if defined(__ORBIS__)
+    size_t m_extendedStackSize { 0 };
+#endif
 public:
     void* m_apiData { nullptr };
 };

@@ -38,6 +38,10 @@
 #include <unistd.h>
 #endif
 
+#if defined(YI_PORT_FILE_REQUIRED)
+#include <YiPort.h>
+#endif
+
 namespace WTF {
 
 inline void initializeRandomNumberGenerator()
@@ -46,7 +50,7 @@ inline void initializeRandomNumberGenerator()
     // On Darwin we use arc4random which initialises itself.
 #elif COMPILER(MSVC) && defined(_CRT_RAND_S)
     // On Windows we use rand_s which initialises itself
-#elif OS(UNIX)
+#elif OS(UNIX) && !defined(__ORBIS__)
     srandom(cryptographicallyRandomNumber());
 #else
     srand(cryptographicallyRandomNumber());

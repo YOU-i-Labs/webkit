@@ -323,6 +323,10 @@ Heap::Heap(VM& vm, HeapType heapType)
     }
     
     if (Options::useConcurrentGC()) {
+#if defined(__ORBIS__)
+        // Currently on ORBIS we have not implemented thread suspend/resume which is required for concurrent GC. Abort early.
+        CRASH();
+#endif
         if (Options::useStochasticMutatorScheduler())
             m_scheduler = makeUnique<StochasticSpaceTimeMutatorScheduler>(*this);
         else

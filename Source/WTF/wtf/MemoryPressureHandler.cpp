@@ -53,6 +53,8 @@ MemoryPressureHandler::MemoryPressureHandler()
     : m_holdOffTimer(RunLoop::main(), this, &MemoryPressureHandler::holdOffTimerFired)
 #elif OS(WINDOWS)
     : m_windowsMeasurementTimer(RunLoop::main(), this, &MemoryPressureHandler::windowsMeasurementTimerFired)
+#elif defined(__ORBIS__)
+    : m_memoryMeasurementTimer(RunLoop::main(), this, &MemoryPressureHandler::memoryMeasurementTimerFired)
 #endif
 {
 #if PLATFORM(COCOA)

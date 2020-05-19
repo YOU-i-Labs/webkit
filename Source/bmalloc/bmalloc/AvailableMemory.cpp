@@ -161,6 +161,9 @@ static size_t computeAvailableMemory()
     // Round up the memory size to a multiple of 128MB because max_mem may not be exactly 512MB
     // (for example) and we have code that depends on those boundaries.
     return ((sizeAccordingToKernel + multiple - 1) / multiple) * multiple;
+#elif defined(__ORBIS__)
+    // [SUPER-1424]
+    return 250 * bmalloc::MB;
 #elif BOS(LINUX)
     return LinuxMemory::singleton().availableMemory;
 #elif BOS(UNIX)

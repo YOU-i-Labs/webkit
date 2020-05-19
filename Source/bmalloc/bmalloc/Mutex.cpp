@@ -31,6 +31,7 @@
 
 namespace bmalloc {
 
+#if !defined(__ORBIS__)
 void Mutex::lockSlowCase()
 {
     // The longest critical section in bmalloc is much shorter than the
@@ -51,5 +52,6 @@ void Mutex::lockSlowCase()
     while (!try_lock())
         sched_yield();
 }
+#endif
 
 } // namespace bmalloc

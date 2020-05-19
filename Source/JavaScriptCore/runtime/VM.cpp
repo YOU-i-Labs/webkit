@@ -245,7 +245,11 @@ static bool enableAssembler()
     if (!Options::useJIT())
         return false;
 
+#if defined(__ORBIS__)
+    char* canUseJITString = "no";
+#else
     char* canUseJITString = getenv("JavaScriptCoreUseJIT");
+#endif
     if (canUseJITString && !atoi(canUseJITString))
         return false;
 
@@ -513,9 +517,11 @@ VM::VM(VMType vmType, HeapType heapType)
         m_perBytecodeProfiler = makeUnique<Profiler::Database>(*this);
 
         StringPrintStream pathOut;
+#if !defined(__ORBIS__)
         const char* profilerPath = getenv("JSC_PROFILER_PATH");
         if (profilerPath)
             pathOut.print(profilerPath, "/");
+#endif
         pathOut.print("JSCProfile-", getCurrentProcessID(), "-", m_perBytecodeProfiler->databaseID(), ".json");
         m_perBytecodeProfiler->registerToSaveAtExit(pathOut.toCString().data());
     }

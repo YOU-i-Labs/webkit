@@ -226,7 +226,7 @@ WTF_EXPORT_PRIVATE bool WTFIsDebuggerAttached(void);
 
 #ifndef CRASH
 
-#if defined(NDEBUG) && (OS(DARWIN) || PLATFORM(PLAYSTATION))
+#if defined(NDEBUG) && (OS(DARWIN) || PLATFORM(PLAYSTATION) || defined(__ORBIS__))
 // Crash with a SIGTRAP i.e EXC_BREAKPOINT.
 // We are not using __builtin_trap because it is only guaranteed to abort, but not necessarily
 // trigger a SIGTRAP. Instead, we use inline asm to ensure that we trigger the SIGTRAP.

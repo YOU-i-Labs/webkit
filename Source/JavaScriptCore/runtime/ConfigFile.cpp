@@ -477,7 +477,7 @@ void ConfigFile::canonicalizePaths()
     if (!m_filename[0])
         return;
 
-#if OS(UNIX) || OS(DARWIN)
+#if (OS(UNIX) || OS(DARWIN)) && !defined(__ORBIS__)
     if (m_filename[0] != '/') {
         // Relative path
         char filenameBuffer[s_maxPathLength + 1];

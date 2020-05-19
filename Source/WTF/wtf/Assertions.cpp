@@ -295,7 +295,7 @@ void WTFPrintBacktrace(void** stack, int size)
     out.print(stackTrace);
 }
 
-#if !defined(NDEBUG) || !(OS(DARWIN) || PLATFORM(PLAYSTATION))
+#if !defined(NDEBUG) || !(OS(DARWIN) || PLATFORM(PLAYSTATION) || defined(__ORBIS__))
 void WTFCrash()
 {
     WTFReportBacktrace();
@@ -319,7 +319,7 @@ void WTFCrash()
 {
     CRASH();
 }
-#endif // !defined(NDEBUG) || !(OS(DARWIN) || PLATFORM(PLAYSTATION))
+#endif // !defined(NDEBUG) || !(OS(DARWIN) || PLATFORM(PLAYSTATION) || defined(__ORBIS__))
 
 void WTFCrashWithSecurityImplication()
 {

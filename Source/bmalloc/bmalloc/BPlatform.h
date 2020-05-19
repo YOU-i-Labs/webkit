@@ -40,9 +40,15 @@
 #define BOS_DARWIN 1
 #endif
 
+#ifdef __ORBIS__
+#define BOS_ORBIS 1
+#else 
+
 #if defined(__unix) || defined(__unix__)
 #define BOS_UNIX 1
 #endif
+
+#endif // __ORBIS__
 
 #ifdef __linux__
 #define BOS_LINUX 1

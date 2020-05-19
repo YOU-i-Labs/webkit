@@ -774,6 +774,8 @@ static Optional<DirectoryName> currentWorkingDirectory()
     // We don't support network path like \\host\share\<path name>.
     if (directoryString.startsWith("\\\\"))
         return WTF::nullopt;
+#elif defined(__ORBIS__)
+    return WTF::nullopt;
 #else
     Vector<char> buffer(PATH_MAX);
     if (!getcwd(buffer.data(), PATH_MAX))

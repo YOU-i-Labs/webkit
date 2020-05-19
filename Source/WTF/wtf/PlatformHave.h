@@ -174,7 +174,7 @@
 #define HAVE_INT128_T 1
 #endif
 
-#if OS(UNIX) && !OS(FUCHSIA)
+#if OS(UNIX) && !OS(FUCHSIA) && !defined(__ORBIS__)
 #define HAVE_RESOURCE_H 1
 #endif
 
@@ -224,6 +224,10 @@
 
 #if OS(DARWIN) || OS(FUCHSIA) || ((OS(FREEBSD) || defined(__GLIBC__) || defined(__BIONIC__)) && (CPU(X86) || CPU(X86_64) || CPU(ARM) || CPU(ARM64) || CPU(MIPS)))
 #define HAVE_MACHINE_CONTEXT 1
+#endif
+
+#if defined(__ORBIS__)
+#undef HAVE_MACHINE_CONTEXT
 #endif
 
 #if OS(DARWIN) || (OS(LINUX) && defined(__GLIBC__) && !defined(__UCLIBC__) && !CPU(MIPS))

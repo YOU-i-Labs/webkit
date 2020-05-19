@@ -66,18 +66,24 @@ static bool isMallocEnvironmentVariableSet()
         "MallocHelp"
     };
     size_t size = sizeof(list) / sizeof(const char*);
-    
+
+#if !defined(__ORBIS__)
     for (size_t i = 0; i < size; ++i) {
         if (getenv(list[i]))
             return true;
     }
+#endif
 
     return false;
 }
 
 static bool isLibgmallocEnabled()
 {
+#if !defined(__ORBIS__)
     char* variable = getenv("DYLD_INSERT_LIBRARIES");
+#else
+    char* variable = nullptr;
+#endif
     if (!variable)
         return false;
     if (!strstr(variable, "libgmalloc"))

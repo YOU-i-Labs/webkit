@@ -35,6 +35,10 @@
 #include <cstdio>
 #include <mutex>
 
+#if defined(YI_PORT_FILE_REQUIRED)
+#include <YiPort.h>
+#endif
+
 #if BOS(DARWIN)
 #include <mach/mach.h>
 #endif
