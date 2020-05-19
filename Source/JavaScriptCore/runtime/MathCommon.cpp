@@ -515,8 +515,18 @@ double JIT_OPERATION log1p(double value)
 {
     if (value == 0.0)
         return value;
+#if defined(__ANDROID__)
+    return log1p(value);
+#else
     return std::log1p(value);
+#endif
 }
+
+#if defined(__ANDROID__)
+double log2(double x) {
+    return log(x) / log(2.0);
+}
+#endif
 
 } // namespace Math
 } // namespace JSC

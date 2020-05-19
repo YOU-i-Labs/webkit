@@ -31,10 +31,23 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringView.h>
 
+// On Android getline fully available only since API 21:
+// * https://android.googlesource.com/platform/bionic/+/6880f936173081297be0dc12f687d341b86a4cfa/libc/libc.map.txt#449    
+#if OS(LINUX)
+# if defined(__ANDROID__) && defined(__ANDROID_API__) && (__ANDROID_API__ < 21)
+#  define WTF_GETLINE_AVAILABLE 0
+# else
+#  define WTF_GETLINE_AVAILABLE 1
+# endif
+#else
+# define WTF_GETLINE_AVAILABLE 0
+#endif
+
 namespace WTF {
 
 static const Seconds s_memoryFootprintUpdateInterval = 1_s;
 
+#if WTF_GETLINE_AVAILABLE 
 template<typename Functor>
 static void forEachLine(FILE* file, Functor functor)
 {
@@ -45,9 +58,11 @@ static void forEachLine(FILE* file, Functor functor)
     }
     free(buffer);
 }
+#endif 
 
 static size_t computeMemoryFootprint()
 {
+#if WTF_GETLINE_AVAILABLE
     FILE* file = fopen("/proc/self/smaps", "r");
     if (!file)
         return 0;
@@ -84,6 +99,8 @@ static size_t computeMemoryFootprint()
     });
     fclose(file);
     return totalPrivateDirtyInKB * KB;
+#endif
+    return 0;
 }
 
 size_t memoryFootprint()

@@ -221,6 +221,17 @@ void BinarySwitch::build(unsigned start, bool hardStart, unsigned end)
         std::shuffle(
             localCaseIndices.begin(), localCaseIndices.end(),
             RandomNumberGenerator(m_weakRandom));
+
+#if 0
+// Removed during merge from 2.19.X hunterization
+        std::random_shuffle(
+            localCaseIndices.begin(), localCaseIndices.end(),
+            [this] (unsigned n) {
+                // We use modulo to get a random number in the range we want fully knowing that
+                // this introduces a tiny amount of bias, but we're fine with such tiny bias.
+                return m_weakRandom.getUint32() % n;
+            });
+#endif
         
         for (unsigned i = 0; i < size - 1; ++i) {
             append(BranchCode(NotEqualToPush, localCaseIndices[i]));

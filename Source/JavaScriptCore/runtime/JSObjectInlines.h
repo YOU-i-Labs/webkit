@@ -59,7 +59,11 @@ void createListFromArrayLike(JSGlobalObject* globalObject, JSValue arrayLikeValu
     RETURN_IF_EXCEPTION(scope, void());
     double lengthAsDouble = lengthProperty.toLength(globalObject);
     RETURN_IF_EXCEPTION(scope, void());
+#if defined(__ANDROID__)
+    RELEASE_ASSERT(lengthAsDouble >= 0.0 && lengthAsDouble == trunc(lengthAsDouble));
+#else
     RELEASE_ASSERT(lengthAsDouble >= 0.0 && lengthAsDouble == std::trunc(lengthAsDouble));
+#endif
     uint64_t length = static_cast<uint64_t>(lengthAsDouble);
     for (uint64_t index = 0; index < length; index++) {
         JSValue next = arrayLikeValue.get(globalObject, index);

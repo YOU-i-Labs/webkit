@@ -106,13 +106,13 @@
 # endif
 
 
-# if defined TR2_OPTIONAL_GCC_4_8_1_AND_HIGHER___
-#   define OPTIONAL_HAS_CONSTEXPR_INIT_LIST 1
-#   define OPTIONAL_CONSTEXPR_INIT_LIST constexpr
-# else
+// # if defined TR2_OPTIONAL_GCC_4_8_1_AND_HIGHER___
+// #   define OPTIONAL_HAS_CONSTEXPR_INIT_LIST 1
+// #   define OPTIONAL_CONSTEXPR_INIT_LIST constexpr
+// # else
 #   define OPTIONAL_HAS_CONSTEXPR_INIT_LIST 0
 #   define OPTIONAL_CONSTEXPR_INIT_LIST
-# endif
+// # endif
 
 # // In C++11 constexpr implies const, so we need to make non-const members also non-constexpr
 # if (defined __cplusplus) && (__cplusplus == 201103L)

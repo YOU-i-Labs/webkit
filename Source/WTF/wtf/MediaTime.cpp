@@ -134,7 +134,11 @@ MediaTime MediaTime::createWithDouble(double doubleTime, uint32_t timeScale)
 
     while (doubleTime * timeScale > std::numeric_limits<int64_t>::max())
         timeScale /= 2;
+#if defined(__ANDROID__)
+    return MediaTime(static_cast<int64_t>(round(doubleTime * timeScale)), timeScale, Valid);
+#else
     return MediaTime(static_cast<int64_t>(std::round(doubleTime * timeScale)), timeScale, Valid);
+#endif
 }
 
 float MediaTime::toFloat() const
