@@ -169,7 +169,7 @@ function(hunter_gate_detect_root)
   endif()
 
   # Check SYSTEMDRIVE and USERPROFILE environment variable (windows only)
-  if(WIN32)
+  if(CMAKE_HOST_WIN32)
     string(COMPARE NOTEQUAL "$ENV{SYSTEMDRIVE}" "" result)
     if(result)
       set(HUNTER_GATE_ROOT "$ENV{SYSTEMDRIVE}/.hunter" PARENT_SCOPE)
@@ -278,6 +278,8 @@ function(hunter_gate_download dir)
       "    \"${dir}\"\n"
       "    TLS_VERIFY\n"
       "    ${HUNTER_TLS_VERIFY}\n"
+      "    HTTP_HEADER\n"
+      "    \"${HUNTER_GATE_HTTPHEADER}\"\n"
       "    SOURCE_DIR\n"
       "    \"${dir}/Unpacked\"\n"
       "    CONFIGURE_COMMAND\n"
@@ -408,7 +410,7 @@ macro(HunterGate)
     endif()
 
     cmake_parse_arguments(
-        HUNTER_GATE "LOCAL" "URL;SHA1;GLOBAL;FILEPATH" "" ${ARGV}
+        HUNTER_GATE "LOCAL" "URL;HTTPHEADER;SHA1;GLOBAL;FILEPATH" "" ${ARGV}
     )
 
     string(COMPARE EQUAL "${HUNTER_GATE_SHA1}" "" _empty_sha1)

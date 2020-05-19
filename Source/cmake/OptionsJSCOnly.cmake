@@ -38,7 +38,7 @@ set(ENABLE_WEBKIT OFF)
 set(ENABLE_API_TESTS OFF)
 
 if (WTF_CPU_ARM OR WTF_CPU_MIPS)
-    SET_AND_EXPOSE_TO_BUILD(USE_CAPSTONE TRUE)
+    SET_AND_EXPOSE_TO_BUILD(USE_CAPSTONE FALSE)
 endif ()
 
 # FIXME: JSCOnly on WIN32 seems to only work with fully static build
@@ -90,4 +90,11 @@ else ()
     SET_AND_EXPOSE_TO_BUILD(WTF_DEFAULT_EVENT_LOOP 0)
 endif ()
 
-include(target/icu)
+hunter_add_package(ICU)
+find_package(ICU CONFIG REQUIRED)
+set(ICU_INCLUDE_DIRS "")
+set(ICU_DATA_LIBRARIES ICU::data)
+if (NOT WEBOS AND NOT BLUESKY)
+   set(ICU_I18N_LIBRARIES ICU::i18n)
+   set(ICU_LIBRARIES ICU::uc)
+endif()

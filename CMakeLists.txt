@@ -8,12 +8,14 @@
 # and loading the cross-compilation settings from CMAKE_TOOLCHAIN_FILE.
 #
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.12)
 
 include("cmake/HunterGate.cmake")
 HunterGate(
-    URL "https://github.com/ruslo/hunter/archive/v0.20.50.tar.gz"
-    SHA1 "f119fdbbab3638472840464abb68b440ce5883da"
+    URL "https://api.github.com/repos/You-i-Labs/Hunter/tarball/v0.23.190-youi8"
+    HTTPHEADER "Authorization: token $ENV{GITHUB_ACCESS_TOKEN}"
+    SHA1 "7e51c57baac5c95ac9788ebc0781f1619853cb07"
+    FILEPATH "${CMAKE_CURRENT_LIST_DIR}/cmake/HunterConfig.cmake"
 )
 
 project(WebKit)

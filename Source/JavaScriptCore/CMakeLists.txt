@@ -54,17 +54,20 @@ if (USE_CAPSTONE)
     list(APPEND JavaScriptCore_PRIVATE_INCLUDE_DIRECTORIES "${THIRDPARTY_DIR}/capstone/Source/include")
 endif ()
 
-#if (WEBOS OR BLUESKY)
-#    find_package(ICU CONFIG REQUIRED)
-#    get_target_property(_INC_DIR ICU::i18n INTERFACE_INCLUDE_DIRECTORIES)
-#    set(ICU_INCLUDE_DIRS "${_INC_DIR}")
-#    set(ICU_I18N_LIBRARY)
-#    set(ICU_LIBRARY)
-#endif()
+cmake_policy(SET CMP0074 NEW)
 
-#set(JavaScriptCore_SYSTEM_INCLUDE_DIRECTORIES
-#    "${ICU_INCLUDE_DIRS}"
-#)
+if (WEBOS OR BLUESKY OR ANDROID)
+    # Find ICU that already exists from hunter
+    find_package(ICU CONFIG REQUIRED)
+    get_target_property(_INC_DIR ICU::i18n INTERFACE_INCLUDE_DIRECTORIES)
+    set(ICU_INCLUDE_DIRS "${_INC_DIR}")
+    set(ICU_I18N_LIBRARY)
+    set(ICU_LIBRARY)
+endif()
+
+set(JavaScriptCore_SYSTEM_INCLUDE_DIRECTORIES
+   "${ICU_INCLUDE_DIRS}"
+)
 
 set(JavaScriptCore_OBJECT_LUT_SOURCES
     runtime/ArrayConstructor.cpp
@@ -1376,13 +1379,13 @@ WEBKIT_WRAP_SOURCELIST(${JavaScriptCore_SOURCES})
 WEBKIT_FRAMEWORK(JavaScriptCore)
 WEBKIT_FRAMEWORK_TARGET(JavaScriptCore)
 
-if (NOT "${PORT}" STREQUAL "Mac")
-    if (${JavaScriptCore_LIBRARY_TYPE} STREQUAL "SHARED")
-        WEBKIT_POPULATE_LIBRARY_VERSION(JAVASCRIPTCORE)
-        set_target_properties(JavaScriptCore PROPERTIES VERSION ${JAVASCRIPTCORE_VERSION} SOVERSION ${JAVASCRIPTCORE_VERSION_MAJOR})
-        install(TARGETS JavaScriptCore DESTINATION "${LIB_INSTALL_DIR}")
-    endif ()
-endif ()
+# if (NOT "${PORT}" STREQUAL "Mac")
+#     if (${JavaScriptCore_LIBRARY_TYPE} STREQUAL "SHARED")
+#         WEBKIT_POPULATE_LIBRARY_VERSION(JAVASCRIPTCORE)
+#         set_target_properties(JavaScriptCore PROPERTIES VERSION ${JAVASCRIPTCORE_VERSION} SOVERSION ${JAVASCRIPTCORE_VERSION_MAJOR})
+#         install(TARGETS JavaScriptCore DESTINATION "${LIB_INSTALL_DIR}")
+#     endif ()
+# endif ()
 
 include(GNUInstallDirs)
 
