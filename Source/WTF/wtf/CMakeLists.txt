@@ -504,7 +504,12 @@ list(APPEND WTF_LIBRARIES
     ${ICU_LIBRARIES}
 )
 
-if (WIN32)
+if (Prospero)
+    list(APPEND WTF_SOURCES
+        OSAllocatorMalloc.cpp
+        ThreadingPthreads.cpp
+    )
+elseif (WIN32)
     list(APPEND WTF_SOURCES
         OSAllocatorWin.cpp
         ThreadSpecificWin.cpp

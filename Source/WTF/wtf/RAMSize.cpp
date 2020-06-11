@@ -32,7 +32,7 @@
 #if OS(WINDOWS)
 #include <windows.h>
 #elif defined(USE_SYSTEM_MALLOC) && USE_SYSTEM_MALLOC
-#if OS(UNIX)
+#if OS(UNIX) && !defined(__PROSPERO__)
 #include <sys/sysinfo.h>
 #endif // OS(UNIX)
 #else
@@ -55,7 +55,10 @@ static size_t computeRAMSize()
         return ramSizeGuess;
     return status.ullTotalPhys;
 #elif defined(USE_SYSTEM_MALLOC) && USE_SYSTEM_MALLOC
-#if OS(UNIX)
+#if defined(__PROSPERO__)
+    // Normally the available memory comes from bmalloc, but bmalloc isn't available on Prospero
+    return 250 * MB;
+#elif OS(UNIX)
     struct sysinfo si;
     sysinfo(&si);
     return si.totalram * si.mem_unit;
