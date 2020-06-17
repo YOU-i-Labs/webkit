@@ -38,18 +38,12 @@ bool setCloseOnExec(int)
 int dupCloseOnExec(int fileDescriptor)
 {
     int duplicatedFileDescriptor = -1;
-
-    while ((duplicatedFileDescriptor = dup(fileDescriptor)) == -1 && errno == EINTR) { }
-    if (duplicatedFileDescriptor == -1)
-        return -1;
-
     return duplicatedFileDescriptor;
 }
 
 bool setNonBlock(int fileDescriptor)
 {
-    int nonBlocking = 1;
-    return setsockopt(fileDescriptor, SOL_SOCKET, SO_NBIO, &nonBlocking, sizeof(int)) != -1;
+    return -1;
 }
 
 } // namespace WTF

@@ -39,6 +39,7 @@
 #include <sys/statvfs.h>
 #include <sys/types.h>
 #include <unistd.h>
+
 #include <wtf/EnumTraits.h>
 #include <wtf/FileMetadata.h>
 #include <wtf/text/CString.h>
@@ -417,11 +418,15 @@ bool moveFile(const String& oldPath, const String& newPath)
 
 bool getVolumeFreeSpace(const String& path, uint64_t& freeSpace)
 {
+#ifdef __ORBIS__
+    freeSpace = 0;
+#else
     struct statvfs fileSystemStat;
     if (statvfs(fileSystemRepresentation(path).data(), &fileSystemStat)) {
         freeSpace = fileSystemStat.f_bavail * fileSystemStat.f_frsize;
         return true;
     }
+#endif
     return false;
 }
 

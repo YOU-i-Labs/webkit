@@ -23,6 +23,9 @@
 #include <stddef.h>
 #include <wtf/Platform.h>
 
+#ifdef __ORBIS__
+#include <wtf/playstation/expected.hpp>
+#endif
 namespace WTF {
 
 class AtomString;
@@ -88,12 +91,14 @@ template<ptrdiff_t _Index, typename... _Types> constexpr typename __indexed_type
 
 }
 
+#ifndef __ORBIS__
 namespace std {
 namespace experimental {
 inline namespace fundamentals_v3 {
 template<class, class> class expected;
 template<class> class unexpected;
 }}} // namespace std::experimental::fundamentals_v3
+#endif
 
 using WTF::AtomString;
 using WTF::AtomStringImpl;
@@ -128,8 +133,13 @@ using WTF::URL;
 using WTF::Variant;
 using WTF::Vector;
 
+#ifdef __ORBIS__
+template<class E> using Unexpected = tl::unexpected<E>;
+template<class T, class E> using Expected = tl::expected<T, E>;
+#else
 template<class T, class E> using Expected = std::experimental::expected<T, E>;
 template<class E> using Unexpected = std::experimental::unexpected<E>;
+#endif
 
 // Sometimes an inline method simply forwards to another one and does nothing else. If it were
 // just a forward declaration of that method then you would only need a forward declaration of

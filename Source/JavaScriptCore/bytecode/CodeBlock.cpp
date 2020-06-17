@@ -110,6 +110,8 @@
 
 namespace JSC {
 
+decltype(CodeBlock::numberOfLowerTierCells) constexpr CodeBlock::numberOfLowerTierCells;
+
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CodeBlockRareData);
 
 const ClassInfo CodeBlock::s_info = {

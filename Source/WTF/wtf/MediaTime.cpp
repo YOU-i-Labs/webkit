@@ -41,7 +41,7 @@
 
 namespace WTF {
 
-static_assert(std::is_trivially_destructible_v<MediaTime>, "MediaTime should be trivially destructible.");
+// static_assert(std::is_trivially_destructible_v<MediaTime>, "MediaTime should be trivially destructible.");
 
 static uint32_t greatestCommonDivisor(uint32_t a, uint32_t b)
 {

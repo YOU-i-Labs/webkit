@@ -54,7 +54,7 @@ public:
             }
         }
 
-        totals.append({ compilerName, name, duration });
+        totals.append(std::tuple<const char*, const char*, Seconds>{ compilerName, name, duration });
         return duration;
     }
 

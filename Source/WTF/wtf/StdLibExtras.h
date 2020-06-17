@@ -461,6 +461,42 @@ inline void* operator new(size_t, NotNullTag, void* location)
 
 namespace std {
 
+#ifdef __ORBIS__
+
+template< class T, class U >
+inline constexpr bool is_same_v = is_same<T, U>::value;
+
+template< class T >
+inline constexpr bool is_integral_v = is_integral<T>::value;
+
+#endif
+
+// Provide in_place_t when not building with -std=c++17, or when building with libstdc++ 6
+// (which doesn't define the _GLIBCXX_RELEASE macro that's been introduced in libstdc++ 7).
+#if (__cplusplus < 201703L || (defined(__GLIBCXX__) && !defined(_GLIBCXX_RELEASE))) && (!defined(_MSVC_LANG) || _MSVC_LANG < 201703L)
+
+// These are inline variable for C++17 and later.
+#define __IN_PLACE_INLINE_VARIABLE static const
+
+struct in_place_t {
+    explicit in_place_t() = default;
+};
+__IN_PLACE_INLINE_VARIABLE constexpr in_place_t in_place { };
+
+template <class T> struct in_place_type_t {
+    explicit in_place_type_t() = default;
+};
+template <class T>
+__IN_PLACE_INLINE_VARIABLE constexpr in_place_type_t<T> in_place_type { };
+
+template <size_t I> struct in_place_index_t {
+    explicit in_place_index_t() = default;
+};
+template <size_t I>
+__IN_PLACE_INLINE_VARIABLE constexpr in_place_index_t<I> in_place_index { };
+#endif // __cplusplus < 201703L
+
+
 template<WTF::CheckMoveParameterTag, typename T>
 ALWAYS_INLINE constexpr typename remove_reference<T>::type&& move(T&& value)
 {

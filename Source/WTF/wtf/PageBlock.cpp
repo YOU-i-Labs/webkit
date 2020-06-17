@@ -40,7 +40,14 @@ namespace WTF {
 static size_t s_pageSize;
 static size_t s_pageMask;
 
-#if OS(UNIX)
+#if defined(__ORBIS__)
+
+inline size_t systemPageSize()
+{
+    return 16384;
+}
+
+#elif OS(UNIX)
 
 inline size_t systemPageSize()
 {

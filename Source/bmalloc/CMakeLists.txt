@@ -144,6 +144,7 @@ set(bmalloc_LIBRARIES
 
 set(bmalloc_INTERFACE_LIBRARIES bmalloc)
 set(bmalloc_INTERFACE_INCLUDE_DIRECTORIES ${bmalloc_FRAMEWORK_HEADERS_DIR})
+set(bmalloc_INCLUDE_DIRECTORIES ${bmalloc_PRIVATE_INCLUDE_DIRECTORIES})
 set(bmalloc_INTERFACE_DEPENDENCIES bmalloc_CopyHeaders)
 
 set(mbmalloc_LIBRARIES bmalloc)
