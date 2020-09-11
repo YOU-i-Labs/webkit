@@ -45,6 +45,8 @@
 #include "JSGlobalObjectInspectorController.h"
 #endif
 
+#include <unicode/udata.h>
+
 using namespace JSC;
 
 JSValueRef JSEvaluateScript(JSContextRef ctx, JSStringRef script, JSObjectRef thisObject, JSStringRef sourceURL, int startingLineNumber, JSValueRef* exception)
@@ -104,7 +106,7 @@ bool JSCheckScriptSyntax(JSContextRef ctx, JSStringRef script, JSStringRef sourc
 
     auto sourceURLString = sourceURL ? sourceURL->string() : String();
     SourceCode source = makeSource(script->string(), SourceOrigin { sourceURLString }, URL({ }, sourceURLString), TextPosition(OrdinalNumber::fromOneBasedInt(startingLineNumber), OrdinalNumber()));
-    
+
     JSValue syntaxException;
     bool isValidSyntax = checkSyntax(vm.vmEntryGlobalObject(exec)->globalExec(), source, &syntaxException);
 
@@ -197,3 +199,15 @@ const char iosInstallName51 = 0;
 const char iosInstallName60 = 0;
 const char iosInstallName61 = 0;
 #endif
+
+void JSSetICUDataPath(const char *pPath)
+{
+    u_setDataDirectory(pPath);
+}
+
+void JSSetICUData(const void *pData)
+{
+    UErrorCode error = U_ZERO_ERROR;
+    udata_setCommonData(pData, &error);
+    RELEASE_ASSERT(error == 0);
+}

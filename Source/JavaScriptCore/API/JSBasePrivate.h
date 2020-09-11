@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef JSBasePrivate_h
@@ -46,6 +46,20 @@ region.
 JS_EXPORT void JSReportExtraMemoryCost(JSContextRef ctx, size_t size) JSC_API_AVAILABLE(macosx(10.6), ios(7.0));
 
 JS_EXPORT void JSDisableGCTimer(void);
+
+/*!
+@function
+@abstract Sets the path to the directory containing the ICU data files.
+@param pPath the path
+*/
+JS_EXPORT void JSSetICUDataPath(const char *pPath);
+
+/*!
+@function
+@abstract Adds a data array to the ICU data sets.
+@param pData a pointer to the ICU data
+*/
+JS_EXPORT void JSSetICUData(const void *pData);
 
 #ifdef __cplusplus
 }
