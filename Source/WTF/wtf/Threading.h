@@ -8,13 +8,13 @@
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
+ *     documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -47,7 +47,7 @@
 #include <wtf/WordLock.h>
 #include <wtf/text/AtomicStringTable.h>
 
-#if USE(PTHREADS) && !OS(DARWIN) && !defined(__ORBIS__)
+#if USE(PTHREADS) && !OS(DARWIN) && !defined(__ORBIS__) && !defined(__PROSPERO__)
 #include <signal.h>
 #endif
 
@@ -134,7 +134,7 @@ public:
     // Helpful for platforms where the thread name must be set from within the thread.
     static void initializeCurrentThreadInternal(const char* threadName);
     static void initializeCurrentThreadEvenIfNonWTFCreated();
-    
+
     WTF_EXPORT_PRIVATE static const unsigned lockSpinLimit;
     WTF_EXPORT_PRIVATE static void yield();
 
@@ -190,7 +190,7 @@ public:
     mach_port_t machThread() { return m_platformThread; }
 #endif
 
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
     void initializeExtendedStackSize(const char* name);
     size_t extendedStackSize() { return m_extendedStackSize; }
 #endif
@@ -211,7 +211,7 @@ protected:
     void establishPlatformSpecificHandle(PlatformThreadHandle, ThreadIdentifier);
 #endif
 
-#if USE(PTHREADS) && !OS(DARWIN) && !defined(__ORBIS__)
+#if USE(PTHREADS) && !OS(DARWIN) && !defined(__ORBIS__) && !defined(__PROSPERO__)
     static void signalHandlerSuspendResume(int, siginfo_t*, void* ucontext);
 #endif
 
@@ -301,7 +301,7 @@ protected:
     void* m_savedStackPointerAtVMEntry { nullptr };
     void* m_savedLastStackTop;
 
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
     size_t m_extendedStackSize { 0 };
 #endif
 public:

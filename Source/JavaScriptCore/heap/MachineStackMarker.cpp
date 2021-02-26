@@ -97,7 +97,7 @@ static void copyMemory(void* dst, const void* src, size_t size)
     while (size--)
         *dstPtr++ = *srcPtr++;
 }
-    
+
 
 
 // This function must not call malloc(), free(), or any other function that might
@@ -144,7 +144,7 @@ bool MachineThreads::tryCopyOtherThreadStacks(const AbstractLocker& locker, void
 
     *size = 0;
 
-#if !defined(__ORBIS__)
+#if !defined(__ORBIS__) && !defined(__PROSPERO__)
     Thread& currentThread = Thread::current();
     const ListHashSet<Ref<Thread>>& threads = m_threadGroup->threads(locker);
     BitVector isSuspended(threads.size());

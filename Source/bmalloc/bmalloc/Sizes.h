@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef Sizes_h
@@ -46,7 +46,7 @@ namespace Sizes {
     static const size_t alignment = 8;
     static const size_t alignmentMask = alignment - 1ul;
 
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
     // [SUPER-1377]
     // Since using IsoHeap consumes much VMEM space, we use a small chunk size.
     static const size_t chunkSize = 128 * kB;
@@ -73,10 +73,10 @@ namespace Sizes {
 
     static const size_t deallocatorLogCapacity = 512;
     static const size_t bumpRangeCacheCapacity = 3;
-    
+
     static const size_t scavengerBytesPerMemoryPressureCheck = 16 * MB;
     static const double memoryPressureThreshold = 0.75;
-    
+
     static const size_t maskSizeClassCount = maskSizeClassMax / alignment;
 
     constexpr size_t maskSizeClass(size_t size)
@@ -123,7 +123,7 @@ namespace Sizes {
             return maskObjectSize(sizeClass);
         return logObjectSize(sizeClass - maskSizeClassCount);
     }
-    
+
     inline size_t pageSize(size_t pageClass)
     {
         return (pageClass + 1) * smallPageSize;

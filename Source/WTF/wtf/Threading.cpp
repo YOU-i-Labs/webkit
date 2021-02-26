@@ -6,10 +6,10 @@
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
+ *     documentation and/or other materials provided with the distribution.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -109,7 +109,7 @@ void Thread::initializeInThread()
 #endif
 }
 
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
 void Thread::initializeExtendedStackSize(const char* name)
 {
     if (name && !strcmp(name, "WebCore: Worker"))
@@ -148,7 +148,7 @@ Ref<Thread> Thread::create(const char* name, Function<void()>&& entryPoint)
 {
     WTF::initializeThreading();
     Ref<Thread> thread = adoptRef(*new Thread());
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
     thread->initializeExtendedStackSize(name);
 #endif
     Ref<NewThreadContext> context = adoptRef(*new NewThreadContext { name, WTFMove(entryPoint), thread.copyRef() });

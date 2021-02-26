@@ -33,7 +33,7 @@
 #include <signal.h>
 #elif OS(WINDOWS)
 #include <windows.h>
-#elif defined(__ORBIS__)
+#elif defined(__ORBIS__) || defined(__PROSPERO__)
 // Don't do anything
 #else
 #include <ucontext.h>

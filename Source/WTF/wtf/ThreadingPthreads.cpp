@@ -9,13 +9,13 @@
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
+ *     documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -66,7 +66,7 @@
 
 #endif
 
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
 #include <WTFString.h>
 #endif
 
@@ -78,7 +78,7 @@ Thread::~Thread()
 {
 }
 
-#if !OS(DARWIN) && !defined(__ORBIS__)
+#if !OS(DARWIN) && !defined(__ORBIS__) && !defined(__PROSPERO__)
 class Semaphore {
     WTF_MAKE_NONCOPYABLE(Semaphore);
     WTF_MAKE_FAST_ALLOCATED;
@@ -174,7 +174,7 @@ void Thread::signalHandlerSuspendResume(int, siginfo_t*, void* ucontext)
 
 void Thread::initializePlatformThreading()
 {
-#if !OS(DARWIN) && !defined(__ORBIS__)
+#if !OS(DARWIN) && !defined(__ORBIS__) && !defined(__PROSPERO__)
     globalSemaphoreForSuspendResume.construct(0);
 
     // Signal handlers are process global configuration.
@@ -192,7 +192,7 @@ void Thread::initializePlatformThreading()
 
 void Thread::initializeCurrentThreadEvenIfNonWTFCreated()
 {
-#if !OS(DARWIN) && !defined(__ORBIS__)
+#if !OS(DARWIN) && !defined(__ORBIS__) && !defined(__PROSPERO__)
     sigset_t mask;
     sigemptyset(&mask);
     sigaddset(&mask, SigThreadSuspendResume);
@@ -215,7 +215,7 @@ bool Thread::establishHandle(NewThreadContext* context)
     pthread_attr_set_qos_class_np(&attr, adjustedQOSClass(QOS_CLASS_USER_INITIATED), 0);
 #endif
 
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
     if (extendedStackSize())
         pthread_attr_setstacksize(&attr, extendedStackSize());
 #endif
@@ -233,7 +233,7 @@ bool Thread::establishHandle(NewThreadContext* context)
 void Thread::initializeCurrentThreadInternal(const char* threadName)
 {
 #if HAVE(PTHREAD_SETNAME_NP)
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
     String name(threadName);
     size_t size = name.reverseFind('.');
     if (size != notFound)
@@ -324,7 +324,7 @@ bool Thread::signal(int signalNumber)
     auto locker = holdLock(m_mutex);
     if (hasExited())
         return false;
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
     LOG_ERROR("Thread %p is about to be killed from Thread::signal()\n", this);
     int errNo = pthread_cancel(m_handle);
 #else
@@ -355,6 +355,9 @@ auto Thread::suspend() -> Expected<void, PlatformSuspendError>
     return { };
 #elif defined(__ORBIS__)
     LOG_ERROR("Tried to suspend thread on ORBIS. Not supported!");
+    return { };
+#elif defined(__PROSPERO__)
+    LOG_ERROR("Tried to suspend thread on PROSPERO. Not supported!");
     return { };
 #else
     if (!m_suspendCount) {
@@ -388,6 +391,8 @@ void Thread::resume()
     thread_resume(m_platformThread);
 #elif defined(__ORBIS__)
     LOG_ERROR("Resuming thread on ORBIS does nothing. Not supported!");
+#elif defined(__PROSPERO__)
+    LOG_ERROR("Resuming thread on PROSPERO does nothing. Not supported!");
 #else
     if (m_suspendCount == 1) {
         // When allowing SigThreadSuspendResume interrupt in the signal handler by sigsuspend and SigThreadSuspendResume is actually issued,
@@ -545,7 +550,7 @@ ThreadCondition::~ThreadCondition()
 {
     pthread_cond_destroy(&m_condition);
 }
-    
+
 void ThreadCondition::wait(Mutex& mutex)
 {
     int result = pthread_cond_wait(&m_condition, &mutex.impl());

@@ -138,12 +138,12 @@
 struct MemoryFootprint {
     uint64_t current;
     uint64_t peak;
-    
+
     static MemoryFootprint now()
     {
         return { 0L, 0L };
     }
-    
+
     static void resetPeak()
     {
     }
@@ -162,7 +162,7 @@ namespace {
 NO_RETURN_WITH_VALUE static void jscExit(int status)
 {
     waitForAsynchronousDisassembly();
-    
+
 #if ENABLE(DFG_JIT)
     if (DFG::isCrashing()) {
         for (;;) {
@@ -226,7 +226,7 @@ class Message : public ThreadSafeRefCounted<Message> {
 public:
     Message(ArrayBufferContents&&, int32_t);
     ~Message();
-    
+
     ArrayBufferContents&& releaseContents() { return WTFMove(m_contents); }
     int32_t index() const { return m_index; }
 
@@ -239,10 +239,10 @@ class Worker : public BasicRawSentinelNode<Worker> {
 public:
     Worker(Workers&);
     ~Worker();
-    
+
     void enqueue(const AbstractLocker&, RefPtr<Message>);
     RefPtr<Message> dequeue();
-    
+
     static Worker& current();
 
 private:
@@ -256,19 +256,19 @@ class Workers {
 public:
     Workers();
     ~Workers();
-    
+
     template<typename Func>
     void broadcast(const Func&);
-    
+
     void report(const String&);
     String tryGetReport();
     String getReport();
-    
+
     static Workers& singleton();
-    
+
 private:
     friend class Worker;
-    
+
     Lock m_lock;
     Condition m_condition;
     SentinelLinkedList<Worker, BasicRawSentinelNode<Worker>> m_workers;
@@ -539,7 +539,7 @@ protected:
         putDirectNativeFunction(vm, this, Identifier::fromString(&vm, "isInt32"), 0, functionIsInt32, CheckInt32Intrinsic, static_cast<unsigned>(PropertyAttribute::DontEnum));
         putDirectNativeFunction(vm, this, Identifier::fromString(&vm, "isPureNaN"), 0, functionIsPureNaN, CheckInt32Intrinsic, static_cast<unsigned>(PropertyAttribute::DontEnum));
         putDirectNativeFunction(vm, this, Identifier::fromString(&vm, "fiatInt52"), 0, functionIdentity, FiatInt52Intrinsic, static_cast<unsigned>(PropertyAttribute::DontEnum));
-        
+
         addFunction(vm, "effectful42", functionEffectful42, 0);
         addFunction(vm, "makeMasquerader", functionMakeMasquerader, 0);
         addFunction(vm, "hasCustomProperties", functionHasCustomProperties, 0);
@@ -585,22 +585,22 @@ protected:
         }
 
         putDirect(vm, Identifier::fromString(globalExec(), "console"), jsUndefined());
-        
+
         Structure* plainObjectStructure = JSFinalObject::createStructure(vm, this, objectPrototype(), 0);
-        
+
         JSObject* dollar = JSFinalObject::create(vm, plainObjectStructure);
         putDirect(vm, Identifier::fromString(globalExec(), "$"), dollar);
         putDirect(vm, Identifier::fromString(globalExec(), "$262"), dollar);
-        
+
         addFunction(vm, dollar, "createRealm", functionDollarCreateRealm, 0);
         addFunction(vm, dollar, "detachArrayBuffer", functionDollarDetachArrayBuffer, 1);
         addFunction(vm, dollar, "evalScript", functionDollarEvalScript, 1);
-        
+
         dollar->putDirect(vm, Identifier::fromString(globalExec(), "global"), this);
-        
+
         JSObject* agent = JSFinalObject::create(vm, plainObjectStructure);
         dollar->putDirect(vm, Identifier::fromString(globalExec(), "agent"), agent);
-        
+
         // The test262 INTERPRETING.md document says that some of these functions are just in the main
         // thread and some are in the other threads. We just put them in all threads.
         addFunction(vm, agent, "start", functionDollarAgentStart, 1);
@@ -621,7 +621,7 @@ protected:
         addFunction(vm, "mallocInALoop", functionMallocInALoop, 0);
         addFunction(vm, "totalCompileTime", functionTotalCompileTime, 0);
     }
-    
+
     void addFunction(VM& vm, JSObject* object, const char* name, NativeFunction function, unsigned arguments)
     {
         Identifier identifier = Identifier::fromString(&vm, name);
@@ -632,7 +632,7 @@ protected:
     {
         addFunction(vm, this, name, function, arguments);
     }
-    
+
     static JSInternalPromise* moduleLoaderImportModule(JSGlobalObject*, ExecState*, JSModuleLoader*, JSString*, JSValue, const SourceOrigin&);
     static Identifier moduleLoaderResolve(JSGlobalObject*, ExecState*, JSModuleLoader*, JSValue, JSValue, JSValue);
     static JSInternalPromise* moduleLoaderFetch(JSGlobalObject*, ExecState*, JSModuleLoader*, JSValue, JSValue, JSValue);
@@ -745,7 +745,7 @@ static Optional<DirectoryName> currentWorkingDirectory()
     // We don't support network path like \\host\share\<path name>.
     if (directoryString.startsWith("\\\\"))
         return WTF::nullopt;
-#elif defined(__ORBIS__)
+#elif defined(__ORBIS__) || defined(__PROSPERO__)
     return WTF::nullopt;
 #else
     Vector<char> buffer(PATH_MAX);
@@ -1157,7 +1157,7 @@ EncodedJSValue JSC_HOST_CALL functionSleepSeconds(ExecState* exec)
         RETURN_IF_EXCEPTION(scope, encodedJSValue());
         sleep(seconds);
     }
-    
+
     return JSValue::encode(jsUndefined());
 }
 
@@ -1215,7 +1215,7 @@ EncodedJSValue JSC_HOST_CALL functionEdenGC(ExecState* exec)
 
 EncodedJSValue JSC_HOST_CALL functionForceGCSlowPaths(ExecState*)
 {
-    // It's best for this to be the first thing called in the 
+    // It's best for this to be the first thing called in the
     // JS program so the option is set to true before we JIT.
     Options::forceGCSlowPaths() = true;
     return JSValue::encode(jsUndefined());
@@ -1340,7 +1340,7 @@ EncodedJSValue JSC_HOST_CALL functionRun(ExecState* exec)
         throwException(globalObject->globalExec(), scope, exception);
         return JSValue::encode(jsUndefined());
     }
-    
+
     return JSValue::encode(jsNumber(stopWatch.getElapsedMS()));
 }
 
@@ -1370,7 +1370,7 @@ EncodedJSValue JSC_HOST_CALL functionRunString(ExecState* exec)
         scope.throwException(globalObject->globalExec(), exception);
         return JSValue::encode(jsUndefined());
     }
-    
+
     return JSValue::encode(globalObject);
 }
 
@@ -1386,7 +1386,7 @@ EncodedJSValue JSC_HOST_CALL functionLoad(ExecState* exec)
         return JSValue::encode(throwException(exec, scope, createError(exec, "Could not open file."_s)));
 
     JSGlobalObject* globalObject = exec->lexicalGlobalObject();
-    
+
     NakedPtr<Exception> evaluationException;
     JSValue result = evaluate(globalObject->globalExec(), jscSource(script, SourceOrigin { absolutePath(fileName) }, fileName), JSValue(), evaluationException);
     if (evaluationException)
@@ -1526,7 +1526,7 @@ EncodedJSValue JSC_HOST_CALL functionReadline(ExecState* exec)
     Vector<char, 256> line;
     int c;
     while ((c = getchar()) != EOF) {
-        // FIXME: Should we also break on \r? 
+        // FIXME: Should we also break on \r?
         if (c == '\n')
             break;
         line.append(c);
@@ -1590,7 +1590,7 @@ Worker::Worker(Workers& workers)
 {
     auto locker = holdLock(m_workers.m_lock);
     m_workers.m_workers.append(this);
-    
+
     *currentWorker() = this;
 }
 
@@ -1705,13 +1705,13 @@ EncodedJSValue JSC_HOST_CALL functionDollarEvalScript(ExecState* exec)
 
     String sourceCode = exec->argument(0).toWTFString(exec);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
-    
+
     GlobalObject* globalObject = jsDynamicCast<GlobalObject*>(vm,
         exec->thisValue().get(exec, Identifier::fromString(exec, "global")));
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
     if (!globalObject)
         return JSValue::encode(throwException(exec, scope, createError(exec, "Expected global to point to a global object"_s)));
-    
+
     NakedPtr<Exception> evaluationException;
     JSValue result = evaluate(globalObject->globalExec(), makeSource(sourceCode, exec->callerSourceOrigin()), JSValue(), evaluationException);
     if (evaluationException)
@@ -1726,11 +1726,11 @@ EncodedJSValue JSC_HOST_CALL functionDollarAgentStart(ExecState* exec)
 
     String sourceCode = exec->argument(0).toWTFString(exec).isolatedCopy();
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
-    
+
     Lock didStartLock;
     Condition didStartCondition;
     bool didStart = false;
-    
+
     Thread::create(
         "JSC Agent",
         [sourceCode, &didStartLock, &didStartCondition, &didStart] () {
@@ -1745,7 +1745,7 @@ EncodedJSValue JSC_HOST_CALL functionDollarAgentStart(ExecState* exec)
                         didStart = true;
                         didStartCondition.notifyOne();
                     }
-                    
+
                     NakedPtr<Exception> evaluationException;
                     JSValue result;
                     result = evaluate(globalObject->globalExec(), makeSource(sourceCode, SourceOrigin("worker"_s)), JSValue(), evaluationException);
@@ -1756,13 +1756,13 @@ EncodedJSValue JSC_HOST_CALL functionDollarAgentStart(ExecState* exec)
                         exit(1);
                 });
         })->detach();
-    
+
     {
         auto locker = holdLock(didStartLock);
         while (!didStart)
             didStartCondition.wait(didStartLock);
     }
-    
+
     return JSValue::encode(jsUndefined());
 }
 
@@ -1776,17 +1776,17 @@ EncodedJSValue JSC_HOST_CALL functionDollarAgentReceiveBroadcast(ExecState* exec
     CallType callType = getCallData(vm, callback, callData);
     if (callType == CallType::None)
         return JSValue::encode(throwException(exec, scope, createError(exec, "Expected callback"_s)));
-    
+
     RefPtr<Message> message;
     {
         ReleaseHeapAccessScope releaseAccess(vm.heap);
         message = Worker::current().dequeue();
     }
-    
+
     auto nativeBuffer = ArrayBuffer::create(message->releaseContents());
     ArrayBufferSharingMode sharingMode = nativeBuffer->sharingMode();
     JSArrayBuffer* jsBuffer = JSArrayBuffer::create(vm, exec->lexicalGlobalObject()->arrayBufferStructure(sharingMode), WTFMove(nativeBuffer));
-    
+
     MarkedArgumentBuffer args;
     args.append(jsBuffer);
     args.append(jsNumber(message->index()));
@@ -1802,9 +1802,9 @@ EncodedJSValue JSC_HOST_CALL functionDollarAgentReport(ExecState* exec)
 
     String report = exec->argument(0).toWTFString(exec);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
-    
+
     Workers::singleton().report(report);
-    
+
     return JSValue::encode(jsUndefined());
 }
 
@@ -1829,10 +1829,10 @@ EncodedJSValue JSC_HOST_CALL functionDollarAgentBroadcast(ExecState* exec)
     JSArrayBuffer* jsBuffer = jsDynamicCast<JSArrayBuffer*>(vm, exec->argument(0));
     if (!jsBuffer || !jsBuffer->isShared())
         return JSValue::encode(throwException(exec, scope, createError(exec, "Expected SharedArrayBuffer"_s)));
-    
+
     int32_t index = exec->argument(1).toInt32(exec);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
-    
+
     Workers::singleton().broadcast(
         [&] (const AbstractLocker& locker, Worker& worker) {
             ArrayBuffer* nativeBuffer = jsBuffer->impl();
@@ -1841,7 +1841,7 @@ EncodedJSValue JSC_HOST_CALL functionDollarAgentBroadcast(ExecState* exec)
             RefPtr<Message> message = adoptRef(new Message(WTFMove(contents), index));
             worker.enqueue(locker, message);
         });
-    
+
     return JSValue::encode(jsUndefined());
 }
 
@@ -1852,7 +1852,7 @@ EncodedJSValue JSC_HOST_CALL functionDollarAgentGetReport(ExecState* exec)
     String string = Workers::singleton().tryGetReport();
     if (!string)
         return JSValue::encode(jsNull());
-    
+
     return JSValue::encode(jsString(&vm, string));
 }
 
@@ -1877,7 +1877,7 @@ EncodedJSValue JSC_HOST_CALL functionWaitForReport(ExecState* exec)
     }
     if (!string)
         return JSValue::encode(jsNull());
-    
+
     return JSValue::encode(jsString(&vm, string));
 }
 
@@ -1891,7 +1891,7 @@ EncodedJSValue JSC_HOST_CALL functionFlashHeapAccess(ExecState* exec)
 {
     VM& vm = exec->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
-    
+
     double sleepTimeMs = 0;
     if (exec->argumentCount() >= 1) {
         sleepTimeMs = exec->argument(0).toNumber(exec);
@@ -1954,11 +1954,11 @@ EncodedJSValue JSC_HOST_CALL functionReoptimizationRetryCount(ExecState* exec)
 {
     if (exec->argumentCount() < 1)
         return JSValue::encode(jsUndefined());
-    
+
     CodeBlock* block = getSomeBaselineCodeBlockForFunction(exec->argument(0));
     if (!block)
         return JSValue::encode(jsNumber(0));
-    
+
     return JSValue::encode(jsNumber(block->reoptimizationRetryCounter()));
 }
 
@@ -1969,14 +1969,14 @@ EncodedJSValue JSC_HOST_CALL functionTransferArrayBuffer(ExecState* exec)
 
     if (exec->argumentCount() < 1)
         return JSValue::encode(throwException(exec, scope, createError(exec, "Not enough arguments"_s)));
-    
+
     JSArrayBuffer* buffer = jsDynamicCast<JSArrayBuffer*>(vm, exec->argument(0));
     if (!buffer)
         return JSValue::encode(throwException(exec, scope, createError(exec, "Expected an array buffer"_s)));
-    
+
     ArrayBufferContents dummyContents;
     buffer->impl()->transferTo(vm, dummyContents);
-    
+
     return JSValue::encode(jsUndefined());
 }
 
@@ -2191,7 +2191,7 @@ static EncodedJSValue JSC_HOST_CALL functionWebAssemblyMemoryMode(ExecState* exe
 {
     VM& vm = exec->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
-    
+
     if (!Options::useWebAssembly())
         return throwVMTypeError(exec, scope, "WebAssemblyMemoryMode should only be called if the useWebAssembly option is set"_s);
 
@@ -2334,7 +2334,7 @@ static void dumpException(GlobalObject* globalObject, JSValue exception)
     CHECK_EXCEPTION();
     JSValue stackValue = exception.get(globalObject->globalExec(), stackID);
     CHECK_EXCEPTION();
-    
+
     if (nameValue.toWTFString(globalObject->globalExec()) == "SyntaxError"
         && (!fileNameValue.isUndefinedOrNull() || !lineNumberValue.isUndefinedOrNull())) {
         printf(
@@ -2342,7 +2342,7 @@ static void dumpException(GlobalObject* globalObject, JSValue exception)
             fileNameValue.toWTFString(globalObject->globalExec()).utf8().data(),
             lineNumberValue.toWTFString(globalObject->globalExec()).utf8().data());
     }
-    
+
     if (!stackValue.isUndefinedOrNull()) {
         auto stackString = stackValue.toWTFString(globalObject->globalExec());
         if (stackString.length())
@@ -2494,7 +2494,7 @@ static void runInteractive(GlobalObject* globalObject)
     if (!directoryName)
         return;
     SourceOrigin sourceOrigin(resolvePath(directoryName.value(), ModuleName("interpreter")));
-    
+
     bool shouldQuit = false;
     while (!shouldQuit) {
 #if HAVE(READLINE) && !RUNNING_FROM_XCODE
@@ -2516,13 +2516,13 @@ static void runInteractive(GlobalObject* globalObject)
             add_history(line);
             free(line);
         } while (error.syntaxErrorType() == ParserError::SyntaxErrorRecoverable);
-        
+
         if (error.isValid()) {
             printf("%s:%d\n", error.message().utf8().data(), error.line());
             continue;
         }
-        
-        
+
+
         NakedPtr<Exception> evaluationException;
         JSValue returnValue = evaluate(globalObject->globalExec(), makeSource(source, sourceOrigin), JSValue(), evaluationException);
 #else
@@ -2530,7 +2530,7 @@ static void runInteractive(GlobalObject* globalObject)
         Vector<char, 256> line;
         int c;
         while ((c = getchar()) != EOF) {
-            // FIXME: Should we also break on \r? 
+            // FIXME: Should we also break on \r?
             if (c == '\n')
                 break;
             line.append(c);
@@ -2597,7 +2597,7 @@ static bool isMJSFile(char *filename)
 void CommandLine::parseArguments(int argc, char** argv)
 {
     Options::initialize();
-    
+
     if (Options::dumpOptions()) {
         printf("Command line:");
 #if PLATFORM(COCOA)
@@ -2772,7 +2772,7 @@ template<typename Func>
 int runJSC(const CommandLine& options, bool isWorker, const Func& func)
 {
     Worker worker(Workers::singleton());
-    
+
     VM& vm = VM::create(LargeHeap).leakRef();
     int result;
     bool success = true;
@@ -2824,7 +2824,7 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
             printf("JSC OSR EXIT FUZZ: encountered %u dynamic checks.\n", numberOfOSRExitFuzzChecks());
         }
 
-        
+
         auto compileTimeStats = JIT::compileTimeStats();
         Vector<CString> compileTimeKeys;
         for (auto& entry : compileTimeStats)

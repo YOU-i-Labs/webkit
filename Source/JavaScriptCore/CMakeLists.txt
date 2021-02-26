@@ -1281,7 +1281,7 @@ target_include_directories(LLIntOffsetsExtractor PRIVATE
 )
 target_include_directories(LLIntOffsetsExtractor SYSTEM PRIVATE ${JavaScriptCore_SYSTEM_INCLUDE_DIRECTORIES})
 
-if(WEBKIT_BUILD_JSC AND NOT ORBIS)
+if(WEBKIT_BUILD_JSC AND NOT ORBIS AND NOT PROSPERO)
      add_subdirectory(shell)
 endif()
 

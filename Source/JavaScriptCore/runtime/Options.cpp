@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -67,7 +67,7 @@ void Options::enableRestrictedOptions(bool enableOrNot)
 {
     restrictedOptionsEnabled = enableOrNot;
 }
-    
+
 static bool parse(const char* string, bool& value)
 {
     if (equalLettersIgnoringASCIICase(string, "true") || equalLettersIgnoringASCIICase(string, "yes") || !strcmp(string, "1")) {
@@ -149,7 +149,7 @@ bool Options::isAvailable(Options::ID id, Options::Availability availability)
     if (availability == Availability::Restricted)
         return restrictedOptionsEnabled;
     ASSERT(availability == Availability::Configurable);
-    
+
     UNUSED_PARAM(id);
 #if !defined(NDEBUG)
     if (id == maxSingleAllocationSizeID)
@@ -170,7 +170,7 @@ bool Options::isAvailable(Options::ID id, Options::Availability availability)
     return false;
 }
 
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
 char* getenv(const char*) {
     return NULL;
 }
@@ -185,10 +185,10 @@ bool overrideOptionWithHeuristic(T& variable, Options::ID id, const char* name, 
     const char* stringValue = getenv(name);
     if (!stringValue)
         return false;
-    
+
     if (available && parse(stringValue, variable))
         return true;
-    
+
     fprintf(stderr, "WARNING: failed to parse %s=%s\n", name, stringValue);
     return false;
 }
@@ -253,7 +253,7 @@ bool OptionRange::init(const char* rangeString)
         m_state = Uninitialized;
         return true;
     }
-    
+
     const char* p = rangeString;
 
     if (*p == '!') {
@@ -407,12 +407,12 @@ static void recomputeDependentOptions()
 #if !ENABLE(FTL_JIT)
     Options::useFTLJIT() = false;
 #endif
-    
-#if (!CPU(X86_64) && !CPU(ARM64)) || defined(__ORBIS__)
-    // For ORBIS thread suspend/resume has not yet been implemented which is required for concurrent gc.
+
+#if (!CPU(X86_64) && !CPU(ARM64)) || defined(__ORBIS__) || defined(__PROSPERO__)
+    // For ORBIS/PROSPERO thread suspend/resume has not yet been implemented which is required for concurrent gc.
     Options::useConcurrentGC() = false;
 #endif
-    
+
 #if ENABLE(JIT) && CPU(X86)
     // Disable JIT on IA-32 if SSE2 is not present
     if (!MacroAssemblerX86::supportsFloatingPoint())
@@ -426,7 +426,7 @@ static void recomputeDependentOptions()
 
     if (!Options::useWebAssembly())
         Options::useFastTLSForWasmContext() = false;
-    
+
     if (Options::dumpDisassembly()
         || Options::dumpDFGDisassembly()
         || Options::dumpFTLDisassembly()
@@ -452,13 +452,13 @@ static void recomputeDependentOptions()
         || Options::verboseDFGFailure()
         || Options::verboseFTLFailure())
         Options::alwaysComputeHash() = true;
-    
+
     if (!Options::useConcurrentGC())
         Options::collectContinuously() = false;
 
     if (Option(Options::jitPolicyScaleID).isOverridden())
         scaleJITPolicy();
-    
+
     if (Options::forceEagerCompilation()) {
         Options::thresholdForJITAfterWarmUp() = 10;
         Options::thresholdForJITSoon() = 10;
@@ -474,7 +474,7 @@ static void recomputeDependentOptions()
         Options::useOSREntryToDFG() = false;
         Options::useOSREntryToFTL() = false;
     }
-    
+
 #if ENABLE(SEPARATED_WX_HEAP)
     // Override globally for now. Longer term we'll just make the default
     // be to have this option enabled, and have platforms that don't support
@@ -529,7 +529,7 @@ static void recomputeDependentOptions()
 void Options::initialize()
 {
     static std::once_flag initializeOptionsOnceFlag;
-    
+
     std::call_once(
         initializeOptionsOnceFlag,
         [] {
@@ -541,7 +541,7 @@ void Options::initialize()
 #undef FOR_EACH_OPTION
 
             overrideDefaults();
-                
+
             // Allow environment vars to override options if applicable.
             // The evn var should be the name of the option prefixed with
             // "JSC_".
@@ -573,7 +573,7 @@ void Options::initialize()
 #if 0
                 ; // Deconfuse editors that do auto indentation
 #endif
-    
+
             recomputeDependentOptions();
 
             // Do range checks where needed and make corrections to the options:
@@ -610,7 +610,7 @@ void Options::dumpOptionsIfNeeded()
         DumpLevel level = static_cast<DumpLevel>(Options::dumpOptions());
         if (level > DumpLevel::Verbose)
             level = DumpLevel::Verbose;
-            
+
         const char* title = nullptr;
         switch (level) {
         case DumpLevel::None:

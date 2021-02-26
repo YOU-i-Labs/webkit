@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -76,7 +76,7 @@ void fastSetMaxSingleAllocationSize(size_t size)
 
 #endif // !defined(NDEBUG)
 
-void* fastZeroedMalloc(size_t n) 
+void* fastZeroedMalloc(size_t n)
 {
     void* result = fastMalloc(n);
     memset(result, 0, n);
@@ -91,7 +91,7 @@ char* fastStrDup(const char* src)
     return dup;
 }
 
-TryMallocReturnValue tryFastZeroedMalloc(size_t n) 
+TryMallocReturnValue tryFastZeroedMalloc(size_t n)
 {
     void* result;
     if (!tryFastMalloc(n).getValue(result))
@@ -128,7 +128,7 @@ size_t fastMallocGoodSize(size_t bytes)
 
 #if OS(WINDOWS)
 
-void* fastAlignedMalloc(size_t alignment, size_t size) 
+void* fastAlignedMalloc(size_t alignment, size_t size)
 {
     ASSERT_IS_WITHIN_LIMIT(size);
     void* p = _aligned_malloc(size, alignment);
@@ -137,20 +137,20 @@ void* fastAlignedMalloc(size_t alignment, size_t size)
     return p;
 }
 
-void* tryFastAlignedMalloc(size_t alignment, size_t size) 
+void* tryFastAlignedMalloc(size_t alignment, size_t size)
 {
     FAIL_IF_EXCEEDS_LIMIT(size);
     return _aligned_malloc(size, alignment);
 }
 
-void fastAlignedFree(void* p) 
+void fastAlignedFree(void* p)
 {
     _aligned_free(p);
 }
 
 #else
 
-void* fastAlignedMalloc(size_t alignment, size_t size) 
+void* fastAlignedMalloc(size_t alignment, size_t size)
 {
     ASSERT_IS_WITHIN_LIMIT(size);
     void* p = nullptr;
@@ -160,7 +160,7 @@ void* fastAlignedMalloc(size_t alignment, size_t size)
     return p;
 }
 
-void* tryFastAlignedMalloc(size_t alignment, size_t size) 
+void* tryFastAlignedMalloc(size_t alignment, size_t size)
 {
     FAIL_IF_EXCEEDS_LIMIT(size);
     void* p = nullptr;
@@ -168,20 +168,20 @@ void* tryFastAlignedMalloc(size_t alignment, size_t size)
     return p;
 }
 
-void fastAlignedFree(void* p) 
+void fastAlignedFree(void* p)
 {
     free(p);
 }
 
 #endif // OS(WINDOWS)
 
-TryMallocReturnValue tryFastMalloc(size_t n) 
+TryMallocReturnValue tryFastMalloc(size_t n)
 {
     FAIL_IF_EXCEEDS_LIMIT(n);
     return malloc(n);
 }
 
-void* fastMalloc(size_t n) 
+void* fastMalloc(size_t n)
 {
     ASSERT_IS_WITHIN_LIMIT(n);
     void* result = malloc(n);
@@ -229,7 +229,7 @@ TryMallocReturnValue tryFastRealloc(void* p, size_t n)
 
 void releaseFastMallocFreeMemory() { }
 void releaseFastMallocFreeMemoryForThisThread() { }
-    
+
 FastMallocStatistics fastMallocStatistics()
 {
     FastMallocStatistics statistics = { 0, 0, 0 };
@@ -314,19 +314,19 @@ size_t fastMallocGoodSize(size_t size)
     return size;
 }
 
-void* fastAlignedMalloc(size_t alignment, size_t size) 
+void* fastAlignedMalloc(size_t alignment, size_t size)
 {
     ASSERT_IS_WITHIN_LIMIT(size);
     return bmalloc::api::memalign(alignment, size);
 }
 
-void* tryFastAlignedMalloc(size_t alignment, size_t size) 
+void* tryFastAlignedMalloc(size_t alignment, size_t size)
 {
     FAIL_IF_EXCEEDS_LIMIT(size);
     return bmalloc::api::tryMemalign(alignment, size);
 }
 
-void fastAlignedFree(void* p) 
+void fastAlignedFree(void* p)
 {
     bmalloc::api::free(p);
 }
@@ -336,7 +336,7 @@ TryMallocReturnValue tryFastMalloc(size_t size)
     FAIL_IF_EXCEEDS_LIMIT(size);
     return bmalloc::api::tryMalloc(size);
 }
-    
+
 TryMallocReturnValue tryFastCalloc(size_t numElements, size_t elementSize)
 {
     FAIL_IF_EXCEEDS_LIMIT(numElements * elementSize);
@@ -346,7 +346,7 @@ TryMallocReturnValue tryFastCalloc(size_t numElements, size_t elementSize)
         return nullptr;
     return tryFastZeroedMalloc(checkedSize.unsafeGet());
 }
-    
+
 TryMallocReturnValue tryFastRealloc(void* object, size_t newSize)
 {
     FAIL_IF_EXCEEDS_LIMIT(newSize);
@@ -375,7 +375,7 @@ FastMallocStatistics fastMallocStatistics()
     PROCESS_MEMORY_COUNTERS resourceUsage;
     GetProcessMemoryInfo(GetCurrentProcess(), &resourceUsage, sizeof(resourceUsage));
     statistics.committedVMBytes = resourceUsage.PeakWorkingSetSize;
-#elif defined(__ORBIS__)
+#elif defined(__ORBIS__) || defined(__PROSPERO__)
     // do nothing for now
 #elif HAVE(RESOURCE_H)
     struct rusage resourceUsage;

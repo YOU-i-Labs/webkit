@@ -6,13 +6,13 @@
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
+ *     documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -201,7 +201,7 @@ static bool enableAssembler(ExecutableAllocator& executableAllocator)
         return false;
     }
 
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
     char* canUseJITString = "no";
 #else
     char* canUseJITString = getenv("JavaScriptCoreUseJIT");
@@ -464,22 +464,22 @@ VM::VM(VMType vmType, HeapType heapType)
 #if ENABLE(FTL_JIT)
     ftlThunks = std::make_unique<FTL::Thunks>();
 #endif // ENABLE(FTL_JIT)
-    
+
 #if !ENABLE(C_LOOP)
     initializeHostCallReturnValue(); // This is needed to convince the linker not to drop host call return support.
 #endif
-    
+
     Gigacage::addPrimitiveDisableCallback(primitiveGigacageDisabledCallback, this);
 
     heap.notifyIsSafeToCollect();
-    
+
     LLInt::Data::performAssertions(*this);
-    
+
     if (UNLIKELY(Options::useProfiler())) {
         m_perBytecodeProfiler = std::make_unique<Profiler::Database>(*this);
 
         StringPrintStream pathOut;
-#if !defined(__ORBIS__)
+#if !defined(__ORBIS__) && !defined(__PROSPERO__)
         const char* profilerPath = getenv("JSC_PROFILER_PATH");
         if (profilerPath)
             pathOut.print(profilerPath, "/");
@@ -544,7 +544,7 @@ void waitForVMDestruction()
 VM::~VM()
 {
     auto destructionLocker = holdLock(s_destructionLock.read());
-    
+
     Gigacage::removePrimitiveDisableCallback(primitiveGigacageDisabledCallback, this);
     promiseDeferredTimer->stopRunningTasks();
 #if ENABLE(WEBASSEMBLY)
@@ -565,7 +565,7 @@ VM::~VM()
         m_samplingProfiler->shutdown();
     }
 #endif // ENABLE(SAMPLING_PROFILER)
-    
+
 #if ENABLE(JIT)
     JITWorklist::instance()->completeAllForVM(*this);
 #endif // ENABLE(JIT)
@@ -581,9 +581,9 @@ VM::~VM()
         }
     }
 #endif // ENABLE(DFG_JIT)
-    
+
     waitForAsynchronousDisassembly();
-    
+
     // Clear this first to ensure that nobody tries to remove themselves from it.
     m_perBytecodeProfiler = nullptr;
 
@@ -592,7 +592,7 @@ VM::~VM()
     heap.lastChanceToFinalize();
 
     JSRunLoopTimer::Manager::shared().unregisterVM(*this);
-    
+
     delete interpreter;
 #ifndef NDEBUG
     interpreter = reinterpret_cast<Interpreter*>(0xbbadbeef);
@@ -628,14 +628,14 @@ void VM::primitiveGigacageDisabled()
         m_primitiveGigacageEnabled.fireAll(*this, "Primitive gigacage disabled");
         return;
     }
- 
+
     // This is totally racy, and that's OK. The point is, it's up to the user to ensure that they pass the
     // uncaged buffer in a nicely synchronized manner.
     m_needToFirePrimitiveGigacageEnabled = true;
 }
 
 void VM::setLastStackTop(void* lastStackTop)
-{ 
+{
     m_lastStackTop = lastStackTop;
 }
 
@@ -1008,15 +1008,15 @@ void VM::dumpRegExpTrace()
 {
     // The first RegExp object is ignored.  It is create by the RegExpPrototype ctor and not used.
     RTTraceList::iterator iter = ++m_rtTraceList->begin();
-    
+
     if (iter != m_rtTraceList->end()) {
         dataLogF("\nRegExp Tracing\n");
         dataLogF("Regular Expression                              8 Bit          16 Bit        match()    Matches    Average\n");
         dataLogF(" <Match only / Match>                         JIT Addr      JIT Address       calls      found   String len\n");
         dataLogF("----------------------------------------+----------------+----------------+----------+----------+-----------\n");
-    
+
         unsigned reCount = 0;
-    
+
         for (; iter != m_rtTraceList->end(); ++iter, ++reCount) {
             (*iter)->printTraceData();
             gcUnprotect(*iter);
@@ -1024,7 +1024,7 @@ void VM::dumpRegExpTrace()
 
         dataLogF("%d Regular Expressions\n", reCount);
     }
-    
+
     m_rtTraceList->clear();
 }
 #else

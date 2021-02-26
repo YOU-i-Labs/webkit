@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef VMAllocate_h
@@ -55,7 +55,7 @@ namespace bmalloc {
 
 inline size_t vmPageSize()
 {
-#if BOS(ORBIS)
+#if BOS(ORBIS) || BOS(PROSPERO)
     return 16384;
 #else
     static size_t cached;
@@ -92,7 +92,7 @@ inline void vmValidate(size_t vmSize)
 inline void vmValidate(void* p, size_t vmSize)
 {
     vmValidate(vmSize);
-    
+
     BUNUSED(p);
     BASSERT(p);
     BASSERT(p == mask(p, ~(vmPageSize() - 1)));
@@ -100,7 +100,7 @@ inline void vmValidate(void* p, size_t vmSize)
 
 inline size_t vmPageSizePhysical()
 {
-#if BOS(ORBIS)
+#if BOS(ORBIS) || BOS(PROSPERO)
     return 16384;
 #elif BPLATFORM(IOS_FAMILY)
     return vm_kernel_page_size;
@@ -122,7 +122,7 @@ inline void vmValidatePhysical(size_t vmSize)
 inline void vmValidatePhysical(void* p, size_t vmSize)
 {
     vmValidatePhysical(vmSize);
-    
+
     BUNUSED(p);
     BASSERT(p);
     BASSERT(p == mask(p, ~(vmPageSizePhysical() - 1)));
@@ -184,12 +184,12 @@ inline void* tryVMAllocate(size_t vmAlignment, size_t vmSize)
 
     char* aligned = roundUpToMultipleOf(vmAlignment, mapped);
     char* alignedEnd = aligned + vmSize;
-    
+
     RELEASE_BASSERT(alignedEnd <= mappedEnd);
-    
+
     if (size_t leftExtra = aligned - mapped)
         vmDeallocate(mapped, leftExtra);
-    
+
     if (size_t rightExtra = mappedEnd - alignedEnd)
         vmDeallocate(alignedEnd, rightExtra);
 

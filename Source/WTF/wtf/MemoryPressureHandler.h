@@ -210,7 +210,7 @@ private:
     dispatch_queue_t m_dispatchQueue { nullptr };
 #endif
 
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
     void memoryMeasurementTimerFired();
     RunLoop::Timer<MemoryPressureHandler> m_memoryMeasurementTimer;
 #endif

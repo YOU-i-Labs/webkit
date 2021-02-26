@@ -164,7 +164,7 @@ public:
 
         return nullptr;
     }
-    
+
     char* tryConsumeUpto(bool& foundChar, char c)
     {
         if (!fillBufferIfNeeded())
@@ -478,7 +478,7 @@ void ConfigFile::canonicalizePaths()
     if (!m_filename[0])
         return;
 
-#if (OS(UNIX) || OS(DARWIN)) && !defined(__ORBIS__)
+#if (OS(UNIX) || OS(DARWIN)) && !defined(__ORBIS__) && !defined(__PROSPERO__)
     if (m_filename[0] != '/') {
         // Relative path
         char filenameBuffer[s_maxPathLength + 1];
@@ -522,7 +522,7 @@ void ConfigFile::canonicalizePaths()
 void processConfigFile(const char* configFilename, const char* processName, const char* parentProcessName)
 {
     static std::once_flag processConfigFileOnceFlag;
-    
+
     if (!configFilename || !strlen(configFilename))
         return;
 

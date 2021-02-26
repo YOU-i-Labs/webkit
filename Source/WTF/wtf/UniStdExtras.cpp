@@ -32,7 +32,7 @@ namespace WTF {
 
 bool setCloseOnExec(int fileDescriptor)
 {
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
     LOG_ERROR("setCloseOnExec is unsupported");
     return true;
 #else
@@ -49,7 +49,7 @@ bool setCloseOnExec(int fileDescriptor)
 
 int dupCloseOnExec(int fileDescriptor)
 {
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
     LOG_ERROR("dupCloseOnExec is unsupported");
     return -1;
 #else

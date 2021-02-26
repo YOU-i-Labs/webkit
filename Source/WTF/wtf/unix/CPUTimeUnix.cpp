@@ -41,7 +41,7 @@ static Seconds timevalToSeconds(const struct timeval& value)
 
 Optional<CPUTime> CPUTime::get()
 {
-#if !defined(__ORBIS__)
+#if !defined(__ORBIS__) && !defined(__PROSPERO__)
     struct rusage resource { };
     int ret = getrusage(RUSAGE_SELF, &resource);
     ASSERT_UNUSED(ret, !ret);

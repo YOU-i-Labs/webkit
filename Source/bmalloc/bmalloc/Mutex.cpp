@@ -21,7 +21,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "Mutex.h"
@@ -31,14 +31,14 @@
 
 namespace bmalloc {
 
-#if !defined(__ORBIS__)
+#if !defined(__ORBIS__) && !defined(__PROSPERO__)
 void Mutex::lockSlowCase()
 {
     // The longest critical section in bmalloc is much shorter than the
     // time it takes to make a system call to yield to the OS scheduler.
     // So, we try again a lot before we yield.
     static const size_t aLot = 256;
-    
+
     if (!m_isSpinning.exchange(true)) {
         auto clear = makeScopeExit([&] { m_isSpinning.store(false); });
 

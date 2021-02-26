@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "BPlatform.h"
@@ -67,7 +67,7 @@ static bool isMallocEnvironmentVariableSet()
     };
     size_t size = sizeof(list) / sizeof(const char*);
 
-#if !defined(__ORBIS__)
+#if !defined(__ORBIS__) && !defined(__PROSPERO__)
     for (size_t i = 0; i < size; ++i) {
         if (getenv(list[i]))
             return true;
@@ -79,7 +79,7 @@ static bool isMallocEnvironmentVariableSet()
 
 static bool isLibgmallocEnabled()
 {
-#if !defined(__ORBIS__)
+#if !defined(__ORBIS__) && !defined(__PROSPERO__)
     char* variable = getenv("DYLD_INSERT_LIBRARIES");
 #else
     char* variable = nullptr;

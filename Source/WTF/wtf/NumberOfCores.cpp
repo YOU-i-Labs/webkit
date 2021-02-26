@@ -50,7 +50,7 @@ int numberOfProcessorCores()
     if (s_numberOfCores > 0)
         return s_numberOfCores;
 
-#if !defined __ORBIS__    
+#if !defined(__ORBIS__) && !defined(__PROSPERO__)
     if (const char* coresEnv = getenv("WTF_numberOfProcessorCores")) {
         unsigned numberOfCores;
         if (sscanf(coresEnv, "%u", &numberOfCores) == 1) {
@@ -73,6 +73,8 @@ int numberOfProcessorCores()
     s_numberOfCores = sysctlResult < 0 ? defaultIfUnavailable : result;
 #elif defined(__ORBIS__)
     s_numberOfCores = 6;
+#elif defined(__PROSPERO__)
+    s_numberOfCores = 13;
 #elif OS(LINUX) || OS(AIX) || OS(OPENBSD) || OS(NETBSD) || OS(FREEBSD)
     long sysconfResult = sysconf(_SC_NPROCESSORS_ONLN);
 

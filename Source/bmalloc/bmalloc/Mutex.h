@@ -21,7 +21,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #pragma once
@@ -31,7 +31,7 @@
 #include <mutex>
 #include <thread>
 
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
 #include <pthread.h>
 #include <pthread_np.h>
 #endif
@@ -42,7 +42,7 @@ namespace bmalloc {
 
 class Mutex {
 public:
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
     Mutex();
     ~Mutex();
 #else
@@ -50,13 +50,13 @@ public:
 #endif
 
     void lock();
-#if !defined(__ORBIS__)
+#if !defined(__ORBIS__) && !defined(__PROSPERO__)
     bool try_lock();
 #endif
     void unlock();
 
 private:
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
     pthread_mutex_t m_mutex { PTHREAD_MUTEX_INITIALIZER };
 #else
     BEXPORT void lockSlowCase();
@@ -71,7 +71,7 @@ static inline void sleep(
 {
     if (duration == std::chrono::milliseconds(0))
         return;
-    
+
     lock.unlock();
     std::this_thread::sleep_for(duration);
     lock.lock();
@@ -87,7 +87,7 @@ static inline void waitUntilFalse(
     }
 }
 
-#if defined(__ORBIS__)
+#if defined(__ORBIS__) || defined(__PROSPERO__)
 inline Mutex::Mutex()
 {
     pthread_mutex_init(&m_mutex, nullptr);

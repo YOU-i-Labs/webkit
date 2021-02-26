@@ -100,7 +100,7 @@ static size_t computeAvailableMemory()
     // Round up the memory size to a multiple of 128MB because max_mem may not be exactly 512MB
     // (for example) and we have code that depends on those boundaries.
     return ((sizeAccordingToKernel + multiple - 1) / multiple) * multiple;
-#elif defined(__ORBIS__)
+#elif defined(__ORBIS__) || defined(__PROSPERO__)
     // [SUPER-1424]
     return 250 * bmalloc::MB;
 #elif BOS(UNIX)
@@ -129,14 +129,14 @@ MemoryStatus memoryStatus()
 {
     task_vm_info_data_t vmInfo;
     mach_msg_type_number_t vmSize = TASK_VM_INFO_COUNT;
-    
+
     size_t memoryFootprint = 0;
     if (KERN_SUCCESS == task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)(&vmInfo), &vmSize))
         memoryFootprint = static_cast<size_t>(vmInfo.phys_footprint);
 
     double percentInUse = static_cast<double>(memoryFootprint) / static_cast<double>(availableMemory());
     double percentAvailableMemoryInUse = std::min(percentInUse, 1.0);
-    
+
     return MemoryStatus(memoryFootprint, percentAvailableMemoryInUse);
 }
 #endif
