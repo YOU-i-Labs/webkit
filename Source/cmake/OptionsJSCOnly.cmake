@@ -1,4 +1,4 @@
-find_package(Threads REQUIRED)
+find_package(Threads)
 
 if (MSVC)
     include(OptionsMSVC)

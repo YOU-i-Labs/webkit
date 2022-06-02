@@ -122,6 +122,11 @@
 #define HAVE_LOCALTIME_R 1
 #endif
 
+#if defined(__ANDROID__)
+#undef HAVE_LOCALTIME_R
+#define HAVE_LOCALTIME_R 1
+#endif
+
 #if OS(DARWIN)
 #define HAVE_MMAP 1
 #endif
