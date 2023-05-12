@@ -180,6 +180,9 @@ void IsoTLS::determineMallocFallbackState()
     std::call_once(
         onceFlag,
         [] {
+#ifdef __ORBIS__
+    s_mallocFallbackState = MallocFallbackState::DoNotFallBack;
+#else
             if (s_mallocFallbackState != MallocFallbackState::Undecided)
                 return;
 
@@ -193,6 +196,7 @@ void IsoTLS::determineMallocFallbackState()
                 s_mallocFallbackState = MallocFallbackState::FallBackToMalloc;
             else
                 s_mallocFallbackState = MallocFallbackState::DoNotFallBack;
+#endif
         });
 }
 

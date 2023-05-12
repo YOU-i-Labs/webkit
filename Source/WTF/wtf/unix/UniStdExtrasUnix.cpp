@@ -33,18 +33,25 @@ namespace WTF {
 bool setCloseOnExec(int fileDescriptor)
 {
     int returnValue = -1;
+#ifdef __ORBIS__
+    LOG_ERROR("setCloseOnExec not supported on ORBIS\n");
+#else
     do {
         int flags = fcntl(fileDescriptor, F_GETFD);
         if (flags != -1)
             returnValue = fcntl(fileDescriptor, F_SETFD, flags | FD_CLOEXEC);
     } while (returnValue == -1 && errno == EINTR);
-
+#endif
     return returnValue != -1;
 }
 
 int dupCloseOnExec(int fileDescriptor)
 {
     int duplicatedFileDescriptor = -1;
+
+#ifdef __ORBIS__
+    LOG_ERROR("dupCloseOnExec not supported on ORBIS\n");
+#else
 #ifdef F_DUPFD_CLOEXEC
     while ((duplicatedFileDescriptor = fcntl(fileDescriptor, F_DUPFD_CLOEXEC, 0)) == -1 && errno == EINTR) { }
     if (duplicatedFileDescriptor != -1)
@@ -60,7 +67,7 @@ int dupCloseOnExec(int fileDescriptor)
         closeWithRetry(duplicatedFileDescriptor);
         return -1;
     }
-
+#endif
     return duplicatedFileDescriptor;
 }
 
@@ -68,8 +75,12 @@ bool setNonBlock(int fileDescriptor)
 {
     int returnValue = -1;
 
+#ifdef __ORBIS__
+    LOG_ERROR("setNonBlock not supported on ORBIS\n");
+#else
     int flags = fcntl(fileDescriptor, F_GETFL, 0);
     while ((returnValue = fcntl(fileDescriptor, F_SETFL, flags | O_NONBLOCK)) == -1 && errno == EINTR) { }
+#endif
 
     return returnValue != -1;
 }

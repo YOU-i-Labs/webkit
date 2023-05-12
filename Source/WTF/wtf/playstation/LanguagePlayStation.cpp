@@ -34,9 +34,9 @@ Vector<String> platformUserPreferredLanguages()
 {
     Vector<String> languages;
 
-    char buffer[16];
-    if (!getenv_np("SYSTEM_LANGUAGE", buffer, sizeof(buffer)))
-        languages.append(buffer);
+    // char buffer[16];
+    // if (!getenv_np("SYSTEM_LANGUAGE", buffer, sizeof(buffer)))
+    //     languages.append(buffer);
 
     return languages;
 }

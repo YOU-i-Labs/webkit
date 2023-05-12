@@ -67,6 +67,8 @@ inline namespace fundamentals_v3 {
 #include <utility>
 #include <wtf/StdLibExtras.h>
 
+#ifndef __ORBIS__
+
 namespace std {
 namespace experimental {
 inline namespace fundamentals_v3 {
@@ -96,3 +98,13 @@ template<class E> using Unexpected = std::experimental::unexpected<E>;
 
 // Not in the std::expected spec, but useful to work around lack of C++17 deduction guides.
 template<class E> constexpr Unexpected<std::decay_t<E>> makeUnexpected(E&& v) { return Unexpected<typename std::decay<E>::type>(std::forward<E>(v)); }
+
+#else
+
+#include "playstation/expected.hpp"
+
+template<class E> using Unexpected = tl::unexpected<E>;
+
+template<class E> constexpr Unexpected<std::decay_t<E>> makeUnexpected(E&& v) { return Unexpected<typename std::decay<E>::type>(std::forward<E>(v)); }
+
+#endif

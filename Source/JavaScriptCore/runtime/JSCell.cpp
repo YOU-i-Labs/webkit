@@ -35,6 +35,8 @@
 
 namespace JSC {
 
+decltype(JSCell::numberOfLowerTierCells) constexpr JSCell::numberOfLowerTierCells;
+
 COMPILE_ASSERT(sizeof(JSCell) == sizeof(uint64_t), jscell_is_eight_bytes);
 STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(JSCell);
 

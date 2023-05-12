@@ -186,6 +186,10 @@ inline namespace fundamentals_v3 {
 #include <wtf/StdLibExtras.h>
 #include <wtf/Unexpected.h>
 
+#ifdef __ORBIS__
+#include "playstation/expected.hpp"
+#else
+
 namespace std {
 namespace experimental {
 inline namespace fundamentals_v3 {
@@ -579,3 +583,10 @@ template<typename T, typename E> void swap(expected<T, E>& x, expected<T, E>& y)
 
 __EXPECTED_INLINE_VARIABLE constexpr auto& unexpect = std::experimental::unexpect;
 template<class T, class E> using Expected = std::experimental::expected<T, E>;
+
+#endif // __ORBIS__
+
+#ifdef __ORBIS__
+template<class E> using unexpect = tl::unexpected<E>;
+template<class T, class E> using Expected = tl::expected<T, E>;
+#endif
